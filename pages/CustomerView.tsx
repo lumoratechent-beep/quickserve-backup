@@ -539,86 +539,158 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
         </div>
       )}
 
-      {/* Cart Drawer */}
-      {cart.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[340px] px-4 z-50">
-          <button onClick={() => setShowCart(true)} className={`w-full py-2.5 px-4 rounded-2xl shadow-xl flex items-center justify-between transition-all border-4 ${offlineCartItems.length > 0 ? 'bg-red-600' : 'bg-black text-white border-white'}`}>
-            <div className="flex items-center gap-3">
-              <div className="w-7 h-7 rounded-lg bg-orange-500 text-white flex items-center justify-center font-black text-xs">{cart.length}</div>
-              <span className="font-black text-[10px] uppercase">View Tray</span>
-            </div>
-            <span className="font-black text-lg">RM{cartTotal.toFixed(2)}</span>
-          </button>
+      {/* Cart Drawer Button */}
+{cart.length > 0 && (
+  <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[340px] px-4 z-50">
+    <button 
+      onClick={() => setShowCart(true)} 
+      className={`w-full py-3 px-4 rounded-2xl shadow-2xl flex items-center justify-between transition-all border-2 ${
+        offlineCartItems.length > 0 
+          ? 'bg-red-600 text-white border-red-400' 
+          : 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-orange-500'
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-xl bg-orange-500 text-white flex items-center justify-center font-black text-sm shadow-lg">
+          {cart.length}
         </div>
-      )}
+        <span className="font-black text-[10px] uppercase tracking-widest">
+          View Tray
+        </span>
+      </div>
+      <span className="font-black text-lg">RM{cartTotal.toFixed(2)}</span>
+    </button>
+  </div>
+)}
 
       {/* Cart Drawer Modal */}
-      {showCart && (
-        <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-md flex justify-end">
-          <div className="w-full max-w-md bg-white dark:bg-gray-900 h-full flex flex-col">
-            <div className="p-6 border-b flex items-center justify-between">
-              <h2 className="text-sm font-black uppercase tracking-widest">Your Tray</h2>
-              <button onClick={() => setShowCart(false)} className="p-3"><X size={24} /></button>
+{showCart && (
+  <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-md flex justify-end">
+    <div className="w-full max-w-md bg-white dark:bg-gray-900 h-full flex flex-col">
+      <div className="p-6 border-b flex items-center justify-between">
+        <h2 className="text-sm font-black uppercase tracking-widest">Your Tray</h2>
+        <button onClick={() => setShowCart(false)} className="p-3"><X size={24} /></button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        {cart.map((item, idx) => (
+          <div key={idx} className="flex gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border">
+            {/* Food Image - Fixed */}
+            <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-700 shrink-0">
+              <img 
+                src={item.image || 'https://picsum.photos/seed/default/100/100'} 
+                alt={item.name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/default/100/100';
+                }}
+              />
             </div>
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {cart.map((item, idx) => (
-                <div key={idx} className="flex gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border">
-                  <div className="flex-1">
-                    <p className="font-black text-sm uppercase">{item.name}</p>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {item.selectedSize && <span className="text-[8px] font-black px-1.5 py-0.5 bg-orange-100 text-orange-600 rounded">{item.selectedSize}</span>}
-                      {item.selectedOtherVariant && <span className="text-[8px] font-black px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded">{item.selectedOtherVariant}</span>}
-                      {item.selectedTemp && <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${item.selectedTemp === 'Hot' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>{item.selectedTemp}</span>}
-                    </div>
-                    {/* Show selected add-ons */}
-                    {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                      <div className="mt-2 space-y-1">
-                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Add-ons:</p>
-                        {item.selectedAddOns.map((addon, i) => (
-                          <div key={i} className="flex justify-between text-[9px]">
-                            <span className="font-bold text-gray-600 dark:text-gray-300">x{addon.quantity} {addon.name}</span>
-                            <span className="font-black text-orange-500">RM{(addon.price * addon.quantity).toFixed(2)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    <p className="font-black text-orange-500 text-xs">RM{(item.price * item.quantity).toFixed(2)}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                       <button onClick={() => onRemoveFromCart(item.id)} className="p-1.5 bg-white dark:bg-gray-700 rounded-lg text-red-500"><Minus size={12}/></button>
-                       <span className="font-black text-xs">{item.quantity}</span>
-                       <button onClick={() => onAddToCart(item)} className="p-1.5 bg-white dark:bg-gray-700 rounded-lg text-green-500"><Plus size={12}/></button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="p-8 border-t">
-              <div className="mb-4">
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Special Instructions</label>
-                <textarea
-                  value={orderRemark}
-                  onChange={(e) => setOrderRemark(e.target.value)}
-                  placeholder="Any special requests? (e.g., no spicy, extra sauce)"
-                  className="w-full p-3 bg-gray-50 dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-xs font-medium dark:text-white resize-none"
-                  rows={2}
-                />
+            
+            <div className="flex-1">
+              <p className="font-black text-sm uppercase">{item.name}</p>
+              
+              {/* Size/Temperature/Other Variant Indicators */}
+              <div className="flex flex-wrap gap-1 mt-1">
+                {item.selectedSize && (
+                  <span className="text-[8px] font-black px-1.5 py-0.5 bg-orange-100 text-orange-600 rounded">
+                    {item.selectedSize}
+                  </span>
+                )}
+                {item.selectedOtherVariant && (
+                  <span className="text-[8px] font-black px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded">
+                    {item.selectedOtherVariant}
+                  </span>
+                )}
+                {item.selectedTemp && (
+                  <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${
+                    item.selectedTemp === 'Hot' 
+                      ? 'bg-orange-100 text-orange-600' 
+                      : 'bg-blue-100 text-blue-600'
+                  }`}>
+                    {item.selectedTemp}
+                  </span>
+                )}
               </div>
-              <button 
-                onClick={() => { 
-                  onPlaceOrder(orderRemark); 
-                  setShowCart(false); 
-                  setOrderRemark('');
-                }} 
-                className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-orange-600 transition-all active:scale-95"
-              >
-                Place Order • RM{cartTotal.toFixed(2)}
-              </button>
+
+              {/* Add-Ons Indicators - Fixed */}
+              {item.selectedAddOns && item.selectedAddOns.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Add-ons:</p>
+                  {item.selectedAddOns.map((addon, i) => (
+                    <div key={i} className="flex justify-between text-[9px] pl-2 border-l-2 border-orange-200">
+                      <span className="font-bold text-gray-600 dark:text-gray-300">
+                        x{addon.quantity} {addon.name}
+                      </span>
+                      <span className="font-black text-orange-500">
+                        RM{(addon.price * addon.quantity).toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Price and Quantity Controls */}
+            <div className="text-right min-w-[80px]">
+              <p className="font-black text-orange-500 text-xs">
+                RM{(item.price * item.quantity).toFixed(2)}
+              </p>
+              <div className="flex items-center justify-end gap-2 mt-2">
+                <button 
+                  onClick={() => onRemoveFromCart(item.id)} 
+                  className="p-1.5 bg-white dark:bg-gray-700 rounded-lg text-red-500 hover:bg-red-500 hover:text-white transition-all"
+                >
+                  <Minus size={12}/>
+                </button>
+                <span className="font-black text-xs w-4 text-center dark:text-white">
+                  {item.quantity}
+                </span>
+                <button 
+                  onClick={() => onAddToCart(item)} 
+                  className="p-1.5 bg-white dark:bg-gray-700 rounded-lg text-green-500 hover:bg-green-500 hover:text-white transition-all"
+                >
+                  <Plus size={12}/>
+                </button>
+              </div>
             </div>
           </div>
+        ))}
+      </div>
+
+      {/* Order Total and Checkout */}
+      <div className="p-8 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+        <div className="flex justify-between items-center mb-4">
+          <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Subtotal</span>
+          <span className="font-black dark:text-white">RM{cartTotal.toFixed(2)}</span>
         </div>
-      )}
+        
+        <div className="mb-4">
+          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
+            Special Instructions
+          </label>
+          <textarea
+            value={orderRemark}
+            onChange={(e) => setOrderRemark(e.target.value)}
+            placeholder="Any special requests? (e.g., no spicy, extra sauce)"
+            className="w-full p-3 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-xl text-xs font-medium dark:text-white resize-none"
+            rows={2}
+          />
+        </div>
+
+        <button 
+          onClick={() => { 
+            onPlaceOrder(orderRemark); 
+            setShowCart(false); 
+            setOrderRemark('');
+          }} 
+          className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-orange-600 transition-all active:scale-95 shadow-lg"
+        >
+          Place Order • RM{cartTotal.toFixed(2)}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       <style>{`
         .hide-scrollbar::-webkit-scrollbar {
