@@ -13,7 +13,6 @@ export default async function handler(
   request: VercelRequest,
   response: VercelResponse
 ) {
-  // Add CORS headers
   response.setHeader('Access-Control-Allow-Origin', '*');
   response.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -27,16 +26,10 @@ export default async function handler(
   }
 
   try {
-    // Check if token exists
     const token = process.env.BLOB_READ_WRITE_TOKEN;
     if (!token) {
-      console.error('BLOB_READ_WRITE_TOKEN is not set');
-      return response.status(500).json({ 
-        error: 'Server configuration error: Blob token not found' 
-      });
+      return response.status(500).json({ error: 'Blob token not found' });
     }
-
-    console.log('Token exists, length:', token.length);
 
     const form = new IncomingForm();
     const [fields, files] = await form.parse(request);
@@ -51,31 +44,26 @@ export default async function handler(
 
     const fileBuffer = fs.readFileSync(file.filepath);
 
-    console.log('Uploading to Vercel Blob (private store)...');
-    console.log('Filename:', filename);
-    console.log('File size:', fileBuffer.length);
-
-    // Explicitly set the store URL for private store
+    // Try with explicit store URL
     const blob = await put(filename, fileBuffer, {
       access: 'private',
       token: token,
       addRandomSuffix: true,
     });
 
-    console.log('Upload successful:', blob.url);
     return response.status(200).json(blob);
   } catch (error: any) {
-    console.error('Upload error details:', {
-      message: error.message,
-      status: error.status,
-      statusCode: error.statusCode,
-      name: error.name,
-      stack: error.stack
-    });
+    console.error('Upload error:', error);
+    
+    // Check if it's a token issue
+    if (error.message?.includes('token') || error.statusCode === 403) {
+      return response.status(500).json({ 
+        error: 'Invalid or expired token. Please check your BLOB_READ_WRITE_TOKEN in Vercel environment variables.' 
+      });
+    }
     
     return response.status(500).json({ 
-      error: `Upload failed: ${error.message || 'Unknown error'}`,
-      details: error.statusCode ? `Status: ${error.statusCode}` : undefined
+      error: `Upload failed: ${error.message || 'Unknown error'}` 
     });
   }
 }
