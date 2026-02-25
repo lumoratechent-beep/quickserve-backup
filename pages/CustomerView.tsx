@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Restaurant, CartItem, Order, OrderStatus, MenuItem, AddOnItem } from '../types';
+import { Restaurant, CartItem, Order, OrderStatus, MenuItem, AddOnItem, SelectedAddOn } from '../types';
 import { ShoppingCart, Plus, Minus, X, CheckCircle, ChevronRight, Info, ThermometerSun, Maximize2, MapPin, Hash, LayoutGrid, Grid3X3, MessageSquare, AlertTriangle, UtensilsCrossed, LogIn, WifiOff, Layers } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -15,12 +15,6 @@ interface Props {
   onLoginClick?: () => void;
   areaType?: 'MULTI' | 'SINGLE';
   allRestaurants?: Restaurant[]; // For cart offline validation
-}
-
-interface SelectedAddOn {
-  name: string;
-  price: number;
-  quantity: number;
 }
 
 const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, orders: propOrders, onAddToCart, onRemoveFromCart, onPlaceOrder, locationName, tableNo, onLoginClick, areaType = 'MULTI', allRestaurants = [] }) => {
@@ -58,7 +52,7 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
     setActiveRestaurant(id);
     const element = sectionRefs.current[id];
     if (element) {
-      const offset = 140; // Adjust for sticky header + nav height
+      const offset = 140;
       const bodyRect = document.body.getBoundingClientRect().top;
       const elementRect = element.getBoundingClientRect().top;
       const elementPosition = elementRect - bodyRect;
@@ -169,16 +163,27 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
     // Add add-ons total price
     finalPrice += calculateTotalAddOnPrice();
 
-    // Create the cart item
+    // Create the cart item with selected add-ons
     const cartItem: CartItem = {
-      ...item,
+      id: item.id,
+      name: item.name,
+      description: item.description,
       price: finalPrice,
+      image: item.image,
+      category: item.category,
+      isArchived: item.isArchived,
+      sizes: item.sizes,
+      otherVariantName: item.otherVariantName,
+      otherVariants: item.otherVariants,
+      otherVariantsEnabled: item.otherVariantsEnabled,
+      tempOptions: item.tempOptions,
+      addOns: item.addOns,
       quantity: 1,
       restaurantId: resId,
       selectedSize,
       selectedTemp,
       selectedOtherVariant,
-      selectedAddOns: Object.values(selectedAddOns) // Store selected add-ons
+      selectedAddOns: Object.values(selectedAddOns)
     };
 
     onAddToCart(cartItem);
