@@ -48,14 +48,15 @@ export default async function handler(
 
     const fileBuffer = fs.readFileSync(file.filepath);
 
-    console.log('Uploading to Vercel Blob...');
+    console.log('Uploading to Vercel Blob (private store)...');
     console.log('Filename:', filename);
     console.log('File size:', fileBuffer.length);
 
+    // CHANGE THIS LINE: access should be 'private' for private store
     const blob = await put(filename, fileBuffer, {
-      access: 'public',
+      access: 'private',  // Changed from 'public' to 'private'
       token: process.env.BLOB_READ_WRITE_TOKEN,
-      addRandomSuffix: true, // Add random suffix to avoid conflicts
+      addRandomSuffix: true,
     });
 
     console.log('Upload successful:', blob.url);
@@ -68,7 +69,6 @@ export default async function handler(
       name: error.name,
     });
     
-    // Return specific error message
     return response.status(500).json({ 
       error: `Upload failed: ${error.message || 'Unknown error'}`,
       details: error.statusCode ? `Status: ${error.statusCode}` : undefined
