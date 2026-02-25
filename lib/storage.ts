@@ -1,4 +1,3 @@
-
 /**
  * Uploads a file to Vercel Blob via our server API and returns the public URL.
  * @param file The file to upload
@@ -21,5 +20,8 @@ export const uploadImage = async (file: File, _bucket: string = 'quickserve', pa
   }
 
   const data = await response.json();
+  
+  // For private blobs, you might need to handle the URL differently
+  // But Vercel should still return a usable URL
   return data.url;
 };
