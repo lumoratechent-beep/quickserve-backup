@@ -1,4 +1,3 @@
-
 export type Role = 'CUSTOMER' | 'VENDOR' | 'ADMIN';
 
 export enum OrderStatus {
@@ -12,6 +11,13 @@ export enum OrderStatus {
 export interface MenuItemVariant {
   name: string;
   price: number;
+}
+
+export interface AddOnItem {
+  name: string;
+  price: number;
+  maxQuantity: number;
+  required?: boolean;
 }
 
 export interface MenuItem {
@@ -31,14 +37,7 @@ export interface MenuItem {
     cold?: number;
     enabled: boolean;
   };
-  addOns?: AddOnItem[]; // New field
-}
-
-export interface AddOnItem {
-  name: string;
-  price: number;
-  maxQuantity: number;
-  required?: boolean;
+  addOns?: AddOnItem[]; // Add this line
 }
 
 export interface Area {
@@ -66,12 +65,19 @@ export interface Restaurant {
   };
 }
 
+export interface SelectedAddOn {
+  name: string;
+  price: number;
+  quantity: number;
+}
+
 export interface CartItem extends MenuItem {
   quantity: number;
   restaurantId: string;
   selectedSize?: string;
   selectedTemp?: 'Hot' | 'Cold';
   selectedOtherVariant?: string;
+  selectedAddOns?: SelectedAddOn[]; // Add this line
   tableNumber?: string;
   remark?: string;
 }
