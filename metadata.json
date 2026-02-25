@@ -1,0 +1,7 @@
+{
+  "name": "QuickServe - Multi-Vendor Food Hub (PRD)",
+  "description": "A comprehensive restaurant ordering platform featuring customer ordering, vendor management, and administrative oversight with real-time analytics.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
