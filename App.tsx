@@ -662,16 +662,17 @@ const App: React.FC = () => {
 
   // --- VENDOR & HUB HANDLERS ---
   const handleAddVendor = async (user: User, restaurant: Restaurant) => {
-    const userId = crypto.randomUUID();
-    const resId = crypto.randomUUID();
-    
-    // STEP 1: Insert restaurant FIRST
-    console.log("1. Inserting restaurant...");
+  const userId = crypto.randomUUID();
+  const resId = crypto.randomUUID();
+  
+  try {
+    // STEP 1: Insert restaurant FIRST with NULL vendor_id (temporary)
+    console.log("1. Inserting restaurant with NULL vendor_id...");
     const { error: resError } = await supabase.from('restaurants').insert({
       id: resId, 
       name: restaurant.name, 
       logo: restaurant.logo || 'https://picsum.photos/seed/default/200/200', 
-      vendor_id: userId,
+      vendor_id: null, // NULL for now, will update after user is created
       location_name: restaurant.location, 
       is_online: true,
       settings: {}
@@ -685,7 +686,7 @@ const App: React.FC = () => {
     
     console.log("2. Restaurant inserted successfully");
     
-    // STEP 2: Insert user SECOND with the restaurant_id
+    // STEP 2: Insert user with the restaurant_id
     const { error: userError } = await supabase.from('users').insert({
       id: userId, 
       username: user.username, 
@@ -708,23 +709,28 @@ const App: React.FC = () => {
     
     console.log("3. User inserted successfully");
     
-    // STEP 3: Update restaurant with correct vendor_id (though it already has it)
-    await supabase.from('restaurants').update({ vendor_id: userId }).eq('id', resId);
+    // STEP 3: Update restaurant with the correct vendor_id
+    const { error: updateError } = await supabase
+      .from('restaurants')
+      .update({ vendor_id: userId })
+      .eq('id', resId);
     
-    console.log("4. Vendor added successfully!");
-    alert("Vendor added successfully!");
+    if (updateError) {
+      console.error("Update error:", updateError);
+      alert("Restaurant created but couldn't link vendor. Please check manually.");
+    } else {
+      console.log("4. Restaurant updated with vendor_id successfully");
+      alert("Vendor added successfully!");
+    }
     
     fetchUsers(); 
     fetchRestaurants();
-  };
-
-  const handleUpdateVendor = async (user: User, restaurant: Restaurant) => {
-    const userUpdate: any = {
-      username: user.username,
-      email: user.email,
-      phone: user.phone,
-      is_active: user.isActive
-    };
+    
+  } catch (error) {
+    console.error("Unexpected error:", error);
+    alert("An unexpected error occurred");
+  }
+};
     
     // Only update password if a new one is provided
     if (user.password) {
