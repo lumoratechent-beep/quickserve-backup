@@ -161,60 +161,63 @@ const App: React.FC = () => {
   }, []);
 
   const fetchRestaurants = useCallback(async () => {
-    if (isStatusLocked.current || !currentRole) return;
-    
-    let query = supabase.from('restaurants').select('*');
-    
-    // Optimization: If customer, only fetch restaurants for their location
-    if (currentRole === 'CUSTOMER' && sessionLocation) {
-      query = query.eq('location_name', sessionLocation).eq('is_online', true);
-    }
+  if (isStatusLocked.current || !currentRole) return;
+  
+  let query = supabase.from('restaurants').select('*');
+  
+  // Optimization: If customer, only fetch restaurants for their location
+  if (currentRole === 'CUSTOMER' && sessionLocation) {
+    query = query.eq('location_name', sessionLocation).eq('is_online', true);
+  }
 
-    const { data: resData, error: resError } = await query;
-    if (resError || !resData) return;
+  const { data: resData, error: resError } = await query;
+  if (resError || !resData) return;
 
-    const restaurantIds = resData.map(r => r.id);
-    let menuQuery = supabase.from('menu_items').select('*').in('restaurant_id', restaurantIds);
-    
-    // Optimization: Customers only need non-archived items
-    if (currentRole === 'CUSTOMER') {
-      menuQuery = menuQuery.eq('is_archived', false);
-    }
+  const restaurantIds = resData.map(r => r.id);
+  let menuQuery = supabase.from('menu_items').select('*').in('restaurant_id', restaurantIds);
+  
+  // Optimization: Customers only need non-archived items
+  if (currentRole === 'CUSTOMER') {
+    menuQuery = menuQuery.eq('is_archived', false);
+  }
 
-    const { data: menuData, error: menuError } = await menuQuery;
+  const { data: menuData, error: menuError } = await menuQuery;
 
-    if (!menuError && menuData) {
-      const formatted: Restaurant[] = resData.map(res => ({
-        id: res.id, name: res.name, logo: res.logo, vendorId: res.vendor_id,
-        location: res.location_name, created_at: res.created_at,
-        isOnline: res.is_online === true || res.is_online === null,
-        settings: (() => {
-          const localSettings = localStorage.getItem(`qs_settings_${res.id}`);
-          const dbSettings = res.settings ? (typeof res.settings === 'string' ? JSON.parse(res.settings) : res.settings) : null;
-          return localSettings ? JSON.parse(localSettings) : dbSettings;
-        })(),
-        menu: menuData.filter(m => m.restaurant_id === res.id).map(m => {
-          const temp = m.temp_options || {};
-          const others = m.other_variants || {};
-          return {
-            id: m.id, name: m.name, description: m.description, price: Number(m.price),
-            image: m.image, category: m.category, isArchived: m.is_archived,
-            sizes: m.sizes,
-            tempOptions: {
-              enabled: temp.enabled ?? false,
-              hot: temp.hot ?? 0,
-              cold: temp.cold ?? 0
-            },
-            otherVariantName: others.name || '',
-            otherVariants: others.options || [],
-            otherVariantsEnabled: others.enabled ?? false
-          };
-        })
-      }));
-      setRestaurants(formatted);
-      persistCache('qs_cache_restaurants', formatted);
-    }
-  }, [currentRole, sessionLocation]);
+  if (!menuError && menuData) {
+    const formatted: Restaurant[] = resData.map(res => ({
+      id: res.id, name: res.name, logo: res.logo, vendorId: res.vendor_id,
+      location: res.location_name, created_at: res.created_at,
+      isOnline: res.is_online === true || res.is_online === null,
+      settings: (() => {
+        const localSettings = localStorage.getItem(`qs_settings_${res.id}`);
+        const dbSettings = res.settings ? (typeof res.settings === 'string' ? JSON.parse(res.settings) : res.settings) : null;
+        return localSettings ? JSON.parse(localSettings) : dbSettings;
+      })(),
+      menu: menuData.filter(m => m.restaurant_id === res.id).map(m => {
+        const temp = m.temp_options || {};
+        const others = m.other_variants || {};
+        const addOns = m.add_ons || []; // Get add_ons from database
+        
+        return {
+          id: m.id, name: m.name, description: m.description, price: Number(m.price),
+          image: m.image, category: m.category, isArchived: m.is_archived,
+          sizes: m.sizes,
+          tempOptions: {
+            enabled: temp.enabled ?? false,
+            hot: temp.hot ?? 0,
+            cold: temp.cold ?? 0
+          },
+          otherVariantName: others.name || '',
+          otherVariants: others.options || [],
+          otherVariantsEnabled: others.enabled ?? false,
+          addOns: addOns // Add this line to pass addOns to the menu item
+        };
+      })
+    }));
+    setRestaurants(formatted);
+    persistCache('qs_cache_restaurants', formatted);
+  }
+}, [currentRole, sessionLocation]);
 
   const fetchOrders = useCallback(async () => {
     if (isFetchingRef.current || !currentRole) return;
