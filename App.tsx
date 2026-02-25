@@ -662,75 +662,83 @@ const App: React.FC = () => {
 
   // --- VENDOR & HUB HANDLERS ---
   const handleAddVendor = async (user: User, restaurant: Restaurant) => {
-  const userId = crypto.randomUUID();
-  const resId = crypto.randomUUID();
-  
-  try {
-    // STEP 1: Insert restaurant FIRST with NULL vendor_id (temporary)
-    console.log("1. Inserting restaurant with NULL vendor_id...");
-    const { error: resError } = await supabase.from('restaurants').insert({
-      id: resId, 
-      name: restaurant.name, 
-      logo: restaurant.logo || 'https://picsum.photos/seed/default/200/200', 
-      vendor_id: null, // NULL for now, will update after user is created
-      location_name: restaurant.location, 
-      is_online: true,
-      settings: {}
-    });
+    const userId = crypto.randomUUID();
+    const resId = crypto.randomUUID();
     
-    if (resError) { 
-      alert("Error adding restaurant: " + resError.message);
-      console.error("Restaurant error:", resError);
-      return; 
-    }
-    
-    console.log("2. Restaurant inserted successfully");
-    
-    // STEP 2: Insert user with the restaurant_id
-    const { error: userError } = await supabase.from('users').insert({
-      id: userId, 
-      username: user.username, 
-      password: user.password, 
-      role: 'VENDOR',
-      restaurant_id: resId,
-      is_active: true, 
-      email: user.email || '', 
-      phone: user.phone || ''
-    });
-    
-    if (userError) { 
-      alert("Error adding user: " + userError.message);
-      console.error("User error:", userError);
+    try {
+      // STEP 1: Insert restaurant FIRST with NULL vendor_id (temporary)
+      console.log("1. Inserting restaurant with NULL vendor_id...");
+      const { error: resError } = await supabase.from('restaurants').insert({
+        id: resId, 
+        name: restaurant.name, 
+        logo: restaurant.logo || 'https://picsum.photos/seed/default/200/200', 
+        vendor_id: null,
+        location_name: restaurant.location, 
+        is_online: true,
+        settings: {}
+      });
       
-      // Rollback: delete the restaurant we just created
-      await supabase.from('restaurants').delete().eq('id', resId);
-      return; 
+      if (resError) { 
+        alert("Error adding restaurant: " + resError.message);
+        console.error("Restaurant error:", resError);
+        return; 
+      }
+      
+      console.log("2. Restaurant inserted successfully");
+      
+      // STEP 2: Insert user with the restaurant_id
+      const { error: userError } = await supabase.from('users').insert({
+        id: userId, 
+        username: user.username, 
+        password: user.password, 
+        role: 'VENDOR',
+        restaurant_id: resId,
+        is_active: true, 
+        email: user.email || '', 
+        phone: user.phone || ''
+      });
+      
+      if (userError) { 
+        alert("Error adding user: " + userError.message);
+        console.error("User error:", userError);
+        
+        // Rollback: delete the restaurant we just created
+        await supabase.from('restaurants').delete().eq('id', resId);
+        return; 
+      }
+      
+      console.log("3. User inserted successfully");
+      
+      // STEP 3: Update restaurant with the correct vendor_id
+      const { error: updateError } = await supabase
+        .from('restaurants')
+        .update({ vendor_id: userId })
+        .eq('id', resId);
+      
+      if (updateError) {
+        console.error("Update error:", updateError);
+        alert("Restaurant created but couldn't link vendor. Please check manually.");
+      } else {
+        console.log("4. Restaurant updated with vendor_id successfully");
+        alert("Vendor added successfully!");
+      }
+      
+      fetchUsers(); 
+      fetchRestaurants();
+      
+    } catch (error) {
+      console.error("Unexpected error:", error);
+      alert("An unexpected error occurred");
     }
-    
-    console.log("3. User inserted successfully");
-    
-    // STEP 3: Update restaurant with the correct vendor_id
-    const { error: updateError } = await supabase
-      .from('restaurants')
-      .update({ vendor_id: userId })
-      .eq('id', resId);
-    
-    if (updateError) {
-      console.error("Update error:", updateError);
-      alert("Restaurant created but couldn't link vendor. Please check manually.");
-    } else {
-      console.log("4. Restaurant updated with vendor_id successfully");
-      alert("Vendor added successfully!");
-    }
-    
-    fetchUsers(); 
-    fetchRestaurants();
-    
-  } catch (error) {
-    console.error("Unexpected error:", error);
-    alert("An unexpected error occurred");
-  }
-};
+  };
+
+  const handleUpdateVendor = async (user: User, restaurant: Restaurant) => {
+    const userUpdate: any = {
+      username: user.username,
+      email: user.email,
+      phone: user.phone,
+      is_active: user.isActive
+    };
     
     // Only update password if a new one is provided
     if (user.password) {
