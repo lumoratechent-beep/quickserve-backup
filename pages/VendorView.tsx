@@ -1,8 +1,7 @@
-
 import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { Restaurant, Order, OrderStatus, MenuItem, MenuItemVariant, ReportResponse, ReportFilters } from '../types';
+import { Restaurant, Order, OrderStatus, MenuItem, MenuItemVariant, AddOnItem, ReportResponse, ReportFilters } from '../types';
 import { uploadImage } from '../lib/storage';
-import { ShoppingBag, BookOpen, BarChart3, Edit3, CheckCircle, Clock, X, Plus, Trash2, Image as ImageIcon, LayoutGrid, List, Filter, Archive, RotateCcw, Power, Eye, Upload, Hash, MessageSquare, Download, Calendar, Ban, ChevronLeft, ChevronRight, Bell, Activity, RefreshCw, Layers, Tag, Wifi, WifiOff, QrCode, Printer, ExternalLink, ThermometerSun, Info, Settings2, Menu, ToggleLeft, ToggleRight, Link, Search, ChevronFirst, ChevronLast, Receipt, CreditCard } from 'lucide-react';
+import { ShoppingBag, BookOpen, BarChart3, Edit3, CheckCircle, Clock, X, Plus, Trash2, Image as ImageIcon, LayoutGrid, List, Filter, Archive, RotateCcw, Power, Eye, Upload, Hash, MessageSquare, Download, Calendar, Ban, ChevronLeft, ChevronRight, Bell, Activity, RefreshCw, Layers, Tag, Wifi, WifiOff, QrCode, Printer, ExternalLink, ThermometerSun, Info, Settings2, Menu, ToggleLeft, ToggleRight, Link, Search, ChevronFirst, ChevronLast, Receipt, CreditCard, PlusCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Props {
@@ -153,7 +152,8 @@ const VendorView: React.FC<Props> = ({
     otherVariantName: '',
     otherVariants: [],
     otherVariantsEnabled: false,
-    tempOptions: { enabled: false, hot: 0, cold: 0 }
+    tempOptions: { enabled: false, hot: 0, cold: 0 },
+    addOns: [] // New field for add-ons
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -280,7 +280,8 @@ const VendorView: React.FC<Props> = ({
       otherVariantName: '',
       otherVariants: [],
       otherVariantsEnabled: false,
-      tempOptions: { enabled: false, hot: 0, cold: 0 }
+      tempOptions: { enabled: false, hot: 0, cold: 0 },
+      addOns: []
     });
     setIsFormModalOpen(true);
   };
@@ -294,7 +295,8 @@ const VendorView: React.FC<Props> = ({
       otherVariantName: item.otherVariantName || '',
       otherVariants: item.otherVariants ? [...item.otherVariants] : [],
       otherVariantsEnabled: !!item.otherVariantsEnabled,
-      tempOptions: item.tempOptions ? { ...item.tempOptions } : { enabled: false, hot: 0, cold: 0 }
+      tempOptions: item.tempOptions ? { ...item.tempOptions } : { enabled: false, hot: 0, cold: 0 },
+      addOns: item.addOns ? [...item.addOns] : []
     });
     setIsFormModalOpen(true);
   };
@@ -339,6 +341,27 @@ const VendorView: React.FC<Props> = ({
     setFormItem({ ...formItem, otherVariants: updated });
   };
 
+  // Add-On handlers
+  const handleAddAddOn = () => {
+    setFormItem({
+      ...formItem,
+      addOns: [...(formItem.addOns || []), { name: '', price: 0, maxQuantity: 1, required: false }]
+    });
+  };
+
+  const handleRemoveAddOn = (index: number) => {
+    setFormItem({
+      ...formItem,
+      addOns: formItem.addOns?.filter((_, i) => i !== index)
+    });
+  };
+
+  const handleAddOnChange = (index: number, field: keyof AddOnItem, value: string | number | boolean) => {
+    const updated = [...(formItem.addOns || [])];
+    updated[index] = { ...updated[index], [field]: value };
+    setFormItem({ ...formItem, addOns: updated });
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -368,7 +391,8 @@ const VendorView: React.FC<Props> = ({
       otherVariantName: formItem.otherVariantName,
       otherVariants: formItem.otherVariants,
       otherVariantsEnabled: formItem.otherVariantsEnabled,
-      tempOptions: formItem.tempOptions?.enabled ? formItem.tempOptions : undefined
+      tempOptions: formItem.tempOptions?.enabled ? formItem.tempOptions : undefined,
+      addOns: formItem.addOns || []
     };
 
     if (editingItem) {
@@ -1255,6 +1279,96 @@ const VendorView: React.FC<Props> = ({
                      )}
                    </div>
                  </div>
+              </div>
+
+              {/* Add-Ons Section */}
+              <div className="border-t dark:border-gray-700 pt-6 mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                    <PlusCircle size={14} /> Add-On Items
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleAddAddOn}
+                    className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg hover:bg-orange-100 transition-all"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+                
+                {formItem.addOns && formItem.addOns.length > 0 ? (
+                  <div className="space-y-4">
+                    {formItem.addOns.map((addon, idx) => (
+                      <div key={idx} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Add-On #{idx + 1}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAddOn(idx)}
+                            className="p-1 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Name</label>
+                            <input
+                              type="text"
+                              value={addon.name}
+                              onChange={(e) => handleAddOnChange(idx, 'name', e.target.value)}
+                              placeholder="e.g. Extra Cheese"
+                              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Price (RM)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={addon.price}
+                              onChange={(e) => handleAddOnChange(idx, 'price', parseFloat(e.target.value) || 0)}
+                              placeholder="2.00"
+                              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Max Quantity</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={addon.maxQuantity}
+                              onChange={(e) => handleAddOnChange(idx, 'maxQuantity', parseInt(e.target.value) || 1)}
+                              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2 pt-5">
+                            <input
+                              type="checkbox"
+                              id={`required-${idx}`}
+                              checked={addon.required || false}
+                              onChange={(e) => handleAddOnChange(idx, 'required', e.target.checked)}
+                              className="w-4 h-4 text-orange-500 rounded border-gray-300 focus:ring-orange-500"
+                            />
+                            <label htmlFor={`required-${idx}`} className="text-[9px] font-black text-gray-500 uppercase tracking-widest">
+                              Required
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 bg-gray-50 dark:bg-gray-700/30 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+                    <PlusCircle size={24} className="mx-auto text-gray-400 mb-2" />
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">No add-ons added yet</p>
+                    <p className="text-[8px] text-gray-400 mt-1">Click + to add optional items</p>
+                  </div>
+                )}
               </div>
 
               <div className="pt-8 border-t dark:border-gray-700">
