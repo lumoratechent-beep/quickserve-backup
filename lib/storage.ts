@@ -9,19 +9,25 @@ export const uploadImage = async (file: File, _bucket: string = 'quickserve', pa
   formData.append('file', file);
   formData.append('filename', `${path}/${Date.now()}-${file.name}`);
 
-  const response = await fetch('/api/upload', {
-    method: 'POST',
-    body: formData,
-  });
+  console.log('Uploading file:', file.name, 'size:', file.size);
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Upload failed');
+  try {
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('Upload failed:', data);
+      throw new Error(data.error || data.details || 'Upload failed');
+    }
+
+    console.log('Upload successful, URL:', data.url);
+    return data.url;
+  } catch (error) {
+    console.error('Upload error in storage.ts:', error);
+    throw error;
   }
-
-  const data = await response.json();
-  
-  // For private blobs, you might need to handle the URL differently
-  // But Vercel should still return a usable URL
-  return data.url;
 };
