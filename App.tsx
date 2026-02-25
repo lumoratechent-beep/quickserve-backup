@@ -613,52 +613,64 @@ const App: React.FC = () => {
   };
 
   // --- MENU ITEM HANDLERS ---
-  const handleUpdateMenuItem = async (restaurantId: string, item: MenuItem) => {
-    const { error } = await supabase.from('menu_items').update({
-      name: item.name,
-      description: item.description,
-      price: item.price,
-      image: item.image,
-      category: item.category,
-      is_archived: item.isArchived,
-      sizes: item.sizes,
-      temp_options: item.tempOptions || { enabled: false, hot: 0, cold: 0 },
-      other_variants: {
-        name: item.otherVariantName,
-        options: item.otherVariants,
-        enabled: item.otherVariantsEnabled
-      }
-    }).eq('id', item.id);
-    if (error) alert("Error updating menu item: " + error.message);
-    else fetchRestaurants();
-  };
+const handleUpdateMenuItem = async (restaurantId: string, item: MenuItem) => {
+  const { error } = await supabase.from('menu_items').update({
+    name: item.name,
+    description: item.description,
+    price: item.price,
+    image: item.image,
+    category: item.category,
+    is_archived: item.isArchived,
+    sizes: item.sizes,
+    temp_options: item.tempOptions || { enabled: false, hot: 0, cold: 0 },
+    other_variants: {
+      name: item.otherVariantName,
+      options: item.otherVariants,
+      enabled: item.otherVariantsEnabled
+    },
+    add_ons: item.addOns || [] // Add this line
+  }).eq('id', item.id);
+  
+  if (error) {
+    alert("Error updating menu item: " + error.message);
+    console.error("Update error:", error);
+  } else {
+    fetchRestaurants();
+  }
+};
 
-  const handleAddMenuItem = async (restaurantId: string, item: MenuItem) => {
-    const { error } = await supabase.from('menu_items').insert({
-      id: item.id,
-      restaurant_id: restaurantId,
-      name: item.name,
-      description: item.description,
-      price: item.price,
-      image: item.image,
-      category: item.category,
-      is_archived: false,
-      sizes: item.sizes,
-      temp_options: item.tempOptions || { enabled: false, hot: 0, cold: 0 },
-      other_variants: {
-        name: item.otherVariantName,
-        options: item.otherVariants,
-        enabled: item.otherVariantsEnabled
-      }
-    });
-    if (error) alert("Error adding menu item: " + error.message);
-    else fetchRestaurants();
-  };
+const handleAddMenuItem = async (restaurantId: string, item: MenuItem) => {
+  const { error } = await supabase.from('menu_items').insert({
+    id: item.id,
+    restaurant_id: restaurantId,
+    name: item.name,
+    description: item.description,
+    price: item.price,
+    image: item.image,
+    category: item.category,
+    is_archived: false,
+    sizes: item.sizes,
+    temp_options: item.tempOptions || { enabled: false, hot: 0, cold: 0 },
+    other_variants: {
+      name: item.otherVariantName,
+      options: item.otherVariants,
+      enabled: item.otherVariantsEnabled
+    },
+    add_ons: item.addOns || [] // Add this line
+  });
+  
+  if (error) {
+    alert("Error adding menu item: " + error.message);
+    console.error("Add error:", error);
+  } else {
+    fetchRestaurants();
+  }
+};
 
-  const handleDeleteMenuItem = async (restaurantId: string, itemId: string) => {
-    const { error } = await supabase.from('menu_items').delete().eq('id', itemId);
-    if (!error) fetchRestaurants();
-  };
+const handleDeleteMenuItem = async (restaurantId: string, itemId: string) => {
+  const { error } = await supabase.from('menu_items').delete().eq('id', itemId);
+  if (!error) fetchRestaurants();
+};
 
   // --- VENDOR & HUB HANDLERS ---
   const handleAddVendor = async (user: User, restaurant: Restaurant) => {
