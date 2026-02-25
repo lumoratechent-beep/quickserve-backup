@@ -27,6 +27,14 @@ export default async function handler(
   }
 
   try {
+    // Check if token exists
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      console.error('BLOB_READ_WRITE_TOKEN is not set');
+      return response.status(500).json({ 
+        error: 'Server configuration error: Blob token not found' 
+      });
+    }
+
     const form = new IncomingForm();
     const [fields, files] = await form.parse(request);
     
@@ -40,17 +48,30 @@ export default async function handler(
 
     const fileBuffer = fs.readFileSync(file.filepath);
 
-    // CHANGE THIS LINE based on your store type:
-    // For PUBLIC store: access: 'public'
-    // For PRIVATE store: access: 'private'
+    console.log('Uploading to Vercel Blob...');
+    console.log('Filename:', filename);
+    console.log('File size:', fileBuffer.length);
+
     const blob = await put(filename, fileBuffer, {
-      access: 'private', // Change to 'public' if your store is public
+      access: 'public',
       token: process.env.BLOB_READ_WRITE_TOKEN,
+      addRandomSuffix: true, // Add random suffix to avoid conflicts
     });
 
+    console.log('Upload successful:', blob.url);
     return response.status(200).json(blob);
-  } catch (error) {
-    console.error('Upload error:', error);
-    return response.status(500).json({ error: 'Upload failed: ' + (error as Error).message });
+  } catch (error: any) {
+    console.error('Upload error details:', {
+      message: error.message,
+      status: error.status,
+      statusCode: error.statusCode,
+      name: error.name,
+    });
+    
+    // Return specific error message
+    return response.status(500).json({ 
+      error: `Upload failed: ${error.message || 'Unknown error'}`,
+      details: error.statusCode ? `Status: ${error.statusCode}` : undefined
+    });
   }
 }
