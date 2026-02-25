@@ -11,8 +11,8 @@ async function startServer() {
 
   app.use(express.json());
 
-  const supabaseUrl = 'https://thqocawdihcsvtkluddy.supabase.co';
-  const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRocW9jYXdkaWhjc3Z0a2x1ZGR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA3NDMwODMsImV4cCI6MjA4NjMxOTA4M30.qecVHx2IaW8dOdzHNS3K7d-2hBwvh7EMI9pOP4crMjQ';
+  const supabaseUrl = 'https://anknjpuiklglykguneax.supabase.co';
+  const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFua25qcHVpa2xnbHlrZ3VuZWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5ODkwNTAsImV4cCI6MjA4NzU2NTA1MH0.DUMHeKg0v-1oI9nLT-nZP9cg1eYPI0R4fRNBzE9K2MI';
   const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
   // Configure Multer for memory storage
