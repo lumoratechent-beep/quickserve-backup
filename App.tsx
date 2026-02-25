@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse } from './types';
 import CustomerView from './pages/CustomerView';
@@ -672,10 +671,10 @@ const App: React.FC = () => {
       id: resId, 
       name: restaurant.name, 
       logo: restaurant.logo || 'https://picsum.photos/seed/default/200/200', 
-      vendor_id: userId, // temporary, will update later
+      vendor_id: userId,
       location_name: restaurant.location, 
       is_online: true,
-      settings: {} // Add empty settings object
+      settings: {}
     });
     
     if (resError) { 
@@ -692,7 +691,7 @@ const App: React.FC = () => {
       username: user.username, 
       password: user.password, 
       role: 'VENDOR',
-      restaurant_id: resId, // Now this restaurant EXISTS!
+      restaurant_id: resId,
       is_active: true, 
       email: user.email || '', 
       phone: user.phone || ''
@@ -709,7 +708,7 @@ const App: React.FC = () => {
     
     console.log("3. User inserted successfully");
     
-    // STEP 3: Update restaurant with correct vendor_id
+    // STEP 3: Update restaurant with correct vendor_id (though it already has it)
     await supabase.from('restaurants').update({ vendor_id: userId }).eq('id', resId);
     
     console.log("4. Vendor added successfully!");
@@ -726,28 +725,6 @@ const App: React.FC = () => {
       phone: user.phone,
       is_active: user.isActive
     };
-    
-    // Only update password if a new one is provided
-    if (user.password) {
-      userUpdate.password = user.password;
-    }
-
-    const { error: userError } = await supabase.from('users').update(userUpdate).eq('id', user.id);
-    
-    // If deactivating vendor, also set restaurant offline
-    const resUpdate: any = {
-      name: restaurant.name, 
-      logo: restaurant.logo, 
-      location_name: restaurant.location
-    };
-    if (user.isActive === false) {
-      resUpdate.is_online = false;
-    }
-
-    const { error: resError } = await supabase.from('restaurants').update(resUpdate).eq('id', restaurant.id);
-    if (userError || resError) alert("Error updating vendor");
-    fetchUsers(); fetchRestaurants();
-  };
     
     // Only update password if a new one is provided
     if (user.password) {
