@@ -665,17 +665,58 @@ const App: React.FC = () => {
   const handleAddVendor = async (user: User, restaurant: Restaurant) => {
     const userId = crypto.randomUUID();
     const resId = crypto.randomUUID();
-    const { error: userError } = await supabase.from('users').insert({
-      id: userId, username: user.username, password: user.password, role: 'VENDOR',
-      restaurant_id: resId, is_active: true, email: user.email, phone: user.phone
-    });
-    if (userError) { alert("Error adding user: " + userError.message); return; }
+    
+    // STEP 1: Insert restaurant FIRST
+    console.log("1. Inserting restaurant...");
     const { error: resError } = await supabase.from('restaurants').insert({
-      id: resId, name: restaurant.name, logo: restaurant.logo, vendor_id: userId,
-      location_name: restaurant.location, is_online: true
+      id: resId, 
+      name: restaurant.name, 
+      logo: restaurant.logo || 'https://picsum.photos/seed/default/200/200', 
+      vendor_id: userId, // temporary, will update later
+      location_name: restaurant.location, 
+      is_online: true,
+      settings: {} // Add empty settings object
     });
-    if (resError) alert("Error adding restaurant: " + resError.message);
-    fetchUsers(); fetchRestaurants();
+    
+    if (resError) { 
+      alert("Error adding restaurant: " + resError.message);
+      console.error("Restaurant error:", resError);
+      return; 
+    }
+    
+    console.log("2. Restaurant inserted successfully");
+    
+    // STEP 2: Insert user SECOND with the restaurant_id
+    const { error: userError } = await supabase.from('users').insert({
+      id: userId, 
+      username: user.username, 
+      password: user.password, 
+      role: 'VENDOR',
+      restaurant_id: resId, // Now this restaurant EXISTS!
+      is_active: true, 
+      email: user.email || '', 
+      phone: user.phone || ''
+    });
+    
+    if (userError) { 
+      alert("Error adding user: " + userError.message);
+      console.error("User error:", userError);
+      
+      // Rollback: delete the restaurant we just created
+      await supabase.from('restaurants').delete().eq('id', resId);
+      return; 
+    }
+    
+    console.log("3. User inserted successfully");
+    
+    // STEP 3: Update restaurant with correct vendor_id
+    await supabase.from('restaurants').update({ vendor_id: userId }).eq('id', resId);
+    
+    console.log("4. Vendor added successfully!");
+    alert("Vendor added successfully!");
+    
+    fetchUsers(); 
+    fetchRestaurants();
   };
 
   const handleUpdateVendor = async (user: User, restaurant: Restaurant) => {
@@ -685,6 +726,28 @@ const App: React.FC = () => {
       phone: user.phone,
       is_active: user.isActive
     };
+    
+    // Only update password if a new one is provided
+    if (user.password) {
+      userUpdate.password = user.password;
+    }
+
+    const { error: userError } = await supabase.from('users').update(userUpdate).eq('id', user.id);
+    
+    // If deactivating vendor, also set restaurant offline
+    const resUpdate: any = {
+      name: restaurant.name, 
+      logo: restaurant.logo, 
+      location_name: restaurant.location
+    };
+    if (user.isActive === false) {
+      resUpdate.is_online = false;
+    }
+
+    const { error: resError } = await supabase.from('restaurants').update(resUpdate).eq('id', restaurant.id);
+    if (userError || resError) alert("Error updating vendor");
+    fetchUsers(); fetchRestaurants();
+  };
     
     // Only update password if a new one is provided
     if (user.password) {
