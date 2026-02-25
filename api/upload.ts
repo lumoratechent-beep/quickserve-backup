@@ -28,12 +28,15 @@ export default async function handler(
 
   try {
     // Check if token exists
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    if (!token) {
       console.error('BLOB_READ_WRITE_TOKEN is not set');
       return response.status(500).json({ 
         error: 'Server configuration error: Blob token not found' 
       });
     }
+
+    console.log('Token exists, length:', token.length);
 
     const form = new IncomingForm();
     const [fields, files] = await form.parse(request);
@@ -52,10 +55,10 @@ export default async function handler(
     console.log('Filename:', filename);
     console.log('File size:', fileBuffer.length);
 
-    // CHANGE THIS LINE: access should be 'private' for private store
+    // Explicitly set the store URL for private store
     const blob = await put(filename, fileBuffer, {
-      access: 'private',  // Changed from 'public' to 'private'
-      token: process.env.BLOB_READ_WRITE_TOKEN,
+      access: 'private',
+      token: token,
       addRandomSuffix: true,
     });
 
@@ -67,6 +70,7 @@ export default async function handler(
       status: error.status,
       statusCode: error.statusCode,
       name: error.name,
+      stack: error.stack
     });
     
     return response.status(500).json({ 
