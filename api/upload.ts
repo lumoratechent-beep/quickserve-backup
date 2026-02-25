@@ -13,57 +13,74 @@ export default async function handler(
   request: VercelRequest,
   response: VercelResponse
 ) {
+  // Add CORS headers
   response.setHeader('Access-Control-Allow-Origin', '*');
   response.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+  // Handle preflight requests
   if (request.method === 'OPTIONS') {
     return response.status(200).end();
   }
 
+  // Only allow POST
   if (request.method !== 'POST') {
     return response.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
+    // Check if token exists
     const token = process.env.BLOB_READ_WRITE_TOKEN;
     if (!token) {
-      return response.status(500).json({ error: 'Blob token not found' });
+      console.error('BLOB_READ_WRITE_TOKEN is not set');
+      return response.status(500).json({ 
+        error: 'Server configuration error: Blob token not found' 
+      });
     }
 
+    // Parse the incoming form data
     const form = new IncomingForm();
     const [fields, files] = await form.parse(request);
     
+    // Get the uploaded file
     const file = Array.isArray(files.file) ? files.file[0] : files.file;
     if (!file) {
       return response.status(400).json({ error: 'No file uploaded' });
     }
 
+    // Get filename from form or generate one
     const filenameField = Array.isArray(fields.filename) ? fields.filename[0] : fields.filename;
     const filename = filenameField || `${Date.now()}-${file.originalFilename}`;
 
+    // Read file buffer
     const fileBuffer = fs.readFileSync(file.filepath);
 
-    // Try with explicit store URL
+    console.log('Uploading file:', filename, 'size:', fileBuffer.length);
+
+    // Upload to Vercel Blob with PUBLIC access
     const blob = await put(filename, fileBuffer, {
-      access: 'private',
+      access: 'public',  // Using PUBLIC access for your new public blob
       token: token,
-      addRandomSuffix: true,
+      addRandomSuffix: true, // Avoid filename conflicts
     });
 
-    return response.status(200).json(blob);
+    console.log('Upload successful:', blob.url);
+
+    // Return the blob info
+    return response.status(200).json({
+      url: blob.url,
+      pathname: blob.pathname,
+      size: blob.size,
+      uploadedAt: new Date().toISOString()
+    });
+
   } catch (error: any) {
     console.error('Upload error:', error);
     
-    // Check if it's a token issue
-    if (error.message?.includes('token') || error.statusCode === 403) {
-      return response.status(500).json({ 
-        error: 'Invalid or expired token. Please check your BLOB_READ_WRITE_TOKEN in Vercel environment variables.' 
-      });
-    }
-    
+    // Return detailed error for debugging
     return response.status(500).json({ 
-      error: `Upload failed: ${error.message || 'Unknown error'}` 
+      error: `Upload failed: ${error.message || 'Unknown error'}`,
+      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
     });
   }
 }
