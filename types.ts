@@ -31,6 +31,14 @@ export interface MenuItem {
     cold?: number;
     enabled: boolean;
   };
+  addOns?: AddOnItem[]; // New field
+}
+
+export interface AddOnItem {
+  name: string;
+  price: number;
+  maxQuantity: number;
+  required?: boolean;
 }
 
 export interface Area {
