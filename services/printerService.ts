@@ -41,12 +41,16 @@ class PrinterService {
         optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
       });
 
-      // Connect to GATT server
-      this.server = await this.device.gatt?.connect();
-      if (!this.server) throw new Error('Failed to connect');
+      // Connect to GATT server - handle undefined case
+      const server = await this.device.gatt?.connect();
+      if (!server) {
+        throw new Error('Failed to connect to GATT server');
+      }
+      this.server = server;
 
       // Get the primary service
-      this.service = await this.server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+      const service = await this.server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+      this.service = service;
       
       // Get characteristics
       const characteristics = await this.service.getCharacteristics();
@@ -59,7 +63,9 @@ class PrinterService {
         }
       }
 
-      if (!this.characteristic) throw new Error('No writable characteristic found');
+      if (!this.characteristic) {
+        throw new Error('No writable characteristic found');
+      }
 
       // Set up disconnect listener
       this.device.addEventListener('gattserverdisconnected', this.handleDisconnect.bind(this));
@@ -67,6 +73,10 @@ class PrinterService {
       return true;
     } catch (error) {
       console.error('Connection error:', error);
+      this.device = null;
+      this.server = null;
+      this.service = null;
+      this.characteristic = null;
       return false;
     }
   }
@@ -84,7 +94,11 @@ class PrinterService {
 
   async disconnect() {
     if (this.server?.connected) {
-      await this.server.disconnect();
+      try {
+        await this.server.disconnect();
+      } catch (error) {
+        console.error('Disconnect error:', error);
+      }
     }
     this.device = null;
     this.server = null;
@@ -94,7 +108,9 @@ class PrinterService {
 
   async printTestPage(): Promise<boolean> {
     try {
-      if (!this.characteristic) throw new Error('Printer not connected');
+      if (!this.characteristic) {
+        throw new Error('Printer not connected');
+      }
 
       const data = this.encoder
         .initialize()
@@ -118,12 +134,12 @@ class PrinterService {
 
   async printReceipt(order: any, restaurant: any): Promise<boolean> {
     try {
-      if (!this.characteristic) throw new Error('Printer not connected');
+      if (!this.characteristic) {
+        throw new Error('Printer not connected');
+      }
 
-      const encoder = this.encoder;
-      
       // Build receipt data
-      let data = encoder.initialize();
+      let data = this.encoder.initialize();
 
       // Header
       data = data
