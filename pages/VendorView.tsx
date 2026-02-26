@@ -27,11 +27,7 @@ interface Props {
   onSwitchToPos?: () => void;
 }
 
-interface PrinterDevice {
-  id: string;
-  name: string;
-  connected: boolean;
-}
+// Remove the local PrinterDevice interface - we're importing it from printerService
 
 interface OrderSettings {
   autoAccept: boolean;
