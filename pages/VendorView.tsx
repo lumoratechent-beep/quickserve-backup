@@ -1219,211 +1219,270 @@ const VendorView: React.FC<Props> = ({
                 </>
               )}
               
-              {menuSubTab === 'CATEGORY' && (
-                <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="p-4 bg-gray-50 dark:bg-gray-700/30 border-b dark:border-gray-700 flex justify-between items-center">
-                     <div className="flex items-center gap-2 text-gray-400">
-                        <Layers size={16} />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Category Manager</span>
-                     </div>
-                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{extraCategories.length} Total</span>
+ // Find the CATEGORY section (around line 1100-1200) and replace with this:
+
+{menuSubTab === 'CATEGORY' && (
+  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="p-4 bg-gray-50 dark:bg-gray-700/30 border-b dark:border-gray-700 flex justify-between items-center">
+       <div className="flex items-center gap-2 text-gray-400">
+          <Layers size={16} />
+          <span className="text-[10px] font-black uppercase tracking-widest">Category Manager</span>
+       </div>
+       <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{extraCategories.length} Total</span>
+    </div>
+    
+    {/* Grid View */}
+    <div className={classViewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4' : 'divide-y dark:divide-gray-700'}>
+      {extraCategories.map(cat => {
+        const itemsInCat = restaurant.menu.filter(i => i.category === cat.name && !i.isArchived);
+        
+        if (classViewMode === 'grid') {
+          return (
+            <div key={cat.name} className="p-4 bg-gray-50/50 dark:bg-gray-900/50 border dark:border-gray-700 rounded-lg hover:border-orange-200 transition-all">
+              {/* Category Name and Actions on same line */}
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg flex items-center justify-center">
+                    <Layers size={16} />
                   </div>
-                  <div className={classViewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4' : 'divide-y dark:divide-gray-700'}>
-                    {extraCategories.map(cat => {
-                      const itemsInCat = restaurant.menu.filter(i => i.category === cat.name && !i.isArchived);
-                      if (classViewMode === 'grid') {
-                        return (
-                          <div key={cat.name} className="p-4 bg-gray-50/50 dark:bg-gray-900/50 border dark:border-gray-700 rounded-lg flex flex-col gap-3 group hover:border-orange-200 transition-all">
-                             <div className="flex justify-between items-start">
-                                <div className="flex items-center gap-2">
-                                   <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg flex items-center justify-center">
-                                     <Layers size={16} />
-                                   </div>
-                                   <div>
-                                     <h4 className="font-black text-xs dark:text-white uppercase tracking-tight">{cat.name}</h4>
-                                     <p className="text-[8px] font-bold text-gray-400 uppercase">{itemsInCat.length} Items</p>
-                                   </div>
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                  <div className="flex items-center gap-1">
-                                    <div className={`w-2 h-2 rounded-full ${cat.skipKitchen ? 'bg-gray-300' : 'bg-green-500'}`} />
-                                    <span className="text-[8px] font-black text-gray-400">
-                                      {cat.skipKitchen ? 'Skip' : 'Show'}
-                                    </span>
-                                  </div>
-                                  <button onClick={() => setEditingSkipKitchen(cat.name)} className="p-1 text-gray-400 hover:text-orange-500">
-                                    <Settings2 size={12} />
-                                  </button>
-                                </div>
-                             </div>
-                             {editingSkipKitchen === cat.name && (
-                               <div className="mt-2 p-2 bg-white dark:bg-gray-800 rounded-lg border">
-                                 <button
-                                   onClick={() => handleToggleSkipKitchen(cat.name)}
-                                   className={`w-full py-1 px-2 rounded text-[8px] font-black ${
-                                     cat.skipKitchen 
-                                       ? 'bg-green-500 text-white' 
-                                       : 'bg-gray-200 text-gray-600'
-                                   }`}
-                                 >
-                                   {cat.skipKitchen ? 'Show in Kitchen' : 'Skip Kitchen'}
-                                 </button>
-                               </div>
-                             )}
-                             <div className="flex justify-end gap-1 mt-2">
-                               <button onClick={() => { setRenamingClass(cat.name); setRenameValue(cat.name); }} className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg">
-                                 <Edit3 size={14} />
-                               </button>
-                               <button onClick={() => handleRemoveCategory(cat.name)} className="p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
-                                 <Trash2 size={14} />
-                               </button>
-                             </div>
-                          </div>
-                        );
-                      }
-                      return (
-                        <div key={cat.name} className="flex items-center justify-between p-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all">
-                          <div className="flex items-center gap-3">
-                             <div className="w-8 h-8 bg-orange-50 dark:bg-orange-900/20 text-orange-500 rounded-lg flex items-center justify-center">
-                               <Layers size={16} />
-                             </div>
-                             <div>
-                               {renamingClass === cat.name ? (
-                                 <div className="flex items-center gap-2">
-                                   <input 
-                                     autoFocus 
-                                     className="px-2 py-1 text-sm font-black border dark:border-gray-600 rounded bg-white dark:bg-gray-700" 
-                                     value={renameValue} 
-                                     onChange={e => setRenameValue(e.target.value)} 
-                                     onKeyDown={e => e.key === 'Enter' && handleRenameCategory(cat.name, renameValue)} 
-                                   />
-                                   <button onClick={() => handleRenameCategory(cat.name, renameValue)} className="text-green-500">
-                                     <CheckCircle size={16}/>
-                                   </button>
-                                   <button onClick={() => setRenamingClass(null)} className="text-red-500">
-                                     <X size={16}/>
-                                   </button>
-                                 </div>
-                               ) : (
-                                 <>
-                                   <p className="text-sm font-black dark:text-white uppercase tracking-tight">{cat.name}</p>
-                                   <div className="flex items-center gap-2">
-                                     <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-                                       {itemsInCat.length} Active Dishes
-                                     </p>
-                                     <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full ${
-                                       cat.skipKitchen 
-                                         ? 'bg-gray-100 text-gray-500' 
-                                         : 'bg-green-100 text-green-600'
-                                     }`}>
-                                       {cat.skipKitchen ? 'Skip Kitchen' : 'Show in Kitchen'}
-                                     </span>
-                                   </div>
-                                 </>
-                               )}
-                             </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button 
-                              onClick={() => { setEditingSkipKitchen(cat.name); }} 
-                              className="p-2 text-gray-400 hover:text-orange-500"
-                            >
-                              <Settings2 size={16} />
-                            </button>
-                            {editingSkipKitchen === cat.name && (
-                              <button
-                                onClick={() => handleToggleSkipKitchen(cat.name)}
-                                className={`px-2 py-1 rounded text-[8px] font-black ${
-                                  cat.skipKitchen 
-                                    ? 'bg-green-500 text-white' 
-                                    : 'bg-gray-200 text-gray-600'
-                                }`}
-                              >
-                                Toggle
-                              </button>
-                            )}
-                            <button onClick={() => { setRenamingClass(cat.name); setRenameValue(cat.name); }} className="p-2 text-gray-400 hover:text-orange-500">
-                              <Edit3 size={16} />
-                            </button>
-                            <button onClick={() => handleRemoveCategory(cat.name)} className="p-2 text-red-400 hover:text-red-500">
-                              <Trash2 size={16} />
-                            </button>
-                            <button onClick={() => handleOpenAddModal(cat.name)} className="p-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg">
-                              <Plus size={16} />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {extraCategories.length === 0 && (
-                      <div className="col-span-full text-center py-12">
-                        <Layers size={32} className="mx-auto text-gray-300 mb-2" />
-                        <p className="text-[10px] font-black text-gray-400 uppercase">No categories added yet</p>
-                      </div>
-                    )}
+                  <div>
+                    <h4 className="font-black text-xs dark:text-white uppercase tracking-tight">{cat.name}</h4>
+                    <p className="text-[8px] font-bold text-gray-400 uppercase">{itemsInCat.length} Items</p>
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <button onClick={() => { setRenamingClass(cat.name); setRenameValue(cat.name); }} className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg">
+                    <Edit3 size={14} />
+                  </button>
+                  <button onClick={() => handleRemoveCategory(cat.name)} className="p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+              
+              {/* Skip Kitchen Toggle (not button) */}
+              <div className="flex items-center justify-between mt-2 pt-2 border-t dark:border-gray-700">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Skip Kitchen</span>
+                <button
+                  onClick={() => handleToggleSkipKitchen(cat.name)}
+                  className={`w-10 h-5 rounded-full transition-all relative ${
+                    cat.skipKitchen ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
+                  }`}
+                >
+                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${
+                    cat.skipKitchen ? 'left-5' : 'left-0.5'
+                  }`} />
+                </button>
+              </div>
+            </div>
+          );
+        }
+        
+        // List View
+        return (
+          <div key={cat.name} className="flex items-center justify-between p-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="w-8 h-8 bg-orange-50 dark:bg-orange-900/20 text-orange-500 rounded-lg flex items-center justify-center">
+                <Layers size={16} />
+              </div>
+              
+              {renamingClass === cat.name ? (
+                <div className="flex items-center gap-2">
+                  <input 
+                    autoFocus 
+                    className="px-2 py-1 text-sm font-black border dark:border-gray-600 rounded bg-white dark:bg-gray-700" 
+                    value={renameValue} 
+                    onChange={e => setRenameValue(e.target.value)} 
+                    onKeyDown={e => e.key === 'Enter' && handleRenameCategory(cat.name, renameValue)} 
+                  />
+                  <button onClick={() => handleRenameCategory(cat.name, renameValue)} className="text-green-500">
+                    <CheckCircle size={16}/>
+                  </button>
+                  <button onClick={() => setRenamingClass(null)} className="text-red-500">
+                    <X size={16}/>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-4 flex-1">
+                  <div>
+                    <p className="text-sm font-black dark:text-white uppercase tracking-tight">{cat.name}</p>
+                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                      {itemsInCat.length} Active Dishes
+                    </p>
+                  </div>
+                  
+                  {/* Skip Kitchen Toggle in same line */}
+                  <div className="flex items-center gap-2 ml-4">
+                    <span className="text-[8px] font-black text-gray-400">Skip Kitchen</span>
+                    <button
+                      onClick={() => handleToggleSkipKitchen(cat.name)}
+                      className={`w-8 h-4 rounded-full transition-all relative ${
+                        cat.skipKitchen ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
+                      }`}
+                    >
+                      <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${
+                        cat.skipKitchen ? 'left-4' : 'left-0.5'
+                      }`} />
+                    </button>
                   </div>
                 </div>
               )}
+            </div>
+            
+            {/* Action buttons on same line as name */}
+            <div className="flex items-center gap-2">
+              <button onClick={() => { setRenamingClass(cat.name); setRenameValue(cat.name); }} className="p-2 text-gray-400 hover:text-orange-500">
+                <Edit3 size={16} />
+              </button>
+              <button onClick={() => handleRemoveCategory(cat.name)} className="p-2 text-red-400 hover:text-red-500">
+                <Trash2 size={16} />
+              </button>
+              <button onClick={() => handleOpenAddModal(cat.name)} className="p-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg">
+                <Plus size={16} />
+              </button>
+            </div>
+          </div>
+        );
+      })}
+      {extraCategories.length === 0 && (
+        <div className="col-span-full text-center py-12">
+          <Layers size={32} className="mx-auto text-gray-300 mb-2" />
+          <p className="text-[10px] font-black text-gray-400 uppercase">No categories added yet</p>
+        </div>
+      )}
+    </div>
+  </div>
+)}
 
-              {menuSubTab === 'MODIFIER' && (
-                <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="p-4 bg-gray-50 dark:bg-gray-700/30 border-b dark:border-gray-700 flex justify-between items-center">
-                     <div className="flex items-center gap-2 text-gray-400">
-                        <Coffee size={16} />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Modifier Manager</span>
-                     </div>
-                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{modifiers.length} Total</span>
+{/* MODIFIER Section */}
+{menuSubTab === 'MODIFIER' && (
+  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="p-4 bg-gray-50 dark:bg-gray-700/30 border-b dark:border-gray-700 flex justify-between items-center">
+       <div className="flex items-center gap-2 text-gray-400">
+          <Coffee size={16} />
+          <span className="text-[10px] font-black uppercase tracking-widest">Modifier Manager</span>
+       </div>
+       <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{modifiers.length} Total</span>
+    </div>
+    
+    <div className={modifierViewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4' : 'divide-y dark:divide-gray-700'}>
+      {modifiers.map(mod => {
+        if (modifierViewMode === 'grid') {
+          return (
+            <div key={mod.name} className="p-4 bg-gray-50/50 dark:bg-gray-900/50 border dark:border-gray-700 rounded-lg hover:border-orange-200 transition-all">
+              {/* Modifier Name and Actions on same line */}
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg flex items-center justify-center">
+                    <Coffee size={16} />
                   </div>
-                  <div className={modifierViewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4' : 'divide-y dark:divide-gray-700'}>
-                    {modifiers.map(mod => (
-                      <div key={mod.name} className="p-4 bg-gray-50/50 dark:bg-gray-900/50 border dark:border-gray-700 rounded-lg flex flex-col gap-3 group hover:border-orange-200 transition-all">
-                        <div className="flex justify-between items-start">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg flex items-center justify-center">
-                              <Coffee size={16} />
-                            </div>
-                            <div>
-                              <h4 className="font-black text-xs dark:text-white uppercase tracking-tight">{mod.name}</h4>
-                              <p className="text-[8px] font-bold text-gray-400 uppercase">{mod.options.length} Options</p>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {/* Options */}
-                        <div className="space-y-1">
-                          {mod.options.slice(0, 3).map((opt, idx) => (
-                            <div key={idx} className="flex items-center justify-between text-[8px]">
-                              <span className="font-bold text-gray-600">{opt.name}</span>
-                              <span className="font-black text-orange-500">+RM{opt.price.toFixed(2)}</span>
-                            </div>
-                          ))}
-                          {mod.options.length > 3 && (
-                            <p className="text-[7px] text-gray-400 italic">+{mod.options.length - 3} more</p>
-                          )}
-                          {mod.options.length === 0 && (
-                            <p className="text-[7px] text-gray-400 italic text-center">No options</p>
-                          )}
-                        </div>
-
-                        <div className="flex justify-end gap-1 mt-2">
-                          <button onClick={() => handleEditModifier(mod)} className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg">
-                            <Edit3 size={14} />
-                          </button>
-                          <button onClick={() => handleRemoveModifier(mod.name)} className="p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    {modifiers.length === 0 && (
-                      <div className="col-span-full text-center py-12">
-                        <Coffee size={32} className="mx-auto text-gray-300 mb-2" />
-                        <p className="text-[10px] font-black text-gray-400 uppercase">No modifiers added yet</p>
-                      </div>
-                    )}
+                  <div>
+                    <h4 className="font-black text-xs dark:text-white uppercase tracking-tight">{mod.name}</h4>
+                    <p className="text-[8px] font-bold text-gray-400 uppercase">{mod.options.length} Options</p>
                   </div>
                 </div>
-              )}
+                <div className="flex gap-1">
+                  <button onClick={() => handleEditModifier(mod)} className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg">
+                    <Edit3 size={14} />
+                  </button>
+                  <button onClick={() => handleRemoveModifier(mod.name)} className="p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+              
+              {/* Options List */}
+              <div className="space-y-1 mt-2 pt-2 border-t dark:border-gray-700">
+                {mod.options.slice(0, 3).map((opt, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-[8px]">
+                    <span className="font-bold text-gray-600 dark:text-gray-300">{opt.name}</span>
+                    <span className="font-black text-orange-500">+RM{opt.price.toFixed(2)}</span>
+                  </div>
+                ))}
+                {mod.options.length > 3 && (
+                  <p className="text-[7px] text-gray-400 italic">+{mod.options.length - 3} more</p>
+                )}
+                {mod.options.length === 0 && (
+                  <p className="text-[8px] text-gray-400 italic text-center py-2">No options</p>
+                )}
+              </div>
+            </div>
+          );
+        }
+        
+        // List View
+        return (
+          <div key={mod.name} className="p-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 flex-1">
+                <div className="w-8 h-8 bg-purple-50 dark:bg-purple-900/20 text-purple-500 rounded-lg flex items-center justify-center">
+                  <Coffee size={16} />
+                </div>
+                
+                {editingModifier === mod.name ? (
+                  <div className="flex items-center gap-2">
+                    <input 
+                      autoFocus 
+                      className="px-2 py-1 text-sm font-black border dark:border-gray-600 rounded bg-white dark:bg-gray-700" 
+                      value={renameValue} 
+                      onChange={e => setRenameValue(e.target.value)} 
+                      onKeyDown={e => e.key === 'Enter' && handleRenameModifier(mod.name, renameValue)} 
+                    />
+                    <button onClick={() => handleRenameModifier(mod.name, renameValue)} className="text-green-500">
+                      <CheckCircle size={16}/>
+                    </button>
+                    <button onClick={() => setEditingModifier(null)} className="text-red-500">
+                      <X size={16}/>
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm font-black dark:text-white uppercase tracking-tight">{mod.name}</p>
+                    <p className="text-[9px] font-bold text-gray-400">{mod.options.length} Options</p>
+                  </div>
+                )}
+              </div>
+              
+              {/* Action buttons on same line */}
+              <div className="flex items-center gap-2">
+                <button onClick={() => handleEditModifier(mod)} className="p-2 text-gray-400 hover:text-orange-500">
+                  <Edit3 size={16} />
+                </button>
+                <button onClick={() => handleRemoveModifier(mod.name)} className="p-2 text-red-400 hover:text-red-500">
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+            
+            {/* Options List for List View */}
+            {mod.options.length > 0 && (
+              <div className="mt-3 pl-11 space-y-1">
+                {mod.options.map((opt, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-[9px]">
+                    <span className="font-bold text-gray-600 dark:text-gray-300">{opt.name}</span>
+                    <span className="font-black text-orange-500">+RM{opt.price.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {mod.options.length === 0 && (
+              <div className="mt-2 pl-11">
+                <p className="text-[8px] text-gray-400 italic">No options</p>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {modifiers.length === 0 && (
+        <div className="col-span-full text-center py-12">
+          <Coffee size={32} className="mx-auto text-gray-300 mb-2" />
+          <p className="text-[10px] font-black text-gray-400 uppercase">No modifiers added yet</p>
+        </div>
+      )}
+    </div>
+  </div>
+)}
             </div>
           )}
 
