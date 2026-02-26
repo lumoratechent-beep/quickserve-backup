@@ -753,25 +753,55 @@ const VendorView: React.FC<Props> = ({
     }
   };
 
-  const handleAcceptAndPrint = async (orderId: string) => {
-    await onUpdateOrder(orderId, OrderStatus.ONGOING);
-    const order = orders.find(o => o.id === orderId);
-    
-    if (order && orderSettings.autoPrint && connectedDevice) {
-      // Check if printer is still connected
-      if (printerService.isConnected()) {
-        await printerService.printReceipt(order, restaurant);
-      } else {
-        // Try to reconnect
-        const success = await printerService.connect(connectedDevice.name);
-        if (success) {
-          await printerService.printReceipt(order, restaurant);
-        } else {
-          console.error('Printer disconnected and could not reconnect');
-        }
-      }
+
+
+const handleAcceptAndPrint = async (orderId: string) => {
+  // First update the order status
+  await onUpdateOrder(orderId, OrderStatus.ONGOING);
+  const order = orders.find(o => o.id === orderId);
+  
+  // Check if auto-print is enabled and we have a connected device
+  if (order && orderSettings.autoPrint) {
+    if (!connectedDevice) {
+      console.error('No printer connected');
+      alert('Printer is not connected. Please connect a printer in Settings.');
+      return;
     }
-  };
+
+    try {
+      // Check if printer is still connected
+      if (!printerService.isConnected()) {
+        console.log('Printer disconnected, attempting to reconnect...');
+        
+        // Try to reconnect using the saved device name
+        const success = await printerService.connect(connectedDevice.name);
+        
+        if (!success) {
+          console.error('Failed to reconnect to printer');
+          alert('Failed to reconnect to printer. Please check the printer connection.');
+          return;
+        }
+        
+        console.log('Reconnected to printer successfully');
+      }
+      
+      // Now print the order
+      console.log('Printing order:', order.id);
+      const printSuccess = await printerService.printReceipt(order, restaurant);
+      
+      if (printSuccess) {
+        console.log('Order printed successfully');
+      } else {
+        console.error('Failed to print order');
+        alert('Order accepted but failed to print. Please check printer connection.');
+      }
+      
+    } catch (error) {
+      console.error('Error during print process:', error);
+      alert('Error occurred while printing. Please check printer connection.');
+    }
+  }
+};
 
   const toggleOrderSetting = (key: keyof OrderSettings) => {
     setOrderSettings(prev => ({
