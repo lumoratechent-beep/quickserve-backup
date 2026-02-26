@@ -8,9 +8,10 @@ import {
   RefreshCw, Layers, Tag, Wifi, WifiOff, QrCode, Printer, ExternalLink, ThermometerSun, 
   Info, Settings2, Menu, ToggleLeft, ToggleRight, Link, Search, ChevronFirst, ChevronLast, 
   Receipt, CreditCard, PlusCircle, Settings, Bluetooth, BluetoothConnected, AlertCircle,
-  CheckCircle2, Usb
+  CheckCircle2, Usb, Globe, BellRing, PrinterIcon
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import EscPosEncoder from 'esc-pos-encoder';
 
 interface Props {
   restaurant: Restaurant;
@@ -30,6 +31,11 @@ interface PrinterDevice {
   id: string;
   name: string;
   connected: boolean;
+}
+
+interface OrderSettings {
+  autoAccept: boolean;
+  autoPrint: boolean;
 }
 
 const REJECTION_REASONS = [
@@ -110,6 +116,12 @@ const VendorView: React.FC<Props> = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [testPrintStatus, setTestPrintStatus] = useState<'idle' | 'printing' | 'success' | 'error'>('idle');
 
+  // Order Settings State
+  const [orderSettings, setOrderSettings] = useState<OrderSettings>(() => {
+    const saved = localStorage.getItem(`order_settings_${restaurant.id}`);
+    return saved ? JSON.parse(saved) : { autoAccept: false, autoPrint: false };
+  });
+
   // New Order Alert State
   const [showNewOrderAlert, setShowNewOrderAlert] = useState(false);
   const pendingOrders = useMemo(() => orders.filter(o => o.status === OrderStatus.PENDING), [orders]);
@@ -121,13 +133,24 @@ const VendorView: React.FC<Props> = ({
       triggerNewOrderAlert();
       setShowNewOrderAlert(true);
       setTimeout(() => setShowNewOrderAlert(false), 5000);
+      
+      // Auto-accept if enabled
+      if (orderSettings.autoAccept) {
+        const newOrders = orders.filter(o => 
+          o.status === OrderStatus.PENDING && 
+          o.timestamp > prevPendingCount.current
+        );
+        newOrders.forEach(order => {
+          handleAcceptAndPrint(order.id);
+        });
+      }
     }
     prevPendingCount.current = pendingOrders.length;
   }, [pendingOrders.length]);
 
   // Check Bluetooth support
   useEffect(() => {
-    if (!navigator.bluetooth) {
+    if (!('bluetooth' in navigator) || !(navigator as any).bluetooth) {
       setIsBluetoothSupported(false);
       setErrorMessage('Web Bluetooth is not supported in this browser. Please use Chrome, Edge, or Opera.');
     }
@@ -146,6 +169,11 @@ const VendorView: React.FC<Props> = ({
       }
     }
   }, [restaurant.id]);
+
+  // Save order settings to localStorage
+  useEffect(() => {
+    localStorage.setItem(`order_settings_${restaurant.id}`, JSON.stringify(orderSettings));
+  }, [orderSettings, restaurant.id]);
 
   const triggerNewOrderAlert = () => {
     try {
@@ -505,17 +533,14 @@ const VendorView: React.FC<Props> = ({
 
   // Printer Functions
   const scanForPrinters = async () => {
-    if (!navigator.bluetooth) {
-      setErrorMessage('Bluetooth not supported');
-      return;
-    }
+    if (!isBluetoothSupported) return;
 
     setIsScanning(true);
     setDevices([]);
     setErrorMessage('');
 
     try {
-      const device = await navigator.bluetooth.requestDevice({
+      const device = await (navigator as any).bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
       });
@@ -542,7 +567,7 @@ const VendorView: React.FC<Props> = ({
     setErrorMessage('');
 
     try {
-      const bluetoothDevice = await navigator.bluetooth.requestDevice({
+      const bluetoothDevice = await (navigator as any).bluetooth.requestDevice({
         filters: [{ name: device.name }],
         optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
       });
@@ -582,40 +607,138 @@ const VendorView: React.FC<Props> = ({
       .eq('id', restaurant.id);
   };
 
+  const printOrder = async (order: Order) => {
+    if (!connectedDevice || !orderSettings.autoPrint) return;
+
+    try {
+      const bluetoothDevice = await (navigator as any).bluetooth.requestDevice({
+        filters: [{ name: connectedDevice.name }],
+        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
+      });
+
+      const server = await bluetoothDevice.gatt?.connect();
+      if (!server) throw new Error('Could not connect to printer');
+
+      const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+      const characteristics = await service.getCharacteristics();
+
+      // Create receipt using ESC/POS
+      const encoder = new EscPosEncoder();
+      const data = encoder
+        .initialize()
+        .align('center')
+        .size(2, 2)
+        .line(restaurant.name)
+        .size(1, 1)
+        .line('='.repeat(32))
+        .line(`Order: ${order.id}`)
+        .line(`Table: ${order.tableNumber}`)
+        .line(`Date: ${new Date(order.timestamp).toLocaleString()}`)
+        .line('='.repeat(32))
+        .encode();
+
+      // Add items
+      order.items.forEach(item => {
+        const itemData = encoder
+          .text(`${item.name} x${item.quantity}`)
+          .text(`  RM ${(item.price * item.quantity).toFixed(2)}`)
+          .encode();
+        
+        // Add add-ons
+        if (item.selectedAddOns && item.selectedAddOns.length > 0) {
+          item.selectedAddOns.forEach(addon => {
+            encoder.text(`   + ${addon.name} x${addon.quantity}`);
+          });
+        }
+      });
+
+      // Add total and footer
+      const footerData = encoder
+        .line('-'.repeat(32))
+        .line(`TOTAL: RM ${order.total.toFixed(2)}`)
+        .line('='.repeat(32))
+        .line('Thank you!')
+        .cut()
+        .encode();
+
+      // Send to printer
+      for (const char of characteristics) {
+        if (char.properties.write || char.properties.writeWithoutResponse) {
+          await char.writeValue(data);
+          await char.writeValue(footerData);
+          break;
+        }
+      }
+
+      setTimeout(() => server.disconnect(), 1000);
+      
+    } catch (error) {
+      console.error('Print error:', error);
+    }
+  };
+
   const printTestPage = async () => {
     if (!connectedDevice) return;
     
     setTestPrintStatus('printing');
+    setErrorMessage('');
     
     try {
-      const testData = new Uint8Array([
-        0x1B, 0x40, // Initialize printer
-        0x1B, 0x61, 0x31, // Center alignment
-        0x1B, 0x21, 0x30, // Double height + double width
-        0x51, 0x75, 0x69, 0x63, 0x6B, 0x53, 0x65, 0x72, 0x76, 0x65, // "QuickServe"
-        0x0A, // New line
-        0x1B, 0x21, 0x00, // Normal text
-        0x54, 0x65, 0x73, 0x74, 0x20, 0x50, 0x61, 0x67, 0x65, // "Test Page"
-        0x0A, 0x0A,
-        0x44, 0x61, 0x74, 0x65, 0x3A, 0x20, 
-        ...new TextEncoder().encode(new Date().toLocaleDateString()),
-        0x0A,
-        0x1D, 0x56, 0x41, 0x03 // Cut paper
-      ]);
-
-      const bluetoothDevice = await navigator.bluetooth.requestDevice({
+      const bluetoothDevice = await (navigator as any).bluetooth.requestDevice({
         filters: [{ name: connectedDevice.name }],
         optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
       });
-      
+
       const server = await bluetoothDevice.gatt?.connect();
-      
+      if (!server) throw new Error('Could not connect');
+
+      const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+      const characteristics = await service.getCharacteristics();
+
+      const encoder = new EscPosEncoder();
+      const data = encoder
+        .initialize()
+        .align('center')
+        .size(2, 2)
+        .line('QuickServe')
+        .size(1, 1)
+        .line('Test Page')
+        .line(new Date().toLocaleString())
+        .line('Printer Connected!')
+        .cut()
+        .encode();
+
+      for (const char of characteristics) {
+        if (char.properties.write || char.properties.writeWithoutResponse) {
+          await char.writeValue(data);
+          break;
+        }
+      }
+
+      setTimeout(() => server.disconnect(), 1000);
+
       setTestPrintStatus('success');
       setTimeout(() => setTestPrintStatus('idle'), 3000);
+      
     } catch (error: any) {
       setTestPrintStatus('error');
-      setErrorMessage('Test print failed: ' + error.message);
+      setErrorMessage('Print failed: ' + error.message);
     }
+  };
+
+  const handleAcceptAndPrint = async (orderId: string) => {
+    await onUpdateOrder(orderId, OrderStatus.ONGOING);
+    const order = orders.find(o => o.id === orderId);
+    if (order && orderSettings.autoPrint) {
+      await printOrder(order);
+    }
+  };
+
+  const toggleOrderSetting = (key: keyof OrderSettings) => {
+    setOrderSettings(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
   };
 
   const isOnline = restaurant.isOnline !== false;
@@ -681,13 +804,13 @@ const VendorView: React.FC<Props> = ({
               QR Generator
             </button>
           )}
-          {/* New Settings Button */}
+          {/* Settings Button */}
           <button 
             onClick={() => handleTabSelection('SETTINGS')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'SETTINGS' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
           >
             <Settings size={20} />
-            Printer Settings
+            Settings
           </button>
         </nav>
         <div className="p-4 mt-auto border-t dark:border-gray-700 space-y-4">
@@ -736,7 +859,7 @@ const VendorView: React.FC<Props> = ({
                activeTab === 'MENU' ? 'Menu Editor' : 
                activeTab === 'REPORTS' ? 'Sales Reports' : 
                activeTab === 'QR' ? 'QR Generator' : 
-               'Printer Settings'}
+               'Settings'}
             </h1>
           </div>
         </div>
@@ -898,7 +1021,12 @@ const VendorView: React.FC<Props> = ({
                       <div className="flex md:flex-col gap-2 min-w-[140px] mt-2 md:mt-0">
                         {order.status === OrderStatus.PENDING && (
                           <>
-                            <button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className="flex-1 py-3 px-4 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg">Accept Order</button>
+                            <button 
+                              onClick={() => handleAcceptAndPrint(order.id)} 
+                              className="flex-1 py-3 px-4 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg"
+                            >
+                              Accept {orderSettings.autoPrint && '& Print'}
+                            </button>
                             <button onClick={() => setRejectingOrderId(order.id)} className="flex-1 py-3 px-4 bg-red-50 text-red-500 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-100 dark:bg-red-900/10 dark:border-red-900/20">Reject</button>
                           </>
                         )}
@@ -1276,189 +1404,260 @@ const VendorView: React.FC<Props> = ({
             </div>
           )}
 
-          {/* New Printer Settings Tab */}
+          {/* Settings Tab */}
           {activeTab === 'SETTINGS' && (
             <div className="max-w-4xl mx-auto">
-              <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Printer Settings</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Connect to your CX58D thermal printer</p>
+              <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Settings</h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Configure your kitchen preferences</p>
               
-              <div className="bg-white dark:bg-gray-800 rounded-3xl border dark:border-gray-700 shadow-sm overflow-hidden">
-                <div className="p-6 md:p-8 space-y-8">
-                  {/* Bluetooth Support Check */}
-                  {!isBluetoothSupported && (
-                    <div className="text-center py-12">
-                      <AlertCircle size={48} className="mx-auto text-red-500 mb-4" />
-                      <h3 className="text-lg font-black dark:text-white mb-2">Bluetooth Not Supported</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{errorMessage}</p>
-                      <p className="text-xs text-gray-400 mt-4">Please use Chrome, Edge, or Opera browser</p>
+              <div className="space-y-8">
+                {/* Order Settings */}
+                <div className="bg-white dark:bg-gray-800 rounded-3xl border dark:border-gray-700 shadow-sm overflow-hidden">
+                  <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
+                    <div className="flex items-center gap-2">
+                      <BellRing size={18} className="text-orange-500" />
+                      <h2 className="font-black dark:text-white uppercase tracking-tighter">Order Processing</h2>
                     </div>
-                  )}
+                  </div>
+                  <div className="p-6 space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                      <div>
+                        <h3 className="font-black text-sm dark:text-white">Auto-Accept Orders</h3>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400">Automatically accept new orders when they arrive</p>
+                      </div>
+                      <button
+                        onClick={() => toggleOrderSetting('autoAccept')}
+                        className={`w-12 h-6 rounded-full transition-all relative ${
+                          orderSettings.autoAccept ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                        }`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                          orderSettings.autoAccept ? 'left-7' : 'left-1'
+                        }`} />
+                      </button>
+                    </div>
 
-                  {isBluetoothSupported && (
-                    <>
-                      {/* Status Card */}
-                      <div className={`p-6 rounded-2xl border-2 transition-all ${
-                        printerStatus === 'connected' 
-                          ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/20' 
-                          : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                      }`}>
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                      <div>
+                        <h3 className="font-black text-sm dark:text-white">Auto-Print Orders</h3>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400">Automatically print orders when accepted</p>
+                      </div>
+                      <button
+                        onClick={() => toggleOrderSetting('autoPrint')}
+                        disabled={!connectedDevice}
+                        className={`w-12 h-6 rounded-full transition-all relative ${
+                          !connectedDevice 
+                            ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
+                            : orderSettings.autoPrint 
+                              ? 'bg-green-500' 
+                              : 'bg-gray-300 dark:bg-gray-600'
+                        }`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                          !connectedDevice 
+                            ? 'left-1 opacity-50'
+                            : orderSettings.autoPrint 
+                              ? 'left-7' 
+                              : 'left-1'
+                        }`} />
+                      </button>
+                    </div>
+                    
+                    {!connectedDevice && orderSettings.autoPrint && (
+                      <div className="p-3 bg-yellow-50 dark:bg-yellow-900/10 rounded-xl border border-yellow-200 dark:border-yellow-900/20">
+                        <p className="text-[10px] font-black text-yellow-600 dark:text-yellow-400">
+                          ⚠️ Auto-print is enabled but no printer is connected. Please connect a printer below.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Printer Settings */}
+                <div className="bg-white dark:bg-gray-800 rounded-3xl border dark:border-gray-700 shadow-sm overflow-hidden">
+                  <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
+                    <div className="flex items-center gap-2">
+                      <PrinterIcon size={18} className="text-orange-500" />
+                      <h2 className="font-black dark:text-white uppercase tracking-tighter">Printer Configuration</h2>
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    {/* Bluetooth Support Check */}
+                    {!isBluetoothSupported && (
+                      <div className="text-center py-12">
+                        <AlertCircle size={48} className="mx-auto text-red-500 mb-4" />
+                        <h3 className="text-lg font-black dark:text-white mb-2">Bluetooth Not Supported</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{errorMessage}</p>
+                        <p className="text-xs text-gray-400 mt-4">Please use Chrome, Edge, or Opera browser</p>
+                      </div>
+                    )}
+
+                    {isBluetoothSupported && (
+                      <>
+                        {/* Status Card */}
+                        <div className={`p-6 rounded-2xl border-2 transition-all mb-6 ${
+                          printerStatus === 'connected' 
+                            ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/20' 
+                            : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                        }`}>
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                                printerStatus === 'connected' 
+                                  ? 'bg-green-500 text-white' 
+                                  : 'bg-gray-200 dark:bg-gray-700 text-gray-500'
+                              }`}>
+                                <Printer size={24} />
+                              </div>
+                              <div>
+                                <h3 className="font-black dark:text-white">CX58D Thermal Printer</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                  {printerStatus === 'connected' 
+                                    ? `Connected to ${connectedDevice?.name}` 
+                                    : 'No printer connected'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
                               printerStatus === 'connected' 
-                                ? 'bg-green-500 text-white' 
-                                : 'bg-gray-200 dark:bg-gray-700 text-gray-500'
+                                ? 'bg-green-100 text-green-600' 
+                                : printerStatus === 'connecting'
+                                ? 'bg-orange-100 text-orange-600'
+                                : 'bg-gray-100 text-gray-500'
                             }`}>
-                              <Printer size={24} />
+                              {printerStatus === 'connected' ? 'Connected' : 
+                               printerStatus === 'connecting' ? 'Connecting...' : 
+                               'Disconnected'}
                             </div>
-                            <div>
-                              <h3 className="font-black dark:text-white">CX58D Thermal Printer</h3>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">
-                                {printerStatus === 'connected' 
-                                  ? `Connected to ${connectedDevice?.name}` 
-                                  : 'No printer connected'}
-                              </p>
-                            </div>
-                          </div>
-                          <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                            printerStatus === 'connected' 
-                              ? 'bg-green-100 text-green-600' 
-                              : printerStatus === 'connecting'
-                              ? 'bg-orange-100 text-orange-600'
-                              : 'bg-gray-100 text-gray-500'
-                          }`}>
-                            {printerStatus === 'connected' ? 'Connected' : 
-                             printerStatus === 'connecting' ? 'Connecting...' : 
-                             'Disconnected'}
                           </div>
                         </div>
-                      </div>
 
-                      {/* Connection Controls */}
-                      {printerStatus !== 'connected' ? (
-                        <div className="space-y-4">
-                          <button
-                            onClick={scanForPrinters}
-                            disabled={isScanning}
-                            className="w-full py-4 bg-orange-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                          >
-                            {isScanning ? (
-                              <>
-                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                Scanning...
-                              </>
-                            ) : (
-                              <>
-                                <Bluetooth size={18} />
-                                Scan for Bluetooth Printers
-                              </>
+                        {/* Connection Controls */}
+                        {printerStatus !== 'connected' ? (
+                          <div className="space-y-4">
+                            <button
+                              onClick={scanForPrinters}
+                              disabled={isScanning}
+                              className="w-full py-4 bg-orange-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                              {isScanning ? (
+                                <>
+                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                  Scanning...
+                                </>
+                              ) : (
+                                <>
+                                  <Bluetooth size={18} />
+                                  Scan for Bluetooth Printers
+                                </>
+                              )}
+                            </button>
+
+                            {devices.length > 0 && (
+                              <div className="space-y-2">
+                                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Found Printers</h4>
+                                {devices.map(device => (
+                                  <button
+                                    key={device.id}
+                                    onClick={() => connectToPrinter(device)}
+                                    className="w-full p-4 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl flex items-center justify-between hover:border-orange-500 transition-all group"
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <Printer size={20} className="text-gray-400 group-hover:text-orange-500" />
+                                      <span className="font-bold dark:text-white">{device.name}</span>
+                                    </div>
+                                    <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Connect</span>
+                                  </button>
+                                ))}
+                              </div>
                             )}
-                          </button>
-
-                          {devices.length > 0 && (
-                            <div className="space-y-2">
-                              <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Found Printers</h4>
-                              {devices.map(device => (
-                                <button
-                                  key={device.id}
-                                  onClick={() => connectToPrinter(device)}
-                                  className="w-full p-4 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl flex items-center justify-between hover:border-orange-500 transition-all group"
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <Printer size={20} className="text-gray-400 group-hover:text-orange-500" />
-                                    <span className="font-bold dark:text-white">{device.name}</span>
-                                  </div>
-                                  <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Connect</span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          {/* Connected Device Info */}
-                          <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-900/20">
-                            <div className="flex items-center gap-2 mb-2">
-                              <BluetoothConnected size={16} className="text-blue-500" />
-                              <span className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Connected Device</span>
-                            </div>
-                            <p className="font-bold dark:text-white mb-1">{connectedDevice?.name}</p>
-                            <p className="text-[10px] text-gray-500">ID: {connectedDevice?.id}</p>
                           </div>
+                        ) : (
+                          <div className="space-y-4">
+                            {/* Connected Device Info */}
+                            <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-900/20">
+                              <div className="flex items-center gap-2 mb-2">
+                                <BluetoothConnected size={16} className="text-blue-500" />
+                                <span className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Connected Device</span>
+                              </div>
+                              <p className="font-bold dark:text-white mb-1">{connectedDevice?.name}</p>
+                              <p className="text-[10px] text-gray-500">ID: {connectedDevice?.id}</p>
+                            </div>
 
-                          {/* Test Print Button */}
-                          <button
-                            onClick={printTestPage}
-                            disabled={testPrintStatus === 'printing'}
-                            className="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                          >
-                            {testPrintStatus === 'printing' ? (
-                              <>
-                                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                Printing...
-                              </>
-                            ) : testPrintStatus === 'success' ? (
-                              <>
-                                <CheckCircle2 size={18} className="text-green-500" />
-                                Test Page Sent!
-                              </>
-                            ) : (
-                              <>
-                                <Printer size={18} />
-                                Print Test Page
-                              </>
-                            )}
-                          </button>
+                            {/* Test Print Button */}
+                            <button
+                              onClick={printTestPage}
+                              disabled={testPrintStatus === 'printing'}
+                              className="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                              {testPrintStatus === 'printing' ? (
+                                <>
+                                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                  Printing...
+                                </>
+                              ) : testPrintStatus === 'success' ? (
+                                <>
+                                  <CheckCircle2 size={18} className="text-green-500" />
+                                  Test Page Sent!
+                                </>
+                              ) : (
+                                <>
+                                  <Printer size={18} />
+                                  Print Test Page
+                                </>
+                              )}
+                            </button>
 
-                          {/* Disconnect Button */}
-                          <button
-                            onClick={disconnectPrinter}
-                            className="w-full py-3 bg-red-50 dark:bg-red-900/10 text-red-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-200 dark:border-red-900/20"
-                          >
-                            Disconnect Printer
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Error Message */}
-                      {errorMessage && (
-                        <div className="p-4 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-200 dark:border-red-900/20">
-                          <div className="flex items-start gap-2">
-                            <X size={16} className="text-red-500 shrink-0 mt-0.5" />
-                            <p className="text-xs text-red-600 dark:text-red-400">{errorMessage}</p>
+                            {/* Disconnect Button */}
+                            <button
+                              onClick={disconnectPrinter}
+                              className="w-full py-3 bg-red-50 dark:bg-red-900/10 text-red-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-200 dark:border-red-900/20"
+                            >
+                              Disconnect Printer
+                            </button>
                           </div>
+                        )}
+
+                        {/* Error Message */}
+                        {errorMessage && (
+                          <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-200 dark:border-red-900/20">
+                            <div className="flex items-start gap-2">
+                              <X size={16} className="text-red-500 shrink-0 mt-0.5" />
+                              <p className="text-xs text-red-600 dark:text-red-400">{errorMessage}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Instructions */}
+                        <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                          <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Printer Setup Instructions</h4>
+                          <ul className="space-y-2 text-[10px] text-gray-500 dark:text-gray-400">
+                            <li className="flex items-start gap-2">
+                              <div className="w-1 h-1 bg-orange-500 rounded-full mt-1.5" />
+                              <span>Turn on your CX58D printer and enable Bluetooth pairing mode</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <div className="w-1 h-1 bg-orange-500 rounded-full mt-1.5" />
+                              <span>Click "Scan for Bluetooth Printers" and select your printer when it appears</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <div className="w-1 h-1 bg-orange-500 rounded-full mt-1.5" />
+                              <span>Use "Print Test Page" to verify the connection</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <div className="w-1 h-1 bg-orange-500 rounded-full mt-1.5" />
+                              <span>Enable "Auto-Print" to automatically print new orders</span>
+                            </li>
+                          </ul>
                         </div>
-                      )}
 
-                      {/* Instructions */}
-                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-                        <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Printer Setup Instructions</h4>
-                        <ul className="space-y-2 text-[10px] text-gray-500 dark:text-gray-400">
-                          <li className="flex items-start gap-2">
-                            <div className="w-1 h-1 bg-orange-500 rounded-full mt-1.5" />
-                            <span>Turn on your CX58D printer and enable Bluetooth pairing mode</span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <div className="w-1 h-1 bg-orange-500 rounded-full mt-1.5" />
-                            <span>Click "Scan for Bluetooth Printers" and select your printer when it appears</span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <div className="w-1 h-1 bg-orange-500 rounded-full mt-1.5" />
-                            <span>Use "Print Test Page" to verify the connection</span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <div className="w-1 h-1 bg-orange-500 rounded-full mt-1.5" />
-                            <span>The printer will automatically reconnect when you return to this page</span>
-                          </li>
-                        </ul>
-                      </div>
-
-                      {/* Browser Compatibility Note */}
-                      <p className="text-[8px] text-gray-400 text-center">
-                        * Works best in Chrome, Edge, or Opera browsers. Requires Bluetooth permission.
-                      </p>
-                    </>
-                  )}
+                        {/* Browser Compatibility Note */}
+                        <p className="mt-4 text-[8px] text-gray-400 text-center">
+                          * Works best in Chrome, Edge, or Opera browsers. Requires Bluetooth permission.
+                        </p>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
