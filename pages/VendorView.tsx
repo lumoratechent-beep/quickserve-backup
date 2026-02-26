@@ -147,44 +147,80 @@ const VendorView: React.FC<Props> = ({
   // New Order Alert State
   const [showNewOrderAlert, setShowNewOrderAlert] = useState(false);
   
-  // Filter orders to show only those with non-skip kitchen items
+  // FIXED: Simplified pending orders - just filter by PENDING status
   const pendingOrders = useMemo(() => {
-    return orders.filter(o => {
-      if (o.status !== OrderStatus.PENDING) return false;
-      
-      // Check if order has any items that are not from skip-kitchen categories
-      const hasKitchenItems = o.items.some(item => {
-        const category = extraCategories.find(c => c.name === item.category);
-        return !category?.skipKitchen;
-      });
-      
-      return hasKitchenItems;
-    });
-  }, [orders, extraCategories]);
+    return orders.filter(o => o.status === OrderStatus.PENDING);
+  }, [orders]);
 
   const prevPendingCount = useRef(pendingOrders.length);
 
-  // Load saved data from localStorage
+  // FIXED: Load from restaurant prop first, then localStorage as fallback
   useEffect(() => {
-    const savedCategories = localStorage.getItem(`categories_${restaurant.id}`);
-    if (savedCategories) {
-      setExtraCategories(JSON.parse(savedCategories));
+    // Load categories from restaurant prop (database)
+    if (restaurant.categories && restaurant.categories.length > 0) {
+      setExtraCategories(restaurant.categories);
+    } else {
+      // Fallback to localStorage
+      const savedCategories = localStorage.getItem(`categories_${restaurant.id}`);
+      if (savedCategories) {
+        setExtraCategories(JSON.parse(savedCategories));
+      }
     }
     
-    const savedModifiers = localStorage.getItem(`modifiers_${restaurant.id}`);
-    if (savedModifiers) {
-      setModifiers(JSON.parse(savedModifiers));
+    // Load modifiers from restaurant prop (database)
+    if (restaurant.modifiers && restaurant.modifiers.length > 0) {
+      setModifiers(restaurant.modifiers);
+    } else {
+      // Fallback to localStorage
+      const savedModifiers = localStorage.getItem(`modifiers_${restaurant.id}`);
+      if (savedModifiers) {
+        setModifiers(JSON.parse(savedModifiers));
+      }
     }
-  }, [restaurant.id]);
+  }, [restaurant.id, restaurant.categories, restaurant.modifiers]);
 
-  // Save categories to localStorage
+  // FIXED: Save categories to database
+  const saveCategoriesToDatabase = async (categories: CategoryData[]) => {
+    try {
+      const { error } = await supabase
+        .from('restaurants')
+        .update({ categories })
+        .eq('id', restaurant.id);
+      
+      if (error) {
+        console.error('Error saving categories to database:', error);
+      }
+    } catch (error) {
+      console.error('Error saving categories:', error);
+    }
+  };
+
+  // FIXED: Save modifiers to database
+  const saveModifiersToDatabase = async (modifiers: ModifierData[]) => {
+    try {
+      const { error } = await supabase
+        .from('restaurants')
+        .update({ modifiers })
+        .eq('id', restaurant.id);
+      
+      if (error) {
+        console.error('Error saving modifiers to database:', error);
+      }
+    } catch (error) {
+      console.error('Error saving modifiers:', error);
+    }
+  };
+
+  // Save categories to localStorage and database
   useEffect(() => {
     localStorage.setItem(`categories_${restaurant.id}`, JSON.stringify(extraCategories));
+    saveCategoriesToDatabase(extraCategories);
   }, [extraCategories, restaurant.id]);
 
-  // Save modifiers to localStorage
+  // Save modifiers to localStorage and database
   useEffect(() => {
     localStorage.setItem(`modifiers_${restaurant.id}`, JSON.stringify(modifiers));
+    saveModifiersToDatabase(modifiers);
   }, [modifiers, restaurant.id]);
 
   // Sound & Visual Alert for New Orders
@@ -258,6 +294,7 @@ const VendorView: React.FC<Props> = ({
     return ['All', ...Array.from(base)];
   }, [restaurant.menu, extraCategories]);
 
+  // FIXED: Keep original filteredOrders as is
   const filteredOrders = orders.filter(o => {
     if (orderFilter === 'ALL') return true;
     if (orderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
@@ -745,6 +782,7 @@ const VendorView: React.FC<Props> = ({
     }
   };
 
+  // FIXED: Simplified handleAcceptAndPrint
   const handleAcceptAndPrint = async (orderId: string) => {
     // First update the order status
     await onUpdateOrder(orderId, OrderStatus.ONGOING);
@@ -758,54 +796,22 @@ const VendorView: React.FC<Props> = ({
         return;
       }
 
-      let printSuccess = false;
-      let attempts = 0;
-      const maxAttempts = 2;
-
-      while (!printSuccess && attempts < maxAttempts) {
-        try {
-          attempts++;
-          console.log(`Print attempt ${attempts} for order: ${order.id}`);
-
-          // Check if printer is still connected
-          if (!printerService.isConnected()) {
-            console.log('Printer disconnected, attempting to reconnect...');
-            
-            // Try to reconnect using the saved device name
-            const reconnectSuccess = await printerService.connect(connectedDevice.name);
-            
-            if (!reconnectSuccess) {
-              console.error('Failed to reconnect to printer');
-              if (attempts === maxAttempts) {
-                alert('Failed to reconnect to printer. Please check the printer connection.');
-              }
-              continue;
-            }
-            
-            console.log('Reconnected to printer successfully');
-          }
-          
-          // Now print the order
-          console.log('Printing order:', order.id);
-          printSuccess = await printerService.printReceipt(order, restaurant);
-          
-          if (printSuccess) {
-            console.log('Order printed successfully');
-          } else {
-            console.error('Print attempt failed');
-            // Force disconnect to trigger fresh connection next attempt
-            await printerService.disconnect();
-          }
-          
-        } catch (error) {
-          console.error(`Error during print attempt ${attempts}:`, error);
-          // Force disconnect to trigger fresh connection next attempt
-          await printerService.disconnect();
+      try {
+        setPrintingOrderId(orderId);
+        const printSuccess = await printerService.printReceipt(order, restaurant);
+        
+        if (printSuccess) {
+          console.log('Order printed successfully');
+        } else {
+          console.error('Failed to print order');
+          alert('Order accepted but failed to print. You can use the "Print Only" button to try again.');
         }
-      }
-
-      if (!printSuccess) {
-        alert('Order accepted but failed to print after multiple attempts. Please check printer connection and try printing manually.');
+        
+      } catch (error) {
+        console.error('Error during print process:', error);
+        alert('Error occurred while printing. Please check printer connection.');
+      } finally {
+        setPrintingOrderId(null);
       }
     }
   };
@@ -818,15 +824,6 @@ const VendorView: React.FC<Props> = ({
 
     setPrintingOrderId(order.id);
     try {
-      // Force a fresh connection
-      await printerService.disconnect();
-      const connected = await printerService.connect(connectedDevice.name);
-      
-      if (!connected) {
-        alert('Failed to connect to printer. Please check printer connection.');
-        return;
-      }
-      
       const success = await printerService.printReceipt(order, restaurant);
       
       if (success) {
@@ -1068,7 +1065,7 @@ const VendorView: React.FC<Props> = ({
               </div>
 
               <div className="space-y-4">
-                {pendingOrders.length === 0 ? (
+                {filteredOrders.length === 0 ? (
                   <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
                     <div className="w-16 h-16 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
                       <ShoppingBag size={24} />
@@ -1077,7 +1074,7 @@ const VendorView: React.FC<Props> = ({
                     <p className="text-gray-500 dark:text-gray-400 text-xs">Waiting for incoming signals...</p>
                   </div>
                 ) : (
-                  pendingOrders.map(order => (
+                  filteredOrders.map(order => (
                     <div key={order.id} className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-start gap-6 transition-all hover:border-orange-200">
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-4">
@@ -1094,23 +1091,18 @@ const VendorView: React.FC<Props> = ({
                           </div>
                         </div>
                         <div className="space-y-3">
-                          {order.items
-                            .filter(item => {
-                              const category = extraCategories.find(c => c.name === item.category);
-                              return !category?.skipKitchen;
-                            })
-                            .map((item, idx) => (
-                              <div key={idx} className="flex justify-between items-start text-sm border-l-2 border-gray-100 dark:border-gray-700 pl-3">
-                                <div>
-                                    <p className="font-bold text-gray-900 dark:text-white">x{item.quantity} {item.name}</p>
-                                    <div className="flex flex-wrap gap-2 mt-1">
-                                        {item.selectedSize && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">Size: {item.selectedSize}</span>}
-                                        {item.selectedTemp && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${item.selectedTemp === 'Hot' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>Temp: {item.selectedTemp}</span>}
-                                    </div>
-                                </div>
-                                <span className="text-gray-500 dark:text-gray-400 font-bold">RM{(item.price * item.quantity).toFixed(2)}</span>
+                          {order.items.map((item, idx) => (
+                            <div key={idx} className="flex justify-between items-start text-sm border-l-2 border-gray-100 dark:border-gray-700 pl-3">
+                              <div>
+                                  <p className="font-bold text-gray-900 dark:text-white">x{item.quantity} {item.name}</p>
+                                  <div className="flex flex-wrap gap-2 mt-1">
+                                      {item.selectedSize && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">Size: {item.selectedSize}</span>}
+                                      {item.selectedTemp && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${item.selectedTemp === 'Hot' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>Temp: {item.selectedTemp}</span>}
+                                  </div>
                               </div>
-                            ))}
+                              <span className="text-gray-500 dark:text-gray-400 font-bold">RM{(item.price * item.quantity).toFixed(2)}</span>
+                            </div>
+                          ))}
                         </div>
                         {order.remark && (
                           <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-lg">
