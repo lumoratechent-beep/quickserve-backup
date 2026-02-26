@@ -1,0 +1,27 @@
+
+{
+  "name": "QuickServe Ordering",
+  "short_name": "QuickServe",
+  "description": "Multi-Vendor Food Hub & QR Ordering System",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#f97316",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/google/material-design-icons/master/png/navigation/apps/materialicons/48dp/2x/baseline_apps_black_48dp.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/google/material-design-icons/master/png/navigation/apps/materialicons/48dp/2x/baseline_apps_black_48dp.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/google/material-design-icons/master/png/navigation/apps/materialicons/48dp/2x/baseline_apps_black_48dp.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
