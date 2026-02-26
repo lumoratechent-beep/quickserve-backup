@@ -131,3 +131,38 @@ export interface ReportFilters {
   status?: string;
   search?: string;
 }
+
+
+// types.ts - Add these to the Restaurant interface
+
+export interface Restaurant {
+  id: string;
+  name: string;
+  logo: string;
+  menu: MenuItem[];
+  vendorId: string;
+  location: string;
+  isOnline?: boolean;
+  created_at?: string;
+  settings?: {
+    showSalesReport?: boolean;
+    showQrGenerator?: boolean;
+  };
+  categories?: CategoryData[]; // Add this
+  modifiers?: ModifierData[];  // Add this
+}
+
+export interface CategoryData {
+  name: string;
+  skipKitchen: boolean;
+}
+
+export interface ModifierData {
+  name: string;
+  options: ModifierOption[];
+}
+
+export interface ModifierOption {
+  name: string;
+  price: number;
+}
