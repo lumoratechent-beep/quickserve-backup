@@ -1661,35 +1661,38 @@ const VendorView: React.FC<Props> = ({
                         <th className="px-4 py-3 text-right">Bill</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y dark:divide-gray-700">
-                      {paginatedReports.map(report => (
-                        <tr key={report.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                          <td className="px-4 py-2">
-                            <button 
-                              onClick={() => setSelectedOrderForDetails(report)}
-                              className="text-[10px] font-black text-orange-500 hover:text-orange-600 uppercase tracking-widest underline decoration-dotted underline-offset-4"
-                            >
-                              {report.id}
-                            </button>
-                          </td>
-                          <td className="px-4 py-2 text-[10px] font-black text-gray-900 dark:text-white">#{report.tableNumber}</td>
-                          <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tighter">{new Date(report.timestamp).toLocaleDateString()}</td>
-                          <td className="px-4 py-2 text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase">{new Date(report.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                          <td className="px-4 py-2">
-                            <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
-                              report.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-600' : 
-                              report.status === OrderStatus.SERVED ? 'bg-blue-100 text-blue-600' :
-                              'bg-orange-100 text-orange-600'
-                            }`}>
-                              {report.status === OrderStatus.COMPLETED ? 'Paid' : 
-                               report.status === OrderStatus.SERVED ? 'Served' : 
-                               report.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2 text-right font-black dark:text-white text-xs">RM{report.total.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
+                    
+                     
+<tbody className="divide-y dark:divide-gray-700">
+  {paginatedReports.map(report => (
+    <tr key={report.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+      <td className="px-4 py-2">
+        <button 
+          onClick={() => setSelectedOrderForDetails(report)}
+          className="text-[10px] font-black text-orange-500 hover:text-orange-600 uppercase tracking-widest underline decoration-dotted underline-offset-4"
+        >
+          {report.id}
+        </button>
+      </td>
+      <td className="px-4 py-2 text-[10px] font-black text-gray-900 dark:text-white">#{report.tableNumber}</td>
+      <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tighter">{new Date(report.timestamp).toLocaleDateString()}</td>
+      <td className="px-4 py-2 text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase">{new Date(report.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+      <td className="px-4 py-2">
+        {/* UPDATE THIS STATUS BADGE SECTION */}
+        <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+          report.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-600' : 
+          report.status === OrderStatus.SERVED ? 'bg-blue-100 text-blue-600' :
+          'bg-orange-100 text-orange-600'
+        }`}>
+          {report.status === OrderStatus.COMPLETED ? 'Paid' : 
+           report.status === OrderStatus.SERVED ? 'Served' : 
+           report.status}
+        </span>
+      </td>
+      <td className="px-4 py-2 text-right font-black dark:text-white text-xs">RM{report.total.toFixed(2)}</td>
+    </tr>
+  ))}
+</tbody>
                   </table>
                 </div>
               </div>
