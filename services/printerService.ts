@@ -1,3 +1,5 @@
+// services/printerService.ts
+
 import EscPosEncoder from 'esc-pos-encoder';
 
 export interface PrinterDevice {
@@ -35,27 +37,22 @@ class PrinterService {
 
   async connect(deviceName: string): Promise<boolean> {
     try {
-      // Request the device
       this.device = await navigator.bluetooth.requestDevice({
         filters: [{ name: deviceName }],
         optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
       });
 
-      // Connect to GATT server - handle undefined case
       const server = await this.device.gatt?.connect();
       if (!server) {
         throw new Error('Failed to connect to GATT server');
       }
       this.server = server;
 
-      // Get the primary service
       const service = await this.server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
       this.service = service;
       
-      // Get characteristics
       const characteristics = await this.service.getCharacteristics();
       
-      // Find writable characteristic
       for (const char of characteristics) {
         if (char.properties.write || char.properties.writeWithoutResponse) {
           this.characteristic = char;
@@ -67,7 +64,6 @@ class PrinterService {
         throw new Error('No writable characteristic found');
       }
 
-      // Set up disconnect listener
       this.device.addEventListener('gattserverdisconnected', this.handleDisconnect.bind(this));
 
       return true;
@@ -138,31 +134,38 @@ class PrinterService {
         throw new Error('Printer not connected');
       }
 
-      // Build receipt data
-      let data = this.encoder.initialize();
+      // Format date and time
+      const orderDate = new Date(order.timestamp);
+      const dateStr = orderDate.toLocaleDateString();
+      const timeStr = orderDate.toLocaleTimeString();
 
-      // Header
-      data = data
+      // Build receipt data with better formatting
+      let data = this.encoder
+        .initialize()
         .align('center')
         .size(2, 2)
         .line(restaurant.name)
         .size(1, 1)
         .line('='.repeat(32))
         .line(`Order: ${order.id}`)
-        .line(`Date: ${new Date(order.timestamp).toLocaleDateString()}`)
-        .line(`Time: ${new Date(order.timestamp).toLocaleTimeString()}`)
         .line(`Table: ${order.tableNumber}`)
-        .line('='.repeat(32));
+        .line(`Date: ${dateStr}`)
+        .line(`Time: ${timeStr}`)
+        .line('='.repeat(32))
+        .align('left');
 
-      // Items
+      // Items with proper formatting
       order.items.forEach((item: any) => {
+        const itemTotal = (item.price * item.quantity).toFixed(2);
+        
+        // Item name and quantity on same line, price aligned right
         data = data
-          .line(`${item.name} x${item.quantity}`)
+          .text(`${item.name} x${item.quantity}`)
           .align('right')
-          .text(`RM ${(item.price * item.quantity).toFixed(2)}`)
+          .text(`RM ${itemTotal}`)
           .align('left');
 
-        // Variants
+        // Variants indented
         if (item.selectedSize) {
           data = data.text(`  - Size: ${item.selectedSize}`);
         }
@@ -173,15 +176,19 @@ class PrinterService {
           data = data.text(`  - ${item.selectedOtherVariant}`);
         }
 
-        // Add-ons
+        // Add-ons indented further
         if (item.selectedAddOns && item.selectedAddOns.length > 0) {
           item.selectedAddOns.forEach((addon: any) => {
-            data = data.text(`  + ${addon.name} x${addon.quantity}`);
+            const addonTotal = (addon.price * addon.quantity).toFixed(2);
+            data = data.text(`    + ${addon.name} x${addon.quantity} RM ${addonTotal}`);
           });
         }
+        
+        // Empty line between items for readability
+        data = data.newline();
       });
 
-      // Total and footer
+      // Total with proper formatting
       data = data
         .line('-'.repeat(32))
         .align('right')
@@ -192,6 +199,8 @@ class PrinterService {
         .line('='.repeat(32))
         .line('Thank you!')
         .line('Please come again')
+        .newline() // Add space before cut
+        .newline() // Extra space to separate orders
         .cut()
         .encode();
 
