@@ -160,12 +160,13 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const fetchRestaurants = useCallback(async () => {
+// In App.tsx, update the fetchRestaurants function
+
+const fetchRestaurants = useCallback(async () => {
   if (isStatusLocked.current || !currentRole) return;
   
   let query = supabase.from('restaurants').select('*');
   
-  // Optimization: If customer, only fetch restaurants for their location
   if (currentRole === 'CUSTOMER' && sessionLocation) {
     query = query.eq('location_name', sessionLocation).eq('is_online', true);
   }
@@ -176,7 +177,6 @@ const App: React.FC = () => {
   const restaurantIds = resData.map(r => r.id);
   let menuQuery = supabase.from('menu_items').select('*').in('restaurant_id', restaurantIds);
   
-  // Optimization: Customers only need non-archived items
   if (currentRole === 'CUSTOMER') {
     menuQuery = menuQuery.eq('is_archived', false);
   }
@@ -193,10 +193,12 @@ const App: React.FC = () => {
         const dbSettings = res.settings ? (typeof res.settings === 'string' ? JSON.parse(res.settings) : res.settings) : null;
         return localSettings ? JSON.parse(localSettings) : dbSettings;
       })(),
+      categories: res.categories || [], // Add this
+      modifiers: res.modifiers || [],   // Add this
       menu: menuData.filter(m => m.restaurant_id === res.id).map(m => {
         const temp = m.temp_options || {};
         const others = m.other_variants || {};
-        const addOns = m.add_ons || []; // Get add_ons from database
+        const addOns = m.add_ons || [];
         
         return {
           id: m.id, name: m.name, description: m.description, price: Number(m.price),
@@ -210,7 +212,7 @@ const App: React.FC = () => {
           otherVariantName: others.name || '',
           otherVariants: others.options || [],
           otherVariantsEnabled: others.enabled ?? false,
-          addOns: addOns // Add this line to pass addOns to the menu item
+          addOns: addOns
         };
       })
     }));
