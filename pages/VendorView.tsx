@@ -11,7 +11,7 @@ import {
   CheckCircle2, BellRing, PrinterIcon
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import EscPosEncoder from 'esc-pos-encoder';
+import printerService, { PrinterDevice } from '../services/printerService';
 
 interface Props {
   restaurant: Restaurant;
@@ -25,12 +25,6 @@ interface Props {
   onFetchPaginatedOrders?: (filters: ReportFilters, page: number, pageSize: number) => Promise<ReportResponse>;
   onFetchAllFilteredOrders?: (filters: ReportFilters) => Promise<Order[]>;
   onSwitchToPos?: () => void;
-}
-
-interface PrinterDevice {
-  id: string;
-  name: string;
-  connected: boolean;
 }
 
 interface OrderSettings {
@@ -210,27 +204,6 @@ const VendorView: React.FC<Props> = ({
     return statusMatch && categoryMatch;
   });
 
-  const triggerNewOrderAlert = () => {
-    try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-      gain.gain.setValueAtTime(0, audioCtx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.1);
-      gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.8);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.8);
-    } catch (e) {
-      console.warn("Audio Context failed");
-    }
-    setShowNewOrderAlert(true);
-    setTimeout(() => setShowNewOrderAlert(false), 5000);
-  };
-
   const fetchReport = async (isExport = false) => {
     if (!isExport) setIsReportLoading(true);
     try {
@@ -310,6 +283,27 @@ const VendorView: React.FC<Props> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const triggerNewOrderAlert = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.1);
+      gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.8);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.8);
+    } catch (e) {
+      console.warn("Audio Context failed");
+    }
+    setShowNewOrderAlert(true);
+    setTimeout(() => setShowNewOrderAlert(false), 5000);
   };
 
   const handleConfirmRejection = () => {
@@ -395,7 +389,6 @@ const VendorView: React.FC<Props> = ({
     setFormItem({ ...formItem, otherVariants: updated });
   };
 
-  // Add-On handlers
   const handleAddAddOn = () => {
     setFormItem({
       ...formItem,
@@ -522,7 +515,7 @@ const VendorView: React.FC<Props> = ({
     });
   };
 
-  // Printer Functions
+  // Printer Functions using printerService
   const scanForPrinters = async () => {
     if (!isBluetoothSupported) return;
 
@@ -530,64 +523,40 @@ const VendorView: React.FC<Props> = ({
     setDevices([]);
     setErrorMessage('');
 
-    try {
-      const device = await (navigator as any).bluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
-      });
-
-      if (device) {
-        const newDevice: PrinterDevice = {
-          id: device.id,
-          name: device.name || 'Unknown Printer',
-          connected: false
-        };
-        setDevices([newDevice]);
-      }
-    } catch (error: any) {
-      if (error.message !== 'User cancelled the requestDevice dialog.') {
-        setErrorMessage('Failed to scan for printers: ' + error.message);
-      }
-    } finally {
-      setIsScanning(false);
-    }
+    const found = await printerService.scanForPrinters();
+    setDevices(found);
+    setIsScanning(false);
   };
 
   const connectToPrinter = async (device: PrinterDevice) => {
     setPrinterStatus('connecting');
     setErrorMessage('');
 
-    try {
-      const bluetoothDevice = await (navigator as any).bluetooth.requestDevice({
-        filters: [{ name: device.name }],
-        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
-      });
-
-      const server = await bluetoothDevice.gatt?.connect();
+    const success = await printerService.connect(device.name);
+    
+    if (success) {
+      setConnectedDevice(device);
+      setPrinterStatus('connected');
+      localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
       
-      if (server) {
-        setConnectedDevice(device);
-        setPrinterStatus('connected');
-        localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
-        
-        await supabase
-          .from('restaurants')
-          .update({ 
-            printer_settings: { 
-              connected: true, 
-              deviceId: device.id,
-              deviceName: device.name 
-            } 
-          })
-          .eq('id', restaurant.id);
-      }
-    } catch (error: any) {
+      await supabase
+        .from('restaurants')
+        .update({ 
+          printer_settings: { 
+            connected: true, 
+            deviceId: device.id,
+            deviceName: device.name 
+          } 
+        })
+        .eq('id', restaurant.id);
+    } else {
       setPrinterStatus('error');
-      setErrorMessage('Failed to connect: ' + error.message);
+      setErrorMessage('Failed to connect to printer');
     }
   };
 
-  const disconnectPrinter = () => {
+  const disconnectPrinter = async () => {
+    await printerService.disconnect();
     setConnectedDevice(null);
     setPrinterStatus('disconnected');
     localStorage.removeItem(`printer_${restaurant.id}`);
@@ -600,81 +569,10 @@ const VendorView: React.FC<Props> = ({
 
   const printOrder = async (order: Order) => {
     if (!connectedDevice || !orderSettings.autoPrint) return;
-
-    try {
-      const bluetoothDevice = await (navigator as any).bluetooth.requestDevice({
-        filters: [{ name: connectedDevice.name }],
-        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
-      });
-
-      const server = await bluetoothDevice.gatt?.connect();
-      if (!server) throw new Error('Could not connect to printer');
-
-      const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
-      const characteristics = await service.getCharacteristics();
-
-      const encoder = new EscPosEncoder();
-      
-      // Build complete receipt
-      let data = encoder
-        .initialize()
-        .align('center')
-        .size(2, 2)
-        .line(restaurant.name)
-        .size(1, 1)
-        .line('='.repeat(32))
-        .line(`Order: ${order.id}`)
-        .line(`Table: ${order.tableNumber}`)
-        .line(`Date: ${new Date(order.timestamp).toLocaleDateString()}`)
-        .line(`Time: ${new Date(order.timestamp).toLocaleTimeString()}`)
-        .line('='.repeat(32));
-
-      // Add items
-      order.items.forEach(item => {
-        data = data
-          .line(`${item.name} x${item.quantity}`)
-          .align('right')
-          .text(`RM ${(item.price * item.quantity).toFixed(2)}`)
-          .align('left');
-
-        if (item.selectedSize) {
-          data = data.text(`  - Size: ${item.selectedSize}`);
-        }
-        if (item.selectedTemp) {
-          data = data.text(`  - ${item.selectedTemp}`);
-        }
-        if (item.selectedAddOns && item.selectedAddOns.length > 0) {
-          item.selectedAddOns.forEach(addon => {
-            data = data.text(`  + ${addon.name} x${addon.quantity}`);
-          });
-        }
-      });
-
-      // Add total and footer
-      data = data
-        .line('-'.repeat(32))
-        .align('right')
-        .size(1, 1)
-        .line(`TOTAL: RM ${order.total.toFixed(2)}`)
-        .align('center')
-        .line('='.repeat(32))
-        .line('Thank you!')
-        .line('Please come again')
-        .cut()
-        .encode();
-
-      // Send to printer
-      for (const char of characteristics) {
-        if (char.properties.write || char.properties.writeWithoutResponse) {
-          await char.writeValue(data);
-          break;
-        }
-      }
-
-      setTimeout(() => server.disconnect(), 1000);
-      
-    } catch (error) {
-      console.error('Print error:', error);
+    
+    const success = await printerService.printReceipt(order, restaurant);
+    if (!success) {
+      console.error('Failed to print order');
     }
   };
 
@@ -684,54 +582,34 @@ const VendorView: React.FC<Props> = ({
     setTestPrintStatus('printing');
     setErrorMessage('');
     
-    try {
-      const bluetoothDevice = await (navigator as any).bluetooth.requestDevice({
-        filters: [{ name: connectedDevice.name }],
-        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
-      });
-
-      const server = await bluetoothDevice.gatt?.connect();
-      if (!server) throw new Error('Could not connect');
-
-      const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
-      const characteristics = await service.getCharacteristics();
-
-      const encoder = new EscPosEncoder();
-      const data = encoder
-        .initialize()
-        .align('center')
-        .size(2, 2)
-        .line('QuickServe')
-        .size(1, 1)
-        .line('Test Page')
-        .line(new Date().toLocaleString())
-        .line('Printer Connected!')
-        .cut()
-        .encode();
-
-      for (const char of characteristics) {
-        if (char.properties.write || char.properties.writeWithoutResponse) {
-          await char.writeValue(data);
-          break;
-        }
-      }
-
-      setTimeout(() => server.disconnect(), 1000);
-
+    const success = await printerService.printTestPage();
+    
+    if (success) {
       setTestPrintStatus('success');
       setTimeout(() => setTestPrintStatus('idle'), 3000);
-      
-    } catch (error: any) {
+    } else {
       setTestPrintStatus('error');
-      setErrorMessage('Print failed: ' + error.message);
+      setErrorMessage('Print failed');
     }
   };
 
   const handleAcceptAndPrint = async (orderId: string) => {
     await onUpdateOrder(orderId, OrderStatus.ONGOING);
     const order = orders.find(o => o.id === orderId);
+    
     if (order && orderSettings.autoPrint && connectedDevice) {
-      await printOrder(order);
+      // Check if printer is still connected
+      if (printerService.isConnected()) {
+        await printerService.printReceipt(order, restaurant);
+      } else {
+        // Try to reconnect
+        const success = await printerService.connect(connectedDevice.name);
+        if (success) {
+          await printerService.printReceipt(order, restaurant);
+        } else {
+          console.error('Printer disconnected and could not reconnect');
+        }
+      }
     }
   };
 
@@ -1042,7 +920,6 @@ const VendorView: React.FC<Props> = ({
 
           {activeTab === 'MENU' && (
             <div className="max-w-6xl mx-auto">
-              {/* Keep your existing MENU tab code here - it's the same */}
               <div className="mb-8">
                 <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-4">Kitchen Menu Editor</h1>
                 
