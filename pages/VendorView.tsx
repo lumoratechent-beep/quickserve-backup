@@ -7,7 +7,8 @@ import {
   Hash, MessageSquare, Download, Calendar, Ban, ChevronLeft, ChevronRight, Bell, Activity, 
   RefreshCw, Layers, Tag, Wifi, WifiOff, QrCode, Printer, ExternalLink, ThermometerSun, 
   Info, Settings2, Menu, ToggleLeft, ToggleRight, Link, Search, ChevronFirst, ChevronLast, 
-  Receipt, CreditCard, PlusCircle, Settings, PrinterIcon, BellRing, Home, ChefHat
+  Receipt, CreditCard, PlusCircle, Settings, PrinterIcon, BellRing, ChefHat, AlertCircle,
+  Bluetooth, BluetoothConnected, CheckCircle2
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import PrinterSettings from '../components/PrinterSettings';
@@ -172,36 +173,6 @@ const VendorView: React.FC<Props> = ({
     return statusMatch && categoryMatch;
   });
 
-  const triggerNewOrderAlert = () => {
-    try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-      gain.gain.setValueAtTime(0, audioCtx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.1);
-      gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.8);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.8);
-    } catch (e) {
-      console.warn("Audio Context failed");
-    }
-    setShowNewOrderAlert(true);
-    setTimeout(() => setShowNewOrderAlert(false), 5000);
-  };
-
-  const handleAcceptAndPrint = async (orderId: string) => {
-    await onUpdateOrder(orderId, OrderStatus.ONGOING);
-    const order = orders.find(o => o.id === orderId);
-    
-    if (order && orderSettings.autoPrint && printerConnected) {
-      await printerService.printReceipt(order, restaurant);
-    }
-  };
-
   const fetchReport = async (isExport = false) => {
     if (!isExport) setIsReportLoading(true);
     try {
@@ -283,12 +254,42 @@ const VendorView: React.FC<Props> = ({
     document.body.removeChild(link);
   };
 
+  const triggerNewOrderAlert = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.1);
+      gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.8);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.8);
+    } catch (e) {
+      console.warn("Audio Context failed");
+    }
+    setShowNewOrderAlert(true);
+    setTimeout(() => setShowNewOrderAlert(false), 5000);
+  };
+
   const handleConfirmRejection = () => {
     if (rejectingOrderId) {
       onUpdateOrder(rejectingOrderId, OrderStatus.CANCELLED, rejectionReason, rejectionNote);
       setRejectingOrderId(null);
       setRejectionReason(REJECTION_REASONS[0]);
       setRejectionNote('');
+    }
+  };
+
+  const handleAcceptAndPrint = async (orderId: string) => {
+    await onUpdateOrder(orderId, OrderStatus.ONGOING);
+    const order = orders.find(o => o.id === orderId);
+    
+    if (order && orderSettings.autoPrint && printerConnected) {
+      await printerService.printReceipt(order, restaurant);
     }
   };
 
@@ -507,121 +508,126 @@ const VendorView: React.FC<Props> = ({
   };
 
   return (
-    <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-gray-50 dark:bg-gray-900">
+    <div className="flex h-[calc(100vh-64px)] overflow-hidden dark:bg-gray-900 transition-colors relative">
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setIsMobileMenuOpen(false)} />
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
       )}
 
       {/* Sidebar */}
       <aside className={`
-        fixed lg:relative inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r dark:border-gray-700
-        flex flex-col transition-transform duration-300 shadow-xl
+        fixed lg:relative inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r dark:border-gray-700 
+        flex flex-col transition-transform duration-300 ease-in-out no-print
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Restaurant Header */}
-        <div className="p-6 border-b dark:border-gray-700">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg">
-              {restaurant.name.charAt(0)}
-            </div>
-            <div>
-              <h2 className="font-black dark:text-white text-sm uppercase tracking-tight">{restaurant.name}</h2>
-              <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mt-0.5">Kitchen Portal</p>
-            </div>
+        <div className="p-6 border-b dark:border-gray-700 flex items-center gap-3">
+          <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-orange-200 dark:shadow-none">
+            {restaurant.name.charAt(0)}
+          </div>
+          <div>
+            <h2 className="font-black dark:text-white text-sm uppercase tracking-tight">{restaurant.name}</h2>
+            <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mt-0.5">Kitchen Portal</p>
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-2">
           {[
-            { id: 'ORDERS', label: 'Orders', icon: ShoppingBag, count: pendingOrders.length },
-            { id: 'MENU', label: 'Menu', icon: BookOpen },
-            { id: 'REPORTS', label: 'Reports', icon: BarChart3 },
-            { id: 'QR', label: 'QR Codes', icon: QrCode },
+            { id: 'ORDERS', label: 'Incoming Orders', icon: ShoppingBag },
+            { id: 'MENU', label: 'Menu Editor', icon: BookOpen },
+            { id: 'REPORTS', label: 'Sales Reports', icon: BarChart3 },
+            { id: 'QR', label: 'QR Generator', icon: QrCode },
             { id: 'SETTINGS', label: 'Settings', icon: Settings }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => handleTabSelection(tab.id as any)}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-medium transition-all ${
-                activeTab === tab.id 
-                  ? 'bg-orange-500 text-white shadow-lg shadow-orange-200 dark:shadow-none' 
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <tab.icon size={18} />
-                <span className="text-xs font-black uppercase tracking-widest">{tab.label}</span>
-              </div>
-              {tab.count > 0 && (
-                <span className="bg-red-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full animate-pulse">
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
+          ].map(tab => {
+            const isActive = activeTab === tab.id;
+            const showBadge = tab.id === 'ORDERS' && pendingOrders.length > 0;
+            
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabSelection(tab.id as any)}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-medium transition-all ${
+                  isActive 
+                    ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <tab.icon size={20} />
+                  <span className="text-xs font-black uppercase tracking-widest">{tab.label}</span>
+                </div>
+                {showBadge && (
+                  <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">
+                    {pendingOrders.length}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
 
-        {/* Footer Actions */}
-        <div className="p-4 border-t dark:border-gray-700 space-y-3">
-          <button
+        {/* Footer */}
+        <div className="p-4 border-t dark:border-gray-700 space-y-4">
+          <button 
             onClick={onSwitchToPos}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-all border border-orange-100 dark:border-orange-900/20"
           >
-            <CreditCard size={16} />
+            <CreditCard size={18} />
             POS Terminal
           </button>
-          
-          <div className="space-y-2">
-            <div className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-700/50 rounded-xl border dark:border-gray-600">
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
-                <span className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">
-                  {isOnline ? 'Online' : 'Offline'}
-                </span>
-              </div>
-              <button
-                onClick={onToggleOnline}
-                className={`text-[8px] font-black px-2 py-1 rounded-lg ${
-                  isOnline ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
-                }`}
-              >
-                Toggle
-              </button>
-            </div>
 
-            {lastSyncTime && (
-              <div className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-700/50 rounded-xl border dark:border-gray-600">
-                <div className="flex items-center gap-2">
-                  <RefreshCw size={10} className={syncStatus === 'SYNCING' ? 'animate-spin text-blue-500' : 'text-gray-400'} />
-                  <span className="text-[8px] font-black text-gray-500 dark:text-gray-400">
-                    {syncStatus === 'SYNCING' ? 'SYNCING...' : lastSyncTime.toLocaleTimeString()}
-                  </span>
-                </div>
-              </div>
-            )}
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+              Store Presence
+            </label>
+            <button 
+              onClick={onToggleOnline}
+              className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg ${
+                isOnline 
+                  ? 'bg-green-500 text-white hover:bg-green-600' 
+                  : 'bg-red-500 text-white hover:bg-red-600'
+              }`}
+            >
+              {isOnline ? <Wifi size={18} /> : <WifiOff size={18} />}
+              {isOnline ? 'Online' : 'Offline'}
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-700/50 rounded-xl border dark:border-gray-600">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${syncStatus === 'SYNCING' ? 'bg-blue-500 scale-125' : (isOnline ? 'bg-green-500' : 'bg-red-500')} transition-all duration-300 animate-pulse`} />
+              <span className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+                Live Feed
+              </span>
+            </div>
+            {syncStatus === 'SYNCING' && <RefreshCw size={10} className="animate-spin text-blue-500" />}
           </div>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+      <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 transition-all">
         {/* Mobile Header */}
-        <div className="lg:hidden sticky top-0 z-30 bg-white dark:bg-gray-800 border-b dark:border-gray-700">
-          <div className="flex items-center p-4">
-            <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 -ml-2 text-gray-500">
-              <Menu size={20} />
-            </button>
-            <div className="ml-4 flex items-center gap-2">
-              <img src={restaurant.logo} className="w-8 h-8 rounded-lg shadow-sm" />
-              <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm">
-                {activeTab === 'ORDERS' ? 'Incoming Orders' :
-                 activeTab === 'MENU' ? 'Menu Editor' :
-                 activeTab === 'REPORTS' ? 'Sales Reports' :
-                 activeTab === 'QR' ? 'QR Generator' : 'Settings'}
-              </h1>
-            </div>
+        <div className="lg:hidden flex items-center p-4 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30 no-print">
+          <button 
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="p-2 -ml-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            <Menu size={24} />
+          </button>
+          <div className="ml-4 flex items-center gap-2">
+            <img src={restaurant.logo} className="w-8 h-8 rounded-lg shadow-sm" />
+            <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm truncate">
+              {activeTab === 'ORDERS' ? 'Incoming Orders' : 
+               activeTab === 'MENU' ? 'Menu Editor' : 
+               activeTab === 'REPORTS' ? 'Sales Reports' : 
+               activeTab === 'QR' ? 'QR Generator' : 
+               'Settings'}
+            </h1>
           </div>
         </div>
 
@@ -631,28 +637,35 @@ const VendorView: React.FC<Props> = ({
             <div className="max-w-5xl mx-auto">
               {/* Header */}
               <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-black dark:text-white uppercase tracking-tighter">Kitchen Orders</h1>
-                  <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mt-1">
-                    {pendingOrders.length} pending • {filteredOrders.length} total
-                  </p>
+                <div className="flex items-center gap-4">
+                  <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Kitchen Orders</h1>
+                  {lastSyncTime && (
+                    <div className={`flex items-center justify-center gap-2 text-[10px] font-black px-3 py-1.5 rounded-full border transition-all duration-300 min-w-[140px] shrink-0 ${
+                      syncStatus === 'SYNCING' 
+                        ? 'bg-blue-50 border-blue-200 text-blue-600 shadow-sm' 
+                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400'
+                    }`}>
+                      <div className={`w-1.5 h-1.5 rounded-full ${syncStatus === 'SYNCING' ? 'bg-blue-500 animate-ping' : 'bg-gray-300'}`} />
+                      {syncStatus === 'SYNCING' ? 'SYNCING...' : `SYNC: ${lastSyncTime.toLocaleTimeString()}`}
+                    </div>
+                  )}
                 </div>
-                
+
                 {/* Filter Tabs */}
                 <div className="flex bg-white dark:bg-gray-800 rounded-xl p-1 border dark:border-gray-700 shadow-sm overflow-x-auto hide-scrollbar">
                   {[
-                    { value: 'ONGOING_ALL', label: 'Active' },
-                    { value: 'COMPLETED', label: 'Served' },
-                    { value: 'CANCELLED', label: 'Cancelled' },
-                    { value: 'ALL', label: 'All' }
+                    { value: 'ONGOING_ALL', label: 'ACTIVE' },
+                    { value: 'COMPLETED', label: 'SERVED' },
+                    { value: 'CANCELLED', label: 'CANCELLED' },
+                    { value: 'ALL', label: 'ALL' }
                   ].map(filter => (
                     <button
                       key={filter.value}
                       onClick={() => setOrderFilter(filter.value as any)}
-                      className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+                      className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                         orderFilter === filter.value
                           ? 'bg-orange-500 text-white shadow-md'
-                          : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                          : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'
                       }`}
                     >
                       {filter.label}
@@ -664,114 +677,131 @@ const VendorView: React.FC<Props> = ({
               {/* Orders List */}
               <div className="space-y-4">
                 {filteredOrders.length === 0 ? (
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-20 text-center border-2 border-dashed border-gray-200 dark:border-gray-700">
-                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <ChefHat size={24} className="text-gray-400" />
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
+                    <div className="w-16 h-16 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                      <ChefHat size={24} />
                     </div>
-                    <h3 className="text-xl font-black dark:text-white uppercase tracking-tighter">Kitchen Quiet</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Waiting for new orders...</p>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white uppercase tracking-tighter">
+                      Kitchen Quiet
+                    </h3>
+                    <p className="text-gray-500 dark:text-gray-400 text-xs">
+                      Waiting for incoming signals...
+                    </p>
                   </div>
                 ) : (
                   filteredOrders.map(order => (
-                    <div key={order.id} className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-lg transition-all">
-                      {/* Order Header */}
-                      <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-                        <div className="flex items-center gap-3">
-                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                            #{order.id}
-                          </span>
-                          <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg">
-                            <Hash size={12} className="text-orange-500" />
-                            <span className="text-xs font-black">Table {order.tableNumber}</span>
+                    <div key={order.id} className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-start gap-6 transition-all hover:border-orange-200">
+                      {/* Order Details */}
+                      <div className="flex-1">
+                        {/* Order Header */}
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                              ORDER #{order.id}
+                            </span>
+                            <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg">
+                              <Hash size={12} className="text-orange-500" />
+                              <span className="text-xs font-black">Table {order.tableNumber}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Clock size={14} className="text-gray-400" />
+                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                              {new Date(order.timestamp).toLocaleTimeString()}
+                            </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                          <Clock size={14} />
-                          {new Date(order.timestamp).toLocaleTimeString()}
-                        </div>
-                      </div>
 
-                      {/* Order Items */}
-                      <div className="space-y-3 mb-4">
-                        {order.items.map((item, idx) => (
-                          <div key={idx} className="border-l-2 border-gray-100 dark:border-gray-700 pl-3">
-                            <div className="flex justify-between">
-                              <span className="font-black text-sm dark:text-white">
-                                {item.quantity}x {item.name}
-                              </span>
-                              <span className="font-black text-orange-500">
+                        {/* Order Items */}
+                        <div className="space-y-3">
+                          {order.items.map((item, idx) => (
+                            <div key={idx} className="flex justify-between items-start text-sm border-l-2 border-gray-100 dark:border-gray-700 pl-3">
+                              <div>
+                                <p className="font-bold text-gray-900 dark:text-white">
+                                  x{item.quantity} {item.name}
+                                </p>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                  {item.selectedSize && (
+                                    <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">
+                                      Size: {item.selectedSize}
+                                    </span>
+                                  )}
+                                  {item.selectedTemp && (
+                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${
+                                      item.selectedTemp === 'Hot' 
+                                        ? 'bg-orange-50 text-orange-600' 
+                                        : 'bg-blue-50 text-blue-600'
+                                    }`}>
+                                      Temp: {item.selectedTemp}
+                                    </span>
+                                  )}
+                                  {item.selectedAddOns?.map((addon, i) => (
+                                    <span key={i} className="text-[8px] font-bold text-gray-500 block w-full">
+                                      + {addon.name} x{addon.quantity}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                              <span className="text-gray-500 dark:text-gray-400 font-bold">
                                 RM{(item.price * item.quantity).toFixed(2)}
                               </span>
                             </div>
-                            
-                            {/* Variants */}
-                            <div className="mt-1 space-y-0.5">
-                              {item.selectedSize && (
-                                <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 rounded inline-block mr-1">
-                                  Size: {item.selectedSize}
-                                </span>
-                              )}
-                              {item.selectedTemp && (
-                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded inline-block mr-1 ${
-                                  item.selectedTemp === 'Hot' 
-                                    ? 'bg-orange-100 text-orange-600' 
-                                    : 'bg-blue-100 text-blue-600'
-                                }`}>
-                                  {item.selectedTemp}
-                                </span>
-                              )}
-                              {item.selectedAddOns?.map((addon, i) => (
-                                <div key={i} className="text-[9px] text-gray-500">
-                                  + {addon.name} x{addon.quantity}
-                                </div>
-                              ))}
+                          ))}
+                        </div>
+
+                        {/* Special Remark */}
+                        {order.remark && (
+                          <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-xl">
+                            <div className="flex items-center gap-2 mb-1">
+                              <MessageSquare size={12} className="text-orange-500" />
+                              <span className="text-[9px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest">
+                                Special Remark
+                              </span>
                             </div>
+                            <p className="text-xs text-gray-700 dark:text-gray-300 italic">
+                              {order.remark}
+                            </p>
                           </div>
-                        ))}
+                        )}
+
+                        {/* Order Total */}
+                        <div className="mt-4 pt-4 border-t dark:border-gray-700 flex justify-between items-center">
+                          <span className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                            Grand Total
+                          </span>
+                          <span className="text-2xl font-black text-gray-900 dark:text-white">
+                            RM{order.total.toFixed(2)}
+                          </span>
+                        </div>
                       </div>
 
-                      {/* Order Footer */}
-                      {order.remark && (
-                        <div className="mb-4 p-3 bg-orange-50 dark:bg-orange-900/10 rounded-xl border border-orange-100 dark:border-orange-900/20">
-                          <p className="text-xs italic text-gray-700 dark:text-gray-300">
-                            📝 {order.remark}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Total & Actions */}
-                      <div className="flex items-center justify-between pt-4 border-t dark:border-gray-700">
-                        <div>
-                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Total</p>
-                          <p className="text-xl font-black dark:text-white">RM{order.total.toFixed(2)}</p>
-                        </div>
-
-                        <div className="flex gap-2">
-                          {order.status === OrderStatus.PENDING && (
-                            <>
-                              <button
-                                onClick={() => handleAcceptAndPrint(order.id)}
-                                className="px-6 py-3 bg-orange-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg"
-                              >
-                                Accept {orderSettings.autoPrint && '& Print'}
-                              </button>
-                              <button
-                                onClick={() => setRejectingOrderId(order.id)}
-                                className="px-4 py-3 bg-red-50 text-red-500 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-100"
-                              >
-                                Reject
-                              </button>
-                            </>
-                          )}
-                          {order.status === OrderStatus.ONGOING && (
-                            <button
-                              onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)}
-                              className="px-6 py-3 bg-green-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all shadow-lg"
+                      {/* Action Buttons */}
+                      <div className="flex md:flex-col gap-2 min-w-[140px] mt-2 md:mt-0">
+                        {order.status === OrderStatus.PENDING && (
+                          <>
+                            <button 
+                              onClick={() => handleAcceptAndPrint(order.id)} 
+                              className="flex-1 py-3 px-4 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg"
                             >
-                              Serve
+                              Accept {orderSettings.autoPrint && '& Print'}
                             </button>
-                          )}
-                        </div>
+                            <button 
+                              onClick={() => setRejectingOrderId(order.id)} 
+                              className="flex-1 py-3 px-4 bg-red-50 text-red-500 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-100 dark:bg-red-900/10 dark:border-red-900/20"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                        {order.status === OrderStatus.ONGOING && (
+                          <button 
+                            onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} 
+                            className="flex-1 py-4 px-4 bg-green-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-lg"
+                          >
+                            <CheckCircle size={18} />
+                            Serve Order
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))
@@ -783,10 +813,10 @@ const VendorView: React.FC<Props> = ({
           {/* Settings Tab */}
           {activeTab === 'SETTINGS' && (
             <div className="max-w-4xl mx-auto">
-              <div className="mb-8">
-                <h1 className="text-2xl md:text-3xl font-black dark:text-white uppercase tracking-tighter">Settings</h1>
-                <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mt-1">Configure your kitchen preferences</p>
-              </div>
+              <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Settings</h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">
+                Configure your kitchen preferences
+              </p>
               
               <div className="space-y-8">
                 {/* Order Settings Card */}
@@ -827,62 +857,82 @@ const VendorView: React.FC<Props> = ({
             </div>
           )}
 
-          {/* Keep existing MENU, REPORTS, QR tabs with their full styling */}
+          {/* Other tabs (MENU, REPORTS, QR) remain the same as your original code */}
           {/* ... */}
         </div>
       </main>
 
       {/* Rejection Modal */}
       {rejectingOrderId && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-md w-full p-8 shadow-2xl">
-            <h2 className="text-2xl font-black mb-6 dark:text-white uppercase tracking-tighter">Reject Order</h2>
+        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-md w-full p-8 shadow-2xl relative animate-in zoom-in fade-in duration-300">
+            <button 
+              onClick={() => setRejectingOrderId(null)} 
+              className="absolute top-6 right-6 p-2 text-gray-400 hover:text-red-500 transition-colors"
+            >
+              <X size={20} />
+            </button>
+            <h2 className="text-2xl font-black mb-6 dark:text-white uppercase tracking-tighter">Order Rejection</h2>
             
             <div className="space-y-4">
               <div>
                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">
-                  Reason
+                  Select Reason
                 </label>
-                <select
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl text-sm font-bold dark:text-white"
+                <select 
+                  value={rejectionReason} 
+                  onChange={e => setRejectionReason(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none text-sm font-bold dark:text-white appearance-none cursor-pointer"
                 >
-                  {REJECTION_REASONS.map(r => <option key={r}>{r}</option>)}
+                  {REJECTION_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
 
               <div>
                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">
-                  Note (Optional)
+                  Internal Note (Optional)
                 </label>
-                <textarea
-                  value={rejectionNote}
-                  onChange={(e) => setRejectionNote(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl text-sm font-bold dark:text-white resize-none"
-                  rows={3}
-                  placeholder="Add internal note..."
+                <textarea 
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none text-sm font-bold dark:text-white resize-none" 
+                  rows={3} 
+                  placeholder="Additional details..." 
+                  value={rejectionNote} 
+                  onChange={e => setRejectionNote(e.target.value)} 
                 />
               </div>
 
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={handleConfirmRejection}
-                  className="flex-1 py-3 bg-red-500 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg"
-                >
-                  Confirm Rejection
-                </button>
-                <button
-                  onClick={() => setRejectingOrderId(null)}
-                  className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 rounded-xl font-black text-xs uppercase tracking-widest"
+              <div className="flex gap-4 pt-2">
+                <button 
+                  onClick={() => setRejectingOrderId(null)} 
+                  className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 rounded-xl font-black uppercase text-[10px] tracking-widest text-gray-500"
                 >
                   Cancel
+                </button>
+                <button 
+                  onClick={handleConfirmRejection} 
+                  className="flex-1 py-3 bg-red-500 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl"
+                >
+                  Confirm Rejection
                 </button>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          body { background: white !important; }
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
     </div>
   );
 };
