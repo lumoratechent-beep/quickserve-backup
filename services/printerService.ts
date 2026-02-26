@@ -13,6 +13,8 @@ class PrinterService {
   private service: BluetoothRemoteGATTService | null = null;
   private characteristic: BluetoothRemoteGATTCharacteristic | null = null;
   private encoder: EscPosEncoder;
+  private reconnectAttempts: number = 0;
+  private maxReconnectAttempts: number = 3;
 
   constructor() {
     this.encoder = new EscPosEncoder();
@@ -22,7 +24,7 @@ class PrinterService {
     try {
       const device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
-        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
+        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '00001800-0000-1000-8000-00805f9b34fb']
       });
 
       return [{
@@ -37,9 +39,14 @@ class PrinterService {
 
   async connect(deviceName: string): Promise<boolean> {
     try {
+      // If already connected, return true
+      if (this.isConnected()) {
+        return true;
+      }
+
       this.device = await navigator.bluetooth.requestDevice({
         filters: [{ name: deviceName }],
-        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
+        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '00001800-0000-1000-8000-00805f9b34fb']
       });
 
       const server = await this.device.gatt?.connect();
@@ -48,8 +55,13 @@ class PrinterService {
       }
       this.server = server;
 
-      const service = await this.server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
-      this.service = service;
+      // Try to get the service
+      try {
+        this.service = await this.server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+      } catch (e) {
+        // Try alternative service
+        this.service = await this.server.getPrimaryService('00001800-0000-1000-8000-00805f9b34fb');
+      }
       
       const characteristics = await this.service.getCharacteristics();
       
@@ -65,23 +77,25 @@ class PrinterService {
       }
 
       this.device.addEventListener('gattserverdisconnected', this.handleDisconnect.bind(this));
+      this.reconnectAttempts = 0;
 
       return true;
     } catch (error) {
       console.error('Connection error:', error);
-      this.device = null;
-      this.server = null;
-      this.service = null;
-      this.characteristic = null;
+      this.cleanup();
       return false;
     }
   }
 
   private handleDisconnect() {
+    console.log('Printer disconnected');
+    this.cleanup();
+  }
+
+  private cleanup() {
     this.server = null;
     this.service = null;
     this.characteristic = null;
-    console.log('Printer disconnected');
   }
 
   isConnected(): boolean {
@@ -97,9 +111,7 @@ class PrinterService {
       }
     }
     this.device = null;
-    this.server = null;
-    this.service = null;
-    this.characteristic = null;
+    this.cleanup();
   }
 
   async printTestPage(): Promise<boolean> {
@@ -129,96 +141,125 @@ class PrinterService {
   }
 
   async printReceipt(order: any, restaurant: any): Promise<boolean> {
-    try {
-      if (!this.characteristic) {
-        console.error('Print error: No characteristic found');
-        throw new Error('Printer not connected');
-      }
+    let attempts = 0;
+    
+    while (attempts < this.maxReconnectAttempts) {
+      try {
+        if (!this.characteristic || !this.isConnected()) {
+          console.log(`Printer not connected, attempt ${attempts + 1} to reconnect...`);
+          
+          if (!this.device) {
+            throw new Error('No printer device found');
+          }
+          
+          // Try to reconnect
+          const server = await this.device.gatt?.connect();
+          if (!server) {
+            throw new Error('Failed to reconnect');
+          }
+          this.server = server;
+          
+          try {
+            this.service = await this.server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+          } catch (e) {
+            this.service = await this.server.getPrimaryService('00001800-0000-1000-8000-00805f9b34fb');
+          }
+          
+          const characteristics = await this.service.getCharacteristics();
+          
+          for (const char of characteristics) {
+            if (char.properties.write || char.properties.writeWithoutResponse) {
+              this.characteristic = char;
+              break;
+            }
+          }
+        }
 
-      console.log('Starting to print receipt for order:', order.id);
-      console.log('Restaurant:', restaurant.name);
+        if (!this.characteristic) {
+          throw new Error('No writable characteristic found');
+        }
 
-      // Format date and time
-      const orderDate = new Date(order.timestamp);
-      const dateStr = orderDate.toLocaleDateString();
-      const timeStr = orderDate.toLocaleTimeString();
+        // Format date and time
+        const orderDate = new Date(order.timestamp);
+        const dateStr = orderDate.toLocaleDateString();
+        const timeStr = orderDate.toLocaleTimeString();
 
-      // Build receipt data with better formatting
-      let data = this.encoder
-        .initialize()
-        .align('center')
-        .size(2, 2)
-        .line(restaurant.name)
-        .size(1, 1)
-        .line('='.repeat(32))
-        .line(`Order: ${order.id}`)
-        .line(`Table: ${order.tableNumber}`)
-        .line(`Date: ${dateStr}`)
-        .line(`Time: ${timeStr}`)
-        .line('='.repeat(32))
-        .align('left');
-
-      // Items with proper formatting
-      order.items.forEach((item: any) => {
-        const itemTotal = (item.price * item.quantity).toFixed(2);
-        
-        // Item name and quantity on same line, price aligned right
-        data = data
-          .text(`${item.name} x${item.quantity}`)
-          .align('right')
-          .text(`RM ${itemTotal}`)
+        // Build receipt data
+        let data = this.encoder
+          .initialize()
+          .align('center')
+          .size(2, 2)
+          .line(restaurant.name)
+          .size(1, 1)
+          .line('='.repeat(32))
+          .line(`Order: ${order.id}`)
+          .line(`Table: ${order.tableNumber}`)
+          .line(`Date: ${dateStr}`)
+          .line(`Time: ${timeStr}`)
+          .line('='.repeat(32))
           .align('left');
 
-        // Variants indented
-        if (item.selectedSize) {
-          data = data.text(`  - Size: ${item.selectedSize}`);
-        }
-        if (item.selectedTemp) {
-          data = data.text(`  - ${item.selectedTemp}`);
-        }
-        if (item.selectedOtherVariant) {
-          data = data.text(`  - ${item.selectedOtherVariant}`);
-        }
+        // Items
+        order.items.forEach((item: any) => {
+          const itemTotal = (item.price * item.quantity).toFixed(2);
+          
+          data = data
+            .text(`${item.name} x${item.quantity}`)
+            .align('right')
+            .text(`RM ${itemTotal}`)
+            .align('left');
 
-        // Add-ons indented further
-        if (item.selectedAddOns && item.selectedAddOns.length > 0) {
-          item.selectedAddOns.forEach((addon: any) => {
-            const addonTotal = (addon.price * addon.quantity).toFixed(2);
-            data = data.text(`    + ${addon.name} x${addon.quantity} RM ${addonTotal}`);
-          });
-        }
+          if (item.selectedSize) {
+            data = data.text(`  - Size: ${item.selectedSize}`);
+          }
+          if (item.selectedTemp) {
+            data = data.text(`  - ${item.selectedTemp}`);
+          }
+          if (item.selectedOtherVariant) {
+            data = data.text(`  - ${item.selectedOtherVariant}`);
+          }
+
+          if (item.selectedAddOns && item.selectedAddOns.length > 0) {
+            item.selectedAddOns.forEach((addon: any) => {
+              const addonTotal = (addon.price * addon.quantity).toFixed(2);
+              data = data.text(`    + ${addon.name} x${addon.quantity} RM ${addonTotal}`);
+            });
+          }
+          
+          data = data.newline();
+        });
+
+        data = data
+          .line('-'.repeat(32))
+          .align('right')
+          .size(1, 1)
+          .line(`TOTAL: RM ${order.total.toFixed(2)}`)
+          .align('center')
+          .size(1, 1)
+          .line('='.repeat(32))
+          .line('Thank you!')
+          .line('Please come again')
+          .newline()
+          .newline()
+          .cut()
+          .encode();
+
+        await this.characteristic.writeValue(data);
+        return true;
         
-        // Empty line between items for readability
-        data = data.newline();
-      });
-
-      // Total with proper formatting
-      data = data
-        .line('-'.repeat(32))
-        .align('right')
-        .size(1, 1)
-        .line(`TOTAL: RM ${order.total.toFixed(2)}`)
-        .align('center')
-        .size(1, 1)
-        .line('='.repeat(32))
-        .line('Thank you!')
-        .line('Please come again')
-        .newline() // Add space before cut
-        .newline() // Extra space to separate orders
-        .cut()
-        .encode();
-
-      console.log('Receipt data built, size:', data.length, 'bytes');
-      console.log('Sending to printer...');
-      
-      await this.characteristic.writeValue(data);
-      
-      console.log('Receipt sent successfully');
-      return true;
-    } catch (error) {
-      console.error('Print error details:', error);
-      return false;
+      } catch (error) {
+        console.error(`Print attempt ${attempts + 1} failed:`, error);
+        attempts++;
+        this.cleanup();
+        
+        if (attempts < this.maxReconnectAttempts) {
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
     }
+    
+    return false;
   }
 }
 
