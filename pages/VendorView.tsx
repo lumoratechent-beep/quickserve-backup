@@ -73,6 +73,7 @@ const VendorView: React.FC<Props> = ({
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'IDLE' | 'SYNCING'>('IDLE');
+  const [printingOrderId, setPrintingOrderId] = useState<string | null>(null);
   
   // Menu Sub-Tabs
   const [menuSubTab, setMenuSubTab] = useState<'KITCHEN' | 'CATEGORY' | 'MODIFIER'>('KITCHEN');
@@ -727,15 +728,6 @@ const VendorView: React.FC<Props> = ({
       .eq('id', restaurant.id);
   };
 
-  const printOrder = async (order: Order) => {
-    if (!connectedDevice || !orderSettings.autoPrint) return;
-    
-    const success = await printerService.printReceipt(order, restaurant);
-    if (!success) {
-      console.error('Failed to print order');
-    }
-  };
-
   const printTestPage = async () => {
     if (!connectedDevice) return;
     
@@ -753,55 +745,102 @@ const VendorView: React.FC<Props> = ({
     }
   };
 
+  const handleAcceptAndPrint = async (orderId: string) => {
+    // First update the order status
+    await onUpdateOrder(orderId, OrderStatus.ONGOING);
+    const order = orders.find(o => o.id === orderId);
+    
+    // Check if auto-print is enabled
+    if (order && orderSettings.autoPrint) {
+      if (!connectedDevice) {
+        console.error('No printer connected');
+        alert('Printer is not connected. Please connect a printer in Settings.');
+        return;
+      }
 
+      let printSuccess = false;
+      let attempts = 0;
+      const maxAttempts = 2;
 
-const handleAcceptAndPrint = async (orderId: string) => {
-  // First update the order status
-  await onUpdateOrder(orderId, OrderStatus.ONGOING);
-  const order = orders.find(o => o.id === orderId);
-  
-  // Check if auto-print is enabled and we have a connected device
-  if (order && orderSettings.autoPrint) {
+      while (!printSuccess && attempts < maxAttempts) {
+        try {
+          attempts++;
+          console.log(`Print attempt ${attempts} for order: ${order.id}`);
+
+          // Check if printer is still connected
+          if (!printerService.isConnected()) {
+            console.log('Printer disconnected, attempting to reconnect...');
+            
+            // Try to reconnect using the saved device name
+            const reconnectSuccess = await printerService.connect(connectedDevice.name);
+            
+            if (!reconnectSuccess) {
+              console.error('Failed to reconnect to printer');
+              if (attempts === maxAttempts) {
+                alert('Failed to reconnect to printer. Please check the printer connection.');
+              }
+              continue;
+            }
+            
+            console.log('Reconnected to printer successfully');
+          }
+          
+          // Now print the order
+          console.log('Printing order:', order.id);
+          printSuccess = await printerService.printReceipt(order, restaurant);
+          
+          if (printSuccess) {
+            console.log('Order printed successfully');
+          } else {
+            console.error('Print attempt failed');
+            // Force disconnect to trigger fresh connection next attempt
+            await printerService.disconnect();
+          }
+          
+        } catch (error) {
+          console.error(`Error during print attempt ${attempts}:`, error);
+          // Force disconnect to trigger fresh connection next attempt
+          await printerService.disconnect();
+        }
+      }
+
+      if (!printSuccess) {
+        alert('Order accepted but failed to print after multiple attempts. Please check printer connection and try printing manually.');
+      }
+    }
+  };
+
+  const handleManualPrint = async (order: Order) => {
     if (!connectedDevice) {
-      console.error('No printer connected');
-      alert('Printer is not connected. Please connect a printer in Settings.');
+      alert('No printer connected. Please connect a printer in Settings.');
       return;
     }
 
+    setPrintingOrderId(order.id);
     try {
-      // Check if printer is still connected
-      if (!printerService.isConnected()) {
-        console.log('Printer disconnected, attempting to reconnect...');
-        
-        // Try to reconnect using the saved device name
-        const success = await printerService.connect(connectedDevice.name);
-        
-        if (!success) {
-          console.error('Failed to reconnect to printer');
-          alert('Failed to reconnect to printer. Please check the printer connection.');
-          return;
-        }
-        
-        console.log('Reconnected to printer successfully');
+      // Force a fresh connection
+      await printerService.disconnect();
+      const connected = await printerService.connect(connectedDevice.name);
+      
+      if (!connected) {
+        alert('Failed to connect to printer. Please check printer connection.');
+        return;
       }
       
-      // Now print the order
-      console.log('Printing order:', order.id);
-      const printSuccess = await printerService.printReceipt(order, restaurant);
+      const success = await printerService.printReceipt(order, restaurant);
       
-      if (printSuccess) {
-        console.log('Order printed successfully');
+      if (success) {
+        alert('Order printed successfully!');
       } else {
-        console.error('Failed to print order');
-        alert('Order accepted but failed to print. Please check printer connection.');
+        alert('Failed to print. Please try again.');
       }
-      
     } catch (error) {
-      console.error('Error during print process:', error);
-      alert('Error occurred while printing. Please check printer connection.');
+      console.error('Manual print error:', error);
+      alert('Error occurred while printing.');
+    } finally {
+      setPrintingOrderId(null);
     }
-  }
-};
+  };
 
   const toggleOrderSetting = (key: keyof OrderSettings) => {
     setOrderSettings(prev => ({
@@ -1096,11 +1135,32 @@ const handleAcceptAndPrint = async (orderId: string) => {
                             >
                               Accept {orderSettings.autoPrint && '& Print'}
                             </button>
-                            <button onClick={() => setRejectingOrderId(order.id)} className="flex-1 py-3 px-4 bg-red-50 text-red-500 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-100 dark:bg-red-900/10 dark:border-red-900/20">Reject</button>
+                            
+                            {/* Manual Print Button */}
+                            {connectedDevice && (
+                              <button 
+                                onClick={() => handleManualPrint(order)}
+                                disabled={printingOrderId === order.id}
+                                className="flex-1 py-3 px-4 bg-gray-600 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-gray-700 transition-all shadow-lg disabled:opacity-50"
+                              >
+                                {printingOrderId === order.id ? 'Printing...' : 'Print Only'}
+                              </button>
+                            )}
+                            
+                            <button 
+                              onClick={() => setRejectingOrderId(order.id)} 
+                              className="flex-1 py-3 px-4 bg-red-50 text-red-500 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-100"
+                            >
+                              Reject
+                            </button>
                           </>
                         )}
+                        
                         {order.status === OrderStatus.ONGOING && (
-                          <button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className="flex-1 py-4 px-4 bg-green-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-lg">
+                          <button 
+                            onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} 
+                            className="flex-1 py-4 px-4 bg-green-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-lg"
+                          >
                             <CheckCircle size={18} />
                             Serve Order
                           </button>
