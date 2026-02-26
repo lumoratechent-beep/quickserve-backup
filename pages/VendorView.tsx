@@ -8,7 +8,7 @@ import {
   RefreshCw, Layers, Tag, Wifi, WifiOff, QrCode, Printer, ExternalLink, ThermometerSun, 
   Info, Settings2, Menu, ToggleLeft, ToggleRight, Link, Search, ChevronFirst, ChevronLast, 
   Receipt, CreditCard, PlusCircle, Settings, Bluetooth, BluetoothConnected, AlertCircle,
-  CheckCircle2, BellRing, PrinterIcon, Coffee, Utensils
+  CheckCircle2, BellRing, PrinterIcon, Coffee, Utensils, Grid
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import printerService, { PrinterDevice } from '../services/printerService';
@@ -26,8 +26,6 @@ interface Props {
   onFetchAllFilteredOrders?: (filters: ReportFilters) => Promise<Order[]>;
   onSwitchToPos?: () => void;
 }
-
-// Remove the local PrinterDevice interface - we're importing it from printerService
 
 interface OrderSettings {
   autoAccept: boolean;
@@ -96,7 +94,8 @@ const VendorView: React.FC<Props> = ({
   const [modifierViewMode, setModifierViewMode] = useState<'grid' | 'list'>('list');
   const [editingModifier, setEditingModifier] = useState<string | null>(null);
   const [editingModifierOptions, setEditingModifierOptions] = useState<string | null>(null);
-  const [modifierOptions, setModifierOptions] = useState<ModifierOption[]>([]);
+  const [tempModifierOptions, setTempModifierOptions] = useState<ModifierOption[]>([]);
+  const [tempModifierName, setTempModifierName] = useState('');
 
   // QR State
   const [qrMode, setQrMode] = useState<'SINGLE' | 'BATCH'>('SINGLE');
@@ -582,56 +581,66 @@ const VendorView: React.FC<Props> = ({
 
   // Modifier Handlers
   const handleAddModifier = () => {
-    if (!newModifierName.trim()) return;
-    if (modifiers.some(m => m.name === newModifierName.trim())) {
-      alert("Modifier already exists.");
-      return;
-    }
-    setModifiers(prev => [...prev, { name: newModifierName.trim(), options: [] }]);
-    setNewModifierName('');
-    setShowAddModifierModal(false);
+    setShowAddModifierModal(true);
+    setTempModifierName('');
+    setTempModifierOptions([]);
   };
 
-  const handleAddModifierOption = (modifierName: string) => {
-    setModifiers(prev => prev.map(m => 
-      m.name === modifierName 
-        ? { ...m, options: [...m.options, { name: '', price: 0 }] }
-        : m
-    ));
-  };
-
-  const handleRemoveModifierOption = (modifierName: string, index: number) => {
-    setModifiers(prev => prev.map(m => 
-      m.name === modifierName 
-        ? { ...m, options: m.options.filter((_, i) => i !== index) }
-        : m
-    ));
-  };
-
-  const handleModifierOptionChange = (modifierName: string, index: number, field: keyof ModifierOption, value: string | number) => {
-    setModifiers(prev => prev.map(m => 
-      m.name === modifierName 
-        ? {
-            ...m,
-            options: m.options.map((opt, i) => 
-              i === index ? { ...opt, [field]: value } : opt
-            )
-          }
-        : m
-    ));
-  };
-
-  const handleRenameModifier = (oldName: string, newName: string) => {
-    if (!newName.trim() || oldName === newName) {
-      setEditingModifier(null);
+  const handleSaveModifier = () => {
+    if (!tempModifierName.trim()) {
+      alert("Please enter a modifier name");
       return;
     }
     
-    setModifiers(prev => prev.map(m => 
-      m.name === oldName ? { ...m, name: newName } : m
-    ));
+    // Filter out empty options
+    const validOptions = tempModifierOptions.filter(opt => opt.name.trim() !== '');
+    
+    setModifiers(prev => [...prev, { 
+      name: tempModifierName.trim(), 
+      options: validOptions 
+    }]);
+    
+    setShowAddModifierModal(false);
+    setTempModifierName('');
+    setTempModifierOptions([]);
+  };
 
+  const handleAddModifierOption = () => {
+    setTempModifierOptions([...tempModifierOptions, { name: '', price: 0 }]);
+  };
+
+  const handleRemoveModifierOption = (index: number) => {
+    setTempModifierOptions(tempModifierOptions.filter((_, i) => i !== index));
+  };
+
+  const handleModifierOptionChange = (index: number, field: keyof ModifierOption, value: string | number) => {
+    const updated = [...tempModifierOptions];
+    updated[index] = { ...updated[index], [field]: value };
+    setTempModifierOptions(updated);
+  };
+
+  const handleEditModifier = (modifier: ModifierData) => {
+    setEditingModifier(modifier.name);
+    setTempModifierName(modifier.name);
+    setTempModifierOptions([...modifier.options]);
+    setShowAddModifierModal(true);
+  };
+
+  const handleUpdateModifier = () => {
+    if (!tempModifierName.trim() || !editingModifier) return;
+    
+    const validOptions = tempModifierOptions.filter(opt => opt.name.trim() !== '');
+    
+    setModifiers(prev => prev.map(m => 
+      m.name === editingModifier 
+        ? { name: tempModifierName.trim(), options: validOptions }
+        : m
+    ));
+    
+    setShowAddModifierModal(false);
     setEditingModifier(null);
+    setTempModifierName('');
+    setTempModifierOptions([]);
   };
 
   const handleRemoveModifier = (name: string) => {
@@ -883,12 +892,12 @@ const VendorView: React.FC<Props> = ({
               <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Generate ordering labels for your tables at {restaurant.location}.</p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl border dark:border-gray-700 shadow-sm space-y-6">
+                <div className="bg-white dark:bg-gray-800 p-8 rounded-xl border dark:border-gray-700 shadow-sm space-y-6">
                   <div>
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Generation Mode</label>
-                    <div className="flex bg-gray-50 dark:bg-gray-700 p-1 rounded-xl">
-                      <button onClick={() => setQrMode('SINGLE')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${qrMode === 'SINGLE' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}>Single Table</button>
-                      <button onClick={() => setQrMode('BATCH')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${qrMode === 'BATCH' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}>Batch Range</button>
+                    <div className="flex bg-gray-50 dark:bg-gray-700 p-1 rounded-lg">
+                      <button onClick={() => setQrMode('SINGLE')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${qrMode === 'SINGLE' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-400'}`}>Single Table</button>
+                      <button onClick={() => setQrMode('BATCH')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${qrMode === 'BATCH' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-400'}`}>Batch Range</button>
                     </div>
                   </div>
 
@@ -897,23 +906,23 @@ const VendorView: React.FC<Props> = ({
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Table Number</label>
                       <div className="relative">
                         <Hash size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input type="text" className="w-full pl-11 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none text-sm font-bold dark:text-white" value={qrTableNo} onChange={e => setQrTableNo(e.target.value)} />
+                        <input type="text" className="w-full pl-11 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-sm font-bold dark:text-white" value={qrTableNo} onChange={e => setQrTableNo(e.target.value)} />
                       </div>
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">From</label>
-                        <input type="number" className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none text-sm font-bold dark:text-white" value={qrStartRange} onChange={e => setQrStartRange(e.target.value)} />
+                        <input type="number" className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-sm font-bold dark:text-white" value={qrStartRange} onChange={e => setQrStartRange(e.target.value)} />
                       </div>
                       <div className="space-y-1">
                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">To</label>
-                        <input type="number" className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none text-sm font-bold dark:text-white" value={qrEndRange} onChange={e => setQrEndRange(e.target.value)} />
+                        <input type="number" className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-sm font-bold dark:text-white" value={qrEndRange} onChange={e => setQrEndRange(e.target.value)} />
                       </div>
                     </div>
                   )}
 
-                  <div className="p-4 bg-orange-50 dark:bg-orange-900/10 rounded-2xl border border-orange-100 dark:border-orange-900/20">
+                  <div className="p-4 bg-orange-50 dark:bg-orange-900/10 rounded-lg border border-orange-100 dark:border-orange-900/20">
                     <div className="flex items-center gap-2 mb-2">
                       <ExternalLink size={14} className="text-orange-500" />
                       <span className="text-[10px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest">Target Link</span>
@@ -923,15 +932,15 @@ const VendorView: React.FC<Props> = ({
                     </p>
                   </div>
 
-                  <button onClick={handlePrintQr} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-2 hover:bg-orange-600 transition-all">
+                  <button onClick={handlePrintQr} className="w-full py-4 bg-orange-500 text-white rounded-lg font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-2 hover:bg-orange-600 transition-all">
                     <Printer size={18} /> Print Labels
                   </button>
                 </div>
 
-                <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl border dark:border-gray-700 shadow-sm flex flex-col items-center justify-center text-center">
+                <div className="bg-white dark:bg-gray-800 p-8 rounded-xl border dark:border-gray-700 shadow-sm flex flex-col items-center justify-center text-center">
                    {qrMode === 'SINGLE' ? (
                      <>
-                       <div className="p-6 bg-white rounded-3xl shadow-xl border border-gray-100 mb-6">
+                       <div className="p-6 bg-white rounded-xl shadow-xl border border-gray-100 mb-6">
                           <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(getQrUrl(restaurant.location, qrTableNo))}`} alt="QR Code" className="w-48 h-48" />
                        </div>
                        <p className="font-black text-lg dark:text-white uppercase tracking-tighter">{restaurant.name}</p>
@@ -968,7 +977,7 @@ const VendorView: React.FC<Props> = ({
                     </div>
                   )}
                 </div>
-                <div className="flex bg-white dark:bg-gray-800 rounded-xl p-1 border dark:border-gray-700 shadow-sm overflow-x-auto hide-scrollbar">
+                <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm overflow-x-auto hide-scrollbar">
                   <button onClick={() => setOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${orderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>ONGOING</button>
                   <button onClick={() => setOrderFilter(OrderStatus.COMPLETED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${orderFilter === OrderStatus.COMPLETED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>SERVED</button>
                   <button onClick={() => setOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${orderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>CANCELLED</button>
@@ -978,7 +987,7 @@ const VendorView: React.FC<Props> = ({
 
               <div className="space-y-4">
                 {pendingOrders.length === 0 ? (
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
                     <div className="w-16 h-16 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
                       <ShoppingBag size={24} />
                     </div>
@@ -987,7 +996,7 @@ const VendorView: React.FC<Props> = ({
                   </div>
                 ) : (
                   pendingOrders.map(order => (
-                    <div key={order.id} className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-start gap-6 transition-all hover:border-orange-200">
+                    <div key={order.id} className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-start gap-6 transition-all hover:border-orange-200">
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center gap-3">
@@ -1022,7 +1031,7 @@ const VendorView: React.FC<Props> = ({
                             ))}
                         </div>
                         {order.remark && (
-                          <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-xl">
+                          <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-lg">
                              <div className="flex items-center gap-2 mb-1">
                                 <MessageSquare size={12} className="text-orange-500" />
                                 <span className="text-[9px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest">Special Remark</span>
@@ -1040,15 +1049,15 @@ const VendorView: React.FC<Props> = ({
                           <>
                             <button 
                               onClick={() => handleAcceptAndPrint(order.id)} 
-                              className="flex-1 py-3 px-4 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg"
+                              className="flex-1 py-3 px-4 bg-orange-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg"
                             >
                               Accept {orderSettings.autoPrint && '& Print'}
                             </button>
-                            <button onClick={() => setRejectingOrderId(order.id)} className="flex-1 py-3 px-4 bg-red-50 text-red-500 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-100 dark:bg-red-900/10 dark:border-red-900/20">Reject</button>
+                            <button onClick={() => setRejectingOrderId(order.id)} className="flex-1 py-3 px-4 bg-red-50 text-red-500 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-100 dark:bg-red-900/10 dark:border-red-900/20">Reject</button>
                           </>
                         )}
                         {order.status === OrderStatus.ONGOING && (
-                          <button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className="flex-1 py-4 px-4 bg-green-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-lg">
+                          <button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className="flex-1 py-4 px-4 bg-green-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-lg">
                             <CheckCircle size={18} />
                             Serve Order
                           </button>
@@ -1062,12 +1071,12 @@ const VendorView: React.FC<Props> = ({
           )}
 
           {activeTab === 'MENU' && (
-            <div className="max-w-6xl mx-auto">
+            <div className="max-w-7xl mx-auto">
               <div className="mb-8">
                 <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-4">Kitchen Menu Editor</h1>
                 
                 <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex bg-white dark:bg-gray-800 rounded-xl p-1 border dark:border-gray-700 shadow-sm">
+                  <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm">
                     <button onClick={() => setMenuSubTab('KITCHEN')} className={`px-4 py-2 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${menuSubTab === 'KITCHEN' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>Kitchen Menu</button>
                     <button onClick={() => setMenuSubTab('CATEGORY')} className={`px-4 py-2 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${menuSubTab === 'CATEGORY' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>Category</button>
                     <button onClick={() => setMenuSubTab('MODIFIER')} className={`px-4 py-2 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${menuSubTab === 'MODIFIER' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>Modifier</button>
@@ -1076,38 +1085,38 @@ const VendorView: React.FC<Props> = ({
                   {menuSubTab === 'KITCHEN' ? (
                     <>
                       <div className="flex flex-wrap items-center gap-3">
-                        <div className="flex bg-white dark:bg-gray-800 rounded-xl p-1 border dark:border-gray-700 shadow-sm">
+                        <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm">
                           <button onClick={() => setMenuStatusFilter('ACTIVE')} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${menuStatusFilter === 'ACTIVE' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}><Eye size={14} /> <span className="hidden sm:inline">Active</span></button>
                           <button onClick={() => setMenuStatusFilter('ARCHIVED')} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${menuStatusFilter === 'ARCHIVED' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}><Archive size={14} /> <span className="hidden sm:inline">Archived</span></button>
                         </div>
-                        <div className="flex bg-white dark:bg-gray-800 rounded-xl p-1 border dark:border-gray-700 shadow-sm">
+                        <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm">
                           <button onClick={() => setMenuViewMode('grid')} className={`p-2 rounded-lg transition-all ${menuViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={18} /></button>
                           <button onClick={() => setMenuViewMode('list')} className={`p-2 rounded-lg transition-all ${menuViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={18} /></button>
                         </div>
                       </div>
-                      <button onClick={() => handleOpenAddModal()} className="ml-auto px-6 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg">+ Add Item</button>
+                      <button onClick={() => handleOpenAddModal()} className="ml-auto px-6 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg">+ Add Item</button>
                     </>
                   ) : menuSubTab === 'CATEGORY' ? (
                     <>
                       <div className="flex items-center gap-3">
-                        <div className="flex bg-white dark:bg-gray-800 rounded-xl p-1 border dark:border-gray-700 shadow-sm">
+                        <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm">
                           <button onClick={() => setClassViewMode('grid')} className={`p-2 rounded-lg transition-all ${classViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={18} /></button>
                           <button onClick={() => setClassViewMode('list')} className={`p-2 rounded-lg transition-all ${classViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={18} /></button>
                         </div>
                       </div>
-                      <button onClick={() => setShowAddClassModal(true)} className="ml-auto px-6 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
+                      <button onClick={() => setShowAddClassModal(true)} className="ml-auto px-6 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
                         <Tag size={16} /> + New Category
                       </button>
                     </>
                   ) : (
                     <>
                       <div className="flex items-center gap-3">
-                        <div className="flex bg-white dark:bg-gray-800 rounded-xl p-1 border dark:border-gray-700 shadow-sm">
+                        <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm">
                           <button onClick={() => setModifierViewMode('grid')} className={`p-2 rounded-lg transition-all ${modifierViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={18} /></button>
                           <button onClick={() => setModifierViewMode('list')} className={`p-2 rounded-lg transition-all ${modifierViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={18} /></button>
                         </div>
                       </div>
-                      <button onClick={() => setShowAddModifierModal(true)} className="ml-auto px-6 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
+                      <button onClick={handleAddModifier} className="ml-auto px-6 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
                         <Coffee size={16} /> + New Modifier
                       </button>
                     </>
@@ -1117,15 +1126,15 @@ const VendorView: React.FC<Props> = ({
               
               {menuSubTab === 'KITCHEN' && (
                 <>
-                  <div className="flex items-center gap-2 mb-8 bg-white dark:bg-gray-800 px-4 py-3 border dark:border-gray-700 rounded-2xl shadow-sm overflow-x-auto hide-scrollbar sticky top-[72px] lg:top-0 z-20">
+                  <div className="flex items-center gap-2 mb-8 bg-white dark:bg-gray-800 px-4 py-3 border dark:border-gray-700 rounded-lg shadow-sm overflow-x-auto hide-scrollbar sticky top-[72px] lg:top-0 z-20">
                     <Filter size={16} className="text-gray-400 shrink-0" />
                     {categories.map(cat => (
-                      <button key={cat} onClick={() => setMenuCategoryFilter(cat)} className={`whitespace-nowrap px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${menuCategoryFilter === cat ? 'bg-orange-100 text-orange-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}>{cat}</button>
+                      <button key={cat} onClick={() => setMenuCategoryFilter(cat)} className={`whitespace-nowrap px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${menuCategoryFilter === cat ? 'bg-orange-100 text-orange-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}>{cat}</button>
                     ))}
                   </div>
                   
                   {currentMenu.length === 0 ? (
-                    <div className="bg-white dark:bg-gray-800 rounded-3xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
                         <div className="w-16 h-16 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
                           <BookOpen size={24} />
                         </div>
@@ -1134,70 +1143,69 @@ const VendorView: React.FC<Props> = ({
                     </div>
                   ) : (
                     menuViewMode === 'grid' ? (
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                      <div className="grid grid-cols-5 gap-3">
                         {currentMenu.map(item => (
-                          <div key={item.id} className="bg-white dark:bg-gray-800 rounded-2xl md:rounded-3xl overflow-hidden border dark:border-gray-700 hover:shadow-xl transition-all group flex flex-col">
-                            <div className="relative aspect-video sm:aspect-square md:h-48">
+                          <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden border dark:border-gray-700 hover:shadow-md transition-all group flex flex-col">
+                            <div className="relative aspect-square">
                               <img src={item.image} className="w-full h-full object-cover" />
-                              <div className="absolute top-2 right-2 md:top-4 md:right-4 flex gap-1 md:gap-2">
+                              <div className="absolute top-2 right-2 flex gap-1">
                                 {menuStatusFilter === 'ACTIVE' ? (
                                   <>
-                                    <button onClick={() => handleArchiveItem(item)} className="p-2 md:p-2.5 bg-red-50/90 backdrop-blur rounded-lg md:rounded-xl text-red-600 shadow-sm"><Archive size={14} /></button>
-                                    <button onClick={() => handleOpenEditModal(item)} className="p-2 md:p-2.5 bg-white/90 backdrop-blur rounded-lg md:rounded-xl text-gray-700 shadow-sm"><Edit3 size={14} /></button>
+                                    <button onClick={() => handleArchiveItem(item)} className="p-1.5 bg-red-50/90 backdrop-blur rounded-lg text-red-600 shadow-sm"><Archive size={12} /></button>
+                                    <button onClick={() => handleOpenEditModal(item)} className="p-1.5 bg-white/90 backdrop-blur rounded-lg text-gray-700 shadow-sm"><Edit3 size={12} /></button>
                                   </>
                                 ) : (
                                   <>
-                                    <button onClick={() => handleRestoreItem(item)} className="p-2 md:p-2.5 bg-green-50/90 backdrop-blur rounded-lg md:rounded-xl text-green-600 shadow-sm"><RotateCcw size={14} /></button>
-                                    <button onClick={() => handlePermanentDelete(item.id)} className="p-2 md:p-2.5 bg-red-50/90 backdrop-blur rounded-lg md:rounded-xl text-red-600 shadow-sm"><Trash2 size={14} /></button>
+                                    <button onClick={() => handleRestoreItem(item)} className="p-1.5 bg-green-50/90 backdrop-blur rounded-lg text-green-600 shadow-sm"><RotateCcw size={12} /></button>
+                                    <button onClick={() => handlePermanentDelete(item.id)} className="p-1.5 bg-red-50/90 backdrop-blur rounded-lg text-red-600 shadow-sm"><Trash2 size={12} /></button>
                                   </>
                                 )}
                               </div>
                             </div>
-                            <div className="p-3 md:p-6 flex-1 flex flex-col">
-                              <h3 className="font-black text-xs md:text-lg text-gray-900 dark:text-white mb-1 uppercase tracking-tight line-clamp-1">{item.name}</h3>
-                              <p className="hidden md:block text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-4 flex-1">{item.description}</p>
-                              <div className="flex justify-between items-center mt-auto pt-2 md:pt-4 border-t dark:border-gray-700">
-                                <span className="text-sm md:text-xl font-black text-orange-500">RM{item.price.toFixed(2)}</span>
-                                <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-gray-400 truncate ml-2">{item.category}</span>
+                            <div className="p-2">
+                              <h3 className="font-black text-xs text-gray-900 dark:text-white mb-1 uppercase tracking-tight line-clamp-1">{item.name}</h3>
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm font-black text-orange-500">RM{item.price.toFixed(2)}</span>
+                                <span className="text-[8px] font-black uppercase tracking-widest text-gray-400 truncate ml-1">{item.category}</span>
                               </div>
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="bg-white dark:bg-gray-800 rounded-3xl border dark:border-gray-700 overflow-hidden shadow-sm">
+                      <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden shadow-sm">
                         <div className="overflow-x-auto">
                           <table className="w-full">
                             <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
                               <tr>
-                                <th className="px-8 py-4 text-left">Dish Profile</th>
-                                <th className="px-4 py-4 text-left">Category</th>
-                                <th className="px-4 py-4 text-left">Base Cost</th>
-                                <th className="px-8 py-4 text-right">Actions</th>
+                                <th className="px-4 py-3 text-left">Dish Profile</th>
+                                <th className="px-4 py-3 text-left">Category</th>
+                                <th className="px-4 py-3 text-left">Base Cost</th>
+                                <th className="px-4 py-3 text-right">Actions</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y dark:divide-gray-700">
                               {currentMenu.map(item => (
                                 <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                                  <td className="px-8 py-4">
-                                    <div className="flex items-center gap-4">
-                                      <img src={item.image} className="w-12 h-12 rounded-xl object-cover" />
+                                  <td className="px-4 py-3">
+                                    <div className="flex items-center gap-3">
+                                      <img src={item.image} className="w-10 h-10 rounded-lg object-cover" />
                                       <div>
-                                        <p className="font-black text-gray-900 dark:text-white uppercase tracking-tight text-sm">{item.name}</p>
-                                        <p className="hidden sm:block text-[10px] text-gray-500 dark:text-gray-400 truncate max-w-xs">{item.description}</p>
+                                        <p className="font-black text-gray-900 dark:text-white uppercase tracking-tight text-xs">{item.name}</p>
+                                        <p className="hidden sm:block text-[9px] text-gray-500 dark:text-gray-400 truncate max-w-xs">{item.description}</p>
                                       </div>
                                     </div>
                                   </td>
-                                  <td className="px-4 py-4 text-[10px] font-black uppercase text-gray-400">{item.category}</td>
-                                  <td className="px-4 py-4 font-black text-gray-900 dark:text-white text-sm">RM{item.price.toFixed(2)}</td>
-                                  <td className="px-8 py-4 text-right">
-                                    <div className="flex justify-end items-center gap-2">
+                                  <td className="px-4 py-3 text-[9px] font-black uppercase text-gray-400">{item.category}</td>
+                                  <td className="px-4 py-3 font-black text-gray-900 dark:text-white text-xs">RM{item.price.toFixed(2)}</td>
+                                  <td className="px-4 py-3 text-right">
+                                    <div className="flex justify-end items-center gap-1">
                                       {menuStatusFilter === 'ACTIVE' ? (
-                                        <button onClick={() => handleArchiveItem(item)} className="p-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"><Archive size={18} /></button>
+                                        <button onClick={() => handleArchiveItem(item)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"><Archive size={16} /></button>
                                       ) : (
-                                        <button onClick={() => handleRestoreItem(item)} className="p-3 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-xl transition-all"><RotateCcw size={18} /></button>
+                                        <button onClick={() => handleRestoreItem(item)} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-all"><RotateCcw size={16} /></button>
                                       )}
-                                      <button onClick={() => handleOpenEditModal(item)} className="p-3 text-gray-400 hover:text-orange-500 rounded-xl transition-all"><Edit3 size={18} /></button>
+                                      <button onClick={() => handleOpenEditModal(item)} className="p-2 text-gray-400 hover:text-orange-500 rounded-lg transition-all"><Edit3 size={16} /></button>
                                     </div>
                                   </td>
                                 </tr>
@@ -1212,7 +1220,7 @@ const VendorView: React.FC<Props> = ({
               )}
               
               {menuSubTab === 'CATEGORY' && (
-                <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <div className="p-4 bg-gray-50 dark:bg-gray-700/30 border-b dark:border-gray-700 flex justify-between items-center">
                      <div className="flex items-center gap-2 text-gray-400">
                         <Layers size={16} />
@@ -1220,20 +1228,20 @@ const VendorView: React.FC<Props> = ({
                      </div>
                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{extraCategories.length} Total</span>
                   </div>
-                  <div className={classViewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 gap-4 p-4 md:p-6' : 'divide-y dark:divide-gray-700'}>
+                  <div className={classViewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4' : 'divide-y dark:divide-gray-700'}>
                     {extraCategories.map(cat => {
                       const itemsInCat = restaurant.menu.filter(i => i.category === cat.name && !i.isArchived);
                       if (classViewMode === 'grid') {
                         return (
-                          <div key={cat.name} className="p-4 md:p-6 bg-gray-50/50 dark:bg-gray-900/50 border dark:border-gray-700 rounded-xl flex flex-col gap-4 group hover:border-orange-200 transition-all">
+                          <div key={cat.name} className="p-4 bg-gray-50/50 dark:bg-gray-900/50 border dark:border-gray-700 rounded-lg flex flex-col gap-3 group hover:border-orange-200 transition-all">
                              <div className="flex justify-between items-start">
-                                <div className="flex items-center gap-2 md:gap-3">
-                                   <div className="w-8 h-8 md:w-10 md:h-10 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg md:rounded-xl flex items-center justify-center">
-                                     <Layers size={18} />
+                                <div className="flex items-center gap-2">
+                                   <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg flex items-center justify-center">
+                                     <Layers size={16} />
                                    </div>
                                    <div>
-                                     <h4 className="font-black text-xs md:text-sm dark:text-white uppercase tracking-tight">{cat.name}</h4>
-                                     <p className="text-[8px] md:text-[10px] font-bold text-gray-400 uppercase">{itemsInCat.length} Items</p>
+                                     <h4 className="font-black text-xs dark:text-white uppercase tracking-tight">{cat.name}</h4>
+                                     <p className="text-[8px] font-bold text-gray-400 uppercase">{itemsInCat.length} Items</p>
                                    </div>
                                 </div>
                                 <div className="flex flex-col gap-1">
@@ -1263,10 +1271,10 @@ const VendorView: React.FC<Props> = ({
                                </div>
                              )}
                              <div className="flex justify-end gap-1 mt-2">
-                               <button onClick={() => { setRenamingClass(cat.name); setRenameValue(cat.name); }} className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg">
+                               <button onClick={() => { setRenamingClass(cat.name); setRenameValue(cat.name); }} className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg">
                                  <Edit3 size={14} />
                                </button>
-                               <button onClick={() => handleRemoveCategory(cat.name)} className="p-2 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
+                               <button onClick={() => handleRemoveCategory(cat.name)} className="p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
                                  <Trash2 size={14} />
                                </button>
                              </div>
@@ -1274,8 +1282,8 @@ const VendorView: React.FC<Props> = ({
                         );
                       }
                       return (
-                        <div key={cat.name} className="flex items-center justify-between p-4 px-6 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all">
-                          <div className="flex items-center gap-4">
+                        <div key={cat.name} className="flex items-center justify-between p-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all">
+                          <div className="flex items-center gap-3">
                              <div className="w-8 h-8 bg-orange-50 dark:bg-orange-900/20 text-orange-500 rounded-lg flex items-center justify-center">
                                <Layers size={16} />
                              </div>
@@ -1358,7 +1366,7 @@ const VendorView: React.FC<Props> = ({
               )}
 
               {menuSubTab === 'MODIFIER' && (
-                <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <div className="p-4 bg-gray-50 dark:bg-gray-700/30 border-b dark:border-gray-700 flex justify-between items-center">
                      <div className="flex items-center gap-2 text-gray-400">
                         <Coffee size={16} />
@@ -1366,187 +1374,49 @@ const VendorView: React.FC<Props> = ({
                      </div>
                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{modifiers.length} Total</span>
                   </div>
-                  <div className={modifierViewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 gap-4 p-4 md:p-6' : 'divide-y dark:divide-gray-700'}>
-                    {modifiers.map(mod => {
-                      if (modifierViewMode === 'grid') {
-                        return (
-                          <div key={mod.name} className="p-4 md:p-6 bg-gray-50/50 dark:bg-gray-900/50 border dark:border-gray-700 rounded-xl flex flex-col gap-4 group hover:border-orange-200 transition-all">
-                             <div className="flex justify-between items-start">
-                                <div className="flex items-center gap-2 md:gap-3">
-                                   <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg md:rounded-xl flex items-center justify-center">
-                                     <Coffee size={18} />
-                                   </div>
-                                   <div>
-                                     <h4 className="font-black text-xs md:text-sm dark:text-white uppercase tracking-tight">{mod.name}</h4>
-                                     <p className="text-[8px] md:text-[10px] font-bold text-gray-400 uppercase">{mod.options.length} Options</p>
-                                   </div>
-                                </div>
-                             </div>
-                             
-                             {/* Options */}
-                             <div className="space-y-2">
-                               {mod.options.map((opt, idx) => (
-                                 <div key={idx} className="flex items-center justify-between text-[9px]">
-                                   <span className="font-bold text-gray-600">{opt.name || 'Unnamed'}</span>
-                                   <span className="font-black text-orange-500">+RM{opt.price.toFixed(2)}</span>
-                                 </div>
-                               ))}
-                               {mod.options.length === 0 && (
-                                 <p className="text-[8px] text-gray-400 italic text-center">No options added</p>
-                               )}
-                             </div>
-
-                             <div className="flex justify-end gap-1 mt-2">
-                               <button onClick={() => setEditingModifierOptions(mod.name)} className="p-2 text-gray-400 hover:text-purple-500">
-                                 <Settings2 size={14} />
-                               </button>
-                               <button onClick={() => { setEditingModifier(mod.name); setRenameValue(mod.name); }} className="p-2 text-gray-400 hover:text-orange-500">
-                                 <Edit3 size={14} />
-                               </button>
-                               <button onClick={() => handleRemoveModifier(mod.name)} className="p-2 text-red-400 hover:text-red-500">
-                                 <Trash2 size={14} />
-                               </button>
-                             </div>
-
-                             {editingModifierOptions === mod.name && (
-                               <div className="mt-4 p-3 bg-white dark:bg-gray-800 rounded-xl border space-y-3">
-                                 <div className="flex items-center justify-between">
-                                   <span className="text-[8px] font-black text-gray-400 uppercase">Options</span>
-                                   <button
-                                     onClick={() => handleAddModifierOption(mod.name)}
-                                     className="p-1 text-purple-500 bg-purple-50 rounded"
-                                   >
-                                     <Plus size={12} />
-                                   </button>
-                                 </div>
-                                 {mod.options.map((opt, idx) => (
-                                   <div key={idx} className="flex gap-2 items-center">
-                                     <input
-                                       type="text"
-                                       value={opt.name}
-                                       onChange={(e) => handleModifierOptionChange(mod.name, idx, 'name', e.target.value)}
-                                       placeholder="Option name"
-                                       className="flex-1 px-2 py-1 text-[9px] border rounded"
-                                     />
-                                     <input
-                                       type="number"
-                                       step="0.01"
-                                       value={opt.price}
-                                       onChange={(e) => handleModifierOptionChange(mod.name, idx, 'price', parseFloat(e.target.value) || 0)}
-                                       placeholder="Price"
-                                       className="w-16 px-2 py-1 text-[9px] border rounded"
-                                     />
-                                     <button
-                                       onClick={() => handleRemoveModifierOption(mod.name, idx)}
-                                       className="p-1 text-red-400 hover:bg-red-50 rounded"
-                                     >
-                                       <Trash2 size={12} />
-                                     </button>
-                                   </div>
-                                 ))}
-                                 <button
-                                   onClick={() => setEditingModifierOptions(null)}
-                                   className="w-full py-1 bg-green-500 text-white rounded text-[8px] font-black"
-                                 >
-                                   Done
-                                 </button>
-                               </div>
-                             )}
+                  <div className={modifierViewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4' : 'divide-y dark:divide-gray-700'}>
+                    {modifiers.map(mod => (
+                      <div key={mod.name} className="p-4 bg-gray-50/50 dark:bg-gray-900/50 border dark:border-gray-700 rounded-lg flex flex-col gap-3 group hover:border-orange-200 transition-all">
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg flex items-center justify-center">
+                              <Coffee size={16} />
+                            </div>
+                            <div>
+                              <h4 className="font-black text-xs dark:text-white uppercase tracking-tight">{mod.name}</h4>
+                              <p className="text-[8px] font-bold text-gray-400 uppercase">{mod.options.length} Options</p>
+                            </div>
                           </div>
-                        );
-                      }
-                      return (
-                        <div key={mod.name} className="p-4 px-6 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all">
-                          {editingModifier === mod.name ? (
-                            <div className="flex items-center gap-2">
-                              <input 
-                                autoFocus 
-                                className="px-2 py-1 text-sm font-black border rounded" 
-                                value={renameValue} 
-                                onChange={e => setRenameValue(e.target.value)} 
-                                onKeyDown={e => e.key === 'Enter' && handleRenameModifier(mod.name, renameValue)} 
-                              />
-                              <button onClick={() => handleRenameModifier(mod.name, renameValue)} className="text-green-500">
-                                <CheckCircle size={16}/>
-                              </button>
-                              <button onClick={() => setEditingModifier(null)} className="text-red-500">
-                                <X size={16}/>
-                              </button>
+                        </div>
+                        
+                        {/* Options */}
+                        <div className="space-y-1">
+                          {mod.options.slice(0, 3).map((opt, idx) => (
+                            <div key={idx} className="flex items-center justify-between text-[8px]">
+                              <span className="font-bold text-gray-600">{opt.name}</span>
+                              <span className="font-black text-orange-500">+RM{opt.price.toFixed(2)}</span>
                             </div>
-                          ) : (
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4">
-                                <div className="w-8 h-8 bg-purple-50 dark:bg-purple-900/20 text-purple-500 rounded-lg flex items-center justify-center">
-                                  <Coffee size={16} />
-                                </div>
-                                <div>
-                                  <p className="text-sm font-black dark:text-white uppercase tracking-tight">{mod.name}</p>
-                                  <p className="text-[9px] font-bold text-gray-400">{mod.options.length} Options</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <button onClick={() => setEditingModifierOptions(mod.name)} className="p-2 text-purple-400 hover:text-purple-500">
-                                  <Settings2 size={16} />
-                                </button>
-                                <button onClick={() => { setEditingModifier(mod.name); setRenameValue(mod.name); }} className="p-2 text-gray-400 hover:text-orange-500">
-                                  <Edit3 size={16} />
-                                </button>
-                                <button onClick={() => handleRemoveModifier(mod.name)} className="p-2 text-red-400 hover:text-red-500">
-                                  <Trash2 size={16} />
-                                </button>
-                              </div>
-                            </div>
+                          ))}
+                          {mod.options.length > 3 && (
+                            <p className="text-[7px] text-gray-400 italic">+{mod.options.length - 3} more</p>
                           )}
-                          
-                          {editingModifierOptions === mod.name && (
-                            <div className="mt-4 pl-12 space-y-2">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[8px] font-black text-gray-400 uppercase">Options</span>
-                                <button
-                                  onClick={() => handleAddModifierOption(mod.name)}
-                                  className="p-1 text-purple-500 bg-purple-50 rounded"
-                                >
-                                  <Plus size={12} />
-                                </button>
-                              </div>
-                              {mod.options.map((opt, idx) => (
-                                <div key={idx} className="flex gap-2 items-center">
-                                  <input
-                                    type="text"
-                                    value={opt.name}
-                                    onChange={(e) => handleModifierOptionChange(mod.name, idx, 'name', e.target.value)}
-                                    placeholder="Option name"
-                                    className="flex-1 px-2 py-1 text-[9px] border rounded"
-                                  />
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    value={opt.price}
-                                    onChange={(e) => handleModifierOptionChange(mod.name, idx, 'price', parseFloat(e.target.value) || 0)}
-                                    placeholder="Price"
-                                    className="w-16 px-2 py-1 text-[9px] border rounded"
-                                  />
-                                  <button
-                                    onClick={() => handleRemoveModifierOption(mod.name, idx)}
-                                    className="p-1 text-red-400 hover:bg-red-50 rounded"
-                                  >
-                                    <Trash2 size={12} />
-                                  </button>
-                                </div>
-                              ))}
-                              <button
-                                onClick={() => setEditingModifierOptions(null)}
-                                className="w-full py-1 bg-green-500 text-white rounded text-[8px] font-black"
-                              >
-                                Done
-                              </button>
-                            </div>
+                          {mod.options.length === 0 && (
+                            <p className="text-[7px] text-gray-400 italic text-center">No options</p>
                           )}
                         </div>
-                      );
-                    })}
+
+                        <div className="flex justify-end gap-1 mt-2">
+                          <button onClick={() => handleEditModifier(mod)} className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg">
+                            <Edit3 size={14} />
+                          </button>
+                          <button onClick={() => handleRemoveModifier(mod.name)} className="p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                     {modifiers.length === 0 && (
-                      <div className="text-center py-12">
+                      <div className="col-span-full text-center py-12">
                         <Coffee size={32} className="mx-auto text-gray-300 mb-2" />
                         <p className="text-[10px] font-black text-gray-400 uppercase">No modifiers added yet</p>
                       </div>
@@ -1562,7 +1432,7 @@ const VendorView: React.FC<Props> = ({
               <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Sales Report</h1>
               <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Financial performance and order history.</p>
               
-              <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-2xl border dark:border-gray-700 shadow-sm flex flex-col md:flex-row items-center gap-4 mb-6">
+              <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm flex flex-col md:flex-row items-center gap-4 mb-6">
                 <div className="flex-1 flex flex-col sm:flex-row gap-4 w-full">
                   <div className="flex-1">
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Period Selection</label>
@@ -1578,23 +1448,23 @@ const VendorView: React.FC<Props> = ({
                     </select>
                   </div>
                 </div>
-                <button onClick={handleDownloadReport} className="w-full md:w-auto px-6 py-2 bg-black text-white dark:bg-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-orange-500 transition-all"><Download size={16} /> Export CSV</button>
+                <button onClick={handleDownloadReport} className="w-full md:w-auto px-6 py-2 bg-black text-white dark:bg-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-orange-500 transition-all"><Download size={16} /> Export CSV</button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6">
-                <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-2xl border dark:border-gray-700 shadow-sm">
+                <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm">
                   <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Total Revenue</p>
                   <p className="text-xl md:text-2xl font-black dark:text-white">
                     RM{reportData?.summary.totalRevenue.toFixed(2) || '0.00'}
                   </p>
                 </div>
-                <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-2xl border dark:border-gray-700 shadow-sm">
+                <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm">
                   <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Order Volume</p>
                   <p className="text-xl md:text-2xl font-black dark:text-white">
                     {reportData?.summary.orderVolume || 0}
                   </p>
                 </div>
-                <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-2xl border dark:border-gray-700 shadow-sm">
+                <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm">
                   <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Efficiency</p>
                   <p className="text-xl md:text-2xl font-black text-green-500">
                     {reportData?.summary.efficiency || 0}%
@@ -1602,7 +1472,7 @@ const VendorView: React.FC<Props> = ({
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 overflow-hidden shadow-sm">
+              <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 overflow-hidden shadow-sm">
                 <div className="p-4 border-b dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="relative max-w-sm w-full">
                     <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -1611,7 +1481,7 @@ const VendorView: React.FC<Props> = ({
                       placeholder="Search Order ID..." 
                       value={reportSearchQuery}
                       onChange={(e) => setReportSearchQuery(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border-none rounded-xl text-xs font-black dark:text-white outline-none focus:ring-1 focus:ring-orange-500" 
+                      className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white outline-none focus:ring-1 focus:ring-orange-500" 
                     />
                   </div>
                   <div className="flex items-center gap-2">
@@ -1632,18 +1502,18 @@ const VendorView: React.FC<Props> = ({
                   <table className="w-full">
                     <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
                       <tr>
-                        <th className="px-6 py-3 text-left">Order ID</th>
-                        <th className="px-6 py-3 text-left">Table</th>
-                        <th className="px-6 py-3 text-left">Date</th>
-                        <th className="px-6 py-3 text-left">Time</th>
-                        <th className="px-6 py-3 text-left">Status</th>
-                        <th className="px-6 py-3 text-right">Bill</th>
+                        <th className="px-4 py-3 text-left">Order ID</th>
+                        <th className="px-4 py-3 text-left">Table</th>
+                        <th className="px-4 py-3 text-left">Date</th>
+                        <th className="px-4 py-3 text-left">Time</th>
+                        <th className="px-4 py-3 text-left">Status</th>
+                        <th className="px-4 py-3 text-right">Bill</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y dark:divide-gray-700">
                       {paginatedReports.map(report => (
                         <tr key={report.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                          <td className="px-6 py-2.5">
+                          <td className="px-4 py-2">
                             <button 
                               onClick={() => setSelectedOrderForDetails(report)}
                               className="text-[10px] font-black text-orange-500 hover:text-orange-600 uppercase tracking-widest underline decoration-dotted underline-offset-4"
@@ -1651,10 +1521,10 @@ const VendorView: React.FC<Props> = ({
                               {report.id}
                             </button>
                           </td>
-                          <td className="px-6 py-2.5 text-[10px] font-black text-gray-900 dark:text-white">#{report.tableNumber}</td>
-                          <td className="px-6 py-2.5 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tighter">{new Date(report.timestamp).toLocaleDateString()}</td>
-                          <td className="px-6 py-2.5 text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase">{new Date(report.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                          <td className="px-6 py-2.5">
+                          <td className="px-4 py-2 text-[10px] font-black text-gray-900 dark:text-white">#{report.tableNumber}</td>
+                          <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tighter">{new Date(report.timestamp).toLocaleDateString()}</td>
+                          <td className="px-4 py-2 text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase">{new Date(report.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                          <td className="px-4 py-2">
                             <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
                               report.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-600' : 
                               report.status === OrderStatus.SERVED ? 'bg-blue-100 text-blue-600' :
@@ -1665,7 +1535,7 @@ const VendorView: React.FC<Props> = ({
                                report.status}
                             </span>
                           </td>
-                          <td className="px-6 py-2.5 text-right font-black dark:text-white text-xs">RM{report.total.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-right font-black dark:text-white text-xs">RM{report.total.toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1729,18 +1599,18 @@ const VendorView: React.FC<Props> = ({
               
               <div className="space-y-8">
                 {/* Order Settings */}
-                <div className="bg-white dark:bg-gray-800 rounded-3xl border dark:border-gray-700 shadow-sm overflow-hidden">
-                  <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden">
+                  <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
                     <div className="flex items-center gap-2">
-                      <BellRing size={18} className="text-orange-500" />
-                      <h2 className="font-black dark:text-white uppercase tracking-tighter">Order Processing</h2>
+                      <BellRing size={16} className="text-orange-500" />
+                      <h2 className="font-black dark:text-white uppercase tracking-tighter text-sm">Order Processing</h2>
                     </div>
                   </div>
-                  <div className="p-6 space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                  <div className="p-4 space-y-4">
+                    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
                       <div>
-                        <h3 className="font-black text-sm dark:text-white">Auto-Accept Orders</h3>
-                        <p className="text-[10px] text-gray-500 dark:text-gray-400">Automatically accept new orders when they arrive</p>
+                        <h3 className="font-black text-xs dark:text-white">Auto-Accept Orders</h3>
+                        <p className="text-[9px] text-gray-500 dark:text-gray-400">Automatically accept new orders</p>
                       </div>
                       <button
                         onClick={() => toggleOrderSetting('autoAccept')}
@@ -1754,10 +1624,10 @@ const VendorView: React.FC<Props> = ({
                       </button>
                     </div>
 
-                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
                       <div>
-                        <h3 className="font-black text-sm dark:text-white">Auto-Print Orders</h3>
-                        <p className="text-[10px] text-gray-500 dark:text-gray-400">Automatically print orders when accepted</p>
+                        <h3 className="font-black text-xs dark:text-white">Auto-Print Orders</h3>
+                        <p className="text-[9px] text-gray-500 dark:text-gray-400">Print orders when accepted</p>
                       </div>
                       <button
                         onClick={() => toggleOrderSetting('autoPrint')}
@@ -1781,9 +1651,9 @@ const VendorView: React.FC<Props> = ({
                     </div>
                     
                     {!connectedDevice && orderSettings.autoPrint && (
-                      <div className="p-3 bg-yellow-50 dark:bg-yellow-900/10 rounded-xl border border-yellow-200 dark:border-yellow-900/20">
-                        <p className="text-[10px] font-black text-yellow-600 dark:text-yellow-400">
-                          ⚠️ Auto-print is enabled but no printer is connected. Please connect a printer below.
+                      <div className="p-3 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg border border-yellow-200 dark:border-yellow-900/20">
+                        <p className="text-[9px] font-black text-yellow-600 dark:text-yellow-400">
+                          ⚠️ Auto-print enabled but no printer connected
                         </p>
                       </div>
                     )}
@@ -1791,51 +1661,51 @@ const VendorView: React.FC<Props> = ({
                 </div>
 
                 {/* Printer Settings */}
-                <div className="bg-white dark:bg-gray-800 rounded-3xl border dark:border-gray-700 shadow-sm overflow-hidden">
-                  <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden">
+                  <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
                     <div className="flex items-center gap-2">
-                      <PrinterIcon size={18} className="text-orange-500" />
-                      <h2 className="font-black dark:text-white uppercase tracking-tighter">Printer Configuration</h2>
+                      <PrinterIcon size={16} className="text-orange-500" />
+                      <h2 className="font-black dark:text-white uppercase tracking-tighter text-sm">Printer Configuration</h2>
                     </div>
                   </div>
-                  <div className="p-6">
+                  <div className="p-4">
                     {/* Bluetooth Support Check */}
                     {!isBluetoothSupported && (
-                      <div className="text-center py-12">
-                        <AlertCircle size={48} className="mx-auto text-red-500 mb-4" />
-                        <h3 className="text-lg font-black dark:text-white mb-2">Bluetooth Not Supported</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{errorMessage}</p>
-                        <p className="text-xs text-gray-400 mt-4">Please use Chrome, Edge, or Opera browser</p>
+                      <div className="text-center py-8">
+                        <AlertCircle size={32} className="mx-auto text-red-500 mb-3" />
+                        <h3 className="text-base font-black dark:text-white mb-1">Bluetooth Not Supported</h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{errorMessage}</p>
+                        <p className="text-[9px] text-gray-400 mt-3">Use Chrome, Edge, or Opera</p>
                       </div>
                     )}
 
                     {isBluetoothSupported && (
                       <>
                         {/* Status Card */}
-                        <div className={`p-6 rounded-2xl border-2 transition-all mb-6 ${
+                        <div className={`p-4 rounded-lg border-2 transition-all mb-4 ${
                           printerStatus === 'connected' 
-                            ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/20' 
-                            : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                            ? 'bg-green-50 dark:bg-green-900/10 border-green-200' 
+                            : 'bg-gray-50 dark:bg-gray-800 border-gray-200'
                         }`}>
                           <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                            <div className="flex items-center gap-3">
+                              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
                                 printerStatus === 'connected' 
                                   ? 'bg-green-500 text-white' 
                                   : 'bg-gray-200 dark:bg-gray-700 text-gray-500'
                               }`}>
-                                <Printer size={24} />
+                                <Printer size={20} />
                               </div>
                               <div>
-                                <h3 className="font-black dark:text-white">CX58D Thermal Printer</h3>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                <h3 className="font-black dark:text-white text-xs">CX58D Thermal Printer</h3>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400">
                                   {printerStatus === 'connected' 
                                     ? `Connected to ${connectedDevice?.name}` 
                                     : 'No printer connected'}
                                 </p>
                               </div>
                             </div>
-                            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                            <div className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
                               printerStatus === 'connected' 
                                 ? 'bg-green-100 text-green-600' 
                                 : printerStatus === 'connecting'
@@ -1851,20 +1721,20 @@ const VendorView: React.FC<Props> = ({
 
                         {/* Connection Controls */}
                         {printerStatus !== 'connected' ? (
-                          <div className="space-y-4">
+                          <div className="space-y-3">
                             <button
                               onClick={scanForPrinters}
                               disabled={isScanning}
-                              className="w-full py-4 bg-orange-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                              className="w-full py-3 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                             >
                               {isScanning ? (
                                 <>
-                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                   Scanning...
                                 </>
                               ) : (
                                 <>
-                                  <Bluetooth size={18} />
+                                  <Bluetooth size={14} />
                                   Scan for Bluetooth Printers
                                 </>
                               )}
@@ -1872,54 +1742,51 @@ const VendorView: React.FC<Props> = ({
 
                             {devices.length > 0 && (
                               <div className="space-y-2">
-                                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Found Printers</h4>
+                                <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Found Printers</h4>
                                 {devices.map(device => (
                                   <button
                                     key={device.id}
                                     onClick={() => connectToPrinter(device)}
-                                    className="w-full p-4 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl flex items-center justify-between hover:border-orange-500 transition-all group"
+                                    className="w-full p-3 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg flex items-center justify-between hover:border-orange-500 transition-all group"
                                   >
-                                    <div className="flex items-center gap-3">
-                                      <Printer size={20} className="text-gray-400 group-hover:text-orange-500" />
-                                      <span className="font-bold dark:text-white">{device.name}</span>
+                                    <div className="flex items-center gap-2">
+                                      <Printer size={16} className="text-gray-400 group-hover:text-orange-500" />
+                                      <span className="font-bold dark:text-white text-xs">{device.name}</span>
                                     </div>
-                                    <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Connect</span>
+                                    <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Connect</span>
                                   </button>
                                 ))}
                               </div>
                             )}
                           </div>
                         ) : (
-                          <div className="space-y-4">
+                          <div className="space-y-3">
                             {/* Connected Device Info */}
-                            <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-900/20">
-                              <div className="flex items-center gap-2 mb-2">
-                                <BluetoothConnected size={16} className="text-blue-500" />
-                                <span className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Connected Device</span>
+                            <div className="p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100">
+                              <div className="flex items-center gap-2 mb-1">
+                                <BluetoothConnected size={14} className="text-blue-500" />
+                                <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Connected Device</span>
                               </div>
-                              <p className="font-bold dark:text-white mb-1">{connectedDevice?.name}</p>
-                              <p className="text-[10px] text-gray-500">ID: {connectedDevice?.id}</p>
+                              <p className="font-bold dark:text-white text-xs mb-1">{connectedDevice?.name}</p>
+                              <p className="text-[8px] text-gray-500">ID: {connectedDevice?.id}</p>
                             </div>
 
                             {/* Test Print Button */}
                             <button
                               onClick={printTestPage}
                               disabled={testPrintStatus === 'printing'}
-                              className="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                              className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                             >
                               {testPrintStatus === 'printing' ? (
-                                <>
-                                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                  Printing...
-                                </>
+                                <>Printing...</>
                               ) : testPrintStatus === 'success' ? (
                                 <>
-                                  <CheckCircle2 size={18} className="text-green-500" />
+                                  <CheckCircle2 size={14} className="text-green-500" />
                                   Test Page Sent!
                                 </>
                               ) : (
                                 <>
-                                  <Printer size={18} />
+                                  <Printer size={14} />
                                   Print Test Page
                                 </>
                               )}
@@ -1928,7 +1795,7 @@ const VendorView: React.FC<Props> = ({
                             {/* Disconnect Button */}
                             <button
                               onClick={disconnectPrinter}
-                              className="w-full py-3 bg-red-50 dark:bg-red-900/10 text-red-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-200 dark:border-red-900/20"
+                              className="w-full py-2 bg-red-50 dark:bg-red-900/10 text-red-500 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-200"
                             >
                               Disconnect Printer
                             </button>
@@ -1937,41 +1804,10 @@ const VendorView: React.FC<Props> = ({
 
                         {/* Error Message */}
                         {errorMessage && (
-                          <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-200 dark:border-red-900/20">
-                            <div className="flex items-start gap-2">
-                              <X size={16} className="text-red-500 shrink-0 mt-0.5" />
-                              <p className="text-xs text-red-600 dark:text-red-400">{errorMessage}</p>
-                            </div>
+                          <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200">
+                            <p className="text-[9px] text-red-600 dark:text-red-400">{errorMessage}</p>
                           </div>
                         )}
-
-                        {/* Instructions */}
-                        <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-                          <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Printer Setup Instructions</h4>
-                          <ul className="space-y-2 text-[10px] text-gray-500 dark:text-gray-400">
-                            <li className="flex items-start gap-2">
-                              <div className="w-1 h-1 bg-orange-500 rounded-full mt-1.5" />
-                              <span>Turn on your CX58D printer and enable Bluetooth pairing mode</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                              <div className="w-1 h-1 bg-orange-500 rounded-full mt-1.5" />
-                              <span>Click "Scan for Bluetooth Printers" and select your printer when it appears</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                              <div className="w-1 h-1 bg-orange-500 rounded-full mt-1.5" />
-                              <span>Use "Print Test Page" to verify the connection</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                              <div className="w-1 h-1 bg-orange-500 rounded-full mt-1.5" />
-                              <span>Enable "Auto-Print" to automatically print new orders</span>
-                            </li>
-                          </ul>
-                        </div>
-
-                        {/* Browser Compatibility Note */}
-                        <p className="mt-4 text-[8px] text-gray-400 text-center">
-                          * Works best in Chrome, Edge, or Opera browsers. Requires Bluetooth permission.
-                        </p>
                       </>
                     )}
                   </div>
@@ -1985,13 +1821,46 @@ const VendorView: React.FC<Props> = ({
       {/* Rejection Modal */}
       {rejectingOrderId && (
         <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-md w-full p-8 shadow-2xl relative animate-in zoom-in fade-in duration-300">
-            <button onClick={() => setRejectingOrderId(null)} className="absolute top-6 right-6 p-2 text-gray-400 hover:text-red-500 transition-colors"><X size={20} /></button>
-            <h2 className="text-2xl font-black mb-6 dark:text-white uppercase tracking-tighter">Order Rejection</h2>
-            <div className="space-y-4">
-              <div><label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Select Reason</label><select className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none text-sm font-bold dark:text-white appearance-none cursor-pointer" value={rejectionReason} onChange={e => setRejectionReason(e.target.value)}>{REJECTION_REASONS.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
-              <div><label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Internal Note (Optional)</label><textarea className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none text-sm font-bold dark:text-white resize-none" rows={3} placeholder="Additional details..." value={rejectionNote} onChange={e => setRejectionNote(e.target.value)} /></div>
-              <div className="flex gap-4 pt-2"><button onClick={() => setRejectingOrderId(null)} className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 rounded-xl font-black uppercase text-[10px] tracking-widest text-gray-500">Cancel</button><button onClick={handleConfirmRejection} className="flex-1 py-3 bg-red-500 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl">Confirm Rejection</button></div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-2xl relative animate-in zoom-in fade-in duration-300">
+            <button onClick={() => setRejectingOrderId(null)} className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 transition-colors"><X size={18} /></button>
+            <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tighter">Order Rejection</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Select Reason</label>
+                <select 
+                  value={rejectionReason} 
+                  onChange={e => setRejectionReason(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                >
+                  {REJECTION_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Internal Note (Optional)</label>
+                <textarea 
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white resize-none" 
+                  rows={2} 
+                  placeholder="Additional details..." 
+                  value={rejectionNote} 
+                  onChange={e => setRejectionNote(e.target.value)} 
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={() => setRejectingOrderId(null)} 
+                  className="flex-1 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleConfirmRejection} 
+                  className="flex-1 py-2 bg-red-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow"
+                >
+                  Confirm
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -2000,20 +1869,20 @@ const VendorView: React.FC<Props> = ({
       {/* Category Add Modal */}
       {showAddClassModal && (
         <div className="fixed inset-0 z-[110] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl max-sm w-full p-8 shadow-2xl relative">
-             <button onClick={() => setShowAddClassModal(false)} className="absolute top-6 right-6 p-2 text-gray-400"><X size={20}/></button>
-             <h2 className="text-xl font-black mb-6 dark:text-white uppercase tracking-tight">Add Category</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-2xl relative">
+             <button onClick={() => setShowAddClassModal(false)} className="absolute top-4 right-4 p-2 text-gray-400"><X size={18}/></button>
+             <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tight">Add Category</h2>
              <div className="space-y-4">
                 <input 
                   autoFocus 
                   placeholder="e.g. Beverages" 
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold text-sm dark:text-white" 
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold text-sm dark:text-white" 
                   value={newClassName} 
                   onChange={e => setNewClassName(e.target.value)} 
                   onKeyDown={e => e.key === 'Enter' && handleAddCategory()} 
                 />
-                <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
-                  <span className="text-[10px] font-black text-gray-400">Skip Kitchen</span>
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <span className="text-xs font-black text-gray-400">Skip Kitchen</span>
                   <button
                     onClick={() => setSkipKitchen(!skipKitchen)}
                     className={`w-10 h-5 rounded-full transition-all relative ${
@@ -2025,29 +1894,103 @@ const VendorView: React.FC<Props> = ({
                     }`} />
                   </button>
                 </div>
-                <button onClick={handleAddCategory} className="w-full py-4 bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-xs">Confirm Category</button>
+                <button onClick={handleAddCategory} className="w-full py-3 bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest text-xs">Confirm Category</button>
              </div>
           </div>
         </div>
       )}
 
-      {/* Modifier Add Modal */}
+      {/* Modifier Add/Edit Modal */}
       {showAddModifierModal && (
         <div className="fixed inset-0 z-[110] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl max-sm w-full p-8 shadow-2xl relative">
-             <button onClick={() => setShowAddModifierModal(false)} className="absolute top-6 right-6 p-2 text-gray-400"><X size={20}/></button>
-             <h2 className="text-xl font-black mb-6 dark:text-white uppercase tracking-tight">Add Modifier</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-2xl relative max-h-[80vh] overflow-y-auto">
+             <button onClick={() => {
+               setShowAddModifierModal(false);
+               setEditingModifier(null);
+               setTempModifierName('');
+               setTempModifierOptions([]);
+             }} className="absolute top-4 right-4 p-2 text-gray-400"><X size={18}/></button>
+             
+             <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tight">
+               {editingModifier ? 'Edit Modifier' : 'Add Modifier'}
+             </h2>
+             
              <div className="space-y-4">
                 <input 
                   autoFocus 
-                  placeholder="e.g. Size, Temperature, Style" 
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold text-sm dark:text-white" 
-                  value={newModifierName} 
-                  onChange={e => setNewModifierName(e.target.value)} 
-                  onKeyDown={e => e.key === 'Enter' && handleAddModifier()} 
+                  placeholder="Modifier name (e.g. Size, Temperature)" 
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold text-sm dark:text-white" 
+                  value={tempModifierName} 
+                  onChange={e => setTempModifierName(e.target.value)} 
                 />
-                <p className="text-[8px] text-gray-400">You can add options after creating the modifier</p>
-                <button onClick={handleAddModifier} className="w-full py-4 bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-xs">Confirm Modifier</button>
+                
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Options</span>
+                    <button
+                      onClick={handleAddModifierOption}
+                      className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg hover:bg-orange-100 transition-all"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
+                  
+                  {tempModifierOptions.map((opt, idx) => (
+                    <div key={idx} className="flex gap-2 items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          value={opt.name}
+                          onChange={(e) => handleModifierOptionChange(idx, 'name', e.target.value)}
+                          placeholder="Option name"
+                          className="w-full px-2 py-1.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-xs font-bold"
+                        />
+                      </div>
+                      <div className="w-20">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={opt.price}
+                          onChange={(e) => handleModifierOptionChange(idx, 'price', parseFloat(e.target.value) || 0)}
+                          placeholder="Price"
+                          className="w-full px-2 py-1.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-xs font-bold"
+                        />
+                      </div>
+                      <button
+                        onClick={() => handleRemoveModifierOption(idx)}
+                        className="p-1.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                  
+                  {tempModifierOptions.length === 0 && (
+                    <p className="text-center py-4 text-[10px] text-gray-400 italic border-2 border-dashed border-gray-200 rounded-lg">
+                      No options added yet. Click + to add.
+                    </p>
+                  )}
+                </div>
+                
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      setShowAddModifierModal(false);
+                      setEditingModifier(null);
+                      setTempModifierName('');
+                      setTempModifierOptions([]);
+                    }}
+                    className="flex-1 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={editingModifier ? handleUpdateModifier : handleSaveModifier}
+                    className="flex-1 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow"
+                  >
+                    {editingModifier ? 'Update' : 'Save'}
+                  </button>
+                </div>
              </div>
           </div>
         </div>
@@ -2056,127 +1999,127 @@ const VendorView: React.FC<Props> = ({
       {/* Menu Item Form Modal */}
       {isFormModalOpen && (
         <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-2xl w-full p-8 shadow-2xl relative animate-in zoom-in fade-in duration-300 max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <button onClick={() => setIsFormModalOpen(false)} className="absolute top-6 right-6 p-2 text-gray-400 hover:text-red-500 transition-colors"><X size={24} /></button>
-            <h2 className="text-2xl font-black mb-8 dark:text-white uppercase tracking-tighter">{editingItem ? 'Edit Menu Details' : 'New Dish Broadcast'}</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full p-6 shadow-2xl relative animate-in zoom-in fade-in duration-300 max-h-[85vh] overflow-y-auto">
+            <button onClick={() => setIsFormModalOpen(false)} className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 transition-colors"><X size={20} /></button>
+            <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tighter">{editingItem ? 'Edit Menu Details' : 'New Dish Broadcast'}</h2>
             
-            <form onSubmit={handleSaveItem} className="space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-6">
+            <form onSubmit={handleSaveItem} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
                   <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Menu Name</label>
-                    <input required type="text" className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm" value={formItem.name} onChange={e => setFormItem({...formItem, name: e.target.value})} placeholder="e.g. Signature Beef Burger" />
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Menu Name</label>
+                    <input required type="text" className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm" value={formItem.name} onChange={e => setFormItem({...formItem, name: e.target.value})} placeholder="e.g. Signature Beef Burger" />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Description</label>
-                    <textarea className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm resize-none" rows={3} value={formItem.description} onChange={e => setFormItem({...formItem, description: e.target.value})} placeholder="Describe the ingredients and preparation..." />
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Description</label>
+                    <textarea className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm resize-none" rows={2} value={formItem.description} onChange={e => setFormItem({...formItem, description: e.target.value})} placeholder="Describe the ingredients and preparation..." />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Base Cost</label>
-                      <input required type="number" step="0.01" className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm" value={formItem.price === 0 ? '' : formItem.price} onChange={e => setFormItem({...formItem, price: e.target.value === '' ? 0 : Number(e.target.value)})} placeholder="0.00" />
+                      <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Base Cost</label>
+                      <input required type="number" step="0.01" className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm" value={formItem.price === 0 ? '' : formItem.price} onChange={e => setFormItem({...formItem, price: e.target.value === '' ? 0 : Number(e.target.value)})} placeholder="0.00" />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Category</label>
-                      <select className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm appearance-none cursor-pointer" value={formItem.category} onChange={e => setFormItem({...formItem, category: e.target.value})}>
+                      <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Category</label>
+                      <select className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm" value={formItem.category} onChange={e => setFormItem({...formItem, category: e.target.value})}>
                         {categories.filter(c => c !== 'All').map(cat => <option key={cat} value={cat}>{cat}</option>)}
                       </select>
                     </div>
                   </div>
                 </div>
                 
-                <div className="space-y-6">
+                <div className="space-y-4">
                    <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Visual Asset</label>
-                    <div className="relative group aspect-video rounded-2xl overflow-hidden bg-gray-50 dark:bg-gray-700 border-2 border-dashed border-gray-200 dark:border-gray-600 flex items-center justify-center cursor-pointer mb-4" onClick={() => fileInputRef.current?.click()}>
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Visual Asset</label>
+                    <div className="relative group aspect-video rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-700 border-2 border-dashed border-gray-200 dark:border-gray-600 flex items-center justify-center cursor-pointer mb-2" onClick={() => fileInputRef.current?.click()}>
                       {formItem.image ? (
                         <img src={formItem.image} className="w-full h-full object-cover group-hover:scale-105 transition-all" />
                       ) : (
                         <div className="text-center">
-                          <ImageIcon size={32} className="mx-auto text-gray-300 mb-2" />
-                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Upload Frame</span>
+                          <ImageIcon size={24} className="mx-auto text-gray-300 mb-1" />
+                          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Upload Frame</span>
                         </div>
                       )}
                       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
                     </div>
                     <div className="space-y-1">
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1 flex items-center gap-2"><Link size={12}/> Or Image URL</label>
-                      <input type="text" className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-xs" value={formItem.image} onChange={e => setFormItem({...formItem, image: e.target.value})} placeholder="Paste link here..." />
+                      <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1 flex items-center gap-1"><Link size={10}/> Or Image URL</label>
+                      <input type="text" className="w-full px-3 py-1.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-xs" value={formItem.image} onChange={e => setFormItem({...formItem, image: e.target.value})} placeholder="Paste link here..." />
                     </div>
                    </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t dark:border-gray-700">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t dark:border-gray-700">
                  <div>
-                   <div className="flex items-center justify-between mb-4">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Portion Variants</label>
-                      <button type="button" onClick={() => setFormItem({...formItem, sizesEnabled: !formItem.sizesEnabled})} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${formItem.sizesEnabled ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                   <div className="flex items-center justify-between mb-2">
+                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Portion Variants</label>
+                      <button type="button" onClick={() => setFormItem({...formItem, sizesEnabled: !formItem.sizesEnabled})} className={`px-2 py-1 rounded text-[8px] font-black uppercase tracking-widest transition-all ${formItem.sizesEnabled ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
                         {formItem.sizesEnabled ? 'Activated' : 'Disabled'}
                       </button>
                    </div>
                    {formItem.sizesEnabled && (
-                     <div className="space-y-3 animate-in fade-in zoom-in-95 duration-300">
-                        <div className="flex justify-between items-center mb-2">
-                           <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Options</label>
-                           <button type="button" onClick={handleAddSize} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg"><Plus size={16} /></button>
+                     <div className="space-y-2">
+                        <div className="flex justify-between items-center mb-1">
+                           <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest ml-1">Options</label>
+                           <button type="button" onClick={handleAddSize} className="p-1 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded"><Plus size={14} /></button>
                         </div>
                         {formItem.sizes?.map((size, idx) => (
-                          <div key={idx} className="flex gap-2 animate-in slide-in-from-right-2 duration-300">
-                            <input type="text" className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-bold dark:text-white" placeholder="Portion Name" value={size.name} onChange={e => handleSizeChange(idx, 'name', e.target.value)} />
-                            <input type="number" step="0.01" className="w-24 px-3 py-2 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-bold dark:text-white" placeholder="+Price" value={size.price === 0 ? '' : size.price} onChange={e => handleSizeChange(idx, 'price', e.target.value === '' ? 0 : Number(e.target.value))} />
-                            <button type="button" onClick={() => handleRemoveSize(idx)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
+                          <div key={idx} className="flex gap-2">
+                            <input type="text" className="flex-1 px-2 py-1 bg-gray-50 dark:bg-gray-700 border-none rounded text-xs font-bold dark:text-white" placeholder="Name" value={size.name} onChange={e => handleSizeChange(idx, 'name', e.target.value)} />
+                            <input type="number" step="0.01" className="w-16 px-2 py-1 bg-gray-50 dark:bg-gray-700 border-none rounded text-xs font-bold dark:text-white" placeholder="Price" value={size.price === 0 ? '' : size.price} onChange={e => handleSizeChange(idx, 'price', e.target.value === '' ? 0 : Number(e.target.value))} />
+                            <button type="button" onClick={() => handleRemoveSize(idx)} className="p-1 text-red-400 hover:bg-red-50 rounded"><Trash2 size={12} /></button>
                           </div>
                         ))}
-                        {(!formItem.sizes || formItem.sizes.length === 0) && <p className="text-[9px] text-gray-400 italic">No variants established yet.</p>}
+                        {(!formItem.sizes || formItem.sizes.length === 0) && <p className="text-[8px] text-gray-400 italic">No variants</p>}
                      </div>
                    )}
                  </div>
 
-                 <div className="space-y-6">
+                 <div className="space-y-4">
                    <div>
-                     <div className="flex items-center justify-between mb-4">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Other Variant Group</label>
-                        <button type="button" onClick={handleAddOtherVariant} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg"><Plus size={16} /></button>
+                     <div className="flex items-center justify-between mb-2">
+                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Modifier</label>
+                        <button type="button" onClick={handleAddOtherVariant} className="p-1 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded"><Plus size={14} /></button>
                      </div>
-                     <div className="space-y-4">
+                     <div className="space-y-2">
                        {formItem.otherVariants && formItem.otherVariants.length > 0 && (
-                         <div className="animate-in fade-in zoom-in-95 duration-300 space-y-4">
+                         <div className="space-y-2">
                            <div>
-                              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Variant Title (e.g. Toppings)</label>
-                              <input type="text" className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-xs" value={formItem.otherVariantName} onChange={e => setFormItem({...formItem, otherVariantName: e.target.value, otherVariantsEnabled: true})} placeholder="Milk Choice, Toppings, etc." />
+                              <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Modifier Title</label>
+                              <input type="text" className="w-full px-2 py-1 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded outline-none font-bold dark:text-white text-xs" value={formItem.otherVariantName} onChange={e => setFormItem({...formItem, otherVariantName: e.target.value, otherVariantsEnabled: true})} placeholder="e.g. Size, Temperature" />
                            </div>
-                           <div className="space-y-3">
+                           <div className="space-y-1">
                              {formItem.otherVariants?.map((variant, idx) => (
-                               <div key={idx} className="flex gap-2 animate-in slide-in-from-right-2 duration-300">
-                                 <input type="text" className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-bold dark:text-white" placeholder="Option Name" value={variant.name} onChange={e => handleOtherVariantChange(idx, 'name', e.target.value)} />
-                                 <input type="number" step="0.01" className="w-24 px-3 py-2 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-bold dark:text-white" placeholder="+Price" value={variant.price === 0 ? '' : variant.price} onChange={e => handleOtherVariantChange(idx, 'price', e.target.value === '' ? 0 : Number(e.target.value))} />
-                                 <button type="button" onClick={() => handleRemoveOtherVariant(idx)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
+                               <div key={idx} className="flex gap-2 items-center">
+                                 <input type="text" className="flex-1 px-2 py-1 bg-gray-50 dark:bg-gray-700 border-none rounded text-xs font-bold dark:text-white" placeholder="Option" value={variant.name} onChange={e => handleOtherVariantChange(idx, 'name', e.target.value)} />
+                                 <input type="number" step="0.01" className="w-16 px-2 py-1 bg-gray-50 dark:bg-gray-700 border-none rounded text-xs font-bold dark:text-white" placeholder="Price" value={variant.price === 0 ? '' : variant.price} onChange={e => handleOtherVariantChange(idx, 'price', e.target.value === '' ? 0 : Number(e.target.value))} />
+                                 <button type="button" onClick={() => handleRemoveOtherVariant(idx)} className="p-1 text-red-400 hover:bg-red-50 rounded"><Trash2 size={12} /></button>
                                </div>
                              ))}
                            </div>
                          </div>
                        )}
-                       {(!formItem.otherVariants || formItem.otherVariants.length === 0) && <p className="text-[9px] text-gray-400 italic">No other variants established yet.</p>}
+                       {(!formItem.otherVariants || formItem.otherVariants.length === 0) && <p className="text-[8px] text-gray-400 italic">No modifiers</p>}
                      </div>
                    </div>
 
                    <div>
-                     <div className="flex items-center justify-between mb-4">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Thermal Options</label>
-                        <button type="button" onClick={() => setFormItem({...formItem, tempOptions: {...formItem.tempOptions!, enabled: !formItem.tempOptions?.enabled}})} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${formItem.tempOptions?.enabled ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                     <div className="flex items-center justify-between mb-2">
+                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Thermal Options</label>
+                        <button type="button" onClick={() => setFormItem({...formItem, tempOptions: {...formItem.tempOptions!, enabled: !formItem.tempOptions?.enabled}})} className={`px-2 py-1 rounded text-[8px] font-black uppercase tracking-widest transition-all ${formItem.tempOptions?.enabled ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
                           {formItem.tempOptions?.enabled ? 'Activated' : 'Disabled'}
                         </button>
                      </div>
                      {formItem.tempOptions?.enabled && (
-                       <div className="grid grid-cols-2 gap-4 animate-in fade-in zoom-in-95 duration-300">
-                          <div className="space-y-2">
-                             <div className="flex items-center gap-2 text-orange-500"><ThermometerSun size={14} /><span className="text-[9px] font-black uppercase tracking-widest">Hot Surcharge</span></div>
-                             <input type="number" step="0.01" className="w-full px-3 py-2 bg-orange-50 dark:bg-orange-900/10 border-none rounded-lg text-xs font-bold dark:text-white" value={formItem.tempOptions.hot === 0 ? '' : formItem.tempOptions.hot} onChange={e => setFormItem({...formItem, tempOptions: {...formItem.tempOptions!, hot: e.target.value === '' ? 0 : Number(e.target.value)}})} placeholder="0.00" />
+                       <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                             <div className="flex items-center gap-1 text-orange-500"><ThermometerSun size={12} /><span className="text-[8px] font-black">Hot</span></div>
+                             <input type="number" step="0.01" className="w-full px-2 py-1 bg-orange-50 dark:bg-orange-900/10 border-none rounded text-xs font-bold dark:text-white" value={formItem.tempOptions.hot === 0 ? '' : formItem.tempOptions.hot} onChange={e => setFormItem({...formItem, tempOptions: {...formItem.tempOptions!, hot: e.target.value === '' ? 0 : Number(e.target.value)}})} placeholder="0.00" />
                           </div>
-                          <div className="space-y-2">
-                             <div className="flex items-center gap-2 text-blue-500"><Info size={14} /><span className="text-[9px] font-black uppercase tracking-widest">Cold Surcharge</span></div>
-                             <input type="number" step="0.01" className="w-full px-3 py-2 bg-blue-50 dark:bg-blue-900/10 border-none rounded-lg text-xs font-bold dark:text-white" value={formItem.tempOptions.cold === 0 ? '' : formItem.tempOptions.cold} onChange={e => setFormItem({...formItem, tempOptions: {...formItem.tempOptions!, cold: e.target.value === '' ? 0 : Number(e.target.value)}})} placeholder="0.00" />
+                          <div className="space-y-1">
+                             <div className="flex items-center gap-1 text-blue-500"><Info size={12} /><span className="text-[8px] font-black">Cold</span></div>
+                             <input type="number" step="0.01" className="w-full px-2 py-1 bg-blue-50 dark:bg-blue-900/10 border-none rounded text-xs font-bold dark:text-white" value={formItem.tempOptions.cold === 0 ? '' : formItem.tempOptions.cold} onChange={e => setFormItem({...formItem, tempOptions: {...formItem.tempOptions!, cold: e.target.value === '' ? 0 : Number(e.target.value)}})} placeholder="0.00" />
                           </div>
                        </div>
                      )}
@@ -2185,79 +2128,79 @@ const VendorView: React.FC<Props> = ({
               </div>
 
               {/* Add-Ons Section */}
-              <div className="border-t dark:border-gray-700 pt-6 mt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2">
-                    <PlusCircle size={14} /> Add-On Items
+              <div className="border-t dark:border-gray-700 pt-4 mt-2">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1">
+                    <PlusCircle size={12} /> Add-On Items
                   </label>
                   <button
                     type="button"
                     onClick={handleAddAddOn}
-                    className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg hover:bg-orange-100 transition-all"
+                    className="p-1 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded"
                   >
-                    <Plus size={16} />
+                    <Plus size={14} />
                   </button>
                 </div>
                 
                 {formItem.addOns && formItem.addOns.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {formItem.addOns.map((addon, idx) => (
-                      <div key={idx} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl space-y-3">
+                      <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Add-On #{idx + 1}</span>
+                          <span className="text-[7px] font-black text-gray-400 uppercase tracking-widest">Add-On #{idx + 1}</span>
                           <button
                             type="button"
                             onClick={() => handleRemoveAddOn(idx)}
-                            className="p-1 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                            className="p-1 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={12} />
                           </button>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Name</label>
+                            <label className="block text-[7px] font-black text-gray-400 uppercase tracking-widest mb-0.5 ml-1">Name</label>
                             <input
                               type="text"
                               value={addon.name}
                               onChange={(e) => handleAddOnChange(idx, 'name', e.target.value)}
                               placeholder="e.g. Extra Cheese"
-                              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
+                              className="w-full px-2 py-1 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-xs font-bold"
                             />
                           </div>
                           <div>
-                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Price (RM)</label>
+                            <label className="block text-[7px] font-black text-gray-400 uppercase tracking-widest mb-0.5 ml-1">Price</label>
                             <input
                               type="number"
                               step="0.01"
                               value={addon.price}
                               onChange={(e) => handleAddOnChange(idx, 'price', parseFloat(e.target.value) || 0)}
                               placeholder="2.00"
-                              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
+                              className="w-full px-2 py-1 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-xs font-bold"
                             />
                           </div>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Max Quantity</label>
+                            <label className="block text-[7px] font-black text-gray-400 uppercase tracking-widest mb-0.5 ml-1">Max Qty</label>
                             <input
                               type="number"
                               min="1"
                               value={addon.maxQuantity}
                               onChange={(e) => handleAddOnChange(idx, 'maxQuantity', parseInt(e.target.value) || 1)}
-                              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
+                              className="w-full px-2 py-1 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-xs font-bold"
                             />
                           </div>
-                          <div className="flex items-center gap-2 pt-5">
+                          <div className="flex items-center gap-1 pt-3">
                             <input
                               type="checkbox"
                               id={`required-${idx}`}
                               checked={addon.required || false}
                               onChange={(e) => handleAddOnChange(idx, 'required', e.target.checked)}
-                              className="w-4 h-4 text-orange-500 rounded border-gray-300 focus:ring-orange-500"
+                              className="w-3 h-3 text-orange-500 rounded"
                             />
-                            <label htmlFor={`required-${idx}`} className="text-[9px] font-black text-gray-500 uppercase tracking-widest">
+                            <label htmlFor={`required-${idx}`} className="text-[7px] font-black text-gray-500 uppercase tracking-widest">
                               Required
                             </label>
                           </div>
@@ -2266,16 +2209,16 @@ const VendorView: React.FC<Props> = ({
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8 bg-gray-50 dark:bg-gray-700/30 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
-                    <PlusCircle size={24} className="mx-auto text-gray-400 mb-2" />
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">No add-ons added yet</p>
-                    <p className="text-[8px] text-gray-400 mt-1">Click + to add optional items</p>
+                  <div className="text-center py-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border-2 border-dashed border-gray-200">
+                    <PlusCircle size={18} className="mx-auto text-gray-400 mb-1" />
+                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">No add-ons added yet</p>
+                    <p className="text-[7px] text-gray-400 mt-1">Click + to add optional items</p>
                   </div>
                 )}
               </div>
 
-              <div className="pt-8 border-t dark:border-gray-700">
-                <button type="submit" className="w-full py-5 bg-orange-500 text-white rounded-[2rem] font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-orange-100 dark:shadow-none hover:bg-orange-600 transition-all active:scale-95">Save Changes</button>
+              <div className="pt-2 border-t dark:border-gray-700">
+                <button type="submit" className="w-full py-3 bg-orange-500 text-white rounded-lg font-black uppercase tracking-[0.15em] text-xs shadow hover:bg-orange-600 transition-all active:scale-95">Save Changes</button>
               </div>
             </form>
           </div>
@@ -2285,25 +2228,25 @@ const VendorView: React.FC<Props> = ({
       {/* Order Details Modal */}
       {selectedOrderForDetails && (
         <div className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-md w-full p-8 shadow-2xl relative animate-in zoom-in fade-in duration-300">
-            <button onClick={() => setSelectedOrderForDetails(null)} className="absolute top-6 right-6 p-2 text-gray-400 hover:text-red-500 transition-colors"><X size={24} /></button>
-            <div className="mb-6">
-              <div className="flex items-center gap-2 mb-1">
-                <Hash size={16} className="text-orange-500" />
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Order Details</span>
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-2xl relative animate-in zoom-in fade-in duration-300">
+            <button onClick={() => setSelectedOrderForDetails(null)} className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 transition-colors"><X size={18} /></button>
+            <div className="mb-4">
+              <div className="flex items-center gap-1 mb-1">
+                <Hash size={14} className="text-orange-500" />
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Order Details</span>
               </div>
-              <h2 className="text-xl font-black dark:text-white uppercase tracking-tighter">#{selectedOrderForDetails.id}</h2>
+              <h2 className="text-lg font-black dark:text-white uppercase tracking-tighter">#{selectedOrderForDetails.id}</h2>
             </div>
 
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Table Number</p>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Table</p>
                   <p className="text-sm font-black dark:text-white">#{selectedOrderForDetails.tableNumber}</p>
                 </div>
-                <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Status</p>
-                  <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                <div className="p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Status</p>
+                  <span className={`text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
                     selectedOrderForDetails.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-600' : 
                     selectedOrderForDetails.status === OrderStatus.SERVED ? 'bg-blue-100 text-blue-600' :
                     'bg-orange-100 text-orange-600'
@@ -2315,16 +2258,16 @@ const VendorView: React.FC<Props> = ({
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Ordered Items</p>
-                <div className="space-y-2 max-h-[30vh] overflow-y-auto custom-scrollbar pr-2">
+              <div className="space-y-2">
+                <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest ml-1">Items</p>
+                <div className="space-y-1 max-h-[30vh] overflow-y-auto pr-1">
                   {selectedOrderForDetails.items.map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-start py-2 border-b dark:border-gray-700 last:border-0">
+                    <div key={idx} className="flex justify-between items-start py-1 border-b dark:border-gray-700 last:border-0">
                       <div>
                         <p className="text-xs font-black dark:text-white">x{item.quantity} {item.name}</p>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {item.selectedSize && <span className="text-[8px] font-bold px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">Size: {item.selectedSize}</span>}
-                          {item.selectedTemp && <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tighter ${item.selectedTemp === 'Hot' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>Temp: {item.selectedTemp}</span>}
+                        <div className="flex flex-wrap gap-1 mt-0.5">
+                          {item.selectedSize && <span className="text-[7px] font-bold px-1 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded">{item.selectedSize}</span>}
+                          {item.selectedTemp && <span className={`text-[7px] font-bold px-1 py-0.5 rounded ${item.selectedTemp === 'Hot' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>{item.selectedTemp}</span>}
                         </div>
                       </div>
                       <p className="text-xs font-black dark:text-white">RM{(item.price * item.quantity).toFixed(2)}</p>
@@ -2334,18 +2277,14 @@ const VendorView: React.FC<Props> = ({
               </div>
 
               {selectedOrderForDetails.remark && (
-                <div className="p-4 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-2xl">
-                  <div className="flex items-center gap-2 mb-1">
-                    <MessageSquare size={14} className="text-orange-500" />
-                    <span className="text-[9px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest">Customer Remark</span>
-                  </div>
-                  <p className="text-xs text-gray-700 dark:text-gray-300 italic">{selectedOrderForDetails.remark}</p>
+                <div className="p-2 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 rounded-lg">
+                  <p className="text-[8px] text-gray-700 dark:text-gray-300 italic">{selectedOrderForDetails.remark}</p>
                 </div>
               )}
 
-              <div className="pt-4 border-t dark:border-gray-700 flex justify-between items-center">
-                <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Total Bill</span>
-                <span className="text-xl font-black dark:text-white">RM{selectedOrderForDetails.total.toFixed(2)}</span>
+              <div className="pt-2 border-t dark:border-gray-700 flex justify-between items-center">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Total</span>
+                <span className="text-lg font-black dark:text-white">RM{selectedOrderForDetails.total.toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -2358,9 +2297,13 @@ const VendorView: React.FC<Props> = ({
           body { background: white !important; }
           .page-break-inside-avoid { page-break-inside: avoid; }
         }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 10px; }
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
       `}</style>
     </div>
   );
