@@ -27,6 +27,17 @@ interface Props {
   onSwitchToPos?: () => void;
 }
 
+interface PrinterDevice {
+  id: string;
+  name: string;
+  connected: boolean;
+}
+
+interface OrderSettings {
+  autoAccept: boolean;
+  autoPrint: boolean;
+}
+
 interface CategoryData {
   name: string;
   skipKitchen: boolean;
