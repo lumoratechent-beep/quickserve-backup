@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bluetooth, BluetoothConnected, Printer, AlertCircle, CheckCircle2, X, Wifi, Usb } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import EscPosEncoder from 'esc-pos-encoder';
 
 interface Props {
   restaurant: any;
@@ -129,44 +130,74 @@ const PrinterSettingsComponent: React.FC<Props> = ({ restaurant }) => {
   };
 
   const printTestPage = async () => {
-    if (!connectedDevice) return;
+  if (!connectedDevice) return;
+  
+  setTestPrintStatus('printing');
+  setErrorMessage('');
+  
+  try {
+    // Reconnect to printer
+    const bluetoothDevice = await (navigator as any).bluetooth.requestDevice({
+      filters: [{ name: connectedDevice.name }],
+      optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
+    });
     
-    setTestPrintStatus('printing');
+    const server = await bluetoothDevice.gatt?.connect();
+    if (!server) throw new Error('Could not connect to printer');
     
-    try {
-      // Simple ESC/POS test print
-      const testData = new Uint8Array([
-        0x1B, 0x40, // Initialize printer
-        0x1B, 0x61, 0x31, // Center alignment
-        0x1B, 0x21, 0x30, // Double height + double width
-        0x51, 0x75, 0x69, 0x63, 0x6B, 0x53, 0x65, 0x72, 0x76, 0x65, // "QuickServe"
-        0x0A, // New line
-        0x1B, 0x21, 0x00, // Normal text
-        0x54, 0x65, 0x73, 0x74, 0x20, 0x50, 0x61, 0x67, 0x65, // "Test Page"
-        0x0A, 0x0A,
-        0x44, 0x61, 0x74, 0x65, 0x3A, 0x20, 
-        ...new TextEncoder().encode(new Date().toLocaleDateString()),
-        0x0A,
-        0x1D, 0x56, 0x41, 0x03 // Cut paper
-      ]);
-
-      // Reconnect to send data
-      const bluetoothDevice = await navigator.bluetooth.requestDevice({
-        filters: [{ name: connectedDevice.name }],
-        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
-      });
-      
-      const server = await bluetoothDevice.gatt?.connect();
-      // You'll need the actual service/characteristic UUIDs for your printer
-      // This is a simplified example
-      
-      setTestPrintStatus('success');
-      setTimeout(() => setTestPrintStatus('idle'), 3000);
-    } catch (error: any) {
-      setTestPrintStatus('error');
-      setErrorMessage('Test print failed: ' + error.message);
+    // Get the primary service
+    const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+    
+    // Get all characteristics
+    const characteristics = await service.getCharacteristics();
+    if (characteristics.length === 0) throw new Error('No characteristics found');
+    
+    console.log('Found characteristics:', characteristics);
+    
+    // Create ESC/POS test data
+    const testData = new Uint8Array([
+      0x1B, 0x40, // Initialize printer
+      0x1B, 0x61, 0x31, // Center align
+      0x1B, 0x21, 0x30, // Double size
+      0x51, 0x75, 0x69, 0x63, 0x6B, 0x53, 0x65, 0x72, 0x76, 0x65, // "QuickServe"
+      0x0A, // New line
+      0x1B, 0x21, 0x00, // Normal text
+      0x54, 0x65, 0x73, 0x74, 0x20, 0x50, 0x61, 0x67, 0x65, // "Test Page"
+      0x0A, 0x0A,
+      0x1D, 0x56, 0x41, 0x03 // Cut paper
+    ]);
+    
+    // Try each characteristic until one works
+    let printed = false;
+    for (const char of characteristics) {
+      if (char.properties.write || char.properties.writeWithoutResponse) {
+        try {
+          await char.writeValue(testData);
+          printed = true;
+          console.log('Successfully wrote to characteristic:', char.uuid);
+          break;
+        } catch (e) {
+          console.log('Failed to write to characteristic:', char.uuid);
+        }
+      }
     }
-  };
+    
+    if (!printed) throw new Error('Could not find writable characteristic');
+    
+    // Disconnect after printing
+    setTimeout(() => {
+      server.disconnect();
+    }, 1000);
+    
+    setTestPrintStatus('success');
+    setTimeout(() => setTestPrintStatus('idle'), 3000);
+    
+  } catch (error: any) {
+    console.error('Print error:', error);
+    setTestPrintStatus('error');
+    setErrorMessage('Print failed: ' + error.message);
+  }
+};
 
   if (!isBluetoothSupported) {
     return (
