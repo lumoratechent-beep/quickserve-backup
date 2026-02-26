@@ -1149,14 +1149,14 @@ const VendorView: React.FC<Props> = ({
                         )}
                         
                         {order.status === OrderStatus.ONGOING && (
-                          <button 
-                            onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} 
-                            className="flex-1 py-4 px-4 bg-green-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-lg"
-                          >
-                            <CheckCircle size={18} />
-                            Serve Order
-                          </button>
-                        )}
+  <button 
+    onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} 
+    className="flex-1 py-4 px-4 bg-green-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-lg"
+  >
+    <CheckCircle size={18} />
+    Serve Order
+  </button>
+)}
                       </div>
                     </div>
                   ))
