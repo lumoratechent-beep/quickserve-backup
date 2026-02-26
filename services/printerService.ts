@@ -128,101 +128,97 @@ class PrinterService {
     }
   }
 
-  // In printerService.ts - update the printReceipt function with debug logs
+  async printReceipt(order: any, restaurant: any): Promise<boolean> {
+    try {
+      if (!this.characteristic) {
+        console.error('Print error: No characteristic found');
+        throw new Error('Printer not connected');
+      }
 
-async printReceipt(order: any, restaurant: any): Promise<boolean> {
-  try {
-    if (!this.characteristic) {
-      console.error('Print error: No characteristic found');
-      throw new Error('Printer not connected');
-    }
+      console.log('Starting to print receipt for order:', order.id);
+      console.log('Restaurant:', restaurant.name);
 
-    console.log('Starting to print receipt for order:', order.id);
-    console.log('Restaurant:', restaurant.name);
-    console.log('Characteristic writable:', this.characteristic.properties.write);
+      // Format date and time
+      const orderDate = new Date(order.timestamp);
+      const dateStr = orderDate.toLocaleDateString();
+      const timeStr = orderDate.toLocaleTimeString();
 
-    // Format date and time
-    const orderDate = new Date(order.timestamp);
-    const dateStr = orderDate.toLocaleDateString();
-    const timeStr = orderDate.toLocaleTimeString();
-
-    console.log('Building receipt data...');
-
-    // Build receipt data with better formatting
-    let data = this.encoder
-      .initialize()
-      .align('center')
-      .size(2, 2)
-      .line(restaurant.name)
-      .size(1, 1)
-      .line('='.repeat(32))
-      .line(`Order: ${order.id}`)
-      .line(`Table: ${order.tableNumber}`)
-      .line(`Date: ${dateStr}`)
-      .line(`Time: ${timeStr}`)
-      .line('='.repeat(32))
-      .align('left');
-
-    // Items with proper formatting
-    order.items.forEach((item: any) => {
-      const itemTotal = (item.price * item.quantity).toFixed(2);
-      
-      // Item name and quantity on same line, price aligned right
-      data = data
-        .text(`${item.name} x${item.quantity}`)
-        .align('right')
-        .text(`RM ${itemTotal}`)
+      // Build receipt data with better formatting
+      let data = this.encoder
+        .initialize()
+        .align('center')
+        .size(2, 2)
+        .line(restaurant.name)
+        .size(1, 1)
+        .line('='.repeat(32))
+        .line(`Order: ${order.id}`)
+        .line(`Table: ${order.tableNumber}`)
+        .line(`Date: ${dateStr}`)
+        .line(`Time: ${timeStr}`)
+        .line('='.repeat(32))
         .align('left');
 
-      // Variants indented
-      if (item.selectedSize) {
-        data = data.text(`  - Size: ${item.selectedSize}`);
-      }
-      if (item.selectedTemp) {
-        data = data.text(`  - ${item.selectedTemp}`);
-      }
-      if (item.selectedOtherVariant) {
-        data = data.text(`  - ${item.selectedOtherVariant}`);
-      }
+      // Items with proper formatting
+      order.items.forEach((item: any) => {
+        const itemTotal = (item.price * item.quantity).toFixed(2);
+        
+        // Item name and quantity on same line, price aligned right
+        data = data
+          .text(`${item.name} x${item.quantity}`)
+          .align('right')
+          .text(`RM ${itemTotal}`)
+          .align('left');
 
-      // Add-ons indented further
-      if (item.selectedAddOns && item.selectedAddOns.length > 0) {
-        item.selectedAddOns.forEach((addon: any) => {
-          const addonTotal = (addon.price * addon.quantity).toFixed(2);
-          data = data.text(`    + ${addon.name} x${addon.quantity} RM ${addonTotal}`);
-        });
-      }
+        // Variants indented
+        if (item.selectedSize) {
+          data = data.text(`  - Size: ${item.selectedSize}`);
+        }
+        if (item.selectedTemp) {
+          data = data.text(`  - ${item.selectedTemp}`);
+        }
+        if (item.selectedOtherVariant) {
+          data = data.text(`  - ${item.selectedOtherVariant}`);
+        }
+
+        // Add-ons indented further
+        if (item.selectedAddOns && item.selectedAddOns.length > 0) {
+          item.selectedAddOns.forEach((addon: any) => {
+            const addonTotal = (addon.price * addon.quantity).toFixed(2);
+            data = data.text(`    + ${addon.name} x${addon.quantity} RM ${addonTotal}`);
+          });
+        }
+        
+        // Empty line between items for readability
+        data = data.newline();
+      });
+
+      // Total with proper formatting
+      data = data
+        .line('-'.repeat(32))
+        .align('right')
+        .size(1, 1)
+        .line(`TOTAL: RM ${order.total.toFixed(2)}`)
+        .align('center')
+        .size(1, 1)
+        .line('='.repeat(32))
+        .line('Thank you!')
+        .line('Please come again')
+        .newline() // Add space before cut
+        .newline() // Extra space to separate orders
+        .cut()
+        .encode();
+
+      console.log('Receipt data built, size:', data.length, 'bytes');
+      console.log('Sending to printer...');
       
-      // Empty line between items for readability
-      data = data.newline();
-    });
-
-    // Total with proper formatting
-    data = data
-      .line('-'.repeat(32))
-      .align('right')
-      .size(1, 1)
-      .line(`TOTAL: RM ${order.total.toFixed(2)}`)
-      .align('center')
-      .size(1, 1)
-      .line('='.repeat(32))
-      .line('Thank you!')
-      .line('Please come again')
-      .newline() // Add space before cut
-      .newline() // Extra space to separate orders
-      .cut()
-      .encode();
-
-    console.log('Receipt data built, size:', data.length, 'bytes');
-    console.log('Sending to printer...');
-    
-    await this.characteristic.writeValue(data);
-    
-    console.log('Receipt sent successfully');
-    return true;
-  } catch (error) {
-    console.error('Print error details:', error);
-    return false;
+      await this.characteristic.writeValue(data);
+      
+      console.log('Receipt sent successfully');
+      return true;
+    } catch (error) {
+      console.error('Print error details:', error);
+      return false;
+    }
   }
 }
 
