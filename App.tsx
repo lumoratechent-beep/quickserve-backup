@@ -195,7 +195,7 @@ const App: React.FC = () => {
         location: res.location_name, 
         created_at: res.created_at,
         isOnline: res.is_online === true || res.is_online === null,
-        platformAccess: (res.platform_access as PlatformAccess) || 'pos_and_kitchen', // ADD THIS
+        platformAccess: (res.platform_access as PlatformAccess) || 'pos_and_kitchen',
         settings: (() => {
           const localSettings = localStorage.getItem(`qs_settings_${res.id}`);
           const dbSettings = res.settings ? (typeof res.settings === 'string' ? JSON.parse(res.settings) : res.settings) : null;
@@ -721,7 +721,7 @@ const App: React.FC = () => {
     if (!error) fetchRestaurants();
   };
 
-  // --- VENDOR & HUB HANDLERS (UPDATED with platformAccess) ---
+  // --- VENDOR & HUB HANDLERS ---
   const handleAddVendor = async (user: User, restaurant: Restaurant) => {
     const userId = crypto.randomUUID();
     const resId = crypto.randomUUID();
@@ -737,7 +737,7 @@ const App: React.FC = () => {
         location_name: restaurant.location, 
         is_online: true,
         settings: {},
-        platform_access: restaurant.platformAccess || 'pos_and_kitchen' // ADD THIS
+        platform_access: restaurant.platformAccess || 'pos_and_kitchen'
       });
       
       if (resError) { 
@@ -814,7 +814,7 @@ const App: React.FC = () => {
       name: restaurant.name, 
       logo: restaurant.logo, 
       location_name: restaurant.location,
-      platform_access: restaurant.platformAccess // ADD THIS
+      platform_access: restaurant.platformAccess
     };
     if (user.isActive === false) {
       resUpdate.is_online = false;
@@ -990,7 +990,6 @@ const App: React.FC = () => {
         
         {currentRole === 'VENDOR' && view === 'APP' && (
           activeVendorRes ? (
-            // Check platformAccess to determine which view to show
             activeVendorRes.platformAccess === 'pos_only' ? (
               <PosOnlyView 
                 restaurant={activeVendorRes}
