@@ -216,13 +216,13 @@ const PosView: React.FC<Props> = ({
         />
       )}
 
-      {/* Left Sidebar Navigation - Matching Vendor View style */}
+      {/* Left Sidebar Navigation - Matching Vendor View exactly */}
       <aside className={`
         fixed lg:relative inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r dark:border-gray-700 
         flex flex-col transition-transform duration-300 ease-in-out no-print
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-        {/* Restaurant Info - Matching Vendor View */}
+        {/* Restaurant Info - Matches Vendor View exactly */}
         <div className="p-6 border-b dark:border-gray-700 flex items-center gap-3">
           <img 
             src={restaurant.logo || 'https://picsum.photos/seed/default/200/200'} 
@@ -235,8 +235,9 @@ const PosView: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Navigation - Matching Vendor View font sizes and weights */}
+        {/* Navigation - Exact same as Vendor View */}
         <nav className="flex-1 p-4 space-y-2">
+          {/* Counter - using ShoppingBag icon like Vendor View */}
           <button 
             onClick={() => handleTabSelection('COUNTER')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
@@ -245,9 +246,10 @@ const PosView: React.FC<Props> = ({
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <CreditCard size={18} /> Counter
+            <ShoppingBag size={20} /> Counter
           </button>
           
+          {/* QR Orders */}
           <button 
             onClick={() => handleTabSelection('QR_ORDERS')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
@@ -256,14 +258,15 @@ const PosView: React.FC<Props> = ({
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <Clock size={18} /> QR Orders
+            <Clock size={20} /> QR Orders
             {unpaidOrders.length > 0 && (
-              <span className="ml-auto bg-orange-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">
+              <span className="ml-auto bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
                 {unpaidOrders.length}
               </span>
             )}
           </button>
           
+          {/* Reports */}
           <button 
             onClick={() => handleTabSelection('REPORTS')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
@@ -272,9 +275,10 @@ const PosView: React.FC<Props> = ({
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <BarChart3 size={18} /> Sales Report
+            <BarChart3 size={20} /> Sales Report
           </button>
           
+          {/* QR Generator */}
           <button 
             onClick={() => handleTabSelection('QR_GEN')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
@@ -283,9 +287,10 @@ const PosView: React.FC<Props> = ({
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <QrCode size={18} /> QR Generator
+            <QrCode size={20} /> QR Generator
           </button>
           
+          {/* Settings */}
           <button 
             onClick={() => handleTabSelection('SETTINGS')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
@@ -294,11 +299,11 @@ const PosView: React.FC<Props> = ({
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <Settings2 size={18} /> Settings
+            <Settings2 size={20} /> Settings
           </button>
         </nav>
 
-        {/* Switch to Vendor Button - Matching Vendor View */}
+        {/* Switch to Vendor Button - Exact same as Vendor View */}
         {onSwitchToVendor && (
           <div className="p-4 mt-auto border-t dark:border-gray-700">
             <button 
@@ -314,7 +319,7 @@ const PosView: React.FC<Props> = ({
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Mobile Header */}
+          {/* Mobile Header - Matches Vendor View */}
           <div className="lg:hidden flex items-center p-4 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30 no-print">
             <button 
               onClick={() => setIsMobileMenuOpen(true)}
@@ -341,7 +346,7 @@ const PosView: React.FC<Props> = ({
           {/* Counter Tab */}
           {activeTab === 'COUNTER' && (
             <>
-              {/* Category Tabs & Search */}
+              {/* Category Tabs & Search - Matching Vendor View styling */}
               <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-4 flex flex-col gap-4">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4 overflow-x-auto no-scrollbar flex-1">
