@@ -44,6 +44,8 @@ const PosView: React.FC<Props> = ({
   const [qrOrderSearch, setQrOrderSearch] = useState('');
   const [selectedQrOrder, setSelectedQrOrder] = useState<Order | null>(null);
   const [isOrderSummaryOpen, setIsOrderSummaryOpen] = useState(false);
+  const [isCompletingPayment, setIsCompletingPayment] = useState(false);
+  const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
 
   // Reports State
   const [reportStart, setReportStart] = useState(() => {
@@ -138,15 +140,24 @@ const PosView: React.FC<Props> = ({
     }));
     
     try {
+      setIsCompletingPayment(true);
       await onPlaceOrder(cartItems, selectedQrOrder.remark || '', selectedQrOrder.tableNumber || '');
       // Mark the original order as COMPLETED
       await onUpdateOrder(selectedQrOrder.id, OrderStatus.COMPLETED);
-      
-      setSelectedQrOrder(null);
-      setIsOrderSummaryOpen(false);
-      alert('Payment completed successfully!');
+
+      setShowPaymentSuccess(true);
+
+      setTimeout(() => {
+        setIsOrderSummaryOpen(false);
+        setTimeout(() => {
+          setSelectedQrOrder(null);
+          setShowPaymentSuccess(false);
+          setIsCompletingPayment(false);
+        }, 320);
+      }, 520);
     } catch (error) {
       console.error('QR Checkout error:', error);
+      setIsCompletingPayment(false);
       alert('Failed to complete payment');
     }
   };
@@ -156,8 +167,18 @@ const PosView: React.FC<Props> = ({
   }, [orders, restaurant.id]);
 
   const handlePayUnpaid = (order: Order) => {
+    setShowPaymentSuccess(false);
     setSelectedQrOrder(order);
-    setIsOrderSummaryOpen(true);
+    setIsOrderSummaryOpen(false);
+    requestAnimationFrame(() => setIsOrderSummaryOpen(true));
+  };
+
+  const closeQrOrderSummary = () => {
+    setShowPaymentSuccess(false);
+    setIsOrderSummaryOpen(false);
+    setTimeout(() => {
+      setSelectedQrOrder(null);
+    }, 320);
   };
 
   const fetchReport = async (isExport = false) => {
@@ -861,11 +882,11 @@ const PosView: React.FC<Props> = ({
         </div>
 
         {/* Right Sidebar - Order Summary (Shared between Counter and QR Orders) */}
-        {(activeTab === 'COUNTER' || (activeTab === 'QR_ORDERS' && isOrderSummaryOpen)) && (
+        {(activeTab === 'COUNTER' || (activeTab === 'QR_ORDERS' && selectedQrOrder)) && (
           <div className={`
             w-96 bg-white dark:bg-gray-800 border-l dark:border-gray-700 flex flex-col
-            transition-all duration-300 ease-in-out
-            ${activeTab === 'QR_ORDERS' && isOrderSummaryOpen ? 'animate-slide-left' : ''}
+            transform-gpu transition-all duration-300 ease-in-out
+            ${activeTab === 'QR_ORDERS' ? (isOrderSummaryOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0 pointer-events-none') : ''}
           `}>
             <div className="p-6 border-b dark:border-gray-700 flex items-center justify-between">
               <h3 className="font-black dark:text-white uppercase tracking-tighter">
@@ -874,10 +895,7 @@ const PosView: React.FC<Props> = ({
               <div className="flex items-center gap-2">
                 {selectedQrOrder && (
                   <button 
-                    onClick={() => {
-                      setSelectedQrOrder(null);
-                      setIsOrderSummaryOpen(false);
-                    }} 
+                    onClick={closeQrOrderSummary}
                     className="text-gray-400 hover:text-red-500 transition-colors"
                   >
                     <X size={18} />
@@ -977,6 +995,12 @@ const PosView: React.FC<Props> = ({
             </div>
 
             <div className="p-6 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-4">
+              {showPaymentSuccess && (
+                <div className="px-3 py-2 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-300 text-[10px] font-black uppercase tracking-widest text-center">
+                  Payment Completed Successfully
+                </div>
+              )}
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                   <span>Subtotal</span>
@@ -992,9 +1016,10 @@ const PosView: React.FC<Props> = ({
                 // QR Order Checkout
                 <button 
                   onClick={handleQrCheckout}
-                  className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 flex items-center justify-center gap-2"
+                  disabled={isCompletingPayment || showPaymentSuccess}
+                  className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <CreditCard size={16} /> Complete Payment
+                  <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : 'Complete Payment'}
                 </button>
               ) : (
                 // Counter Checkout
