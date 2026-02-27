@@ -216,49 +216,47 @@ const PosView: React.FC<Props> = ({
         />
       )}
 
-      {/* Left Sidebar Navigation - EXACT match to Vendor View */}
+      {/* Left Sidebar Navigation - FIXED to match Vendor View exactly */}
       <aside className={`
         fixed lg:relative inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r dark:border-gray-700 
         flex flex-col transition-transform duration-300 ease-in-out no-print
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-        {/* Header - EXACT match */}
+        {/* Header - EXACT same as Vendor View */}
         <div className="p-6 border-b dark:border-gray-700 flex items-center gap-3">
           <img src={restaurant.logo} className="w-10 h-10 rounded-lg shadow-sm" />
           <div>
             <h2 className="font-black dark:text-white text-sm uppercase tracking-tight">{restaurant.name}</h2>
-            <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mt-0.5">POS TERMINAL</p>
+            <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mt-0.5">POS Terminal</p>
           </div>
         </div>
 
-        {/* Navigation - EXACT match to Vendor View */}
+        {/* Navigation - EXACT same classes as Vendor View */}
         <nav className="flex-1 p-4 space-y-2">
-          {/* Counter - using ShoppingBag icon like Incoming Orders */}
+          {/* Counter */}
           <button 
             onClick={() => handleTabSelection('COUNTER')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
               activeTab === 'COUNTER' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <ShoppingBag size={20} /> COUNTER
+            <ShoppingBag size={20} /> Counter
           </button>
           
-          {/* QR Orders - with badge */}
+          {/* QR Orders */}
           <button 
             onClick={() => handleTabSelection('QR_ORDERS')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
               activeTab === 'QR_ORDERS' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <div className="flex items-center gap-3 flex-1">
-              <Clock size={20} /> QR ORDERS
-            </div>
+            <Clock size={20} /> QR Orders
             {unpaidOrders.length > 0 && (
-              <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">
+              <span className="ml-auto bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">
                 {unpaidOrders.length}
               </span>
             )}
@@ -267,54 +265,54 @@ const PosView: React.FC<Props> = ({
           {/* Reports */}
           <button 
             onClick={() => handleTabSelection('REPORTS')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
               activeTab === 'REPORTS' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <BarChart3 size={20} /> SALES REPORT
+            <BarChart3 size={20} /> Reports
           </button>
           
           {/* QR Generator */}
           <button 
             onClick={() => handleTabSelection('QR_GEN')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
               activeTab === 'QR_GEN' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <QrCode size={20} /> QR GENERATOR
+            <QrCode size={20} /> QR Generator
           </button>
           
           {/* Settings */}
           <button 
             onClick={() => handleTabSelection('SETTINGS')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
               activeTab === 'SETTINGS' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <Settings2 size={20} /> SETTINGS
+            <Settings2 size={20} /> Settings
           </button>
         </nav>
 
-        {/* Switch to Vendor Button - EXACT match */}
+        {/* Switch to Vendor Button */}
         {onSwitchToVendor && (
           <div className="p-4 mt-auto border-t dark:border-gray-700">
             <button 
               onClick={onSwitchToVendor}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-all border border-orange-100 dark:border-orange-900/20"
             >
-              <ShoppingBag size={18} /> SWITCH TO VENDOR
+              <ShoppingBag size={18} /> Switch to Vendor
             </button>
           </div>
         )}
       </aside>
 
-      {/* Main Content Area - Keep as is */}
+      {/* Main Content Area - KEEP ALL EXISTING FEATURES */}
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Mobile Header */}
@@ -337,7 +335,7 @@ const PosView: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* Counter Tab - Keep existing content */}
+          {/* Counter Tab - KEEP ALL EXISTING CODE */}
           {activeTab === 'COUNTER' && (
             <>
               {/* Category Tabs & Search */}
@@ -362,24 +360,28 @@ const PosView: React.FC<Props> = ({
                     <button 
                       onClick={() => setMenuLayout('grid-3')} 
                       className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-3' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}
+                      title="3 Columns"
                     >
                       <LayoutGrid size={16} />
                     </button>
                     <button 
                       onClick={() => setMenuLayout('grid-4')} 
                       className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-4' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}
+                      title="4 Columns"
                     >
                       <LayoutGrid size={16} />
                     </button>
                     <button 
                       onClick={() => setMenuLayout('grid-5')} 
                       className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-5' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}
+                      title="5 Columns"
                     >
                       <LayoutGrid size={16} />
                     </button>
                     <button 
                       onClick={() => setMenuLayout('list')} 
                       className={`p-2 rounded-lg transition-all ${menuLayout === 'list' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}
+                      title="List View"
                     >
                       <List size={16} />
                     </button>
@@ -447,7 +449,7 @@ const PosView: React.FC<Props> = ({
             </>
           )}
 
-          {/* QR Orders Tab */}
+          {/* QR Orders Tab - KEEP ALL EXISTING CODE */}
           {activeTab === 'QR_ORDERS' && (
             <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-4xl mx-auto">
@@ -499,7 +501,7 @@ const PosView: React.FC<Props> = ({
             </div>
           )}
 
-          {/* Reports Tab */}
+          {/* Reports Tab - KEEP ALL EXISTING CODE */}
           {activeTab === 'REPORTS' && (
             <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
@@ -682,7 +684,7 @@ const PosView: React.FC<Props> = ({
             </div>
           )}
 
-          {/* QR Generator Tab */}
+          {/* QR Generator Tab - KEEP ALL EXISTING CODE */}
           {activeTab === 'QR_GEN' && (
             <div className="flex-1 overflow-y-auto p-6 flex items-center justify-center">
               <div className="bg-white dark:bg-gray-800 p-12 rounded-[40px] border dark:border-gray-700 shadow-2xl text-center max-w-md w-full">
@@ -725,7 +727,7 @@ const PosView: React.FC<Props> = ({
             </div>
           )}
 
-          {/* Settings Tab */}
+          {/* Settings Tab - KEEP ALL EXISTING CODE */}
           {activeTab === 'SETTINGS' && (
             <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-2xl mx-auto">
@@ -770,7 +772,7 @@ const PosView: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Right Sidebar - Order Summary (Counter only) */}
+        {/* Right Sidebar - Order Summary (Counter only) - KEEP ALL EXISTING CODE */}
         {activeTab === 'COUNTER' && (
           <div className="w-96 bg-white dark:bg-gray-800 border-l dark:border-gray-700 flex flex-col">
             <div className="p-6 border-b dark:border-gray-700 flex items-center justify-between">
