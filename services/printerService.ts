@@ -256,7 +256,7 @@ class PrinterService {
         .cut()
         .encode();
 
-      // Send entire data at once for test page (it's small)
+      // Send entire test page in one go
       await this.characteristic.writeValue(data);
       
       // Wait for printer to finish
@@ -363,11 +363,11 @@ class PrinterService {
 
         const data = receipt.encode();
 
-        // CRITICAL FIX: Send data in ONE chunk for the entire receipt
-        // The printer buffer issue is caused by sending too many small chunks
+        // CRITICAL FIX: Send entire receipt in ONE go
+        // This prevents buffer overflow and printer corruption
         await this.characteristic.writeValue(data);
         
-        // Wait for printer to finish processing
+        // Wait for printer to completely finish processing
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         this.lastPrintTime = Date.now();
