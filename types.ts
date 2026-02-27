@@ -1,5 +1,8 @@
 export type Role = 'CUSTOMER' | 'VENDOR' | 'ADMIN';
 
+// Platform access type
+export type PlatformAccess = 'pos_and_kitchen' | 'pos_only';
+
 export enum OrderStatus {
   PENDING = 'PENDING',
   ONGOING = 'ONGOING',
@@ -63,6 +66,7 @@ export interface Restaurant {
     showSalesReport?: boolean;
     showQrGenerator?: boolean;
   };
+  platformAccess?: PlatformAccess; // Added for restaurant-based access control
 }
 
 export interface SelectedAddOn {
