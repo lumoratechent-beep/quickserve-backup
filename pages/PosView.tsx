@@ -1,7 +1,14 @@
+// pages/PosView.tsx
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters } from '../types';
-import { ShoppingBag, Search, Filter, Download, Calendar, ChevronLeft, ChevronRight, Printer, QrCode, CreditCard, Banknote, User, Trash2, Plus, Minus, LayoutGrid, List, Clock, CheckCircle2, AlertCircle, RefreshCw, BarChart3, Receipt, Hash, Settings2, Menu } from 'lucide-react';
+import { 
+  ShoppingBag, Search, Filter, Download, Calendar, ChevronLeft, ChevronRight, 
+  Printer, QrCode, CreditCard, Banknote, User, Trash2, Plus, Minus, LayoutGrid, 
+  List, Clock, CheckCircle2, AlertCircle, RefreshCw, BarChart3, Receipt, Hash, 
+  Settings2, Menu, Wifi, WifiOff, ExternalLink, X, ChevronFirst, ChevronLast,
+  Coffee, BookOpen, BarChart, QrCode as QrCodeIcon, Settings, CreditCard as CreditCardIcon
+} from 'lucide-react';
 
 interface Props {
   restaurant: Restaurant;
@@ -209,51 +216,89 @@ const PosView: React.FC<Props> = ({
         />
       )}
 
-      {/* Left Sidebar Navigation */}
+      {/* Left Sidebar Navigation - Matching Vendor View style */}
       <aside className={`
         fixed lg:relative inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r dark:border-gray-700 
         flex flex-col transition-transform duration-300 ease-in-out no-print
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-        <div className="p-6 border-b dark:border-gray-700">
-          <h2 className="text-lg font-black dark:text-white uppercase tracking-tighter">POS Terminal</h2>
-          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{restaurant.name}</p>
+        {/* Restaurant Info - Matching Vendor View */}
+        <div className="p-6 border-b dark:border-gray-700 flex items-center gap-3">
+          <img 
+            src={restaurant.logo || 'https://picsum.photos/seed/default/200/200'} 
+            className="w-10 h-10 rounded-lg shadow-sm" 
+            alt={restaurant.name}
+          />
+          <div>
+            <h2 className="font-black dark:text-white text-sm uppercase tracking-tight">{restaurant.name}</h2>
+            <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mt-0.5">POS Terminal</p>
+          </div>
         </div>
+
+        {/* Navigation - Matching Vendor View font sizes and weights */}
         <nav className="flex-1 p-4 space-y-2">
           <button 
-            onClick={() => setActiveTab('COUNTER')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'COUNTER' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+            onClick={() => handleTabSelection('COUNTER')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+              activeTab === 'COUNTER' 
+                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }`}
           >
-            <Banknote size={18} /> Counter (Cashier)
+            <CreditCard size={18} /> Counter
           </button>
+          
           <button 
-            onClick={() => setActiveTab('QR_ORDERS')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'QR_ORDERS' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+            onClick={() => handleTabSelection('QR_ORDERS')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+              activeTab === 'QR_ORDERS' 
+                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }`}
           >
             <Clock size={18} /> QR Orders
             {unpaidOrders.length > 0 && (
-              <span className="ml-auto bg-red-500 text-white text-[8px] px-1.5 py-0.5 rounded-full">{unpaidOrders.length}</span>
+              <span className="ml-auto bg-orange-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">
+                {unpaidOrders.length}
+              </span>
             )}
           </button>
+          
           <button 
-            onClick={() => setActiveTab('REPORTS')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'REPORTS' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+            onClick={() => handleTabSelection('REPORTS')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+              activeTab === 'REPORTS' 
+                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }`}
           >
             <BarChart3 size={18} /> Sales Report
           </button>
+          
           <button 
-            onClick={() => setActiveTab('QR_GEN')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'QR_GEN' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+            onClick={() => handleTabSelection('QR_GEN')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+              activeTab === 'QR_GEN' 
+                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }`}
           >
             <QrCode size={18} /> QR Generator
           </button>
+          
           <button 
-            onClick={() => setActiveTab('SETTINGS')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'SETTINGS' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+            onClick={() => handleTabSelection('SETTINGS')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+              activeTab === 'SETTINGS' 
+                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }`}
           >
-            <Settings2 size={18} /> Kitchen Settings
+            <Settings2 size={18} /> Settings
           </button>
         </nav>
+
+        {/* Switch to Vendor Button - Matching Vendor View */}
         {onSwitchToVendor && (
           <div className="p-4 mt-auto border-t dark:border-gray-700">
             <button 
@@ -269,7 +314,7 @@ const PosView: React.FC<Props> = ({
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Mobile Header for POS View */}
+          {/* Mobile Header */}
           <div className="lg:hidden flex items-center p-4 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30 no-print">
             <button 
               onClick={() => setIsMobileMenuOpen(true)}
@@ -278,15 +323,25 @@ const PosView: React.FC<Props> = ({
               <Menu size={24} />
             </button>
             <div className="ml-4 flex items-center gap-2">
-              <img src={restaurant.logo} className="w-8 h-8 rounded-lg shadow-sm" />
+              <img 
+                src={restaurant.logo || 'https://picsum.photos/seed/default/200/200'} 
+                className="w-8 h-8 rounded-lg shadow-sm" 
+                alt={restaurant.name}
+              />
               <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm truncate">
-                {activeTab === 'COUNTER' ? 'POS Counter' : activeTab === 'QR_ORDERS' ? 'QR Orders' : activeTab === 'REPORTS' ? 'Sales Report' : activeTab === 'QR_GEN' ? 'QR Generator' : 'Kitchen Settings'}
+                {activeTab === 'COUNTER' ? 'POS Counter' : 
+                 activeTab === 'QR_ORDERS' ? 'QR Orders' : 
+                 activeTab === 'REPORTS' ? 'Sales Report' : 
+                 activeTab === 'QR_GEN' ? 'QR Generator' : 
+                 'Settings'}
               </h1>
             </div>
           </div>
+
+          {/* Counter Tab */}
           {activeTab === 'COUNTER' && (
             <>
-              {/* Category Tabs & Search & Layout Switcher */}
+              {/* Category Tabs & Search */}
               <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-4 flex flex-col gap-4">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4 overflow-x-auto no-scrollbar flex-1">
@@ -294,17 +349,45 @@ const PosView: React.FC<Props> = ({
                       <button
                         key={cat}
                         onClick={() => setSelectedCategory(cat)}
-                        className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest whitespace-nowrap transition-all ${selectedCategory === cat ? 'bg-black text-white dark:bg-white dark:text-black' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+                        className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest whitespace-nowrap transition-all ${
+                          selectedCategory === cat 
+                            ? 'bg-black text-white dark:bg-white dark:text-black' 
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
                       >
                         {cat}
                       </button>
                     ))}
                   </div>
                   <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-xl shrink-0">
-                    <button onClick={() => setMenuLayout('grid-3')} className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-3' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`} title="3 Columns"><LayoutGrid size={16} /></button>
-                    <button onClick={() => setMenuLayout('grid-4')} className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-4' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`} title="4 Columns"><LayoutGrid size={16} /></button>
-                    <button onClick={() => setMenuLayout('grid-5')} className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-5' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`} title="5 Columns"><LayoutGrid size={16} /></button>
-                    <button onClick={() => setMenuLayout('list')} className={`p-2 rounded-lg transition-all ${menuLayout === 'list' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`} title="List View"><List size={16} /></button>
+                    <button 
+                      onClick={() => setMenuLayout('grid-3')} 
+                      className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-3' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}
+                      title="3 Columns"
+                    >
+                      <LayoutGrid size={16} />
+                    </button>
+                    <button 
+                      onClick={() => setMenuLayout('grid-4')} 
+                      className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-4' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}
+                      title="4 Columns"
+                    >
+                      <LayoutGrid size={16} />
+                    </button>
+                    <button 
+                      onClick={() => setMenuLayout('grid-5')} 
+                      className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-5' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}
+                      title="5 Columns"
+                    >
+                      <LayoutGrid size={16} />
+                    </button>
+                    <button 
+                      onClick={() => setMenuLayout('list')} 
+                      className={`p-2 rounded-lg transition-all ${menuLayout === 'list' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}
+                      title="List View"
+                    >
+                      <List size={16} />
+                    </button>
                   </div>
                 </div>
                 <div className="relative">
@@ -319,7 +402,7 @@ const PosView: React.FC<Props> = ({
                 </div>
               </div>
 
-              {/* Menu Content Area */}
+              {/* Menu Content */}
               <div className="flex-1 overflow-y-auto p-2 scroll-smooth">
                 <div className="space-y-4">
                   {Object.entries(groupedMenu).map(([category, items]) => (
@@ -350,7 +433,9 @@ const PosView: React.FC<Props> = ({
                               {item.image ? (
                                 <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-400"><ShoppingBag size={20} /></div>
+                                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                  <ShoppingBag size={20} />
+                                </div>
                               )}
                             </div>
                             <div className={menuLayout === 'list' ? 'flex-1' : 'mt-3'}>
@@ -367,6 +452,7 @@ const PosView: React.FC<Props> = ({
             </>
           )}
 
+          {/* QR Orders Tab */}
           {activeTab === 'QR_ORDERS' && (
             <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-4xl mx-auto">
@@ -418,6 +504,7 @@ const PosView: React.FC<Props> = ({
             </div>
           )}
 
+          {/* Reports Tab */}
           {activeTab === 'REPORTS' && (
             <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
@@ -428,9 +515,19 @@ const PosView: React.FC<Props> = ({
                   </div>
                   <div className="flex items-center gap-2 bg-white dark:bg-gray-800 p-2 rounded-xl border dark:border-gray-700">
                     <Calendar size={14} className="text-orange-500" />
-                    <input type="date" value={reportStart} onChange={e => setReportStart(e.target.value)} className="bg-transparent border-none text-[10px] font-black dark:text-white outline-none" />
+                    <input 
+                      type="date" 
+                      value={reportStart} 
+                      onChange={e => setReportStart(e.target.value)} 
+                      className="bg-transparent border-none text-[10px] font-black dark:text-white outline-none" 
+                    />
                     <span className="text-gray-400 font-black">to</span>
-                    <input type="date" value={reportEnd} onChange={e => setReportEnd(e.target.value)} className="bg-transparent border-none text-[10px] font-black dark:text-white outline-none" />
+                    <input 
+                      type="date" 
+                      value={reportEnd} 
+                      onChange={e => setReportEnd(e.target.value)} 
+                      className="bg-transparent border-none text-[10px] font-black dark:text-white outline-none" 
+                    />
                   </div>
                 </div>
 
@@ -438,7 +535,11 @@ const PosView: React.FC<Props> = ({
                   <div className="flex-1 flex flex-col sm:flex-row gap-4 w-full">
                     <div className="w-full sm:w-48">
                       <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Order Outcome</label>
-                      <select value={reportStatus} onChange={(e) => setReportStatus(e.target.value as any)} className="w-full p-1.5 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white appearance-none cursor-pointer">
+                      <select 
+                        value={reportStatus} 
+                        onChange={(e) => setReportStatus(e.target.value as any)} 
+                        className="w-full p-1.5 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white appearance-none cursor-pointer"
+                      >
                         <option value="ALL">All Outcomes</option>
                         <option value={OrderStatus.COMPLETED}>Paid/Finalized</option>
                         <option value={OrderStatus.SERVED}>Served (Unpaid)</option>
@@ -446,21 +547,32 @@ const PosView: React.FC<Props> = ({
                       </select>
                     </div>
                   </div>
-                  <button onClick={handleDownloadReport} className="w-full md:w-auto px-6 py-2 bg-black text-white dark:bg-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-orange-500 transition-all"><Download size={16} /> Export CSV</button>
+                  <button 
+                    onClick={handleDownloadReport} 
+                    className="w-full md:w-auto px-6 py-2 bg-black text-white dark:bg-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-orange-500 transition-all"
+                  >
+                    <Download size={16} /> Export CSV
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
                   <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border dark:border-gray-700 shadow-sm">
                     <p className="text-gray-400 text-[8px] font-black uppercase tracking-widest mb-2">Total Revenue</p>
-                    <p className="text-2xl font-black dark:text-white tracking-tighter">RM{reportData?.summary.totalRevenue.toFixed(2) || '0.00'}</p>
+                    <p className="text-2xl font-black dark:text-white tracking-tighter">
+                      RM{reportData?.summary.totalRevenue.toFixed(2) || '0.00'}
+                    </p>
                   </div>
                   <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border dark:border-gray-700 shadow-sm">
                     <p className="text-gray-400 text-[8px] font-black uppercase tracking-widest mb-2">Order Volume</p>
-                    <p className="text-2xl font-black dark:text-white tracking-tighter">{reportData?.summary.orderVolume || 0}</p>
+                    <p className="text-2xl font-black dark:text-white tracking-tighter">
+                      {reportData?.summary.orderVolume || 0}
+                    </p>
                   </div>
                   <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border dark:border-gray-700 shadow-sm">
                     <p className="text-gray-400 text-[8px] font-black uppercase tracking-widest mb-2">Efficiency</p>
-                    <p className="text-2xl font-black text-green-500 tracking-tighter">{reportData?.summary.efficiency || 0}%</p>
+                    <p className="text-2xl font-black text-green-500 tracking-tighter">
+                      {reportData?.summary.efficiency || 0}%
+                    </p>
                   </div>
                 </div>
 
@@ -526,13 +638,19 @@ const PosView: React.FC<Props> = ({
                   </div>
                 </div>
 
-                {/* Pagination Controls */}
                 {totalPages > 1 && (
                   <div className="mt-8 flex items-center justify-center gap-2 overflow-x-auto py-2">
                     <button 
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                      className="p-2 rounded-lg bg-white dark:bg-gray-800 border dark:border-gray-700 text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"
+                    >
+                      <ChevronFirst size={16} />
+                    </button>
+                    <button 
                       onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                       disabled={currentPage === 1}
-                      className="p-2 rounded-lg bg-white dark:bg-gray-800 border dark:border-gray-700 text-gray-400 disabled:opacity-30"
+                      className="p-2 rounded-lg bg-white dark:bg-gray-800 border dark:border-gray-700 text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"
                     >
                       <ChevronLeft size={16} />
                     </button>
@@ -540,7 +658,11 @@ const PosView: React.FC<Props> = ({
                       <button
                         key={page}
                         onClick={() => setCurrentPage(page)}
-                        className={`w-8 h-8 rounded-lg font-black text-[10px] transition-all ${currentPage === page ? 'bg-orange-500 text-white shadow-md' : 'bg-white dark:bg-gray-800 border dark:border-gray-700 text-gray-400 hover:border-orange-500'}`}
+                        className={`w-8 h-8 rounded-lg font-black text-[10px] transition-all ${
+                          currentPage === page 
+                            ? 'bg-orange-500 text-white shadow-md' 
+                            : 'bg-white dark:bg-gray-800 border dark:border-gray-700 text-gray-400 hover:border-orange-500'
+                        }`}
                       >
                         {page}
                       </button>
@@ -548,9 +670,16 @@ const PosView: React.FC<Props> = ({
                     <button 
                       onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                       disabled={currentPage === totalPages}
-                      className="p-2 rounded-lg bg-white dark:bg-gray-800 border dark:border-gray-700 text-gray-400 disabled:opacity-30"
+                      className="p-2 rounded-lg bg-white dark:bg-gray-800 border dark:border-gray-700 text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"
                     >
                       <ChevronRight size={16} />
+                    </button>
+                    <button 
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                      className="p-2 rounded-lg bg-white dark:bg-gray-800 border dark:border-gray-700 text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"
+                    >
+                      <ChevronLast size={16} />
                     </button>
                   </div>
                 )}
@@ -558,6 +687,7 @@ const PosView: React.FC<Props> = ({
             </div>
           )}
 
+          {/* QR Generator Tab */}
           {activeTab === 'QR_GEN' && (
             <div className="flex-1 overflow-y-auto p-6 flex items-center justify-center">
               <div className="bg-white dark:bg-gray-800 p-12 rounded-[40px] border dark:border-gray-700 shadow-2xl text-center max-w-md w-full">
@@ -586,7 +716,7 @@ const PosView: React.FC<Props> = ({
                 <div className="p-6 bg-orange-50 dark:bg-orange-900/10 rounded-3xl border border-orange-100 dark:border-orange-900/20 mb-8">
                   <p className="text-[10px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest mb-1">Preview Link</p>
                   <p className="text-[10px] font-bold text-orange-600 dark:text-orange-500 break-all">
-                    {window.location.origin}/?location={encodeURIComponent(restaurant.location)}&table={posTableNo}
+                    {window.location.origin}/?loc={encodeURIComponent(restaurant.location)}&table={posTableNo}
                   </p>
                 </div>
 
@@ -600,6 +730,7 @@ const PosView: React.FC<Props> = ({
             </div>
           )}
 
+          {/* Settings Tab */}
           {activeTab === 'SETTINGS' && (
             <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-2xl mx-auto">
@@ -612,9 +743,13 @@ const PosView: React.FC<Props> = ({
                     </div>
                     <button 
                       onClick={() => toggleSetting('showSalesReport')}
-                      className={`w-12 h-6 rounded-full transition-all relative ${restaurant.settings?.showSalesReport !== false ? 'bg-orange-500' : 'bg-gray-200 dark:bg-gray-700'}`}
+                      className={`w-12 h-6 rounded-full transition-all relative ${
+                        restaurant.settings?.showSalesReport !== false ? 'bg-orange-500' : 'bg-gray-200 dark:bg-gray-700'
+                      }`}
                     >
-                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${restaurant.settings?.showSalesReport !== false ? 'left-7' : 'left-1'}`}></div>
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                        restaurant.settings?.showSalesReport !== false ? 'left-7' : 'left-1'
+                      }`} />
                     </button>
                   </div>
 
@@ -625,9 +760,13 @@ const PosView: React.FC<Props> = ({
                     </div>
                     <button 
                       onClick={() => toggleSetting('showQrGenerator')}
-                      className={`w-12 h-6 rounded-full transition-all relative ${restaurant.settings?.showQrGenerator !== false ? 'bg-orange-500' : 'bg-gray-200 dark:bg-gray-700'}`}
+                      className={`w-12 h-6 rounded-full transition-all relative ${
+                        restaurant.settings?.showQrGenerator !== false ? 'bg-orange-500' : 'bg-gray-200 dark:bg-gray-700'
+                      }`}
                     >
-                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${restaurant.settings?.showQrGenerator !== false ? 'left-7' : 'left-1'}`}></div>
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                        restaurant.settings?.showQrGenerator !== false ? 'left-7' : 'left-1'
+                      }`} />
                     </button>
                   </div>
                 </div>
@@ -636,12 +775,17 @@ const PosView: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Right Sidebar - Order Summary (Only for Counter) */}
+        {/* Right Sidebar - Order Summary (Counter only) */}
         {activeTab === 'COUNTER' && (
           <div className="w-96 bg-white dark:bg-gray-800 border-l dark:border-gray-700 flex flex-col">
             <div className="p-6 border-b dark:border-gray-700 flex items-center justify-between">
               <h3 className="font-black dark:text-white uppercase tracking-tighter">Current Order</h3>
-              <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
+              <button 
+                onClick={() => setPosCart([])} 
+                className="text-gray-400 hover:text-red-500 transition-colors"
+              >
+                <Trash2 size={18} />
+              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
@@ -658,11 +802,26 @@ const PosView: React.FC<Props> = ({
                       <p className="text-[10px] text-orange-500 font-black">RM{item.price.toFixed(2)}</p>
                     </div>
                     <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
-                      <button onClick={() => updateQuantity(item.id, -1)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all"><Minus size={12} /></button>
+                      <button 
+                        onClick={() => updateQuantity(item.id, -1)} 
+                        className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all"
+                      >
+                        <Minus size={12} />
+                      </button>
                       <span className="text-[10px] font-black w-4 text-center dark:text-white">{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, 1)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all"><Plus size={12} /></button>
+                      <button 
+                        onClick={() => updateQuantity(item.id, 1)} 
+                        className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all"
+                      >
+                        <Plus size={12} />
+                      </button>
                     </div>
-                    <button onClick={() => removeFromPosCart(item.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
+                    <button 
+                      onClick={() => removeFromPosCart(item.id)} 
+                      className="text-gray-300 hover:text-red-500"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 ))
               )}
@@ -715,6 +874,16 @@ const PosView: React.FC<Props> = ({
           </div>
         )}
       </div>
+
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
     </div>
   );
 };
