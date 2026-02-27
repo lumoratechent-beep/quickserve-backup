@@ -464,6 +464,7 @@ const AdminView: React.FC<Props> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [hubSearchQuery, setHubSearchQuery] = useState('');
   const [vendorFilter, setVendorFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
+  const [vendorSort, setVendorSort] = useState<{ field: 'KITCHEN' | 'HUB'; direction: 'asc' | 'desc' } | null>(null);
   
   // Registration / Edit Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -518,13 +519,39 @@ const AdminView: React.FC<Props> = ({
   const [isReportLoading, setIsReportLoading] = useState(false);
 
   const filteredVendors = useMemo(() => {
-    return vendors.filter(vendor => {
+    const base = vendors.filter(vendor => {
       const res = restaurants.find(r => r.id === vendor.restaurantId);
       const matchesSearch = vendor.username.toLowerCase().includes(searchQuery.toLowerCase()) || res?.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = vendorFilter === 'ALL' ? true : (vendorFilter === 'ACTIVE' ? vendor.isActive : !vendor.isActive);
       return matchesSearch && matchesStatus;
     });
-  }, [vendors, restaurants, searchQuery, vendorFilter]);
+
+    if (!vendorSort) return base;
+
+    return [...base].sort((a, b) => {
+      const restaurantA = restaurants.find(r => r.id === a.restaurantId);
+      const restaurantB = restaurants.find(r => r.id === b.restaurantId);
+
+      const valueA = vendorSort.field === 'KITCHEN'
+        ? (restaurantA?.name || '').toLowerCase()
+        : (restaurantA?.location || '').toLowerCase();
+      const valueB = vendorSort.field === 'KITCHEN'
+        ? (restaurantB?.name || '').toLowerCase()
+        : (restaurantB?.location || '').toLowerCase();
+
+      const order = valueA.localeCompare(valueB);
+      return vendorSort.direction === 'asc' ? order : -order;
+    });
+  }, [vendors, restaurants, searchQuery, vendorFilter, vendorSort]);
+
+  const handleVendorSort = (field: 'KITCHEN' | 'HUB') => {
+    setVendorSort(prev => {
+      if (!prev || prev.field !== field) {
+        return { field, direction: 'asc' };
+      }
+      return { field, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+    });
+  };
 
   const filteredHubs = useMemo(() => {
     return locations.filter(loc => 
@@ -786,8 +813,33 @@ const AdminView: React.FC<Props> = ({
               <table className="w-full">
                 <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
                   <tr>
-                    <th className="px-8 py-4 text-left">Kitchen</th>
-                    <th className="px-8 py-4 text-left">Hub</th>
+                    <th className="px-8 py-4 text-left group">
+                      <div className="inline-flex items-center gap-1.5">
+                        <span>Kitchen</span>
+                        <button
+                          onClick={() => handleVendorSort('KITCHEN')}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-orange-500"
+                          aria-label="Sort Kitchen"
+                          title="Sort Kitchen"
+                        >
+                          {vendorSort?.field === 'KITCHEN' && vendorSort.direction === 'desc' ? '▼' : '▲'}
+                        </button>
+                      </div>
+                    </th>
+                    <th className="px-8 py-4 text-left group">
+                      <div className="inline-flex items-center gap-1.5">
+                        <span>Hub</span>
+                        <button
+                          onClick={() => handleVendorSort('HUB')}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-orange-500"
+                          aria-label="Sort Hub"
+                          title="Sort Hub"
+                        >
+                          {vendorSort?.field === 'HUB' && vendorSort.direction === 'desc' ? '▼' : '▲'}
+                        </button>
+                      </div>
+                    </th>
+                    <th className="px-8 py-4 text-center">Access</th>
                     <th className="px-8 py-4 text-center">Master Activation</th>
                     <th className="px-8 py-4 text-center">Live Status</th>
                     <th className="px-8 py-4 text-right">Actions</th>
@@ -809,6 +861,11 @@ const AdminView: React.FC<Props> = ({
                           </div>
                         </td>
                         <td className="px-8 py-5 text-sm font-bold text-gray-500 dark:text-gray-400 uppercase truncate max-w-[120px]">{res?.location || 'Unassigned'}</td>
+                        <td className="px-8 py-5 text-center">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-300">
+                            {(res?.platformAccess || 'pos_and_kitchen') === 'pos_only' ? 'POS Only' : 'POS & Kitchen'}
+                          </span>
+                        </td>
                         <td className="px-8 py-5 text-center">
                           <button onClick={() => toggleVendorStatus(vendor)} className={`p-2 rounded-xl transition-all ${vendor.isActive ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 bg-gray-50 dark:bg-gray-700'}`}>
                              {vendor.isActive ? <CheckCircle2 size={20} /> : <Power size={20} />}
