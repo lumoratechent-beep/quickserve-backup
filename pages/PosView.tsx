@@ -7,7 +7,7 @@ import {
   Printer, QrCode, CreditCard, Banknote, User, Trash2, Plus, Minus, LayoutGrid, 
   List, Clock, CheckCircle2, AlertCircle, RefreshCw, BarChart3, Receipt, Hash, 
   Settings2, Menu, Wifi, WifiOff, ExternalLink, X, ChevronFirst, ChevronLast,
-  Coffee, BookOpen, BarChart, QrCode as QrCodeIcon, Settings
+  Coffee, BookOpen, BarChart, QrCode as QrCodeIcon, Settings, ChevronUp
 } from 'lucide-react';
 
 interface Props {
@@ -42,6 +42,8 @@ const PosView: React.FC<Props> = ({
 
   // QR Orders State
   const [qrOrderSearch, setQrOrderSearch] = useState('');
+  const [selectedQrOrder, setSelectedQrOrder] = useState<Order | null>(null);
+  const [isOrderSummaryOpen, setIsOrderSummaryOpen] = useState(false);
 
   // Reports State
   const [reportStart, setReportStart] = useState(() => {
@@ -126,14 +128,36 @@ const PosView: React.FC<Props> = ({
     }
   };
 
+  const handleQrCheckout = async () => {
+    if (!selectedQrOrder) return;
+    
+    // Convert the order items to cart items format
+    const cartItems: CartItem[] = selectedQrOrder.items.map(item => ({
+      ...item,
+      restaurantId: selectedQrOrder.restaurantId
+    }));
+    
+    try {
+      await onPlaceOrder(cartItems, selectedQrOrder.remark || '', selectedQrOrder.tableNumber || '');
+      // Mark the original order as COMPLETED
+      await onUpdateOrder(selectedQrOrder.id, OrderStatus.COMPLETED);
+      
+      setSelectedQrOrder(null);
+      setIsOrderSummaryOpen(false);
+      alert('Payment completed successfully!');
+    } catch (error) {
+      console.error('QR Checkout error:', error);
+      alert('Failed to complete payment');
+    }
+  };
+
   const unpaidOrders = useMemo(() => {
     return orders.filter(o => o.status === OrderStatus.SERVED && o.restaurantId === restaurant.id);
   }, [orders, restaurant.id]);
 
-  const handlePayUnpaid = async (orderId: string) => {
-    if (confirm('Confirm payment for this order?')) {
-      await onUpdateOrder(orderId, OrderStatus.COMPLETED);
-    }
+  const handlePayUnpaid = (order: Order) => {
+    setSelectedQrOrder(order);
+    setIsOrderSummaryOpen(true);
   };
 
   const fetchReport = async (isExport = false) => {
@@ -216,13 +240,13 @@ const PosView: React.FC<Props> = ({
         />
       )}
 
-      {/* Left Sidebar Navigation - FIXED to match Vendor View exactly */}
+      {/* Left Sidebar Navigation - EXACT same as Vendor View */}
       <aside className={`
         fixed lg:relative inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r dark:border-gray-700 
         flex flex-col transition-transform duration-300 ease-in-out no-print
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-        {/* Header - EXACT same as Vendor View */}
+        {/* Header */}
         <div className="p-6 border-b dark:border-gray-700 flex items-center gap-3">
           <img src={restaurant.logo} className="w-10 h-10 rounded-lg shadow-sm" />
           <div>
@@ -231,9 +255,8 @@ const PosView: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Navigation - EXACT same classes as Vendor View */}
+        {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2">
-          {/* Counter */}
           <button 
             onClick={() => handleTabSelection('COUNTER')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
@@ -245,7 +268,6 @@ const PosView: React.FC<Props> = ({
             <ShoppingBag size={20} /> Counter
           </button>
           
-          {/* QR Orders */}
           <button 
             onClick={() => handleTabSelection('QR_ORDERS')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
@@ -262,7 +284,6 @@ const PosView: React.FC<Props> = ({
             )}
           </button>
           
-          {/* Reports */}
           <button 
             onClick={() => handleTabSelection('REPORTS')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
@@ -274,7 +295,6 @@ const PosView: React.FC<Props> = ({
             <BarChart3 size={20} /> Reports
           </button>
           
-          {/* QR Generator */}
           <button 
             onClick={() => handleTabSelection('QR_GEN')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
@@ -286,7 +306,6 @@ const PosView: React.FC<Props> = ({
             <QrCode size={20} /> QR Generator
           </button>
           
-          {/* Settings */}
           <button 
             onClick={() => handleTabSelection('SETTINGS')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
@@ -312,7 +331,7 @@ const PosView: React.FC<Props> = ({
         )}
       </aside>
 
-      {/* Main Content Area - KEEP ALL EXISTING FEATURES */}
+      {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Mobile Header */}
@@ -335,7 +354,7 @@ const PosView: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* Counter Tab - KEEP ALL EXISTING CODE */}
+          {/* Counter Tab */}
           {activeTab === 'COUNTER' && (
             <>
               {/* Category Tabs & Search */}
@@ -360,28 +379,24 @@ const PosView: React.FC<Props> = ({
                     <button 
                       onClick={() => setMenuLayout('grid-3')} 
                       className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-3' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}
-                      title="3 Columns"
                     >
                       <LayoutGrid size={16} />
                     </button>
                     <button 
                       onClick={() => setMenuLayout('grid-4')} 
                       className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-4' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}
-                      title="4 Columns"
                     >
                       <LayoutGrid size={16} />
                     </button>
                     <button 
                       onClick={() => setMenuLayout('grid-5')} 
                       className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-5' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}
-                      title="5 Columns"
                     >
                       <LayoutGrid size={16} />
                     </button>
                     <button 
                       onClick={() => setMenuLayout('list')} 
                       className={`p-2 rounded-lg transition-all ${menuLayout === 'list' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}
-                      title="List View"
                     >
                       <List size={16} />
                     </button>
@@ -449,7 +464,7 @@ const PosView: React.FC<Props> = ({
             </>
           )}
 
-          {/* QR Orders Tab - KEEP ALL EXISTING CODE */}
+          {/* QR Orders Tab - UPDATED with detailed items */}
           {activeTab === 'QR_ORDERS' && (
             <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-4xl mx-auto">
@@ -474,34 +489,107 @@ const PosView: React.FC<Props> = ({
                       <p className="text-gray-400 font-black uppercase tracking-widest text-xs">All bills cleared</p>
                     </div>
                   ) : (
-                    unpaidOrders.map(order => (
-                      <div key={order.id} className="bg-white dark:bg-gray-800 p-6 rounded-3xl border dark:border-gray-700 shadow-sm flex items-center justify-between">
-                        <div className="flex items-center gap-6">
-                          <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-2xl flex items-center justify-center text-orange-500 font-black text-lg">
-                            {order.tableNumber}
+                    unpaidOrders
+                      .filter(order => 
+                        order.id.toLowerCase().includes(qrOrderSearch.toLowerCase()) ||
+                        order.tableNumber?.toLowerCase().includes(qrOrderSearch.toLowerCase())
+                      )
+                      .map(order => (
+                        <div key={order.id} className="bg-white dark:bg-gray-800 p-6 rounded-3xl border dark:border-gray-700 shadow-sm">
+                          {/* Order Header */}
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-2xl flex items-center justify-center text-orange-500 font-black text-lg">
+                                {order.tableNumber}
+                              </div>
+                              <div>
+                                <h4 className="font-black dark:text-white uppercase tracking-tighter">Order #{order.id}</h4>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                                  {new Date(order.timestamp).toLocaleString()}
+                                </p>
+                              </div>
+                            </div>
+                            <button 
+                              onClick={() => handlePayUnpaid(order)}
+                              className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all shadow-lg"
+                            >
+                              Collect Payment
+                            </button>
                           </div>
-                          <div>
-                            <h4 className="font-black dark:text-white uppercase tracking-tighter">Order #{order.id}</h4>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                              {order.items.length} Items • RM{order.total.toFixed(2)}
-                            </p>
+
+                          {/* Order Items - Detailed View */}
+                          <div className="mt-4 space-y-3">
+                            {order.items.map((item, idx) => (
+                              <div key={idx} className="border-l-2 border-gray-200 dark:border-gray-700 pl-3">
+                                {/* Main Item */}
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <p className="font-black text-sm dark:text-white">
+                                      x{item.quantity} {item.name}
+                                    </p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                      RM{(item.price * item.quantity).toFixed(2)}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {/* Variants and Options */}
+                                <div className="mt-1 space-y-1">
+                                  {item.selectedSize && (
+                                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                                      • Size: {item.selectedSize}
+                                    </p>
+                                  )}
+                                  {item.selectedTemp && (
+                                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                                      • Temperature: {item.selectedTemp}
+                                    </p>
+                                  )}
+                                  {item.selectedOtherVariant && (
+                                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                                      • {item.selectedOtherVariant}
+                                    </p>
+                                  )}
+                                  
+                                  {/* Add-ons */}
+                                  {item.selectedAddOns && item.selectedAddOns.length > 0 && (
+                                    <div className="mt-1">
+                                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Add-ons:</p>
+                                      {item.selectedAddOns.map((addon, addonIdx) => (
+                                        <p key={addonIdx} className="text-[10px] text-gray-500 dark:text-gray-400 ml-2">
+                                          • {addon.name} x{addon.quantity} (+RM{(addon.price * addon.quantity).toFixed(2)})
+                                        </p>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
                           </div>
+
+                          {/* Order Total */}
+                          <div className="mt-4 pt-3 border-t dark:border-gray-700 flex justify-between items-center">
+                            <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Total</span>
+                            <span className="text-xl font-black text-orange-500">RM{order.total.toFixed(2)}</span>
+                          </div>
+
+                          {/* Remark if any */}
+                          {order.remark && (
+                            <div className="mt-3 p-2 bg-orange-50 dark:bg-orange-900/10 rounded-lg">
+                              <p className="text-[10px] text-gray-600 dark:text-gray-300 italic">
+                                Remark: {order.remark}
+                              </p>
+                            </div>
+                          )}
                         </div>
-                        <button 
-                          onClick={() => handlePayUnpaid(order.id)}
-                          className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all shadow-lg"
-                        >
-                          Collect Payment
-                        </button>
-                      </div>
-                    ))
+                      ))
                   )}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Reports Tab - KEEP ALL EXISTING CODE */}
+          {/* Reports Tab */}
           {activeTab === 'REPORTS' && (
             <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
@@ -684,7 +772,7 @@ const PosView: React.FC<Props> = ({
             </div>
           )}
 
-          {/* QR Generator Tab - KEEP ALL EXISTING CODE */}
+          {/* QR Generator Tab */}
           {activeTab === 'QR_GEN' && (
             <div className="flex-1 overflow-y-auto p-6 flex items-center justify-center">
               <div className="bg-white dark:bg-gray-800 p-12 rounded-[40px] border dark:border-gray-700 shadow-2xl text-center max-w-md w-full">
@@ -727,7 +815,7 @@ const PosView: React.FC<Props> = ({
             </div>
           )}
 
-          {/* Settings Tab - KEEP ALL EXISTING CODE */}
+          {/* Settings Tab */}
           {activeTab === 'SETTINGS' && (
             <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-2xl mx-auto">
@@ -772,55 +860,119 @@ const PosView: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Right Sidebar - Order Summary (Counter only) - KEEP ALL EXISTING CODE */}
-        {activeTab === 'COUNTER' && (
-          <div className="w-96 bg-white dark:bg-gray-800 border-l dark:border-gray-700 flex flex-col">
+        {/* Right Sidebar - Order Summary (Shared between Counter and QR Orders) */}
+        {(activeTab === 'COUNTER' || (activeTab === 'QR_ORDERS' && isOrderSummaryOpen)) && (
+          <div className={`
+            w-96 bg-white dark:bg-gray-800 border-l dark:border-gray-700 flex flex-col
+            transition-all duration-300 ease-in-out
+            ${activeTab === 'QR_ORDERS' && isOrderSummaryOpen ? 'animate-slide-left' : ''}
+          `}>
             <div className="p-6 border-b dark:border-gray-700 flex items-center justify-between">
-              <h3 className="font-black dark:text-white uppercase tracking-tighter">Current Order</h3>
-              <button 
-                onClick={() => setPosCart([])} 
-                className="text-gray-400 hover:text-red-500 transition-colors"
-              >
-                <Trash2 size={18} />
-              </button>
+              <h3 className="font-black dark:text-white uppercase tracking-tighter">
+                {selectedQrOrder ? `Order #${selectedQrOrder.id}` : 'Current Order'}
+              </h3>
+              <div className="flex items-center gap-2">
+                {selectedQrOrder && (
+                  <button 
+                    onClick={() => {
+                      setSelectedQrOrder(null);
+                      setIsOrderSummaryOpen(false);
+                    }} 
+                    className="text-gray-400 hover:text-red-500 transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                )}
+                {!selectedQrOrder && (
+                  <button 
+                    onClick={() => setPosCart([])} 
+                    className="text-gray-400 hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {posCart.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
-                  <ShoppingBag size={48} className="mb-4" />
-                  <p className="text-[10px] font-black uppercase tracking-widest">Cart is empty</p>
-                </div>
-              ) : (
-                posCart.map(item => (
-                  <div key={item.id} className="flex items-center gap-4">
-                    <div className="flex-1">
-                      <h4 className="font-black text-[10px] dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                      <p className="text-[10px] text-orange-500 font-black">RM{item.price.toFixed(2)}</p>
+              {selectedQrOrder ? (
+                // QR Order Items
+                selectedQrOrder.items.map((item, idx) => (
+                  <div key={idx} className="space-y-2">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <h4 className="font-black text-[10px] dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                        <p className="text-[10px] text-orange-500 font-black">RM{item.price.toFixed(2)} x{item.quantity}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-black text-xs dark:text-white">RM{(item.price * item.quantity).toFixed(2)}</p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
-                      <button 
-                        onClick={() => updateQuantity(item.id, -1)} 
-                        className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all"
-                      >
-                        <Minus size={12} />
-                      </button>
-                      <span className="text-[10px] font-black w-4 text-center dark:text-white">{item.quantity}</span>
-                      <button 
-                        onClick={() => updateQuantity(item.id, 1)} 
-                        className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all"
-                      >
-                        <Plus size={12} />
-                      </button>
+                    
+                    {/* Variants and Options */}
+                    <div className="ml-4 space-y-1">
+                      {item.selectedSize && (
+                        <p className="text-[9px] text-gray-500 dark:text-gray-400">• Size: {item.selectedSize}</p>
+                      )}
+                      {item.selectedTemp && (
+                        <p className="text-[9px] text-gray-500 dark:text-gray-400">• {item.selectedTemp}</p>
+                      )}
+                      {item.selectedOtherVariant && (
+                        <p className="text-[9px] text-gray-500 dark:text-gray-400">• {item.selectedOtherVariant}</p>
+                      )}
+                      
+                      {/* Add-ons */}
+                      {item.selectedAddOns && item.selectedAddOns.length > 0 && (
+                        <div className="mt-1">
+                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Add-ons:</p>
+                          {item.selectedAddOns.map((addon, addonIdx) => (
+                            <p key={addonIdx} className="text-[9px] text-gray-500 dark:text-gray-400 ml-2">
+                              • {addon.name} x{addon.quantity} (+RM{(addon.price * addon.quantity).toFixed(2)})
+                            </p>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <button 
-                      onClick={() => removeFromPosCart(item.id)} 
-                      className="text-gray-300 hover:text-red-500"
-                    >
-                      <Trash2 size={14} />
-                    </button>
                   </div>
                 ))
+              ) : (
+                // Counter Cart Items
+                posCart.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
+                    <ShoppingBag size={48} className="mb-4" />
+                    <p className="text-[10px] font-black uppercase tracking-widest">Cart is empty</p>
+                  </div>
+                ) : (
+                  posCart.map(item => (
+                    <div key={item.id} className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <h4 className="font-black text-[10px] dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                        <p className="text-[10px] text-orange-500 font-black">RM{item.price.toFixed(2)}</p>
+                      </div>
+                      <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+                        <button 
+                          onClick={() => updateQuantity(item.id, -1)} 
+                          className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all"
+                        >
+                          <Minus size={12} />
+                        </button>
+                        <span className="text-[10px] font-black w-4 text-center dark:text-white">{item.quantity}</span>
+                        <button 
+                          onClick={() => updateQuantity(item.id, 1)} 
+                          className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all"
+                        >
+                          <Plus size={12} />
+                        </button>
+                      </div>
+                      <button 
+                        onClick={() => removeFromPosCart(item.id)} 
+                        className="text-gray-300 hover:text-red-500"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))
+                )
               )}
             </div>
 
@@ -828,45 +980,56 @@ const PosView: React.FC<Props> = ({
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                   <span>Subtotal</span>
-                  <span>RM{cartTotal.toFixed(2)}</span>
+                  <span>RM{selectedQrOrder ? selectedQrOrder.total.toFixed(2) : cartTotal.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
                   <span className="uppercase">Total</span>
-                  <span className="text-orange-500">RM{cartTotal.toFixed(2)}</span>
+                  <span className="text-orange-500">RM{selectedQrOrder ? selectedQrOrder.total.toFixed(2) : cartTotal.toFixed(2)}</span>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Table</label>
-                    <input 
-                      type="text" 
-                      value={posTableNo}
-                      onChange={e => setPosTableNo(e.target.value)}
-                      className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white"
-                    />
-                  </div>
-                  <div className="flex-[2]">
-                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Remark</label>
-                    <input 
-                      type="text" 
-                      value={posRemark}
-                      onChange={e => setPosRemark(e.target.value)}
-                      className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white"
-                      placeholder="No spicy..."
-                    />
-                  </div>
-                </div>
-
+              {selectedQrOrder ? (
+                // QR Order Checkout
                 <button 
-                  onClick={handleCheckout}
-                  disabled={posCart.length === 0}
-                  className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                  onClick={handleQrCheckout}
+                  className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 flex items-center justify-center gap-2"
                 >
-                  <CreditCard size={16} /> Complete Order
+                  <CreditCard size={16} /> Complete Payment
                 </button>
-              </div>
+              ) : (
+                // Counter Checkout
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Table</label>
+                      <input 
+                        type="text" 
+                        value={posTableNo}
+                        onChange={e => setPosTableNo(e.target.value)}
+                        className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white"
+                      />
+                    </div>
+                    <div className="flex-[2]">
+                      <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Remark</label>
+                      <input 
+                        type="text" 
+                        value={posRemark}
+                        onChange={e => setPosRemark(e.target.value)}
+                        className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white"
+                        placeholder="No spicy..."
+                      />
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={handleCheckout}
+                    disabled={posCart.length === 0}
+                    className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                  >
+                    <CreditCard size={16} /> Complete Order
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -879,6 +1042,17 @@ const PosView: React.FC<Props> = ({
         .no-scrollbar {
           -ms-overflow-style: none;
           scrollbar-width: none;
+        }
+        @keyframes slideLeft {
+          from {
+            transform: translateX(100%);
+          }
+          to {
+            transform: translateX(0);
+          }
+        }
+        .animate-slide-left {
+          animation: slideLeft 0.3s ease-out;
         }
       `}</style>
     </div>
