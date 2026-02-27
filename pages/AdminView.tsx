@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters } from '../types';
+import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, PlatformAccess } from '../types';
 import { uploadImage } from '../lib/storage';
 import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -22,8 +22,9 @@ interface Props {
   onFetchStats?: (filters: ReportFilters) => Promise<any>;
 }
 
-// System Status Dashboard Component
+// System Status Dashboard Component (unchanged)
 const SystemStatusDashboard: React.FC = () => {
+  // ... (keep the entire SystemStatusDashboard component exactly as is)
   const [status, setStatus] = useState<Record<string, { status: 'CHECKING' | 'OK' | 'ERROR'; message: string; lastChecked?: string }>>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -31,7 +32,6 @@ const SystemStatusDashboard: React.FC = () => {
     setIsRefreshing(true);
     const timestamp = new Date().toLocaleTimeString();
     
-    // Hub/Location Check
     try {
       const { data: areas, error: areasError } = await supabase.from('areas').select('count', { count: 'exact', head: true });
       setStatus(prev => ({
@@ -49,7 +49,6 @@ const SystemStatusDashboard: React.FC = () => {
       }));
     }
 
-    // Vendors Check
     try {
       const { data: users, error: usersError } = await supabase.from('users').select('count', { count: 'exact', head: true }).eq('role', 'VENDOR');
       setStatus(prev => ({
@@ -67,7 +66,6 @@ const SystemStatusDashboard: React.FC = () => {
       }));
     }
 
-    // Restaurants Check
     try {
       const { data: restaurants, error: restaurantsError } = await supabase.from('restaurants').select('count', { count: 'exact', head: true });
       setStatus(prev => ({
@@ -85,7 +83,6 @@ const SystemStatusDashboard: React.FC = () => {
       }));
     }
 
-    // Menu Items Check
     try {
       const { data: menu, error: menuError } = await supabase.from('menu_items').select('count', { count: 'exact', head: true });
       setStatus(prev => ({
@@ -103,7 +100,6 @@ const SystemStatusDashboard: React.FC = () => {
       }));
     }
 
-    // Orders Check
     try {
       const { data: orders, error: ordersError } = await supabase.from('orders').select('count', { count: 'exact', head: true });
       setStatus(prev => ({
@@ -121,7 +117,6 @@ const SystemStatusDashboard: React.FC = () => {
       }));
     }
 
-    // Upload/Blob Storage Check
     try {
       const testFile = new File(['test'], 'test.txt', { type: 'text/plain' });
       const formData = new FormData();
@@ -161,7 +156,6 @@ const SystemStatusDashboard: React.FC = () => {
       }));
     }
 
-    // Login System Check
     try {
       const response = await fetch('/api/health');
       if (response.ok) {
@@ -190,7 +184,6 @@ const SystemStatusDashboard: React.FC = () => {
       }));
     }
 
-    // Database Connection Check
     try {
       const { error } = await supabase.from('areas').select('count', { count: 'exact', head: true });
       setStatus(prev => ({
@@ -482,7 +475,8 @@ const AdminView: React.FC<Props> = ({
     location: '',
     email: '',
     phone: '',
-    logo: ''
+    logo: '',
+    platformAccess: 'pos_and_kitchen' as PlatformAccess // ADD THIS
   });
 
   const vendorFileInputRef = useRef<HTMLInputElement>(null);
@@ -512,7 +506,6 @@ const AdminView: React.FC<Props> = ({
   const [reportVendor, setReportVendor] = useState<string>('ALL');
   const [reportHub, setReportHub] = useState<string>('ALL');
   const [reportStart, setReportStart] = useState<string>(() => {
-    // Default to 30 days ago to ensure users see recent data by default
     const d = new Date();
     d.setDate(d.getDate() - 30); 
     return d.toISOString().split('T')[0];
@@ -563,7 +556,6 @@ const AdminView: React.FC<Props> = ({
         return;
       }
 
-      // Fallback to internal fetch if props are not provided
       const params = new URLSearchParams({
         ...filters as any,
         page: isExport ? '1' : currentPage.toString(),
@@ -635,7 +627,8 @@ const AdminView: React.FC<Props> = ({
         location: res.location,
         email: user.email || '',
         phone: user.phone || '',
-        logo: res.logo
+        logo: res.logo,
+        platformAccess: res.platformAccess || 'pos_and_kitchen' // ADD THIS
       });
       setShowPassword(false);
       setIsModalOpen(true);
@@ -644,7 +637,16 @@ const AdminView: React.FC<Props> = ({
 
   const handleOpenAdd = () => {
     setEditingVendor(null);
-    setFormVendor({ username: '', password: '', restaurantName: '', location: '', email: '', phone: '', logo: '' });
+    setFormVendor({ 
+      username: '', 
+      password: '', 
+      restaurantName: '', 
+      location: '', 
+      email: '', 
+      phone: '', 
+      logo: '',
+      platformAccess: 'pos_and_kitchen' // ADD THIS
+    });
     setShowPassword(false);
     setIsModalOpen(true);
   };
@@ -665,6 +667,7 @@ const AdminView: React.FC<Props> = ({
   const handleSubmitVendor = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formVendor.username || !formVendor.location) return;
+    
     const userPayload: User = { 
       id: editingVendor?.user.id || '', 
       username: formVendor.username, 
@@ -674,14 +677,17 @@ const AdminView: React.FC<Props> = ({
       phone: formVendor.phone,
       isActive: editingVendor ? editingVendor.user.isActive : true 
     };
+    
     const resPayload: Restaurant = { 
       id: editingVendor?.res.id || '', 
       name: formVendor.restaurantName, 
       logo: formVendor.logo, 
       vendorId: editingVendor?.user.id || '', 
       location: formVendor.location, 
-      menu: editingVendor?.res.menu || [] 
+      menu: editingVendor?.res.menu || [],
+      platformAccess: formVendor.platformAccess // ADD THIS
     };
+    
     if (editingVendor) onUpdateVendor(userPayload, resPayload);
     else onAddVendor(userPayload, resPayload);
     setIsModalOpen(false);
@@ -733,6 +739,8 @@ const AdminView: React.FC<Props> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
+      {/* ... (keep all the existing JSX exactly as is until the Vendor Registration/Edit Modal) ... */}
+      
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 md:mb-12 gap-6 no-print">
         <div>
           <h1 className="text-3xl md:text-4xl font-black dark:text-white tracking-tighter uppercase leading-none mb-1">Platform Master</h1>
@@ -921,7 +929,6 @@ const AdminView: React.FC<Props> = ({
             <div className="p-2 md:p-4">
               <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-2xl border dark:border-gray-700 mb-4 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Period selection */}
                   <div className="space-y-1">
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Period Selection</label>
                     <div className="flex items-center gap-2 bg-white dark:bg-gray-800 p-2 rounded-xl border dark:border-gray-600">
@@ -932,7 +939,6 @@ const AdminView: React.FC<Props> = ({
                     </div>
                   </div>
 
-                  {/* Vendor Filter */}
                   <div className="space-y-1">
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Filter by Kitchen</label>
                     <div className="relative">
@@ -948,7 +954,6 @@ const AdminView: React.FC<Props> = ({
                     </div>
                   </div>
 
-                  {/* Hub Filter */}
                   <div className="space-y-1">
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Filter by Hub</label>
                     <div className="relative">
@@ -964,7 +969,6 @@ const AdminView: React.FC<Props> = ({
                     </div>
                   </div>
 
-                  {/* Status Filter */}
                   <div className="space-y-1">
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Order Outcome</label>
                     <div className="relative">
@@ -1055,7 +1059,6 @@ const AdminView: React.FC<Props> = ({
                 </div>
               </div>
 
-              {/* Pagination Controls */}
               {totalPages > 1 && (
                 <div className="mt-8 flex items-center justify-center gap-2 overflow-x-auto py-2 no-print">
                   <button 
@@ -1132,7 +1135,7 @@ const AdminView: React.FC<Props> = ({
 
       {/* MODALS SECTION */}
 
-      {/* Vendor Registration/Edit Modal */}
+      {/* Vendor Registration/Edit Modal - UPDATED with Platform Access */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-2xl w-full p-8 shadow-2xl relative animate-in zoom-in fade-in duration-300">
@@ -1184,6 +1187,38 @@ const AdminView: React.FC<Props> = ({
                  <input required type="text" className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm" value={formVendor.username} onChange={e => setFormVendor({...formVendor, username: e.target.value})} />
                </div>
 
+               {/* Platform Access (NEW) - Add this after username and before password */}
+               <div className="md:col-span-2">
+                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Platform Access</label>
+                 <div className="flex bg-gray-50 dark:bg-gray-700 p-1 rounded-xl">
+                   <button
+                     type="button"
+                     onClick={() => setFormVendor({...formVendor, platformAccess: 'pos_and_kitchen'})}
+                     className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                       formVendor.platformAccess === 'pos_and_kitchen' 
+                         ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' 
+                         : 'text-gray-400'
+                     }`}
+                   >
+                     POS & Kitchen
+                   </button>
+                   <button
+                     type="button"
+                     onClick={() => setFormVendor({...formVendor, platformAccess: 'pos_only'})}
+                     className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                       formVendor.platformAccess === 'pos_only' 
+                         ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' 
+                         : 'text-gray-400'
+                     }`}
+                   >
+                     POS Only
+                   </button>
+                 </div>
+                 <p className="text-[8px] text-gray-400 mt-1 ml-1">
+                   Determines what features this restaurant's staff can access
+                 </p>
+               </div>
+
                {/* Password (7) */}
                 <div className="md:col-span-2">
                   <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Secret Key (Password)</label>
@@ -1208,7 +1243,7 @@ const AdminView: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Hub Add/Edit Modal */}
+      {/* Hub Add/Edit Modal (unchanged) */}
       {isAreaModalOpen && (
         <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-2xl w-full p-8 shadow-2xl relative animate-in zoom-in fade-in duration-300">
@@ -1253,7 +1288,7 @@ const AdminView: React.FC<Props> = ({
         </div>
       )}
 
-      {/* QR Generator Modal (Hub Specific) */}
+      {/* QR Generator Modal (Hub Specific) (unchanged) */}
       {generatingQrHub && (
         <div className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-4xl w-full p-8 shadow-2xl relative animate-in zoom-in duration-300">
