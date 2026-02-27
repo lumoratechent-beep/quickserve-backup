@@ -25,6 +25,32 @@ class PrinterService {
     this.encoder = new EscPosEncoder();
   }
 
+  /**
+   * Sanitize text to remove special characters that might crash the printer
+   */
+  private sanitizeText(text: any): string {
+    if (text === null || text === undefined) return '';
+    
+    // Convert to string if it's not already
+    const str = String(text);
+    
+    // Remove emojis and special characters, keep only basic ASCII and common symbols
+    return str
+      .replace(/[^\x20-\x7E\n\r\t\s]/g, '') // Remove non-ASCII
+      .replace(/[™®©]/g, '') // Remove trademark symbols
+      .replace(/[^\w\s\-.,!?$%&*()@#\/\\:]/g, '') // Allow only basic punctuation
+      .trim();
+  }
+
+  /**
+   * Safely format a number to 2 decimal places
+   */
+  private formatPrice(price: any): string {
+    if (price === null || price === undefined) return '0.00';
+    const num = Number(price);
+    return isNaN(num) ? '0.00' : num.toFixed(2);
+  }
+
   async scanForPrinters(): Promise<PrinterDevice[]> {
     try {
       const device = await navigator.bluetooth.requestDevice({
@@ -120,6 +146,7 @@ class PrinterService {
     this.keepAliveInterval = setInterval(async () => {
       if (this.isConnected() && this.characteristic && !this.isPrinting) {
         try {
+          // Send null byte - won't cause paper movement
           const keepAliveData = new Uint8Array([0x00]);
           await this.characteristic.writeValue(keepAliveData);
         } catch (error) {
@@ -240,6 +267,7 @@ class PrinterService {
 
       const now = new Date();
       
+      // Simple test page with only ASCII characters
       const data = this.encoder
         .initialize()
         .align('center')
@@ -256,11 +284,15 @@ class PrinterService {
         .cut()
         .encode();
 
-      // Send entire test page in one go
+      // Send data
       await this.characteristic.writeValue(data);
       
       // Wait for printer to finish
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Reset printer after test
+      const resetPrinter = new Uint8Array([0x1B, 0x40]); // ESC @
+      await this.characteristic.writeValue(resetPrinter);
       
       this.lastPrintTime = Date.now();
       return true;
@@ -280,115 +312,156 @@ class PrinterService {
     }
 
     this.isPrinting = true;
-    let attempts = 0;
     
-    while (attempts < this.maxReconnectAttempts) {
-      try {
-        if (!await this.ensureConnection()) {
-          throw new Error('Printer not connected');
-        }
+    try {
+      if (!await this.ensureConnection()) {
+        throw new Error('Printer not connected');
+      }
 
-        if (!this.characteristic) {
-          throw new Error('No writable characteristic found');
-        }
+      if (!this.characteristic) {
+        throw new Error('No writable characteristic found');
+      }
 
-        const orderDate = new Date(order.timestamp);
-        const dateStr = this.formatDate(orderDate);
-        const timeStr = this.formatTime(orderDate);
+      // Log the raw order data for debugging (remove in production)
+      console.log('Printing order:', order.id);
 
-        // Build receipt
-        let receipt = this.encoder
-          .initialize()
-          .align('center')
-          .size(2, 2)
-          .line(restaurant.name.toUpperCase())
-          .size(1, 1)
-          .line('='.repeat(32))
-          .align('left')
-          .line(`${dateStr} ${timeStr} | #${order.id}`);
+      const orderDate = new Date(order.timestamp);
+      const dateStr = this.formatDate(orderDate);
+      const timeStr = this.formatTime(orderDate);
 
-        if (order.tableNumber) {
-          receipt = receipt
-            .line('')
-            .line(`Table: ${order.tableNumber}`);
-        }
+      // SANITIZE ALL TEXT INPUTS
+      const safeRestaurantName = this.sanitizeText(restaurant?.name) || 'RESTAURANT';
+      const safeOrderId = this.sanitizeText(order.id) || 'ORDER';
+      const safeTableNumber = this.sanitizeText(order.tableNumber) || '0';
+      const safeRemark = this.sanitizeText(order.remark);
 
-        receipt = receipt.line('-'.repeat(32));
+      // Start building receipt with printer reset
+      let receipt = this.encoder
+        .initialize() // ESC @ - reset printer
+        .align('center')
+        .size(2, 2)
+        .line(safeRestaurantName)
+        .size(1, 1)
+        .line('='.repeat(32))
+        .align('left')
+        .line(`${dateStr} ${timeStr} | #${safeOrderId}`);
 
+      // Add table info if available
+      if (order.tableNumber) {
+        receipt = receipt
+          .line('')
+          .line(`Table: ${safeTableNumber}`);
+      }
+
+      receipt = receipt.line('-'.repeat(32));
+
+      // Process items safely
+      if (order.items && Array.isArray(order.items) && order.items.length > 0) {
         order.items.forEach((item: any) => {
-          receipt = receipt.line(`${item.quantity}x ${item.name}`);
+          // Sanitize item name
+          const safeItemName = this.sanitizeText(item.name) || 'ITEM';
+          const quantity = item.quantity || 1;
+          
+          receipt = receipt.line(`${quantity}x ${safeItemName}`);
 
+          // Add size if present
           if (item.selectedSize) {
-            receipt = receipt.line(`   ${item.selectedSize}`);
-          }
-          if (item.selectedTemp) {
-            receipt = receipt.line(`   ${item.selectedTemp}`);
-          }
-          if (item.selectedOtherVariant) {
-            receipt = receipt.line(`   ${item.selectedOtherVariant}`);
+            const safeSize = this.sanitizeText(item.selectedSize);
+            if (safeSize) receipt = receipt.line(`   ${safeSize}`);
           }
 
-          if (item.selectedAddOns && item.selectedAddOns.length > 0) {
+          // Add temperature if present
+          if (item.selectedTemp) {
+            const safeTemp = this.sanitizeText(item.selectedTemp);
+            if (safeTemp) receipt = receipt.line(`   ${safeTemp}`);
+          }
+
+          // Add other variant if present
+          if (item.selectedOtherVariant) {
+            const safeVariant = this.sanitizeText(item.selectedOtherVariant);
+            if (safeVariant) receipt = receipt.line(`   ${safeVariant}`);
+          }
+
+          // Add add-ons if present
+          if (item.selectedAddOns && Array.isArray(item.selectedAddOns) && item.selectedAddOns.length > 0) {
             item.selectedAddOns.forEach((addon: any) => {
-              if (addon.quantity > 1) {
-                receipt = receipt.line(`   + ${addon.name} x${addon.quantity}`);
+              const safeAddonName = this.sanitizeText(addon.name) || 'ADDON';
+              const addonQty = addon.quantity || 1;
+              if (addonQty > 1) {
+                receipt = receipt.line(`   + ${safeAddonName} x${addonQty}`);
               } else {
-                receipt = receipt.line(`   + ${addon.name}`);
+                receipt = receipt.line(`   + ${safeAddonName}`);
               }
             });
           }
 
           receipt = receipt.line('');
         });
+      } else {
+        receipt = receipt.line('No items').line('');
+      }
 
-        if (order.remark) {
-          receipt = receipt
-            .line('-'.repeat(32))
-            .line('Note:')
-            .line(order.remark)
-            .line('');
-        }
-
+      // Add remark if present and sanitized
+      if (safeRemark) {
         receipt = receipt
           .line('-'.repeat(32))
-          .align('right')
-          .line(`TOTAL: RM ${order.total.toFixed(2)}`)
-          .align('center')
-          .line('='.repeat(32))
-          .line('Thank you!')
-          .line('Please come again')
-          .newline()
-          .newline()
-          .cut();
-
-        const data = receipt.encode();
-
-        // CRITICAL FIX: Send entire receipt in ONE go
-        // This prevents buffer overflow and printer corruption
-        await this.characteristic.writeValue(data);
-        
-        // Wait for printer to completely finish processing
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        this.lastPrintTime = Date.now();
-        return true;
-        
-      } catch (error) {
-        console.error(`Print attempt ${attempts + 1} failed:`, error);
-        attempts++;
-        
-        this.server = null;
-        this.service = null;
-        this.characteristic = null;
-        
-        if (attempts < this.maxReconnectAttempts) {
-          await new Promise(resolve => setTimeout(resolve, attempts * 1000));
-        }
+          .line('Note:')
+          .line(safeRemark)
+          .line('');
       }
+
+      // Calculate total safely
+      const safeTotal = this.formatPrice(order.total);
+
+      // Add total and footer
+      receipt = receipt
+        .line('-'.repeat(32))
+        .align('right')
+        .line(`TOTAL: RM ${safeTotal}`)
+        .align('center')
+        .line('='.repeat(32))
+        .line('Thank you!')
+        .line('Please come again')
+        .newline()
+        .newline()
+        .cut();
+
+      const data = receipt.encode();
+
+      // Send the entire receipt in one go
+      await this.characteristic.writeValue(data);
+      
+      // CRITICAL: Wait for printer to completely finish processing
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Send reset command to clear printer state
+      const resetPrinter = new Uint8Array([0x1B, 0x40]); // ESC @
+      await this.characteristic.writeValue(resetPrinter);
+      
+      // Wait again for reset to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      this.lastPrintTime = Date.now();
+      console.log('Print successful for order:', order.id);
+      return true;
+      
+    } catch (error) {
+      console.error('Print error for order:', order?.id, error);
+      
+      // Try to reset printer even after error
+      try {
+        if (this.characteristic) {
+          const resetPrinter = new Uint8Array([0x1B, 0x40]); // ESC @
+          await this.characteristic.writeValue(resetPrinter);
+        }
+      } catch (resetError) {
+        // Ignore reset errors
+      }
+      
+      return false;
+    } finally {
+      this.isPrinting = false;
     }
-    
-    this.isPrinting = false;
-    return false;
   }
 
   getConnectionStatus() {
