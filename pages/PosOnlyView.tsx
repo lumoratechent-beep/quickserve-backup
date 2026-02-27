@@ -3,6 +3,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters, CategoryData, ModifierData, ModifierOption } from '../src/types';
 import { supabase } from '../lib/supabase';
+import { uploadImage } from '../lib/storage';
+import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
 import { 
   ShoppingBag, Search, Download, Calendar, ChevronLeft, ChevronRight, 
   Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid, 
@@ -52,13 +54,20 @@ const PosOnlyView: React.FC<Props> = ({
   const [menuCategoryFilter, setMenuCategoryFilter] = useState<string>('All');
   const [menuSubTab, setMenuSubTab] = useState<'KITCHEN' | 'CATEGORY' | 'MODIFIER'>('KITCHEN');
   const [isSavingMenuItem, setIsSavingMenuItem] = useState(false);
-  const [formItem, setFormItem] = useState<Partial<MenuItem>>({
+  const [formItem, setFormItem] = useState<MenuFormItem>({
     name: '',
     description: '',
     price: 0,
     image: '',
     category: 'Main Dish',
     isArchived: false,
+    sizes: [],
+    sizesEnabled: false,
+    otherVariantName: '',
+    otherVariants: [],
+    otherVariantsEnabled: false,
+    tempOptions: { enabled: false, hot: 0, cold: 0 },
+    addOns: [],
   });
 
   const [showAddClassModal, setShowAddClassModal] = useState(false);
@@ -138,13 +147,29 @@ const PosOnlyView: React.FC<Props> = ({
       image: '',
       category: initialCategory || 'Main Dish',
       isArchived: false,
+      sizes: [],
+      sizesEnabled: false,
+      otherVariantName: '',
+      otherVariants: [],
+      otherVariantsEnabled: false,
+      tempOptions: { enabled: false, hot: 0, cold: 0 },
+      addOns: [],
     });
     setIsFormModalOpen(true);
   };
 
   const handleOpenEditModal = (item: MenuItem) => {
     setEditingItem(item);
-    setFormItem({ ...item });
+    setFormItem({
+      ...item,
+      sizes: item.sizes ? [...item.sizes] : [],
+      sizesEnabled: !!(item.sizes && item.sizes.length > 0),
+      otherVariantName: item.otherVariantName || '',
+      otherVariants: item.otherVariants ? [...item.otherVariants] : [],
+      otherVariantsEnabled: !!item.otherVariantsEnabled,
+      tempOptions: item.tempOptions ? { ...item.tempOptions } : { enabled: false, hot: 0, cold: 0 },
+      addOns: item.addOns ? [...item.addOns] : [],
+    });
     setIsFormModalOpen(true);
   };
 
@@ -158,10 +183,31 @@ const PosOnlyView: React.FC<Props> = ({
       image: '',
       category: 'Main Dish',
       isArchived: false,
+      sizes: [],
+      sizesEnabled: false,
+      otherVariantName: '',
+      otherVariants: [],
+      otherVariantsEnabled: false,
+      tempOptions: { enabled: false, hot: 0, cold: 0 },
+      addOns: [],
     });
   };
 
-  const handleSaveMenuItem = async () => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const publicUrl = await uploadImage(file, 'quickserve', 'menu-items');
+      setFormItem(prev => ({ ...prev, image: publicUrl }));
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Failed to upload image. Please try again.');
+    }
+  };
+
+  const handleSaveMenuItem = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!formItem.name?.trim()) {
       alert('Please enter item name');
       return;
@@ -183,12 +229,12 @@ const PosOnlyView: React.FC<Props> = ({
       image: (formItem.image || '').trim() || `https://picsum.photos/seed/${encodeURIComponent(formItem.name.trim())}/300/300`,
       category: formItem.category.trim(),
       isArchived: editingItem?.isArchived || false,
-      sizes: formItem.sizes,
-      tempOptions: formItem.tempOptions,
+      sizes: formItem.sizesEnabled ? formItem.sizes : [],
+      tempOptions: formItem.tempOptions?.enabled ? formItem.tempOptions : undefined,
       otherVariantName: formItem.otherVariantName,
       otherVariants: formItem.otherVariants,
       otherVariantsEnabled: formItem.otherVariantsEnabled,
-      addOns: formItem.addOns,
+      addOns: formItem.addOns || [],
     };
 
     setIsSavingMenuItem(true);
@@ -1333,88 +1379,15 @@ const PosOnlyView: React.FC<Props> = ({
           )}
         </div>
 
-        {isFormModalOpen && (
-          <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full p-6 shadow-2xl relative animate-in zoom-in fade-in duration-300">
-              <button onClick={handleCloseFormModal} className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 transition-colors"><X size={18} /></button>
-              <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tighter">{editingItem ? 'Edit Menu Item' : 'Add Menu Item'}</h2>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Item Name</label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                    placeholder="e.g. Nasi Lemak"
-                    value={formItem.name || ''}
-                    onChange={event => setFormItem(prev => ({ ...prev, name: event.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Description</label>
-                  <textarea
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                    placeholder="Short description"
-                    rows={3}
-                    value={formItem.description || ''}
-                    onChange={event => setFormItem(prev => ({ ...prev, description: event.target.value }))}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Price (RM)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                      value={formItem.price ?? 0}
-                      onChange={event => setFormItem(prev => ({ ...prev, price: Number(event.target.value) }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Category</label>
-                    <input
-                      type="text"
-                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                      placeholder="e.g. Main Dish"
-                      value={formItem.category || ''}
-                      onChange={event => setFormItem(prev => ({ ...prev, category: event.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Image URL (optional)</label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                    placeholder="https://..."
-                    value={formItem.image || ''}
-                    onChange={event => setFormItem(prev => ({ ...prev, image: event.target.value }))}
-                  />
-                </div>
-
-                <div className="flex gap-3 pt-2">
-                  <button
-                    onClick={handleCloseFormModal}
-                    className="flex-1 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveMenuItem}
-                    disabled={isSavingMenuItem}
-                    className="flex-1 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow disabled:opacity-50"
-                  >
-                    {isSavingMenuItem ? 'Saving...' : editingItem ? 'Update Item' : 'Add Item'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        <MenuItemFormModal
+          isOpen={isFormModalOpen}
+          formItem={formItem}
+          setFormItem={setFormItem}
+          categories={menuEditorCategories}
+          onClose={handleCloseFormModal}
+          onSubmit={handleSaveMenuItem}
+          onImageUpload={handleImageUpload}
+        />
 
         {showAddClassModal && (
           <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
