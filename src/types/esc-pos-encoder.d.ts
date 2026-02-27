@@ -9,5 +9,5 @@ declare module 'esc-pos-encoder' {
     cut(): this;
     encode(): Uint8Array;
   }
-  export default EscgugPosEncoder;
+  export default EscPosEncoder;
 }

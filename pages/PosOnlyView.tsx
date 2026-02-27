@@ -5,8 +5,9 @@ import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, Rep
 import { 
   ShoppingBag, Search, Download, Calendar, ChevronLeft, ChevronRight, 
   Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid, 
-  List, Clock, CheckCircle2, BarChart3, Hash, Menu,
-  ChevronFirst, ChevronLast, X
+  List, Clock, CheckCircle2, BarChart3, Hash, Menu, Settings, BookOpen,
+  ChevronFirst, ChevronLast, X, Edit3, Archive, RotateCcw, Upload, Eye,
+  AlertCircle, Users, UserPlus, Bluetooth, BluetoothConnected, PrinterIcon
 } from 'lucide-react';
 
 interface Props {
@@ -26,7 +27,7 @@ const PosOnlyView: React.FC<Props> = ({
   onFetchPaginatedOrders,
   onFetchAllFilteredOrders,
 }) => {
-  const [activeTab, setActiveTab] = useState<'COUNTER' | 'QR_ORDERS' | 'REPORTS' | 'QR_GEN'>('COUNTER');
+  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS'>('COUNTER');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [menuLayout, setMenuLayout] = useState<'grid-3' | 'grid-4' | 'grid-5' | 'list'>('grid-4');
   const [posCart, setPosCart] = useState<CartItem[]>([]);
@@ -35,10 +36,12 @@ const PosOnlyView: React.FC<Props> = ({
   const [menuSearch, setMenuSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
 
-  // QR Orders State
-  const [qrOrderSearch, setQrOrderSearch] = useState('');
-  const [selectedQrOrder, setSelectedQrOrder] = useState<Order | null>(null);
-  const [isOrderSummaryOpen, setIsOrderSummaryOpen] = useState(false);
+  // Menu Editor State
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [menuStatusFilter, setMenuStatusFilter] = useState<'ACTIVE' | 'ARCHIVED'>('ACTIVE');
+  const [menuViewMode, setMenuViewMode] = useState<'grid' | 'list'>('grid');
+  const [menuCategoryFilter, setMenuCategoryFilter] = useState<string>('All');
 
   // Reports State
   const [reportStart, setReportStart] = useState(() => {
@@ -122,35 +125,9 @@ const PosOnlyView: React.FC<Props> = ({
     }
   };
 
-  const handleQrCheckout = async () => {
-    if (!selectedQrOrder) return;
-    
-    const cartItems: CartItem[] = selectedQrOrder.items.map(item => ({
-      ...item,
-      restaurantId: selectedQrOrder.restaurantId
-    }));
-    
-    try {
-      await onPlaceOrder(cartItems, selectedQrOrder.remark || '', selectedQrOrder.tableNumber || '');
-      await onUpdateOrder(selectedQrOrder.id, OrderStatus.COMPLETED);
-      
-      setSelectedQrOrder(null);
-      setIsOrderSummaryOpen(false);
-      alert('Payment completed successfully!');
-    } catch (error) {
-      console.error('QR Checkout error:', error);
-      alert('Failed to complete payment');
-    }
-  };
-
   const unpaidOrders = useMemo(() => {
     return orders.filter(o => o.status === OrderStatus.SERVED && o.restaurantId === restaurant.id);
   }, [orders, restaurant.id]);
-
-  const handlePayUnpaid = (order: Order) => {
-    setSelectedQrOrder(order);
-    setIsOrderSummaryOpen(true);
-  };
 
   const fetchReport = async (isExport = false) => {
     if (!onFetchPaginatedOrders) return;
@@ -208,7 +185,7 @@ const PosOnlyView: React.FC<Props> = ({
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
   const paginatedReports = reportData?.orders || [];
 
-  const handleTabSelection = (tab: 'COUNTER' | 'QR_ORDERS' | 'REPORTS' | 'QR_GEN') => {
+  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS') => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
   };
@@ -249,19 +226,14 @@ const PosOnlyView: React.FC<Props> = ({
           </button>
           
           <button 
-            onClick={() => handleTabSelection('QR_ORDERS')}
+            onClick={() => handleTabSelection('MENU_EDITOR')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
-              activeTab === 'QR_ORDERS' 
+              activeTab === 'MENU_EDITOR' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <Clock size={20} /> QR Orders
-            {unpaidOrders.length > 0 && (
-              <span className="ml-auto bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">
-                {unpaidOrders.length}
-              </span>
-            )}
+            <BookOpen size={20} /> Menu Editor
           </button>
           
           <button 
@@ -276,14 +248,14 @@ const PosOnlyView: React.FC<Props> = ({
           </button>
           
           <button 
-            onClick={() => handleTabSelection('QR_GEN')}
+            onClick={() => handleTabSelection('SETTINGS')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
-              activeTab === 'QR_GEN' 
+              activeTab === 'SETTINGS' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <QrCode size={20} /> QR Generator
+            <Settings size={20} /> Settings
           </button>
         </nav>
       </aside>
@@ -303,9 +275,9 @@ const PosOnlyView: React.FC<Props> = ({
               <img src={restaurant.logo} className="w-8 h-8 rounded-lg shadow-sm" />
               <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm truncate">
                 {activeTab === 'COUNTER' ? 'POS Counter' : 
-                 activeTab === 'QR_ORDERS' ? 'QR Orders' : 
+                 activeTab === 'MENU_EDITOR' ? 'Menu Editor' : 
                  activeTab === 'REPORTS' ? 'Sales Report' : 
-                 'QR Generator'}
+                 'Settings'}
               </h1>
             </div>
           </div>
@@ -396,124 +368,6 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               </div>
             </>
-          )}
-
-          {/* QR Orders Tab - Same as PosView */}
-          {activeTab === 'QR_ORDERS' && (
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="max-w-4xl mx-auto">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-black dark:text-white uppercase tracking-tighter">Unpaid QR Orders</h3>
-                  <div className="relative w-64">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input 
-                      type="text" 
-                      placeholder="Search Table/ID..." 
-                      className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 dark:text-white"
-                      value={qrOrderSearch}
-                      onChange={e => setQrOrderSearch(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {unpaidOrders.length === 0 ? (
-                    <div className="bg-white dark:bg-gray-800 p-12 rounded-3xl border dark:border-gray-700 text-center">
-                      <CheckCircle2 size={48} className="mx-auto text-green-500 mb-4 opacity-20" />
-                      <p className="text-gray-400 font-black uppercase tracking-widest text-xs">All bills cleared</p>
-                    </div>
-                  ) : (
-                    unpaidOrders
-                      .filter(order => 
-                        order.id.toLowerCase().includes(qrOrderSearch.toLowerCase()) ||
-                        order.tableNumber?.toLowerCase().includes(qrOrderSearch.toLowerCase())
-                      )
-                      .map(order => (
-                        <div key={order.id} className="bg-white dark:bg-gray-800 p-6 rounded-3xl border dark:border-gray-700 shadow-sm">
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-2xl flex items-center justify-center text-orange-500 font-black text-lg">
-                                {order.tableNumber}
-                              </div>
-                              <div>
-                                <h4 className="font-black dark:text-white uppercase tracking-tighter">Order #{order.id}</h4>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                                  {new Date(order.timestamp).toLocaleString()}
-                                </p>
-                              </div>
-                            </div>
-                            <button 
-                              onClick={() => handlePayUnpaid(order)}
-                              className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all shadow-lg"
-                            >
-                              Collect Payment
-                            </button>
-                          </div>
-
-                          <div className="mt-4 space-y-3">
-                            {order.items.map((item, idx) => (
-                              <div key={idx} className="border-l-2 border-gray-200 dark:border-gray-700 pl-3">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <p className="font-black text-sm dark:text-white">
-                                      x{item.quantity} {item.name}
-                                    </p>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                                      RM{(item.price * item.quantity).toFixed(2)}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                <div className="mt-1 space-y-1">
-                                  {item.selectedSize && (
-                                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                                      • Size: {item.selectedSize}
-                                    </p>
-                                  )}
-                                  {item.selectedTemp && (
-                                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                                      • Temperature: {item.selectedTemp}
-                                    </p>
-                                  )}
-                                  {item.selectedOtherVariant && (
-                                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                                      • {item.selectedOtherVariant}
-                                    </p>
-                                  )}
-                                  
-                                  {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                                    <div className="mt-1">
-                                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Add-ons:</p>
-                                      {item.selectedAddOns.map((addon, addonIdx) => (
-                                        <p key={addonIdx} className="text-[10px] text-gray-500 dark:text-gray-400 ml-2">
-                                          • {addon.name} x{addon.quantity} (+RM{(addon.price * addon.quantity).toFixed(2)})
-                                        </p>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="mt-4 pt-3 border-t dark:border-gray-700 flex justify-between items-center">
-                            <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Total</span>
-                            <span className="text-xl font-black text-orange-500">RM{order.total.toFixed(2)}</span>
-                          </div>
-
-                          {order.remark && (
-                            <div className="mt-3 p-2 bg-orange-50 dark:bg-orange-900/10 rounded-lg">
-                              <p className="text-[10px] text-gray-600 dark:text-gray-300 italic">
-                                Remark: {order.remark}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      ))
-                  )}
-                </div>
-              </div>
-            </div>
           )}
 
           {/* Reports Tab - Same as PosView */}
@@ -630,106 +484,283 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
           )}
 
-          {/* QR Generator Tab - Same as PosView */}
-          {activeTab === 'QR_GEN' && (
-            <div className="flex-1 overflow-y-auto p-6 flex items-center justify-center">
-              <div className="bg-white dark:bg-gray-800 p-12 rounded-[40px] border dark:border-gray-700 shadow-2xl text-center max-w-md w-full">
-                <div className="w-24 h-24 bg-orange-500 rounded-3xl flex items-center justify-center text-white mx-auto mb-6 shadow-xl shadow-orange-500/20">
-                  <QrCode size={48} />
-                </div>
-                <h3 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-2">Hub QR Generator</h3>
-                <p className="text-xs text-gray-400 font-medium mb-8">Generate ordering QR codes for your tables.</p>
-                
-                <div className="space-y-4 mb-8">
-                  <div className="text-left">
-                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Table Number</label>
-                    <div className="relative">
-                      <Hash size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input type="text" className="w-full pl-12 pr-4 py-4 bg-gray-50 dark:bg-gray-700 border-none rounded-2xl text-sm font-black dark:text-white outline-none focus:ring-2 focus:ring-orange-500 transition-all" placeholder="e.g. 12" value={posTableNo} onChange={e => setPosTableNo(e.target.value)} />
+          {/* Menu Editor Tab */}
+          {activeTab === 'MENU_EDITOR' && (
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="max-w-7xl mx-auto">
+                <div className="mb-8">
+                  <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-4">Menu Editor</h1>
+                  
+                  <div className="flex flex-wrap items-center gap-4 mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm">
+                        <button onClick={() => setMenuStatusFilter('ACTIVE')} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${menuStatusFilter === 'ACTIVE' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}><Eye size={14} /> <span className="hidden sm:inline">Active</span></button>
+                        <button onClick={() => setMenuStatusFilter('ARCHIVED')} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${menuStatusFilter === 'ARCHIVED' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}><Archive size={14} /> <span className="hidden sm:inline">Archived</span></button>
+                      </div>
+                      <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm">
+                        <button onClick={() => setMenuViewMode('grid')} className={`p-2 rounded-lg transition-all ${menuViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={18} /></button>
+                        <button onClick={() => setMenuViewMode('list')} className={`p-2 rounded-lg transition-all ${menuViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={18} /></button>
+                      </div>
                     </div>
+                    <button onClick={() => setIsFormModalOpen(true)} className="ml-auto px-6 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg">+ Add Item</button>
                   </div>
                 </div>
 
-                <div className="p-6 bg-orange-50 dark:bg-orange-900/10 rounded-3xl border border-orange-100 dark:border-orange-900/20 mb-8">
-                  <p className="text-[10px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest mb-1">Preview Link</p>
-                  <p className="text-[10px] font-bold text-orange-600 dark:text-orange-500 break-all">
-                    {window.location.origin}/?loc={encodeURIComponent(restaurant.location)}&table={posTableNo}
-                  </p>
+                <div className="flex items-center gap-2 mb-6 bg-white dark:bg-gray-800 px-4 py-3 border dark:border-gray-700 rounded-lg shadow-sm overflow-x-auto hide-scrollbar sticky top-0 z-20">
+                  <Search size={16} className="text-gray-400 shrink-0" />
+                  {categories.map(cat => (
+                    <button key={cat} onClick={() => setMenuCategoryFilter(cat)} className={`whitespace-nowrap px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${menuCategoryFilter === cat ? 'bg-orange-100 text-orange-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}>{cat}</button>
+                  ))}
                 </div>
 
-                <button onClick={() => window.print()} className="w-full py-4 bg-black dark:bg-white text-white dark:text-black rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all shadow-xl flex items-center justify-center gap-2">
-                  <Printer size={16} /> Generate & Print
-                </button>
+                {menuViewMode === 'grid' ? (
+                  <div className="grid grid-cols-5 gap-3">
+                    {restaurant.menu.filter(item => {
+                      const statusMatch = menuStatusFilter === 'ACTIVE' ? !item.isArchived : !!item.isArchived;
+                      const categoryMatch = menuCategoryFilter === 'All' || item.category === menuCategoryFilter;
+                      return statusMatch && categoryMatch;
+                    }).map(item => (
+                      <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden border dark:border-gray-700 hover:shadow-md transition-all group flex flex-col">
+                        <div className="relative aspect-square">
+                          <img src={item.image} className="w-full h-full object-cover" />
+                          <div className="absolute top-2 right-2 flex gap-1">
+                            {menuStatusFilter === 'ACTIVE' ? (
+                              <>
+                                <button className="p-1.5 bg-red-50/90 backdrop-blur rounded-lg text-red-600 shadow-sm"><Archive size={12} /></button>
+                                <button onClick={() => setEditingItem(item)} className="p-1.5 bg-white/90 backdrop-blur rounded-lg text-gray-700 shadow-sm"><Edit3 size={12} /></button>
+                              </>
+                            ) : (
+                              <>
+                                <button className="p-1.5 bg-green-50/90 backdrop-blur rounded-lg text-green-600 shadow-sm"><RotateCcw size={12} /></button>
+                                <button className="p-1.5 bg-red-50/90 backdrop-blur rounded-lg text-red-600 shadow-sm"><Trash2 size={12} /></button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="p-2">
+                          <h3 className="font-black text-xs text-gray-900 dark:text-white mb-1 uppercase tracking-tight line-clamp-1">{item.name}</h3>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-black text-orange-500">RM{item.price.toFixed(2)}</span>
+                            <span className="text-[8px] font-black uppercase tracking-widest text-gray-400 truncate ml-1">{item.category}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                          <tr>
+                            <th className="px-4 py-3 text-left">Dish Profile</th>
+                            <th className="px-4 py-3 text-left">Category</th>
+                            <th className="px-4 py-3 text-left">Base Cost</th>
+                            <th className="px-4 py-3 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y dark:divide-gray-700">
+                          {restaurant.menu.filter(item => {
+                            const statusMatch = menuStatusFilter === 'ACTIVE' ? !item.isArchived : !!item.isArchived;
+                            const categoryMatch = menuCategoryFilter === 'All' || item.category === menuCategoryFilter;
+                            return statusMatch && categoryMatch;
+                          }).map(item => (
+                            <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-3">
+                                  <img src={item.image} className="w-10 h-10 rounded-lg object-cover" />
+                                  <div>
+                                    <p className="font-black text-gray-900 dark:text-white uppercase tracking-tight text-xs">{item.name}</p>
+                                    <p className="hidden sm:block text-[9px] text-gray-500 dark:text-gray-400 truncate max-w-xs">{item.description}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-[9px] font-black uppercase text-gray-400">{item.category}</td>
+                              <td className="px-4 py-3 font-black text-gray-900 dark:text-white text-xs">RM{item.price.toFixed(2)}</td>
+                              <td className="px-4 py-3 text-right">
+                                <div className="flex justify-end items-center gap-1">
+                                  {menuStatusFilter === 'ACTIVE' ? (
+                                    <button className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"><Archive size={16} /></button>
+                                  ) : (
+                                    <button className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-all"><RotateCcw size={16} /></button>
+                                  )}
+                                  <button onClick={() => setEditingItem(item)} className="p-2 text-gray-400 hover:text-orange-500 rounded-lg transition-all"><Edit3 size={16} /></button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Settings Tab */}
+          {activeTab === 'SETTINGS' && (
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="max-w-4xl mx-auto">
+                <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Settings</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Configure printer and staff access</p>
+                
+                <div className="space-y-8">
+                  {/* Printer Configuration */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden">
+                    <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
+                      <div className="flex items-center gap-2">
+                        <PrinterIcon size={16} className="text-orange-500" />
+                        <h2 className="font-black dark:text-white uppercase tracking-tighter text-sm">Printer Configuration</h2>
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-4">Configure your thermal printer for receipt printing</p>
+                      <button className="px-4 py-2 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all">
+                        Setup Printer
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Staff Management */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden">
+                    <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Users size={16} className="text-orange-500" />
+                        <h2 className="font-black dark:text-white uppercase tracking-tighter text-sm">Staff Management</h2>
+                      </div>
+                      <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{staffList.length} Staff</span>
+                    </div>
+                    <div className="p-4 space-y-4">
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-4">Add staff members to track transaction history and maintain audit trails</p>
+                      
+                      {staffList.length === 0 ? (
+                        <div className="text-center py-8 border border-dashed dark:border-gray-700 rounded-lg">
+                          <Users size={24} className="mx-auto text-gray-300 mb-2" />
+                          <p className="text-[10px] text-gray-400 uppercase tracking-widest font-black">No staff added yet</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {staffList.map((staff: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border dark:border-gray-700">
+                              <div>
+                                <p className="font-black text-xs dark:text-white">{staff.username}</p>
+                                <p className="text-[8px] text-gray-400 uppercase tracking-widest">Created: {new Date(staff.createdAt || Date.now()).toLocaleDateString()}</p>
+                              </div>
+                              <button className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all">
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      <button 
+                        onClick={() => setIsAddStaffModalOpen(true)}
+                        className="w-full py-3 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
+                      >
+                        <UserPlus size={16} /> Add Staff Member
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
         </div>
 
+        {/* Add Staff Modal */}
+        {isAddStaffModalOpen && (
+          <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-2xl relative animate-in zoom-in fade-in duration-300">
+              <button onClick={() => setIsAddStaffModalOpen(false)} className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 transition-colors"><X size={18} /></button>
+              <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tighter">Add Staff Member</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Username</label>
+                  <input 
+                    type="text"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                    placeholder="e.g. cashier1"
+                    value={newStaffUsername}
+                    onChange={e => setNewStaffUsername(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Password</label>
+                  <input 
+                    type="password"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                    placeholder="Set password"
+                    value={newStaffPassword}
+                    onChange={e => setNewStaffPassword(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button 
+                    onClick={() => {
+                      setIsAddStaffModalOpen(false);
+                      setNewStaffUsername('');
+                      setNewStaffPassword('');
+                    }}
+                    className="flex-1 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (newStaffUsername.trim() && newStaffPassword.trim()) {
+                        const newStaff = {
+                          username: newStaffUsername,
+                          password: newStaffPassword,
+                          createdAt: new Date().toISOString()
+                        };
+                        const updated = [...staffList, newStaff];
+                        setStaffList(updated);
+                        localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+                        setIsAddStaffModalOpen(false);
+                        setNewStaffUsername('');
+                        setNewStaffPassword('');
+                        alert('Staff member added successfully!');
+                      }
+                    }}
+                    className="flex-1 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Right Sidebar - Order Summary */}
-        {(activeTab === 'COUNTER' || (activeTab === 'QR_ORDERS' && isOrderSummaryOpen)) && (
+        {activeTab === 'COUNTER' && (
           <div className={`
             w-96 bg-white dark:bg-gray-800 border-l dark:border-gray-700 flex flex-col
             transition-all duration-300 ease-in-out
-            ${activeTab === 'QR_ORDERS' && isOrderSummaryOpen ? 'animate-slide-left' : ''}
           `}>
             <div className="p-6 border-b dark:border-gray-700 flex items-center justify-between">
               <h3 className="font-black dark:text-white uppercase tracking-tighter">
-                {selectedQrOrder ? `Order #${selectedQrOrder.id}` : 'Current Order'}
+                Current Order
               </h3>
               <div className="flex items-center gap-2">
-                {selectedQrOrder && (
-                  <button onClick={() => { setSelectedQrOrder(null); setIsOrderSummaryOpen(false); }} className="text-gray-400 hover:text-red-500 transition-colors">
-                    <X size={18} />
-                  </button>
-                )}
-                {!selectedQrOrder && (
-                  <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors">
-                    <Trash2 size={18} />
-                  </button>
-                )}
+                <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors">
+                  <Trash2 size={18} />
+                </button>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {selectedQrOrder ? (
-                selectedQrOrder.items.map((item, idx) => (
-                  <div key={idx} className="space-y-2">
-                    <div className="flex items-center gap-4">
-                      <div className="flex-1">
-                        <h4 className="font-black text-[10px] dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                        <p className="text-[10px] text-orange-500 font-black">RM{item.price.toFixed(2)} x{item.quantity}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-black text-xs dark:text-white">RM{(item.price * item.quantity).toFixed(2)}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="ml-4 space-y-1">
-                      {item.selectedSize && <p className="text-[9px] text-gray-500 dark:text-gray-400">• Size: {item.selectedSize}</p>}
-                      {item.selectedTemp && <p className="text-[9px] text-gray-500 dark:text-gray-400">• {item.selectedTemp}</p>}
-                      {item.selectedOtherVariant && <p className="text-[9px] text-gray-500 dark:text-gray-400">• {item.selectedOtherVariant}</p>}
-                      
-                      {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                        <div className="mt-1">
-                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Add-ons:</p>
-                          {item.selectedAddOns.map((addon, addonIdx) => (
-                            <p key={addonIdx} className="text-[9px] text-gray-500 dark:text-gray-400 ml-2">
-                              • {addon.name} x{addon.quantity} (+RM{(addon.price * addon.quantity).toFixed(2)})
-                            </p>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))
+              {posCart.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
+                  <ShoppingBag size={48} className="mb-4" />
+                  <p className="text-[10px] font-black uppercase tracking-widest">Cart is empty</p>
+                </div>
               ) : (
-                posCart.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
-                    <ShoppingBag size={48} className="mb-4" />
-                    <p className="text-[10px] font-black uppercase tracking-widest">Cart is empty</p>
-                  </div>
-                ) : (
-                  posCart.map(item => (
+                posCart.map(item => (
                     <div key={item.id} className="flex items-center gap-4">
                       <div className="flex-1">
                         <h4 className="font-black text-[10px] dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
@@ -751,36 +782,30 @@ const PosOnlyView: React.FC<Props> = ({
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                   <span>Subtotal</span>
-                  <span>RM{selectedQrOrder ? selectedQrOrder.total.toFixed(2) : cartTotal.toFixed(2)}</span>
+                  <span>RM{cartTotal.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
                   <span className="uppercase">Total</span>
-                  <span className="text-orange-500">RM{selectedQrOrder ? selectedQrOrder.total.toFixed(2) : cartTotal.toFixed(2)}</span>
+                  <span className="text-orange-500">RM{cartTotal.toFixed(2)}</span>
                 </div>
               </div>
 
-              {selectedQrOrder ? (
-                <button onClick={handleQrCheckout} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 flex items-center justify-center gap-2">
-                  <CreditCard size={16} /> Complete Payment
-                </button>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Table</label>
-                      <input type="text" value={posTableNo} onChange={e => setPosTableNo(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" />
-                    </div>
-                    <div className="flex-[2]">
-                      <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Remark</label>
-                      <input type="text" value={posRemark} onChange={e => setPosRemark(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" placeholder="No spicy..." />
-                    </div>
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Table</label>
+                    <input type="text" value={posTableNo} onChange={e => setPosTableNo(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" />
                   </div>
-
-                  <button onClick={handleCheckout} disabled={posCart.length === 0} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2">
-                    <CreditCard size={16} /> Complete Order
-                  </button>
+                  <div className="flex-[2]">
+                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Remark</label>
+                    <input type="text" value={posRemark} onChange={e => setPosRemark(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" placeholder="No spicy..." />
+                  </div>
                 </div>
-              )}
+
+                <button onClick={handleCheckout} disabled={posCart.length === 0} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2">
+                  <CreditCard size={16} /> Complete Order
+                </button>
+              </div>
             </div>
           </div>
         )}
