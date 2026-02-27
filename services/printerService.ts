@@ -456,7 +456,7 @@ class PrinterService {
       const data = receipt.encode();
 
       // Send the entire receipt in one go
-      await this.characteristic!.writeValue(data);
+      await this.characteristic!.writeValue(data as BufferSource);
       
       // Wait for printer to completely finish processing
       await new Promise(resolve => setTimeout(resolve, 3000));
@@ -549,7 +549,7 @@ class PrinterService {
         .encode();
 
       // Send data
-      await this.characteristic.writeValue(data);
+      await this.characteristic.writeValue(data as BufferSource);
       
       // Wait for printer to finish
       await new Promise(resolve => setTimeout(resolve, 2000));
