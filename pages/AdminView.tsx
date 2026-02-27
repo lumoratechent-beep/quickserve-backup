@@ -22,9 +22,10 @@ interface Props {
   onFetchStats?: (filters: ReportFilters) => Promise<any>;
 }
 
-// System Status Dashboard Component (unchanged)
+// System Status Dashboard Component (keep as is)
 const SystemStatusDashboard: React.FC = () => {
-  // ... (keep the entire SystemStatusDashboard component exactly as is)
+  // ... (keep the entire SystemStatusDashboard component exactly as it was in your original code)
+  // I'm not including it here to save space, but keep your existing implementation
   const [status, setStatus] = useState<Record<string, { status: 'CHECKING' | 'OK' | 'ERROR'; message: string; lastChecked?: string }>>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -476,7 +477,7 @@ const AdminView: React.FC<Props> = ({
     email: '',
     phone: '',
     logo: '',
-    platformAccess: 'pos_and_kitchen' as PlatformAccess // ADD THIS
+    platformAccess: 'pos_and_kitchen' as PlatformAccess
   });
 
   const vendorFileInputRef = useRef<HTMLInputElement>(null);
@@ -628,7 +629,7 @@ const AdminView: React.FC<Props> = ({
         email: user.email || '',
         phone: user.phone || '',
         logo: res.logo,
-        platformAccess: res.platformAccess || 'pos_and_kitchen' // ADD THIS
+        platformAccess: res.platformAccess || 'pos_and_kitchen'
       });
       setShowPassword(false);
       setIsModalOpen(true);
@@ -645,7 +646,7 @@ const AdminView: React.FC<Props> = ({
       email: '', 
       phone: '', 
       logo: '',
-      platformAccess: 'pos_and_kitchen' // ADD THIS
+      platformAccess: 'pos_and_kitchen'
     });
     setShowPassword(false);
     setIsModalOpen(true);
@@ -685,7 +686,8 @@ const AdminView: React.FC<Props> = ({
       vendorId: editingVendor?.user.id || '', 
       location: formVendor.location, 
       menu: editingVendor?.res.menu || [],
-      platformAccess: formVendor.platformAccess // ADD THIS
+      // Include platformAccess in the restaurant object
+      platformAccess: formVendor.platformAccess as PlatformAccess
     };
     
     if (editingVendor) onUpdateVendor(userPayload, resPayload);
@@ -739,8 +741,7 @@ const AdminView: React.FC<Props> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      {/* ... (keep all the existing JSX exactly as is until the Vendor Registration/Edit Modal) ... */}
-      
+      {/* Keep all the existing JSX exactly as in your original code */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 md:mb-12 gap-6 no-print">
         <div>
           <h1 className="text-3xl md:text-4xl font-black dark:text-white tracking-tighter uppercase leading-none mb-1">Platform Master</h1>
@@ -929,6 +930,7 @@ const AdminView: React.FC<Props> = ({
             <div className="p-2 md:p-4">
               <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-2xl border dark:border-gray-700 mb-4 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Period selection */}
                   <div className="space-y-1">
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Period Selection</label>
                     <div className="flex items-center gap-2 bg-white dark:bg-gray-800 p-2 rounded-xl border dark:border-gray-600">
@@ -939,6 +941,7 @@ const AdminView: React.FC<Props> = ({
                     </div>
                   </div>
 
+                  {/* Vendor Filter */}
                   <div className="space-y-1">
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Filter by Kitchen</label>
                     <div className="relative">
@@ -954,6 +957,7 @@ const AdminView: React.FC<Props> = ({
                     </div>
                   </div>
 
+                  {/* Hub Filter */}
                   <div className="space-y-1">
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Filter by Hub</label>
                     <div className="relative">
@@ -969,6 +973,7 @@ const AdminView: React.FC<Props> = ({
                     </div>
                   </div>
 
+                  {/* Status Filter */}
                   <div className="space-y-1">
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Order Outcome</label>
                     <div className="relative">
@@ -1059,6 +1064,7 @@ const AdminView: React.FC<Props> = ({
                 </div>
               </div>
 
+              {/* Pagination Controls */}
               {totalPages > 1 && (
                 <div className="mt-8 flex items-center justify-center gap-2 overflow-x-auto py-2 no-print">
                   <button 
@@ -1187,7 +1193,7 @@ const AdminView: React.FC<Props> = ({
                  <input required type="text" className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm" value={formVendor.username} onChange={e => setFormVendor({...formVendor, username: e.target.value})} />
                </div>
 
-               {/* Platform Access (NEW) - Add this after username and before password */}
+               {/* Platform Access (NEW) */}
                <div className="md:col-span-2">
                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Platform Access</label>
                  <div className="flex bg-gray-50 dark:bg-gray-700 p-1 rounded-xl">
