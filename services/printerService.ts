@@ -117,17 +117,18 @@ class PrinterService {
   private startKeepAlive() {
     this.stopKeepAlive();
     
+    // Simple keep-alive - just a null byte every 30 seconds
     this.keepAliveInterval = setInterval(async () => {
       if (this.isConnected() && this.characteristic && !this.isPrinting) {
         try {
-          // Send a simple no-op
-          const keepAliveData = new Uint8Array([0x0A]);
+          // Send null byte - won't cause paper movement
+          const keepAliveData = new Uint8Array([0x00]);
           await this.characteristic.writeValue(keepAliveData);
         } catch (error) {
-          // Ignore
+          // Ignore keep-alive failures
         }
       }
-    }, 15000);
+    }, 30000); // 30 seconds
   }
 
   private stopKeepAlive() {
@@ -150,6 +151,7 @@ class PrinterService {
     }
 
     if (this.device && !this.disconnectRequested) {
+      console.log('Attempting to reconnect printer...');
       try {
         const server = await this.device.gatt?.connect();
         if (server) {
@@ -178,6 +180,7 @@ class PrinterService {
           }
 
           this.startKeepAlive();
+          console.log('Printer reconnected successfully');
           return true;
         }
       } catch (error) {
@@ -239,18 +242,32 @@ class PrinterService {
 
       const now = new Date();
       
-      // SIMPLE test page - minimal data
-      const data = this.encoder
+      // Simple test page
+      let data = this.encoder
         .initialize()
         .align('center')
+        .size(2, 2)
+        .line('QUICKSERVE')
+        .size(1, 1)
+        .line('='.repeat(32))
         .line('TEST PAGE')
         .line('')
-        .line('QuickServe')
-        .line(new Date().toLocaleString())
+        .line(this.formatDate(now) + ' ' + this.formatTime(now))
+        .line('')
+        .line('Printer is working!')
+        .line('='.repeat(32))
         .cut()
         .encode();
 
+      // Send data
       await this.characteristic.writeValue(data);
+      
+      // Wait and clear buffer
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Clear buffer after test
+      const clearBuffer = new Uint8Array([0x18]); // CAN command
+      await this.characteristic.writeValue(clearBuffer);
       
       this.lastPrintTime = Date.now();
       return true;
@@ -286,49 +303,50 @@ class PrinterService {
         const dateStr = this.formatDate(orderDate);
         const timeStr = this.formatTime(orderDate);
 
-        // FIXED: Reset printer before each receipt
+        // Build receipt - using your template format
         let receipt = this.encoder
-          .initialize()  // This sends ESC @ to reset printer
+          .initialize() // Reset printer state
           .align('center')
           .size(2, 2)
           .line(restaurant.name.toUpperCase())
           .size(1, 1)
           .line('='.repeat(32))
           .align('left')
-          .line(`${dateStr} ${timeStr} | #${order.id}`);
+          .line(`${dateStr} ${timeStr} | Ticket #:${order.id}`);
 
-        // Table
+        // Table information
         if (order.tableNumber) {
           receipt = receipt
             .line('')
             .line(`Table: ${order.tableNumber}`);
         }
 
+        // Separator
         receipt = receipt.line('-'.repeat(32));
 
-        // Items - KEEP IT SIMPLE, avoid special characters
+        // Order items
         order.items.forEach((item: any) => {
           // Item line
           receipt = receipt.line(`${item.quantity}x ${item.name}`);
 
-          // Options - indented with spaces, no special characters
+          // Options/Tags
           if (item.selectedSize) {
-            receipt = receipt.line(`   ${item.selectedSize}`);
+            receipt = receipt.line(`     * ${item.selectedSize}`);
           }
           if (item.selectedTemp) {
-            receipt = receipt.line(`   ${item.selectedTemp}`);
+            receipt = receipt.line(`     * ${item.selectedTemp}`);
           }
           if (item.selectedOtherVariant) {
-            receipt = receipt.line(`   ${item.selectedOtherVariant}`);
+            receipt = receipt.line(`     * ${item.selectedOtherVariant}`);
           }
 
           // Add-ons
           if (item.selectedAddOns && item.selectedAddOns.length > 0) {
             item.selectedAddOns.forEach((addon: any) => {
               if (addon.quantity > 1) {
-                receipt = receipt.line(`   + ${addon.name} x${addon.quantity}`);
+                receipt = receipt.line(`     * ${addon.name} x${addon.quantity}`);
               } else {
-                receipt = receipt.line(`   + ${addon.name}`);
+                receipt = receipt.line(`     * ${addon.name}`);
               }
             });
           }
@@ -336,21 +354,23 @@ class PrinterService {
           receipt = receipt.line('');
         });
 
-        // Notes
+        // Order notes
         if (order.remark) {
           receipt = receipt
             .line('-'.repeat(32))
-            .line('Note:')
+            .line('Ticket Note:')
             .line(order.remark)
             .line('');
         }
 
-        // Total
+        // Total and footer
         receipt = receipt
           .line('-'.repeat(32))
           .align('right')
+          .size(1, 1)
           .line(`TOTAL: RM ${order.total.toFixed(2)}`)
           .align('center')
+          .size(1, 1)
           .line('='.repeat(32))
           .line('Thank you!')
           .line('Please come again')
@@ -360,21 +380,28 @@ class PrinterService {
 
         const data = receipt.encode();
 
-        // FIXED: Clear any pending data by sending in chunks with delays
-        const chunkSize = 128; // Smaller chunks to avoid buffer overflow
+        // Send data in small chunks to prevent buffer overflow
+        const chunkSize = 64; // Very small chunks
         for (let i = 0; i < data.length; i += chunkSize) {
           const chunk = data.slice(i, i + chunkSize);
           await this.characteristic.writeValue(chunk);
-          // Add delay between chunks to let printer process
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Delay between chunks to let printer process
+          await new Promise(resolve => setTimeout(resolve, 150));
         }
         
-        // FIXED: Wait for printer to finish processing
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // CRITICAL: Wait for printer to finish processing
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
-        // FIXED: Send a partial cut or just a newline to clear buffer
-        const clearBuffer = new Uint8Array([0x0A, 0x0A, 0x0A]);
+        // Clear printer buffer - CAN command
+        const clearBuffer = new Uint8Array([0x18]);
         await this.characteristic.writeValue(clearBuffer);
+        
+        // Form Feed - eject any partial page
+        const formFeed = new Uint8Array([0x0C]);
+        await this.characteristic.writeValue(formFeed);
+        
+        // Final wait
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         this.lastPrintTime = Date.now();
         return true;
@@ -383,13 +410,15 @@ class PrinterService {
         console.error(`Print attempt ${attempts + 1} failed:`, error);
         attempts++;
         
-        // FIXED: Reset printer state on error
+        // Clear connection state but keep device
         this.server = null;
         this.service = null;
         this.characteristic = null;
         
         if (attempts < this.maxReconnectAttempts) {
-          await new Promise(resolve => setTimeout(resolve, attempts * 1000));
+          const delay = attempts * 1000;
+          console.log(`Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
     }
