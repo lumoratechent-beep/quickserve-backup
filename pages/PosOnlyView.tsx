@@ -756,12 +756,14 @@ const PosOnlyView: React.FC<Props> = ({
                             password: newStaffPassword,
                             email: newStaffEmail,
                             phone: newStaffPhone,
-                            restaurant_id: restaurant.id
+                            restaurant_id: restaurant.id,
+                            role: 'CASHIER',
+                            is_active: true
                           };
                           
-                          // Save to Supabase
+                          // Save to Supabase users table
                           const { data, error } = await supabase
-                            .from('staff')
+                            .from('users')
                             .insert([newStaff])
                             .select();
                           
@@ -771,7 +773,7 @@ const PosOnlyView: React.FC<Props> = ({
                             return;
                           }
                           
-                          // Also update local state with the data from database (includes createdAt, id)
+                          // Also update local state with the data from database (includes created_at, id)
                           const staffFromDb = data && data.length > 0 ? data[0] : newStaff;
                           const updated = [...staffList, staffFromDb];
                           setStaffList(updated);
