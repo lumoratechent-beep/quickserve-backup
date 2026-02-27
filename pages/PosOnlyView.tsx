@@ -756,7 +756,7 @@ const PosOnlyView: React.FC<Props> = ({
                             password: newStaffPassword,
                             email: newStaffEmail,
                             phone: newStaffPhone,
-                            restaurantId: restaurant.id
+                            restaurant_id: restaurant.id
                           };
                           
                           // Save to Supabase
