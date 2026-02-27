@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters } from '../src/types';
+import { supabase } from '../lib/supabase';
 import { 
   ShoppingBag, Search, Download, Calendar, ChevronLeft, ChevronRight, 
   Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid, 
@@ -67,6 +68,9 @@ const PosOnlyView: React.FC<Props> = ({
   const [isAddStaffModalOpen, setIsAddStaffModalOpen] = useState(false);
   const [newStaffUsername, setNewStaffUsername] = useState('');
   const [newStaffPassword, setNewStaffPassword] = useState('');
+  const [newStaffEmail, setNewStaffEmail] = useState('');
+  const [newStaffPhone, setNewStaffPhone] = useState('');
+  const [isAddingStaff, setIsAddingStaff] = useState(false);
 
   const categories = useMemo(() => {
     const cats = new Set(restaurant.menu.map(item => item.category));
@@ -707,37 +711,91 @@ const PosOnlyView: React.FC<Props> = ({
                   />
                 </div>
 
+                <div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Email</label>
+                  <input 
+                    type="email"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                    placeholder="staff@example.com"
+                    value={newStaffEmail}
+                    onChange={e => setNewStaffEmail(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Phone Number</label>
+                  <input 
+                    type="tel"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                    placeholder="+60 XXX XXX XXXX"
+                    value={newStaffPhone}
+                    onChange={e => setNewStaffPhone(e.target.value)}
+                  />
+                </div>
+
                 <div className="flex gap-3 pt-4">
                   <button 
                     onClick={() => {
                       setIsAddStaffModalOpen(false);
                       setNewStaffUsername('');
                       setNewStaffPassword('');
+                      setNewStaffEmail('');
+                      setNewStaffPhone('');
                     }}
                     className="flex-1 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500"
                   >
                     Cancel
                   </button>
                   <button 
-                    onClick={() => {
-                      if (newStaffUsername.trim() && newStaffPassword.trim()) {
-                        const newStaff = {
-                          username: newStaffUsername,
-                          password: newStaffPassword,
-                          createdAt: new Date().toISOString()
-                        };
-                        const updated = [...staffList, newStaff];
-                        setStaffList(updated);
-                        localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
-                        setIsAddStaffModalOpen(false);
-                        setNewStaffUsername('');
-                        setNewStaffPassword('');
-                        alert('Staff member added successfully!');
+                    onClick={async () => {
+                      if (newStaffUsername.trim() && newStaffPassword.trim() && newStaffEmail.trim() && newStaffPhone.trim()) {
+                        setIsAddingStaff(true);
+                        try {
+                          const newStaff = {
+                            username: newStaffUsername,
+                            password: newStaffPassword,
+                            email: newStaffEmail,
+                            phone: newStaffPhone,
+                            restaurantId: restaurant.id,
+                            createdAt: new Date().toISOString()
+                          };
+                          
+                          // Save to Supabase
+                          const { data, error } = await supabase
+                            .from('staff')
+                            .insert([newStaff])
+                            .select();
+                          
+                          if (error) {
+                            alert('Error saving to database: ' + error.message);
+                            setIsAddingStaff(false);
+                            return;
+                          }
+                          
+                          // Also update local state
+                          const updated = [...staffList, newStaff];
+                          setStaffList(updated);
+                          localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+                          
+                          setIsAddStaffModalOpen(false);
+                          setNewStaffUsername('');
+                          setNewStaffPassword('');
+                          setNewStaffEmail('');
+                          setNewStaffPhone('');
+                          setIsAddingStaff(false);
+                          alert('Staff member added successfully!');
+                        } catch (error: any) {
+                          alert('Error: ' + error.message);
+                          setIsAddingStaff(false);
+                        }
+                      } else {
+                        alert('Please fill in all fields');
                       }
                     }}
-                    className="flex-1 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow"
+                    disabled={isAddingStaff}
+                    className="flex-1 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow disabled:opacity-50"
                   >
-                    Add
+                    {isAddingStaff ? 'Adding...' : 'Add'}
                   </button>
                 </div>
               </div>
