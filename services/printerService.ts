@@ -18,8 +18,6 @@ class PrinterService {
   private isPrinting: boolean = false;
   private keepAliveInterval: NodeJS.Timeout | null = null;
   private lastPrintTime: number = 0;
-  
-  // Add these to track connection state
   private connectionPromise: Promise<boolean> | null = null;
   private disconnectRequested: boolean = false;
 
@@ -45,7 +43,6 @@ class PrinterService {
   }
 
   async connect(deviceName: string): Promise<boolean> {
-    // If already connecting, return that promise
     if (this.connectionPromise) {
       return this.connectionPromise;
     }
@@ -58,9 +55,7 @@ class PrinterService {
 
   private async _connect(deviceName: string): Promise<boolean> {
     try {
-      // Clean up any existing connection
       await this.disconnect();
-
       this.disconnectRequested = false;
 
       this.device = await navigator.bluetooth.requestDevice({
@@ -68,11 +63,9 @@ class PrinterService {
         optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '00001800-0000-1000-8000-00805f9b34fb']
       });
 
-      // Set up disconnect listener
       this.device.addEventListener('gattserverdisconnected', () => {
-        console.log('Printer disconnected - will reconnect on next print');
+        console.log('Printer disconnected');
         if (!this.disconnectRequested) {
-          // Only cleanup if disconnect wasn't requested
           this.server = null;
           this.service = null;
           this.characteristic = null;
@@ -85,7 +78,6 @@ class PrinterService {
       }
       this.server = server;
 
-      // Try to get the service
       try {
         this.service = await this.server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
       } catch (e) {
@@ -98,7 +90,6 @@ class PrinterService {
       
       const characteristics = await this.service.getCharacteristics();
       
-      // Find the best characteristic for writing
       for (const char of characteristics) {
         if (char.properties.writeWithoutResponse) {
           this.characteristic = char;
@@ -112,9 +103,7 @@ class PrinterService {
         throw new Error('No writable characteristic found');
       }
 
-      // Start keep-alive
       this.startKeepAlive();
-      
       this.reconnectAttempts = 0;
       return true;
 
@@ -128,19 +117,17 @@ class PrinterService {
   private startKeepAlive() {
     this.stopKeepAlive();
     
-    // Send keep-alive every 15 seconds to prevent disconnection
     this.keepAliveInterval = setInterval(async () => {
       if (this.isConnected() && this.characteristic && !this.isPrinting) {
         try {
-          // Send a simple status request or no-op
-          const keepAliveData = new Uint8Array([0x10, 0x04, 0x01]); // ESC/POS status request
+          // Send a simple no-op
+          const keepAliveData = new Uint8Array([0x0A]);
           await this.characteristic.writeValue(keepAliveData);
         } catch (error) {
-          console.log('Keep-alive failed, printer may be disconnected');
-          // Don't cleanup here, let the next print handle reconnection
+          // Ignore
         }
       }
-    }, 15000); // 15 seconds
+    }, 15000);
   }
 
   private stopKeepAlive() {
@@ -158,20 +145,16 @@ class PrinterService {
   }
 
   async ensureConnection(): Promise<boolean> {
-    // If we're already connected and have a characteristic, return true
     if (this.isConnected() && this.characteristic) {
       return true;
     }
 
-    // If we have a device but no connection, try to reconnect
     if (this.device && !this.disconnectRequested) {
-      console.log('Attempting to reconnect printer...');
       try {
         const server = await this.device.gatt?.connect();
         if (server) {
           this.server = server;
           
-          // Re-establish service
           try {
             this.service = await this.server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
           } catch (e) {
@@ -182,7 +165,6 @@ class PrinterService {
             throw new Error('Could not find printer service');
           }
 
-          // Re-establish characteristic
           const characteristics = await this.service.getCharacteristics();
           for (const char of characteristics) {
             if (char.properties.writeWithoutResponse || char.properties.write) {
@@ -195,10 +177,7 @@ class PrinterService {
             throw new Error('No writable characteristic found');
           }
 
-          // Restart keep-alive
           this.startKeepAlive();
-          
-          console.log('Printer reconnected successfully');
           return true;
         }
       } catch (error) {
@@ -219,7 +198,6 @@ class PrinterService {
     this.stopKeepAlive();
     
     if (this.device) {
-      // Remove listener to avoid handling our own disconnect
       this.device.removeEventListener('gattserverdisconnected', () => {});
     }
     
@@ -228,7 +206,7 @@ class PrinterService {
         await this.server.disconnect();
       }
     } catch (e) {
-      // Ignore disconnect errors
+      // Ignore
     }
     
     await this.cleanup();
@@ -245,14 +223,12 @@ class PrinterService {
 
   async printTestPage(): Promise<boolean> {
     if (this.isPrinting) {
-      console.log('Print already in progress');
       return false;
     }
 
     this.isPrinting = true;
     
     try {
-      // Ensure we're connected
       if (!await this.ensureConnection()) {
         throw new Error('Printer not connected');
       }
@@ -263,32 +239,17 @@ class PrinterService {
 
       const now = new Date();
       
-      // Build test page
-      let data = this.encoder
+      // SIMPLE test page - minimal data
+      const data = this.encoder
         .initialize()
         .align('center')
-        .size(2, 2)
-        .line('QUICKSERVE')
-        .size(1, 1)
-        .line('='.repeat(32))
-        .align('left')
-        .line(`${this.formatDate(now)} ${this.formatTime(now)} | Test Print`)
-        .line('-'.repeat(32))
+        .line('TEST PAGE')
         .line('')
-        .align('center')
-        .line('Printer Test Page')
-        .line('')
-        .line('If you can read this,')
-        .line('your printer is working!')
-        .line('')
-        .line('='.repeat(32))
-        .line('QuickServe v1.0')
-        .newline()
-        .newline()
+        .line('QuickServe')
+        .line(new Date().toLocaleString())
         .cut()
         .encode();
 
-      // Write data
       await this.characteristic.writeValue(data);
       
       this.lastPrintTime = Date.now();
@@ -313,7 +274,6 @@ class PrinterService {
     
     while (attempts < this.maxReconnectAttempts) {
       try {
-        // Ensure we're connected before each attempt
         if (!await this.ensureConnection()) {
           throw new Error('Printer not connected');
         }
@@ -326,19 +286,16 @@ class PrinterService {
         const dateStr = this.formatDate(orderDate);
         const timeStr = this.formatTime(orderDate);
 
-        // Build receipt
+        // FIXED: Reset printer before each receipt
         let receipt = this.encoder
-          .initialize()
+          .initialize()  // This sends ESC @ to reset printer
           .align('center')
           .size(2, 2)
           .line(restaurant.name.toUpperCase())
           .size(1, 1)
           .line('='.repeat(32))
-          .align('left');
-
-        // Header
-        receipt = receipt
-          .line(`${dateStr} ${timeStr} | Ticket #:${order.id}`);
+          .align('left')
+          .line(`${dateStr} ${timeStr} | #${order.id}`);
 
         // Table
         if (order.tableNumber) {
@@ -347,33 +304,31 @@ class PrinterService {
             .line(`Table: ${order.tableNumber}`);
         }
 
-        // Separator
-        receipt = receipt
-          .line('-'.repeat(32));
+        receipt = receipt.line('-'.repeat(32));
 
-        // Items
+        // Items - KEEP IT SIMPLE, avoid special characters
         order.items.forEach((item: any) => {
-          receipt = receipt
-            .line(`${item.quantity}x ${item.name}`);
+          // Item line
+          receipt = receipt.line(`${item.quantity}x ${item.name}`);
 
-          // Add options
+          // Options - indented with spaces, no special characters
           if (item.selectedSize) {
-            receipt = receipt.line(`     * ${item.selectedSize}`);
+            receipt = receipt.line(`   ${item.selectedSize}`);
           }
           if (item.selectedTemp) {
-            receipt = receipt.line(`     * ${item.selectedTemp}`);
+            receipt = receipt.line(`   ${item.selectedTemp}`);
           }
           if (item.selectedOtherVariant) {
-            receipt = receipt.line(`     * ${item.selectedOtherVariant}`);
+            receipt = receipt.line(`   ${item.selectedOtherVariant}`);
           }
 
-          // Add add-ons
+          // Add-ons
           if (item.selectedAddOns && item.selectedAddOns.length > 0) {
             item.selectedAddOns.forEach((addon: any) => {
               if (addon.quantity > 1) {
-                receipt = receipt.line(`     * ${addon.name} x${addon.quantity}`);
+                receipt = receipt.line(`   + ${addon.name} x${addon.quantity}`);
               } else {
-                receipt = receipt.line(`     * ${addon.name}`);
+                receipt = receipt.line(`   + ${addon.name}`);
               }
             });
           }
@@ -394,10 +349,8 @@ class PrinterService {
         receipt = receipt
           .line('-'.repeat(32))
           .align('right')
-          .size(1, 1)
           .line(`TOTAL: RM ${order.total.toFixed(2)}`)
           .align('center')
-          .size(1, 1)
           .line('='.repeat(32))
           .line('Thank you!')
           .line('Please come again')
@@ -407,11 +360,21 @@ class PrinterService {
 
         const data = receipt.encode();
 
-        // Write data
-        await this.characteristic.writeValue(data);
+        // FIXED: Clear any pending data by sending in chunks with delays
+        const chunkSize = 128; // Smaller chunks to avoid buffer overflow
+        for (let i = 0; i < data.length; i += chunkSize) {
+          const chunk = data.slice(i, i + chunkSize);
+          await this.characteristic.writeValue(chunk);
+          // Add delay between chunks to let printer process
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
         
-        // Small delay to ensure print completes
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // FIXED: Wait for printer to finish processing
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // FIXED: Send a partial cut or just a newline to clear buffer
+        const clearBuffer = new Uint8Array([0x0A, 0x0A, 0x0A]);
+        await this.characteristic.writeValue(clearBuffer);
         
         this.lastPrintTime = Date.now();
         return true;
@@ -420,13 +383,12 @@ class PrinterService {
         console.error(`Print attempt ${attempts + 1} failed:`, error);
         attempts++;
         
-        // Clear connection state but keep device for reconnection
+        // FIXED: Reset printer state on error
         this.server = null;
         this.service = null;
         this.characteristic = null;
         
         if (attempts < this.maxReconnectAttempts) {
-          console.log(`Retrying in ${attempts} second(s)...`);
           await new Promise(resolve => setTimeout(resolve, attempts * 1000));
         }
       }
