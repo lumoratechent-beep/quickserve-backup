@@ -147,31 +147,25 @@ const VendorView: React.FC<Props> = ({
   // New Order Alert State
   const [showNewOrderAlert, setShowNewOrderAlert] = useState(false);
   
-  // FIXED: Simplified pending orders - just filter by PENDING status
   const pendingOrders = useMemo(() => {
     return orders.filter(o => o.status === OrderStatus.PENDING);
   }, [orders]);
 
   const prevPendingCount = useRef(pendingOrders.length);
 
-  // FIXED: Load from restaurant prop first, then localStorage as fallback
   useEffect(() => {
-    // Load categories from restaurant prop (database)
     if (restaurant.categories && restaurant.categories.length > 0) {
       setExtraCategories(restaurant.categories);
     } else {
-      // Fallback to localStorage
       const savedCategories = localStorage.getItem(`categories_${restaurant.id}`);
       if (savedCategories) {
         setExtraCategories(JSON.parse(savedCategories));
       }
     }
     
-    // Load modifiers from restaurant prop (database)
     if (restaurant.modifiers && restaurant.modifiers.length > 0) {
       setModifiers(restaurant.modifiers);
     } else {
-      // Fallback to localStorage
       const savedModifiers = localStorage.getItem(`modifiers_${restaurant.id}`);
       if (savedModifiers) {
         setModifiers(JSON.parse(savedModifiers));
@@ -179,7 +173,6 @@ const VendorView: React.FC<Props> = ({
     }
   }, [restaurant.id, restaurant.categories, restaurant.modifiers]);
 
-  // FIXED: Save categories to database
   const saveCategoriesToDatabase = async (categories: CategoryData[]) => {
     try {
       const { error } = await supabase
@@ -195,7 +188,6 @@ const VendorView: React.FC<Props> = ({
     }
   };
 
-  // FIXED: Save modifiers to database
   const saveModifiersToDatabase = async (modifiers: ModifierData[]) => {
     try {
       const { error } = await supabase
@@ -211,26 +203,22 @@ const VendorView: React.FC<Props> = ({
     }
   };
 
-  // Save categories to localStorage and database
   useEffect(() => {
     localStorage.setItem(`categories_${restaurant.id}`, JSON.stringify(extraCategories));
     saveCategoriesToDatabase(extraCategories);
   }, [extraCategories, restaurant.id]);
 
-  // Save modifiers to localStorage and database
   useEffect(() => {
     localStorage.setItem(`modifiers_${restaurant.id}`, JSON.stringify(modifiers));
     saveModifiersToDatabase(modifiers);
   }, [modifiers, restaurant.id]);
 
-  // Sound & Visual Alert for New Orders
   useEffect(() => {
     if (pendingOrders.length > prevPendingCount.current) {
       triggerNewOrderAlert();
       setShowNewOrderAlert(true);
       setTimeout(() => setShowNewOrderAlert(false), 5000);
       
-      // Auto-accept if enabled
       if (orderSettings.autoAccept) {
         const newOrders = orders.filter(o => 
           o.status === OrderStatus.PENDING && 
@@ -244,7 +232,6 @@ const VendorView: React.FC<Props> = ({
     prevPendingCount.current = pendingOrders.length;
   }, [pendingOrders.length]);
 
-  // Check Bluetooth support
   useEffect(() => {
     if (!('bluetooth' in navigator) || !(navigator as any).bluetooth) {
       setIsBluetoothSupported(false);
@@ -252,7 +239,6 @@ const VendorView: React.FC<Props> = ({
     }
   }, []);
 
-  // Load saved printer from localStorage
   useEffect(() => {
     const savedPrinter = localStorage.getItem(`printer_${restaurant.id}`);
     if (savedPrinter) {
@@ -266,7 +252,6 @@ const VendorView: React.FC<Props> = ({
     }
   }, [restaurant.id]);
 
-  // Save order settings to localStorage
   useEffect(() => {
     localStorage.setItem(`order_settings_${restaurant.id}`, JSON.stringify(orderSettings));
   }, [orderSettings, restaurant.id]);
@@ -294,7 +279,6 @@ const VendorView: React.FC<Props> = ({
     return ['All', ...Array.from(base)];
   }, [restaurant.menu, extraCategories]);
 
-  // FIXED: Keep original filteredOrders as is
   const filteredOrders = orders.filter(o => {
     if (orderFilter === 'ALL') return true;
     if (orderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
@@ -492,7 +476,6 @@ const VendorView: React.FC<Props> = ({
     setFormItem({ ...formItem, otherVariants: updated });
   };
 
-  // Add-On handlers
   const handleAddAddOn = () => {
     setFormItem({
       ...formItem,
@@ -568,7 +551,6 @@ const VendorView: React.FC<Props> = ({
     }
   };
 
-  // Category Handlers
   const handleAddCategory = () => {
     if (!newClassName.trim()) return;
     if (categories.includes(newClassName.trim())) {
@@ -617,7 +599,6 @@ const VendorView: React.FC<Props> = ({
     }
   };
 
-  // Modifier Handlers
   const handleAddModifier = () => {
     setShowAddModifierModal(true);
     setTempModifierName('');
@@ -630,7 +611,6 @@ const VendorView: React.FC<Props> = ({
       return;
     }
     
-    // Filter out empty options
     const validOptions = tempModifierOptions.filter(opt => opt.name.trim() !== '');
     
     setModifiers(prev => [...prev, { 
@@ -713,7 +693,6 @@ const VendorView: React.FC<Props> = ({
     });
   };
 
-  // Printer Functions using printerService
   const scanForPrinters = async () => {
     if (!isBluetoothSupported) return;
 
@@ -782,25 +761,68 @@ const VendorView: React.FC<Props> = ({
     }
   };
 
- // In VendorView.tsx - REPLACE the handleAcceptAndPrint function
+  const handleAcceptAndPrint = async (orderId: string) => {
+    await onUpdateOrder(orderId, OrderStatus.ONGOING);
+    
+    if (orderSettings.autoPrint) {
+      if (!connectedDevice) {
+        alert('Printer is not connected. Please connect a printer in Settings.');
+        return;
+      }
 
-const handleAcceptAndPrint = async (orderId: string) => {
-  await onUpdateOrder(orderId, OrderStatus.ONGOING);
-  
-  if (orderSettings.autoPrint) {
+      try {
+        setPrintingOrderId(orderId);
+        
+        const { data: freshOrder, error } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('id', orderId)
+          .single();
+        
+        if (error || !freshOrder) {
+          alert('Failed to fetch order details for printing.');
+          return;
+        }
+        
+        const orderToPrint = {
+          id: freshOrder.id,
+          tableNumber: freshOrder.table_number,
+          timestamp: freshOrder.timestamp,
+          total: Number(freshOrder.total || 0),
+          items: Array.isArray(freshOrder.items) ? freshOrder.items : 
+                 (typeof freshOrder.items === 'string' ? JSON.parse(freshOrder.items) : []),
+          remark: freshOrder.remark || ''
+        };
+        
+        const printSuccess = await printerService.printReceipt(orderToPrint, restaurant);
+        
+        if (printSuccess) {
+          console.log('Order queued/printed successfully');
+        } else {
+          alert('Failed to queue print job. Please try again.');
+        }
+        
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error occurred while printing.');
+      } finally {
+        setPrintingOrderId(null);
+      }
+    }
+  };
+
+  const handleManualPrint = async (order: Order) => {
     if (!connectedDevice) {
-      alert('Printer is not connected. Please connect a printer in Settings.');
+      alert('No printer connected. Please connect a printer in Settings.');
       return;
     }
 
+    setPrintingOrderId(order.id);
     try {
-      setPrintingOrderId(orderId);
-      
-      // Fetch fresh order
       const { data: freshOrder, error } = await supabase
         .from('orders')
         .select('*')
-        .eq('id', orderId)
+        .eq('id', order.id)
         .single();
       
       if (error || !freshOrder) {
@@ -818,79 +840,27 @@ const handleAcceptAndPrint = async (orderId: string) => {
         remark: freshOrder.remark || ''
       };
       
-      // This will now queue if printer is busy
-      const printSuccess = await printerService.printReceipt(orderToPrint, restaurant);
+      const success = await printerService.printReceipt(orderToPrint, restaurant);
       
-      if (printSuccess) {
-        console.log('Order queued/printed successfully');
+      if (success) {
+        alert('Order printed successfully!');
       } else {
-        alert('Failed to queue print job. Please try again.');
+        alert('Failed to print. Please try again.');
       }
-      
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Manual print error:', error);
       alert('Error occurred while printing.');
     } finally {
       setPrintingOrderId(null);
     }
-  }
-};
+  };
 
-// In VendorView.tsx - REPLACE the handleManualPrint function
-
-const handleManualPrint = async (order: Order) => {
-  if (!connectedDevice) {
-    alert('No printer connected. Please connect a printer in Settings.');
-    return;
-  }
-
-  setPrintingOrderId(order.id);
-  try {
-    // CRITICAL FIX: Fetch fresh from database
-    const { data: freshOrder, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('id', order.id)
-      .single();
-    
-    if (error || !freshOrder) {
-      alert('Failed to fetch order details for printing.');
-      return;
-    }
-    
-    // Format cleanly
-    const orderToPrint = {
-      id: freshOrder.id,
-      tableNumber: freshOrder.table_number,
-      timestamp: freshOrder.timestamp,
-      total: Number(freshOrder.total || 0),
-      items: Array.isArray(freshOrder.items) ? freshOrder.items : 
-             (typeof freshOrder.items === 'string' ? JSON.parse(freshOrder.items) : []),
-      remark: freshOrder.remark || ''
-    };
-    
-    const success = await printerService.printReceipt(orderToPrint, restaurant);
-    
-    if (success) {
-      alert('Order printed successfully!');
-    } else {
-      alert('Failed to print. Please try again.');
-    }
-  } catch (error) {
-    console.error('Manual print error:', error);
-    alert('Error occurred while printing.');
-  } finally {
-    setPrintingOrderId(null);
-  }
-};
-
-// toggleOrderSetting is perfect
-const toggleOrderSetting = (key: keyof OrderSettings) => {
-  setOrderSettings(prev => ({
-    ...prev,
-    [key]: !prev[key]
-  }));
-};
+  const toggleOrderSetting = (key: keyof OrderSettings) => {
+    setOrderSettings(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
 
   const isOnline = restaurant.isOnline !== false;
 
@@ -981,11 +951,11 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
             {isOnline ? 'Online' : 'Offline'}
           </button>
           <div className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-700/50 rounded-xl border dark:border-gray-600">
-             <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${syncStatus === 'SYNCING' ? 'bg-blue-500 scale-125' : (isOnline ? 'bg-green-500' : 'bg-red-500')} transition-all duration-300 animate-pulse`}></div>
-                <span className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">Live Feed</span>
-             </div>
-             {syncStatus === 'SYNCING' && <RefreshCw size={10} className="animate-spin text-blue-500" />}
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${syncStatus === 'SYNCING' ? 'bg-blue-500 scale-125' : (isOnline ? 'bg-green-500' : 'bg-red-500')} transition-all duration-300 animate-pulse`}></div>
+              <span className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">Live Feed</span>
+            </div>
+            {syncStatus === 'SYNCING' && <RefreshCw size={10} className="animate-spin text-blue-500" />}
           </div>
         </div>
       </aside>
@@ -1063,28 +1033,28 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                 </div>
 
                 <div className="bg-white dark:bg-gray-800 p-8 rounded-xl border dark:border-gray-700 shadow-sm flex flex-col items-center justify-center text-center">
-                   {qrMode === 'SINGLE' ? (
-                     <>
-                       <div className="p-6 bg-white rounded-xl shadow-xl border border-gray-100 mb-6">
-                          <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(getQrUrl(restaurant.location, qrTableNo))}`} alt="QR Code" className="w-48 h-48" />
-                       </div>
-                       <p className="font-black text-lg dark:text-white uppercase tracking-tighter">{restaurant.name}</p>
-                       <p className="text-3xl font-black text-orange-500 uppercase">TABLE {qrTableNo}</p>
-                     </>
-                   ) : (
-                     <div className="space-y-4">
-                       <QrCode size={80} className="mx-auto text-orange-500 opacity-20" />
-                       <p className="text-lg font-black dark:text-white uppercase">Batch Range Ready</p>
-                       <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                         {(() => {
-                           const start = parseInt(qrStartRange);
-                           const end = parseInt(qrEndRange);
-                           if (isNaN(start) || isNaN(end)) return 0;
-                           return Math.max(0, end - start + 1);
-                         })()} Labels will be printed
-                       </p>
-                     </div>
-                   )}
+                  {qrMode === 'SINGLE' ? (
+                    <>
+                      <div className="p-6 bg-white rounded-xl shadow-xl border border-gray-100 mb-6">
+                        <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(getQrUrl(restaurant.location, qrTableNo))}`} alt="QR Code" className="w-48 h-48" />
+                      </div>
+                      <p className="font-black text-lg dark:text-white uppercase tracking-tighter">{restaurant.name}</p>
+                      <p className="text-3xl font-black text-orange-500 uppercase">TABLE {qrTableNo}</p>
+                    </>
+                  ) : (
+                    <div className="space-y-4">
+                      <QrCode size={80} className="mx-auto text-orange-500 opacity-20" />
+                      <p className="text-lg font-black dark:text-white uppercase">Batch Range Ready</p>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                        {(() => {
+                          const start = parseInt(qrStartRange);
+                          const end = parseInt(qrEndRange);
+                          if (isNaN(start) || isNaN(end)) return 0;
+                          return Math.max(0, end - start + 1);
+                        })()} Labels will be printed
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1103,12 +1073,13 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                   )}
                 </div>
                 <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm overflow-x-auto hide-scrollbar">
-  <button onClick={() => setOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${orderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>ONGOING</button>
-  <button onClick={() => setOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${orderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>SERVED</button>
-  <button onClick={() => setOrderFilter(OrderStatus.COMPLETED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${orderFilter === OrderStatus.COMPLETED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>PAID</button>
-  <button onClick={() => setOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${orderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>CANCELLED</button>
-  <button onClick={() => setOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${orderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>ALL ORDER</button>
-</div>
+                  <button onClick={() => setOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${orderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>ONGOING</button>
+                  <button onClick={() => setOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${orderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>SERVED</button>
+                  <button onClick={() => setOrderFilter(OrderStatus.COMPLETED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${orderFilter === OrderStatus.COMPLETED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>PAID</button>
+                  <button onClick={() => setOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${orderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>CANCELLED</button>
+                  <button onClick={() => setOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${orderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>ALL ORDER</button>
+                </div>
+              </div>
 
               <div className="space-y-4">
                 {filteredOrders.length === 0 ? (
@@ -1140,11 +1111,11 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                           {order.items.map((item, idx) => (
                             <div key={idx} className="flex justify-between items-start text-sm border-l-2 border-gray-100 dark:border-gray-700 pl-3">
                               <div>
-                                  <p className="font-bold text-gray-900 dark:text-white">x{item.quantity} {item.name}</p>
-                                  <div className="flex flex-wrap gap-2 mt-1">
-                                      {item.selectedSize && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">Size: {item.selectedSize}</span>}
-                                      {item.selectedTemp && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${item.selectedTemp === 'Hot' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>Temp: {item.selectedTemp}</span>}
-                                  </div>
+                                <p className="font-bold text-gray-900 dark:text-white">x{item.quantity} {item.name}</p>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                  {item.selectedSize && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">Size: {item.selectedSize}</span>}
+                                  {item.selectedTemp && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${item.selectedTemp === 'Hot' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>Temp: {item.selectedTemp}</span>}
+                                </div>
                               </div>
                               <span className="text-gray-500 dark:text-gray-400 font-bold">RM{(item.price * item.quantity).toFixed(2)}</span>
                             </div>
@@ -1152,11 +1123,11 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                         </div>
                         {order.remark && (
                           <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-lg">
-                             <div className="flex items-center gap-2 mb-1">
-                                <MessageSquare size={12} className="text-orange-500" />
-                                <span className="text-[9px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest">Special Remark</span>
-                             </div>
-                             <p className="text-xs text-gray-700 dark:text-gray-300 italic">{order.remark}</p>
+                            <div className="flex items-center gap-2 mb-1">
+                              <MessageSquare size={12} className="text-orange-500" />
+                              <span className="text-[9px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest">Special Remark</span>
+                            </div>
+                            <p className="text-xs text-gray-700 dark:text-gray-300 italic">{order.remark}</p>
                           </div>
                         )}
                         <div className="mt-4 pt-4 border-t dark:border-gray-700 flex justify-between items-center">
@@ -1174,7 +1145,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                               Accept {orderSettings.autoPrint && '& Print'}
                             </button>
                             
-                            {/* Manual Print Button */}
                             {connectedDevice && (
                               <button 
                                 onClick={() => handleManualPrint(order)}
@@ -1195,14 +1165,14 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                         )}
                         
                         {order.status === OrderStatus.ONGOING && (
-  <button 
-    onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} 
-    className="flex-1 py-4 px-4 bg-green-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-lg"
-  >
-    <CheckCircle size={18} />
-    Serve Order
-  </button>
-)}
+                          <button 
+                            onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} 
+                            className="flex-1 py-4 px-4 bg-green-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-lg"
+                          >
+                            <CheckCircle size={18} />
+                            Serve Order
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))
@@ -1276,11 +1246,11 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                   
                   {currentMenu.length === 0 ? (
                     <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
-                        <div className="w-16 h-16 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
-                          <BookOpen size={24} />
-                        </div>
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white uppercase tracking-tighter">Inventory Empty</h3>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">Start adding your signature dishes.</p>
+                      <div className="w-16 h-16 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
+                        <BookOpen size={24} />
+                      </div>
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white uppercase tracking-tighter">Inventory Empty</h3>
+                      <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">Start adding your signature dishes.</p>
                     </div>
                   ) : (
                     menuViewMode === 'grid' ? (
@@ -1363,14 +1333,13 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
               {menuSubTab === 'CATEGORY' && (
                 <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <div className="p-4 bg-gray-50 dark:bg-gray-700/30 border-b dark:border-gray-700 flex justify-between items-center">
-                     <div className="flex items-center gap-2 text-gray-400">
-                        <Layers size={16} />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Category Manager</span>
-                     </div>
-                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{extraCategories.length} Total</span>
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <Layers size={16} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Category Manager</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{extraCategories.length} Total</span>
                   </div>
                   
-                  {/* Grid View */}
                   <div className={classViewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4' : 'divide-y dark:divide-gray-700'}>
                     {extraCategories.map(cat => {
                       const itemsInCat = restaurant.menu.filter(i => i.category === cat.name && !i.isArchived);
@@ -1378,7 +1347,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                       if (classViewMode === 'grid') {
                         return (
                           <div key={cat.name} className="p-4 bg-gray-50/50 dark:bg-gray-900/50 border dark:border-gray-700 rounded-lg hover:border-orange-200 transition-all">
-                            {/* Category Name and Actions on same line */}
                             <div className="flex justify-between items-start mb-3">
                               <div className="flex items-center gap-2">
                                 <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg flex items-center justify-center">
@@ -1399,7 +1367,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                               </div>
                             </div>
                             
-                            {/* Skip Kitchen Toggle (not button) */}
                             <div className="flex items-center justify-between mt-2 pt-2 border-t dark:border-gray-700">
                               <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Skip Kitchen</span>
                               <button
@@ -1417,7 +1384,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                         );
                       }
                       
-                      // List View
                       return (
                         <div key={cat.name} className="flex items-center justify-between p-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all">
                           <div className="flex items-center gap-3 flex-1">
@@ -1450,7 +1416,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                                   </p>
                                 </div>
                                 
-                                {/* Skip Kitchen Toggle in same line */}
                                 <div className="flex items-center gap-2 ml-4">
                                   <span className="text-[8px] font-black text-gray-400">Skip Kitchen</span>
                                   <button
@@ -1468,7 +1433,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                             )}
                           </div>
                           
-                          {/* Action buttons on same line as name */}
                           <div className="flex items-center gap-2">
                             <button onClick={() => { setRenamingClass(cat.name); setRenameValue(cat.name); }} className="p-2 text-gray-400 hover:text-orange-500">
                               <Edit3 size={16} />
@@ -1496,11 +1460,11 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
               {menuSubTab === 'MODIFIER' && (
                 <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <div className="p-4 bg-gray-50 dark:bg-gray-700/30 border-b dark:border-gray-700 flex justify-between items-center">
-                     <div className="flex items-center gap-2 text-gray-400">
-                        <Coffee size={16} />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Modifier Manager</span>
-                     </div>
-                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{modifiers.length} Total</span>
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <Coffee size={16} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Modifier Manager</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{modifiers.length} Total</span>
                   </div>
                   
                   <div className={modifierViewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4' : 'divide-y dark:divide-gray-700'}>
@@ -1508,7 +1472,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                       if (modifierViewMode === 'grid') {
                         return (
                           <div key={mod.name} className="p-4 bg-gray-50/50 dark:bg-gray-900/50 border dark:border-gray-700 rounded-lg hover:border-orange-200 transition-all">
-                            {/* Modifier Name and Actions on same line */}
                             <div className="flex justify-between items-start mb-3">
                               <div className="flex items-center gap-2">
                                 <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg flex items-center justify-center">
@@ -1529,7 +1492,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                               </div>
                             </div>
                             
-                            {/* Options List */}
                             <div className="space-y-1 mt-2 pt-2 border-t dark:border-gray-700">
                               {mod.options.slice(0, 3).map((opt, idx) => (
                                 <div key={idx} className="flex items-center justify-between text-[8px]">
@@ -1548,7 +1510,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                         );
                       }
                       
-                      // List View
                       return (
                         <div key={mod.name} className="p-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all">
                           <div className="flex items-center justify-between">
@@ -1581,7 +1542,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                               )}
                             </div>
                             
-                            {/* Action buttons on same line */}
                             <div className="flex items-center gap-2">
                               <button onClick={() => handleEditModifier(mod)} className="p-2 text-gray-400 hover:text-orange-500">
                                 <Edit3 size={16} />
@@ -1592,7 +1552,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                             </div>
                           </div>
                           
-                          {/* Options List for List View */}
                           {mod.options.length > 0 && (
                             <div className="mt-3 pl-11 space-y-1">
                               {mod.options.map((opt, idx) => (
@@ -1633,7 +1592,12 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                 <div className="flex-1 flex flex-col sm:flex-row gap-4 w-full">
                   <div className="flex-1">
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Period Selection</label>
-                    <div className="flex items-center gap-2"><Calendar size={14} className="text-orange-500 shrink-0" /><input type="date" value={reportStart} onChange={(e) => setReportStart(e.target.value)} className="flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" /><span className="text-gray-400 font-black">to</span><input type="date" value={reportEnd} onChange={(e) => setReportEnd(e.target.value)} className="flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" /></div>
+                    <div className="flex items-center gap-2">
+                      <Calendar size={14} className="text-orange-500 shrink-0" />
+                      <input type="date" value={reportStart} onChange={(e) => setReportStart(e.target.value)} className="flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
+                      <span className="text-gray-400 font-black">to</span>
+                      <input type="date" value={reportEnd} onChange={(e) => setReportEnd(e.target.value)} className="flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
+                    </div>
                   </div>
                   <div className="w-full sm:w-48">
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Order Outcome</label>
@@ -1707,38 +1671,35 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                         <th className="px-4 py-3 text-right">Bill</th>
                       </tr>
                     </thead>
-                    
-                     
-<tbody className="divide-y dark:divide-gray-700">
-  {paginatedReports.map(report => (
-    <tr key={report.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-      <td className="px-4 py-2">
-        <button 
-          onClick={() => setSelectedOrderForDetails(report)}
-          className="text-[10px] font-black text-orange-500 hover:text-orange-600 uppercase tracking-widest underline decoration-dotted underline-offset-4"
-        >
-          {report.id}
-        </button>
-      </td>
-      <td className="px-4 py-2 text-[10px] font-black text-gray-900 dark:text-white">#{report.tableNumber}</td>
-      <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tighter">{new Date(report.timestamp).toLocaleDateString()}</td>
-      <td className="px-4 py-2 text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase">{new Date(report.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-      <td className="px-4 py-2">
-        {/* UPDATE THIS STATUS BADGE SECTION */}
-        <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
-          report.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-600' : 
-          report.status === OrderStatus.SERVED ? 'bg-blue-100 text-blue-600' :
-          'bg-orange-100 text-orange-600'
-        }`}>
-          {report.status === OrderStatus.COMPLETED ? 'Paid' : 
-           report.status === OrderStatus.SERVED ? 'Served' : 
-           report.status}
-        </span>
-      </td>
-      <td className="px-4 py-2 text-right font-black dark:text-white text-xs">RM{report.total.toFixed(2)}</td>
-    </tr>
-  ))}
-</tbody>
+                    <tbody className="divide-y dark:divide-gray-700">
+                      {paginatedReports.map(report => (
+                        <tr key={report.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                          <td className="px-4 py-2">
+                            <button 
+                              onClick={() => setSelectedOrderForDetails(report)}
+                              className="text-[10px] font-black text-orange-500 hover:text-orange-600 uppercase tracking-widest underline decoration-dotted underline-offset-4"
+                            >
+                              {report.id}
+                            </button>
+                          </td>
+                          <td className="px-4 py-2 text-[10px] font-black text-gray-900 dark:text-white">#{report.tableNumber}</td>
+                          <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tighter">{new Date(report.timestamp).toLocaleDateString()}</td>
+                          <td className="px-4 py-2 text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase">{new Date(report.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                          <td className="px-4 py-2">
+                            <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                              report.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-600' : 
+                              report.status === OrderStatus.SERVED ? 'bg-blue-100 text-blue-600' :
+                              'bg-orange-100 text-orange-600'
+                            }`}>
+                              {report.status === OrderStatus.COMPLETED ? 'Paid' : 
+                               report.status === OrderStatus.SERVED ? 'Served' : 
+                               report.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2 text-right font-black dark:text-white text-xs">RM{report.total.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
                   </table>
                 </div>
               </div>
@@ -1791,14 +1752,12 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
             </div>
           )}
 
-          {/* Settings Tab */}
           {activeTab === 'SETTINGS' && (
             <div className="max-w-4xl mx-auto">
               <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Settings</h1>
               <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Configure your kitchen preferences</p>
               
               <div className="space-y-8">
-                {/* Order Settings */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden">
                   <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
                     <div className="flex items-center gap-2">
@@ -1860,7 +1819,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                   </div>
                 </div>
 
-                {/* Printer Settings */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden">
                   <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
                     <div className="flex items-center gap-2">
@@ -1869,7 +1827,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                     </div>
                   </div>
                   <div className="p-4">
-                    {/* Bluetooth Support Check */}
                     {!isBluetoothSupported && (
                       <div className="text-center py-8">
                         <AlertCircle size={32} className="mx-auto text-red-500 mb-3" />
@@ -1881,7 +1838,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
 
                     {isBluetoothSupported && (
                       <>
-                        {/* Status Card */}
                         <div className={`p-4 rounded-lg border-2 transition-all mb-4 ${
                           printerStatus === 'connected' 
                             ? 'bg-green-50 dark:bg-green-900/10 border-green-200' 
@@ -1919,7 +1875,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                           </div>
                         </div>
 
-                        {/* Connection Controls */}
                         {printerStatus !== 'connected' ? (
                           <div className="space-y-3">
                             <button
@@ -1961,7 +1916,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                           </div>
                         ) : (
                           <div className="space-y-3">
-                            {/* Connected Device Info */}
                             <div className="p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100">
                               <div className="flex items-center gap-2 mb-1">
                                 <BluetoothConnected size={14} className="text-blue-500" />
@@ -1971,7 +1925,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                               <p className="text-[8px] text-gray-500">ID: {connectedDevice?.id}</p>
                             </div>
 
-                            {/* Test Print Button */}
                             <button
                               onClick={printTestPage}
                               disabled={testPrintStatus === 'printing'}
@@ -1992,7 +1945,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                               )}
                             </button>
 
-                            {/* Disconnect Button */}
                             <button
                               onClick={disconnectPrinter}
                               className="w-full py-2 bg-red-50 dark:bg-red-900/10 text-red-500 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-200"
@@ -2002,7 +1954,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                           </div>
                         )}
 
-                        {/* Error Message */}
                         {errorMessage && (
                           <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200">
                             <p className="text-[9px] text-red-600 dark:text-red-400">{errorMessage}</p>
@@ -2070,32 +2021,32 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
       {showAddClassModal && (
         <div className="fixed inset-0 z-[110] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-2xl relative">
-             <button onClick={() => setShowAddClassModal(false)} className="absolute top-4 right-4 p-2 text-gray-400"><X size={18}/></button>
-             <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tight">Add Category</h2>
-             <div className="space-y-4">
-                <input 
-                  autoFocus 
-                  placeholder="e.g. Beverages" 
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold text-sm dark:text-white" 
-                  value={newClassName} 
-                  onChange={e => setNewClassName(e.target.value)} 
-                  onKeyDown={e => e.key === 'Enter' && handleAddCategory()} 
-                />
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <span className="text-xs font-black text-gray-400">Skip Kitchen</span>
-                  <button
-                    onClick={() => setSkipKitchen(!skipKitchen)}
-                    className={`w-10 h-5 rounded-full transition-all relative ${
-                      skipKitchen ? 'bg-orange-500' : 'bg-gray-300'
-                    }`}
-                  >
-                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${
-                      skipKitchen ? 'left-5' : 'left-0.5'
-                    }`} />
-                  </button>
-                </div>
-                <button onClick={handleAddCategory} className="w-full py-3 bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest text-xs">Confirm Category</button>
-             </div>
+            <button onClick={() => setShowAddClassModal(false)} className="absolute top-4 right-4 p-2 text-gray-400"><X size={18}/></button>
+            <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tight">Add Category</h2>
+            <div className="space-y-4">
+              <input 
+                autoFocus 
+                placeholder="e.g. Beverages" 
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold text-sm dark:text-white" 
+                value={newClassName} 
+                onChange={e => setNewClassName(e.target.value)} 
+                onKeyDown={e => e.key === 'Enter' && handleAddCategory()} 
+              />
+              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <span className="text-xs font-black text-gray-400">Skip Kitchen</span>
+                <button
+                  onClick={() => setSkipKitchen(!skipKitchen)}
+                  className={`w-10 h-5 rounded-full transition-all relative ${
+                    skipKitchen ? 'bg-orange-500' : 'bg-gray-300'
+                  }`}
+                >
+                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${
+                    skipKitchen ? 'left-5' : 'left-0.5'
+                  }`} />
+                </button>
+              </div>
+              <button onClick={handleAddCategory} className="w-full py-3 bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest text-xs">Confirm Category</button>
+            </div>
           </div>
         </div>
       )}
@@ -2104,94 +2055,94 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
       {showAddModifierModal && (
         <div className="fixed inset-0 z-[110] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-2xl relative max-h-[80vh] overflow-y-auto">
-             <button onClick={() => {
-               setShowAddModifierModal(false);
-               setEditingModifier(null);
-               setTempModifierName('');
-               setTempModifierOptions([]);
-             }} className="absolute top-4 right-4 p-2 text-gray-400"><X size={18}/></button>
-             
-             <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tight">
-               {editingModifier ? 'Edit Modifier' : 'Add Modifier'}
-             </h2>
-             
-             <div className="space-y-4">
-                <input 
-                  autoFocus 
-                  placeholder="Modifier name (e.g. Size, Temperature)" 
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold text-sm dark:text-white" 
-                  value={tempModifierName} 
-                  onChange={e => setTempModifierName(e.target.value)} 
-                />
+            <button onClick={() => {
+              setShowAddModifierModal(false);
+              setEditingModifier(null);
+              setTempModifierName('');
+              setTempModifierOptions([]);
+            }} className="absolute top-4 right-4 p-2 text-gray-400"><X size={18}/></button>
+            
+            <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tight">
+              {editingModifier ? 'Edit Modifier' : 'Add Modifier'}
+            </h2>
+            
+            <div className="space-y-4">
+              <input 
+                autoFocus 
+                placeholder="Modifier name (e.g. Size, Temperature)" 
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold text-sm dark:text-white" 
+                value={tempModifierName} 
+                onChange={e => setTempModifierName(e.target.value)} 
+              />
+              
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Options</span>
+                  <button
+                    onClick={handleAddModifierOption}
+                    className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg hover:bg-orange-100 transition-all"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
                 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Options</span>
+                {tempModifierOptions.map((opt, idx) => (
+                  <div key={idx} className="flex gap-2 items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        value={opt.name}
+                        onChange={(e) => handleModifierOptionChange(idx, 'name', e.target.value)}
+                        placeholder="Option name"
+                        className="w-full px-2 py-1.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-xs font-bold"
+                      />
+                    </div>
+                    <div className="w-20">
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={opt.price}
+                        onChange={(e) => handleModifierOptionChange(idx, 'price', parseFloat(e.target.value) || 0)}
+                        placeholder="Price"
+                        className="w-full px-2 py-1.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-xs font-bold"
+                      />
+                    </div>
                     <button
-                      onClick={handleAddModifierOption}
-                      className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg hover:bg-orange-100 transition-all"
+                      onClick={() => handleRemoveModifierOption(idx)}
+                      className="p-1.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
                     >
-                      <Plus size={16} />
+                      <Trash2 size={14} />
                     </button>
                   </div>
-                  
-                  {tempModifierOptions.map((opt, idx) => (
-                    <div key={idx} className="flex gap-2 items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                      <div className="flex-1">
-                        <input
-                          type="text"
-                          value={opt.name}
-                          onChange={(e) => handleModifierOptionChange(idx, 'name', e.target.value)}
-                          placeholder="Option name"
-                          className="w-full px-2 py-1.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-xs font-bold"
-                        />
-                      </div>
-                      <div className="w-20">
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={opt.price}
-                          onChange={(e) => handleModifierOptionChange(idx, 'price', parseFloat(e.target.value) || 0)}
-                          placeholder="Price"
-                          className="w-full px-2 py-1.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-xs font-bold"
-                        />
-                      </div>
-                      <button
-                        onClick={() => handleRemoveModifierOption(idx)}
-                        className="p-1.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  ))}
-                  
-                  {tempModifierOptions.length === 0 && (
-                    <p className="text-center py-4 text-[10px] text-gray-400 italic border-2 border-dashed border-gray-200 rounded-lg">
-                      No options added yet. Click + to add.
-                    </p>
-                  )}
-                </div>
+                ))}
                 
-                <div className="flex gap-3 pt-2">
-                  <button
-                    onClick={() => {
-                      setShowAddModifierModal(false);
-                      setEditingModifier(null);
-                      setTempModifierName('');
-                      setTempModifierOptions([]);
-                    }}
-                    className="flex-1 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={editingModifier ? handleUpdateModifier : handleSaveModifier}
-                    className="flex-1 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow"
-                  >
-                    {editingModifier ? 'Update' : 'Save'}
-                  </button>
-                </div>
-             </div>
+                {tempModifierOptions.length === 0 && (
+                  <p className="text-center py-4 text-[10px] text-gray-400 italic border-2 border-dashed border-gray-200 rounded-lg">
+                    No options added yet. Click + to add.
+                  </p>
+                )}
+              </div>
+              
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setShowAddModifierModal(false);
+                    setEditingModifier(null);
+                    setTempModifierName('');
+                    setTempModifierOptions([]);
+                  }}
+                  className="flex-1 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={editingModifier ? handleUpdateModifier : handleSaveModifier}
+                  className="flex-1 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow"
+                >
+                  {editingModifier ? 'Update' : 'Save'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -2204,7 +2155,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
             <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tighter">New Dish Broadcast</h2>
             
             <form onSubmit={handleSaveItem} className="space-y-4">
-              {/* Visual Asset Section */}
               <div className="border-b dark:border-gray-700 pb-4">
                 <h3 className="text-sm font-black dark:text-white mb-3">Visual Asset</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2231,7 +2181,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                       placeholder="Paste link here..." 
                     />
                     
-                    {/* Portion Variants Toggle */}
                     <div className="flex items-center justify-between mt-3">
                       <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Portion Variants</span>
                       <button 
@@ -2243,7 +2192,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                       </button>
                     </div>
 
-                    {/* Thermal Options Toggle */}
                     <div className="flex items-center justify-between mt-2">
                       <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Thermal Options</span>
                       <button 
@@ -2258,7 +2206,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                 </div>
               </div>
 
-              {/* Menu Name & Description */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Menu Name</label>
@@ -2283,7 +2230,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                 </div>
               </div>
 
-              {/* Base Cost & Category */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Base Cost</label>
@@ -2311,7 +2257,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                 </div>
               </div>
 
-              {/* Portion Variants Section (if enabled) */}
               {formItem.sizesEnabled && (
                 <div className="border-t dark:border-gray-700 pt-4">
                   <div className="flex items-center justify-between mb-3">
@@ -2347,7 +2292,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                 </div>
               )}
 
-              {/* Modifier Section */}
               <div className="border-t dark:border-gray-700 pt-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-black dark:text-white">Modifier</h3>
@@ -2358,7 +2302,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                 
                 {formItem.otherVariants && formItem.otherVariants.length > 0 ? (
                   <div className="space-y-4">
-                    {/* Modifier Title */}
                     <div>
                       <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Modifier Name</label>
                       <input 
@@ -2370,7 +2313,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                       />
                     </div>
                     
-                    {/* Modifier Options */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{formItem.otherVariants.length} Options</span>
@@ -2407,7 +2349,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                 )}
               </div>
 
-              {/* Thermal Options Section (if enabled) */}
               {formItem.tempOptions?.enabled && (
                 <div className="border-t dark:border-gray-700 pt-4">
                   <h3 className="text-sm font-black dark:text-white mb-3">Thermal Options</h3>
@@ -2444,7 +2385,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                 </div>
               )}
 
-              {/* Add-Ons Section */}
               <div className="border-t dark:border-gray-700 pt-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-black dark:text-white">Add-On Items</h3>
@@ -2522,7 +2462,6 @@ const toggleOrderSetting = (key: keyof OrderSettings) => {
                 )}
               </div>
 
-              {/* Save Button */}
               <div className="pt-4 border-t dark:border-gray-700">
                 <button type="submit" className="w-full py-3 bg-orange-500 text-white rounded-lg font-black uppercase tracking-[0.15em] text-xs shadow hover:bg-orange-600 transition-all active:scale-95">
                   Save Changes
