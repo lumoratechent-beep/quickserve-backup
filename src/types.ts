@@ -2,7 +2,7 @@
 
 export type Role = 'CUSTOMER' | 'VENDOR' | 'ADMIN';
 
-// Add this new type for platform access
+// Platform access type - now tied to restaurant
 export type PlatformAccess = 'pos_and_kitchen' | 'pos_only';
 
 export enum OrderStatus {
@@ -70,6 +70,7 @@ export interface Restaurant {
   };
   categories?: CategoryData[];
   modifiers?: ModifierData[];
+  platformAccess?: PlatformAccess; // ← Platform access tied to restaurant
 }
 
 export interface SelectedAddOn {
@@ -113,7 +114,7 @@ export interface User {
   isActive?: boolean;
   email?: string;
   phone?: string;
-  platformAccess?: PlatformAccess; // ← NEW FIELD
+  // NO platformAccess here - it's on the restaurant
 }
 
 export interface SalesData {
