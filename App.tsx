@@ -4,7 +4,7 @@ import CustomerView from './pages/CustomerView';
 import VendorView from './pages/VendorView';
 import AdminView from './pages/AdminView';
 import PosView from './pages/PosView';
-import PosOnlyView from './pages/PosOnlyView';
+import PosOnlyView from './pages/PosOnlyView'; // Import the new POS Only view
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import MarketingPage from './pages/MarketingPage';
@@ -721,7 +721,7 @@ const App: React.FC = () => {
     if (!error) fetchRestaurants();
   };
 
-  // --- VENDOR & HUB HANDLERS ---
+  // --- VENDOR & HUB HANDLERS (UPDATED with platformAccess) ---
   const handleAddVendor = async (user: User, restaurant: Restaurant) => {
     const userId = crypto.randomUUID();
     const resId = crypto.randomUUID();
@@ -990,6 +990,7 @@ const App: React.FC = () => {
         
         {currentRole === 'VENDOR' && view === 'APP' && (
           activeVendorRes ? (
+            // Check platformAccess to determine which view to show
             activeVendorRes.platformAccess === 'pos_only' ? (
               <PosOnlyView 
                 restaurant={activeVendorRes}
