@@ -785,63 +785,54 @@ const VendorView: React.FC<Props> = ({
  // In VendorView.tsx - REPLACE the handleAcceptAndPrint function
 
 const handleAcceptAndPrint = async (orderId: string) => {
-  try {
-    // First update the order status
-    await onUpdateOrder(orderId, OrderStatus.ONGOING);
-    
-    // CRITICAL FIX: Fetch a FRESH copy of the order from the database
-    // instead of using the one from props (which might be modified)
-    const { data: freshOrder, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('id', orderId)
-      .single();
-    
-    if (error || !freshOrder) {
-      console.error('Failed to fetch fresh order:', error);
-      alert('Order accepted but failed to fetch order details for printing.');
+  await onUpdateOrder(orderId, OrderStatus.ONGOING);
+  
+  if (orderSettings.autoPrint) {
+    if (!connectedDevice) {
+      alert('Printer is not connected. Please connect a printer in Settings.');
       return;
     }
-    
-    // Format the order exactly like the test page expects
-    const orderToPrint = {
-      id: freshOrder.id,
-      tableNumber: freshOrder.table_number,
-      timestamp: freshOrder.timestamp,
-      total: Number(freshOrder.total || 0),
-      items: Array.isArray(freshOrder.items) ? freshOrder.items : 
-             (typeof freshOrder.items === 'string' ? JSON.parse(freshOrder.items) : []),
-      remark: freshOrder.remark || ''
-    };
-    
-    // Check if auto-print is enabled
-    if (orderSettings.autoPrint) {
-      if (!connectedDevice) {
-        console.error('No printer connected');
-        alert('Printer is not connected. Please connect a printer in Settings.');
-        return;
-      }
 
+    try {
       setPrintingOrderId(orderId);
       
-      // Small delay to ensure everything is ready
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Fetch fresh order
+      const { data: freshOrder, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
       
-      // Use the fresh, clean order object
+      if (error || !freshOrder) {
+        alert('Failed to fetch order details for printing.');
+        return;
+      }
+      
+      const orderToPrint = {
+        id: freshOrder.id,
+        tableNumber: freshOrder.table_number,
+        timestamp: freshOrder.timestamp,
+        total: Number(freshOrder.total || 0),
+        items: Array.isArray(freshOrder.items) ? freshOrder.items : 
+               (typeof freshOrder.items === 'string' ? JSON.parse(freshOrder.items) : []),
+        remark: freshOrder.remark || ''
+      };
+      
+      // This will now queue if printer is busy
       const printSuccess = await printerService.printReceipt(orderToPrint, restaurant);
       
       if (printSuccess) {
-        console.log('Order printed successfully');
+        console.log('Order queued/printed successfully');
       } else {
-        console.error('Failed to print order');
-        alert('Order accepted but failed to print. You can use the "Print Only" button to try again.');
+        alert('Failed to queue print job. Please try again.');
       }
+      
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error occurred while printing.');
+    } finally {
+      setPrintingOrderId(null);
     }
-  } catch (error) {
-    console.error('Error in handleAcceptAndPrint:', error);
-    alert('Error occurred while processing order.');
-  } finally {
-    setPrintingOrderId(null);
   }
 };
 
