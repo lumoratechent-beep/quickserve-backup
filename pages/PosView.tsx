@@ -7,7 +7,7 @@ import {
   Printer, QrCode, CreditCard, Banknote, User, Trash2, Plus, Minus, LayoutGrid, 
   List, Clock, CheckCircle2, AlertCircle, RefreshCw, BarChart3, Receipt, Hash, 
   Settings2, Menu, Wifi, WifiOff, ExternalLink, X, ChevronFirst, ChevronLast,
-  Coffee, BookOpen, BarChart, QrCode as QrCodeIcon, Settings, CreditCard as CreditCardIcon
+  Coffee, BookOpen, BarChart, QrCode as QrCodeIcon, Settings
 } from 'lucide-react';
 
 interface Props {
@@ -216,26 +216,22 @@ const PosView: React.FC<Props> = ({
         />
       )}
 
-      {/* Left Sidebar Navigation - Matching Vendor View exactly */}
+      {/* Left Sidebar Navigation - EXACT same as Vendor View */}
       <aside className={`
         fixed lg:relative inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r dark:border-gray-700 
         flex flex-col transition-transform duration-300 ease-in-out no-print
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-        {/* Restaurant Info - Matches Vendor View exactly */}
+        {/* Header - EXACT same as Vendor View */}
         <div className="p-6 border-b dark:border-gray-700 flex items-center gap-3">
-          <img 
-            src={restaurant.logo || 'https://picsum.photos/seed/default/200/200'} 
-            className="w-10 h-10 rounded-lg shadow-sm" 
-            alt={restaurant.name}
-          />
+          <img src={restaurant.logo} className="w-10 h-10 rounded-lg shadow-sm" />
           <div>
             <h2 className="font-black dark:text-white text-sm uppercase tracking-tight">{restaurant.name}</h2>
             <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mt-0.5">POS Terminal</p>
           </div>
         </div>
 
-        {/* Navigation - Exact same as Vendor View */}
+        {/* Navigation - EXACT same classes as Vendor View */}
         <nav className="flex-1 p-4 space-y-2">
           {/* Counter - using ShoppingBag icon like Vendor View */}
           <button 
@@ -303,7 +299,7 @@ const PosView: React.FC<Props> = ({
           </button>
         </nav>
 
-        {/* Switch to Vendor Button - Exact same as Vendor View */}
+        {/* Switch to Vendor Button - EXACT same as Vendor View */}
         {onSwitchToVendor && (
           <div className="p-4 mt-auto border-t dark:border-gray-700">
             <button 
@@ -316,10 +312,10 @@ const PosView: React.FC<Props> = ({
         )}
       </aside>
 
-      {/* Main Content Area */}
+      {/* Main Content Area - Keep as is */}
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Mobile Header - Matches Vendor View */}
+          {/* Mobile Header */}
           <div className="lg:hidden flex items-center p-4 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30 no-print">
             <button 
               onClick={() => setIsMobileMenuOpen(true)}
@@ -328,11 +324,7 @@ const PosView: React.FC<Props> = ({
               <Menu size={24} />
             </button>
             <div className="ml-4 flex items-center gap-2">
-              <img 
-                src={restaurant.logo || 'https://picsum.photos/seed/default/200/200'} 
-                className="w-8 h-8 rounded-lg shadow-sm" 
-                alt={restaurant.name}
-              />
+              <img src={restaurant.logo} className="w-8 h-8 rounded-lg shadow-sm" />
               <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm truncate">
                 {activeTab === 'COUNTER' ? 'POS Counter' : 
                  activeTab === 'QR_ORDERS' ? 'QR Orders' : 
@@ -346,7 +338,7 @@ const PosView: React.FC<Props> = ({
           {/* Counter Tab */}
           {activeTab === 'COUNTER' && (
             <>
-              {/* Category Tabs & Search - Matching Vendor View styling */}
+              {/* Category Tabs & Search */}
               <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-4 flex flex-col gap-4">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4 overflow-x-auto no-scrollbar flex-1">
