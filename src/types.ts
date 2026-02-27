@@ -1,6 +1,6 @@
 // src/types.ts
 
-export type Role = 'CUSTOMER' | 'VENDOR' | 'ADMIN';
+export type Role = 'CUSTOMER' | 'VENDOR' | 'ADMIN' | 'CASHIER';
 
 // Platform access type
 export type PlatformAccess = 'pos_and_kitchen' | 'pos_only';

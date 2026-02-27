@@ -988,6 +988,28 @@ const App: React.FC = () => {
       <main className="flex-1">
         {currentRole === 'CUSTOMER' && <CustomerView restaurants={restaurants.filter(r => r.location === sessionLocation && r.isOnline === true)} cart={cart} orders={orders} onAddToCart={addToCart} onRemoveFromCart={removeFromCart} onPlaceOrder={placeOrder} locationName={sessionLocation || undefined} tableNo={sessionTable || undefined} areaType={currentArea?.type || 'MULTI'} allRestaurants={restaurants} />}
         
+        {currentRole === 'CASHIER' && view === 'APP' && (
+          currentUser && restaurants.find(r => r.id === currentUser.restaurantId) ? (
+            <PosOnlyView 
+              restaurant={restaurants.find(r => r.id === currentUser.restaurantId)!}
+              orders={orders.filter(o => {
+                if (o.restaurantId !== currentUser?.restaurantId) return false;
+                const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+                return o.timestamp > oneDayAgo;
+              })}
+              onUpdateOrder={updateOrderStatus}
+              onPlaceOrder={placePosOrder}
+              onFetchPaginatedOrders={onFetchPaginatedOrders}
+              onFetchAllFilteredOrders={onFetchAllFilteredOrders}
+            />
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center p-12">
+              <Loader2 className="w-10 h-10 text-orange-500 animate-spin mb-4" />
+              <p className="text-gray-500 font-black uppercase tracking-widest text-[10px]">Loading POS...</p>
+            </div>
+          )
+        )}
+        
         {currentRole === 'VENDOR' && view === 'APP' && (
           activeVendorRes ? (
             // Check platformAccess to determine which view to show
