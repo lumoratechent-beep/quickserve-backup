@@ -216,24 +216,24 @@ const PosView: React.FC<Props> = ({
         />
       )}
 
-      {/* Left Sidebar Navigation - EXACT same as Vendor View */}
+      {/* Left Sidebar Navigation - EXACT match to Vendor View */}
       <aside className={`
         fixed lg:relative inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r dark:border-gray-700 
         flex flex-col transition-transform duration-300 ease-in-out no-print
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-        {/* Header - EXACT same as Vendor View */}
+        {/* Header - EXACT match */}
         <div className="p-6 border-b dark:border-gray-700 flex items-center gap-3">
           <img src={restaurant.logo} className="w-10 h-10 rounded-lg shadow-sm" />
           <div>
             <h2 className="font-black dark:text-white text-sm uppercase tracking-tight">{restaurant.name}</h2>
-            <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mt-0.5">POS Terminal</p>
+            <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mt-0.5">POS TERMINAL</p>
           </div>
         </div>
 
-        {/* Navigation - EXACT same classes as Vendor View */}
+        {/* Navigation - EXACT match to Vendor View */}
         <nav className="flex-1 p-4 space-y-2">
-          {/* Counter - using ShoppingBag icon like Vendor View */}
+          {/* Counter - using ShoppingBag icon like Incoming Orders */}
           <button 
             onClick={() => handleTabSelection('COUNTER')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
@@ -242,10 +242,10 @@ const PosView: React.FC<Props> = ({
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <ShoppingBag size={20} /> Counter
+            <ShoppingBag size={20} /> COUNTER
           </button>
           
-          {/* QR Orders */}
+          {/* QR Orders - with badge */}
           <button 
             onClick={() => handleTabSelection('QR_ORDERS')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
@@ -254,9 +254,11 @@ const PosView: React.FC<Props> = ({
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <Clock size={20} /> QR Orders
+            <div className="flex items-center gap-3 flex-1">
+              <Clock size={20} /> QR ORDERS
+            </div>
             {unpaidOrders.length > 0 && (
-              <span className="ml-auto bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
+              <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">
                 {unpaidOrders.length}
               </span>
             )}
@@ -271,7 +273,7 @@ const PosView: React.FC<Props> = ({
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <BarChart3 size={20} /> Sales Report
+            <BarChart3 size={20} /> SALES REPORT
           </button>
           
           {/* QR Generator */}
@@ -283,7 +285,7 @@ const PosView: React.FC<Props> = ({
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <QrCode size={20} /> QR Generator
+            <QrCode size={20} /> QR GENERATOR
           </button>
           
           {/* Settings */}
@@ -295,18 +297,18 @@ const PosView: React.FC<Props> = ({
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <Settings2 size={20} /> Settings
+            <Settings2 size={20} /> SETTINGS
           </button>
         </nav>
 
-        {/* Switch to Vendor Button - EXACT same as Vendor View */}
+        {/* Switch to Vendor Button - EXACT match */}
         {onSwitchToVendor && (
           <div className="p-4 mt-auto border-t dark:border-gray-700">
             <button 
               onClick={onSwitchToVendor}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-all border border-orange-100 dark:border-orange-900/20"
             >
-              <ShoppingBag size={18} /> Switch to Vendor
+              <ShoppingBag size={18} /> SWITCH TO VENDOR
             </button>
           </div>
         )}
@@ -335,7 +337,7 @@ const PosView: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* Counter Tab */}
+          {/* Counter Tab - Keep existing content */}
           {activeTab === 'COUNTER' && (
             <>
               {/* Category Tabs & Search */}
@@ -360,28 +362,24 @@ const PosView: React.FC<Props> = ({
                     <button 
                       onClick={() => setMenuLayout('grid-3')} 
                       className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-3' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}
-                      title="3 Columns"
                     >
                       <LayoutGrid size={16} />
                     </button>
                     <button 
                       onClick={() => setMenuLayout('grid-4')} 
                       className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-4' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}
-                      title="4 Columns"
                     >
                       <LayoutGrid size={16} />
                     </button>
                     <button 
                       onClick={() => setMenuLayout('grid-5')} 
                       className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-5' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}
-                      title="5 Columns"
                     >
                       <LayoutGrid size={16} />
                     </button>
                     <button 
                       onClick={() => setMenuLayout('list')} 
                       className={`p-2 rounded-lg transition-all ${menuLayout === 'list' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}
-                      title="List View"
                     >
                       <List size={16} />
                     </button>
