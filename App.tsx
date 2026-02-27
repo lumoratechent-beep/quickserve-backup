@@ -999,6 +999,9 @@ const App: React.FC = () => {
               })}
               onUpdateOrder={updateOrderStatus}
               onPlaceOrder={placePosOrder}
+              onUpdateMenu={handleUpdateMenuItem}
+              onAddMenuItem={handleAddMenuItem}
+              onPermanentDeleteMenuItem={handleDeleteMenuItem}
               onFetchPaginatedOrders={onFetchPaginatedOrders}
               onFetchAllFilteredOrders={onFetchAllFilteredOrders}
             />
@@ -1023,6 +1026,9 @@ const App: React.FC = () => {
                 })}
                 onUpdateOrder={updateOrderStatus}
                 onPlaceOrder={placePosOrder}
+                onUpdateMenu={handleUpdateMenuItem}
+                onAddMenuItem={handleAddMenuItem}
+                onPermanentDeleteMenuItem={handleDeleteMenuItem}
                 onFetchPaginatedOrders={onFetchPaginatedOrders}
                 onFetchAllFilteredOrders={onFetchAllFilteredOrders}
               />

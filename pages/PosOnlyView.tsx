@@ -17,6 +17,9 @@ interface Props {
   orders: Order[];
   onUpdateOrder: (orderId: string, status: OrderStatus) => void;
   onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string) => Promise<void>;
+  onUpdateMenu?: (restaurantId: string, updatedItem: MenuItem) => void | Promise<void>;
+  onAddMenuItem?: (restaurantId: string, newItem: MenuItem) => void | Promise<void>;
+  onPermanentDeleteMenuItem?: (restaurantId: string, itemId: string) => void | Promise<void>;
   onFetchPaginatedOrders?: (filters: ReportFilters, page: number, pageSize: number) => Promise<ReportResponse>;
   onFetchAllFilteredOrders?: (filters: ReportFilters) => Promise<Order[]>;
 }
@@ -26,6 +29,9 @@ const PosOnlyView: React.FC<Props> = ({
   orders, 
   onUpdateOrder, 
   onPlaceOrder,
+  onUpdateMenu,
+  onAddMenuItem,
+  onPermanentDeleteMenuItem,
   onFetchPaginatedOrders,
   onFetchAllFilteredOrders,
 }) => {
@@ -45,6 +51,15 @@ const PosOnlyView: React.FC<Props> = ({
   const [menuViewMode, setMenuViewMode] = useState<'grid' | 'list'>('grid');
   const [menuCategoryFilter, setMenuCategoryFilter] = useState<string>('All');
   const [menuSubTab, setMenuSubTab] = useState<'KITCHEN' | 'CATEGORY' | 'MODIFIER'>('KITCHEN');
+  const [isSavingMenuItem, setIsSavingMenuItem] = useState(false);
+  const [formItem, setFormItem] = useState<Partial<MenuItem>>({
+    name: '',
+    description: '',
+    price: 0,
+    image: '',
+    category: 'Main Dish',
+    isArchived: false,
+  });
 
   const [showAddClassModal, setShowAddClassModal] = useState(false);
   const [showAddModifierModal, setShowAddModifierModal] = useState(false);
@@ -112,6 +127,108 @@ const PosOnlyView: React.FC<Props> = ({
     } catch (error: any) {
       alert('Error removing staff: ' + error.message);
     }
+  };
+
+  const handleOpenAddModal = (initialCategory?: string) => {
+    setEditingItem(null);
+    setFormItem({
+      name: '',
+      description: '',
+      price: 0,
+      image: '',
+      category: initialCategory || 'Main Dish',
+      isArchived: false,
+    });
+    setIsFormModalOpen(true);
+  };
+
+  const handleOpenEditModal = (item: MenuItem) => {
+    setEditingItem(item);
+    setFormItem({ ...item });
+    setIsFormModalOpen(true);
+  };
+
+  const handleCloseFormModal = () => {
+    setIsFormModalOpen(false);
+    setEditingItem(null);
+    setFormItem({
+      name: '',
+      description: '',
+      price: 0,
+      image: '',
+      category: 'Main Dish',
+      isArchived: false,
+    });
+  };
+
+  const handleSaveMenuItem = async () => {
+    if (!formItem.name?.trim()) {
+      alert('Please enter item name');
+      return;
+    }
+    if (!formItem.category?.trim()) {
+      alert('Please enter category');
+      return;
+    }
+    if (!onAddMenuItem && !onUpdateMenu) {
+      alert('Menu editing is not enabled for this account.');
+      return;
+    }
+
+    const payload: MenuItem = {
+      id: editingItem?.id || crypto.randomUUID(),
+      name: formItem.name.trim(),
+      description: (formItem.description || '').trim(),
+      price: Number(formItem.price || 0),
+      image: (formItem.image || '').trim() || `https://picsum.photos/seed/${encodeURIComponent(formItem.name.trim())}/300/300`,
+      category: formItem.category.trim(),
+      isArchived: editingItem?.isArchived || false,
+      sizes: formItem.sizes,
+      tempOptions: formItem.tempOptions,
+      otherVariantName: formItem.otherVariantName,
+      otherVariants: formItem.otherVariants,
+      otherVariantsEnabled: formItem.otherVariantsEnabled,
+      addOns: formItem.addOns,
+    };
+
+    setIsSavingMenuItem(true);
+    try {
+      if (editingItem) {
+        await onUpdateMenu?.(restaurant.id, payload);
+      } else {
+        await onAddMenuItem?.(restaurant.id, payload);
+      }
+      handleCloseFormModal();
+    } catch (error: any) {
+      alert('Failed to save menu item: ' + error.message);
+    } finally {
+      setIsSavingMenuItem(false);
+    }
+  };
+
+  const handleArchiveItem = async (item: MenuItem) => {
+    if (!onUpdateMenu) {
+      alert('Menu editing is not enabled for this account.');
+      return;
+    }
+    await onUpdateMenu(restaurant.id, { ...item, isArchived: true });
+  };
+
+  const handleRestoreItem = async (item: MenuItem) => {
+    if (!onUpdateMenu) {
+      alert('Menu editing is not enabled for this account.');
+      return;
+    }
+    await onUpdateMenu(restaurant.id, { ...item, isArchived: false });
+  };
+
+  const handlePermanentDelete = async (itemId: string) => {
+    if (!onPermanentDeleteMenuItem) {
+      alert('Permanent delete is not enabled for this account.');
+      return;
+    }
+    if (!confirm('Are you sure you want to permanently delete this item?')) return;
+    await onPermanentDeleteMenuItem(restaurant.id, itemId);
   };
 
   const categories = useMemo(() => {
@@ -771,7 +888,7 @@ const PosOnlyView: React.FC<Props> = ({
                             <button onClick={() => setMenuViewMode('list')} className={`p-2 rounded-lg transition-all ${menuViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={18} /></button>
                           </div>
                         </div>
-                        <button onClick={() => setIsFormModalOpen(true)} className="ml-auto px-6 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg">+ Add Item</button>
+                        <button onClick={() => handleOpenAddModal()} className="ml-auto px-6 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg">+ Add Item</button>
                       </>
                     ) : menuSubTab === 'CATEGORY' ? (
                       <>
@@ -819,13 +936,13 @@ const PosOnlyView: React.FC<Props> = ({
                               <div className="absolute top-2 right-2 flex gap-1">
                                 {menuStatusFilter === 'ACTIVE' ? (
                                   <>
-                                    <button className="p-1.5 bg-red-50/90 backdrop-blur rounded-lg text-red-600 shadow-sm"><Archive size={12} /></button>
-                                    <button onClick={() => setEditingItem(item)} className="p-1.5 bg-white/90 backdrop-blur rounded-lg text-gray-700 shadow-sm"><Edit3 size={12} /></button>
+                                    <button onClick={() => handleArchiveItem(item)} className="p-1.5 bg-red-50/90 backdrop-blur rounded-lg text-red-600 shadow-sm"><Archive size={12} /></button>
+                                    <button onClick={() => handleOpenEditModal(item)} className="p-1.5 bg-white/90 backdrop-blur rounded-lg text-gray-700 shadow-sm"><Edit3 size={12} /></button>
                                   </>
                                 ) : (
                                   <>
-                                    <button className="p-1.5 bg-green-50/90 backdrop-blur rounded-lg text-green-600 shadow-sm"><RotateCcw size={12} /></button>
-                                    <button className="p-1.5 bg-red-50/90 backdrop-blur rounded-lg text-red-600 shadow-sm"><Trash2 size={12} /></button>
+                                    <button onClick={() => handleRestoreItem(item)} className="p-1.5 bg-green-50/90 backdrop-blur rounded-lg text-green-600 shadow-sm"><RotateCcw size={12} /></button>
+                                    <button onClick={() => handlePermanentDelete(item.id)} className="p-1.5 bg-red-50/90 backdrop-blur rounded-lg text-red-600 shadow-sm"><Trash2 size={12} /></button>
                                   </>
                                 )}
                               </div>
@@ -869,11 +986,11 @@ const PosOnlyView: React.FC<Props> = ({
                                   <td className="px-4 py-3 text-right">
                                     <div className="flex justify-end items-center gap-1">
                                       {menuStatusFilter === 'ACTIVE' ? (
-                                        <button className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"><Archive size={16} /></button>
+                                        <button onClick={() => handleArchiveItem(item)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"><Archive size={16} /></button>
                                       ) : (
-                                        <button className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-all"><RotateCcw size={16} /></button>
+                                        <button onClick={() => handleRestoreItem(item)} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-all"><RotateCcw size={16} /></button>
                                       )}
-                                      <button onClick={() => setEditingItem(item)} className="p-2 text-gray-400 hover:text-orange-500 rounded-lg transition-all"><Edit3 size={16} /></button>
+                                      <button onClick={() => handleOpenEditModal(item)} className="p-2 text-gray-400 hover:text-orange-500 rounded-lg transition-all"><Edit3 size={16} /></button>
                                     </div>
                                   </td>
                                 </tr>
@@ -1215,6 +1332,89 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
           )}
         </div>
+
+        {isFormModalOpen && (
+          <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full p-6 shadow-2xl relative animate-in zoom-in fade-in duration-300">
+              <button onClick={handleCloseFormModal} className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 transition-colors"><X size={18} /></button>
+              <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tighter">{editingItem ? 'Edit Menu Item' : 'Add Menu Item'}</h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Item Name</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                    placeholder="e.g. Nasi Lemak"
+                    value={formItem.name || ''}
+                    onChange={event => setFormItem(prev => ({ ...prev, name: event.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Description</label>
+                  <textarea
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                    placeholder="Short description"
+                    rows={3}
+                    value={formItem.description || ''}
+                    onChange={event => setFormItem(prev => ({ ...prev, description: event.target.value }))}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Price (RM)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                      value={formItem.price ?? 0}
+                      onChange={event => setFormItem(prev => ({ ...prev, price: Number(event.target.value) }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Category</label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                      placeholder="e.g. Main Dish"
+                      value={formItem.category || ''}
+                      onChange={event => setFormItem(prev => ({ ...prev, category: event.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Image URL (optional)</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                    placeholder="https://..."
+                    value={formItem.image || ''}
+                    onChange={event => setFormItem(prev => ({ ...prev, image: event.target.value }))}
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={handleCloseFormModal}
+                    className="flex-1 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveMenuItem}
+                    disabled={isSavingMenuItem}
+                    className="flex-1 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow disabled:opacity-50"
+                  >
+                    {isSavingMenuItem ? 'Saving...' : editingItem ? 'Update Item' : 'Add Item'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {showAddClassModal && (
           <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
