@@ -1,7 +1,7 @@
 // pages/PosView.tsx
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters } from '../types';
+import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters } from '../src/types';
 import { 
   ShoppingBag, Search, Filter, Download, Calendar, ChevronLeft, ChevronRight, 
   Printer, QrCode, CreditCard, Banknote, User, Trash2, Plus, Minus, LayoutGrid, 

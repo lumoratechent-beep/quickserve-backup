@@ -1,5 +1,5 @@
 
-import { Restaurant, User, OrderStatus } from './types';
+import { Restaurant, User, OrderStatus } from './src/types';
 
 export const MOCK_RESTAURANTS: Restaurant[] = [
   {

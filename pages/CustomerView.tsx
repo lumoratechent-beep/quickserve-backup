@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Restaurant, CartItem, Order, OrderStatus, MenuItem, AddOnItem, SelectedAddOn } from '../types';
+import { Restaurant, CartItem, Order, OrderStatus, MenuItem, AddOnItem, SelectedAddOn } from '../src/types';
 import { ShoppingCart, Plus, Minus, X, CheckCircle, ChevronRight, Info, ThermometerSun, Maximize2, MapPin, Hash, LayoutGrid, Grid3X3, MessageSquare, AlertTriangle, UtensilsCrossed, LogIn, WifiOff, Layers } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 

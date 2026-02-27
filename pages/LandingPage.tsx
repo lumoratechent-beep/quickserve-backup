@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { QrCode, Utensils, ShieldCheck, ShoppingBag, Sun, Moon, X, MapPin, Hash, Camera, RefreshCcw } from 'lucide-react';
-import { Area } from '../types';
+import { Area } from '../src/types';
 import jsQR from 'jsqr';
 
 interface Props {
