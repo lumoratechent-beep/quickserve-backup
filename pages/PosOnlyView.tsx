@@ -756,8 +756,7 @@ const PosOnlyView: React.FC<Props> = ({
                             password: newStaffPassword,
                             email: newStaffEmail,
                             phone: newStaffPhone,
-                            restaurantId: restaurant.id,
-                            createdAt: new Date().toISOString()
+                            restaurantId: restaurant.id
                           };
                           
                           // Save to Supabase
@@ -772,8 +771,9 @@ const PosOnlyView: React.FC<Props> = ({
                             return;
                           }
                           
-                          // Also update local state
-                          const updated = [...staffList, newStaff];
+                          // Also update local state with the data from database (includes createdAt, id)
+                          const staffFromDb = data && data.length > 0 ? data[0] : newStaff;
+                          const updated = [...staffList, staffFromDb];
                           setStaffList(updated);
                           localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
                           
