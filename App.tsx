@@ -160,66 +160,64 @@ const App: React.FC = () => {
     }
   }, []);
 
-// In App.tsx, update the fetchRestaurants function
+  const fetchRestaurants = useCallback(async () => {
+    if (isStatusLocked.current || !currentRole) return;
+    
+    let query = supabase.from('restaurants').select('*');
+    
+    if (currentRole === 'CUSTOMER' && sessionLocation) {
+      query = query.eq('location_name', sessionLocation).eq('is_online', true);
+    }
 
-const fetchRestaurants = useCallback(async () => {
-  if (isStatusLocked.current || !currentRole) return;
-  
-  let query = supabase.from('restaurants').select('*');
-  
-  if (currentRole === 'CUSTOMER' && sessionLocation) {
-    query = query.eq('location_name', sessionLocation).eq('is_online', true);
-  }
+    const { data: resData, error: resError } = await query;
+    if (resError || !resData) return;
 
-  const { data: resData, error: resError } = await query;
-  if (resError || !resData) return;
+    const restaurantIds = resData.map(r => r.id);
+    let menuQuery = supabase.from('menu_items').select('*').in('restaurant_id', restaurantIds);
+    
+    if (currentRole === 'CUSTOMER') {
+      menuQuery = menuQuery.eq('is_archived', false);
+    }
 
-  const restaurantIds = resData.map(r => r.id);
-  let menuQuery = supabase.from('menu_items').select('*').in('restaurant_id', restaurantIds);
-  
-  if (currentRole === 'CUSTOMER') {
-    menuQuery = menuQuery.eq('is_archived', false);
-  }
+    const { data: menuData, error: menuError } = await menuQuery;
 
-  const { data: menuData, error: menuError } = await menuQuery;
-
-  if (!menuError && menuData) {
-    const formatted: Restaurant[] = resData.map(res => ({
-      id: res.id, name: res.name, logo: res.logo, vendorId: res.vendor_id,
-      location: res.location_name, created_at: res.created_at,
-      isOnline: res.is_online === true || res.is_online === null,
-      settings: (() => {
-        const localSettings = localStorage.getItem(`qs_settings_${res.id}`);
-        const dbSettings = res.settings ? (typeof res.settings === 'string' ? JSON.parse(res.settings) : res.settings) : null;
-        return localSettings ? JSON.parse(localSettings) : dbSettings;
-      })(),
-      categories: res.categories || [], // Add this
-      modifiers: res.modifiers || [],   // Add this
-      menu: menuData.filter(m => m.restaurant_id === res.id).map(m => {
-        const temp = m.temp_options || {};
-        const others = m.other_variants || {};
-        const addOns = m.add_ons || [];
-        
-        return {
-          id: m.id, name: m.name, description: m.description, price: Number(m.price),
-          image: m.image, category: m.category, isArchived: m.is_archived,
-          sizes: m.sizes,
-          tempOptions: {
-            enabled: temp.enabled ?? false,
-            hot: temp.hot ?? 0,
-            cold: temp.cold ?? 0
-          },
-          otherVariantName: others.name || '',
-          otherVariants: others.options || [],
-          otherVariantsEnabled: others.enabled ?? false,
-          addOns: addOns
-        };
-      })
-    }));
-    setRestaurants(formatted);
-    persistCache('qs_cache_restaurants', formatted);
-  }
-}, [currentRole, sessionLocation]);
+    if (!menuError && menuData) {
+      const formatted: Restaurant[] = resData.map(res => ({
+        id: res.id, name: res.name, logo: res.logo, vendorId: res.vendor_id,
+        location: res.location_name, created_at: res.created_at,
+        isOnline: res.is_online === true || res.is_online === null,
+        settings: (() => {
+          const localSettings = localStorage.getItem(`qs_settings_${res.id}`);
+          const dbSettings = res.settings ? (typeof res.settings === 'string' ? JSON.parse(res.settings) : res.settings) : null;
+          return localSettings ? JSON.parse(localSettings) : dbSettings;
+        })(),
+        categories: res.categories || [],
+        modifiers: res.modifiers || [],
+        menu: menuData.filter(m => m.restaurant_id === res.id).map(m => {
+          const temp = m.temp_options || {};
+          const others = m.other_variants || {};
+          const addOns = m.add_ons || [];
+          
+          return {
+            id: m.id, name: m.name, description: m.description, price: Number(m.price),
+            image: m.image, category: m.category, isArchived: m.is_archived,
+            sizes: m.sizes,
+            tempOptions: {
+              enabled: temp.enabled ?? false,
+              hot: temp.hot ?? 0,
+              cold: temp.cold ?? 0
+            },
+            otherVariantName: others.name || '',
+            otherVariants: others.options || [],
+            otherVariantsEnabled: others.enabled ?? false,
+            addOns: addOns
+          };
+        })
+      }));
+      setRestaurants(formatted);
+      persistCache('qs_cache_restaurants', formatted);
+    }
+  }, [currentRole, sessionLocation]);
 
   const fetchOrders = useCallback(async () => {
     if (isFetchingRef.current || !currentRole) return;
@@ -422,9 +420,17 @@ const fetchRestaurants = useCallback(async () => {
         setOrders(prev => {
           const updated = prev.map(existing => {
             if (existing.id === o.id) {
+              // Don't override if it's locked AND it's an ONGOING status (for printing)
+              if (lockedOrderIds.current.has(o.id) && o.status === OrderStatus.ONGOING) {
+                return existing; // Keep local state for ongoing orders (don't override)
+              }
+              
+              // Clear lock if status matches (meaning update was received)
               if (lockedOrderIds.current.has(o.id) && existing.status === o.status) {
                 lockedOrderIds.current.delete(o.id);
               }
+              
+              // If still locked, don't update
               if (lockedOrderIds.current.has(o.id)) return existing;
 
               return {
@@ -574,11 +580,34 @@ const fetchRestaurants = useCallback(async () => {
     setView('LANDING');
   };
 
+  // FIXED: Updated updateOrderStatus to handle printing correctly
   const updateOrderStatus = async (orderId: string, status: OrderStatus, reason?: string, note?: string) => {
-    lockedOrderIds.current.add(orderId);
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status, rejectionReason: reason, rejectionNote: note } : o));
-    await supabase.from('orders').update({ status, rejection_reason: reason, rejection_note: note }).eq('id', orderId);
-    setTimeout(() => lockedOrderIds.current.delete(orderId), 3000);
+    // Don't lock if we're just marking as ONGOING (for printing)
+    const shouldLock = status !== OrderStatus.ONGOING;
+    
+    if (shouldLock) {
+      lockedOrderIds.current.add(orderId);
+    }
+    
+    // Update local state immediately
+    setOrders(prev => prev.map(o => o.id === orderId ? { 
+      ...o, 
+      status, 
+      rejectionReason: reason, 
+      rejectionNote: note 
+    } : o));
+    
+    // Update database
+    await supabase.from('orders').update({ 
+      status, 
+      rejection_reason: reason, 
+      rejection_note: note 
+    }).eq('id', orderId);
+    
+    // Only lock for non-ONGOING status changes
+    if (shouldLock) {
+      setTimeout(() => lockedOrderIds.current.delete(orderId), 3000);
+    }
   };
 
   const toggleVendorOnline = async (restaurantId: string, currentStatus: boolean) => {
@@ -633,7 +662,7 @@ const handleUpdateMenuItem = async (restaurantId: string, item: MenuItem) => {
       options: item.otherVariants,
       enabled: item.otherVariantsEnabled
     },
-    add_ons: item.addOns || [] // Add this line
+    add_ons: item.addOns || []
   }).eq('id', item.id);
   
   if (error) {
@@ -661,7 +690,7 @@ const handleAddMenuItem = async (restaurantId: string, item: MenuItem) => {
       options: item.otherVariants,
       enabled: item.otherVariantsEnabled
     },
-    add_ons: item.addOns || [] // Add this line
+    add_ons: item.addOns || []
   });
   
   if (error) {
@@ -945,11 +974,12 @@ const handleDeleteMenuItem = async (restaurantId: string, itemId: string) => {
           activeVendorRes ? (
             <VendorView 
               restaurant={activeVendorRes} 
+              // FIXED: Show last 24 hours instead of just today to ensure orders aren't missed
               orders={orders.filter(o => {
                 if (o.restaurantId !== currentUser?.restaurantId) return false;
-                const orderDate = new Date(o.timestamp).toDateString();
-                const today = new Date().toDateString();
-                return orderDate === today;
+                // Show last 24 hours instead of just today
+                const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+                return o.timestamp > oneDayAgo;
               })} 
               onUpdateOrder={updateOrderStatus} 
               onUpdateMenu={handleUpdateMenuItem} 
