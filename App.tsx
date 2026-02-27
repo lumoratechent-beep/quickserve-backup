@@ -4,7 +4,7 @@ import CustomerView from './pages/CustomerView';
 import VendorView from './pages/VendorView';
 import AdminView from './pages/AdminView';
 import PosView from './pages/PosView';
-import PosOnlyView from './pages/PosOnlyView'; // Import the new POS Only view
+import PosOnlyView from './pages/PosOnlyView';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import MarketingPage from './pages/MarketingPage';
@@ -195,7 +195,7 @@ const App: React.FC = () => {
         location: res.location_name, 
         created_at: res.created_at,
         isOnline: res.is_online === true || res.is_online === null,
-        platformAccess: res.platform_access as PlatformAccess || 'pos_and_kitchen', // ADD THIS
+        platformAccess: (res.platform_access as PlatformAccess) || 'pos_and_kitchen', // ADD THIS
         settings: (() => {
           const localSettings = localStorage.getItem(`qs_settings_${res.id}`);
           const dbSettings = res.settings ? (typeof res.settings === 'string' ? JSON.parse(res.settings) : res.settings) : null;
