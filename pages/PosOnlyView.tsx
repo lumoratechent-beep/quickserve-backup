@@ -774,7 +774,6 @@ const PosOnlyView: React.FC<Props> = ({
                       <button onClick={() => removeFromPosCart(item.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
                     </div>
                   ))
-                )
               )}
             </div>
 
