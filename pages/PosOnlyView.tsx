@@ -59,6 +59,15 @@ const PosOnlyView: React.FC<Props> = ({
   const [reportData, setReportData] = useState<ReportResponse | null>(null);
   const [isReportLoading, setIsReportLoading] = useState(false);
 
+  // Staff Management State
+  const [staffList, setStaffList] = useState<any[]>(() => {
+    const saved = localStorage.getItem(`staff_${restaurant.id}`);
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [isAddStaffModalOpen, setIsAddStaffModalOpen] = useState(false);
+  const [newStaffUsername, setNewStaffUsername] = useState('');
+  const [newStaffPassword, setNewStaffPassword] = useState('');
+
   const categories = useMemo(() => {
     const cats = new Set(restaurant.menu.map(item => item.category));
     return ['ALL', ...Array.from(cats)];
