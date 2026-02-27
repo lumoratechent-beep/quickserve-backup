@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse } from './types';
+import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, PlatformAccess } from './types';
 import CustomerView from './pages/CustomerView';
 import VendorView from './pages/VendorView';
 import AdminView from './pages/AdminView';
 import PosView from './pages/PosView';
+import PosOnlyView from './pages/PosOnlyView'; // Import the new POS Only view
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import MarketingPage from './pages/MarketingPage';
@@ -140,9 +141,13 @@ const App: React.FC = () => {
     const { data, error } = await supabase.from('users').select('id, username, role, restaurant_id, is_active, email, phone');
     if (!error && data) {
       const mapped = data.map(u => ({
-        id: u.id, username: u.username, role: u.role as Role,
+        id: u.id, 
+        username: u.username, 
+        role: u.role as Role,
         restaurantId: u.restaurant_id,
-        isActive: u.is_active, email: u.email, phone: u.phone
+        isActive: u.is_active, 
+        email: u.email, 
+        phone: u.phone
       }));
       setAllUsers(mapped);
       persistCache('qs_cache_users', mapped);
@@ -183,9 +188,14 @@ const App: React.FC = () => {
 
     if (!menuError && menuData) {
       const formatted: Restaurant[] = resData.map(res => ({
-        id: res.id, name: res.name, logo: res.logo, vendorId: res.vendor_id,
-        location: res.location_name, created_at: res.created_at,
+        id: res.id, 
+        name: res.name, 
+        logo: res.logo, 
+        vendorId: res.vendor_id,
+        location: res.location_name, 
+        created_at: res.created_at,
         isOnline: res.is_online === true || res.is_online === null,
+        platformAccess: res.platform_access as PlatformAccess || 'pos_and_kitchen', // ADD THIS
         settings: (() => {
           const localSettings = localStorage.getItem(`qs_settings_${res.id}`);
           const dbSettings = res.settings ? (typeof res.settings === 'string' ? JSON.parse(res.settings) : res.settings) : null;
@@ -549,15 +559,20 @@ const App: React.FC = () => {
 
   const handleLogin = (user: User) => {
     setIsLoading(true);
-    setCurrentUser(user); setCurrentRole(user.role); setView('APP');
+    setCurrentUser(user); 
+    setCurrentRole(user.role); 
+    setView('APP');
     localStorage.setItem('qs_user', JSON.stringify(user));
     localStorage.setItem('qs_role', user.role);
     localStorage.setItem('qs_view', 'APP');
   };
 
   const handleLogout = () => {
-    setCurrentUser(null); setCurrentRole(null); setSessionLocation(null);
-    setSessionTable(null); setView('LANDING'); 
+    setCurrentUser(null); 
+    setCurrentRole(null); 
+    setSessionLocation(null);
+    setSessionTable(null); 
+    setView('LANDING'); 
     localStorage.removeItem('qs_user');
     localStorage.removeItem('qs_role');
     localStorage.removeItem('qs_view');
@@ -647,66 +662,66 @@ const App: React.FC = () => {
   };
 
   // --- MENU ITEM HANDLERS ---
-const handleUpdateMenuItem = async (restaurantId: string, item: MenuItem) => {
-  const { error } = await supabase.from('menu_items').update({
-    name: item.name,
-    description: item.description,
-    price: item.price,
-    image: item.image,
-    category: item.category,
-    is_archived: item.isArchived,
-    sizes: item.sizes,
-    temp_options: item.tempOptions || { enabled: false, hot: 0, cold: 0 },
-    other_variants: {
-      name: item.otherVariantName,
-      options: item.otherVariants,
-      enabled: item.otherVariantsEnabled
-    },
-    add_ons: item.addOns || []
-  }).eq('id', item.id);
-  
-  if (error) {
-    alert("Error updating menu item: " + error.message);
-    console.error("Update error:", error);
-  } else {
-    fetchRestaurants();
-  }
-};
+  const handleUpdateMenuItem = async (restaurantId: string, item: MenuItem) => {
+    const { error } = await supabase.from('menu_items').update({
+      name: item.name,
+      description: item.description,
+      price: item.price,
+      image: item.image,
+      category: item.category,
+      is_archived: item.isArchived,
+      sizes: item.sizes,
+      temp_options: item.tempOptions || { enabled: false, hot: 0, cold: 0 },
+      other_variants: {
+        name: item.otherVariantName,
+        options: item.otherVariants,
+        enabled: item.otherVariantsEnabled
+      },
+      add_ons: item.addOns || []
+    }).eq('id', item.id);
+    
+    if (error) {
+      alert("Error updating menu item: " + error.message);
+      console.error("Update error:", error);
+    } else {
+      fetchRestaurants();
+    }
+  };
 
-const handleAddMenuItem = async (restaurantId: string, item: MenuItem) => {
-  const { error } = await supabase.from('menu_items').insert({
-    id: item.id,
-    restaurant_id: restaurantId,
-    name: item.name,
-    description: item.description,
-    price: item.price,
-    image: item.image,
-    category: item.category,
-    is_archived: false,
-    sizes: item.sizes,
-    temp_options: item.tempOptions || { enabled: false, hot: 0, cold: 0 },
-    other_variants: {
-      name: item.otherVariantName,
-      options: item.otherVariants,
-      enabled: item.otherVariantsEnabled
-    },
-    add_ons: item.addOns || []
-  });
-  
-  if (error) {
-    alert("Error adding menu item: " + error.message);
-    console.error("Add error:", error);
-  } else {
-    fetchRestaurants();
-  }
-};
+  const handleAddMenuItem = async (restaurantId: string, item: MenuItem) => {
+    const { error } = await supabase.from('menu_items').insert({
+      id: item.id,
+      restaurant_id: restaurantId,
+      name: item.name,
+      description: item.description,
+      price: item.price,
+      image: item.image,
+      category: item.category,
+      is_archived: false,
+      sizes: item.sizes,
+      temp_options: item.tempOptions || { enabled: false, hot: 0, cold: 0 },
+      other_variants: {
+        name: item.otherVariantName,
+        options: item.otherVariants,
+        enabled: item.otherVariantsEnabled
+      },
+      add_ons: item.addOns || []
+    });
+    
+    if (error) {
+      alert("Error adding menu item: " + error.message);
+      console.error("Add error:", error);
+    } else {
+      fetchRestaurants();
+    }
+  };
 
-const handleDeleteMenuItem = async (restaurantId: string, itemId: string) => {
-  const { error } = await supabase.from('menu_items').delete().eq('id', itemId);
-  if (!error) fetchRestaurants();
-};
+  const handleDeleteMenuItem = async (restaurantId: string, itemId: string) => {
+    const { error } = await supabase.from('menu_items').delete().eq('id', itemId);
+    if (!error) fetchRestaurants();
+  };
 
-  // --- VENDOR & HUB HANDLERS ---
+  // --- VENDOR & HUB HANDLERS (UPDATED with platformAccess) ---
   const handleAddVendor = async (user: User, restaurant: Restaurant) => {
     const userId = crypto.randomUUID();
     const resId = crypto.randomUUID();
@@ -721,7 +736,8 @@ const handleDeleteMenuItem = async (restaurantId: string, itemId: string) => {
         vendor_id: null,
         location_name: restaurant.location, 
         is_online: true,
-        settings: {}
+        settings: {},
+        platform_access: restaurant.platformAccess || 'pos_and_kitchen' // ADD THIS
       });
       
       if (resError) { 
@@ -797,7 +813,8 @@ const handleDeleteMenuItem = async (restaurantId: string, itemId: string) => {
     const resUpdate: any = {
       name: restaurant.name, 
       logo: restaurant.logo, 
-      location_name: restaurant.location
+      location_name: restaurant.location,
+      platform_access: restaurant.platformAccess // ADD THIS
     };
     if (user.isActive === false) {
       resUpdate.is_online = false;
@@ -970,27 +987,42 @@ const handleDeleteMenuItem = async (restaurantId: string, itemId: string) => {
       </header>
       <main className="flex-1">
         {currentRole === 'CUSTOMER' && <CustomerView restaurants={restaurants.filter(r => r.location === sessionLocation && r.isOnline === true)} cart={cart} orders={orders} onAddToCart={addToCart} onRemoveFromCart={removeFromCart} onPlaceOrder={placeOrder} locationName={sessionLocation || undefined} tableNo={sessionTable || undefined} areaType={currentArea?.type || 'MULTI'} allRestaurants={restaurants} />}
+        
         {currentRole === 'VENDOR' && view === 'APP' && (
           activeVendorRes ? (
-            <VendorView 
-              restaurant={activeVendorRes} 
-              // FIXED: Show last 24 hours instead of just today to ensure orders aren't missed
-              orders={orders.filter(o => {
-                if (o.restaurantId !== currentUser?.restaurantId) return false;
-                // Show last 24 hours instead of just today
-                const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-                return o.timestamp > oneDayAgo;
-              })} 
-              onUpdateOrder={updateOrderStatus} 
-              onUpdateMenu={handleUpdateMenuItem} 
-              onAddMenuItem={handleAddMenuItem} 
-              onPermanentDeleteMenuItem={handleDeleteMenuItem} 
-              onToggleOnline={() => toggleVendorOnline(activeVendorRes.id, activeVendorRes.isOnline ?? true)} 
-              lastSyncTime={lastSyncTime}
-              onFetchPaginatedOrders={onFetchPaginatedOrders}
-              onFetchAllFilteredOrders={onFetchAllFilteredOrders}
-              onSwitchToPos={() => setView('POS')}
-            />
+            // Check platformAccess to determine which view to show
+            activeVendorRes.platformAccess === 'pos_only' ? (
+              <PosOnlyView 
+                restaurant={activeVendorRes}
+                orders={orders.filter(o => {
+                  if (o.restaurantId !== currentUser?.restaurantId) return false;
+                  const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+                  return o.timestamp > oneDayAgo;
+                })}
+                onUpdateOrder={updateOrderStatus}
+                onPlaceOrder={placePosOrder}
+                onFetchPaginatedOrders={onFetchPaginatedOrders}
+                onFetchAllFilteredOrders={onFetchAllFilteredOrders}
+              />
+            ) : (
+              <VendorView 
+                restaurant={activeVendorRes} 
+                orders={orders.filter(o => {
+                  if (o.restaurantId !== currentUser?.restaurantId) return false;
+                  const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+                  return o.timestamp > oneDayAgo;
+                })} 
+                onUpdateOrder={updateOrderStatus} 
+                onUpdateMenu={handleUpdateMenuItem} 
+                onAddMenuItem={handleAddMenuItem} 
+                onPermanentDeleteMenuItem={handleDeleteMenuItem} 
+                onToggleOnline={() => toggleVendorOnline(activeVendorRes.id, activeVendorRes.isOnline ?? true)} 
+                lastSyncTime={lastSyncTime}
+                onFetchPaginatedOrders={onFetchPaginatedOrders}
+                onFetchAllFilteredOrders={onFetchAllFilteredOrders}
+                onSwitchToPos={() => setView('POS')}
+              />
+            )
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
               <Loader2 className="w-10 h-10 text-orange-500 animate-spin mb-4" />
@@ -998,6 +1030,7 @@ const handleDeleteMenuItem = async (restaurantId: string, itemId: string) => {
             </div>
           )
         )}
+        
         {currentRole === 'VENDOR' && view === 'POS' && activeVendorRes && (
           <PosView 
             restaurant={activeVendorRes}
@@ -1010,6 +1043,7 @@ const handleDeleteMenuItem = async (restaurantId: string, itemId: string) => {
             onSwitchToVendor={() => setView('APP')}
           />
         )}
+        
         {currentRole === 'ADMIN' && (
           <AdminView 
             vendors={allUsers.filter(u => u.role === 'VENDOR')} 
