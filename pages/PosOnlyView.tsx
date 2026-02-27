@@ -72,6 +72,29 @@ const PosOnlyView: React.FC<Props> = ({
   const [newStaffPhone, setNewStaffPhone] = useState('');
   const [isAddingStaff, setIsAddingStaff] = useState(false);
 
+  const handleRemoveStaff = async (staff: any, index: number) => {
+    const updated = staffList.filter((_: any, idx: number) => idx !== index);
+
+    try {
+      if (staff?.id) {
+        const { error } = await supabase
+          .from('users')
+          .delete()
+          .eq('id', staff.id);
+
+        if (error) {
+          alert('Error removing staff: ' + error.message);
+          return;
+        }
+      }
+
+      setStaffList(updated);
+      localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+    } catch (error: any) {
+      alert('Error removing staff: ' + error.message);
+    }
+  };
+
   const categories = useMemo(() => {
     const cats = new Set(restaurant.menu.map(item => item.category));
     return ['ALL', ...Array.from(cats)];
@@ -660,7 +683,10 @@ const PosOnlyView: React.FC<Props> = ({
                                 <p className="font-black text-xs dark:text-white">{staff.username}</p>
                                 <p className="text-[8px] text-gray-400 uppercase tracking-widest">Created: {new Date(staff.createdAt || Date.now()).toLocaleDateString()}</p>
                               </div>
-                              <button className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all">
+                              <button
+                                onClick={() => handleRemoveStaff(staff, idx)}
+                                className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                              >
                                 <Trash2 size={14} />
                               </button>
                             </div>
