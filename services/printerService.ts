@@ -15,6 +15,7 @@ class PrinterService {
   private encoder: EscPosEncoder;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 3;
+  private isPrinting: boolean = false; // Add flag to prevent concurrent prints
 
   constructor() {
     this.encoder = new EscPosEncoder();
@@ -39,10 +40,13 @@ class PrinterService {
 
   async connect(deviceName: string): Promise<boolean> {
     try {
-      // If already connected, return true
-      if (this.isConnected()) {
+      // If already connected and device exists, verify connection
+      if (this.isConnected() && this.device) {
         return true;
       }
+
+      // Clean up any existing connection first
+      await this.cleanup();
 
       this.device = await navigator.bluetooth.requestDevice({
         filters: [{ name: deviceName }],
@@ -65,10 +69,14 @@ class PrinterService {
       
       const characteristics = await this.service.getCharacteristics();
       
+      // Find the best characteristic for writing
       for (const char of characteristics) {
-        if (char.properties.write || char.properties.writeWithoutResponse) {
+        if (char.properties.writeWithoutResponse) {
           this.characteristic = char;
           break;
+        } else if (char.properties.write) {
+          this.characteristic = char;
+          // Don't break yet - prefer writeWithoutResponse if available
         }
       }
 
@@ -76,26 +84,36 @@ class PrinterService {
         throw new Error('No writable characteristic found');
       }
 
+      // Set up disconnect listener
       this.device.addEventListener('gattserverdisconnected', this.handleDisconnect.bind(this));
+      
       this.reconnectAttempts = 0;
-
       return true;
+
     } catch (error) {
       console.error('Connection error:', error);
-      this.cleanup();
+      await this.cleanup();
       return false;
     }
   }
 
   private handleDisconnect() {
     console.log('Printer disconnected');
-    this.cleanup();
+    // Don't cleanup immediately - allow reconnection attempts
   }
 
-  private cleanup() {
+  private async cleanup() {
+    try {
+      if (this.server?.connected) {
+        await this.server.disconnect();
+      }
+    } catch (e) {
+      // Ignore cleanup errors
+    }
     this.server = null;
     this.service = null;
     this.characteristic = null;
+    // Keep device reference for potential reconnection
   }
 
   isConnected(): boolean {
@@ -103,23 +121,66 @@ class PrinterService {
   }
 
   async disconnect() {
-    if (this.server?.connected) {
+    await this.cleanup();
+    this.device = null;
+  }
+
+  async ensureConnection(): Promise<boolean> {
+    // If we have a device but server is disconnected, try to reconnect
+    if (this.device && (!this.server || !this.server.connected)) {
+      console.log('Attempting to reconnect...');
       try {
-        await this.server.disconnect();
+        const server = await this.device.gatt?.connect();
+        if (server) {
+          this.server = server;
+          
+          // Re-establish service and characteristic
+          try {
+            this.service = await this.server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+          } catch (e) {
+            this.service = await this.server.getPrimaryService('00001800-0000-1000-8000-00805f9b34fb');
+          }
+          
+          const characteristics = await this.service.getCharacteristics();
+          for (const char of characteristics) {
+            if (char.properties.writeWithoutResponse || char.properties.write) {
+              this.characteristic = char;
+              break;
+            }
+          }
+          
+          console.log('Reconnected successfully');
+          return true;
+        }
       } catch (error) {
-        console.error('Disconnect error:', error);
+        console.error('Reconnection failed:', error);
+        return false;
       }
     }
-    this.device = null;
-    this.cleanup();
+    
+    return this.isConnected() && !!this.characteristic;
   }
 
   async printTestPage(): Promise<boolean> {
+    // Prevent concurrent prints
+    if (this.isPrinting) {
+      console.log('Print already in progress');
+      return false;
+    }
+
+    this.isPrinting = true;
+    
     try {
-      if (!this.characteristic) {
+      // Ensure we're connected
+      if (!await this.ensureConnection()) {
         throw new Error('Printer not connected');
       }
 
+      if (!this.characteristic) {
+        throw new Error('No writable characteristic found');
+      }
+
+      // Create test page data - smaller size for reliability
       const data = this.encoder
         .initialize()
         .align('center')
@@ -132,47 +193,43 @@ class PrinterService {
         .cut()
         .encode();
 
-      await this.characteristic.writeValue(data);
+      // Split data into chunks if it's large (some printers have buffer limits)
+      const chunkSize = 512;
+      for (let i = 0; i < data.length; i += chunkSize) {
+        const chunk = data.slice(i, i + chunkSize);
+        await this.characteristic.writeValue(chunk);
+        // Small delay between chunks
+        if (i + chunkSize < data.length) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      }
+      
       return true;
     } catch (error) {
-      console.error('Print error:', error);
+      console.error('Print test page error:', error);
+      // If write fails, try to re-establish connection
+      await this.cleanup();
       return false;
+    } finally {
+      this.isPrinting = false;
     }
   }
 
   async printReceipt(order: any, restaurant: any): Promise<boolean> {
+    // Prevent concurrent prints
+    if (this.isPrinting) {
+      console.log('Print already in progress');
+      return false;
+    }
+
+    this.isPrinting = true;
     let attempts = 0;
     
     while (attempts < this.maxReconnectAttempts) {
       try {
-        if (!this.characteristic || !this.isConnected()) {
-          console.log(`Printer not connected, attempt ${attempts + 1} to reconnect...`);
-          
-          if (!this.device) {
-            throw new Error('No printer device found');
-          }
-          
-          // Try to reconnect
-          const server = await this.device.gatt?.connect();
-          if (!server) {
-            throw new Error('Failed to reconnect');
-          }
-          this.server = server;
-          
-          try {
-            this.service = await this.server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
-          } catch (e) {
-            this.service = await this.server.getPrimaryService('00001800-0000-1000-8000-00805f9b34fb');
-          }
-          
-          const characteristics = await this.service.getCharacteristics();
-          
-          for (const char of characteristics) {
-            if (char.properties.write || char.properties.writeWithoutResponse) {
-              this.characteristic = char;
-              break;
-            }
-          }
+        // Ensure we're connected before each attempt
+        if (!await this.ensureConnection()) {
+          throw new Error('Printer not connected');
         }
 
         if (!this.characteristic) {
@@ -184,7 +241,7 @@ class PrinterService {
         const dateStr = orderDate.toLocaleDateString();
         const timeStr = orderDate.toLocaleTimeString();
 
-        // Build receipt data
+        // Build receipt data - optimized for size
         let data = this.encoder
           .initialize()
           .align('center')
@@ -199,7 +256,7 @@ class PrinterService {
           .line('='.repeat(32))
           .align('left');
 
-        // Items
+        // Items - keep it concise
         order.items.forEach((item: any) => {
           const itemTotal = (item.price * item.quantity).toFixed(2);
           
@@ -209,21 +266,23 @@ class PrinterService {
             .text(`RM ${itemTotal}`)
             .align('left');
 
+          // Only include essential options
           if (item.selectedSize) {
-            data = data.text(`  - Size: ${item.selectedSize}`);
+            data = data.text(`  - ${item.selectedSize}`);
           }
           if (item.selectedTemp) {
             data = data.text(`  - ${item.selectedTemp}`);
           }
-          if (item.selectedOtherVariant) {
-            data = data.text(`  - ${item.selectedOtherVariant}`);
-          }
 
+          // Limit add-ons to essential info
           if (item.selectedAddOns && item.selectedAddOns.length > 0) {
-            item.selectedAddOns.forEach((addon: any) => {
+            item.selectedAddOns.slice(0, 3).forEach((addon: any) => {
               const addonTotal = (addon.price * addon.quantity).toFixed(2);
-              data = data.text(`    + ${addon.name} x${addon.quantity} RM ${addonTotal}`);
+              data = data.text(`    + ${addon.name} x${addon.quantity}`);
             });
+            if (item.selectedAddOns.length > 3) {
+              data = data.text(`    +${item.selectedAddOns.length - 3} more`);
+            }
           }
           
           data = data.newline();
@@ -238,28 +297,56 @@ class PrinterService {
           .size(1, 1)
           .line('='.repeat(32))
           .line('Thank you!')
-          .line('Please come again')
           .newline()
           .newline()
           .cut()
           .encode();
 
-        await this.characteristic.writeValue(data);
+        // Write data in chunks
+        const chunkSize = 512;
+        for (let i = 0; i < data.length; i += chunkSize) {
+          const chunk = data.slice(i, i + chunkSize);
+          await this.characteristic.writeValue(chunk);
+          // Small delay between chunks
+          if (i + chunkSize < data.length) {
+            await new Promise(resolve => setTimeout(resolve, 50));
+          }
+        }
+        
         return true;
         
       } catch (error) {
         console.error(`Print attempt ${attempts + 1} failed:`, error);
         attempts++;
-        this.cleanup();
+        
+        // Clean up and try to reconnect
+        await this.cleanup();
         
         if (attempts < this.maxReconnectAttempts) {
-          // Wait before retrying
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          // Wait before retrying (exponential backoff)
+          const delay = Math.min(1000 * Math.pow(2, attempts), 5000);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      } finally {
+        // Don't set isPrinting false until all attempts are exhausted
+        if (attempts >= this.maxReconnectAttempts) {
+          this.isPrinting = false;
         }
       }
     }
     
+    this.isPrinting = false;
     return false;
+  }
+
+  // Add method to get connection status with details
+  getConnectionStatus() {
+    return {
+      connected: this.isConnected(),
+      deviceName: this.device?.name,
+      hasCharacteristic: !!this.characteristic,
+      isPrinting: this.isPrinting
+    };
   }
 }
 
