@@ -782,69 +782,75 @@ const VendorView: React.FC<Props> = ({
     }
   };
 
-  // FIXED: Simplified handleAcceptAndPrint
-  const handleAcceptAndPrint = async (orderId: string) => {
-    // First update the order status
-    await onUpdateOrder(orderId, OrderStatus.ONGOING);
-    const order = orders.find(o => o.id === orderId);
-    
-    // Check if auto-print is enabled
-    if (order && orderSettings.autoPrint) {
-      if (!connectedDevice) {
-        console.error('No printer connected');
-        alert('Printer is not connected. Please connect a printer in Settings.');
-        return;
-      }
-
-      try {
-        setPrintingOrderId(orderId);
-        const printSuccess = await printerService.printReceipt(order, restaurant);
-        
-        if (printSuccess) {
-          console.log('Order printed successfully');
-        } else {
-          console.error('Failed to print order');
-          alert('Order accepted but failed to print. You can use the "Print Only" button to try again.');
-        }
-        
-      } catch (error) {
-        console.error('Error during print process:', error);
-        alert('Error occurred while printing. Please check printer connection.');
-      } finally {
-        setPrintingOrderId(null);
-      }
-    }
-  };
-
-  const handleManualPrint = async (order: Order) => {
+ // In VendorView.tsx - slightly improved version
+const handleAcceptAndPrint = async (orderId: string) => {
+  // First update the order status
+  await onUpdateOrder(orderId, OrderStatus.ONGOING);
+  const order = orders.find(o => o.id === orderId);
+  
+  // Check if auto-print is enabled
+  if (order && orderSettings.autoPrint) {
     if (!connectedDevice) {
-      alert('No printer connected. Please connect a printer in Settings.');
+      console.error('No printer connected');
+      alert('Printer is not connected. Please connect a printer in Settings.');
       return;
     }
 
-    setPrintingOrderId(order.id);
     try {
-      const success = await printerService.printReceipt(order, restaurant);
+      setPrintingOrderId(orderId);
       
-      if (success) {
-        alert('Order printed successfully!');
+      // Add small delay to ensure order update is complete
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      const printSuccess = await printerService.printReceipt(order, restaurant);
+      
+      if (printSuccess) {
+        console.log('Order printed successfully');
       } else {
-        alert('Failed to print. Please try again.');
+        console.error('Failed to print order');
+        alert('Order accepted but failed to print. You can use the "Print Only" button to try again.');
       }
+      
     } catch (error) {
-      console.error('Manual print error:', error);
-      alert('Error occurred while printing.');
+      console.error('Error during print process:', error);
+      alert('Error occurred while printing. Please check printer connection.');
     } finally {
       setPrintingOrderId(null);
     }
-  };
+  }
+};
 
-  const toggleOrderSetting = (key: keyof OrderSettings) => {
-    setOrderSettings(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
-  };
+// Keep handleManualPrint exactly as is - it's fine
+const handleManualPrint = async (order: Order) => {
+  if (!connectedDevice) {
+    alert('No printer connected. Please connect a printer in Settings.');
+    return;
+  }
+
+  setPrintingOrderId(order.id);
+  try {
+    const success = await printerService.printReceipt(order, restaurant);
+    
+    if (success) {
+      alert('Order printed successfully!');
+    } else {
+      alert('Failed to print. Please try again.');
+    }
+  } catch (error) {
+    console.error('Manual print error:', error);
+    alert('Error occurred while printing.');
+  } finally {
+    setPrintingOrderId(null);
+  }
+};
+
+// toggleOrderSetting is perfect
+const toggleOrderSetting = (key: keyof OrderSettings) => {
+  setOrderSettings(prev => ({
+    ...prev,
+    [key]: !prev[key]
+  }));
+};
 
   const isOnline = restaurant.isOnline !== false;
 
