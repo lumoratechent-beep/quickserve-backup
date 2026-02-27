@@ -7,6 +7,15 @@ export interface PrinterDevice {
   name: string;
 }
 
+interface PrintJob {
+  id: string;
+  order: any;
+  restaurant: any;
+  resolve: (value: boolean) => void;
+  reject: (reason?: any) => void;
+  timestamp: number;
+}
+
 class PrinterService {
   private device: BluetoothDevice | null = null;
   private server: BluetoothRemoteGATTServer | null = null;
@@ -20,6 +29,11 @@ class PrinterService {
   private lastPrintTime: number = 0;
   private connectionPromise: Promise<boolean> | null = null;
   private disconnectRequested: boolean = false;
+  
+  // Print queue system
+  private printQueue: PrintJob[] = [];
+  private isProcessingQueue: boolean = false;
+  private maxQueueSize: number = 50; // Prevent memory issues
 
   constructor() {
     this.encoder = new EscPosEncoder();
@@ -49,6 +63,14 @@ class PrinterService {
     if (price === null || price === undefined) return '0.00';
     const num = Number(price);
     return isNaN(num) ? '0.00' : num.toFixed(2);
+  }
+
+  private formatDate(date: Date): string {
+    return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+  }
+
+  private formatTime(date: Date): string {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
   async scanForPrinters(): Promise<PrinterDevice[]> {
@@ -144,7 +166,7 @@ class PrinterService {
     this.stopKeepAlive();
     
     this.keepAliveInterval = setInterval(async () => {
-      if (this.isConnected() && this.characteristic && !this.isPrinting) {
+      if (this.isConnected() && this.characteristic && !this.isPrinting && !this.isProcessingQueue) {
         try {
           // Send null byte - won't cause paper movement
           const keepAliveData = new Uint8Array([0x00]);
@@ -225,6 +247,9 @@ class PrinterService {
     this.disconnectRequested = true;
     this.stopKeepAlive();
     
+    // Clear queue on disconnect
+    this.clearQueue();
+    
     if (this.device) {
       this.device.removeEventListener('gattserverdisconnected', () => {});
     }
@@ -241,90 +266,92 @@ class PrinterService {
     this.device = null;
   }
 
-  private formatDate(date: Date): string {
-    return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+  /**
+   * Clear all pending print jobs
+   */
+  clearQueue(): void {
+    // Reject all pending jobs
+    this.printQueue.forEach(job => {
+      job.reject(new Error('Printer disconnected - queue cleared'));
+    });
+    this.printQueue = [];
   }
 
-  private formatTime(date: Date): string {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  /**
+   * Get current queue size
+   */
+  getQueueSize(): number {
+    return this.printQueue.length;
   }
 
-  async printTestPage(): Promise<boolean> {
-    if (this.isPrinting) {
-      return false;
+  /**
+   * Check if printer is busy
+   */
+  isBusy(): boolean {
+    return this.isPrinting || this.isProcessingQueue || this.printQueue.length > 0;
+  }
+
+  /**
+   * Process the next job in the queue
+   */
+  private async processNextJob(): Promise<void> {
+    if (this.isProcessingQueue) return;
+    if (this.printQueue.length === 0) return;
+
+    this.isProcessingQueue = true;
+
+    while (this.printQueue.length > 0) {
+      const job = this.printQueue[0]; // Peek at first job
+
+      try {
+        // Ensure we're still connected
+        if (!await this.ensureConnection()) {
+          throw new Error('Printer not connected');
+        }
+
+        if (!this.characteristic) {
+          throw new Error('No writable characteristic found');
+        }
+
+        console.log(`Processing print job ${job.id} (${this.printQueue.length} remaining)`);
+
+        // Process the print job
+        const success = await this.executePrint(job.order, job.restaurant);
+        
+        if (success) {
+          job.resolve(true);
+        } else {
+          job.reject(new Error('Print failed'));
+        }
+
+        // Remove the processed job
+        this.printQueue.shift();
+
+        // Wait between jobs to let printer recover
+        if (this.printQueue.length > 0) {
+          console.log('Waiting before next print job...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+
+      } catch (error) {
+        console.error(`Print job ${job.id} failed:`, error);
+        job.reject(error);
+        this.printQueue.shift(); // Remove failed job
+        
+        // Wait a bit longer after failure
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
     }
 
-    this.isPrinting = true;
-    
+    this.isProcessingQueue = false;
+    console.log('Print queue empty');
+  }
+
+  /**
+   * Execute the actual print (extracted from printReceipt)
+   */
+  private async executePrint(order: any, restaurant: any): Promise<boolean> {
     try {
-      if (!await this.ensureConnection()) {
-        throw new Error('Printer not connected');
-      }
-
-      if (!this.characteristic) {
-        throw new Error('No writable characteristic found');
-      }
-
-      const now = new Date();
-      
-      // Simple test page with only ASCII characters
-      const data = this.encoder
-        .initialize()
-        .align('center')
-        .size(2, 2)
-        .line('QUICKSERVE')
-        .size(1, 1)
-        .line('='.repeat(32))
-        .line('TEST PAGE')
-        .line('')
-        .line(this.formatDate(now) + ' ' + this.formatTime(now))
-        .line('')
-        .line('Printer is working!')
-        .line('='.repeat(32))
-        .cut()
-        .encode();
-
-      // Send data
-      await this.characteristic.writeValue(data);
-      
-      // Wait for printer to finish
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Reset printer after test
-      const resetPrinter = new Uint8Array([0x1B, 0x40]); // ESC @
-      await this.characteristic.writeValue(resetPrinter);
-      
-      this.lastPrintTime = Date.now();
-      return true;
-      
-    } catch (error) {
-      console.error('Print test page error:', error);
-      return false;
-    } finally {
-      this.isPrinting = false;
-    }
-  }
-
-  async printReceipt(order: any, restaurant: any): Promise<boolean> {
-    if (this.isPrinting) {
-      console.log('Print already in progress');
-      return false;
-    }
-
-    this.isPrinting = true;
-    
-    try {
-      if (!await this.ensureConnection()) {
-        throw new Error('Printer not connected');
-      }
-
-      if (!this.characteristic) {
-        throw new Error('No writable characteristic found');
-      }
-
-      // Log the raw order data for debugging (remove in production)
-      console.log('Printing order:', order.id);
-
       const orderDate = new Date(order.timestamp);
       const dateStr = this.formatDate(orderDate);
       const timeStr = this.formatTime(orderDate);
@@ -429,24 +456,24 @@ class PrinterService {
       const data = receipt.encode();
 
       // Send the entire receipt in one go
-      await this.characteristic.writeValue(data);
+      await this.characteristic!.writeValue(data);
       
-      // CRITICAL: Wait for printer to completely finish processing
+      // Wait for printer to completely finish processing
       await new Promise(resolve => setTimeout(resolve, 3000));
       
       // Send reset command to clear printer state
       const resetPrinter = new Uint8Array([0x1B, 0x40]); // ESC @
-      await this.characteristic.writeValue(resetPrinter);
+      await this.characteristic!.writeValue(resetPrinter);
       
       // Wait again for reset to complete
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       this.lastPrintTime = Date.now();
-      console.log('Print successful for order:', order.id);
+      console.log('Print successful');
       return true;
       
     } catch (error) {
-      console.error('Print error for order:', order?.id, error);
+      console.error('Execute print error:', error);
       
       // Try to reset printer even after error
       try {
@@ -459,9 +486,118 @@ class PrinterService {
       }
       
       return false;
+    }
+  }
+
+  async printTestPage(): Promise<boolean> {
+    if (this.isPrinting) {
+      // Queue test pages too? Usually no, but we can
+      return new Promise((resolve, reject) => {
+        const testOrder = {
+          id: 'TEST',
+          tableNumber: 'TEST',
+          timestamp: Date.now(),
+          total: 0,
+          items: [],
+          remark: ''
+        };
+        
+        const testRestaurant = { name: 'QUICKSERVE' };
+        
+        this.printQueue.push({
+          id: `test-${Date.now()}`,
+          order: testOrder,
+          restaurant: testRestaurant,
+          resolve,
+          reject,
+          timestamp: Date.now()
+        });
+        
+        // Start processing if not already
+        this.processNextJob();
+      });
+    }
+
+    this.isPrinting = true;
+    
+    try {
+      if (!await this.ensureConnection()) {
+        throw new Error('Printer not connected');
+      }
+
+      if (!this.characteristic) {
+        throw new Error('No writable characteristic found');
+      }
+
+      const now = new Date();
+      
+      // Simple test page with only ASCII characters
+      const data = this.encoder
+        .initialize()
+        .align('center')
+        .size(2, 2)
+        .line('QUICKSERVE')
+        .size(1, 1)
+        .line('='.repeat(32))
+        .line('TEST PAGE')
+        .line('')
+        .line(this.formatDate(now) + ' ' + this.formatTime(now))
+        .line('')
+        .line('Printer is working!')
+        .line('='.repeat(32))
+        .cut()
+        .encode();
+
+      // Send data
+      await this.characteristic.writeValue(data);
+      
+      // Wait for printer to finish
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Reset printer after test
+      const resetPrinter = new Uint8Array([0x1B, 0x40]); // ESC @
+      await this.characteristic.writeValue(resetPrinter);
+      
+      this.lastPrintTime = Date.now();
+      return true;
+      
+    } catch (error) {
+      console.error('Print test page error:', error);
+      return false;
     } finally {
       this.isPrinting = false;
     }
+  }
+
+  /**
+   * Add a print job to the queue
+   */
+  async printReceipt(order: any, restaurant: any): Promise<boolean> {
+    // Check queue size to prevent memory issues
+    if (this.printQueue.length >= this.maxQueueSize) {
+      console.error('Print queue full');
+      return false;
+    }
+
+    // Create a promise that will be resolved when the job completes
+    return new Promise((resolve, reject) => {
+      const jobId = `job-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Add to queue
+      this.printQueue.push({
+        id: jobId,
+        order: { ...order }, // Create a shallow copy to prevent mutations
+        restaurant: { ...restaurant },
+        resolve,
+        reject,
+        timestamp: Date.now()
+      });
+
+      console.log(`Print job ${jobId} queued. Queue size: ${this.printQueue.length}`);
+
+      // Start processing the queue if not already
+      this.processNextJob();
+    });
   }
 
   getConnectionStatus() {
@@ -470,6 +606,8 @@ class PrinterService {
       deviceName: this.device?.name,
       hasCharacteristic: !!this.characteristic,
       isPrinting: this.isPrinting,
+      isProcessingQueue: this.isProcessingQueue,
+      queueSize: this.printQueue.length,
       lastPrintTime: this.lastPrintTime
     };
   }
