@@ -478,10 +478,14 @@ const App: React.FC = () => {
     };
   }, [currentRole, sessionLocation, currentUser]);
 
-  // Vendor Polling Fallback
+  // Vendor Polling Fallback (skip for pos_only restaurants - they use local cache)
   useEffect(() => {
     let interval: any;
-    if (currentRole === 'VENDOR') {
+    // Only poll for VENDOR with non-pos_only access
+    const shouldPoll = currentRole === 'VENDOR' && 
+                       activeVendorRes?.platformAccess !== 'pos_only';
+    
+    if (shouldPoll) {
       // Initial fetch to ensure we have the latest before polling
       fetchNewOrders();
       interval = setInterval(() => {
@@ -491,7 +495,7 @@ const App: React.FC = () => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [currentRole, fetchNewOrders]);
+  }, [currentRole, fetchNewOrders, activeVendorRes?.platformAccess]);
 
   useEffect(() => {
     if (isDarkMode) document.documentElement.classList.add('dark');
