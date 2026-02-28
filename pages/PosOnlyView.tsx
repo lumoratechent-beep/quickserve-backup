@@ -414,21 +414,50 @@ const PosOnlyView: React.FC<Props> = ({
   }, [cachedCounterOrders]);
 
   const fetchReport = async (isExport = false) => {
-    if (!onFetchPaginatedOrders) return;
+    // For PosOnlyView, generate reports from cached counter orders instead of DB
     if (!isExport) setIsReportLoading(true);
     try {
-      const data = await onFetchPaginatedOrders({
-        restaurantId: restaurant.id,
-        startDate: reportStart,
-        endDate: reportEnd,
-        status: reportStatus,
-        search: reportSearchQuery
-      }, isExport ? 1 : currentPage, isExport ? 10000 : entriesPerPage);
+      // Filter cached orders by date range and status
+      const filtered = cachedCounterOrders.filter(order => {
+        const orderDate = new Date(order.timestamp);
+        const startDate = new Date(reportStart);
+        const endDate = new Date(reportEnd);
+        endDate.setHours(23, 59, 59, 999);
+        
+        const dateMatch = orderDate >= startDate && orderDate <= endDate;
+        const statusMatch = reportStatus === 'ALL' || order.status === reportStatus;
+        const searchMatch = reportSearchQuery === '' || 
+                           order.tableNumber?.toLowerCase().includes(reportSearchQuery.toLowerCase()) ||
+                           order.id.toLowerCase().includes(reportSearchQuery.toLowerCase());
+        
+        return dateMatch && statusMatch && searchMatch;
+      });
+
+      // Sort by timestamp descending
+      const sorted = [...filtered].sort((a, b) => b.timestamp - a.timestamp);
+      
+      // Paginate
+      const totalCount = sorted.length;
+      const pageStart = ((isExport ? 1 : currentPage) - 1) * (isExport ? 10000 : entriesPerPage);
+      const pageEnd = pageStart + (isExport ? 10000 : entriesPerPage);
+      const paginatedOrders = sorted.slice(pageStart, pageEnd);
       
       if (isExport) {
-        return data.orders;
+        return sorted;
       } else {
-        setReportData(data);
+        const totalRevenue = sorted.reduce((sum, order) => sum + order.total, 0);
+        const orderVolume = sorted.length;
+        const avgOrderValue = orderVolume > 0 ? totalRevenue / orderVolume : 0;
+        
+        setReportData({
+          orders: paginatedOrders,
+          totalCount: totalCount,
+          summary: {
+            totalRevenue: totalRevenue,
+            orderVolume: orderVolume,
+            efficiency: avgOrderValue
+          }
+        });
       }
     } catch (error) {
       console.error('Report error:', error);
@@ -441,7 +470,7 @@ const PosOnlyView: React.FC<Props> = ({
     if (activeTab === 'REPORTS') {
       fetchReport();
     }
-  }, [activeTab, reportStart, reportEnd, reportStatus, reportSearchQuery, currentPage, entriesPerPage]);
+  }, [activeTab, reportStart, reportEnd, reportStatus, reportSearchQuery, currentPage, entriesPerPage, cachedCounterOrders]);
 
   // Load cached counter orders on component mount or when restaurantId changes
   useEffect(() => {
