@@ -730,7 +730,7 @@ const PosOnlyView: React.FC<Props> = ({
   useEffect(() => {
     const defaults = getDefaultReceiptSettings(restaurant.name);
     const localSaved = localStorage.getItem(`receipt_settings_${restaurant.id}`);
-    const dbSaved = (restaurant as any)?.receipt_settings;
+    const dbSaved = (restaurant as any)?.settings?.receipt;
 
     if (localSaved) {
       try {
@@ -748,7 +748,7 @@ const PosOnlyView: React.FC<Props> = ({
     }
 
     setReceiptSettings(defaults);
-  }, [restaurant.id, restaurant.name, (restaurant as any)?.receipt_settings]);
+  }, [restaurant.id, restaurant.name, (restaurant as any)?.settings]);
 
   useEffect(() => {
     localStorage.setItem(`receipt_settings_${restaurant.id}`, JSON.stringify(receiptSettings));
@@ -969,13 +969,20 @@ const PosOnlyView: React.FC<Props> = ({
   const saveReceiptSettings = async () => {
     setIsSavingReceiptSettings(true);
     try {
+      const mergedSettings = {
+        ...((restaurant as any)?.settings || {}),
+        receipt: receiptSettings,
+      };
+
       const { error } = await supabase
         .from('restaurants')
-        .update({ receipt_settings: receiptSettings })
+        .update({ settings: mergedSettings })
         .eq('id', restaurant.id);
 
       if (error) {
-        alert('Failed to save receipt settings: ' + error.message);
+        console.error('Cloud save failed, using local receipt settings only:', error);
+        alert('Receipt settings saved locally. Cloud sync is unavailable right now.');
+        setReceiptSettingsSaved(true);
         return;
       }
 
