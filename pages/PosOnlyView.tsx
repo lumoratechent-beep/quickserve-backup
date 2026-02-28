@@ -1931,13 +1931,13 @@ const PosOnlyView: React.FC<Props> = ({
                           <input
                             type="range"
                             min={0}
-                            max={8}
+                            max={16}
                             step={1}
                             value={receiptSettings.horizontalOffset}
                             onChange={event => updateReceiptSetting('horizontalOffset', Number(event.target.value))}
                             className="w-full"
                           />
-                          <p className="text-[9px] text-gray-500 dark:text-gray-400 mt-1">Shift all aligned lines right for printer calibration</p>
+                          <p className="text-[9px] text-gray-500 dark:text-gray-400 mt-1">Shift center/right-aligned content for calibration (left content unaffected)</p>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
