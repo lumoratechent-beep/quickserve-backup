@@ -396,14 +396,15 @@ class PrinterService {
         .size(1, 1);
 
       if (safeHeaderLine1) {
-        receipt = receipt.line(safeHeaderLine1);
+        receipt = receipt.align('center').line(safeHeaderLine1);
       }
 
       if (safeHeaderLine2) {
-        receipt = receipt.line(safeHeaderLine2);
+        receipt = receipt.align('center').line(safeHeaderLine2);
       }
 
       receipt = receipt
+        .align('center')
         .line('='.repeat(32))
         .align('left');
 
@@ -488,22 +489,23 @@ class PrinterService {
       receipt = receipt.line('-'.repeat(32));
 
       if (showTotal) {
-        receipt = receipt
-          .align('right')
-          .line(`TOTAL: RM ${safeTotal}`)
-          .align('center');
-      } else {
-        receipt = receipt.align('center');
+        // Format total with proper padding to prevent wrapping
+        const totalLabel = `TOTAL: RM ${safeTotal}`;
+        const padding = Math.max(0, 32 - totalLabel.length);
+        const paddedTotal = ' '.repeat(padding) + totalLabel;
+        receipt = receipt.align('left').line(paddedTotal);
       }
 
-      receipt = receipt.line('='.repeat(32));
+      receipt = receipt
+        .align('center')
+        .line('='.repeat(32));
 
       if (safeFooterLine1) {
-        receipt = receipt.line(safeFooterLine1);
+        receipt = receipt.align('center').line(safeFooterLine1);
       }
 
       if (safeFooterLine2) {
-        receipt = receipt.line(safeFooterLine2);
+        receipt = receipt.align('center').line(safeFooterLine2);
       }
 
       receipt = receipt
