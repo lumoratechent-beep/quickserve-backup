@@ -39,6 +39,11 @@ const PosOnlyView: React.FC<Props> = ({
   onFetchPaginatedOrders,
   onFetchAllFilteredOrders,
 }) => {
+  const toLocalDateInputValue = (date: Date) => {
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().split('T')[0];
+  };
+
   const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS'>('COUNTER');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [menuLayout, setMenuLayout] = useState<'grid-3' | 'grid-4' | 'grid-5' | 'list'>('grid-4');
@@ -92,11 +97,11 @@ const PosOnlyView: React.FC<Props> = ({
   // Reports State
   const [reportStart, setReportStart] = useState(() => {
     const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    return toLocalDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1));
   });
   const [reportEnd, setReportEnd] = useState(() => {
     const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+    return toLocalDateInputValue(new Date(now.getFullYear(), now.getMonth() + 1, 0));
   });
   const [reportStatus, setReportStatus] = useState<string>('ALL');
   const [reportSearchQuery, setReportSearchQuery] = useState('');
