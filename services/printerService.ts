@@ -127,6 +127,19 @@ class PrinterService {
     }
   }
 
+  private stripLeadingInitialize(data: Uint8Array): Uint8Array {
+    if (data.length >= 2 && data[0] === 0x1B && data[1] === 0x40) {
+      return data.slice(2);
+    }
+    return data;
+  }
+
+  private async writePreparedPayload(data: Uint8Array, offsetChars: number): Promise<void> {
+    const payload = this.stripLeadingInitialize(data);
+    await this.resetPrinterFormattingState(offsetChars);
+    await this.writeDataInChunks(payload);
+  }
+
   private async resetPrinterFormattingState(offsetChars: number = 0): Promise<void> {
     if (!this.characteristic) {
       throw new Error('No writable characteristic found');
@@ -606,8 +619,7 @@ class PrinterService {
 
       const data = receipt.encode() as Uint8Array;
 
-      await this.resetPrinterFormattingState(horizontalOffset);
-      await this.writeDataInChunks(data);
+      await this.writePreparedPayload(data, horizontalOffset);
       
       // Wait for printer to completely finish processing
       await new Promise(resolve => setTimeout(resolve, 3000));
@@ -708,8 +720,7 @@ class PrinterService {
         .cut()
         .encode() as Uint8Array;
 
-      await this.resetPrinterFormattingState(horizontalOffset);
-      await this.writeDataInChunks(data);
+      await this.writePreparedPayload(data, horizontalOffset);
       
       // Wait for printer to finish
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -785,8 +796,7 @@ class PrinterService {
         .cut()
         .encode() as Uint8Array;
 
-      await this.resetPrinterFormattingState();
-      await this.writeDataInChunks(data);
+      await this.writePreparedPayload(data, 0);
       
       // Wait for printer to finish
       await new Promise(resolve => setTimeout(resolve, 2000));
