@@ -123,8 +123,8 @@ const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ receiptSettings, sample
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [showDebug, setShowDebug] = useState(true);
 
-  // Assume 40-character thermal printer width
-  const PRINTER_WIDTH = 40;
+  // ESC-POS Font A (default): 32 characters per 80mm line
+  const PRINTER_WIDTH = 32;
 
   const getAlignment = (align: string, text: string) => {
     const padding = Math.max(0, PRINTER_WIDTH - text.length);
@@ -198,7 +198,7 @@ const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ receiptSettings, sample
         <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Left: Receipt Preview */}
           <div className="order-2 lg:order-1">
-            <h3 className="font-bold mb-2 text-green-700">Printer Output (40 chars wide)</h3>
+            <h3 className="font-bold mb-2 text-green-700">Printer Output (32 chars/line - Font A)</h3>
             <div className="bg-yellow-50 border-2 border-yellow-200 p-4 rounded font-mono text-xs whitespace-pre-wrap break-words bg-gradient-to-b from-yellow-50 to-yellow-100 shadow-inner min-h-96 overflow-auto">
               {visibleElements.map(el => (
                 <div key={el.id}>
@@ -210,8 +210,9 @@ const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ receiptSettings, sample
             {/* Debug Info */}
             {showDebug && (
               <div className="mt-4 bg-gray-100 p-3 rounded text-xs">
-                <h4 className="font-bold mb-2">Debug Info:</h4>
-                <p>Printer Width: {PRINTER_WIDTH} chars</p>
+                <h4 className="font-bold mb-2">Debug Info (ESC-POS Font A):</h4>
+                <p>Line Width: {PRINTER_WIDTH} chars (80mm thermal)</p>
+                <p>Double-Width Mode: ~16 chars (for titles)</p>
                 <p>Visible Elements: {visibleElements.length}</p>
                 <div className="mt-2 max-h-40 overflow-auto">
                   {visibleElements.map(el => (
@@ -276,17 +277,17 @@ const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ receiptSettings, sample
 
         <div className="border-t p-4 bg-gray-50">
           <p className="text-xs text-gray-600">
-            <strong>Issues Found:</strong>
+            <strong>Issues Found (Font A - 32 chars/line):</strong>
           </p>
           <ul className="text-xs text-gray-700 mt-2 space-y-1 ml-4 list-disc">
-            {elements.filter(el => el.type === 'separator' && el.text.length > PRINTER_WIDTH).length > 0 && (
-              <li>Separator lines are longer than printer width ({PRINTER_WIDTH} chars) - will wrap or overflow</li>
+            {visibleElements.filter(el => el.type === 'separator' && el.text.length > PRINTER_WIDTH).length > 0 && (
+              <li>Separator lines overflow - will wrap (use 32 chars max)</li>
             )}
-            {elements.find(el => el.type === 'title' && el.text.length > PRINTER_WIDTH) && (
-              <li>Business name may overflow on printer (used with size 2x2)</li>
+            {visibleElements.find(el => el.type === 'title' && el.text.length > 16) && (
+              <li>Business name too long (double-width = max 16 chars)</li>
             )}
-            {elements.find(el => el.type === 'total' && el.align === 'right' && el.text.length > PRINTER_WIDTH) && (
-              <li>TOTAL line might wrap if too long</li>
+            {visibleElements.find(el => el.type === 'total' && el.text.length > PRINTER_WIDTH) && (
+              <li>TOTAL line might wrap if too long ({PRINTER_WIDTH} chars max)</li>
             )}
           </ul>
         </div>

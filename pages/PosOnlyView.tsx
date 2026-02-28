@@ -507,12 +507,13 @@ const PosOnlyView: React.FC<Props> = ({
           .printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions())
           .then((printSuccess) => {
             if (!printSuccess) {
-              setCheckoutNotice('Order saved, but receipt printing failed.');
+              setCheckoutNotice('Order saved. Receipt printing did not complete.');
             }
           })
           .catch((printError: any) => {
             console.error('Receipt print error:', printError);
-            setCheckoutNotice(`Order saved, but receipt printing failed: ${printError?.message || 'Unknown error'}`);
+            const errorMsg = printError?.message || 'Receipt printing failed';
+            setCheckoutNotice(`Order saved. ${errorMsg}`);
           });
       } else {
         setCheckoutNotice('Order saved. Auto-print is enabled but no printer is connected.');

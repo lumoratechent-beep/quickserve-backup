@@ -89,10 +89,11 @@ class PrinterService {
 
   /**
    * Generate a centered separator line (respects thermal printer width)
-   * Standard thermal: 40 chars wide, when doubled (size 2x2) it's ~20 chars visible
+   * Font A (default): 32 chars per 80mm line
+   * Font A double-width (size 2x): ~16 chars per line
    */
   private createSeparator(doubleSized: boolean = false): string {
-    // For double-sized text (title), use fewer characters
+    // Font A: 32 chars, Font A double-size: ~16 chars
     const width = doubleSized ? 16 : 32;
     return '='.repeat(width);
   }
@@ -330,11 +331,11 @@ class PrinterService {
       try {
         // Ensure we're still connected
         if (!await this.ensureConnection()) {
-          throw new Error('Printer not connected');
+          throw new Error('Printer disconnected - cannot send print command');
         }
 
         if (!this.characteristic) {
-          throw new Error('No writable characteristic found');
+          throw new Error('Lost connection to printer device');
         }
 
         console.log(`Processing print job ${job.id} (${this.printQueue.length} remaining)`);
@@ -345,7 +346,7 @@ class PrinterService {
         if (success) {
           job.resolve(true);
         } else {
-          job.reject(new Error('Print failed'));
+          job.reject(new Error('Printer did not respond - check if device is powered on'));
         }
 
         // Remove the processed job
@@ -418,10 +419,10 @@ class PrinterService {
           .line(safeHeaderLine2);
       }
 
-      // Double separator after header
+      // Double separator after header (32 chars for Font A)
       receipt = receipt
         .align('center')
-        .line('='.repeat(40))
+        .line('='.repeat(32))
         .align('left');
 
       if (showDateTime || showOrderId) {
@@ -514,10 +515,10 @@ class PrinterService {
         receipt = receipt.line(paddedTotal);
       }
 
-      // Double separator with center alignment
+      // Double separator with center alignment (32 chars for Font A)
       receipt = receipt
         .align('center')
-        .line('='.repeat(40))
+        .line('='.repeat(32))
         .line('');
 
       if (safeFooterLine1) {
@@ -653,14 +654,11 @@ class PrinterService {
     }
   }
 
-  /**
-   * Add a print job to the queue
-   */
   async printReceipt(order: any, restaurant: any, options?: ReceiptPrintOptions): Promise<boolean> {
     // Check queue size to prevent memory issues
     if (this.printQueue.length >= this.maxQueueSize) {
       console.error('Print queue full');
-      return false;
+      throw new Error('Print queue is full - too many print jobs pending');
     }
 
     // Create a promise that will be resolved when the job completes
