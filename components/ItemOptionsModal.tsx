@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AddOnItem, CartItem, MenuItem, SelectedAddOn } from '../src/types';
 import { Info, Minus, Plus, ThermometerSun, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
 
 interface Props {
   item: MenuItem | null;
@@ -92,7 +93,9 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
     onConfirm(cartItem);
   };
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[120] p-4">
       <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl border dark:border-gray-700">
         <div className="p-5 border-b dark:border-gray-700 flex items-center justify-between">
@@ -243,7 +246,8 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
