@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import { uploadImage } from '../lib/storage';
 import * as counterOrdersCache from '../lib/counterOrdersCache';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
-import ItemOptionsModal from '../components/ItemOptionsModal';
+import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import StandardReport from '../components/StandardReport';
 import { 
   ShoppingBag, Search, Download, Calendar, ChevronLeft, ChevronRight, 
@@ -1856,7 +1856,7 @@ const PosOnlyView: React.FC<Props> = ({
         )}
       </div>
 
-      <ItemOptionsModal
+      <SimpleItemOptionsModal
         item={selectedItemForOptions}
         restaurantId={restaurant.id}
         onClose={() => setSelectedItemForOptions(null)}
