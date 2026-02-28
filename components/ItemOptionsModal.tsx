@@ -16,13 +16,32 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
   const [selectedOtherVariant, setSelectedOtherVariant] = useState<string>('');
   const [selectedAddOns, setSelectedAddOns] = useState<Record<string, SelectedAddOn>>({});
 
+  const normalizedSizes = useMemo(() => {
+    if (!item || !Array.isArray(item.sizes)) return [];
+    return item.sizes.filter(size => size && typeof size.name === 'string' && typeof size.price === 'number');
+  }, [item]);
+
+  const normalizedOtherVariants = useMemo(() => {
+    if (!item || !Array.isArray(item.otherVariants)) return [];
+    return item.otherVariants.filter(variant => variant && typeof variant.name === 'string' && typeof variant.price === 'number');
+  }, [item]);
+
+  const normalizedAddOns = useMemo(() => {
+    if (!item || !Array.isArray(item.addOns)) return [];
+    return item.addOns.filter(addon => addon && typeof addon.name === 'string' && typeof addon.price === 'number') as AddOnItem[];
+  }, [item]);
+
+  const hasTempOptions = useMemo(() => {
+    return !!item?.tempOptions && typeof item.tempOptions === 'object' && item.tempOptions.enabled === true;
+  }, [item]);
+
   useEffect(() => {
     if (!item) return;
-    setSelectedSize(item.sizes?.[0]?.name || '');
-    setSelectedTemp(item.tempOptions?.enabled ? 'Hot' : undefined);
-    setSelectedOtherVariant(item.otherVariantsEnabled ? (item.otherVariants?.[0]?.name || '') : '');
+    setSelectedSize(normalizedSizes[0]?.name || '');
+    setSelectedTemp(hasTempOptions ? 'Hot' : undefined);
+    setSelectedOtherVariant(item.otherVariantsEnabled ? (normalizedOtherVariants[0]?.name || '') : '');
     setSelectedAddOns({});
-  }, [item]);
+  }, [item, normalizedSizes, hasTempOptions, normalizedOtherVariants]);
 
   useEffect(() => {
     if (!item) return;
@@ -64,7 +83,7 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
     let finalPrice = item.price;
 
     if (selectedSize) {
-      const sizeObj = item.sizes?.find(s => s.name === selectedSize);
+      const sizeObj = normalizedSizes.find(s => s.name === selectedSize);
       if (sizeObj) finalPrice += sizeObj.price;
     }
 
@@ -72,13 +91,13 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
     if (selectedTemp === 'Cold' && item.tempOptions?.cold) finalPrice += item.tempOptions.cold;
 
     if (selectedOtherVariant) {
-      const otherObj = item.otherVariants?.find(v => v.name === selectedOtherVariant);
+      const otherObj = normalizedOtherVariants.find(v => v.name === selectedOtherVariant);
       if (otherObj) finalPrice += otherObj.price;
     }
 
     finalPrice += totalAddOnPrice;
     return finalPrice;
-  }, [item, selectedSize, selectedTemp, selectedOtherVariant, totalAddOnPrice]);
+  }, [item, normalizedSizes, normalizedOtherVariants, selectedSize, selectedTemp, selectedOtherVariant, totalAddOnPrice]);
 
   const handleConfirm = () => {
     const cartItem: CartItem = {
@@ -89,12 +108,12 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
       image: item.image,
       category: item.category,
       isArchived: item.isArchived,
-      sizes: item.sizes,
+      sizes: normalizedSizes,
       otherVariantName: item.otherVariantName,
-      otherVariants: item.otherVariants,
+      otherVariants: normalizedOtherVariants,
       otherVariantsEnabled: item.otherVariantsEnabled,
       tempOptions: item.tempOptions,
-      addOns: item.addOns,
+      addOns: normalizedAddOns,
       quantity: 1,
       restaurantId,
       selectedSize,
@@ -133,11 +152,11 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
         </div>
 
         <div className="p-5 max-h-[62vh] overflow-y-auto space-y-5">
-          {item.sizes && item.sizes.length > 0 && (
+          {normalizedSizes.length > 0 && (
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Size</label>
               <div className="grid grid-cols-2 gap-2">
-                {item.sizes.map(size => (
+                {normalizedSizes.map(size => (
                   <button
                     key={size.name}
                     onClick={() => setSelectedSize(size.name)}
@@ -155,7 +174,7 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
             </div>
           )}
 
-          {item.otherVariantsEnabled && item.otherVariants && item.otherVariants.length > 0 && (
+          {item.otherVariantsEnabled && normalizedOtherVariants.length > 0 && (
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
                 {item.otherVariantName || 'Additional Options'}
@@ -172,7 +191,7 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
                   <p className="text-[10px] font-black uppercase">None</p>
                   <p className="text-xs font-black">Default</p>
                 </button>
-                {item.otherVariants.map(variant => (
+                {normalizedOtherVariants.map(variant => (
                   <button
                     key={variant.name}
                     onClick={() => setSelectedOtherVariant(variant.name)}
@@ -190,7 +209,7 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
             </div>
           )}
 
-          {item.tempOptions?.enabled && (
+          {hasTempOptions && (
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Temperature</label>
               <div className="grid grid-cols-2 gap-2">
@@ -220,11 +239,11 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
             </div>
           )}
 
-          {item.addOns && item.addOns.length > 0 && (
+          {normalizedAddOns.length > 0 && (
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Add-ons</label>
               <div className="space-y-2">
-                {item.addOns.map((addon, idx) => {
+                {normalizedAddOns.map((addon, idx) => {
                   const quantity = selectedAddOns[addon.name]?.quantity || 0;
                   return (
                     <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
