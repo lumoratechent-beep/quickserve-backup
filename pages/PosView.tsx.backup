@@ -813,8 +813,8 @@ const PosView: React.FC<Props> = ({
                   <div key={idx} className="space-y-2">
                     <div className="flex items-center gap-4">
                       <div className="flex-1">
-                        <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                        <p className="text-xs text-orange-500 font-black">RM{item.price.toFixed(2)} x{item.quantity}</p>
+                        <h4 className="font-black text-[10px] dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                        <p className="text-[10px] text-orange-500 font-black">RM{item.price.toFixed(2)} x{item.quantity}</p>
                       </div>
                       <div className="text-right">
                         <p className="font-black text-xs dark:text-white">RM{(item.price * item.quantity).toFixed(2)}</p>
@@ -824,13 +824,13 @@ const PosView: React.FC<Props> = ({
                     {/* Variants and Options */}
                     <div className="ml-4 space-y-1">
                       {item.selectedSize && (
-                        <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>
+                        <p className="text-[9px] text-gray-500 dark:text-gray-400">• Size: {item.selectedSize}</p>
                       )}
                       {item.selectedTemp && (
-                        <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.selectedTemp}</p>
+                        <p className="text-[9px] text-gray-500 dark:text-gray-400">• {item.selectedTemp}</p>
                       )}
                       {item.selectedOtherVariant && (
-                        <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.selectedOtherVariant}</p>
+                        <p className="text-[9px] text-gray-500 dark:text-gray-400">• {item.selectedOtherVariant}</p>
                       )}
                       
                       {/* Add-ons */}
@@ -858,14 +858,14 @@ const PosView: React.FC<Props> = ({
                   posCart.map((item, idx) => (
                     <div key={`${item.id}-${idx}`} className="flex items-center gap-4">
                       <div className="flex-1">
-                        <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                        <p className="text-xs text-orange-500 font-black">RM{item.price.toFixed(2)}</p>
+                        <h4 className="font-black text-[10px] dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                        <p className="text-[10px] text-orange-500 font-black">RM{item.price.toFixed(2)}</p>
                         <div className="mt-1 space-y-0.5">
-                          {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
-                          {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.selectedTemp}</p>}
-                          {item.selectedOtherVariant && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.selectedOtherVariant}</p>}
+                          {item.selectedSize && <p className="text-[9px] text-gray-500 dark:text-gray-400">• Size: {item.selectedSize}</p>}
+                          {item.selectedTemp && <p className="text-[9px] text-gray-500 dark:text-gray-400">• {item.selectedTemp}</p>}
+                          {item.selectedOtherVariant && <p className="text-[9px] text-gray-500 dark:text-gray-400">• {item.selectedOtherVariant}</p>}
                           {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                            <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">
+                            <p className="text-[9px] text-gray-500 dark:text-gray-400">
                               • Add-ons: {item.selectedAddOns.map(addon => `${addon.name} x${addon.quantity}`).join(', ')}
                             </p>
                           )}

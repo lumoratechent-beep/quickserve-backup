@@ -938,6 +938,39 @@ const PosOnlyView: React.FC<Props> = ({
 
               <div className="flex-1 overflow-y-auto p-2 scroll-smooth">
                 <div className="space-y-4">
+                  {/* DEBUG TEST BUTTON */}
+                  <button
+                    onClick={() => {
+                      const testItem: MenuItem = {
+                        id: 'TEST_ITEM',
+                        name: '🧪 TEST ITEM',
+                        description: 'Test item to verify modal works',
+                        price: 10,
+                        image: '',
+                        category: 'Test',
+                        isArchived: false,
+                        sizes: [{ name: 'Small', price: 0 }, { name: 'Large', price: 2 }],
+                        otherVariantName: 'Type',
+                        otherVariants: [{ name: 'Classic', price: 0 }],
+                        otherVariantsEnabled: true,
+                        tempOptions: { enabled: true, hot: 0, cold: 0 },
+                        addOns: [{ name: 'Extra', price: 1, maxQuantity: 5 }],
+                      };
+                      console.log('TEST: Manual modal open triggered', testItem);
+                      setSelectedItemForOptions(testItem);
+                    }}
+                    className="w-full py-2 bg-purple-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-purple-600 transition-all mb-4"
+                  >
+                    🧪 Click to TEST Modal (Manual)
+                  </button>
+
+                  {Object.entries(groupedMenu).map(([category, items]) => (
+                    <section key={category}>
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700"></div>
+                        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] whitespace-nowrap">{category}</h3>
+                        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700"></div>
+                      </div>
                       
                       <div className={`grid gap-1.5 ${
                         menuLayout === 'grid-3' ? 'grid-cols-3' : 
@@ -1766,14 +1799,14 @@ const PosOnlyView: React.FC<Props> = ({
                 posCart.map((item, idx) => (
                     <div key={`${item.id}-${idx}`} className="flex items-center gap-4">
                       <div className="flex-1">
-                        <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                        <p className="text-xs text-orange-500 font-black">RM{item.price.toFixed(2)}</p>
+                        <h4 className="font-black text-[10px] dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                        <p className="text-[10px] text-orange-500 font-black">RM{item.price.toFixed(2)}</p>
                         <div className="mt-1 space-y-0.5">
-                          {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
-                          {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.selectedTemp}</p>}
-                          {item.selectedOtherVariant && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.selectedOtherVariant}</p>}
+                          {item.selectedSize && <p className="text-[9px] text-gray-500 dark:text-gray-400">• Size: {item.selectedSize}</p>}
+                          {item.selectedTemp && <p className="text-[9px] text-gray-500 dark:text-gray-400">• {item.selectedTemp}</p>}
+                          {item.selectedOtherVariant && <p className="text-[9px] text-gray-500 dark:text-gray-400">• {item.selectedOtherVariant}</p>}
                           {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                            <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">
+                            <p className="text-[9px] text-gray-500 dark:text-gray-400">
                               • Add-ons: {item.selectedAddOns.map(addon => `${addon.name} x${addon.quantity}`).join(', ')}
                             </p>
                           )}
