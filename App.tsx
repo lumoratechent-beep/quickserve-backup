@@ -888,8 +888,11 @@ const App: React.FC = () => {
   };
 
   const onFetchPaginatedOrders = async (filters: ReportFilters, page: number, pageSize: number): Promise<ReportResponse> => {
+    // Include timezone offset for proper date filtering
+    const tzOffset = new Date().getTimezoneOffset();
     const params = new URLSearchParams({
       ...filters as any,
+      timezoneOffsetMinutes: tzOffset.toString(),
       page: page.toString(),
       limit: pageSize.toString()
     });
@@ -899,8 +902,11 @@ const App: React.FC = () => {
   };
 
   const onFetchAllFilteredOrders = async (filters: ReportFilters): Promise<Order[]> => {
+    // Include timezone offset for proper date filtering
+    const tzOffset = new Date().getTimezoneOffset();
     const params = new URLSearchParams({
       ...filters as any,
+      timezoneOffsetMinutes: tzOffset.toString(),
       page: '1',
       limit: '10000'
     });
@@ -911,8 +917,11 @@ const App: React.FC = () => {
   };
 
   const onFetchStats = async (filters: ReportFilters): Promise<any> => {
+    // Include timezone offset for proper date filtering
+    const tzOffset = new Date().getTimezoneOffset();
     const params = new URLSearchParams({
       ...filters as any,
+      timezoneOffsetMinutes: tzOffset.toString(),
       page: '1',
       limit: '1'
     });

@@ -138,6 +138,7 @@ export interface ReportFilters {
   endDate?: string;
   status?: string;
   search?: string;
+  timezoneOffsetMinutes?: string;
 }
 
 export interface CategoryData {

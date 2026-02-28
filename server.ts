@@ -69,10 +69,13 @@ async function startServer() {
   });
 
   app.get('/api/orders/report', async (req, res) => {
-    const { restaurantId, startDate, endDate, status, search, page = 1, limit = 30, locationName } = req.query;
+    const { restaurantId, startDate, endDate, status, search, page = 1, limit = 30, locationName, timezoneOffsetMinutes } = req.query;
     
     const start = (Number(page) - 1) * Number(limit);
     const end = start + Number(limit) - 1;
+    
+    // Get timezone offset from client (in minutes). If not provided, assume UTC (0)
+    const tzOffset = timezoneOffsetMinutes ? Number(timezoneOffsetMinutes) : 0;
 
     try {
       let query = supabase.from('orders').select('*', { count: 'exact' });
@@ -82,14 +85,28 @@ async function startServer() {
       if (status && status !== 'ALL') query = query.eq('status', status);
       
       if (startDate) {
+        // startDate is in format "YYYY-MM-DD" representing local midnight
+        // Convert to UTC by accounting for timezone offset
         const startD = new Date(startDate as string);
         startD.setHours(0, 0, 0, 0);
-        query = query.gte('timestamp', startD.getTime());
+        // The date string is interpreted as UTC, but we need to convert it to the UTC that represents
+        // the start of that day in the client's timezone. 
+        // For a client at UTC+8 selecting "2026-03-01":
+        // - They want: 2026-03-01 00:00:00+08 which is 2026-02-28 16:00:00 UTC
+        // - We have: 2026-03-01 00:00:00 (from the string, interpreted as UTC)
+        // - We need to subtract 8 hours (the offset) to get the correct UTC time
+        const startTimestamp = startD.getTime() - (tzOffset * 60000);
+        query = query.gte('timestamp', startTimestamp);
       }
       if (endDate) {
+        // endDate is in format "YYYY-MM-DD" representing local midnight
+        // For a client at UTC+8 selecting "2026-03-01":
+        // - They want: 2026-03-02 00:00:00+08 (end of 2026-03-01) which is 2026-03-01 16:00:00 UTC
+        // - So we set to 23:59:59 of the selected date and adjust for timezone
         const endD = new Date(endDate as string);
         endD.setHours(23, 59, 59, 999);
-        query = query.lte('timestamp', endD.getTime());
+        const endTimestamp = endD.getTime() - (tzOffset * 60000);
+        query = query.lte('timestamp', endTimestamp);
       }
       
       if (search) query = query.ilike('id', `%${search}%`);
@@ -109,12 +126,14 @@ async function startServer() {
       if (startDate) {
         const startD = new Date(startDate as string);
         startD.setHours(0, 0, 0, 0);
-        summaryQuery = summaryQuery.gte('timestamp', startD.getTime());
+        const startTimestamp = startD.getTime() - (tzOffset * 60000);
+        summaryQuery = summaryQuery.gte('timestamp', startTimestamp);
       }
       if (endDate) {
         const endD = new Date(endDate as string);
         endD.setHours(23, 59, 59, 999);
-        summaryQuery = summaryQuery.lte('timestamp', endD.getTime());
+        const endTimestamp = endD.getTime() - (tzOffset * 60000);
+        summaryQuery = summaryQuery.lte('timestamp', endTimestamp);
       }
       
       if (search) summaryQuery = summaryQuery.ilike('id', `%${search}%`);
