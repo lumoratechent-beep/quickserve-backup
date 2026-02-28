@@ -366,6 +366,10 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Compute active vendor and current area early for hooks
+  const activeVendorRes = currentUser?.role === 'VENDOR' ? restaurants.find(r => r.id === currentUser.restaurantId) : null;
+  const currentArea = locations.find(l => l.name === sessionLocation);
+
   // Global Data Initialization
   useEffect(() => {
     const initApp = async () => {
@@ -942,9 +946,6 @@ const App: React.FC = () => {
     
     setRestaurants(prev => prev.map(r => r.id === restaurantId ? { ...r, settings } : r));
   };
-
-  const activeVendorRes = currentUser?.role === 'VENDOR' ? restaurants.find(r => r.id === currentUser.restaurantId) : null;
-  const currentArea = locations.find(l => l.name === sessionLocation);
 
   if (isLoading) {
     return (
