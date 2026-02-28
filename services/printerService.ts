@@ -7,10 +7,24 @@ export interface PrinterDevice {
   name: string;
 }
 
+export interface ReceiptPrintOptions {
+  showDateTime?: boolean;
+  showOrderId?: boolean;
+  showTableNumber?: boolean;
+  showItems?: boolean;
+  showRemark?: boolean;
+  showTotal?: boolean;
+  headerLine1?: string;
+  headerLine2?: string;
+  footerLine1?: string;
+  footerLine2?: string;
+}
+
 interface PrintJob {
   id: string;
   order: any;
   restaurant: any;
+  options?: ReceiptPrintOptions;
   resolve: (value: boolean) => void;
   reject: (reason?: any) => void;
   timestamp: number;
@@ -316,7 +330,7 @@ class PrinterService {
         console.log(`Processing print job ${job.id} (${this.printQueue.length} remaining)`);
 
         // Process the print job
-        const success = await this.executePrint(job.order, job.restaurant);
+        const success = await this.executePrint(job.order, job.restaurant, job.options);
         
         if (success) {
           job.resolve(true);
@@ -350,7 +364,7 @@ class PrinterService {
   /**
    * Execute the actual print (extracted from printReceipt)
    */
-  private async executePrint(order: any, restaurant: any): Promise<boolean> {
+  private async executePrint(order: any, restaurant: any, options?: ReceiptPrintOptions): Promise<boolean> {
     try {
       const orderDate = new Date(order.timestamp);
       const dateStr = this.formatDate(orderDate);
@@ -361,6 +375,17 @@ class PrinterService {
       const safeOrderId = this.sanitizeText(order.id) || 'ORDER';
       const safeTableNumber = this.sanitizeText(order.tableNumber) || '0';
       const safeRemark = this.sanitizeText(order.remark);
+      const safeHeaderLine1 = this.sanitizeText(options?.headerLine1 || '');
+      const safeHeaderLine2 = this.sanitizeText(options?.headerLine2 || '');
+      const safeFooterLine1 = this.sanitizeText(options?.footerLine1 || 'Thank you!');
+      const safeFooterLine2 = this.sanitizeText(options?.footerLine2 || 'Please come again');
+
+      const showDateTime = options?.showDateTime !== false;
+      const showOrderId = options?.showOrderId !== false;
+      const showTableNumber = options?.showTableNumber !== false;
+      const showItems = options?.showItems !== false;
+      const showRemark = options?.showRemark !== false;
+      const showTotal = options?.showTotal !== false;
 
       // Start building receipt with printer reset
       let receipt = this.encoder
@@ -368,13 +393,32 @@ class PrinterService {
         .align('center')
         .size(2, 2)
         .line(safeRestaurantName)
-        .size(1, 1)
+        .size(1, 1);
+
+      if (safeHeaderLine1) {
+        receipt = receipt.line(safeHeaderLine1);
+      }
+
+      if (safeHeaderLine2) {
+        receipt = receipt.line(safeHeaderLine2);
+      }
+
+      receipt = receipt
         .line('='.repeat(32))
-        .align('left')
-        .line(`${dateStr} ${timeStr} | #${safeOrderId}`);
+        .align('left');
+
+      if (showDateTime || showOrderId) {
+        if (showDateTime && showOrderId) {
+          receipt = receipt.line(`${dateStr} ${timeStr} | #${safeOrderId}`);
+        } else if (showDateTime) {
+          receipt = receipt.line(`${dateStr} ${timeStr}`);
+        } else {
+          receipt = receipt.line(`#${safeOrderId}`);
+        }
+      }
 
       // Add table info if available
-      if (order.tableNumber) {
+      if (showTableNumber && order.tableNumber) {
         receipt = receipt
           .line('')
           .line(`Table: ${safeTableNumber}`);
@@ -383,7 +427,7 @@ class PrinterService {
       receipt = receipt.line('-'.repeat(32));
 
       // Process items safely
-      if (order.items && Array.isArray(order.items) && order.items.length > 0) {
+      if (showItems && order.items && Array.isArray(order.items) && order.items.length > 0) {
         order.items.forEach((item: any) => {
           // Sanitize item name
           const safeItemName = this.sanitizeText(item.name) || 'ITEM';
@@ -425,11 +469,11 @@ class PrinterService {
           receipt = receipt.line('');
         });
       } else {
-        receipt = receipt.line('No items').line('');
+        receipt = receipt.line(showItems ? 'No items' : 'Items hidden').line('');
       }
 
       // Add remark if present and sanitized
-      if (safeRemark) {
+      if (showRemark && safeRemark) {
         receipt = receipt
           .line('-'.repeat(32))
           .line('Note:')
@@ -441,14 +485,28 @@ class PrinterService {
       const safeTotal = this.formatPrice(order.total);
 
       // Add total and footer
+      receipt = receipt.line('-'.repeat(32));
+
+      if (showTotal) {
+        receipt = receipt
+          .align('right')
+          .line(`TOTAL: RM ${safeTotal}`)
+          .align('center');
+      } else {
+        receipt = receipt.align('center');
+      }
+
+      receipt = receipt.line('='.repeat(32));
+
+      if (safeFooterLine1) {
+        receipt = receipt.line(safeFooterLine1);
+      }
+
+      if (safeFooterLine2) {
+        receipt = receipt.line(safeFooterLine2);
+      }
+
       receipt = receipt
-        .line('-'.repeat(32))
-        .align('right')
-        .line(`TOTAL: RM ${safeTotal}`)
-        .align('center')
-        .line('='.repeat(32))
-        .line('Thank you!')
-        .line('Please come again')
         .newline()
         .newline()
         .cut();
@@ -572,7 +630,7 @@ class PrinterService {
   /**
    * Add a print job to the queue
    */
-  async printReceipt(order: any, restaurant: any): Promise<boolean> {
+  async printReceipt(order: any, restaurant: any, options?: ReceiptPrintOptions): Promise<boolean> {
     // Check queue size to prevent memory issues
     if (this.printQueue.length >= this.maxQueueSize) {
       console.error('Print queue full');
@@ -588,6 +646,7 @@ class PrinterService {
         id: jobId,
         order: { ...order }, // Create a shallow copy to prevent mutations
         restaurant: { ...restaurant },
+        options,
         resolve,
         reject,
         timestamp: Date.now()

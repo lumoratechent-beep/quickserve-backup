@@ -5,7 +5,7 @@ import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, Rep
 import { supabase } from '../lib/supabase';
 import { uploadImage } from '../lib/storage';
 import * as counterOrdersCache from '../lib/counterOrdersCache';
-import printerService, { PrinterDevice } from '../services/printerService';
+import printerService, { PrinterDevice, ReceiptPrintOptions } from '../services/printerService';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import StandardReport from '../components/StandardReport';
@@ -29,6 +29,36 @@ interface Props {
   onFetchPaginatedOrders?: (filters: ReportFilters, page: number, pageSize: number) => Promise<ReportResponse>;
   onFetchAllFilteredOrders?: (filters: ReportFilters) => Promise<Order[]>;
 }
+
+interface ReceiptSettings {
+  autoPrintEnabled: boolean;
+  businessName: string;
+  headerLine1: string;
+  headerLine2: string;
+  showDateTime: boolean;
+  showOrderId: boolean;
+  showTableNumber: boolean;
+  showItems: boolean;
+  showRemark: boolean;
+  showTotal: boolean;
+  footerLine1: string;
+  footerLine2: string;
+}
+
+const getDefaultReceiptSettings = (restaurantName: string): ReceiptSettings => ({
+  autoPrintEnabled: false,
+  businessName: restaurantName,
+  headerLine1: '',
+  headerLine2: '',
+  showDateTime: true,
+  showOrderId: true,
+  showTableNumber: true,
+  showItems: true,
+  showRemark: true,
+  showTotal: true,
+  footerLine1: 'Thank you!',
+  footerLine2: 'Please come again',
+});
 
 const PosOnlyView: React.FC<Props> = ({ 
   restaurant, 
@@ -121,6 +151,9 @@ const PosOnlyView: React.FC<Props> = ({
   const [printerStatus, setPrinterStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
   const [errorMessage, setErrorMessage] = useState('');
   const [testPrintStatus, setTestPrintStatus] = useState<'idle' | 'printing' | 'success' | 'error'>('idle');
+  const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings>(() => getDefaultReceiptSettings(restaurant.name));
+  const [isSavingReceiptSettings, setIsSavingReceiptSettings] = useState(false);
+  const [receiptSettingsSaved, setReceiptSettingsSaved] = useState(false);
 
   // Staff Management State
   const [staffList, setStaffList] = useState<any[]>(() => {
@@ -426,8 +459,31 @@ const PosOnlyView: React.FC<Props> = ({
 
   const handleCheckout = async () => {
     if (posCart.length === 0) return;
+
+    const orderForPrint = {
+      id: `POS-${Date.now()}`,
+      tableNumber: posTableNo,
+      timestamp: Date.now(),
+      total: cartTotal,
+      items: posCart,
+      remark: posRemark,
+    };
+
     try {
       await onPlaceOrder(posCart, posRemark, posTableNo);
+
+      if (receiptSettings.autoPrintEnabled) {
+        if (connectedDevice) {
+          const printRestaurant = {
+            ...restaurant,
+            name: receiptSettings.businessName.trim() || restaurant.name,
+          };
+          await printerService.printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions());
+        } else {
+          alert('Receipt auto-print is enabled but no printer is connected.');
+        }
+      }
+
       setPosCart([]);
       setPosRemark('');
       setPosTableNo('Counter');
@@ -671,6 +727,39 @@ const PosOnlyView: React.FC<Props> = ({
     }
   }, [restaurant.id]);
 
+  useEffect(() => {
+    const defaults = getDefaultReceiptSettings(restaurant.name);
+    const localSaved = localStorage.getItem(`receipt_settings_${restaurant.id}`);
+    const dbSaved = (restaurant as any)?.receipt_settings;
+
+    if (localSaved) {
+      try {
+        const parsed = JSON.parse(localSaved);
+        setReceiptSettings({ ...defaults, ...parsed });
+        return;
+      } catch (error) {
+        console.error('Failed to parse local receipt settings', error);
+      }
+    }
+
+    if (dbSaved && typeof dbSaved === 'object') {
+      setReceiptSettings({ ...defaults, ...dbSaved });
+      return;
+    }
+
+    setReceiptSettings(defaults);
+  }, [restaurant.id, restaurant.name, (restaurant as any)?.receipt_settings]);
+
+  useEffect(() => {
+    localStorage.setItem(`receipt_settings_${restaurant.id}`, JSON.stringify(receiptSettings));
+  }, [receiptSettings, restaurant.id]);
+
+  useEffect(() => {
+    if (!receiptSettingsSaved) return;
+    const timer = setTimeout(() => setReceiptSettingsSaved(false), 2000);
+    return () => clearTimeout(timer);
+  }, [receiptSettingsSaved]);
+
   const handleAddCategory = () => {
     if (!newClassName.trim()) return;
     const categoryName = newClassName.trim();
@@ -871,6 +960,45 @@ const PosOnlyView: React.FC<Props> = ({
       setErrorMessage('Print failed');
     }
   };
+
+  const updateReceiptSetting = <K extends keyof ReceiptSettings>(key: K, value: ReceiptSettings[K]) => {
+    setReceiptSettings(prev => ({ ...prev, [key]: value }));
+    setReceiptSettingsSaved(false);
+  };
+
+  const saveReceiptSettings = async () => {
+    setIsSavingReceiptSettings(true);
+    try {
+      const { error } = await supabase
+        .from('restaurants')
+        .update({ receipt_settings: receiptSettings })
+        .eq('id', restaurant.id);
+
+      if (error) {
+        alert('Failed to save receipt settings: ' + error.message);
+        return;
+      }
+
+      setReceiptSettingsSaved(true);
+    } catch (error: any) {
+      alert('Failed to save receipt settings: ' + error.message);
+    } finally {
+      setIsSavingReceiptSettings(false);
+    }
+  };
+
+  const getReceiptPrintOptions = (): ReceiptPrintOptions => ({
+    showDateTime: receiptSettings.showDateTime,
+    showOrderId: receiptSettings.showOrderId,
+    showTableNumber: receiptSettings.showTableNumber,
+    showItems: receiptSettings.showItems,
+    showRemark: receiptSettings.showRemark,
+    showTotal: receiptSettings.showTotal,
+    headerLine1: receiptSettings.headerLine1,
+    headerLine2: receiptSettings.headerLine2,
+    footerLine1: receiptSettings.footerLine1,
+    footerLine2: receiptSettings.footerLine2,
+  });
 
   const handleDownloadReport = async () => {
     const allOrders = await fetchReport(true) as Order[];
@@ -1499,7 +1627,7 @@ const PosOnlyView: React.FC<Props> = ({
             <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-4xl mx-auto">
                 <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Settings</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Configure printer and staff access</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Configure printer, receipt format, and staff access</p>
                 
                 <div className="space-y-8">
                   {/* Printer Configuration */}
@@ -1645,6 +1773,131 @@ const PosOnlyView: React.FC<Props> = ({
                           )}
                         </>
                       )}
+                    </div>
+                  </div>
+
+                  {/* Receipt Settings */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden">
+                    <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CreditCard size={16} className="text-orange-500" />
+                        <h2 className="font-black dark:text-white uppercase tracking-tighter text-sm">Receipt Settings</h2>
+                      </div>
+                      {receiptSettingsSaved && (
+                        <span className="text-[8px] font-black text-green-600 uppercase tracking-widest bg-green-50 px-2 py-1 rounded">Saved</span>
+                      )}
+                    </div>
+
+                    <div className="p-4 space-y-4">
+                      <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border dark:border-gray-700">
+                        <div>
+                          <h3 className="font-black text-xs dark:text-white">Auto-Print Receipt</h3>
+                          <p className="text-[9px] text-gray-500 dark:text-gray-400">Automatically print after successful checkout</p>
+                        </div>
+                        <button
+                          onClick={() => updateReceiptSetting('autoPrintEnabled', !receiptSettings.autoPrintEnabled)}
+                          className={`w-12 h-6 rounded-full transition-all relative ${
+                            receiptSettings.autoPrintEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                          }`}
+                        >
+                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                            receiptSettings.autoPrintEnabled ? 'left-7' : 'left-1'
+                          }`} />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Business Name</label>
+                          <input
+                            type="text"
+                            value={receiptSettings.businessName}
+                            onChange={event => updateReceiptSetting('businessName', event.target.value)}
+                            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                            placeholder="Printed store name"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Header Line 1</label>
+                          <input
+                            type="text"
+                            value={receiptSettings.headerLine1}
+                            onChange={event => updateReceiptSetting('headerLine1', event.target.value)}
+                            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                            placeholder="Optional"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Header Line 2</label>
+                          <input
+                            type="text"
+                            value={receiptSettings.headerLine2}
+                            onChange={event => updateReceiptSetting('headerLine2', event.target.value)}
+                            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                            placeholder="Optional"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Footer Line 1</label>
+                          <input
+                            type="text"
+                            value={receiptSettings.footerLine1}
+                            onChange={event => updateReceiptSetting('footerLine1', event.target.value)}
+                            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                            placeholder="Thank you!"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Footer Line 2</label>
+                          <input
+                            type="text"
+                            value={receiptSettings.footerLine2}
+                            onChange={event => updateReceiptSetting('footerLine2', event.target.value)}
+                            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                            placeholder="Please come again"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border dark:border-gray-700">
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Printed Fields</p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {[
+                            { key: 'showDateTime', label: 'Date & Time' },
+                            { key: 'showOrderId', label: 'Order ID' },
+                            { key: 'showTableNumber', label: 'Table Number' },
+                            { key: 'showItems', label: 'Items' },
+                            { key: 'showRemark', label: 'Remark' },
+                            { key: 'showTotal', label: 'Total' },
+                          ].map(field => (
+                            <label key={field.key} className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
+                              <input
+                                type="checkbox"
+                                checked={receiptSettings[field.key as keyof ReceiptSettings] as boolean}
+                                onChange={event => updateReceiptSetting(field.key as keyof ReceiptSettings, event.target.checked as any)}
+                                className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                              />
+                              {field.label}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setReceiptSettings(getDefaultReceiptSettings(restaurant.name))}
+                          className="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500 hover:text-orange-500"
+                        >
+                          Reset
+                        </button>
+                        <button
+                          onClick={saveReceiptSettings}
+                          disabled={isSavingReceiptSettings}
+                          className="px-4 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center gap-2"
+                        >
+                          {isSavingReceiptSettings ? 'Saving...' : 'Save Receipt Settings'}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
