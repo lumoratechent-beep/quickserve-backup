@@ -479,8 +479,25 @@ const PosOnlyView: React.FC<Props> = ({
   const handleCheckout = async () => {
     if (posCart.length === 0 || isCompletingPayment) return;
 
+    // Generate proper sequential order ID - get last order ID first
+    let nextOrderNum = 1;
+    if (cachedCounterOrders.length > 0) {
+      // Try to extract number from last order ID
+      const lastOrder = cachedCounterOrders[0]; // Most recent is first
+      const match = lastOrder.id.match(/\d+/);
+      if (match) {
+        const lastNum = parseInt(match[0]);
+        if (!isNaN(lastNum)) {
+          nextOrderNum = lastNum + 1;
+        }
+      }
+    }
+    
+    const prefix = 'POS'; // Counter orders use POS prefix
+    const sequenceId = `${prefix}${String(nextOrderNum).padStart(6, '0')}`; // e.g., POS000001
+    
     const orderForPrint = {
-      id: `POS-${Date.now()}`,
+      id: sequenceId,
       tableNumber: posTableNo,
       timestamp: Date.now(),
       total: cartTotal,
