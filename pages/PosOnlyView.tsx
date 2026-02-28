@@ -1,9 +1,10 @@
 // pages/PosOnlyView.tsx
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters, CategoryData, ModifierData, ModifierOption } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { uploadImage } from '../lib/storage';
+import * as counterOrdersCache from '../lib/counterOrdersCache';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
 import StandardReport from '../components/StandardReport';
 import { 
@@ -115,6 +116,12 @@ const PosOnlyView: React.FC<Props> = ({
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [newStaffPhone, setNewStaffPhone] = useState('');
   const [isAddingStaff, setIsAddingStaff] = useState(false);
+
+  // Counter Orders Cache State - For local caching strategy
+  const [cachedCounterOrders, setCachedCounterOrders] = useState<Order[]>(() => {
+    return counterOrdersCache.getCachedCounterOrders(restaurant.id);
+  });
+  const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleRemoveStaff = async (staff: any, index: number) => {
     const updated = staffList.filter((_: any, idx: number) => idx !== index);
@@ -348,6 +355,25 @@ const PosOnlyView: React.FC<Props> = ({
     if (posCart.length === 0) return;
     try {
       await onPlaceOrder(posCart, posRemark, posTableNo);
+      
+      // Create a new order object and add to cache
+      const newOrder: Order = {
+        id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        items: posCart,
+        total: cartTotal,
+        status: OrderStatus.SERVED,
+        timestamp: Date.now(),
+        restaurantId: restaurant.id,
+        tableNumber: posTableNo,
+        locationName: '',
+        customerId: '',
+        remark: posRemark,
+      };
+      
+      // Add to cache immediately
+      counterOrdersCache.addCounterOrderToCache(restaurant.id, newOrder);
+      setCachedCounterOrders(prev => [newOrder, ...prev]);
+      
       setPosCart([]);
       setPosRemark('');
       setPosTableNo('Counter');
@@ -358,9 +384,34 @@ const PosOnlyView: React.FC<Props> = ({
     }
   };
 
+  // Handle order status updates (e.g., marking as paid/completed)
+  const handleOrderStatusUpdate = async (orderId: string, newStatus: OrderStatus) => {
+    try {
+      // Call the parent handler
+      onUpdateOrder(orderId, newStatus);
+      
+      // If order is marked as completed/paid, remove from cache
+      if (newStatus === OrderStatus.COMPLETED || newStatus === OrderStatus.CANCELLED) {
+        counterOrdersCache.removeCounterOrderFromCache(restaurant.id, orderId);
+        setCachedCounterOrders(prev => prev.filter(o => o.id !== orderId));
+      } else {
+        // Update the order in cache with new status
+        setCachedCounterOrders(prev => 
+          prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o)
+        );
+        counterOrdersCache.addCounterOrderToCache(restaurant.id, 
+          cachedCounterOrders.find(o => o.id === orderId)!
+        );
+      }
+    } catch (error) {
+      console.error('Error updating order status:', error);
+    }
+  };
+
   const unpaidOrders = useMemo(() => {
-    return orders.filter(o => o.status === OrderStatus.SERVED && o.restaurantId === restaurant.id);
-  }, [orders, restaurant.id]);
+    // Use cached counter orders instead of fetching from DB
+    return cachedCounterOrders;
+  }, [cachedCounterOrders]);
 
   const fetchReport = async (isExport = false) => {
     if (!onFetchPaginatedOrders) return;
@@ -391,6 +442,65 @@ const PosOnlyView: React.FC<Props> = ({
       fetchReport();
     }
   }, [activeTab, reportStart, reportEnd, reportStatus, reportSearchQuery, currentPage, entriesPerPage]);
+
+  // Load cached counter orders on component mount or when restaurantId changes
+  useEffect(() => {
+    const cached = counterOrdersCache.getCachedCounterOrders(restaurant.id);
+    setCachedCounterOrders(cached);
+  }, [restaurant.id]);
+
+  // Setup periodic sync to database every 10 minutes
+  useEffect(() => {
+    const syncToDB = async () => {
+      if (cachedCounterOrders.length === 0) return;
+      
+      try {
+        // Sync all cached orders to the database
+        for (const order of cachedCounterOrders) {
+          const { error } = await supabase
+            .from('orders')
+            .upsert(
+              {
+                id: order.id,
+                items: JSON.stringify(order.items),
+                total: order.total,
+                status: order.status,
+                timestamp: order.timestamp,
+                restaurant_id: order.restaurantId,
+                table_number: order.tableNumber,
+                location_name: order.locationName || '',
+                customer_id: order.customerId || '',
+                remark: order.remark || '',
+              },
+              { onConflict: 'id' }
+            );
+
+          if (error) {
+            console.error('Error syncing order to DB:', error);
+          }
+        }
+
+        // Update sync timestamp
+        counterOrdersCache.setLastSyncTime(restaurant.id);
+        console.log(`[PosOnlyView] Synced ${cachedCounterOrders.length} counter orders to DB`);
+      } catch (error) {
+        console.error('Error during counter orders sync:', error);
+      }
+    };
+
+    // Setup interval for periodic sync (every 10 minutes = 600,000ms)
+    syncIntervalRef.current = setInterval(syncToDB, 10 * 60 * 1000);
+
+    // Also sync immediately on first setup (optional, comment out if not needed)
+    // syncToDB();
+
+    // Cleanup interval on unmount
+    return () => {
+      if (syncIntervalRef.current) {
+        clearInterval(syncIntervalRef.current);
+      }
+    };
+  }, [cachedCounterOrders, restaurant.id]);
 
   useEffect(() => {
     if (restaurant.categories && restaurant.categories.length > 0) {
