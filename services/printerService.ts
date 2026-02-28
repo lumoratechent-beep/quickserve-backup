@@ -8,6 +8,7 @@ export interface PrinterDevice {
 }
 
 export interface ReceiptPrintOptions {
+  businessName?: string;
   showDateTime?: boolean;
   showOrderId?: boolean;
   showTableNumber?: boolean;
@@ -642,7 +643,7 @@ class PrinterService {
     }
   }
 
-  async printTestPage(): Promise<boolean> {
+  async printTestPage(options?: ReceiptPrintOptions): Promise<boolean> {
     if (this.isPrinting) {
       // Queue test pages too? Usually no, but we can
       return new Promise((resolve, reject) => {
@@ -683,6 +684,11 @@ class PrinterService {
       }
 
       const now = new Date();
+      const testBusinessName = this.sanitizeText(options?.businessName || 'QUICKSERVE') || 'QUICKSERVE';
+      const horizontalOffset = Math.min(8, Math.max(-8, Number(options?.horizontalOffset ?? 0)));
+      const businessNameAlign = options?.businessNameAlign ?? 'center';
+      const headerLine1Align = options?.headerLine1Align ?? 'center';
+      const totalAlign = options?.totalAlign ?? 'right';
       
       // Simple test page with only ASCII characters
       const data = this.encoder
@@ -690,16 +696,16 @@ class PrinterService {
         .align('left')
         .line('')
         .size(2, 2)
-        .line(this.alignText('QUICKSERVE', 16, 'center', 0))
+        .line(this.alignText(testBusinessName, 16, businessNameAlign, horizontalOffset))
         .size(1, 1)
         .line('')
         .line('='.repeat(32))
-        .line(this.alignText('TEST PAGE', this.charsPerLine, 'center', 0))
+        .line(this.alignText('TEST PAGE', this.charsPerLine, headerLine1Align, horizontalOffset))
         .line('')
         .align('left')
         .line(this.formatDate(now) + ' ' + this.formatTime(now))
         .line('')
-        .line(this.alignText('Printer is working!', this.charsPerLine, 'center', 0))
+        .line(this.alignText('Printer is working!', this.charsPerLine, totalAlign, horizontalOffset))
         .line('='.repeat(32))
         .cut()
         .encode() as Uint8Array;

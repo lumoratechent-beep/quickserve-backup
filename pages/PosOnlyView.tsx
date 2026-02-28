@@ -1021,7 +1021,13 @@ const PosOnlyView: React.FC<Props> = ({
     setTestPrintStatus('printing');
     setErrorMessage('');
 
-    const success = await printerService.printTestPage();
+    const success = await printerService.printTestPage({
+      businessName: receiptSettings.businessName,
+      horizontalOffset: receiptSettings.horizontalOffset,
+      businessNameAlign: receiptSettings.businessNameAlign,
+      headerLine1Align: receiptSettings.headerLine1Align,
+      totalAlign: receiptSettings.totalAlign,
+    });
 
     if (success) {
       setTestPrintStatus('success');
