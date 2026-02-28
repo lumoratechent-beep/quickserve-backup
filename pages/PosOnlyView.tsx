@@ -2618,6 +2618,38 @@ const PosOnlyView: React.FC<Props> = ({
                       className="w-full p-3 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-sm font-mono dark:text-white resize-none"
                       rows={3}
                     />
+                    
+                    {/* Character Position Ruler */}
+                    <div className="mt-3 space-y-1">
+                      <p className="text-[8px] font-black text-gray-500 uppercase">Position Ruler:</p>
+                      <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700/50 rounded border dark:border-gray-600 font-mono text-[10px] text-gray-600 dark:text-gray-400 space-y-1">
+                        {/* Position markers every 5 chars */}
+                        <div className="flex text-center leading-4">
+                          {Array.from({ length: 32 }).map((_, i) => (
+                            <div key={`pos-${i}`} className="w-4 h-4 flex-shrink-0 flex items-center justify-center text-[8px]">
+                              {(i + 1) % 5 === 0 ? i + 1 : '.'}
+                            </div>
+                          ))}
+                        </div>
+                        {/* Your text preview */}
+                        <div className="flex">
+                          {Array.from(devTestText).map((char, i) => (
+                            <div key={`char-${i}`} className="w-4 h-4 flex items-center justify-center text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30">
+                              {char}
+                            </div>
+                          ))}
+                          {/* Empty spaces to show where text ends */}
+                          {Array.from({ length: 32 - devTestText.length }).map((_, i) => (
+                            <div key={`empty-${i}`} className="w-4 h-4 flex-shrink-0 bg-gray-100 dark:bg-gray-600/30 border border-gray-200 dark:border-gray-600"></div>
+                          ))}
+                        </div>
+                        {/* Space indicator */}
+                        <div className="text-[8px] text-gray-500">
+                          {devTestText.length} chars used, {32 - devTestText.length} spaces remaining
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="mt-2 px-3 py-2 bg-gray-50 dark:bg-gray-700/30 rounded font-mono text-xs text-gray-600 dark:text-gray-300 break-all">
                       {devTestText}
                     </div>
