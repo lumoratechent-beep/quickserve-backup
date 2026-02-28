@@ -24,6 +24,19 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
     setSelectedAddOns({});
   }, [item]);
 
+  useEffect(() => {
+    if (!item) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [item, onClose]);
+
   if (!item) return null;
 
   const handleAddOnQuantityChange = (addOn: AddOnItem, change: number) => {
@@ -96,8 +109,19 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[120] p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl border dark:border-gray-700">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      style={{ zIndex: 1000 }}
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Customize item"
+    >
+      <div
+        className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl border dark:border-gray-700"
+        style={{ maxHeight: '90vh' }}
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="p-5 border-b dark:border-gray-700 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-black dark:text-white uppercase tracking-tight">{item.name}</h3>
