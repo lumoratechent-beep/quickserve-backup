@@ -19,6 +19,21 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
   const [selectedTemp, setSelectedTemp] = useState<'Hot' | 'Cold' | undefined>(undefined);
   const [selectedOtherVariant, setSelectedOtherVariant] = useState('');
   const [selectedAddOns, setSelectedAddOns] = useState<Record<string, SelectedAddOn>>({});
+  const [renderError, setRenderError] = useState<string>('');
+
+  // Log item state for debugging
+  React.useEffect(() => {
+    console.log('ItemOptionsModal: item changed', { item, hasItem: !!item });
+    if (item) {
+      console.log('ItemOptionsModal: item details', {
+        name: item.name,
+        sizes: item.sizes,
+        tempOptions: item.tempOptions,
+        otherVariants: item.otherVariants,
+        addOns: item.addOns,
+      });
+    }
+  }, [item]);
 
   const sizes = useMemo(() => {
     return toSafeArray<{ name: string; price: number }>(item?.sizes)
@@ -56,7 +71,12 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [item, onClose]);
 
-  if (!item || typeof document === 'undefined') return null;
+  if (!item || typeof document === 'undefined') {
+    console.log('ItemOptionsModal: Returning null because item or document is missing', { hasItem: !!item, hasDocument: typeof document !== 'undefined' });
+    return null;
+  }
+
+  console.log('ItemOptionsModal: About to render with item', item.name);
 
   const changeAddOnQuantity = (addOn: AddOnItem, delta: number) => {
     const current = selectedAddOns[addOn.name] || { name: addOn.name, price: addOn.price, quantity: 0 };
@@ -144,10 +164,24 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
       }}
     >
       <div
-        onClick={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          console.log('ItemOptionsModal: Modal content clicked, stopping propagation');
+          event.stopPropagation();
+        }}
         className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-2xl shadow-2xl border dark:border-gray-700"
-        style={{ maxHeight: '90vh', overflow: 'hidden' }}
+        style={{ 
+          maxHeight: '90vh', 
+          overflow: 'hidden',
+          visibility: 'visible',
+          opacity: 1,
+        }}
       >
+        {renderError && (
+          <div className="p-4 bg-red-100 border border-red-400 text-red-700">
+            <p className="font-bold">Error rendering modal:</p>
+            <p className="text-sm font-mono">{renderError}</p>
+          </div>
+        )}
         <div className="p-5 border-b dark:border-gray-700 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-black dark:text-white uppercase tracking-tight">{item.name}</h3>

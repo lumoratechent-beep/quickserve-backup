@@ -362,6 +362,8 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const handleMenuItemClick = (item: MenuItem) => {
+    console.log('PosOnlyView: Menu item clicked', { itemName: item.name, itemId: item.id });
+    
     const sanitizedItem: MenuItem = {
       ...item,
       sizes: Array.isArray(item.sizes) ? item.sizes.filter(size => size && typeof size.name === 'string' && typeof size.price === 'number') : [],
@@ -382,11 +384,15 @@ const PosOnlyView: React.FC<Props> = ({
       (sanitizedItem.otherVariantsEnabled && sanitizedItem.otherVariants && sanitizedItem.otherVariants.length > 0) ||
       (sanitizedItem.addOns && sanitizedItem.addOns.length > 0);
 
+    console.log('PosOnlyView: Checking if item has options', { hasOptions, sanitizedItem });
+
     if (hasOptions) {
+      console.log('PosOnlyView: Setting selected item for options modal');
       setSelectedItemForOptions(sanitizedItem);
       return;
     }
 
+    console.log('PosOnlyView: No options, adding directly to cart');
     addToPosCart({ ...sanitizedItem, quantity: 1, restaurantId: restaurant.id });
   };
 
@@ -932,6 +938,32 @@ const PosOnlyView: React.FC<Props> = ({
 
               <div className="flex-1 overflow-y-auto p-2 scroll-smooth">
                 <div className="space-y-4">
+                  {/* DEBUG TEST BUTTON */}
+                  <button
+                    onClick={() => {
+                      const testItem: MenuItem = {
+                        id: 'TEST_ITEM',
+                        name: '🧪 TEST ITEM',
+                        description: 'Test item to verify modal works',
+                        price: 10,
+                        image: '',
+                        category: 'Test',
+                        isArchived: false,
+                        sizes: [{ name: 'Small', price: 0 }, { name: 'Large', price: 2 }],
+                        otherVariantName: 'Type',
+                        otherVariants: [{ name: 'Classic', price: 0 }],
+                        otherVariantsEnabled: true,
+                        tempOptions: { enabled: true, hot: 0, cold: 0 },
+                        addOns: [{ name: 'Extra', price: 1, maxQuantity: 5 }],
+                      };
+                      console.log('TEST: Manual modal open triggered', testItem);
+                      setSelectedItemForOptions(testItem);
+                    }}
+                    className="w-full py-2 bg-purple-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-purple-600 transition-all mb-4"
+                  >
+                    🧪 Click to TEST Modal (Manual)
+                  </button>
+
                   {Object.entries(groupedMenu).map(([category, items]) => (
                     <section key={category}>
                       <div className="flex items-center gap-3 mb-2">

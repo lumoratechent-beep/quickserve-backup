@@ -81,6 +81,40 @@ const App: React.FC = () => {
     return localStorage.getItem('qs_role') as Role | null;
   });
   
+  const [globalError, setGlobalError] = useState<{
+    message: string;
+    stack?: string;
+    timestamp: number;
+  } | null>(null);
+
+  // Global error handler
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      console.error('GLOBAL ERROR CAUGHT:', event.error);
+      setGlobalError({
+        message: event.message || 'Unknown error occurred',
+        stack: event.error?.stack,
+        timestamp: Date.now(),
+      });
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      console.error('UNHANDLED PROMISE REJECTION:', event.reason);
+      setGlobalError({
+        message: String(event.reason?.message || event.reason || 'Unhandled promise rejection'),
+        stack: event.reason?.stack,
+        timestamp: Date.now(),
+      });
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
+  
   const [view, setView] = useState<'LANDING' | 'LOGIN' | 'APP' | 'MARKETING' | 'POS'>(() => {
     const savedView = localStorage.getItem('qs_view') as any;
     const savedRole = localStorage.getItem('qs_role');
@@ -991,6 +1025,31 @@ const App: React.FC = () => {
         </div>
       </header>
       <main className="flex-1">
+        {/* Global Error Display */}
+        {globalError && (
+          <div className="fixed top-20 left-0 right-0 z-[999999] max-w-2xl mx-auto">
+            <div className="bg-red-50 border-2 border-red-500 rounded-lg p-4 m-4 text-red-800">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-black text-sm mb-1">❌ RUNTIME ERROR</p>
+                  <p className="text-xs font-bold mb-2">{globalError.message}</p>
+                  {globalError.stack && (
+                    <pre className="text-xs bg-red-100 p-2 rounded overflow-auto max-h-32 font-mono mb-2">
+                      {globalError.stack}
+                    </pre>
+                  )}
+                </div>
+                <button
+                  onClick={() => setGlobalError(null)}
+                  className="text-red-600 hover:text-red-800 font-bold text-lg flex-shrink-0"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {currentRole === 'CUSTOMER' && <CustomerView restaurants={restaurants.filter(r => r.location === sessionLocation && r.isOnline === true)} cart={cart} orders={orders} onAddToCart={addToCart} onRemoveFromCart={removeFromCart} onPlaceOrder={placeOrder} locationName={sessionLocation || undefined} tableNo={sessionTable || undefined} areaType={currentArea?.type || 'MULTI'} allRestaurants={restaurants} />}
         
         {currentRole === 'CASHIER' && view === 'APP' && (
