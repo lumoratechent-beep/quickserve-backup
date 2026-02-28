@@ -18,6 +18,13 @@ export interface ReceiptPrintOptions {
   headerLine2?: string;
   footerLine1?: string;
   footerLine2?: string;
+  horizontalOffset?: number;
+  businessNameAlign?: 'left' | 'center' | 'right';
+  headerLine1Align?: 'left' | 'center' | 'right';
+  headerLine2Align?: 'left' | 'center' | 'right';
+  footerLine1Align?: 'left' | 'center' | 'right';
+  footerLine2Align?: 'left' | 'center' | 'right';
+  totalAlign?: 'left' | 'center' | 'right';
 }
 
 interface PrintJob {
@@ -100,14 +107,26 @@ class PrinterService {
     return '='.repeat(width);
   }
 
-  private centerText(text: string, width: number): string {
+  private alignText(
+    text: string,
+    width: number,
+    align: 'left' | 'center' | 'right',
+    offset: number
+  ): string {
     const safe = this.sanitizeText(text || '');
     if (!safe) return '';
-    if (safe.length >= width) {
-      return safe.slice(0, width);
+    const trimmed = safe.length >= width ? safe.slice(0, width) : safe;
+    const maxPadding = Math.max(0, width - trimmed.length);
+
+    let basePadding = 0;
+    if (align === 'center') {
+      basePadding = Math.floor(maxPadding / 2);
+    } else if (align === 'right') {
+      basePadding = maxPadding;
     }
-    const leftPadding = Math.floor((width - safe.length) / 2);
-    return ' '.repeat(leftPadding) + safe;
+
+    const adjustedPadding = Math.min(maxPadding, Math.max(0, basePadding + offset));
+    return ' '.repeat(adjustedPadding) + trimmed;
   }
 
   private async writeDataInChunks(data: Uint8Array): Promise<void> {
@@ -436,6 +455,13 @@ class PrinterService {
       const showItems = options?.showItems !== false;
       const showRemark = options?.showRemark !== false;
       const showTotal = options?.showTotal !== false;
+      const horizontalOffset = Math.min(8, Math.max(-8, Number(options?.horizontalOffset ?? 0)));
+      const businessNameAlign = options?.businessNameAlign ?? 'center';
+      const headerLine1Align = options?.headerLine1Align ?? 'center';
+      const headerLine2Align = options?.headerLine2Align ?? 'center';
+      const footerLine1Align = options?.footerLine1Align ?? 'center';
+      const footerLine2Align = options?.footerLine2Align ?? 'center';
+      const totalAlign = options?.totalAlign ?? 'right';
 
       // Start building receipt with printer reset
       // CRITICAL: Initialize and set alignment BEFORE any size changes
@@ -448,7 +474,7 @@ class PrinterService {
       receipt = receipt
         .align('left')
         .size(2, 2)
-        .line(this.centerText(safeRestaurantName, 16))
+        .line(this.alignText(safeRestaurantName, 16, businessNameAlign, horizontalOffset))
         .size(1, 1)
         .line(''); // Blank line to reset state
 
@@ -456,11 +482,11 @@ class PrinterService {
       receipt = receipt.align('left');
       
       if (safeHeaderLine1) {
-        receipt = receipt.line(this.centerText(safeHeaderLine1, this.charsPerLine));
+        receipt = receipt.line(this.alignText(safeHeaderLine1, this.charsPerLine, headerLine1Align, horizontalOffset));
       }
 
       if (safeHeaderLine2) {
-        receipt = receipt.line(this.centerText(safeHeaderLine2, this.charsPerLine));
+        receipt = receipt.line(this.alignText(safeHeaderLine2, this.charsPerLine, headerLine2Align, horizontalOffset));
       }
 
       // Double separator after header (fills full line)
@@ -554,11 +580,9 @@ class PrinterService {
         .line('-'.repeat(32));
 
       if (showTotal) {
-        // Format total with proper right alignment using padding
+        // Format total with configurable alignment and offset
         const totalLabel = `TOTAL: RM ${safeTotal}`;
-        const padding = Math.max(0, 32 - totalLabel.length);
-        const paddedTotal = ' '.repeat(padding) + totalLabel;
-        receipt = receipt.line(paddedTotal);
+        receipt = receipt.line(this.alignText(totalLabel, this.charsPerLine, totalAlign, horizontalOffset));
       }
 
       // Double separator before footer (fills full line)
@@ -570,13 +594,13 @@ class PrinterService {
       if (safeFooterLine1) {
         receipt = receipt
           .align('left')
-          .line(this.centerText(safeFooterLine1, this.charsPerLine));
+          .line(this.alignText(safeFooterLine1, this.charsPerLine, footerLine1Align, horizontalOffset));
       }
 
       if (safeFooterLine2) {
         receipt = receipt
           .align('left')
-          .line(this.centerText(safeFooterLine2, this.charsPerLine));
+          .line(this.alignText(safeFooterLine2, this.charsPerLine, footerLine2Align, horizontalOffset));
       }
 
       receipt = receipt
@@ -666,16 +690,16 @@ class PrinterService {
         .align('left')
         .line('')
         .size(2, 2)
-        .line(this.centerText('QUICKSERVE', 16))
+        .line(this.alignText('QUICKSERVE', 16, 'center', 0))
         .size(1, 1)
         .line('')
         .line('='.repeat(32))
-        .line(this.centerText('TEST PAGE', this.charsPerLine))
+        .line(this.alignText('TEST PAGE', this.charsPerLine, 'center', 0))
         .line('')
         .align('left')
         .line(this.formatDate(now) + ' ' + this.formatTime(now))
         .line('')
-        .line(this.centerText('Printer is working!', this.charsPerLine))
+        .line(this.alignText('Printer is working!', this.charsPerLine, 'center', 0))
         .line('='.repeat(32))
         .cut()
         .encode() as Uint8Array;
@@ -741,14 +765,14 @@ class PrinterService {
       const data = this.encoder
         .initialize()
         .align('left')
-        .line(this.centerText('DEV TEST', this.charsPerLine))
+        .line(this.alignText('DEV TEST', this.charsPerLine, 'center', 0))
         .line('')
-        .line(this.centerText('.'.repeat(Math.min(dottedLineCount, 32)), this.charsPerLine))
+        .line(this.alignText('.'.repeat(Math.min(dottedLineCount, 32)), this.charsPerLine, 'center', 0))
         .align('left')
         .line('')
         .line(testText.substring(0, 32))
         .line('')
-        .line(this.centerText('.'.repeat(Math.min(dottedLineCount, 32)), this.charsPerLine))
+        .line(this.alignText('.'.repeat(Math.min(dottedLineCount, 32)), this.charsPerLine, 'center', 0))
         .align('left')
         .line('')
         .line(`Chars: ${testText.length}/32`)

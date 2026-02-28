@@ -36,14 +36,21 @@ interface ReceiptSettings {
   businessName: string;
   headerLine1: string;
   headerLine2: string;
+  horizontalOffset: number;
+  businessNameAlign: 'left' | 'center' | 'right';
+  headerLine1Align: 'left' | 'center' | 'right';
+  headerLine2Align: 'left' | 'center' | 'right';
   showDateTime: boolean;
   showOrderId: boolean;
   showTableNumber: boolean;
   showItems: boolean;
   showRemark: boolean;
   showTotal: boolean;
+  totalAlign: 'left' | 'center' | 'right';
   footerLine1: string;
   footerLine2: string;
+  footerLine1Align: 'left' | 'center' | 'right';
+  footerLine2Align: 'left' | 'center' | 'right';
 }
 
 const getDefaultReceiptSettings = (restaurantName: string): ReceiptSettings => ({
@@ -51,14 +58,21 @@ const getDefaultReceiptSettings = (restaurantName: string): ReceiptSettings => (
   businessName: restaurantName,
   headerLine1: '',
   headerLine2: '',
+  horizontalOffset: 0,
+  businessNameAlign: 'center',
+  headerLine1Align: 'center',
+  headerLine2Align: 'center',
   showDateTime: true,
   showOrderId: true,
   showTableNumber: true,
   showItems: true,
   showRemark: true,
   showTotal: true,
+  totalAlign: 'right',
   footerLine1: 'Thank you!',
   footerLine2: 'Please come again',
+  footerLine1Align: 'center',
+  footerLine2Align: 'center',
 });
 
 const PosOnlyView: React.FC<Props> = ({ 
@@ -1058,10 +1072,17 @@ const PosOnlyView: React.FC<Props> = ({
     showItems: receiptSettings.showItems,
     showRemark: receiptSettings.showRemark,
     showTotal: receiptSettings.showTotal,
+    horizontalOffset: receiptSettings.horizontalOffset,
+    businessNameAlign: receiptSettings.businessNameAlign,
+    headerLine1Align: receiptSettings.headerLine1Align,
+    headerLine2Align: receiptSettings.headerLine2Align,
+    totalAlign: receiptSettings.totalAlign,
     headerLine1: receiptSettings.headerLine1,
     headerLine2: receiptSettings.headerLine2,
     footerLine1: receiptSettings.footerLine1,
     footerLine2: receiptSettings.footerLine2,
+    footerLine1Align: receiptSettings.footerLine1Align,
+    footerLine2Align: receiptSettings.footerLine2Align,
   });
 
   const handleDownloadReport = async () => {
@@ -1932,6 +1953,51 @@ const PosOnlyView: React.FC<Props> = ({
                             className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
                             placeholder="Please come again"
                           />
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border dark:border-gray-700 space-y-3">
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Alignment & Offset</p>
+
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Horizontal Offset</label>
+                            <span className="text-[10px] font-black text-gray-600 dark:text-gray-300">{receiptSettings.horizontalOffset >= 0 ? `+${receiptSettings.horizontalOffset}` : receiptSettings.horizontalOffset}</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={-8}
+                            max={8}
+                            step={1}
+                            value={receiptSettings.horizontalOffset}
+                            onChange={event => updateReceiptSetting('horizontalOffset', Number(event.target.value))}
+                            className="w-full"
+                          />
+                          <p className="text-[9px] text-gray-500 dark:text-gray-400 mt-1">Shift all aligned lines left/right for printer calibration</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {[
+                            { key: 'businessNameAlign', label: 'Business Name' },
+                            { key: 'headerLine1Align', label: 'Header Line 1' },
+                            { key: 'headerLine2Align', label: 'Header Line 2' },
+                            { key: 'totalAlign', label: 'Total Line' },
+                            { key: 'footerLine1Align', label: 'Footer Line 1' },
+                            { key: 'footerLine2Align', label: 'Footer Line 2' },
+                          ].map(item => (
+                            <div key={item.key}>
+                              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">{item.label} Align</label>
+                              <select
+                                value={receiptSettings[item.key as keyof ReceiptSettings] as string}
+                                onChange={event => updateReceiptSetting(item.key as keyof ReceiptSettings, event.target.value as any)}
+                                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                              >
+                                <option value="left">Left</option>
+                                <option value="center">Center</option>
+                                <option value="right">Right</option>
+                              </select>
+                            </div>
+                          ))}
                         </div>
                       </div>
 
