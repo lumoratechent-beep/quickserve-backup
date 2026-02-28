@@ -145,17 +145,32 @@ class PrinterService {
       throw new Error('No writable characteristic found');
     }
 
-    // Only reset and align - NO global margin (GS L)
-    // Margin is applied selectively to center/right aligned lines only via padding
+    // Reset printer and set default left alignment
     const reset = new Uint8Array([0x1B, 0x40]); // ESC @ - reset printer
     const alignLeft = new Uint8Array([0x1B, 0x61, 0x00]); // ESC a 0 - align left
 
-    // Combine into single buffer
-    const combinedBuffer = new Uint8Array(reset.length + alignLeft.length);
-    combinedBuffer.set(reset, 0);
-    combinedBuffer.set(alignLeft, reset.length);
+    // If horizontal offset > 0, use GS L to set left margin (in dots)
+    const normalizedOffset = Math.max(0, Math.min(16, Math.floor(offsetChars)));
+    if (normalizedOffset > 0) {
+      const marginDots = normalizedOffset * this.fontACharWidthDots;
+      const nL = marginDots & 0xFF;
+      const nH = (marginDots >> 8) & 0xFF;
+      const setMargin = new Uint8Array([0x1D, 0x4C, nL, nH]); // GS L - set left margin
 
-    await this.characteristic.writeValue(combinedBuffer);
+      const combinedBuffer = new Uint8Array(reset.length + alignLeft.length + setMargin.length);
+      combinedBuffer.set(reset, 0);
+      combinedBuffer.set(alignLeft, reset.length);
+      combinedBuffer.set(setMargin, reset.length + alignLeft.length);
+
+      await this.characteristic.writeValue(combinedBuffer);
+    } else {
+      const combinedBuffer = new Uint8Array(reset.length + alignLeft.length);
+      combinedBuffer.set(reset, 0);
+      combinedBuffer.set(alignLeft, reset.length);
+
+      await this.characteristic.writeValue(combinedBuffer);
+    }
+
     await new Promise(resolve => setTimeout(resolve, 30));
   }
 
@@ -496,48 +511,29 @@ class PrinterService {
         .align('left') // Start with LEFT alignment (neutral state)
         .line(''); // Blank line to ensure printer state is clear
 
-      // Business name section - centered with offset calibration
+      // Business name section - use native ESC/POS alignment
       receipt = receipt.size(2, 2);
-      if (businessNameAlign === 'center') {
-        const centeredName = this.centerTextWithOffset(this.truncateText(safeRestaurantName, 16), 16, horizontalOffset);
-        receipt = receipt.align('left').line(centeredName);
-      } else if (businessNameAlign === 'right') {
-        const rightName = this.rightAlignTextWithOffset(this.truncateText(safeRestaurantName, 16), 16, horizontalOffset);
-        receipt = receipt.align('left').line(rightName);
-      } else {
-        receipt = receipt.align('left').line(this.truncateText(safeRestaurantName, 16));
-      }
-      receipt = receipt.size(1, 1).line(''); // Blank line to reset state
+      receipt = receipt.align(businessNameAlign).line(this.truncateText(safeRestaurantName, 16));
+      receipt = receipt.size(1, 1).align('left').line(''); // Reset size and alignment
 
-      // Headers section - apply offset to center/right aligned  
+      // Headers section - use native alignment
       if (safeHeaderLine1) {
         const headerText1 = this.truncateText(safeHeaderLine1, this.charsPerLine);
-        if (headerLine1Align === 'center') {
-          receipt = receipt.align('left').line(this.centerTextWithOffset(headerText1, this.charsPerLine, horizontalOffset));
-        } else if (headerLine1Align === 'right') {
-          receipt = receipt.align('left').line(this.rightAlignTextWithOffset(headerText1, this.charsPerLine, horizontalOffset));
-        } else {
-          receipt = receipt.align('left').line(headerText1);
-        }
+        receipt = receipt.align(headerLine1Align).line(headerText1);
       }
 
       if (safeHeaderLine2) {
         const headerText2 = this.truncateText(safeHeaderLine2, this.charsPerLine);
-        if (headerLine2Align === 'center') {
-          receipt = receipt.line(this.centerTextWithOffset(headerText2, this.charsPerLine, horizontalOffset));
-        } else if (headerLine2Align === 'right') {
-          receipt = receipt.line(this.rightAlignTextWithOffset(headerText2, this.charsPerLine, horizontalOffset));
-        } else {
-          receipt = receipt.line(headerText2);
-        }
+        receipt = receipt.align(headerLine2Align).line(headerText2);
       }
 
       // Double separator after header (fills full line)
       receipt = receipt
+        .align('left')
         .line('='.repeat(32))
         .line(''); // Blank line
 
-      // Switch to LEFT alignment for content
+      // LEFT alignment for content
       receipt = receipt.align('left');
 
       if (showDateTime || showOrderId) {
@@ -623,15 +619,9 @@ class PrinterService {
         .line('-'.repeat(32));
 
       if (showTotal) {
-        // Format total with configurable alignment and offset
+        // Format total with configurable alignment
         const totalLabel = this.truncateText(`TOTAL: RM ${safeTotal}`, this.charsPerLine);
-        if (totalAlign === 'center') {
-          receipt = receipt.align('left').line(this.centerTextWithOffset(totalLabel, this.charsPerLine, horizontalOffset));
-        } else if (totalAlign === 'right') {
-          receipt = receipt.align('left').line(this.rightAlignTextWithOffset(totalLabel, this.charsPerLine, horizontalOffset));
-        } else {
-          receipt = receipt.align('left').line(totalLabel);
-        }
+        receipt = receipt.align(totalAlign).line(totalLabel);
       }
 
       // Double separator before footer (fills full line)
@@ -642,24 +632,12 @@ class PrinterService {
 
       if (safeFooterLine1) {
         const footerText1 = this.truncateText(safeFooterLine1, this.charsPerLine);
-        if (footerLine1Align === 'center') {
-          receipt = receipt.align('left').line(this.centerTextWithOffset(footerText1, this.charsPerLine, horizontalOffset));
-        } else if (footerLine1Align === 'right') {
-          receipt = receipt.align('left').line(this.rightAlignTextWithOffset(footerText1, this.charsPerLine, horizontalOffset));
-        } else {
-          receipt = receipt.align('left').line(footerText1);
-        }
+        receipt = receipt.align(footerLine1Align).line(footerText1);
       }
 
       if (safeFooterLine2) {
         const footerText2 = this.truncateText(safeFooterLine2, this.charsPerLine);
-        if (footerLine2Align === 'center') {
-          receipt = receipt.line(this.centerTextWithOffset(footerText2, this.charsPerLine, horizontalOffset));
-        } else if (footerLine2Align === 'right') {
-          receipt = receipt.line(this.rightAlignTextWithOffset(footerText2, this.charsPerLine, horizontalOffset));
-        } else {
-          receipt = receipt.line(footerText2);
-        }
+        receipt = receipt.align(footerLine2Align).line(footerText2);
       }
 
       receipt = receipt
@@ -741,53 +719,36 @@ class PrinterService {
       const headerLine1Align = options?.headerLine1Align ?? 'center';
       const totalAlign = options?.totalAlign ?? 'right';
       
-      // Build test page with offset-aware alignment
+      // Build test page with native alignment
       const truncatedName = this.truncateText(testBusinessName, 16);
       let testData = this.encoder
         .initialize()
         .align('left')
         .line('')
         .size(2, 2);
-      
-      // Apply centered business name with offset
-      if (businessNameAlign === 'center') {
-        testData = testData.line(this.centerTextWithOffset(truncatedName, 16, horizontalOffset));
-      } else if (businessNameAlign === 'right') {
-        testData = testData.line(this.rightAlignTextWithOffset(truncatedName, 16, horizontalOffset));
-      } else {
-        testData = testData.line(truncatedName);
-      }
-      
+
+      // Apply business name with native alignment
+      testData = testData.align(businessNameAlign).line(truncatedName);
+
       testData = testData
         .size(1, 1)
+        .align('left')
         .line('')
         .line('='.repeat(32));
-      
-      // Apply centered test page header with offset
+
+      // Apply test page header with native alignment
       const testPageText = 'TEST PAGE';
-      if (headerLine1Align === 'center') {
-        testData = testData.line(this.centerTextWithOffset(testPageText, 32, horizontalOffset));
-      } else if (headerLine1Align === 'right') {
-        testData = testData.line(this.rightAlignTextWithOffset(testPageText, 32, horizontalOffset));
-      } else {
-        testData = testData.align('left').line(testPageText);
-      }
-      
+      testData = testData.align(headerLine1Align).line(testPageText);
+
       testData = testData
         .align('left')
         .line('')
         .line(this.formatDate(now) + ' ' + this.formatTime(now))
         .line('');
-      
-      // Apply aligned result text with offset
+
+      // Apply result text with native alignment
       const resultText = 'Printer is working!';
-      if (totalAlign === 'center') {
-        testData = testData.line(this.centerTextWithOffset(resultText, 32, horizontalOffset));
-      } else if (totalAlign === 'right') {
-        testData = testData.line(this.rightAlignTextWithOffset(resultText, 32, horizontalOffset));
-      } else {
-        testData = testData.align('left').line(resultText);
-      }
+      testData = testData.align(totalAlign).line(resultText);
       
       const data = testData
         .line('='.repeat(32))

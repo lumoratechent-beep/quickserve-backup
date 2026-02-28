@@ -1943,7 +1943,7 @@ const PosOnlyView: React.FC<Props> = ({
                             onChange={event => updateReceiptSetting('horizontalOffset', Number(event.target.value))}
                             className="w-full"
                           />
-                          <p className="text-[9px] text-gray-500 dark:text-gray-400 mt-1">Shift center/right-aligned content for calibration (left content unaffected)</p>
+                          <p className="text-[9px] text-gray-500 dark:text-gray-400 mt-1">Shift all printed content to the right for calibration</p>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
