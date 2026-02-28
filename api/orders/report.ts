@@ -28,14 +28,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (status && status !== 'ALL') query = query.eq('status', status);
     
     if (startDate) {
+      // startDate comes as YYYY-MM-DD from local time representation
+      // Convert it to UTC timestamp accounting for timezone
       const startD = new Date(startDate as string);
+      // The date string was created from local midnight, but Date() interprets it as UTC
+      // We need to get the actual start of that date in UTC accounting for timezone
       startD.setHours(0, 0, 0, 0);
-      query = query.gte('timestamp', startD.getTime());
+      // Subtract timezone offset to go back to true UTC midnight for that local date
+      const startTimestamp = startD.getTime() - (new Date(startD).getTimezoneOffset() * 60000);
+      query = query.gte('timestamp', startTimestamp);
     }
     if (endDate) {
+      // endDate comes as YYYY-MM-DD from local time representation
       const endD = new Date(endDate as string);
       endD.setHours(23, 59, 59, 999);
-      query = query.lte('timestamp', endD.getTime());
+      // Subtract timezone offset to properly represent end of day in local time
+      const endTimestamp = endD.getTime() - (new Date(endD).getTimezoneOffset() * 60000);
+      query = query.lte('timestamp', endTimestamp);
     }
     
     if (search) query = query.ilike('id', `%${search}%`);
@@ -55,12 +64,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (startDate) {
       const startD = new Date(startDate as string);
       startD.setHours(0, 0, 0, 0);
-      summaryQuery = summaryQuery.gte('timestamp', startD.getTime());
+      const startTimestamp = startD.getTime() - (new Date(startD).getTimezoneOffset() * 60000);
+      summaryQuery = summaryQuery.gte('timestamp', startTimestamp);
     }
     if (endDate) {
       const endD = new Date(endDate as string);
       endD.setHours(23, 59, 59, 999);
-      summaryQuery = summaryQuery.lte('timestamp', endD.getTime());
+      const endTimestamp = endD.getTime() - (new Date(endD).getTimezoneOffset() * 60000);
+      summaryQuery = summaryQuery.lte('timestamp', endTimestamp);
     }
     
     if (search) summaryQuery = summaryQuery.ilike('id', `%${search}%`);
