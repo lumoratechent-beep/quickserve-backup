@@ -16,7 +16,7 @@ interface Props {
   restaurant: Restaurant;
   orders: Order[];
   onUpdateOrder: (orderId: string, status: OrderStatus) => void;
-  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string) => Promise<void>;
+  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string) => Promise<string>; // Returns order ID
   onFetchPaginatedOrders?: (filters: ReportFilters, page: number, pageSize: number) => Promise<ReportResponse>;
   onFetchAllFilteredOrders?: (filters: ReportFilters) => Promise<Order[]>;
   onUpdateRestaurantSettings?: (restaurantId: string, settings: any) => Promise<void>;
@@ -172,7 +172,7 @@ const PosView: React.FC<Props> = ({
   const handleCheckout = async () => {
     if (posCart.length === 0) return;
     try {
-      await onPlaceOrder(posCart, posRemark, posTableNo);
+      await onPlaceOrder(posCart, posRemark, posTableNo); // Returns orderId but not used here
       setPosCart([]);
       setPosRemark('');
       setPosTableNo('Counter');

@@ -23,7 +23,7 @@ interface Props {
   restaurant: Restaurant;
   orders: Order[];
   onUpdateOrder: (orderId: string, status: OrderStatus) => void;
-  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string) => Promise<void>;
+  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string) => Promise<string>; // Returns order ID
   onUpdateMenu?: (restaurantId: string, updatedItem: MenuItem) => void | Promise<void>;
   onAddMenuItem?: (restaurantId: string, newItem: MenuItem) => void | Promise<void>;
   onPermanentDeleteMenuItem?: (restaurantId: string, itemId: string) => void | Promise<void>;
@@ -479,43 +479,30 @@ const PosOnlyView: React.FC<Props> = ({
   const handleCheckout = async () => {
     if (posCart.length === 0 || isCompletingPayment) return;
 
-    // Generate proper sequential order ID - get last order ID first
-    let nextOrderNum = 1;
-    if (cachedCounterOrders.length > 0) {
-      // Try to extract number from last order ID
-      const lastOrder = cachedCounterOrders[0]; // Most recent is first
-      const match = lastOrder.id.match(/\d+/);
-      if (match) {
-        const lastNum = parseInt(match[0]);
-        if (!isNaN(lastNum)) {
-          nextOrderNum = lastNum + 1;
-        }
-      }
-    }
-    
-    const prefix = 'POS'; // Counter orders use POS prefix
-    const sequenceId = `${prefix}${String(nextOrderNum).padStart(6, '0')}`; // e.g., POS000001
-    
-    const orderForPrint = {
-      id: sequenceId,
-      tableNumber: posTableNo,
-      timestamp: Date.now(),
-      total: cartTotal,
-      items: posCart,
-      remark: posRemark,
-    };
-
     setIsCompletingPayment(true);
     setCheckoutNotice('');
 
+    let actualOrderId: string = '';
+    
     try {
-      await onPlaceOrder(posCart, posRemark, posTableNo);
+      // Call onPlaceOrder and get the actual order ID from database
+      actualOrderId = await onPlaceOrder(posCart, posRemark, posTableNo);
     } catch (error: any) {
       console.error('Order placement error:', error);
       alert(`Failed to place order: ${error?.message || 'Unknown error'}`);
       setIsCompletingPayment(false);
       return;
     }
+
+    // Use the real order ID from database for printing
+    const orderForPrint = {
+      id: actualOrderId,
+      tableNumber: posTableNo,
+      timestamp: Date.now(),
+      total: cartTotal,
+      items: posCart,
+      remark: posRemark,
+    };
 
     setPosCart([]);
     setPosRemark('');

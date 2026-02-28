@@ -922,8 +922,8 @@ const App: React.FC = () => {
     return data.summary;
   };
 
-  const placePosOrder = async (items: CartItem[], remark: string, tableNumber: string) => {
-    if (items.length === 0 || !currentUser?.restaurantId) return;
+  const placePosOrder = async (items: CartItem[], remark: string, tableNumber: string): Promise<string> => {
+    if (items.length === 0 || !currentUser?.restaurantId) return '';
     
     const res = restaurants.find(r => r.id === currentUser.restaurantId);
     const area = locations.find(l => l.name === res?.location);
@@ -961,6 +961,9 @@ const App: React.FC = () => {
 
     const { error } = await supabase.from('orders').insert([orderToInsert]);
     if (error) throw error;
+    
+    // Return the order ID so it can be used for printing
+    return orderId;
   };
 
   const updateRestaurantSettings = async (restaurantId: string, settings: any) => {
