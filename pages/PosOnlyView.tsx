@@ -413,7 +413,7 @@ const PosOnlyView: React.FC<Props> = ({
     return cachedCounterOrders;
   }, [cachedCounterOrders]);
 
-  const fetchReport = async (isExport = false) => {
+  const fetchReport = React.useCallback(async (isExport = false) => {
     if (!onFetchPaginatedOrders) return;
     if (!isExport) setIsReportLoading(true);
     try {
@@ -435,13 +435,13 @@ const PosOnlyView: React.FC<Props> = ({
     } finally {
       if (!isExport) setIsReportLoading(false);
     }
-  };
+  }, [onFetchPaginatedOrders, restaurant.id, reportStart, reportEnd, reportStatus, reportSearchQuery, currentPage, entriesPerPage]);
 
   useEffect(() => {
     if (activeTab === 'REPORTS') {
       fetchReport();
     }
-  }, [activeTab, reportStart, reportEnd, reportStatus, reportSearchQuery, currentPage, entriesPerPage]);
+  }, [activeTab, fetchReport]);
 
   // Load cached counter orders on component mount or when restaurantId changes
   useEffect(() => {
@@ -695,7 +695,7 @@ const PosOnlyView: React.FC<Props> = ({
     setRenamingModifier(null);
   };
 
-  const handleDownloadReport = async () => {
+  const handleDownloadReport = React.useCallback(async () => {
     const allOrders = await fetchReport(true) as Order[];
     if (!allOrders || allOrders.length === 0) return;
     const headers = ['Order ID', 'Table', 'Date', 'Time', 'Status', 'Items', 'Total'];
@@ -716,7 +716,7 @@ const PosOnlyView: React.FC<Props> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
+  }, [fetchReport, reportStart, reportEnd]);
 
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
   const paginatedReports = reportData?.orders || [];
