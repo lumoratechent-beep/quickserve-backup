@@ -5,6 +5,7 @@ import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, Rep
 import { supabase } from '../lib/supabase';
 import { uploadImage } from '../lib/storage';
 import * as counterOrdersCache from '../lib/counterOrdersCache';
+import printerService, { PrinterDevice } from '../services/printerService';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import StandardReport from '../components/StandardReport';
@@ -111,6 +112,15 @@ const PosOnlyView: React.FC<Props> = ({
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [reportData, setReportData] = useState<ReportResponse | null>(null);
   const [isReportLoading, setIsReportLoading] = useState(false);
+
+  // Printer Settings State
+  const [isBluetoothSupported, setIsBluetoothSupported] = useState(true);
+  const [isScanning, setIsScanning] = useState(false);
+  const [devices, setDevices] = useState<PrinterDevice[]>([]);
+  const [connectedDevice, setConnectedDevice] = useState<PrinterDevice | null>(null);
+  const [printerStatus, setPrinterStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [testPrintStatus, setTestPrintStatus] = useState<'idle' | 'printing' | 'success' | 'error'>('idle');
 
   // Staff Management State
   const [staffList, setStaffList] = useState<any[]>(() => {
@@ -641,6 +651,26 @@ const PosOnlyView: React.FC<Props> = ({
     saveModifiersToDatabase(modifiers);
   }, [modifiers, restaurant.id]);
 
+  useEffect(() => {
+    if (!('bluetooth' in navigator) || !(navigator as any).bluetooth) {
+      setIsBluetoothSupported(false);
+      setErrorMessage('Web Bluetooth is not supported in this browser. Please use Chrome, Edge, or Opera.');
+    }
+  }, []);
+
+  useEffect(() => {
+    const savedPrinter = localStorage.getItem(`printer_${restaurant.id}`);
+    if (savedPrinter) {
+      try {
+        const printer = JSON.parse(savedPrinter);
+        setConnectedDevice(printer);
+        setPrinterStatus('connected');
+      } catch (error) {
+        console.error('Failed to load saved printer', error);
+      }
+    }
+  }, [restaurant.id]);
+
   const handleAddCategory = () => {
     if (!newClassName.trim()) return;
     const categoryName = newClassName.trim();
@@ -772,6 +802,74 @@ const PosOnlyView: React.FC<Props> = ({
       modifier.name === oldName ? { ...modifier, name: normalizedName } : modifier
     ));
     setRenamingModifier(null);
+  };
+
+  const scanForPrinters = async () => {
+    if (!isBluetoothSupported) return;
+
+    setIsScanning(true);
+    setDevices([]);
+    setErrorMessage('');
+
+    const found = await printerService.scanForPrinters();
+    setDevices(found);
+    setIsScanning(false);
+  };
+
+  const connectToPrinter = async (device: PrinterDevice) => {
+    setPrinterStatus('connecting');
+    setErrorMessage('');
+
+    const success = await printerService.connect(device.name);
+
+    if (success) {
+      setConnectedDevice(device);
+      setPrinterStatus('connected');
+      localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
+
+      await supabase
+        .from('restaurants')
+        .update({
+          printer_settings: {
+            connected: true,
+            deviceId: device.id,
+            deviceName: device.name
+          }
+        })
+        .eq('id', restaurant.id);
+    } else {
+      setPrinterStatus('error');
+      setErrorMessage('Failed to connect to printer');
+    }
+  };
+
+  const disconnectPrinter = async () => {
+    await printerService.disconnect();
+    setConnectedDevice(null);
+    setPrinterStatus('disconnected');
+    localStorage.removeItem(`printer_${restaurant.id}`);
+
+    supabase
+      .from('restaurants')
+      .update({ printer_settings: { connected: false } })
+      .eq('id', restaurant.id);
+  };
+
+  const printTestPage = async () => {
+    if (!connectedDevice) return;
+
+    setTestPrintStatus('printing');
+    setErrorMessage('');
+
+    const success = await printerService.printTestPage();
+
+    if (success) {
+      setTestPrintStatus('success');
+      setTimeout(() => setTestPrintStatus('idle'), 3000);
+    } else {
+      setTestPrintStatus('error');
+      setErrorMessage('Print failed');
+    }
   };
 
   const handleDownloadReport = async () => {
@@ -1413,10 +1511,140 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                     </div>
                     <div className="p-4">
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-4">Configure your thermal printer for receipt printing</p>
-                      <button className="px-4 py-2 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all">
-                        Setup Printer
-                      </button>
+                      {!isBluetoothSupported && (
+                        <div className="text-center py-8">
+                          <AlertCircle size={32} className="mx-auto text-red-500 mb-3" />
+                          <h3 className="text-base font-black dark:text-white mb-1">Bluetooth Not Supported</h3>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{errorMessage}</p>
+                          <p className="text-[9px] text-gray-400 mt-3">Use Chrome, Edge, or Opera</p>
+                        </div>
+                      )}
+
+                      {isBluetoothSupported && (
+                        <>
+                          <div className={`p-4 rounded-lg border-2 transition-all mb-4 ${
+                            printerStatus === 'connected'
+                              ? 'bg-green-50 dark:bg-green-900/10 border-green-200'
+                              : 'bg-gray-50 dark:bg-gray-800 border-gray-200'
+                          }`}>
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                                  printerStatus === 'connected'
+                                    ? 'bg-green-500 text-white'
+                                    : 'bg-gray-200 dark:bg-gray-700 text-gray-500'
+                                }`}>
+                                  <Printer size={20} />
+                                </div>
+                                <div>
+                                  <h3 className="font-black dark:text-white text-xs">CX58D Thermal Printer</h3>
+                                  <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                                    {printerStatus === 'connected'
+                                      ? `Connected to ${connectedDevice?.name}`
+                                      : 'No printer connected'}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                                printerStatus === 'connected'
+                                  ? 'bg-green-100 text-green-600'
+                                  : printerStatus === 'connecting'
+                                  ? 'bg-orange-100 text-orange-600'
+                                  : 'bg-gray-100 text-gray-500'
+                              }`}>
+                                {printerStatus === 'connected' ? 'Connected' :
+                                 printerStatus === 'connecting' ? 'Connecting...' :
+                                 'Disconnected'}
+                              </div>
+                            </div>
+                          </div>
+
+                          {printerStatus !== 'connected' ? (
+                            <div className="space-y-3">
+                              <button
+                                onClick={scanForPrinters}
+                                disabled={isScanning}
+                                className="w-full py-3 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                              >
+                                {isScanning ? (
+                                  <>
+                                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    Scanning...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Bluetooth size={14} />
+                                    Scan for Bluetooth Printers
+                                  </>
+                                )}
+                              </button>
+
+                              {devices.length > 0 && (
+                                <div className="space-y-2">
+                                  <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Found Printers</h4>
+                                  {devices.map(device => (
+                                    <button
+                                      key={device.id}
+                                      onClick={() => connectToPrinter(device)}
+                                      className="w-full p-3 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg flex items-center justify-between hover:border-orange-500 transition-all group"
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <Printer size={16} className="text-gray-400 group-hover:text-orange-500" />
+                                        <span className="font-bold dark:text-white text-xs">{device.name}</span>
+                                      </div>
+                                      <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Connect</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              <div className="p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <BluetoothConnected size={14} className="text-blue-500" />
+                                  <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Connected Device</span>
+                                </div>
+                                <p className="font-bold dark:text-white text-xs mb-1">{connectedDevice?.name}</p>
+                                <p className="text-[8px] text-gray-500">ID: {connectedDevice?.id}</p>
+                              </div>
+
+                              <button
+                                onClick={printTestPage}
+                                disabled={testPrintStatus === 'printing'}
+                                className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                              >
+                                {testPrintStatus === 'printing' ? (
+                                  <>Printing...</>
+                                ) : testPrintStatus === 'success' ? (
+                                  <>
+                                    <CheckCircle2 size={14} className="text-green-500" />
+                                    Test Page Sent!
+                                  </>
+                                ) : (
+                                  <>
+                                    <Printer size={14} />
+                                    Print Test Page
+                                  </>
+                                )}
+                              </button>
+
+                              <button
+                                onClick={disconnectPrinter}
+                                className="w-full py-2 bg-red-50 dark:bg-red-900/10 text-red-500 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-200"
+                              >
+                                Disconnect Printer
+                              </button>
+                            </div>
+                          )}
+
+                          {errorMessage && (
+                            <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200">
+                              <p className="text-[9px] text-red-600 dark:text-red-400">{errorMessage}</p>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
 
