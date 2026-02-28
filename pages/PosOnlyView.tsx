@@ -172,6 +172,9 @@ const PosOnlyView: React.FC<Props> = ({
     return counterOrdersCache.getCachedCounterOrders(restaurant.id);
   });
   const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [isCompletingPayment, setIsCompletingPayment] = useState(false);
+  const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
+  const [checkoutNotice, setCheckoutNotice] = useState<string>('');
 
   const handleRemoveStaff = async (staff: any, index: number) => {
     const updated = staffList.filter((_: any, idx: number) => idx !== index);
@@ -458,7 +461,7 @@ const PosOnlyView: React.FC<Props> = ({
   }, [posCart]);
 
   const handleCheckout = async () => {
-    if (posCart.length === 0) return;
+    if (posCart.length === 0 || isCompletingPayment) return;
 
     const orderForPrint = {
       id: `POS-${Date.now()}`,
@@ -469,15 +472,28 @@ const PosOnlyView: React.FC<Props> = ({
       remark: posRemark,
     };
 
+    setIsCompletingPayment(true);
+    setCheckoutNotice('');
+
     try {
       await onPlaceOrder(posCart, posRemark, posTableNo);
     } catch (error: any) {
       console.error('Order placement error:', error);
       alert(`Failed to place order: ${error?.message || 'Unknown error'}`);
+      setIsCompletingPayment(false);
       return;
     }
 
-    let printWarning = '';
+    setPosCart([]);
+    setPosRemark('');
+    setPosTableNo('Counter');
+    setShowPaymentSuccess(true);
+
+    setTimeout(() => {
+      setShowPaymentSuccess(false);
+      setIsCompletingPayment(false);
+    }, 1800);
+
     if (receiptSettings.autoPrintEnabled) {
       if (connectedDevice) {
         const printRestaurant = {
@@ -485,24 +501,21 @@ const PosOnlyView: React.FC<Props> = ({
           name: receiptSettings.businessName.trim() || restaurant.name,
         };
 
-        try {
-          const printSuccess = await printerService.printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions());
-          if (!printSuccess) {
-            printWarning = ' Receipt printing failed.';
-          }
-        } catch (printError: any) {
-          console.error('Receipt print error:', printError);
-          printWarning = ` Receipt printing failed: ${printError?.message || 'Unknown error'}`;
-        }
+        printerService
+          .printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions())
+          .then((printSuccess) => {
+            if (!printSuccess) {
+              setCheckoutNotice('Order saved, but receipt printing failed.');
+            }
+          })
+          .catch((printError: any) => {
+            console.error('Receipt print error:', printError);
+            setCheckoutNotice(`Order saved, but receipt printing failed: ${printError?.message || 'Unknown error'}`);
+          });
       } else {
-        printWarning = ' Auto-print is enabled but no printer is connected.';
+        setCheckoutNotice('Order saved. Auto-print is enabled but no printer is connected.');
       }
     }
-
-    setPosCart([]);
-    setPosRemark('');
-    setPosTableNo('Counter');
-    alert(`Order placed successfully!${printWarning}`);
   };
 
   // Handle order status updates (e.g., marking as paid/completed)
@@ -2288,6 +2301,18 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
 
             <div className="p-6 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-4">
+              {showPaymentSuccess && (
+                <div className="px-3 py-2 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-300 text-[10px] font-black uppercase tracking-widest text-center">
+                  Payment Completed Successfully
+                </div>
+              )}
+
+              {!!checkoutNotice && (
+                <div className="px-3 py-2 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-300 text-[10px] font-black tracking-wide text-center">
+                  {checkoutNotice}
+                </div>
+              )}
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                   <span>Subtotal</span>
@@ -2311,8 +2336,8 @@ const PosOnlyView: React.FC<Props> = ({
                   </div>
                 </div>
 
-                <button onClick={handleCheckout} disabled={posCart.length === 0} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2">
-                  <CreditCard size={16} /> Complete Order
+                <button onClick={handleCheckout} disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2">
+                  <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : 'Complete Order'}
                 </button>
               </div>
             </div>
