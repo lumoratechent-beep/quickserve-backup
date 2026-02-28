@@ -41,6 +41,7 @@ interface PrintJob {
 class PrinterService {
   private readonly charsPerLine: number = 32;
   private readonly bleChunkSize: number = 180;
+  private readonly fontACharWidthDots: number = 12;
   private device: BluetoothDevice | null = null;
   private server: BluetoothRemoteGATTServer | null = null;
   private service: BluetoothRemoteGATTService | null = null;
@@ -108,26 +109,10 @@ class PrinterService {
     return '='.repeat(width);
   }
 
-  private alignText(
-    text: string,
-    width: number,
-    align: 'left' | 'center' | 'right',
-    offset: number
-  ): string {
+  private truncateText(text: string, width: number): string {
     const safe = this.sanitizeText(text || '');
     if (!safe) return '';
-    const trimmed = safe.length >= width ? safe.slice(0, width) : safe;
-    const maxPadding = Math.max(0, width - trimmed.length);
-
-    let basePadding = 0;
-    if (align === 'center') {
-      basePadding = Math.floor(maxPadding / 2);
-    } else if (align === 'right') {
-      basePadding = maxPadding;
-    }
-
-    const adjustedPadding = Math.min(maxPadding, Math.max(0, basePadding + offset));
-    return ' '.repeat(adjustedPadding) + trimmed;
+    return safe.length > width ? safe.slice(0, width) : safe;
   }
 
   private async writeDataInChunks(data: Uint8Array): Promise<void> {
@@ -142,17 +127,21 @@ class PrinterService {
     }
   }
 
-  private async resetPrinterFormattingState(): Promise<void> {
+  private async resetPrinterFormattingState(offsetChars: number = 0): Promise<void> {
     if (!this.characteristic) {
       throw new Error('No writable characteristic found');
     }
 
     const reset = new Uint8Array([0x1B, 0x40]); // ESC @
-    const leftMarginZero = new Uint8Array([0x1D, 0x4C, 0x00, 0x00]); // GS L nL nH
+    const normalizedOffset = Math.max(0, Math.min(8, Math.floor(offsetChars)));
+    const marginDots = normalizedOffset * this.fontACharWidthDots;
+    const marginLow = marginDots & 0xFF;
+    const marginHigh = (marginDots >> 8) & 0xFF;
+    const leftMargin = new Uint8Array([0x1D, 0x4C, marginLow, marginHigh]); // GS L nL nH
     const alignLeft = new Uint8Array([0x1B, 0x61, 0x00]); // ESC a 0
 
     await this.characteristic.writeValue(reset);
-    await this.characteristic.writeValue(leftMarginZero);
+    await this.characteristic.writeValue(leftMargin);
     await this.characteristic.writeValue(alignLeft);
     await new Promise(resolve => setTimeout(resolve, 30));
   }
@@ -456,7 +445,7 @@ class PrinterService {
       const showItems = options?.showItems !== false;
       const showRemark = options?.showRemark !== false;
       const showTotal = options?.showTotal !== false;
-      const horizontalOffset = Math.min(8, Math.max(-8, Number(options?.horizontalOffset ?? 0)));
+      const horizontalOffset = Math.min(8, Math.max(0, Number(options?.horizontalOffset ?? 0)));
       const businessNameAlign = options?.businessNameAlign ?? 'center';
       const headerLine1Align = options?.headerLine1Align ?? 'center';
       const headerLine2Align = options?.headerLine2Align ?? 'center';
@@ -473,21 +462,25 @@ class PrinterService {
 
       // Business name section - centered via padding (printer-safe)
       receipt = receipt
-        .align('left')
+        .align(businessNameAlign)
         .size(2, 2)
-        .line(this.alignText(safeRestaurantName, 16, businessNameAlign, horizontalOffset))
+        .line(this.truncateText(safeRestaurantName, 16))
         .size(1, 1)
         .line(''); // Blank line to reset state
 
-      // Headers section - centered via padding (32 chars)
+      // Headers section
       receipt = receipt.align('left');
       
       if (safeHeaderLine1) {
-        receipt = receipt.line(this.alignText(safeHeaderLine1, this.charsPerLine, headerLine1Align, horizontalOffset));
+        receipt = receipt
+          .align(headerLine1Align)
+          .line(this.truncateText(safeHeaderLine1, this.charsPerLine));
       }
 
       if (safeHeaderLine2) {
-        receipt = receipt.line(this.alignText(safeHeaderLine2, this.charsPerLine, headerLine2Align, horizontalOffset));
+        receipt = receipt
+          .align(headerLine2Align)
+          .line(this.truncateText(safeHeaderLine2, this.charsPerLine));
       }
 
       // Double separator after header (fills full line)
@@ -583,7 +576,9 @@ class PrinterService {
       if (showTotal) {
         // Format total with configurable alignment and offset
         const totalLabel = `TOTAL: RM ${safeTotal}`;
-        receipt = receipt.line(this.alignText(totalLabel, this.charsPerLine, totalAlign, horizontalOffset));
+        receipt = receipt
+          .align(totalAlign)
+          .line(this.truncateText(totalLabel, this.charsPerLine));
       }
 
       // Double separator before footer (fills full line)
@@ -594,14 +589,14 @@ class PrinterService {
 
       if (safeFooterLine1) {
         receipt = receipt
-          .align('left')
-          .line(this.alignText(safeFooterLine1, this.charsPerLine, footerLine1Align, horizontalOffset));
+          .align(footerLine1Align)
+          .line(this.truncateText(safeFooterLine1, this.charsPerLine));
       }
 
       if (safeFooterLine2) {
         receipt = receipt
-          .align('left')
-          .line(this.alignText(safeFooterLine2, this.charsPerLine, footerLine2Align, horizontalOffset));
+          .align(footerLine2Align)
+          .line(this.truncateText(safeFooterLine2, this.charsPerLine));
       }
 
       receipt = receipt
@@ -611,14 +606,14 @@ class PrinterService {
 
       const data = receipt.encode() as Uint8Array;
 
-      await this.resetPrinterFormattingState();
+      await this.resetPrinterFormattingState(horizontalOffset);
       await this.writeDataInChunks(data);
       
       // Wait for printer to completely finish processing
       await new Promise(resolve => setTimeout(resolve, 3000));
       
       // Reset formatting state again after print
-      await this.resetPrinterFormattingState();
+      await this.resetPrinterFormattingState(0);
       
       // Wait again for reset to complete
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -633,7 +628,7 @@ class PrinterService {
       // Try to reset printer even after error
       try {
         if (this.characteristic) {
-          await this.resetPrinterFormattingState();
+          await this.resetPrinterFormattingState(0);
         }
       } catch (resetError) {
         // Ignore reset errors
@@ -685,7 +680,7 @@ class PrinterService {
 
       const now = new Date();
       const testBusinessName = this.sanitizeText(options?.businessName || 'QUICKSERVE') || 'QUICKSERVE';
-      const horizontalOffset = Math.min(8, Math.max(-8, Number(options?.horizontalOffset ?? 0)));
+      const horizontalOffset = Math.min(8, Math.max(0, Number(options?.horizontalOffset ?? 0)));
       const businessNameAlign = options?.businessNameAlign ?? 'center';
       const headerLine1Align = options?.headerLine1Align ?? 'center';
       const totalAlign = options?.totalAlign ?? 'right';
@@ -695,29 +690,32 @@ class PrinterService {
         .initialize()
         .align('left')
         .line('')
+        .align(businessNameAlign)
         .size(2, 2)
-        .line(this.alignText(testBusinessName, 16, businessNameAlign, horizontalOffset))
+        .line(this.truncateText(testBusinessName, 16))
         .size(1, 1)
         .line('')
         .line('='.repeat(32))
-        .line(this.alignText('TEST PAGE', this.charsPerLine, headerLine1Align, horizontalOffset))
+        .align(headerLine1Align)
+        .line('TEST PAGE')
         .line('')
         .align('left')
         .line(this.formatDate(now) + ' ' + this.formatTime(now))
         .line('')
-        .line(this.alignText('Printer is working!', this.charsPerLine, totalAlign, horizontalOffset))
+        .align(totalAlign)
+        .line('Printer is working!')
         .line('='.repeat(32))
         .cut()
         .encode() as Uint8Array;
 
-      await this.resetPrinterFormattingState();
+      await this.resetPrinterFormattingState(horizontalOffset);
       await this.writeDataInChunks(data);
       
       // Wait for printer to finish
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Reset printer after test
-      await this.resetPrinterFormattingState();
+      await this.resetPrinterFormattingState(0);
       
       this.lastPrintTime = Date.now();
       return true;
@@ -770,15 +768,16 @@ class PrinterService {
     try {
       const data = this.encoder
         .initialize()
-        .align('left')
-        .line(this.alignText('DEV TEST', this.charsPerLine, 'center', 0))
+        .align('center')
+        .line('DEV TEST')
         .line('')
-        .line(this.alignText('.'.repeat(Math.min(dottedLineCount, 32)), this.charsPerLine, 'center', 0))
+        .line('.'.repeat(Math.min(dottedLineCount, 32)))
         .align('left')
         .line('')
         .line(testText.substring(0, 32))
         .line('')
-        .line(this.alignText('.'.repeat(Math.min(dottedLineCount, 32)), this.charsPerLine, 'center', 0))
+        .align('center')
+        .line('.'.repeat(Math.min(dottedLineCount, 32)))
         .align('left')
         .line('')
         .line(`Chars: ${testText.length}/32`)
