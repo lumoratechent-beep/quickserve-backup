@@ -20,7 +20,7 @@ interface Props {
   restaurant: Restaurant;
   orders: Order[];
   onUpdateOrder: (orderId: string, status: OrderStatus) => void;
-  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string) => Promise<Order>;
+  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string) => Promise<void>;
   onUpdateMenu?: (restaurantId: string, updatedItem: MenuItem) => void | Promise<void>;
   onAddMenuItem?: (restaurantId: string, newItem: MenuItem) => void | Promise<void>;
   onPermanentDeleteMenuItem?: (restaurantId: string, itemId: string) => void | Promise<void>;
@@ -354,15 +354,7 @@ const PosOnlyView: React.FC<Props> = ({
   const handleCheckout = async () => {
     if (posCart.length === 0) return;
     try {
-      // Place order and get the created order back from database
-      const createdOrder = await onPlaceOrder(posCart, posRemark, posTableNo);
-      
-      // Add the actual order (not a temp one) to cache for counter display
-      // Note: Orders are saved as COMPLETED in DB, so no need to cache for reports
-      // But we can optionally cache for display purposes
-      counterOrdersCache.addCounterOrderToCache(restaurant.id, createdOrder);
-      setCachedCounterOrders(prev => [createdOrder, ...prev]);
-      
+      await onPlaceOrder(posCart, posRemark, posTableNo);
       setPosCart([]);
       setPosRemark('');
       setPosTableNo('Counter');
@@ -402,17 +394,37 @@ const PosOnlyView: React.FC<Props> = ({
     return cachedCounterOrders;
   }, [cachedCounterOrders]);
 
-  const fetchReport = React.useCallback(async (isExport = false) => {
-    if (!onFetchPaginatedOrders) return;
+  const fetchReport = async (isExport = false) => {
     if (!isExport) setIsReportLoading(true);
     try {
-      const data = await onFetchPaginatedOrders({
+      const filters: ReportFilters = {
         restaurantId: restaurant.id,
         startDate: reportStart,
         endDate: reportEnd,
         status: reportStatus,
         search: reportSearchQuery
-      }, isExport ? 1 : currentPage, isExport ? 10000 : entriesPerPage);
+      };
+
+      if (isExport && onFetchAllFilteredOrders) {
+        const orders = await onFetchAllFilteredOrders(filters);
+        return orders;
+      }
+
+      if (!isExport && onFetchPaginatedOrders) {
+        const data = await onFetchPaginatedOrders(filters, currentPage, entriesPerPage);
+        setReportData(data);
+        return;
+      }
+
+      const params = new URLSearchParams({
+        ...filters as any,
+        page: isExport ? '1' : currentPage.toString(),
+        limit: isExport ? '10000' : entriesPerPage.toString()
+      });
+
+      const response = await fetch(`/api/orders/report?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch report');
+      const data: ReportResponse = await response.json();
       
       if (isExport) {
         return data.orders;
@@ -420,17 +432,21 @@ const PosOnlyView: React.FC<Props> = ({
         setReportData(data);
       }
     } catch (error) {
-      console.error('Report error:', error);
+      console.error('Error fetching report:', error);
     } finally {
       if (!isExport) setIsReportLoading(false);
     }
-  }, [onFetchPaginatedOrders, restaurant.id, reportStart, reportEnd, reportStatus, reportSearchQuery, currentPage, entriesPerPage]);
+  };
 
   useEffect(() => {
     if (activeTab === 'REPORTS') {
       fetchReport();
     }
-  }, [activeTab, fetchReport]);
+  }, [activeTab, reportStart, reportEnd, reportStatus, reportSearchQuery, currentPage, entriesPerPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [entriesPerPage, reportStatus, reportStart, reportEnd, reportSearchQuery]);
 
   // Load cached counter orders on component mount or when restaurantId changes
   useEffect(() => {
@@ -684,7 +700,7 @@ const PosOnlyView: React.FC<Props> = ({
     setRenamingModifier(null);
   };
 
-  const handleDownloadReport = React.useCallback(async () => {
+  const handleDownloadReport = async () => {
     const allOrders = await fetchReport(true) as Order[];
     if (!allOrders || allOrders.length === 0) return;
     const headers = ['Order ID', 'Table', 'Date', 'Time', 'Status', 'Items', 'Total'];
@@ -705,7 +721,7 @@ const PosOnlyView: React.FC<Props> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  }, [fetchReport, reportStart, reportEnd]);
+  };
 
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
   const paginatedReports = reportData?.orders || [];
