@@ -1941,6 +1941,147 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
                   </div>
 
+                  {/* Dev Test - Printer Character Mapping */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden">
+                    <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <PrinterIcon size={16} className="text-purple-500" />
+                        <h2 className="font-black dark:text-white uppercase tracking-tighter text-sm">Dev Test - Printer Character Map</h2>
+                      </div>
+                      <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">Font A - 32 chars/line</span>
+                    </div>
+
+                    <div className="p-4 space-y-4">
+                      <p className="text-[10px] text-gray-600 dark:text-gray-400">Test printer output spacing and alignment. Use dotted lines to verify character positioning.</p>
+
+                      {/* Character Width Ruler */}
+                      <div className="bg-gray-50 dark:bg-gray-900/30 p-4 rounded-lg border dark:border-gray-700 font-mono text-[11px] space-y-2 overflow-x-auto">
+                        {/* Top ruler - position markers */}
+                        <div className="text-[9px] text-gray-400 dark:text-gray-500">
+                          <div className="flex text-center overflow-x-auto">
+                            {Array.from({ length: 32 }).map((_, i) => (
+                              <div key={`ruler-${i}`} className="flex-shrink-0 w-4 h-4 text-center leading-4">
+                                {(i + 1) % 5 === 0 ? (i + 1) : '.'}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Dotted line separator */}
+                        <div className="text-gray-300 dark:text-gray-600 select-none">
+                          {'.'.repeat(32)}
+                        </div>
+
+                        {/* Sample lines with character counter */}
+                        <div className="space-y-2 text-gray-700 dark:text-gray-300">
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[8px] text-gray-500 dark:text-gray-400">Business Name (2x size = ~16 chars max):</span>
+                              <span className="text-[8px] font-black text-blue-600 dark:text-blue-400">
+                                {receiptSettings.businessName} ({receiptSettings.businessName.length}/16)
+                              </span>
+                            </div>
+                            <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-600 text-center font-bold">
+                              {receiptSettings.businessName}
+                            </div>
+                            <div className="text-gray-300 dark:text-gray-600 select-none">
+                              {'.'.repeat(32)}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[8px] text-gray-500 dark:text-gray-400">Header Line 1:</span>
+                              <span className="text-[8px] font-black text-blue-600 dark:text-blue-400">
+                                {receiptSettings.headerLine1 ? receiptSettings.headerLine1.length : 0}/32
+                              </span>
+                            </div>
+                            <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-600 text-center text-sm">
+                              {receiptSettings.headerLine1 || '(empty)'}
+                            </div>
+                            <div className="text-gray-300 dark:text-gray-600 select-none">
+                              {'.'.repeat(32)}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[8px] text-gray-500 dark:text-gray-400">Separator Line:</span>
+                              <span className="text-[8px] font-black text-green-600 dark:text-green-400">
+                                32/32 ✓
+                              </span>
+                            </div>
+                            <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-600 text-center font-mono text-sm">
+                              {'='.repeat(32)}
+                            </div>
+                            <div className="text-gray-300 dark:text-gray-600 select-none">
+                              {'.'.repeat(32)}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[8px] text-gray-500 dark:text-gray-400">Footer Line 1:</span>
+                              <span className="text-[8px] font-black text-blue-600 dark:text-blue-400">
+                                {receiptSettings.footerLine1.length}/32
+                              </span>
+                            </div>
+                            <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-600 text-center text-sm">
+                              {receiptSettings.footerLine1}
+                            </div>
+                            <div className="text-gray-300 dark:text-gray-600 select-none">
+                              {'.'.repeat(32)}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[8px] text-gray-500 dark:text-gray-400">TOTAL Line (right-aligned):</span>
+                              <span className="text-[8px] font-black text-blue-600 dark:text-blue-400">
+                                14/32
+                              </span>
+                            </div>
+                            <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-600 text-right font-mono text-sm">
+                              {'TOTAL: RM 12.50'}
+                            </div>
+                            <div className="text-gray-300 dark:text-gray-600 select-none">
+                              {'.'.repeat(32)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Quick Legend */}
+                      <div className="grid grid-cols-2 gap-2 text-[9px] bg-blue-50 dark:bg-blue-900/20 p-3 rounded border dark:border-blue-800">
+                        <div>
+                          <p className="font-black text-blue-600 dark:text-blue-400 mb-1">📏 Character Count Legend:</p>
+                          <ul className="space-y-1 text-gray-600 dark:text-gray-400">
+                            <li>• Normal text: <span className="font-mono">32 chars max</span></li>
+                            <li>• Title (2x): <span className="font-mono">~16 chars max</span></li>
+                            <li>• Separator: <span className="font-mono">=====</span> (exactly 32)</li>
+                          </ul>
+                        </div>
+                        <div>
+                          <p className="font-black text-blue-600 dark:text-blue-400 mb-1">💡 Troubleshooting:</p>
+                          <ul className="space-y-1 text-gray-600 dark:text-gray-400">
+                            <li>✓ Dotted line shows <span className="font-mono">32-char</span> boundary</li>
+                            <li>✓ Text exceeding limit will overflow/wrap</li>
+                            <li>✓ Use Preview button to test print</li>
+                          </ul>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setShowReceiptPreview(true)}
+                          className="px-4 py-2 bg-purple-100 dark:bg-purple-900 rounded-lg font-black uppercase text-[9px] tracking-widest text-purple-600 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-800 transition-all"
+                        >
+                          🖨️ Full Preview
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Staff Management */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden">
                     <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700 flex items-center justify-between">
