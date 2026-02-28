@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters } from '../src/types';
 import StandardReport from '../components/StandardReport';
+import ItemOptionsModal from '../components/ItemOptionsModal';
 import { 
   ShoppingBag, Search, Filter, Download, Calendar, ChevronLeft, ChevronRight, 
   Printer, QrCode, CreditCard, Banknote, User, Trash2, Plus, Minus, LayoutGrid, 
@@ -40,6 +41,7 @@ const PosView: React.FC<Props> = ({
   const [posTableNo, setPosTableNo] = useState('Counter');
   const [menuSearch, setMenuSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [selectedItemForOptions, setSelectedItemForOptions] = useState<MenuItem | null>(null);
 
   // QR Orders State
   const [qrOrderSearch, setQrOrderSearch] = useState('');
@@ -89,23 +91,51 @@ const PosView: React.FC<Props> = ({
     return groups;
   }, [filteredMenu, selectedCategory, categories]);
 
-  const addToPosCart = (item: MenuItem) => {
+  const areSameCartOptions = (first: CartItem, second: CartItem) => {
+    const firstAddOns = JSON.stringify((first.selectedAddOns || []).slice().sort((a, b) => a.name.localeCompare(b.name)));
+    const secondAddOns = JSON.stringify((second.selectedAddOns || []).slice().sort((a, b) => a.name.localeCompare(b.name)));
+
+    return (
+      first.id === second.id &&
+      first.selectedSize === second.selectedSize &&
+      first.selectedTemp === second.selectedTemp &&
+      first.selectedOtherVariant === second.selectedOtherVariant &&
+      firstAddOns === secondAddOns
+    );
+  };
+
+  const addToPosCart = (item: CartItem) => {
     setPosCart(prev => {
-      const existing = prev.find(i => i.id === item.id);
+      const existing = prev.find(i => areSameCartOptions(i, item));
       if (existing) {
-        return prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
+        return prev.map(i => areSameCartOptions(i, item) ? { ...i, quantity: i.quantity + 1 } : i);
       }
-      return [...prev, { ...item, quantity: 1, restaurantId: restaurant.id }];
+      return [...prev, item];
     });
   };
 
-  const removeFromPosCart = (itemId: string) => {
-    setPosCart(prev => prev.filter(i => i.id !== itemId));
+  const handleMenuItemClick = (item: MenuItem) => {
+    const hasOptions =
+      (item.sizes && item.sizes.length > 0) ||
+      (item.tempOptions && item.tempOptions.enabled) ||
+      (item.otherVariantsEnabled && item.otherVariants && item.otherVariants.length > 0) ||
+      (item.addOns && item.addOns.length > 0);
+
+    if (hasOptions) {
+      setSelectedItemForOptions(item);
+      return;
+    }
+
+    addToPosCart({ ...item, quantity: 1, restaurantId: restaurant.id });
   };
 
-  const updateQuantity = (itemId: string, delta: number) => {
-    setPosCart(prev => prev.map(i => {
-      if (i.id === itemId) {
+  const removeFromPosCart = (cartIndex: number) => {
+    setPosCart(prev => prev.filter((_, idx) => idx !== cartIndex));
+  };
+
+  const updateQuantity = (cartIndex: number, delta: number) => {
+    setPosCart(prev => prev.map((i, idx) => {
+      if (idx === cartIndex) {
         const newQty = Math.max(1, i.quantity + delta);
         return { ...i, quantity: newQty };
       }
@@ -456,7 +486,7 @@ const PosView: React.FC<Props> = ({
                         {items.map(item => (
                           <button
                             key={item.id}
-                            onClick={() => addToPosCart(item)}
+                            onClick={() => handleMenuItemClick(item)}
                             className={`bg-white dark:bg-gray-800 border dark:border-gray-700 text-left hover:border-orange-500 transition-all group shadow-sm flex ${
                               menuLayout === 'list' ? 'flex-row items-center gap-4 p-2 rounded-xl' : 'flex-col p-2 rounded-xl'
                             }`}
@@ -803,29 +833,39 @@ const PosView: React.FC<Props> = ({
                     <p className="text-[10px] font-black uppercase tracking-widest">Cart is empty</p>
                   </div>
                 ) : (
-                  posCart.map(item => (
-                    <div key={item.id} className="flex items-center gap-4">
+                  posCart.map((item, idx) => (
+                    <div key={`${item.id}-${idx}`} className="flex items-center gap-4">
                       <div className="flex-1">
                         <h4 className="font-black text-[10px] dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
                         <p className="text-[10px] text-orange-500 font-black">RM{item.price.toFixed(2)}</p>
+                        <div className="mt-1 space-y-0.5">
+                          {item.selectedSize && <p className="text-[9px] text-gray-500 dark:text-gray-400">• Size: {item.selectedSize}</p>}
+                          {item.selectedTemp && <p className="text-[9px] text-gray-500 dark:text-gray-400">• {item.selectedTemp}</p>}
+                          {item.selectedOtherVariant && <p className="text-[9px] text-gray-500 dark:text-gray-400">• {item.selectedOtherVariant}</p>}
+                          {item.selectedAddOns && item.selectedAddOns.length > 0 && (
+                            <p className="text-[9px] text-gray-500 dark:text-gray-400">
+                              • Add-ons: {item.selectedAddOns.map(addon => `${addon.name} x${addon.quantity}`).join(', ')}
+                            </p>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
                         <button 
-                          onClick={() => updateQuantity(item.id, -1)} 
+                          onClick={() => updateQuantity(idx, -1)} 
                           className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all"
                         >
                           <Minus size={12} />
                         </button>
                         <span className="text-[10px] font-black w-4 text-center dark:text-white">{item.quantity}</span>
                         <button 
-                          onClick={() => updateQuantity(item.id, 1)} 
+                          onClick={() => updateQuantity(idx, 1)} 
                           className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all"
                         >
                           <Plus size={12} />
                         </button>
                       </div>
                       <button 
-                        onClick={() => removeFromPosCart(item.id)} 
+                        onClick={() => removeFromPosCart(idx)} 
                         className="text-gray-300 hover:text-red-500"
                       >
                         <Trash2 size={14} />
@@ -901,6 +941,16 @@ const PosView: React.FC<Props> = ({
           </div>
         )}
       </div>
+
+      <ItemOptionsModal
+        item={selectedItemForOptions}
+        restaurantId={restaurant.id}
+        onClose={() => setSelectedItemForOptions(null)}
+        onConfirm={(item) => {
+          addToPosCart(item);
+          setSelectedItemForOptions(null);
+        }}
+      />
 
       <style>{`
         .no-scrollbar::-webkit-scrollbar {
