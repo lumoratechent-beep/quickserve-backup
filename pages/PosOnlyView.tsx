@@ -945,7 +945,7 @@ const PosOnlyView: React.FC<Props> = ({
                         menuLayout === 'grid-5' ? 'grid-cols-5' : 
                         'grid-cols-1'
                       }`}>
-                        {items.map(item => (
+                        {filteredMenu.map(item => (
                           <button
                             key={item.id}
                             onClick={() => handleMenuItemClick(item)}
@@ -971,8 +971,6 @@ const PosOnlyView: React.FC<Props> = ({
                           </button>
                         ))}
                       </div>
-                    </section>
-                  ))}
                 </div>
               </div>
             </>
