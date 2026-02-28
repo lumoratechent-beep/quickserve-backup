@@ -19,13 +19,6 @@ export interface ReceiptPrintOptions {
   headerLine2?: string;
   footerLine1?: string;
   footerLine2?: string;
-  horizontalOffset?: number;
-  businessNameAlign?: 'left' | 'center' | 'right';
-  headerLine1Align?: 'left' | 'center' | 'right';
-  headerLine2Align?: 'left' | 'center' | 'right';
-  footerLine1Align?: 'left' | 'center' | 'right';
-  footerLine2Align?: 'left' | 'center' | 'right';
-  totalAlign?: 'left' | 'center' | 'right';
 }
 
 interface PrintJob {
@@ -41,7 +34,6 @@ interface PrintJob {
 class PrinterService {
   private readonly charsPerLine: number = 32;
   private readonly bleChunkSize: number = 180;
-  private readonly fontACharWidthDots: number = 12;
   private device: BluetoothDevice | null = null;
   private server: BluetoothRemoteGATTServer | null = null;
   private service: BluetoothRemoteGATTService | null = null;
@@ -98,17 +90,6 @@ class PrinterService {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
-  /**
-   * Generate a centered separator line (respects thermal printer width)
-   * Font A (default): 32 chars per 80mm line
-   * Font A double-width (size 2x): ~16 chars per line
-   */
-  private createSeparator(doubleSized: boolean = false): string {
-    // Font A: 32 chars, Font A double-size: ~16 chars
-    const width = doubleSized ? 16 : this.charsPerLine;
-    return '='.repeat(width);
-  }
-
   private truncateText(text: string, width: number): string {
     const safe = this.sanitizeText(text || '');
     if (!safe) return '';
@@ -134,67 +115,26 @@ class PrinterService {
     return data;
   }
 
-  private async writePreparedPayload(data: Uint8Array, offsetChars: number): Promise<void> {
+  private async writePreparedPayload(data: Uint8Array): Promise<void> {
     const payload = this.stripLeadingInitialize(data);
-    await this.resetPrinterFormattingState(offsetChars);
+    await this.resetPrinterFormattingState();
     await this.writeDataInChunks(payload);
   }
 
-  private async resetPrinterFormattingState(offsetChars: number = 0): Promise<void> {
+  private async resetPrinterFormattingState(): Promise<void> {
     if (!this.characteristic) {
       throw new Error('No writable characteristic found');
     }
 
-    // Reset printer and set default left alignment
     const reset = new Uint8Array([0x1B, 0x40]); // ESC @ - reset printer
     const alignLeft = new Uint8Array([0x1B, 0x61, 0x00]); // ESC a 0 - align left
 
-    // If horizontal offset > 0, use GS L to set left margin (in dots)
-    const normalizedOffset = Math.max(0, Math.min(16, Math.floor(offsetChars)));
-    if (normalizedOffset > 0) {
-      const marginDots = normalizedOffset * this.fontACharWidthDots;
-      const nL = marginDots & 0xFF;
-      const nH = (marginDots >> 8) & 0xFF;
-      const setMargin = new Uint8Array([0x1D, 0x4C, nL, nH]); // GS L - set left margin
+    const combinedBuffer = new Uint8Array(reset.length + alignLeft.length);
+    combinedBuffer.set(reset, 0);
+    combinedBuffer.set(alignLeft, reset.length);
 
-      const combinedBuffer = new Uint8Array(reset.length + alignLeft.length + setMargin.length);
-      combinedBuffer.set(reset, 0);
-      combinedBuffer.set(alignLeft, reset.length);
-      combinedBuffer.set(setMargin, reset.length + alignLeft.length);
-
-      await this.characteristic.writeValue(combinedBuffer);
-    } else {
-      const combinedBuffer = new Uint8Array(reset.length + alignLeft.length);
-      combinedBuffer.set(reset, 0);
-      combinedBuffer.set(alignLeft, reset.length);
-
-      await this.characteristic.writeValue(combinedBuffer);
-    }
-
+    await this.characteristic.writeValue(combinedBuffer);
     await new Promise(resolve => setTimeout(resolve, 30));
-  }
-
-  /**
-   * Helper: Center text with optional offset (calibration)
-   * Offset shifts the centered text to the right
-   */
-  private centerTextWithOffset(text: string, width: number, offsetChars: number = 0): string {
-    const normalizedOffset = Math.max(0, Math.min(16, Math.floor(offsetChars)));
-    const padding = Math.max(0, width - text.length - normalizedOffset);
-    const leftPad = Math.floor(padding / 2) + normalizedOffset;
-    return ' '.repeat(leftPad) + text;
-  }
-
-  /**
-   * Helper: Right-align text with optional offset (calibration)
-   * Offset shifts the right-aligned text to the left (reduces right padding)
-   */
-  private rightAlignTextWithOffset(text: string, width: number, offsetChars: number = 0): string {
-    const normalizedOffset = Math.max(0, Math.min(16, Math.floor(offsetChars)));
-    const padding = Math.max(0, width - text.length);
-    // Offset reduces the right padding, pulling text left
-    const adjustedPadding = Math.max(0, padding - normalizedOffset);
-    return ' '.repeat(adjustedPadding) + text;
   }
 
   async scanForPrinters(): Promise<PrinterDevice[]> {
@@ -496,101 +436,86 @@ class PrinterService {
       const showItems = options?.showItems !== false;
       const showRemark = options?.showRemark !== false;
       const showTotal = options?.showTotal !== false;
-      const horizontalOffset = Math.min(16, Math.max(0, Number(options?.horizontalOffset ?? 0)));
-      const businessNameAlign = options?.businessNameAlign ?? 'center';
-      const headerLine1Align = options?.headerLine1Align ?? 'center';
-      const headerLine2Align = options?.headerLine2Align ?? 'center';
-      const footerLine1Align = options?.footerLine1Align ?? 'center';
-      const footerLine2Align = options?.footerLine2Align ?? 'center';
-      const totalAlign = options?.totalAlign ?? 'right';
 
-      // Start building receipt with printer reset
-      // CRITICAL: Initialize and set alignment BEFORE any size changes
+      // === FIXED STANDARD RECEIPT LAYOUT ===
+
+      // Company Name (center, double size)
       let receipt = this.encoder
-        .initialize() // ESC @ - reset printer
-        .align('left') // Start with LEFT alignment (neutral state)
-        .line(''); // Blank line to ensure printer state is clear
+        .initialize()
+        .align('center')
+        .size(2, 2)
+        .line(this.truncateText(safeRestaurantName, 16))
+        .size(1, 1);
 
-      // Business name section - use native ESC/POS alignment
-      receipt = receipt.size(2, 2);
-      receipt = receipt.align(businessNameAlign).line(this.truncateText(safeRestaurantName, 16));
-      receipt = receipt.size(1, 1).align('left').line(''); // Reset size and alignment
-
-      // Headers section - use native alignment
+      // Header lines (center)
       if (safeHeaderLine1) {
-        const headerText1 = this.truncateText(safeHeaderLine1, this.charsPerLine);
-        receipt = receipt.align(headerLine1Align).line(headerText1);
+        receipt = receipt.line(this.truncateText(safeHeaderLine1, this.charsPerLine));
       }
-
       if (safeHeaderLine2) {
-        const headerText2 = this.truncateText(safeHeaderLine2, this.charsPerLine);
-        receipt = receipt.align(headerLine2Align).line(headerText2);
+        receipt = receipt.line(this.truncateText(safeHeaderLine2, this.charsPerLine));
       }
 
-      // Double separator after header (fills full line)
+      // Full double separator
       receipt = receipt
         .align('left')
-        .line('='.repeat(32))
-        .line(''); // Blank line
+        .line('='.repeat(32));
 
-      // LEFT alignment for content
-      receipt = receipt.align('left');
-
-      if (showDateTime || showOrderId) {
-        if (showDateTime && showOrderId) {
-          receipt = receipt.line(`${dateStr} ${timeStr} | #${safeOrderId}`);
-        } else if (showDateTime) {
-          receipt = receipt.line(`${dateStr} ${timeStr}`);
-        } else {
-          receipt = receipt.line(`#${safeOrderId}`);
-        }
+      // Date (left)
+      if (showDateTime) {
+        receipt = receipt.line(`${dateStr} ${timeStr}`);
       }
 
-      // Add table info if available
+      // Order ID (left)
+      if (showOrderId) {
+        receipt = receipt.line(`#${safeOrderId}`);
+      }
+
+      // Space + Table No (left)
       if (showTableNumber && order.tableNumber) {
         receipt = receipt
           .line('')
           .line(`Table: ${safeTableNumber}`);
       }
 
+      // Full single separator
       receipt = receipt.line('-'.repeat(32));
 
-      // Process items safely
+      // Items (left)
       if (showItems && order.items && Array.isArray(order.items) && order.items.length > 0) {
         order.items.forEach((item: any) => {
-          // Sanitize item name
           const safeItemName = this.sanitizeText(item.name) || 'ITEM';
           const quantity = item.quantity || 1;
-          
-          receipt = receipt.line(`${quantity}x ${safeItemName}`);
+          const itemPrice = this.formatPrice(item.price ? item.price * quantity : 0);
 
-          // Add size if present
+          // quantity x name  RM price
+          const leftPart = `${quantity}x ${safeItemName}`;
+          const rightPart = `RM${itemPrice}`;
+          const spaceBetween = Math.max(1, this.charsPerLine - leftPart.length - rightPart.length);
+          receipt = receipt.line(leftPart + ' '.repeat(spaceBetween) + rightPart);
+
+          // Variants with dash prefix
           if (item.selectedSize) {
             const safeSize = this.sanitizeText(item.selectedSize);
-            if (safeSize) receipt = receipt.line(`   ${safeSize}`);
+            if (safeSize) receipt = receipt.line(`-${safeSize}`);
           }
-
-          // Add temperature if present
           if (item.selectedTemp) {
             const safeTemp = this.sanitizeText(item.selectedTemp);
-            if (safeTemp) receipt = receipt.line(`   ${safeTemp}`);
+            if (safeTemp) receipt = receipt.line(`-${safeTemp}`);
           }
-
-          // Add other variant if present
           if (item.selectedOtherVariant) {
             const safeVariant = this.sanitizeText(item.selectedOtherVariant);
-            if (safeVariant) receipt = receipt.line(`   ${safeVariant}`);
+            if (safeVariant) receipt = receipt.line(`-${safeVariant}`);
           }
 
-          // Add add-ons if present
+          // Add-ons with dash prefix
           if (item.selectedAddOns && Array.isArray(item.selectedAddOns) && item.selectedAddOns.length > 0) {
             item.selectedAddOns.forEach((addon: any) => {
               const safeAddonName = this.sanitizeText(addon.name) || 'ADDON';
               const addonQty = addon.quantity || 1;
               if (addonQty > 1) {
-                receipt = receipt.line(`   + ${safeAddonName} x${addonQty}`);
+                receipt = receipt.line(`-${safeAddonName} x${addonQty}`);
               } else {
-                receipt = receipt.line(`   + ${safeAddonName}`);
+                receipt = receipt.line(`-${safeAddonName}`);
               }
             });
           }
@@ -601,7 +526,7 @@ class PrinterService {
         receipt = receipt.line(showItems ? 'No items' : 'Items hidden').line('');
       }
 
-      // Add remark if present and sanitized
+      // Remark if present
       if (showRemark && safeRemark) {
         receipt = receipt
           .line('-'.repeat(32))
@@ -610,34 +535,25 @@ class PrinterService {
           .line('');
       }
 
-      // Calculate total safely
-      const safeTotal = this.formatPrice(order.total);
+      // Full single separator
+      receipt = receipt.line('-'.repeat(32));
 
-      // Add total and footer
-      receipt = receipt
-        .align('left')
-        .line('-'.repeat(32));
-
+      // Total (left)
       if (showTotal) {
-        // Format total with configurable alignment
-        const totalLabel = this.truncateText(`TOTAL: RM ${safeTotal}`, this.charsPerLine);
-        receipt = receipt.align(totalAlign).line(totalLabel);
+        const safeTotal = this.formatPrice(order.total);
+        receipt = receipt.line(`TOTAL: RM ${safeTotal}`);
       }
 
-      // Double separator before footer (fills full line)
-      receipt = receipt
-        .align('left')
-        .line('='.repeat(32))
-        .line('');
+      // Full double separator
+      receipt = receipt.line('='.repeat(32));
 
+      // Footer lines (center)
+      receipt = receipt.align('center');
       if (safeFooterLine1) {
-        const footerText1 = this.truncateText(safeFooterLine1, this.charsPerLine);
-        receipt = receipt.align(footerLine1Align).line(footerText1);
+        receipt = receipt.line(this.truncateText(safeFooterLine1, this.charsPerLine));
       }
-
       if (safeFooterLine2) {
-        const footerText2 = this.truncateText(safeFooterLine2, this.charsPerLine);
-        receipt = receipt.align(footerLine2Align).line(footerText2);
+        receipt = receipt.line(this.truncateText(safeFooterLine2, this.charsPerLine));
       }
 
       receipt = receipt
@@ -647,27 +563,27 @@ class PrinterService {
 
       const data = receipt.encode() as Uint8Array;
 
-      await this.writePreparedPayload(data, horizontalOffset);
-      
+      await this.writePreparedPayload(data);
+
       // Wait for printer to completely finish processing
       await new Promise(resolve => setTimeout(resolve, 3000));
-      
+
       this.lastPrintTime = Date.now();
       console.log('Print successful');
       return true;
-      
+
     } catch (error) {
       console.error('Execute print error:', error);
-      
+
       // Try to reset printer even after error
       try {
         if (this.characteristic) {
-          await this.resetPrinterFormattingState(0);
+          await this.resetPrinterFormattingState();
         }
       } catch (resetError) {
         // Ignore reset errors
       }
-      
+
       return false;
     }
   }
@@ -714,48 +630,29 @@ class PrinterService {
 
       const now = new Date();
       const testBusinessName = this.sanitizeText(options?.businessName || 'QUICKSERVE') || 'QUICKSERVE';
-      const horizontalOffset = Math.min(16, Math.max(0, Number(options?.horizontalOffset ?? 0)));
-      const businessNameAlign = options?.businessNameAlign ?? 'center';
-      const headerLine1Align = options?.headerLine1Align ?? 'center';
-      const totalAlign = options?.totalAlign ?? 'right';
-      
-      // Build test page with native alignment
+
+      // Build test page with fixed standard layout
       const truncatedName = this.truncateText(testBusinessName, 16);
-      let testData = this.encoder
+      const data = this.encoder
         .initialize()
-        .align('left')
-        .line('')
-        .size(2, 2);
-
-      // Apply business name with native alignment
-      testData = testData.align(businessNameAlign).line(truncatedName);
-
-      testData = testData
+        .align('center')
+        .size(2, 2)
+        .line(truncatedName)
         .size(1, 1)
-        .align('left')
         .line('')
-        .line('='.repeat(32));
-
-      // Apply test page header with native alignment
-      const testPageText = 'TEST PAGE';
-      testData = testData.align(headerLine1Align).line(testPageText);
-
-      testData = testData
+        .line('='.repeat(32))
+        .align('center')
+        .line('TEST PAGE')
         .align('left')
         .line('')
         .line(this.formatDate(now) + ' ' + this.formatTime(now))
-        .line('');
-
-      // Apply result text with native alignment
-      const resultText = 'Printer is working!';
-      testData = testData.align(totalAlign).line(resultText);
-      
-      const data = testData
+        .line('')
+        .line('Printer is working!')
         .line('='.repeat(32))
         .cut()
         .encode() as Uint8Array;
 
-      await this.writePreparedPayload(data, horizontalOffset);
+      await this.writePreparedPayload(data);
       
       // Wait for printer to finish
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -828,11 +725,11 @@ class PrinterService {
         .cut()
         .encode() as Uint8Array;
 
-      await this.writePreparedPayload(data, 0);
-      
+      await this.writePreparedPayload(data);
+
       // Wait for printer to finish
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       // Reset printer
       await this.resetPrinterFormattingState();
       
