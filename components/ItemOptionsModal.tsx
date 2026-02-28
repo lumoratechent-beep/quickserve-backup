@@ -11,56 +11,53 @@ interface Props {
 }
 
 const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConfirm }) => {
+  // CRITICAL: All hooks must be called unconditionally, before any returns or conditions
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedTemp, setSelectedTemp] = useState<'Hot' | 'Cold' | undefined>(undefined);
   const [selectedOtherVariant, setSelectedOtherVariant] = useState('');
   const [selectedAddOns, setSelectedAddOns] = useState<Record<string, SelectedAddOn>>({});
-
-  // Early return if no item
-  if (!item || typeof document === 'undefined') {
-    console.log('ItemOptionsModal: Returning null because item or document is missing', { 
-      hasItem: !!item, 
-      hasDocument: typeof document !== 'undefined' 
-    });
-    return null;
-  }
 
   // Safe array conversion helper
   const toSafeArray = <T,>(value: unknown): T[] => {
     return Array.isArray(value) ? value : [];
   };
 
-  // Parse and validate item data
+  // Always define memos, even if item is null
   const sizes = useMemo<Array<{ name: string; price: number }>>(() => {
+    if (!item) return [];
     const arr = toSafeArray<any>(item.sizes);
     return arr.filter(size => size && typeof size.name === 'string' && typeof size.price === 'number');
-  }, [item.sizes]);
+  }, [item?.sizes, item?.id]);
 
   const otherVariants = useMemo<Array<{ name: string; price: number }>>(() => {
+    if (!item) return [];
     const arr = toSafeArray<any>(item.otherVariants);
     return arr.filter(option => option && typeof option.name === 'string' && typeof option.price === 'number');
-  }, [item.otherVariants]);
+  }, [item?.otherVariants, item?.id]);
 
   const addOns = useMemo<AddOnItem[]>(() => {
+    if (!item) return [];
     const arr = toSafeArray<any>(item.addOns);
     return arr.filter(addOn => addOn && typeof addOn.name === 'string' && typeof addOn.price === 'number');
-  }, [item.addOns]);
+  }, [item?.addOns, item?.id]);
 
   const hasTempOptions = useMemo<boolean>(() => {
+    if (!item) return false;
     return !!(item.tempOptions && typeof item.tempOptions === 'object' && item.tempOptions.enabled === true);
-  }, [item.tempOptions]);
+  }, [item?.tempOptions, item?.id]);
 
-  // Initialize selections on item change
+  // Always define effects
   useEffect(() => {
-    console.log('ItemOptionsModal: Initializing with item', { name: item.name, sizes, hasTempOptions });
+    if (!item) return;
+    console.log('ItemOptionsModal: Initializing with item', { name: item.name });
     setSelectedSize(sizes.length > 0 ? sizes[0].name : '');
     setSelectedTemp(hasTempOptions ? 'Hot' : undefined);
     setSelectedOtherVariant(item.otherVariantsEnabled && otherVariants.length > 0 ? otherVariants[0].name : '');
     setSelectedAddOns({});
-  }, [item.id]);
+  }, [item?.id, sizes.length, otherVariants.length, hasTempOptions, item?.otherVariantsEnabled]);
 
-  // Handle escape key
   useEffect(() => {
+    if (!item) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         console.log('ItemOptionsModal: Escape pressed, closing');
@@ -69,7 +66,13 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  }, [item, onClose]);
+
+  // NOW we can return null if needed - after all hooks
+  if (!item || typeof document === 'undefined') {
+    console.log('ItemOptionsModal: Returning null');
+    return null;
+  }
 
   // Handle add-on quantity changes
   const changeAddOnQuantity = (addOn: AddOnItem, delta: number) => {
