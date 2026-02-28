@@ -32,25 +32,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     if (startDate) {
       // startDate comes as YYYY-MM-DD from local time representation
-      // Convert it to UTC timestamp accounting for timezone
-      const startD = new Date(startDate as string);
-      // The date string was created from local midnight, but Date() interprets it as UTC
-      // We need to get the actual start of that date in UTC accounting for timezone
-      startD.setHours(0, 0, 0, 0);
-      // Subtract timezone offset to go back to true UTC midnight for that local date
+      // JavaScript interprets the date string as UTC, but we need to convert to what the user meant in their timezone
       // For a client at UTC+8 selecting "2026-03-01":
       // - They want: 2026-03-01 00:00:00+08 which is 2026-02-28 16:00:00 UTC
-      // - We have: 2026-03-01 00:00:00 (from the string, interpreted as UTC)
-      // - We need to subtract 8 hours (480 minutes) to get the correct UTC time
-      const startTimestamp = startD.getTime() - (tzOffset * 60000);
+      // - We have: 2026-03-01 00:00:00 (from string, interpreted as UTC)
+      // - getTimezoneOffset() for UTC+8 returns -480
+      // - We need to ADD the offset (which is negative) to subtract hours
+      const startD = new Date(startDate as string);
+      startD.setHours(0, 0, 0, 0);
+      const startTimestamp = startD.getTime() + (tzOffset * 60000);
       query = query.gte('timestamp', startTimestamp);
     }
     if (endDate) {
-      // endDate comes as YYYY-MM-DD from local time representation
+      // endDate is in format "YYYY-MM-DD" representing local end of day
+      // For a client at UTC+8 selecting "2026-03-01":
+      // - They want end of: 2026-03-01 23:59:59+08 which is 2026-03-01 15:59:59 UTC
       const endD = new Date(endDate as string);
       endD.setHours(23, 59, 59, 999);
-      // Subtract timezone offset to properly represent end of day in local time
-      const endTimestamp = endD.getTime() - (tzOffset * 60000);
+      const endTimestamp = endD.getTime() + (tzOffset * 60000);
       query = query.lte('timestamp', endTimestamp);
     }
     
@@ -71,13 +70,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (startDate) {
       const startD = new Date(startDate as string);
       startD.setHours(0, 0, 0, 0);
-      const startTimestamp = startD.getTime() - (tzOffset * 60000);
+      const startTimestamp = startD.getTime() + (tzOffset * 60000);
       summaryQuery = summaryQuery.gte('timestamp', startTimestamp);
     }
     if (endDate) {
       const endD = new Date(endDate as string);
       endD.setHours(23, 59, 59, 999);
-      const endTimestamp = endD.getTime() - (tzOffset * 60000);
+      const endTimestamp = endD.getTime() + (tzOffset * 60000);
       summaryQuery = summaryQuery.lte('timestamp', endTimestamp);
     }
     

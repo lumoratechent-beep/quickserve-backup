@@ -86,26 +86,24 @@ async function startServer() {
       
       if (startDate) {
         // startDate is in format "YYYY-MM-DD" representing local midnight
-        // Convert to UTC by accounting for timezone offset
-        const startD = new Date(startDate as string);
-        startD.setHours(0, 0, 0, 0);
-        // The date string is interpreted as UTC, but we need to convert it to the UTC that represents
-        // the start of that day in the client's timezone. 
+        // JavaScript interprets the date string as UTC, but we need to convert to what the user meant in their timezone
         // For a client at UTC+8 selecting "2026-03-01":
         // - They want: 2026-03-01 00:00:00+08 which is 2026-02-28 16:00:00 UTC
-        // - We have: 2026-03-01 00:00:00 (from the string, interpreted as UTC)
-        // - We need to subtract 8 hours (the offset) to get the correct UTC time
-        const startTimestamp = startD.getTime() - (tzOffset * 60000);
+        // - We have: 2026-03-01 00:00:00 (from string, interpreted as UTC by JavaScript)
+        // - getTimezoneOffset() for UTC+8 returns -480
+        // - We need to ADD the offset (which is negative) to subtract hours
+        const startD = new Date(startDate as string);
+        startD.setHours(0, 0, 0, 0);
+        const startTimestamp = startD.getTime() + (tzOffset * 60000);
         query = query.gte('timestamp', startTimestamp);
       }
       if (endDate) {
-        // endDate is in format "YYYY-MM-DD" representing local midnight
+        // endDate is in format "YYYY-MM-DD" representing local end of day
         // For a client at UTC+8 selecting "2026-03-01":
-        // - They want: 2026-03-02 00:00:00+08 (end of 2026-03-01) which is 2026-03-01 16:00:00 UTC
-        // - So we set to 23:59:59 of the selected date and adjust for timezone
+        // - They want end of: 2026-03-01 23:59:59+08 which is 2026-03-01 15:59:59 UTC
         const endD = new Date(endDate as string);
         endD.setHours(23, 59, 59, 999);
-        const endTimestamp = endD.getTime() - (tzOffset * 60000);
+        const endTimestamp = endD.getTime() + (tzOffset * 60000);
         query = query.lte('timestamp', endTimestamp);
       }
       
@@ -126,13 +124,13 @@ async function startServer() {
       if (startDate) {
         const startD = new Date(startDate as string);
         startD.setHours(0, 0, 0, 0);
-        const startTimestamp = startD.getTime() - (tzOffset * 60000);
+        const startTimestamp = startD.getTime() + (tzOffset * 60000);
         summaryQuery = summaryQuery.gte('timestamp', startTimestamp);
       }
       if (endDate) {
         const endD = new Date(endDate as string);
         endD.setHours(23, 59, 59, 999);
-        const endTimestamp = endD.getTime() - (tzOffset * 60000);
+        const endTimestamp = endD.getTime() + (tzOffset * 60000);
         summaryQuery = summaryQuery.lte('timestamp', endTimestamp);
       }
       
