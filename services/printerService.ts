@@ -683,6 +683,51 @@ class PrinterService {
     });
   }
 
+  /**
+   * Dev test print - allows custom text and dotted lines
+   */
+  async printDevTest(dottedLineCount: number, testText: string): Promise<boolean> {
+    if (!this.isConnected() || !this.characteristic) {
+      throw new Error('Printer not connected');
+    }
+
+    try {
+      const data = this.encoder
+        .initialize()
+        .align('center')
+        .line('DEV TEST')
+        .line('')
+        .align('center')
+        .line('.'.repeat(Math.min(dottedLineCount, 32)))
+        .line('')
+        .line(testText.substring(0, 32))
+        .line('')
+        .line('.'.repeat(Math.min(dottedLineCount, 32)))
+        .line('')
+        .line(`Chars: ${testText.length}/32`)
+        .line('')
+        .cut()
+        .encode();
+
+      await this.characteristic.writeValue(data as BufferSource);
+      
+      // Wait for printer to finish
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Reset printer
+      const resetPrinter = new Uint8Array([0x1B, 0x40]); // ESC @
+      await this.characteristic.writeValue(resetPrinter);
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      console.log('Dev test print successful');
+      return true;
+    } catch (error) {
+      console.error('Dev test print error:', error);
+      return false;
+    }
+  }
+
   getConnectionStatus() {
     return {
       connected: this.isConnected(),
