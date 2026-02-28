@@ -100,6 +100,16 @@ class PrinterService {
     return '='.repeat(width);
   }
 
+  private centerText(text: string, width: number): string {
+    const safe = this.sanitizeText(text || '');
+    if (!safe) return '';
+    if (safe.length >= width) {
+      return safe.slice(0, width);
+    }
+    const leftPadding = Math.floor((width - safe.length) / 2);
+    return ' '.repeat(leftPadding) + safe;
+  }
+
   private async writeDataInChunks(data: Uint8Array): Promise<void> {
     if (!this.characteristic) {
       throw new Error('No writable characteristic found');
@@ -434,26 +444,26 @@ class PrinterService {
         .align('left') // Start with LEFT alignment (neutral state)
         .line(''); // Blank line to ensure printer state is clear
 
-      // Business name section - CENTER with 2x size
+      // Business name section - centered via padding (printer-safe)
       receipt = receipt
-        .align('center')
+        .align('left')
         .size(2, 2)
-        .line(safeRestaurantName)
+        .line(this.centerText(safeRestaurantName, 16))
         .size(1, 1)
         .line(''); // Blank line to reset state
 
-      // Headers section - CENTER with normal size
-      receipt = receipt.align('center');
+      // Headers section - centered via padding (32 chars)
+      receipt = receipt.align('left');
       
       if (safeHeaderLine1) {
-        receipt = receipt.line(safeHeaderLine1);
+        receipt = receipt.line(this.centerText(safeHeaderLine1, this.charsPerLine));
       }
 
       if (safeHeaderLine2) {
-        receipt = receipt.line(safeHeaderLine2);
+        receipt = receipt.line(this.centerText(safeHeaderLine2, this.charsPerLine));
       }
 
-      // Double separator after header (32 chars for Font A) - CENTER
+      // Double separator after header (fills full line)
       receipt = receipt
         .line('='.repeat(32))
         .line(''); // Blank line
@@ -551,22 +561,22 @@ class PrinterService {
         receipt = receipt.line(paddedTotal);
       }
 
-      // Double separator with center alignment (32 chars for Font A)
+      // Double separator before footer (fills full line)
       receipt = receipt
-        .align('center')
+        .align('left')
         .line('='.repeat(32))
         .line('');
 
       if (safeFooterLine1) {
         receipt = receipt
-          .align('center')
-          .line(safeFooterLine1);
+          .align('left')
+          .line(this.centerText(safeFooterLine1, this.charsPerLine));
       }
 
       if (safeFooterLine2) {
         receipt = receipt
-          .align('center')
-          .line(safeFooterLine2);
+          .align('left')
+          .line(this.centerText(safeFooterLine2, this.charsPerLine));
       }
 
       receipt = receipt
@@ -655,19 +665,17 @@ class PrinterService {
         .initialize()
         .align('left')
         .line('')
-        .align('center')
         .size(2, 2)
-        .line('QUICKSERVE')
+        .line(this.centerText('QUICKSERVE', 16))
         .size(1, 1)
         .line('')
         .line('='.repeat(32))
-        .line('TEST PAGE')
+        .line(this.centerText('TEST PAGE', this.charsPerLine))
         .line('')
         .align('left')
         .line(this.formatDate(now) + ' ' + this.formatTime(now))
         .line('')
-        .align('center')
-        .line('Printer is working!')
+        .line(this.centerText('Printer is working!', this.charsPerLine))
         .line('='.repeat(32))
         .cut()
         .encode() as Uint8Array;
@@ -732,18 +740,15 @@ class PrinterService {
     try {
       const data = this.encoder
         .initialize()
-        .align('center')
-        .line('DEV TEST')
         .align('left')
+        .line(this.centerText('DEV TEST', this.charsPerLine))
         .line('')
-        .align('center')
-        .line('.'.repeat(Math.min(dottedLineCount, 32)))
+        .line(this.centerText('.'.repeat(Math.min(dottedLineCount, 32)), this.charsPerLine))
         .align('left')
         .line('')
         .line(testText.substring(0, 32))
         .line('')
-        .align('center')
-        .line('.'.repeat(Math.min(dottedLineCount, 32)))
+        .line(this.centerText('.'.repeat(Math.min(dottedLineCount, 32)), this.charsPerLine))
         .align('left')
         .line('')
         .line(`Chars: ${testText.length}/32`)
