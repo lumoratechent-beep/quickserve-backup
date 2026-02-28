@@ -2005,6 +2005,7 @@ const VendorView: React.FC<Props> = ({
         formItem={formItem}
         setFormItem={setFormItem}
         categories={categories}
+        availableModifiers={modifiers}
         onClose={() => setIsFormModalOpen(false)}
         onSubmit={handleSaveItem}
         onImageUpload={handleImageUpload}

@@ -2042,6 +2042,7 @@ const PosOnlyView: React.FC<Props> = ({
           formItem={formItem}
           setFormItem={setFormItem}
           categories={menuEditorCategories}
+          availableModifiers={modifiers}
           onClose={handleCloseFormModal}
           onSubmit={handleSaveMenuItem}
           onImageUpload={handleImageUpload}

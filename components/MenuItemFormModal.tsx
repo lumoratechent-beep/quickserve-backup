@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { MenuItem, AddOnItem } from '../src/types';
+import { MenuItem, AddOnItem, ModifierData } from '../src/types';
 import { X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle } from 'lucide-react';
 
 export type MenuFormItem = Partial<MenuItem & { sizesEnabled?: boolean }>;
@@ -9,6 +9,7 @@ interface Props {
   formItem: MenuFormItem;
   setFormItem: React.Dispatch<React.SetStateAction<MenuFormItem>>;
   categories: string[];
+  availableModifiers?: ModifierData[];
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
   onImageUpload?: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -19,6 +20,7 @@ const MenuItemFormModal: React.FC<Props> = ({
   formItem,
   setFormItem,
   categories,
+  availableModifiers = [],
   onClose,
   onSubmit,
   onImageUpload,
@@ -93,6 +95,17 @@ const MenuItemFormModal: React.FC<Props> = ({
     });
   };
 
+  const handleSelectSavedModifier = (modifierName: string) => {
+    const modifier = availableModifiers.find(m => m.name === modifierName);
+    if (!modifier) return;
+    setFormItem(prev => ({
+      ...prev,
+      otherVariantName: modifier.name,
+      otherVariants: modifier.options.map(opt => ({ name: opt.name, price: opt.price })),
+      otherVariantsEnabled: true,
+    }));
+  };
+
   return (
     <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full p-6 shadow-2xl relative animate-in zoom-in fade-in duration-300 max-h-[85vh] overflow-y-auto">
@@ -127,7 +140,7 @@ const MenuItemFormModal: React.FC<Props> = ({
                 />
 
                 <div className="flex items-center justify-between mt-3">
-                  <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Portion Variants</span>
+                  <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Portion Size</span>
                   <button
                     type="button"
                     onClick={() => setFormItem(prev => ({ ...prev, sizesEnabled: !prev.sizesEnabled }))}
@@ -205,7 +218,7 @@ const MenuItemFormModal: React.FC<Props> = ({
           {formItem.sizesEnabled && (
             <div className="border-t dark:border-gray-700 pt-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-black dark:text-white">Portion Variants</h3>
+                <h3 className="text-sm font-black dark:text-white">Portion Size</h3>
                 <button type="button" onClick={handleAddSize} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
                   <Plus size={16} />
                 </button>
@@ -244,6 +257,28 @@ const MenuItemFormModal: React.FC<Props> = ({
                 <Plus size={16} />
               </button>
             </div>
+
+            {availableModifiers.length > 0 && (
+              <div className="mb-4">
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Select from saved modifiers</label>
+                <div className="flex flex-wrap gap-2">
+                  {availableModifiers.map(mod => (
+                    <button
+                      key={mod.name}
+                      type="button"
+                      onClick={() => handleSelectSavedModifier(mod.name)}
+                      className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${
+                        formItem.otherVariantName === mod.name
+                          ? 'bg-orange-500 text-white border-orange-500'
+                          : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-orange-300'
+                      }`}
+                    >
+                      {mod.name} ({mod.options.length})
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {formItem.otherVariants && formItem.otherVariants.length > 0 ? (
               <div className="space-y-4">
