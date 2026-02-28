@@ -11,68 +11,61 @@ interface Props {
 }
 
 const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConfirm }) => {
-  // CRITICAL: All hooks must be called unconditionally, before any returns or conditions
+  // ALL HOOKS FIRST - these MUST be unconditional
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedTemp, setSelectedTemp] = useState<'Hot' | 'Cold' | undefined>(undefined);
   const [selectedOtherVariant, setSelectedOtherVariant] = useState('');
   const [selectedAddOns, setSelectedAddOns] = useState<Record<string, SelectedAddOn>>({});
 
-  // Safe array conversion helper
-  const toSafeArray = <T,>(value: unknown): T[] => {
-    return Array.isArray(value) ? value : [];
-  };
+  // Safe array conversion
+  const toSafeArray = <T,>(value: unknown): T[] => Array.isArray(value) ? value : [];
 
-  // Always define memos, even if item is null
-  const sizes = useMemo<Array<{ name: string; price: number }>>(() => {
-    if (!item) return [];
-    const arr = toSafeArray<any>(item.sizes);
-    return arr.filter(size => size && typeof size.name === 'string' && typeof size.price === 'number');
-  }, [item?.sizes, item?.id]);
+  // FIXED: Use item.id as ONLY dependency - no optional chaining in arrays
+  const sizes = useMemo(() => {
+    if (!item) return [] as Array<{ name: string; price: number }>;
+    const arr = toSafeArray(item.sizes) as any[];
+    return arr.filter((s: any) => s && typeof s.name === 'string' && typeof s.price === 'number') as Array<{ name: string; price: number }>;
+  }, [item?.id]);
 
-  const otherVariants = useMemo<Array<{ name: string; price: number }>>(() => {
-    if (!item) return [];
-    const arr = toSafeArray<any>(item.otherVariants);
-    return arr.filter(option => option && typeof option.name === 'string' && typeof option.price === 'number');
-  }, [item?.otherVariants, item?.id]);
+  const otherVariants = useMemo(() => {
+    if (!item) return [] as Array<{ name: string; price: number }>;
+    const arr = toSafeArray(item.otherVariants) as any[];
+    return arr.filter((v: any) => v && typeof v.name === 'string' && typeof v.price === 'number') as Array<{ name: string; price: number }>;
+  }, [item?.id]);
 
-  const addOns = useMemo<AddOnItem[]>(() => {
-    if (!item) return [];
-    const arr = toSafeArray<any>(item.addOns);
-    return arr.filter(addOn => addOn && typeof addOn.name === 'string' && typeof addOn.price === 'number');
-  }, [item?.addOns, item?.id]);
+  const addOns = useMemo(() => {
+    if (!item) return [] as AddOnItem[];
+    const arr = toSafeArray(item.addOns) as any[];
+    return arr.filter((a: any) => a && typeof a.name === 'string' && typeof a.price === 'number') as AddOnItem[];
+  }, [item?.id]);
 
-  const hasTempOptions = useMemo<boolean>(() => {
-    if (!item) return false;
-    return !!(item.tempOptions && typeof item.tempOptions === 'object' && item.tempOptions.enabled === true);
-  }, [item?.tempOptions, item?.id]);
+  const hasTempOptions = useMemo(() => {
+    if (!item?.tempOptions) return false;
+    return item.tempOptions.enabled === true;
+  }, [item?.id]);
 
-  // Always define effects
+  // Initialize state when item changes
   useEffect(() => {
     if (!item) return;
-    console.log('ItemOptionsModal: Initializing with item', { name: item.name });
-    setSelectedSize(sizes.length > 0 ? sizes[0].name : '');
+    setSelectedSize(sizes[0]?.name || '');
     setSelectedTemp(hasTempOptions ? 'Hot' : undefined);
-    setSelectedOtherVariant(item.otherVariantsEnabled && otherVariants.length > 0 ? otherVariants[0].name : '');
+    setSelectedOtherVariant(item.otherVariantsEnabled && otherVariants[0] ? otherVariants[0].name : '');
     setSelectedAddOns({});
-  }, [item?.id, sizes.length, otherVariants.length, hasTempOptions, item?.otherVariantsEnabled]);
+  }, [item?.id]);
 
+  // Escape key handler
   useEffect(() => {
     if (!item) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        console.log('ItemOptionsModal: Escape pressed, closing');
-        onClose();
-      }
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [item, onClose]);
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
 
-  // NOW we can return null if needed - after all hooks
-  if (!item || typeof document === 'undefined') {
-    console.log('ItemOptionsModal: Returning null');
-    return null;
-  }
+  // AFTER all hooks, now we can check and return
+  if (!item) return null;
+  if (typeof document === 'undefined') return null;
 
   // Handle add-on quantity changes
   const changeAddOnQuantity = (addOn: AddOnItem, delta: number) => {
@@ -94,38 +87,34 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
     }));
   };
 
-  // Calculate add-on total with proper memoization
-  const addOnTotal = useMemo<number>(() => {
-    return Object.values(selectedAddOns).reduce((sum, addOn) => sum + (addOn.price * addOn.quantity), 0);
+  // Calculate add-on total
+  const addOnTotal = useMemo(() => {
+    return Object.values(selectedAddOns).reduce((sum, ao) => sum + (ao.price * ao.quantity), 0);
   }, [selectedAddOns]);
 
-  // Calculate total price with proper memoization
-  const totalPrice = useMemo<number>(() => {
-    let total = Number(item.price) || 0;
+  // Calculate total price
+  const totalPrice = useMemo(() => {
+    if (!item) return 0;
+    let total = item.price || 0;
 
-    // Add size surcharge
-    if (selectedSize && sizes.length > 0) {
-      const size = sizes.find(s => s.name === selectedSize);
-      if (size) total += size.price;
+    if (selectedSize) {
+      const sz = sizes.find(s => s.name === selectedSize);
+      if (sz) total += sz.price;
     }
 
-    // Add variant surcharge
-    if (selectedOtherVariant && otherVariants.length > 0) {
-      const variant = otherVariants.find(v => v.name === selectedOtherVariant);
-      if (variant) total += variant.price;
+    if (selectedOtherVariant) {
+      const vr = otherVariants.find(v => v.name === selectedOtherVariant);
+      if (vr) total += vr.price;
     }
 
-    // Add temperature surcharge
-    if (item.tempOptions && item.tempOptions.enabled) {
-      if (selectedTemp === 'Hot') total += Number(item.tempOptions.hot) || 0;
-      if (selectedTemp === 'Cold') total += Number(item.tempOptions.cold) || 0;
+    if (item.tempOptions?.enabled) {
+      if (selectedTemp === 'Hot') total += item.tempOptions.hot || 0;
+      if (selectedTemp === 'Cold') total += item.tempOptions.cold || 0;
     }
 
-    // Add add-ons total
     total += addOnTotal;
-
     return total;
-  }, [item.price, item.tempOptions, selectedSize, selectedOtherVariant, selectedTemp, addOnTotal, sizes, otherVariants]);
+  }, [item?.id, selectedSize, selectedOtherVariant, selectedTemp, addOnTotal, sizes, otherVariants]);
 
   // Prepare cart item on confirm
   const confirmSelection = () => {
@@ -211,7 +200,7 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Size</label>
               <div className="grid grid-cols-2 gap-2">
-                {sizes.map(size => (
+                {sizes.map((size: any) => (
                   <button
                     key={size.name}
                     onClick={() => setSelectedSize(size.name)}
@@ -246,7 +235,7 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
                   <p className="text-[10px] font-black uppercase">None</p>
                   <p className="text-xs font-black">Default</p>
                 </button>
-                {otherVariants.map(option => (
+                {otherVariants.map((option: any) => (
                   <button
                     key={option.name}
                     onClick={() => setSelectedOtherVariant(option.name)}
@@ -298,7 +287,7 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Add-ons</label>
               <div className="space-y-2">
-                {addOns.map((addOn, idx) => {
+                {addOns.map((addOn: any, idx) => {
                   const quantity = selectedAddOns[addOn.name]?.quantity || 0;
                   return (
                     <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
