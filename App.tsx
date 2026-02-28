@@ -888,8 +888,8 @@ const App: React.FC = () => {
     return data.summary;
   };
 
-  const placePosOrder = async (items: CartItem[], remark: string, tableNumber: string) => {
-    if (items.length === 0 || !currentUser?.restaurantId) return;
+  const placePosOrder = async (items: CartItem[], remark: string, tableNumber: string): Promise<Order> => {
+    if (items.length === 0 || !currentUser?.restaurantId) throw new Error('Invalid order');
     
     const res = restaurants.find(r => r.id === currentUser.restaurantId);
     const area = locations.find(l => l.name === res?.location);
@@ -911,13 +911,14 @@ const App: React.FC = () => {
     }
     const orderId = `${code}${String(nextNum).padStart(7, '0')}`;
     const total = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    const timestamp = Date.now();
 
     const orderToInsert = {
       id: orderId,
       items: items,
       total: total,
       status: OrderStatus.COMPLETED,
-      timestamp: Date.now(),
+      timestamp: timestamp,
       customer_id: 'pos_user',
       restaurant_id: currentUser.restaurantId,
       table_number: tableNumber,
@@ -927,6 +928,20 @@ const App: React.FC = () => {
 
     const { error } = await supabase.from('orders').insert([orderToInsert]);
     if (error) throw error;
+
+    // Return the created order object
+    return {
+      id: orderId,
+      items: items,
+      total: total,
+      status: OrderStatus.COMPLETED,
+      timestamp: timestamp,
+      customerId: 'pos_user',
+      restaurantId: currentUser.restaurantId,
+      tableNumber: tableNumber,
+      locationName: res?.location || 'Unspecified',
+      remark: remark
+    };
   };
 
   const updateRestaurantSettings = async (restaurantId: string, settings: any) => {

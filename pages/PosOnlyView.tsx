@@ -20,7 +20,7 @@ interface Props {
   restaurant: Restaurant;
   orders: Order[];
   onUpdateOrder: (orderId: string, status: OrderStatus) => void;
-  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string) => Promise<void>;
+  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string) => Promise<Order>;
   onUpdateMenu?: (restaurantId: string, updatedItem: MenuItem) => void | Promise<void>;
   onAddMenuItem?: (restaurantId: string, newItem: MenuItem) => void | Promise<void>;
   onPermanentDeleteMenuItem?: (restaurantId: string, itemId: string) => void | Promise<void>;
@@ -354,25 +354,14 @@ const PosOnlyView: React.FC<Props> = ({
   const handleCheckout = async () => {
     if (posCart.length === 0) return;
     try {
-      await onPlaceOrder(posCart, posRemark, posTableNo);
+      // Place order and get the created order back from database
+      const createdOrder = await onPlaceOrder(posCart, posRemark, posTableNo);
       
-      // Create a new order object and add to cache
-      const newOrder: Order = {
-        id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        items: posCart,
-        total: cartTotal,
-        status: OrderStatus.SERVED,
-        timestamp: Date.now(),
-        restaurantId: restaurant.id,
-        tableNumber: posTableNo,
-        locationName: '',
-        customerId: '',
-        remark: posRemark,
-      };
-      
-      // Add to cache immediately
-      counterOrdersCache.addCounterOrderToCache(restaurant.id, newOrder);
-      setCachedCounterOrders(prev => [newOrder, ...prev]);
+      // Add the actual order (not a temp one) to cache for counter display
+      // Note: Orders are saved as COMPLETED in DB, so no need to cache for reports
+      // But we can optionally cache for display purposes
+      counterOrdersCache.addCounterOrderToCache(restaurant.id, createdOrder);
+      setCachedCounterOrders(prev => [createdOrder, ...prev]);
       
       setPosCart([]);
       setPosRemark('');
