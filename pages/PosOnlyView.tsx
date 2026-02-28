@@ -471,27 +471,38 @@ const PosOnlyView: React.FC<Props> = ({
 
     try {
       await onPlaceOrder(posCart, posRemark, posTableNo);
-
-      if (receiptSettings.autoPrintEnabled) {
-        if (connectedDevice) {
-          const printRestaurant = {
-            ...restaurant,
-            name: receiptSettings.businessName.trim() || restaurant.name,
-          };
-          await printerService.printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions());
-        } else {
-          alert('Receipt auto-print is enabled but no printer is connected.');
-        }
-      }
-
-      setPosCart([]);
-      setPosRemark('');
-      setPosTableNo('Counter');
-      alert('Order placed successfully!');
-    } catch (error) {
-      console.error('Checkout error:', error);
-      alert('Failed to place order');
+    } catch (error: any) {
+      console.error('Order placement error:', error);
+      alert(`Failed to place order: ${error?.message || 'Unknown error'}`);
+      return;
     }
+
+    let printWarning = '';
+    if (receiptSettings.autoPrintEnabled) {
+      if (connectedDevice) {
+        const printRestaurant = {
+          ...restaurant,
+          name: receiptSettings.businessName.trim() || restaurant.name,
+        };
+
+        try {
+          const printSuccess = await printerService.printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions());
+          if (!printSuccess) {
+            printWarning = ' Receipt printing failed.';
+          }
+        } catch (printError: any) {
+          console.error('Receipt print error:', printError);
+          printWarning = ` Receipt printing failed: ${printError?.message || 'Unknown error'}`;
+        }
+      } else {
+        printWarning = ' Auto-print is enabled but no printer is connected.';
+      }
+    }
+
+    setPosCart([]);
+    setPosRemark('');
+    setPosTableNo('Counter');
+    alert(`Order placed successfully!${printWarning}`);
   };
 
   // Handle order status updates (e.g., marking as paid/completed)
