@@ -145,6 +145,7 @@ class PrinterService {
       throw new Error('No writable characteristic found');
     }
 
+    // Combine all reset commands into a single buffer for reliability
     const reset = new Uint8Array([0x1B, 0x40]); // ESC @
     const normalizedOffset = Math.max(0, Math.min(8, Math.floor(offsetChars)));
     const marginDots = normalizedOffset * this.fontACharWidthDots;
@@ -153,9 +154,14 @@ class PrinterService {
     const leftMargin = new Uint8Array([0x1D, 0x4C, marginLow, marginHigh]); // GS L nL nH
     const alignLeft = new Uint8Array([0x1B, 0x61, 0x00]); // ESC a 0
 
-    await this.characteristic.writeValue(reset);
-    await this.characteristic.writeValue(leftMargin);
-    await this.characteristic.writeValue(alignLeft);
+    // Combine into single buffer to ensure atomic write
+    const combinedBuffer = new Uint8Array(reset.length + leftMargin.length + alignLeft.length);
+    combinedBuffer.set(reset, 0);
+    combinedBuffer.set(leftMargin, reset.length);
+    combinedBuffer.set(alignLeft, reset.length + leftMargin.length);
+
+    // Single write for reliability
+    await this.characteristic.writeValue(combinedBuffer);
     await new Promise(resolve => setTimeout(resolve, 30));
   }
 
@@ -624,12 +630,6 @@ class PrinterService {
       // Wait for printer to completely finish processing
       await new Promise(resolve => setTimeout(resolve, 3000));
       
-      // Reset formatting state again after print
-      await this.resetPrinterFormattingState(0);
-      
-      // Wait again for reset to complete
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
       this.lastPrintTime = Date.now();
       console.log('Print successful');
       return true;
@@ -724,9 +724,6 @@ class PrinterService {
       
       // Wait for printer to finish
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Reset printer after test
-      await this.resetPrinterFormattingState(0);
       
       this.lastPrintTime = Date.now();
       return true;

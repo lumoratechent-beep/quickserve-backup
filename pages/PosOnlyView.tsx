@@ -91,7 +91,7 @@ const PosOnlyView: React.FC<Props> = ({
     return local.toISOString().split('T')[0];
   };
 
-  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'DEV'>('COUNTER');
+  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS'>('COUNTER');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [menuLayout, setMenuLayout] = useState<'grid-3' | 'grid-4' | 'grid-5' | 'list'>('grid-4');
   const [posCart, setPosCart] = useState<CartItem[]>([]);
@@ -170,11 +170,6 @@ const PosOnlyView: React.FC<Props> = ({
   const [isSavingReceiptSettings, setIsSavingReceiptSettings] = useState(false);
   const [receiptSettingsSaved, setReceiptSettingsSaved] = useState(false);
   const [showReceiptPreview, setShowReceiptPreview] = useState(false);
-
-  // Dev Test State
-  const [devDottedLineCount, setDevDottedLineCount] = useState(32);
-  const [devTestText, setDevTestText] = useState('TEST LINE 123');
-  const [devTestPrinting, setDevTestPrinting] = useState(false);
 
   // Staff Management State
   const [staffList, setStaffList] = useState<any[]>(() => {
@@ -537,31 +532,6 @@ const PosOnlyView: React.FC<Props> = ({
       } else {
         setCheckoutNotice('Order saved. Auto-print is enabled but no printer is connected.');
       }
-    }
-  };
-
-  // Dev Test Print Function
-  const handleDevTestPrint = async () => {
-    if (!connectedDevice) {
-      alert('No printer connected. Connect a printer first in Settings.');
-      return;
-    }
-
-    setDevTestPrinting(true);
-
-    try {
-      const success = await printerService.printDevTest(devDottedLineCount, devTestText);
-
-      if (success) {
-        alert('✓ Dev test sent to printer!');
-      } else {
-        alert('✗ Failed to send dev test.');
-      }
-    } catch (error: any) {
-      console.error('Dev test print error:', error);
-      alert('Error: ' + (error?.message || 'Failed to print'));
-    } finally {
-      setDevTestPrinting(false);
     }
   };
 
@@ -1117,7 +1087,7 @@ const PosOnlyView: React.FC<Props> = ({
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
   const paginatedReports = reportData?.orders || [];
 
-  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'DEV') => {
+  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS') => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
   };
@@ -1189,17 +1159,6 @@ const PosOnlyView: React.FC<Props> = ({
           >
             <Settings size={20} /> Settings
           </button>
-
-          <button 
-            onClick={() => handleTabSelection('DEV')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
-              activeTab === 'DEV' 
-                ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400' 
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-            }`}
-          >
-            <Printer size={20} /> Dev Test
-          </button>
         </nav>
       </aside>
 
@@ -1220,8 +1179,7 @@ const PosOnlyView: React.FC<Props> = ({
                 {activeTab === 'COUNTER' ? 'POS Counter' : 
                  activeTab === 'MENU_EDITOR' ? 'Menu Editor' : 
                  activeTab === 'REPORTS' ? 'Sales Report' : 
-                 activeTab === 'SETTINGS' ? 'Settings' :
-                 'Dev Test'}
+                 'Settings'}
               </h1>
             </div>
           </div>
@@ -1968,7 +1926,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Horizontal Offset</label>
-                            <span className="text-[10px] font-black text-gray-600 dark:text-gray-300">{receiptSettings.horizontalOffset}</span>
+                            <span className="text-[10px] font-black text-gray-600 dark:text-gray-300">{receiptSettings.horizontalOffset >= 0 ? `+${receiptSettings.horizontalOffset}` : receiptSettings.horizontalOffset}</span>
                           </div>
                           <input
                             type="range"
@@ -2055,146 +2013,7 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
                   </div>
 
-                  {/* Dev Test - Printer Character Mapping */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden">
-                    <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <PrinterIcon size={16} className="text-purple-500" />
-                        <h2 className="font-black dark:text-white uppercase tracking-tighter text-sm">Dev Test - Printer Character Map</h2>
-                      </div>
-                      <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">Font A - 32 chars/line</span>
-                    </div>
 
-                    <div className="p-4 space-y-4">
-                      <p className="text-[10px] text-gray-600 dark:text-gray-400">Test printer output spacing and alignment. Use dotted lines to verify character positioning.</p>
-
-                      {/* Character Width Ruler */}
-                      <div className="bg-gray-50 dark:bg-gray-900/30 p-4 rounded-lg border dark:border-gray-700 font-mono text-[11px] space-y-2 overflow-x-auto">
-                        {/* Top ruler - position markers */}
-                        <div className="text-[9px] text-gray-400 dark:text-gray-500">
-                          <div className="flex text-center overflow-x-auto">
-                            {Array.from({ length: 32 }).map((_, i) => (
-                              <div key={`ruler-${i}`} className="flex-shrink-0 w-4 h-4 text-center leading-4">
-                                {(i + 1) % 5 === 0 ? (i + 1) : '.'}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Dotted line separator */}
-                        <div className="text-gray-300 dark:text-gray-600 select-none">
-                          {'.'.repeat(32)}
-                        </div>
-
-                        {/* Sample lines with character counter */}
-                        <div className="space-y-2 text-gray-700 dark:text-gray-300">
-                          <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-[8px] text-gray-500 dark:text-gray-400">Business Name (2x size = ~16 chars max):</span>
-                              <span className="text-[8px] font-black text-blue-600 dark:text-blue-400">
-                                {receiptSettings.businessName} ({receiptSettings.businessName.length}/16)
-                              </span>
-                            </div>
-                            <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-600 text-center font-bold">
-                              {receiptSettings.businessName}
-                            </div>
-                            <div className="text-gray-300 dark:text-gray-600 select-none">
-                              {'.'.repeat(32)}
-                            </div>
-                          </div>
-
-                          <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-[8px] text-gray-500 dark:text-gray-400">Header Line 1:</span>
-                              <span className="text-[8px] font-black text-blue-600 dark:text-blue-400">
-                                {receiptSettings.headerLine1 ? receiptSettings.headerLine1.length : 0}/32
-                              </span>
-                            </div>
-                            <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-600 text-center text-sm">
-                              {receiptSettings.headerLine1 || '(empty)'}
-                            </div>
-                            <div className="text-gray-300 dark:text-gray-600 select-none">
-                              {'.'.repeat(32)}
-                            </div>
-                          </div>
-
-                          <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-[8px] text-gray-500 dark:text-gray-400">Separator Line:</span>
-                              <span className="text-[8px] font-black text-green-600 dark:text-green-400">
-                                32/32 ✓
-                              </span>
-                            </div>
-                            <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-600 text-center font-mono text-sm">
-                              {'='.repeat(32)}
-                            </div>
-                            <div className="text-gray-300 dark:text-gray-600 select-none">
-                              {'.'.repeat(32)}
-                            </div>
-                          </div>
-
-                          <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-[8px] text-gray-500 dark:text-gray-400">Footer Line 1:</span>
-                              <span className="text-[8px] font-black text-blue-600 dark:text-blue-400">
-                                {receiptSettings.footerLine1.length}/32
-                              </span>
-                            </div>
-                            <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-600 text-center text-sm">
-                              {receiptSettings.footerLine1}
-                            </div>
-                            <div className="text-gray-300 dark:text-gray-600 select-none">
-                              {'.'.repeat(32)}
-                            </div>
-                          </div>
-
-                          <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-[8px] text-gray-500 dark:text-gray-400">TOTAL Line (right-aligned):</span>
-                              <span className="text-[8px] font-black text-blue-600 dark:text-blue-400">
-                                14/32
-                              </span>
-                            </div>
-                            <div className="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-600 text-right font-mono text-sm">
-                              {'TOTAL: RM 12.50'}
-                            </div>
-                            <div className="text-gray-300 dark:text-gray-600 select-none">
-                              {'.'.repeat(32)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Quick Legend */}
-                      <div className="grid grid-cols-2 gap-2 text-[9px] bg-blue-50 dark:bg-blue-900/20 p-3 rounded border dark:border-blue-800">
-                        <div>
-                          <p className="font-black text-blue-600 dark:text-blue-400 mb-1">📏 Character Count Legend:</p>
-                          <ul className="space-y-1 text-gray-600 dark:text-gray-400">
-                            <li>• Normal text: <span className="font-mono">32 chars max</span></li>
-                            <li>• Title (2x): <span className="font-mono">~16 chars max</span></li>
-                            <li>• Separator: <span className="font-mono">=====</span> (exactly 32)</li>
-                          </ul>
-                        </div>
-                        <div>
-                          <p className="font-black text-blue-600 dark:text-blue-400 mb-1">💡 Troubleshooting:</p>
-                          <ul className="space-y-1 text-gray-600 dark:text-gray-400">
-                            <li>✓ Dotted line shows <span className="font-mono">32-char</span> boundary</li>
-                            <li>✓ Text exceeding limit will overflow/wrap</li>
-                            <li>✓ Use Preview button to test print</li>
-                          </ul>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => setShowReceiptPreview(true)}
-                          className="px-4 py-2 bg-purple-100 dark:bg-purple-900 rounded-lg font-black uppercase text-[9px] tracking-widest text-purple-600 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-800 transition-all"
-                        >
-                          🖨️ Full Preview
-                        </button>
-                      </div>
-                    </div>
-                  </div>
 
                   {/* Staff Management */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden">
@@ -2609,150 +2428,7 @@ const PosOnlyView: React.FC<Props> = ({
         )}
       </div>
 
-      {/* Dev Test Tab */}
-      {activeTab === 'DEV' && (
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            <div className="max-w-2xl mx-auto">
-              {/* Dev Test Section */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden">
-                <div className="px-4 py-3 bg-purple-50 dark:bg-purple-900/20 border-b dark:border-gray-700 flex items-center gap-2">
-                  <Printer size={18} className="text-purple-600 dark:text-purple-400" />
-                  <h2 className="font-black dark:text-white uppercase tracking-tighter text-sm">Printer Dev Test</h2>
-                </div>
 
-                <div className="p-4 space-y-4">
-                  <p className="text-[10px] text-gray-600 dark:text-gray-400">
-                    Test printer connectivity and character spacing. Print custom dotted lines and text patterns to your thermal printer.
-                  </p>
-
-                  {/* Printer Status */}
-                  <div className={`p-3 rounded-lg border ${
-                    connectedDevice 
-                      ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
-                      : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                  }`}>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
-                        Printer Status
-                      </span>
-                      <span className={`text-[10px] font-black ${
-                        connectedDevice 
-                          ? 'text-green-600 dark:text-green-400' 
-                          : 'text-red-600 dark:text-red-400'
-                      }`}>
-                        {connectedDevice ? `✓ ${connectedDevice.name}` : '✗ Not Connected'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Dotted Line Count */}
-                  <div>
-                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
-                      Dotted Line Length
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="range"
-                        min="1"
-                        max="32"
-                        value={devDottedLineCount}
-                        onChange={(e) => setDevDottedLineCount(parseInt(e.target.value))}
-                        className="flex-1"
-                      />
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          min="1"
-                          max="32"
-                          value={devDottedLineCount}
-                          onChange={(e) => setDevDottedLineCount(Math.min(32, Math.max(1, parseInt(e.target.value) || 1)))}
-                          className="w-16 px-2 py-1 bg-gray-100 dark:bg-gray-700 border dark:border-gray-600 rounded text-xs font-black text-center dark:text-white"
-                        />
-                        <span className="text-[9px] font-black text-gray-500">/32 chars</span>
-                      </div>
-                    </div>
-                    <div className="mt-2 px-3 py-2 bg-gray-50 dark:bg-gray-700/30 rounded font-mono text-xs text-gray-600 dark:text-gray-300 break-all">
-                      {'.'.repeat(devDottedLineCount)}
-                    </div>
-                  </div>
-
-                  {/* Test Text */}
-                  <div>
-                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
-                      Test Text ({devTestText.length}/32 chars)
-                    </label>
-                    <textarea
-                      value={devTestText}
-                      onChange={(e) => setDevTestText(e.target.value.substring(0, 32))}
-                      placeholder="Enter text to print (max 32 chars)..."
-                      className="w-full p-3 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-sm font-mono dark:text-white resize-none"
-                      rows={3}
-                    />
-                    
-                    {/* Character Position Ruler */}
-                    <div className="mt-3 space-y-1">
-                      <p className="text-[8px] font-black text-gray-500 uppercase">Position Ruler:</p>
-                      <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700/50 rounded border dark:border-gray-600 font-mono text-[10px] text-gray-600 dark:text-gray-400 space-y-1">
-                        {/* Position markers every 5 chars */}
-                        <div className="flex text-center leading-4">
-                          {Array.from({ length: 32 }).map((_, i) => (
-                            <div key={`pos-${i}`} className="w-4 h-4 flex-shrink-0 flex items-center justify-center text-[8px]">
-                              {(i + 1) % 5 === 0 ? i + 1 : '.'}
-                            </div>
-                          ))}
-                        </div>
-                        {/* Your text preview */}
-                        <div className="flex">
-                          {Array.from(devTestText).map((char, i) => (
-                            <div key={`char-${i}`} className="w-4 h-4 flex items-center justify-center text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30">
-                              {char}
-                            </div>
-                          ))}
-                          {/* Empty spaces to show where text ends */}
-                          {Array.from({ length: 32 - devTestText.length }).map((_, i) => (
-                            <div key={`empty-${i}`} className="w-4 h-4 flex-shrink-0 bg-gray-100 dark:bg-gray-600/30 border border-gray-200 dark:border-gray-600"></div>
-                          ))}
-                        </div>
-                        {/* Space indicator */}
-                        <div className="text-[8px] text-gray-500">
-                          {devTestText.length} chars used, {32 - devTestText.length} spaces remaining
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-2 px-3 py-2 bg-gray-50 dark:bg-gray-700/30 rounded font-mono text-xs text-gray-600 dark:text-gray-300 break-all">
-                      {devTestText}
-                    </div>
-                  </div>
-
-                  {/* Print Button */}
-                  <button
-                    onClick={handleDevTestPrint}
-                    disabled={!connectedDevice || devTestPrinting}
-                    className="w-full py-3 bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg font-black uppercase text-[10px] tracking-widest transition-all shadow-lg shadow-purple-500/20 disabled:shadow-none flex items-center justify-center gap-2"
-                  >
-                    <Printer size={18} />
-                    {devTestPrinting ? 'Printing...' : 'Print Dev Test'}
-                  </button>
-
-                  {/* Info Box */}
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3 rounded-lg">
-                    <p className="text-[9px] font-black text-blue-600 dark:text-blue-400 mb-2">💡 How It Works:</p>
-                    <ul className="text-[9px] text-blue-700 dark:text-blue-300 space-y-1 ml-4 list-disc">
-                      <li>Adjust dotted line length with slider (1-32 characters)</li>
-                      <li>Type or paste text to test (max 32 chars for Font A)</li>
-                      <li>Click "Print Dev Test" to send to printer</li>
-                      <li>Use dots to verify character alignment and spacing</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       <SimpleItemOptionsModal
         item={selectedItemForOptions}
