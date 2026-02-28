@@ -46,7 +46,12 @@ class PrinterService {
   private lastPrintTime: number = 0;
   private connectionPromise: Promise<boolean> | null = null;
   private disconnectRequested: boolean = false;
-  
+
+  // Last receipt for reprint
+  private lastPrintedOrder: any = null;
+  private lastPrintedRestaurant: any = null;
+  private lastPrintedOptions: ReceiptPrintOptions | undefined = undefined;
+
   // Print queue system
   private printQueue: PrintJob[] = [];
   private isProcessingQueue: boolean = false;
@@ -579,6 +584,11 @@ class PrinterService {
       // Wait for printer to completely finish processing
       await new Promise(resolve => setTimeout(resolve, 3000));
 
+      // Store for reprint
+      this.lastPrintedOrder = { ...order };
+      this.lastPrintedRestaurant = { ...restaurant };
+      this.lastPrintedOptions = options ? { ...options } : undefined;
+
       this.lastPrintTime = Date.now();
       console.log('Print successful');
       return true;
@@ -750,6 +760,20 @@ class PrinterService {
       console.error('Dev test print error:', error);
       return false;
     }
+  }
+
+  /**
+   * Reprint the last printed receipt
+   */
+  async reprintLast(): Promise<boolean> {
+    if (!this.lastPrintedOrder || !this.lastPrintedRestaurant) {
+      throw new Error('No previous receipt to reprint');
+    }
+    return this.printReceipt(this.lastPrintedOrder, this.lastPrintedRestaurant, this.lastPrintedOptions);
+  }
+
+  hasLastReceipt(): boolean {
+    return !!this.lastPrintedOrder;
   }
 
   getConnectionStatus() {

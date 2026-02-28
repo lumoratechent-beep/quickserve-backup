@@ -9,14 +9,13 @@ import printerService, { PrinterDevice, ReceiptPrintOptions } from '../services/
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import StandardReport from '../components/StandardReport';
-import ReceiptPreview from '../components/ReceiptPreview';
-import { 
-  ShoppingBag, Search, Download, Calendar, ChevronLeft, ChevronRight, 
-  Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid, 
+import {
+  ShoppingBag, Search, Download, Calendar, ChevronLeft, ChevronRight,
+  Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid,
   List, Clock, CheckCircle2, BarChart3, Hash, Menu, Settings, BookOpen,
   ChevronFirst, ChevronLast, X, Edit3, Archive, RotateCcw, Upload, Eye,
   AlertCircle, Users, UserPlus, Bluetooth, BluetoothConnected, PrinterIcon,
-  Filter, Tag, Layers, Coffee
+  Filter, Tag, Layers, Coffee, ChevronDown, RotateCw
 } from 'lucide-react';
 
 interface Props {
@@ -157,7 +156,8 @@ const PosOnlyView: React.FC<Props> = ({
   const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings>(() => getDefaultReceiptSettings(restaurant.name));
   const [isSavingReceiptSettings, setIsSavingReceiptSettings] = useState(false);
   const [receiptSettingsSaved, setReceiptSettingsSaved] = useState(false);
-  const [showReceiptPreview, setShowReceiptPreview] = useState(false);
+  const [selectedReportOrder, setSelectedReportOrder] = useState<Order | null>(null);
+  const [receiptAccordion, setReceiptAccordion] = useState({ content: true, fields: false });
 
   // Staff Management State
   const [staffList, setStaffList] = useState<any[]>(() => {
@@ -1264,6 +1264,7 @@ const PosOnlyView: React.FC<Props> = ({
                 onChangeEntriesPerPage={setEntriesPerPage}
                 onChangeCurrentPage={setCurrentPage}
                 onDownloadReport={handleDownloadReport}
+                onSelectOrder={(order) => setSelectedReportOrder(order)}
               />
             </div>
           )}
@@ -1800,6 +1801,22 @@ const PosOnlyView: React.FC<Props> = ({
                               </button>
 
                               <button
+                                onClick={async () => {
+                                  try {
+                                    await printerService.reprintLast();
+                                  } catch (err: any) {
+                                    console.error('Reprint error:', err);
+                                    setErrorMessage(err?.message || 'Reprint failed');
+                                  }
+                                }}
+                                disabled={!printerService.hasLastReceipt()}
+                                className="w-full py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-100 hover:text-orange-600 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+                              >
+                                <RotateCw size={14} />
+                                Reprint Last Receipt
+                              </button>
+
+                              <button
                                 onClick={disconnectPrinter}
                                 className="w-full py-2 bg-red-50 dark:bg-red-900/10 text-red-500 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-200"
                               >
@@ -1830,7 +1847,7 @@ const PosOnlyView: React.FC<Props> = ({
                       )}
                     </div>
 
-                    <div className="p-4 space-y-4">
+                    <div className="p-4 space-y-3">
                       <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border dark:border-gray-700">
                         <div>
                           <h3 className="font-black text-xs dark:text-white">Auto-Print Receipt</h3>
@@ -1848,90 +1865,109 @@ const PosOnlyView: React.FC<Props> = ({
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Business Name</label>
-                          <input
-                            type="text"
-                            value={receiptSettings.businessName}
-                            onChange={event => updateReceiptSetting('businessName', event.target.value)}
-                            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                            placeholder="Printed store name"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Header Line 1</label>
-                          <input
-                            type="text"
-                            value={receiptSettings.headerLine1}
-                            onChange={event => updateReceiptSetting('headerLine1', event.target.value)}
-                            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                            placeholder="Optional"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Header Line 2</label>
-                          <input
-                            type="text"
-                            value={receiptSettings.headerLine2}
-                            onChange={event => updateReceiptSetting('headerLine2', event.target.value)}
-                            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                            placeholder="Optional"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Footer Line 1</label>
-                          <input
-                            type="text"
-                            value={receiptSettings.footerLine1}
-                            onChange={event => updateReceiptSetting('footerLine1', event.target.value)}
-                            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                            placeholder="Thank you!"
-                          />
-                        </div>
-                        <div className="md:col-span-2">
-                          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Footer Line 2</label>
-                          <input
-                            type="text"
-                            value={receiptSettings.footerLine2}
-                            onChange={event => updateReceiptSetting('footerLine2', event.target.value)}
-                            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                            placeholder="Please come again"
-                          />
-                        </div>
+                      {/* Accordion: Receipt Content */}
+                      <div className="border dark:border-gray-700 rounded-lg overflow-hidden">
+                        <button
+                          onClick={() => setReceiptAccordion(prev => ({ ...prev, content: !prev.content }))}
+                          className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all"
+                        >
+                          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Receipt Content</span>
+                          <ChevronDown size={14} className={`text-gray-400 transition-transform ${receiptAccordion.content ? 'rotate-180' : ''}`} />
+                        </button>
+                        {receiptAccordion.content && (
+                          <div className="p-3 space-y-3 border-t dark:border-gray-700">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Business Name</label>
+                                <input
+                                  type="text"
+                                  value={receiptSettings.businessName}
+                                  onChange={event => updateReceiptSetting('businessName', event.target.value)}
+                                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                                  placeholder="Printed store name"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Header Line 1</label>
+                                <input
+                                  type="text"
+                                  value={receiptSettings.headerLine1}
+                                  onChange={event => updateReceiptSetting('headerLine1', event.target.value)}
+                                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                                  placeholder="Optional"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Header Line 2</label>
+                                <input
+                                  type="text"
+                                  value={receiptSettings.headerLine2}
+                                  onChange={event => updateReceiptSetting('headerLine2', event.target.value)}
+                                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                                  placeholder="Optional"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Footer Line 1</label>
+                                <input
+                                  type="text"
+                                  value={receiptSettings.footerLine1}
+                                  onChange={event => updateReceiptSetting('footerLine1', event.target.value)}
+                                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                                  placeholder="Thank you!"
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Footer Line 2</label>
+                                <input
+                                  type="text"
+                                  value={receiptSettings.footerLine2}
+                                  onChange={event => updateReceiptSetting('footerLine2', event.target.value)}
+                                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                                  placeholder="Please come again"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
-                      <div className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border dark:border-gray-700">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Printed Fields</p>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                          {[
-                            { key: 'showDateTime', label: 'Date & Time' },
-                            { key: 'showOrderId', label: 'Order ID' },
-                            { key: 'showTableNumber', label: 'Table Number' },
-                            { key: 'showItems', label: 'Items' },
-                            { key: 'showRemark', label: 'Remark' },
-                            { key: 'showTotal', label: 'Total' },
-                          ].map(field => (
-                            <label key={field.key} className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
-                              <input
-                                type="checkbox"
-                                checked={receiptSettings[field.key as keyof ReceiptSettings] as boolean}
-                                onChange={event => updateReceiptSetting(field.key as keyof ReceiptSettings, event.target.checked as any)}
-                                className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
-                              />
-                              {field.label}
-                            </label>
-                          ))}
-                        </div>
+                      {/* Accordion: Printed Fields */}
+                      <div className="border dark:border-gray-700 rounded-lg overflow-hidden">
+                        <button
+                          onClick={() => setReceiptAccordion(prev => ({ ...prev, fields: !prev.fields }))}
+                          className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all"
+                        >
+                          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Printed Fields</span>
+                          <ChevronDown size={14} className={`text-gray-400 transition-transform ${receiptAccordion.fields ? 'rotate-180' : ''}`} />
+                        </button>
+                        {receiptAccordion.fields && (
+                          <div className="p-3 border-t dark:border-gray-700">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                              {[
+                                { key: 'showDateTime', label: 'Date & Time' },
+                                { key: 'showOrderId', label: 'Order ID' },
+                                { key: 'showTableNumber', label: 'Table Number' },
+                                { key: 'showItems', label: 'Items' },
+                                { key: 'showRemark', label: 'Remark' },
+                                { key: 'showTotal', label: 'Total' },
+                              ].map(field => (
+                                <label key={field.key} className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
+                                  <input
+                                    type="checkbox"
+                                    checked={receiptSettings[field.key as keyof ReceiptSettings] as boolean}
+                                    onChange={event => updateReceiptSetting(field.key as keyof ReceiptSettings, event.target.checked as any)}
+                                    className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                                  />
+                                  {field.label}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => setShowReceiptPreview(true)}
-                          className="px-4 py-2 bg-blue-100 dark:bg-blue-900 rounded-lg font-black uppercase text-[9px] tracking-widest text-blue-600 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 transition-all"
-                        >
-                          👁️ Preview
-                        </button>
                         <button
                           onClick={() => setReceiptSettings(getDefaultReceiptSettings(restaurant.name))}
                           className="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500 hover:text-orange-500"
@@ -2376,28 +2412,100 @@ const PosOnlyView: React.FC<Props> = ({
         }}
       />
 
-      {showReceiptPreview && (
-        <ReceiptPreview
-          receiptSettings={receiptSettings}
-          sampleOrder={{
-            id: 'ORD001',
-            tableNumber: '5',
-            timestamp: Date.now(),
-            total: 8.50,
-            items: [
-              {
-                name: 'Iced Coffee',
-                quantity: 1,
-                selectedSize: 'Large',
-                selectedTemp: '',
-                selectedOtherVariant: '',
-                selectedAddOns: [],
-              },
-            ],
-            remark: '',
-          }}
-          onClose={() => setShowReceiptPreview(false)}
-        />
+      {/* Order Detail Popup from Report */}
+      {selectedReportOrder && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedReportOrder(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b dark:border-gray-700 flex items-center justify-between sticky top-0 bg-white dark:bg-gray-800 z-10">
+              <div>
+                <h3 className="font-black dark:text-white uppercase tracking-tighter">Order #{selectedReportOrder.id}</h3>
+                <p className="text-[9px] text-gray-400 uppercase tracking-widest mt-0.5">
+                  {new Date(selectedReportOrder.timestamp).toLocaleDateString()} {new Date(selectedReportOrder.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+              <button onClick={() => setSelectedReportOrder(null)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all">
+                <X size={18} className="text-gray-400" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Table</span>
+                <span className="text-xs font-black dark:text-white">#{selectedReportOrder.tableNumber}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Status</span>
+                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                  selectedReportOrder.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-600' :
+                  selectedReportOrder.status === OrderStatus.SERVED ? 'bg-blue-100 text-blue-600' :
+                  'bg-orange-100 text-orange-600'
+                }`}>
+                  {selectedReportOrder.status === OrderStatus.COMPLETED ? 'Paid' : selectedReportOrder.status === OrderStatus.SERVED ? 'Served' : selectedReportOrder.status}
+                </span>
+              </div>
+
+              <div className="border-t dark:border-gray-700 pt-3">
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Items</p>
+                <div className="space-y-2">
+                  {selectedReportOrder.items.map((item, idx) => (
+                    <div key={idx} className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs font-bold dark:text-white">{item.quantity}x {item.name}</p>
+                        {item.selectedSize && <p className="text-[9px] text-gray-400 ml-3">-{item.selectedSize}</p>}
+                        {item.selectedTemp && <p className="text-[9px] text-gray-400 ml-3">-{item.selectedTemp}</p>}
+                        {item.selectedOtherVariant && <p className="text-[9px] text-gray-400 ml-3">-{item.selectedOtherVariant}</p>}
+                        {item.selectedAddOns?.map((addon, aIdx) => (
+                          <p key={aIdx} className="text-[9px] text-gray-400 ml-3">-{addon.name}{addon.quantity > 1 ? ` x${addon.quantity}` : ''}</p>
+                        ))}
+                      </div>
+                      <span className="text-xs font-bold dark:text-white shrink-0 ml-2">RM{(item.price * item.quantity).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {selectedReportOrder.remark && (
+                <div className="border-t dark:border-gray-700 pt-3">
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Remark</p>
+                  <p className="text-xs dark:text-gray-300">{selectedReportOrder.remark}</p>
+                </div>
+              )}
+
+              <div className="border-t dark:border-gray-700 pt-3 flex items-center justify-between">
+                <span className="text-xs font-black dark:text-white uppercase tracking-widest">Total</span>
+                <span className="text-lg font-black text-orange-500">RM{selectedReportOrder.total.toFixed(2)}</span>
+              </div>
+
+              {connectedDevice && (
+                <button
+                  onClick={async () => {
+                    const printRestaurant = {
+                      ...restaurant,
+                      name: receiptSettings.businessName.trim() || restaurant.name,
+                    };
+                    const orderForPrint = {
+                      id: selectedReportOrder.id,
+                      tableNumber: selectedReportOrder.tableNumber,
+                      timestamp: selectedReportOrder.timestamp,
+                      total: selectedReportOrder.total,
+                      items: selectedReportOrder.items,
+                      remark: selectedReportOrder.remark || '',
+                    };
+                    try {
+                      await printerService.printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions());
+                    } catch (err) {
+                      console.error('Reprint error:', err);
+                    }
+                    setSelectedReportOrder(null);
+                  }}
+                  className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
+                >
+                  <Printer size={14} /> Reprint Receipt
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       <style>{`
