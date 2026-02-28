@@ -399,31 +399,38 @@ class PrinterService {
       const showTotal = options?.showTotal !== false;
 
       // Start building receipt with printer reset
+      // CRITICAL: Initialize and set alignment BEFORE any size changes
       let receipt = this.encoder
         .initialize() // ESC @ - reset printer
+        .align('left') // Start with LEFT alignment (neutral state)
+        .line(''); // Blank line to ensure printer state is clear
+
+      // Business name section - CENTER with 2x size
+      receipt = receipt
         .align('center')
         .size(2, 2)
         .line(safeRestaurantName)
         .size(1, 1)
-        .align('center'); // Re-apply center alignment after size change
+        .line(''); // Blank line to reset state
 
+      // Headers section - CENTER with normal size
+      receipt = receipt.align('center');
+      
       if (safeHeaderLine1) {
-        receipt = receipt
-          .align('center')
-          .line(safeHeaderLine1);
+        receipt = receipt.line(safeHeaderLine1);
       }
 
       if (safeHeaderLine2) {
-        receipt = receipt
-          .align('center')
-          .line(safeHeaderLine2);
+        receipt = receipt.line(safeHeaderLine2);
       }
 
-      // Double separator after header (32 chars for Font A)
+      // Double separator after header (32 chars for Font A) - CENTER
       receipt = receipt
-        .align('center')
         .line('='.repeat(32))
-        .align('left');
+        .line(''); // Blank line
+
+      // Switch to LEFT alignment for content
+      receipt = receipt.align('left');
 
       if (showDateTime || showOrderId) {
         if (showDateTime && showOrderId) {
@@ -619,15 +626,20 @@ class PrinterService {
       // Simple test page with only ASCII characters
       const data = this.encoder
         .initialize()
+        .align('left')
+        .line('')
         .align('center')
         .size(2, 2)
         .line('QUICKSERVE')
         .size(1, 1)
+        .line('')
         .line('='.repeat(32))
         .line('TEST PAGE')
         .line('')
+        .align('left')
         .line(this.formatDate(now) + ' ' + this.formatTime(now))
         .line('')
+        .align('center')
         .line('Printer is working!')
         .line('='.repeat(32))
         .cut()
