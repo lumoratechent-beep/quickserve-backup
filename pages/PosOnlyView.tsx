@@ -447,6 +447,17 @@ const PosOnlyView: React.FC<Props> = ({
   useEffect(() => {
     setCurrentPage(1);
   }, [entriesPerPage, reportStatus, reportStart, reportEnd, reportSearchQuery]);
+  // Refresh report when orders change (realtime updates) and we're on REPORTS tab
+  useEffect(() => {
+    if (activeTab === 'REPORTS' && orders.length > 0) {
+      // Add a small delay to debounce rapid updates
+      const timer = setTimeout(() => {
+        fetchReport();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [orders.length, activeTab]);
+
 
   // Load cached counter orders on component mount or when restaurantId changes
   useEffect(() => {
