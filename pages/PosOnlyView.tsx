@@ -331,8 +331,16 @@ const PosOnlyView: React.FC<Props> = ({
   }, [filteredMenu, selectedCategory, categories]);
 
   const areSameCartOptions = (first: CartItem, second: CartItem) => {
-    const firstAddOns = JSON.stringify((first.selectedAddOns || []).slice().sort((a, b) => a.name.localeCompare(b.name)));
-    const secondAddOns = JSON.stringify((second.selectedAddOns || []).slice().sort((a, b) => a.name.localeCompare(b.name)));
+    const normalizeAddOns = (item: CartItem) => {
+      const source = Array.isArray(item.selectedAddOns) ? item.selectedAddOns : [];
+      return source
+        .filter(addon => addon && typeof addon.name === 'string' && typeof addon.quantity === 'number')
+        .map(addon => ({ name: addon.name, quantity: addon.quantity, price: Number(addon.price || 0) }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    };
+
+    const firstAddOns = JSON.stringify(normalizeAddOns(first));
+    const secondAddOns = JSON.stringify(normalizeAddOns(second));
 
     return (
       first.id === second.id &&

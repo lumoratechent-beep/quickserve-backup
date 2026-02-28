@@ -3,45 +3,6 @@ import { AddOnItem, CartItem, MenuItem, SelectedAddOn } from '../src/types';
 import { Info, Minus, Plus, ThermometerSun, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
-class ItemOptionsModalErrorBoundary extends React.Component<
-  { onClose: () => void; children: React.ReactNode },
-  { hasError: boolean }
-> {
-  constructor(props: { onClose: () => void; children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: Error) {
-    console.error('[ItemOptionsModal] render error:', error);
-  }
-
-  render() {
-    if (!this.state.hasError) return this.props.children;
-
-    return (
-      <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4" style={{ zIndex: 1000 }}>
-        <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 p-5 shadow-2xl">
-          <h3 className="text-sm font-black uppercase tracking-widest text-red-500 mb-2">Unable to open item options</h3>
-          <p className="text-xs text-gray-600 dark:text-gray-300 mb-4">
-            This item has invalid option data. You can still continue by closing this popup.
-          </p>
-          <button
-            onClick={this.props.onClose}
-            className="w-full py-3 rounded-xl bg-orange-500 text-white text-xs font-black uppercase tracking-widest hover:bg-orange-600 transition-all"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    );
-  }
-}
-
 interface Props {
   item: MenuItem | null;
   restaurantId: string;
@@ -49,96 +10,96 @@ interface Props {
   onConfirm: (item: CartItem) => void;
 }
 
+const toSafeArray = <T,>(value: unknown): T[] => {
+  return Array.isArray(value) ? value : [];
+};
+
 const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConfirm }) => {
-  const [selectedSize, setSelectedSize] = useState<string>('');
+  const [selectedSize, setSelectedSize] = useState('');
   const [selectedTemp, setSelectedTemp] = useState<'Hot' | 'Cold' | undefined>(undefined);
-  const [selectedOtherVariant, setSelectedOtherVariant] = useState<string>('');
+  const [selectedOtherVariant, setSelectedOtherVariant] = useState('');
   const [selectedAddOns, setSelectedAddOns] = useState<Record<string, SelectedAddOn>>({});
 
-  const normalizedSizes = useMemo(() => {
-    if (!item || !Array.isArray(item.sizes)) return [];
-    return item.sizes.filter(size => size && typeof size.name === 'string' && typeof size.price === 'number');
-  }, [item]);
+  const sizes = useMemo(() => {
+    return toSafeArray<{ name: string; price: number }>(item?.sizes)
+      .filter(size => size && typeof size.name === 'string' && typeof size.price === 'number');
+  }, [item?.sizes]);
 
-  const normalizedOtherVariants = useMemo(() => {
-    if (!item || !Array.isArray(item.otherVariants)) return [];
-    return item.otherVariants.filter(variant => variant && typeof variant.name === 'string' && typeof variant.price === 'number');
-  }, [item]);
+  const otherVariants = useMemo(() => {
+    return toSafeArray<{ name: string; price: number }>(item?.otherVariants)
+      .filter(option => option && typeof option.name === 'string' && typeof option.price === 'number');
+  }, [item?.otherVariants]);
 
-  const normalizedAddOns = useMemo(() => {
-    if (!item || !Array.isArray(item.addOns)) return [];
-    return item.addOns.filter(addon => addon && typeof addon.name === 'string' && typeof addon.price === 'number') as AddOnItem[];
-  }, [item]);
+  const addOns = useMemo(() => {
+    return toSafeArray<AddOnItem>(item?.addOns)
+      .filter(addOn => addOn && typeof addOn.name === 'string' && typeof addOn.price === 'number');
+  }, [item?.addOns]);
 
   const hasTempOptions = useMemo(() => {
     return !!item?.tempOptions && typeof item.tempOptions === 'object' && item.tempOptions.enabled === true;
-  }, [item]);
+  }, [item?.tempOptions]);
 
   useEffect(() => {
     if (!item) return;
-    setSelectedSize(normalizedSizes[0]?.name || '');
+    setSelectedSize(sizes[0]?.name || '');
     setSelectedTemp(hasTempOptions ? 'Hot' : undefined);
-    setSelectedOtherVariant(item.otherVariantsEnabled ? (normalizedOtherVariants[0]?.name || '') : '');
+    setSelectedOtherVariant(item.otherVariantsEnabled ? (otherVariants[0]?.name || '') : '');
     setSelectedAddOns({});
-  }, [item, normalizedSizes, hasTempOptions, normalizedOtherVariants]);
+  }, [item, sizes, hasTempOptions, otherVariants]);
 
   useEffect(() => {
     if (!item) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
     };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, [item, onClose]);
 
-  if (!item) return null;
+  if (!item || typeof document === 'undefined') return null;
 
-  const handleAddOnQuantityChange = (addOn: AddOnItem, change: number) => {
+  const changeAddOnQuantity = (addOn: AddOnItem, delta: number) => {
     const current = selectedAddOns[addOn.name] || { name: addOn.name, price: addOn.price, quantity: 0 };
-    const newQuantity = Math.max(0, Math.min(addOn.maxQuantity || 99, current.quantity + change));
+    const nextQuantity = Math.max(0, Math.min(addOn.maxQuantity || 99, current.quantity + delta));
 
-    if (newQuantity === 0) {
-      const updated = { ...selectedAddOns };
-      delete updated[addOn.name];
-      setSelectedAddOns(updated);
+    if (nextQuantity === 0) {
+      setSelectedAddOns(prev => {
+        const updated = { ...prev };
+        delete updated[addOn.name];
+        return updated;
+      });
       return;
     }
 
     setSelectedAddOns(prev => ({
       ...prev,
-      [addOn.name]: { name: addOn.name, price: addOn.price, quantity: newQuantity },
+      [addOn.name]: { name: addOn.name, price: addOn.price, quantity: nextQuantity },
     }));
   };
 
-  const totalAddOnPrice = useMemo(() => {
-    return Object.values(selectedAddOns).reduce((sum, addon) => sum + addon.price * addon.quantity, 0);
-  }, [selectedAddOns]);
+  const addOnTotal = Object.values(selectedAddOns).reduce((sum, addOn) => sum + addOn.price * addOn.quantity, 0);
 
   const totalPrice = useMemo(() => {
-    let finalPrice = item.price;
+    let total = Number(item.price || 0);
 
     if (selectedSize) {
-      const sizeObj = normalizedSizes.find(s => s.name === selectedSize);
-      if (sizeObj) finalPrice += sizeObj.price;
+      const size = sizes.find(option => option.name === selectedSize);
+      if (size) total += size.price;
     }
-
-    if (selectedTemp === 'Hot' && item.tempOptions?.hot) finalPrice += item.tempOptions.hot;
-    if (selectedTemp === 'Cold' && item.tempOptions?.cold) finalPrice += item.tempOptions.cold;
 
     if (selectedOtherVariant) {
-      const otherObj = normalizedOtherVariants.find(v => v.name === selectedOtherVariant);
-      if (otherObj) finalPrice += otherObj.price;
+      const variant = otherVariants.find(option => option.name === selectedOtherVariant);
+      if (variant) total += variant.price;
     }
 
-    finalPrice += totalAddOnPrice;
-    return finalPrice;
-  }, [item, normalizedSizes, normalizedOtherVariants, selectedSize, selectedTemp, selectedOtherVariant, totalAddOnPrice]);
+    if (selectedTemp === 'Hot') total += Number(item.tempOptions?.hot || 0);
+    if (selectedTemp === 'Cold') total += Number(item.tempOptions?.cold || 0);
 
-  const handleConfirm = () => {
+    total += addOnTotal;
+    return total;
+  }, [item.price, item.tempOptions?.hot, item.tempOptions?.cold, selectedSize, selectedOtherVariant, selectedTemp, sizes, otherVariants, addOnTotal]);
+
+  const confirmSelection = () => {
     const cartItem: CartItem = {
       id: item.id,
       name: item.name,
@@ -147,12 +108,12 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
       image: item.image,
       category: item.category,
       isArchived: item.isArchived,
-      sizes: normalizedSizes,
+      sizes,
       otherVariantName: item.otherVariantName,
-      otherVariants: normalizedOtherVariants,
+      otherVariants,
       otherVariantsEnabled: item.otherVariantsEnabled,
       tempOptions: item.tempOptions,
-      addOns: normalizedAddOns,
+      addOns,
       quantity: 1,
       restaurantId,
       selectedSize,
@@ -164,23 +125,29 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
     onConfirm(cartItem);
   };
 
-  if (typeof document === 'undefined') return null;
-
   return createPortal(
-    <ItemOptionsModalErrorBoundary onClose={onClose}>
+    <div
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Customize item"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.65)',
+        backdropFilter: 'blur(2px)',
+        zIndex: 99999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px',
+      }}
+    >
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-        style={{ zIndex: 1000 }}
-        onClick={onClose}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Customize item"
+        onClick={(event) => event.stopPropagation()}
+        className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-2xl shadow-2xl border dark:border-gray-700"
+        style={{ maxHeight: '90vh', overflow: 'hidden' }}
       >
-        <div
-          className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl border dark:border-gray-700"
-          style={{ maxHeight: '90vh' }}
-          onClick={(event) => event.stopPropagation()}
-        >
         <div className="p-5 border-b dark:border-gray-700 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-black dark:text-white uppercase tracking-tight">{item.name}</h3>
@@ -191,12 +158,12 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
           </button>
         </div>
 
-        <div className="p-5 max-h-[62vh] overflow-y-auto space-y-5">
-          {normalizedSizes.length > 0 && (
+        <div className="p-5 max-h-[60vh] overflow-y-auto space-y-5">
+          {sizes.length > 0 && (
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Size</label>
               <div className="grid grid-cols-2 gap-2">
-                {normalizedSizes.map(size => (
+                {sizes.map(size => (
                   <button
                     key={size.name}
                     onClick={() => setSelectedSize(size.name)}
@@ -214,7 +181,7 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
             </div>
           )}
 
-          {item.otherVariantsEnabled && normalizedOtherVariants.length > 0 && (
+          {item.otherVariantsEnabled && otherVariants.length > 0 && (
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
                 {item.otherVariantName || 'Additional Options'}
@@ -231,18 +198,18 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
                   <p className="text-[10px] font-black uppercase">None</p>
                   <p className="text-xs font-black">Default</p>
                 </button>
-                {normalizedOtherVariants.map(variant => (
+                {otherVariants.map(option => (
                   <button
-                    key={variant.name}
-                    onClick={() => setSelectedOtherVariant(variant.name)}
+                    key={option.name}
+                    onClick={() => setSelectedOtherVariant(option.name)}
                     className={`p-3 rounded-xl border text-left transition-all ${
-                      selectedOtherVariant === variant.name
+                      selectedOtherVariant === option.name
                         ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
                         : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'
                     }`}
                   >
-                    <p className="text-[10px] font-black uppercase">{variant.name}</p>
-                    <p className="text-xs font-black">+{variant.price > 0 ? `RM${variant.price.toFixed(2)}` : 'FREE'}</p>
+                    <p className="text-[10px] font-black uppercase">{option.name}</p>
+                    <p className="text-xs font-black">+{option.price > 0 ? `RM${option.price.toFixed(2)}` : 'FREE'}</p>
                   </button>
                 ))}
               </div>
@@ -279,21 +246,21 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
             </div>
           )}
 
-          {normalizedAddOns.length > 0 && (
+          {addOns.length > 0 && (
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Add-ons</label>
               <div className="space-y-2">
-                {normalizedAddOns.map((addon, idx) => {
-                  const quantity = selectedAddOns[addon.name]?.quantity || 0;
+                {addOns.map((addOn, idx) => {
+                  const quantity = selectedAddOns[addOn.name]?.quantity || 0;
                   return (
                     <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                       <div>
-                        <p className="font-black text-xs dark:text-white">{addon.name}</p>
-                        <p className="text-[9px] text-orange-500 font-black">+RM{addon.price.toFixed(2)}</p>
+                        <p className="font-black text-xs dark:text-white">{addOn.name}</p>
+                        <p className="text-[9px] text-orange-500 font-black">+RM{addOn.price.toFixed(2)}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => handleAddOnQuantityChange(addon, -1)}
+                          onClick={() => changeAddOnQuantity(addOn, -1)}
                           className="p-1.5 bg-white dark:bg-gray-800 rounded-lg text-gray-500 hover:bg-orange-500 hover:text-white transition-all"
                           disabled={quantity === 0}
                         >
@@ -301,9 +268,9 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
                         </button>
                         <span className="font-black text-xs w-6 text-center dark:text-white">{quantity}</span>
                         <button
-                          onClick={() => handleAddOnQuantityChange(addon, 1)}
+                          onClick={() => changeAddOnQuantity(addOn, 1)}
                           className="p-1.5 bg-white dark:bg-gray-800 rounded-lg text-gray-500 hover:bg-orange-500 hover:text-white transition-all"
-                          disabled={quantity >= (addon.maxQuantity || 99)}
+                          disabled={quantity >= (addOn.maxQuantity || 99)}
                         >
                           <Plus size={14} />
                         </button>
@@ -322,15 +289,14 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
             <p className="text-2xl font-black dark:text-white">RM{totalPrice.toFixed(2)}</p>
           </div>
           <button
-            onClick={handleConfirm}
+            onClick={confirmSelection}
             className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all"
           >
             Add to Cart
           </button>
         </div>
-        </div>
       </div>
-    </ItemOptionsModalErrorBoundary>,
+    </div>,
     document.body
   );
 };
