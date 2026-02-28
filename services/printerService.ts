@@ -31,6 +31,8 @@ interface PrintJob {
 }
 
 class PrinterService {
+  private readonly charsPerLine: number = 32;
+  private readonly bleChunkSize: number = 180;
   private device: BluetoothDevice | null = null;
   private server: BluetoothRemoteGATTServer | null = null;
   private service: BluetoothRemoteGATTService | null = null;
@@ -94,8 +96,35 @@ class PrinterService {
    */
   private createSeparator(doubleSized: boolean = false): string {
     // Font A: 32 chars, Font A double-size: ~16 chars
-    const width = doubleSized ? 16 : 32;
+    const width = doubleSized ? 16 : this.charsPerLine;
     return '='.repeat(width);
+  }
+
+  private async writeDataInChunks(data: Uint8Array): Promise<void> {
+    if (!this.characteristic) {
+      throw new Error('No writable characteristic found');
+    }
+
+    for (let index = 0; index < data.length; index += this.bleChunkSize) {
+      const chunk = data.slice(index, index + this.bleChunkSize);
+      await this.characteristic.writeValue(chunk as BufferSource);
+      await new Promise(resolve => setTimeout(resolve, 15));
+    }
+  }
+
+  private async resetPrinterFormattingState(): Promise<void> {
+    if (!this.characteristic) {
+      throw new Error('No writable characteristic found');
+    }
+
+    const reset = new Uint8Array([0x1B, 0x40]); // ESC @
+    const leftMarginZero = new Uint8Array([0x1D, 0x4C, 0x00, 0x00]); // GS L nL nH
+    const alignLeft = new Uint8Array([0x1B, 0x61, 0x00]); // ESC a 0
+
+    await this.characteristic.writeValue(reset);
+    await this.characteristic.writeValue(leftMarginZero);
+    await this.characteristic.writeValue(alignLeft);
+    await new Promise(resolve => setTimeout(resolve, 30));
   }
 
   async scanForPrinters(): Promise<PrinterDevice[]> {
@@ -545,17 +574,16 @@ class PrinterService {
         .newline()
         .cut();
 
-      const data = receipt.encode();
+      const data = receipt.encode() as Uint8Array;
 
-      // Send the entire receipt in one go
-      await this.characteristic!.writeValue(data as BufferSource);
+      await this.resetPrinterFormattingState();
+      await this.writeDataInChunks(data);
       
       // Wait for printer to completely finish processing
       await new Promise(resolve => setTimeout(resolve, 3000));
       
-      // Send reset command to clear printer state
-      const resetPrinter = new Uint8Array([0x1B, 0x40]); // ESC @
-      await this.characteristic!.writeValue(resetPrinter);
+      // Reset formatting state again after print
+      await this.resetPrinterFormattingState();
       
       // Wait again for reset to complete
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -570,8 +598,7 @@ class PrinterService {
       // Try to reset printer even after error
       try {
         if (this.characteristic) {
-          const resetPrinter = new Uint8Array([0x1B, 0x40]); // ESC @
-          await this.characteristic.writeValue(resetPrinter);
+          await this.resetPrinterFormattingState();
         }
       } catch (resetError) {
         // Ignore reset errors
@@ -643,17 +670,16 @@ class PrinterService {
         .line('Printer is working!')
         .line('='.repeat(32))
         .cut()
-        .encode();
+        .encode() as Uint8Array;
 
-      // Send data
-      await this.characteristic.writeValue(data as BufferSource);
+      await this.resetPrinterFormattingState();
+      await this.writeDataInChunks(data);
       
       // Wait for printer to finish
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Reset printer after test
-      const resetPrinter = new Uint8Array([0x1B, 0x40]); // ESC @
-      await this.characteristic.writeValue(resetPrinter);
+      await this.resetPrinterFormattingState();
       
       this.lastPrintTime = Date.now();
       return true;
@@ -723,16 +749,16 @@ class PrinterService {
         .line(`Chars: ${testText.length}/32`)
         .line('')
         .cut()
-        .encode();
+        .encode() as Uint8Array;
 
-      await this.characteristic.writeValue(data as BufferSource);
+      await this.resetPrinterFormattingState();
+      await this.writeDataInChunks(data);
       
       // Wait for printer to finish
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Reset printer
-      const resetPrinter = new Uint8Array([0x1B, 0x40]); // ESC @
-      await this.characteristic.writeValue(resetPrinter);
+      await this.resetPrinterFormattingState();
       
       await new Promise(resolve => setTimeout(resolve, 1000));
       
