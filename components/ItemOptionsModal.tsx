@@ -10,74 +10,68 @@ interface Props {
   onConfirm: (item: CartItem) => void;
 }
 
-const toSafeArray = <T,>(value: unknown): T[] => {
-  return Array.isArray(value) ? value : [];
-};
-
 const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConfirm }) => {
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedTemp, setSelectedTemp] = useState<'Hot' | 'Cold' | undefined>(undefined);
   const [selectedOtherVariant, setSelectedOtherVariant] = useState('');
   const [selectedAddOns, setSelectedAddOns] = useState<Record<string, SelectedAddOn>>({});
-  const [renderError, setRenderError] = useState<string>('');
 
-  // Log item state for debugging
-  React.useEffect(() => {
-    console.log('ItemOptionsModal: item changed', { item, hasItem: !!item });
-    if (item) {
-      console.log('ItemOptionsModal: item details', {
-        name: item.name,
-        sizes: item.sizes,
-        tempOptions: item.tempOptions,
-        otherVariants: item.otherVariants,
-        addOns: item.addOns,
-      });
-    }
-  }, [item]);
-
-  const sizes = useMemo(() => {
-    return toSafeArray<{ name: string; price: number }>(item?.sizes)
-      .filter(size => size && typeof size.name === 'string' && typeof size.price === 'number');
-  }, [item?.sizes]);
-
-  const otherVariants = useMemo(() => {
-    return toSafeArray<{ name: string; price: number }>(item?.otherVariants)
-      .filter(option => option && typeof option.name === 'string' && typeof option.price === 'number');
-  }, [item?.otherVariants]);
-
-  const addOns = useMemo(() => {
-    return toSafeArray<AddOnItem>(item?.addOns)
-      .filter(addOn => addOn && typeof addOn.name === 'string' && typeof addOn.price === 'number');
-  }, [item?.addOns]);
-
-  const hasTempOptions = useMemo(() => {
-    return !!item?.tempOptions && typeof item.tempOptions === 'object' && item.tempOptions.enabled === true;
-  }, [item?.tempOptions]);
-
-  useEffect(() => {
-    if (!item) return;
-    setSelectedSize(sizes[0]?.name || '');
-    setSelectedTemp(hasTempOptions ? 'Hot' : undefined);
-    setSelectedOtherVariant(item.otherVariantsEnabled ? (otherVariants[0]?.name || '') : '');
-    setSelectedAddOns({});
-  }, [item, sizes, hasTempOptions, otherVariants]);
-
-  useEffect(() => {
-    if (!item) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [item, onClose]);
-
+  // Early return if no item
   if (!item || typeof document === 'undefined') {
-    console.log('ItemOptionsModal: Returning null because item or document is missing', { hasItem: !!item, hasDocument: typeof document !== 'undefined' });
+    console.log('ItemOptionsModal: Returning null because item or document is missing', { 
+      hasItem: !!item, 
+      hasDocument: typeof document !== 'undefined' 
+    });
     return null;
   }
 
-  console.log('ItemOptionsModal: About to render with item', item.name);
+  // Safe array conversion helper
+  const toSafeArray = <T,>(value: unknown): T[] => {
+    return Array.isArray(value) ? value : [];
+  };
 
+  // Parse and validate item data
+  const sizes = useMemo<Array<{ name: string; price: number }>>(() => {
+    const arr = toSafeArray<any>(item.sizes);
+    return arr.filter(size => size && typeof size.name === 'string' && typeof size.price === 'number');
+  }, [item.sizes]);
+
+  const otherVariants = useMemo<Array<{ name: string; price: number }>>(() => {
+    const arr = toSafeArray<any>(item.otherVariants);
+    return arr.filter(option => option && typeof option.name === 'string' && typeof option.price === 'number');
+  }, [item.otherVariants]);
+
+  const addOns = useMemo<AddOnItem[]>(() => {
+    const arr = toSafeArray<any>(item.addOns);
+    return arr.filter(addOn => addOn && typeof addOn.name === 'string' && typeof addOn.price === 'number');
+  }, [item.addOns]);
+
+  const hasTempOptions = useMemo<boolean>(() => {
+    return !!(item.tempOptions && typeof item.tempOptions === 'object' && item.tempOptions.enabled === true);
+  }, [item.tempOptions]);
+
+  // Initialize selections on item change
+  useEffect(() => {
+    console.log('ItemOptionsModal: Initializing with item', { name: item.name, sizes, hasTempOptions });
+    setSelectedSize(sizes.length > 0 ? sizes[0].name : '');
+    setSelectedTemp(hasTempOptions ? 'Hot' : undefined);
+    setSelectedOtherVariant(item.otherVariantsEnabled && otherVariants.length > 0 ? otherVariants[0].name : '');
+    setSelectedAddOns({});
+  }, [item.id]);
+
+  // Handle escape key
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        console.log('ItemOptionsModal: Escape pressed, closing');
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
+
+  // Handle add-on quantity changes
   const changeAddOnQuantity = (addOn: AddOnItem, delta: number) => {
     const current = selectedAddOns[addOn.name] || { name: addOn.name, price: addOn.price, quantity: 0 };
     const nextQuantity = Math.max(0, Math.min(addOn.maxQuantity || 99, current.quantity + delta));
@@ -97,29 +91,50 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
     }));
   };
 
-  const addOnTotal = Object.values(selectedAddOns).reduce((sum, addOn) => sum + addOn.price * addOn.quantity, 0);
+  // Calculate add-on total with proper memoization
+  const addOnTotal = useMemo<number>(() => {
+    return Object.values(selectedAddOns).reduce((sum, addOn) => sum + (addOn.price * addOn.quantity), 0);
+  }, [selectedAddOns]);
 
-  const totalPrice = useMemo(() => {
-    let total = Number(item.price || 0);
+  // Calculate total price with proper memoization
+  const totalPrice = useMemo<number>(() => {
+    let total = Number(item.price) || 0;
 
-    if (selectedSize) {
-      const size = sizes.find(option => option.name === selectedSize);
+    // Add size surcharge
+    if (selectedSize && sizes.length > 0) {
+      const size = sizes.find(s => s.name === selectedSize);
       if (size) total += size.price;
     }
 
-    if (selectedOtherVariant) {
-      const variant = otherVariants.find(option => option.name === selectedOtherVariant);
+    // Add variant surcharge
+    if (selectedOtherVariant && otherVariants.length > 0) {
+      const variant = otherVariants.find(v => v.name === selectedOtherVariant);
       if (variant) total += variant.price;
     }
 
-    if (selectedTemp === 'Hot') total += Number(item.tempOptions?.hot || 0);
-    if (selectedTemp === 'Cold') total += Number(item.tempOptions?.cold || 0);
+    // Add temperature surcharge
+    if (item.tempOptions && item.tempOptions.enabled) {
+      if (selectedTemp === 'Hot') total += Number(item.tempOptions.hot) || 0;
+      if (selectedTemp === 'Cold') total += Number(item.tempOptions.cold) || 0;
+    }
 
+    // Add add-ons total
     total += addOnTotal;
-    return total;
-  }, [item.price, item.tempOptions?.hot, item.tempOptions?.cold, selectedSize, selectedOtherVariant, selectedTemp, sizes, otherVariants, addOnTotal]);
 
+    return total;
+  }, [item.price, item.tempOptions, selectedSize, selectedOtherVariant, selectedTemp, addOnTotal, sizes, otherVariants]);
+
+  // Prepare cart item on confirm
   const confirmSelection = () => {
+    console.log('ItemOptionsModal: Confirming selection', { 
+      itemName: item.name,
+      selectedSize,
+      selectedTemp,
+      selectedOtherVariant,
+      selectedAddOnsCount: Object.keys(selectedAddOns).length,
+      totalPrice
+    });
+
     const cartItem: CartItem = {
       id: item.id,
       name: item.name,
@@ -144,6 +159,8 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
 
     onConfirm(cartItem);
   };
+
+  console.log('ItemOptionsModal: Rendering modal for item', item.name);
 
   return createPortal(
     <div
@@ -176,12 +193,6 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
           opacity: 1,
         }}
       >
-        {renderError && (
-          <div className="p-4 bg-red-100 border border-red-400 text-red-700">
-            <p className="font-bold">Error rendering modal:</p>
-            <p className="text-sm font-mono">{renderError}</p>
-          </div>
-        )}
         <div className="p-5 border-b dark:border-gray-700 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-black dark:text-white uppercase tracking-tight">{item.name}</h3>
