@@ -354,18 +354,32 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const handleMenuItemClick = (item: MenuItem) => {
+    const sanitizedItem: MenuItem = {
+      ...item,
+      sizes: Array.isArray(item.sizes) ? item.sizes.filter(size => size && typeof size.name === 'string' && typeof size.price === 'number') : [],
+      otherVariants: Array.isArray(item.otherVariants) ? item.otherVariants.filter(variant => variant && typeof variant.name === 'string' && typeof variant.price === 'number') : [],
+      addOns: Array.isArray(item.addOns) ? item.addOns.filter(addon => addon && typeof addon.name === 'string' && typeof addon.price === 'number') : [],
+      tempOptions: item.tempOptions && typeof item.tempOptions === 'object'
+        ? {
+            enabled: item.tempOptions.enabled === true,
+            hot: Number(item.tempOptions.hot || 0),
+            cold: Number(item.tempOptions.cold || 0),
+          }
+        : { enabled: false, hot: 0, cold: 0 },
+    };
+
     const hasOptions =
-      (item.sizes && item.sizes.length > 0) ||
-      (item.tempOptions && item.tempOptions.enabled) ||
-      (item.otherVariantsEnabled && item.otherVariants && item.otherVariants.length > 0) ||
-      (item.addOns && item.addOns.length > 0);
+      (sanitizedItem.sizes && sanitizedItem.sizes.length > 0) ||
+      (sanitizedItem.tempOptions && sanitizedItem.tempOptions.enabled) ||
+      (sanitizedItem.otherVariantsEnabled && sanitizedItem.otherVariants && sanitizedItem.otherVariants.length > 0) ||
+      (sanitizedItem.addOns && sanitizedItem.addOns.length > 0);
 
     if (hasOptions) {
-      setSelectedItemForOptions(item);
+      setSelectedItemForOptions(sanitizedItem);
       return;
     }
 
-    addToPosCart({ ...item, quantity: 1, restaurantId: restaurant.id });
+    addToPosCart({ ...sanitizedItem, quantity: 1, restaurantId: restaurant.id });
   };
 
   const removeFromPosCart = (cartIndex: number) => {

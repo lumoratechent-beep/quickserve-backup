@@ -3,6 +3,45 @@ import { AddOnItem, CartItem, MenuItem, SelectedAddOn } from '../src/types';
 import { Info, Minus, Plus, ThermometerSun, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
+class ItemOptionsModalErrorBoundary extends React.Component<
+  { onClose: () => void; children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { onClose: () => void; children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('[ItemOptionsModal] render error:', error);
+  }
+
+  render() {
+    if (!this.state.hasError) return this.props.children;
+
+    return (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4" style={{ zIndex: 1000 }}>
+        <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 p-5 shadow-2xl">
+          <h3 className="text-sm font-black uppercase tracking-widest text-red-500 mb-2">Unable to open item options</h3>
+          <p className="text-xs text-gray-600 dark:text-gray-300 mb-4">
+            This item has invalid option data. You can still continue by closing this popup.
+          </p>
+          <button
+            onClick={this.props.onClose}
+            className="w-full py-3 rounded-xl bg-orange-500 text-white text-xs font-black uppercase tracking-widest hover:bg-orange-600 transition-all"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+}
+
 interface Props {
   item: MenuItem | null;
   restaurantId: string;
@@ -128,19 +167,20 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-      style={{ zIndex: 1000 }}
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Customize item"
-    >
+    <ItemOptionsModalErrorBoundary onClose={onClose}>
       <div
-        className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl border dark:border-gray-700"
-        style={{ maxHeight: '90vh' }}
-        onClick={(event) => event.stopPropagation()}
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+        style={{ zIndex: 1000 }}
+        onClick={onClose}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Customize item"
       >
+        <div
+          className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl border dark:border-gray-700"
+          style={{ maxHeight: '90vh' }}
+          onClick={(event) => event.stopPropagation()}
+        >
         <div className="p-5 border-b dark:border-gray-700 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-black dark:text-white uppercase tracking-tight">{item.name}</h3>
@@ -288,8 +328,9 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
             Add to Cart
           </button>
         </div>
+        </div>
       </div>
-    </div>,
+    </ItemOptionsModalErrorBoundary>,
     document.body
   );
 };
