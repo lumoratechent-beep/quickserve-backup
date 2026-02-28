@@ -87,6 +87,16 @@ class PrinterService {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
+  /**
+   * Generate a centered separator line (respects thermal printer width)
+   * Standard thermal: 40 chars wide, when doubled (size 2x2) it's ~20 chars visible
+   */
+  private createSeparator(doubleSized: boolean = false): string {
+    // For double-sized text (title), use fewer characters
+    const width = doubleSized ? 16 : 32;
+    return '='.repeat(width);
+  }
+
   async scanForPrinters(): Promise<PrinterDevice[]> {
     try {
       const device = await navigator.bluetooth.requestDevice({
@@ -393,19 +403,25 @@ class PrinterService {
         .align('center')
         .size(2, 2)
         .line(safeRestaurantName)
-        .size(1, 1);
+        .size(1, 1)
+        .align('center'); // Re-apply center alignment after size change
 
       if (safeHeaderLine1) {
-        receipt = receipt.align('center').line(safeHeaderLine1);
+        receipt = receipt
+          .align('center')
+          .line(safeHeaderLine1);
       }
 
       if (safeHeaderLine2) {
-        receipt = receipt.align('center').line(safeHeaderLine2);
+        receipt = receipt
+          .align('center')
+          .line(safeHeaderLine2);
       }
 
+      // Double separator after header
       receipt = receipt
         .align('center')
-        .line('='.repeat(32))
+        .line('='.repeat(40))
         .align('left');
 
       if (showDateTime || showOrderId) {
@@ -486,26 +502,34 @@ class PrinterService {
       const safeTotal = this.formatPrice(order.total);
 
       // Add total and footer
-      receipt = receipt.line('-'.repeat(32));
+      receipt = receipt
+        .align('left')
+        .line('-'.repeat(32));
 
       if (showTotal) {
-        // Format total with proper padding to prevent wrapping
+        // Format total with proper right alignment using padding
         const totalLabel = `TOTAL: RM ${safeTotal}`;
         const padding = Math.max(0, 32 - totalLabel.length);
         const paddedTotal = ' '.repeat(padding) + totalLabel;
-        receipt = receipt.align('left').line(paddedTotal);
+        receipt = receipt.line(paddedTotal);
       }
 
+      // Double separator with center alignment
       receipt = receipt
         .align('center')
-        .line('='.repeat(32));
+        .line('='.repeat(40))
+        .line('');
 
       if (safeFooterLine1) {
-        receipt = receipt.align('center').line(safeFooterLine1);
+        receipt = receipt
+          .align('center')
+          .line(safeFooterLine1);
       }
 
       if (safeFooterLine2) {
-        receipt = receipt.align('center').line(safeFooterLine2);
+        receipt = receipt
+          .align('center')
+          .line(safeFooterLine2);
       }
 
       receipt = receipt

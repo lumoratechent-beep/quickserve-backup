@@ -9,6 +9,7 @@ import printerService, { PrinterDevice, ReceiptPrintOptions } from '../services/
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import StandardReport from '../components/StandardReport';
+import ReceiptPreview from '../components/ReceiptPreview';
 import { 
   ShoppingBag, Search, Download, Calendar, ChevronLeft, ChevronRight, 
   Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid, 
@@ -154,6 +155,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings>(() => getDefaultReceiptSettings(restaurant.name));
   const [isSavingReceiptSettings, setIsSavingReceiptSettings] = useState(false);
   const [receiptSettingsSaved, setReceiptSettingsSaved] = useState(false);
+  const [showReceiptPreview, setShowReceiptPreview] = useState(false);
 
   // Staff Management State
   const [staffList, setStaffList] = useState<any[]>(() => {
@@ -1916,6 +1918,12 @@ const PosOnlyView: React.FC<Props> = ({
 
                       <div className="flex items-center justify-end gap-2">
                         <button
+                          onClick={() => setShowReceiptPreview(true)}
+                          className="px-4 py-2 bg-blue-100 dark:bg-blue-900 rounded-lg font-black uppercase text-[9px] tracking-widest text-blue-600 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 transition-all"
+                        >
+                          👁️ Preview
+                        </button>
+                        <button
                           onClick={() => setReceiptSettings(getDefaultReceiptSettings(restaurant.name))}
                           className="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500 hover:text-orange-500"
                         >
@@ -2354,6 +2362,30 @@ const PosOnlyView: React.FC<Props> = ({
           setSelectedItemForOptions(null);
         }}
       />
+
+      {showReceiptPreview && (
+        <ReceiptPreview
+          receiptSettings={receiptSettings}
+          sampleOrder={{
+            id: 'ORD001',
+            tableNumber: '5',
+            timestamp: Date.now(),
+            total: 8.50,
+            items: [
+              {
+                name: 'Iced Coffee',
+                quantity: 1,
+                selectedSize: 'Large',
+                selectedTemp: '',
+                selectedOtherVariant: '',
+                selectedAddOns: [],
+              },
+            ],
+            remark: '',
+          }}
+          onClose={() => setShowReceiptPreview(false)}
+        />
+      )}
 
       <style>{`
         .no-scrollbar::-webkit-scrollbar {
