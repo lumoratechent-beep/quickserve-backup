@@ -96,6 +96,16 @@ class PrinterService {
     return safe.length > width ? safe.slice(0, width) : safe;
   }
 
+  /**
+   * Manually center text by padding with spaces on the left.
+   * More reliable than ESC/POS align('center') which some printers handle incorrectly.
+   */
+  private centerText(text: string, lineWidth: number): string {
+    if (text.length >= lineWidth) return text;
+    const leftPad = Math.floor((lineWidth - text.length) / 2);
+    return ' '.repeat(leftPad) + text;
+  }
+
   private async writeDataInChunks(data: Uint8Array): Promise<void> {
     if (!this.characteristic) {
       throw new Error('No writable characteristic found');
@@ -438,21 +448,23 @@ class PrinterService {
       const showTotal = options?.showTotal !== false;
 
       // === FIXED STANDARD RECEIPT LAYOUT ===
+      // All lines use align('left') - centering done via space padding
+      // because ESC/POS align('center') shifts right on some printers
 
-      // Company Name (center, double size)
+      // Company Name (centered manually, double size = 16 chars per line)
       let receipt = this.encoder
         .initialize()
-        .align('center')
+        .align('left')
         .size(2, 2)
-        .line(this.truncateText(safeRestaurantName, 16))
+        .line(this.centerText(this.truncateText(safeRestaurantName, 16), 16))
         .size(1, 1);
 
-      // Header lines (center)
+      // Header lines (centered manually, normal size = 32 chars per line)
       if (safeHeaderLine1) {
-        receipt = receipt.line(this.truncateText(safeHeaderLine1, this.charsPerLine));
+        receipt = receipt.line(this.centerText(this.truncateText(safeHeaderLine1, this.charsPerLine), this.charsPerLine));
       }
       if (safeHeaderLine2) {
-        receipt = receipt.line(this.truncateText(safeHeaderLine2, this.charsPerLine));
+        receipt = receipt.line(this.centerText(this.truncateText(safeHeaderLine2, this.charsPerLine), this.charsPerLine));
       }
 
       // Full double separator
@@ -547,13 +559,12 @@ class PrinterService {
       // Full double separator
       receipt = receipt.line('='.repeat(32));
 
-      // Footer lines (center)
-      receipt = receipt.align('center');
+      // Footer lines (centered manually)
       if (safeFooterLine1) {
-        receipt = receipt.line(this.truncateText(safeFooterLine1, this.charsPerLine));
+        receipt = receipt.line(this.centerText(this.truncateText(safeFooterLine1, this.charsPerLine), this.charsPerLine));
       }
       if (safeFooterLine2) {
-        receipt = receipt.line(this.truncateText(safeFooterLine2, this.charsPerLine));
+        receipt = receipt.line(this.centerText(this.truncateText(safeFooterLine2, this.charsPerLine), this.charsPerLine));
       }
 
       receipt = receipt
@@ -631,19 +642,17 @@ class PrinterService {
       const now = new Date();
       const testBusinessName = this.sanitizeText(options?.businessName || 'QUICKSERVE') || 'QUICKSERVE';
 
-      // Build test page with fixed standard layout
+      // Build test page with manual centering (no ESC/POS align center)
       const truncatedName = this.truncateText(testBusinessName, 16);
       const data = this.encoder
         .initialize()
-        .align('center')
+        .align('left')
         .size(2, 2)
-        .line(truncatedName)
+        .line(this.centerText(truncatedName, 16))
         .size(1, 1)
         .line('')
         .line('='.repeat(32))
-        .align('center')
-        .line('TEST PAGE')
-        .align('left')
+        .line(this.centerText('TEST PAGE', 32))
         .line('')
         .line(this.formatDate(now) + ' ' + this.formatTime(now))
         .line('')
