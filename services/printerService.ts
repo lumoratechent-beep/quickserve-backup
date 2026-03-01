@@ -9,6 +9,7 @@ export interface PrinterDevice {
 
 export interface ReceiptPrintOptions {
   businessName?: string;
+  autoOpenDrawer?: boolean;
   showDateTime?: boolean;
   showOrderId?: boolean;
   showTableNumber?: boolean;
@@ -150,6 +151,14 @@ class PrinterService {
 
     await this.characteristic.writeValue(combinedBuffer);
     await new Promise(resolve => setTimeout(resolve, 30));
+  }
+
+  private appendDrawerPulse(data: Uint8Array): Uint8Array {
+    const drawerPulse = new Uint8Array([0x1B, 0x70, 0x00, 0x19, 0xFA]);
+    const merged = new Uint8Array(data.length + drawerPulse.length);
+    merged.set(data, 0);
+    merged.set(drawerPulse, data.length);
+    return merged;
   }
 
   async scanForPrinters(): Promise<PrinterDevice[]> {
@@ -577,7 +586,8 @@ class PrinterService {
         .newline()
         .cut();
 
-      const data = receipt.encode() as Uint8Array;
+      const encoded = receipt.encode() as Uint8Array;
+      const data = options?.autoOpenDrawer ? this.appendDrawerPulse(encoded) : encoded;
 
       await this.writePreparedPayload(data);
 
