@@ -113,7 +113,6 @@ const PosOnlyView: React.FC<Props> = ({
   const [showAddClassModal, setShowAddClassModal] = useState(false);
   const [showAddModifierModal, setShowAddModifierModal] = useState(false);
   const [newClassName, setNewClassName] = useState('');
-  const [skipKitchen, setSkipKitchen] = useState(false);
   const [extraCategories, setExtraCategories] = useState<CategoryData[]>([]);
   const [modifiers, setModifiers] = useState<ModifierData[]>([]);
 
@@ -804,17 +803,12 @@ const PosOnlyView: React.FC<Props> = ({
       return;
     }
 
-    setExtraCategories(prev => [...prev, { name: categoryName, skipKitchen }]);
+    setExtraCategories(prev => [...prev, { name: categoryName }]);
     setNewClassName('');
-    setSkipKitchen(false);
     setShowAddClassModal(false);
   };
 
-  const handleToggleSkipKitchen = (categoryName: string) => {
-    setExtraCategories(prev => prev.map(category =>
-      category.name === categoryName ? { ...category, skipKitchen: !category.skipKitchen } : category
-    ));
-  };
+
 
   const handleRenameCategory = (oldName: string, newName: string) => {
     if (!newName.trim() || oldName === newName.trim()) {
@@ -1446,19 +1440,7 @@ const PosOnlyView: React.FC<Props> = ({
                                 </div>
                               </div>
 
-                              <div className="flex items-center justify-between mt-2 pt-2 border-t dark:border-gray-700">
-                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Skip Kitchen</span>
-                                <button
-                                  onClick={() => handleToggleSkipKitchen(category.name)}
-                                  className={`w-10 h-5 rounded-full transition-all relative ${
-                                    category.skipKitchen ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
-                                  }`}
-                                >
-                                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${
-                                    category.skipKitchen ? 'left-5' : 'left-0.5'
-                                  }`} />
-                                </button>
-                              </div>
+
                             </div>
                           );
                         }
@@ -1495,19 +1477,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     </p>
                                   </div>
 
-                                  <div className="flex items-center gap-2 ml-4">
-                                    <span className="text-[8px] font-black text-gray-400">Skip Kitchen</span>
-                                    <button
-                                      onClick={() => handleToggleSkipKitchen(category.name)}
-                                      className={`w-8 h-4 rounded-full transition-all relative ${
-                                        category.skipKitchen ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
-                                      }`}
-                                    >
-                                      <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${
-                                        category.skipKitchen ? 'left-4' : 'left-0.5'
-                                      }`} />
-                                    </button>
-                                  </div>
+
                                 </div>
                               )}
                             </div>
@@ -2066,22 +2036,7 @@ const PosOnlyView: React.FC<Props> = ({
                   />
                 </div>
 
-                <div className="flex items-center justify-between border dark:border-gray-700 rounded-lg p-3">
-                  <div>
-                    <p className="font-black text-xs dark:text-white uppercase tracking-tight">Skip Kitchen</p>
-                    <p className="text-[9px] text-gray-400">Hide this category in kitchen workflow</p>
-                  </div>
-                  <button
-                    onClick={() => setSkipKitchen(prev => !prev)}
-                    className={`w-10 h-5 rounded-full transition-all relative ${
-                      skipKitchen ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
-                    }`}
-                  >
-                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${
-                      skipKitchen ? 'left-5' : 'left-0.5'
-                    }`} />
-                  </button>
-                </div>
+
 
                 <div className="flex gap-3 pt-2">
                   <button
