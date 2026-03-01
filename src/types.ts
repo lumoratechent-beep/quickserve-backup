@@ -143,7 +143,6 @@ export interface ReportFilters {
 
 export interface CategoryData {
   name: string;
-  skipKitchen: boolean;
 }
 
 export interface ModifierData {

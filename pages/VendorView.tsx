@@ -36,7 +36,6 @@ interface OrderSettings {
 
 interface CategoryData {
   name: string;
-  skipKitchen: boolean;
 }
 
 interface ModifierData {
@@ -83,7 +82,6 @@ const VendorView: React.FC<Props> = ({
   const [showAddModifierModal, setShowAddModifierModal] = useState(false);
   const [newClassName, setNewClassName] = useState('');
   const [newModifierName, setNewModifierName] = useState('');
-  const [skipKitchen, setSkipKitchen] = useState(false);
   const [extraCategories, setExtraCategories] = useState<CategoryData[]>([]);
   const [modifiers, setModifiers] = useState<ModifierData[]>([]);
   
@@ -91,7 +89,6 @@ const VendorView: React.FC<Props> = ({
   const [classViewMode, setClassViewMode] = useState<'grid' | 'list'>('list');
   const [renamingClass, setRenamingClass] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
-  const [editingSkipKitchen, setEditingSkipKitchen] = useState<string | null>(null);
 
   // Modifier Specific State
   const [modifierViewMode, setModifierViewMode] = useState<'grid' | 'list'>('list');
@@ -557,18 +554,12 @@ const VendorView: React.FC<Props> = ({
       alert("Category already exists.");
       return;
     }
-    setExtraCategories(prev => [...prev, { name: newClassName.trim(), skipKitchen }]);
+    setExtraCategories(prev => [...prev, { name: newClassName.trim() }]);
     setNewClassName('');
-    setSkipKitchen(false);
     setShowAddClassModal(false);
   };
 
-  const handleToggleSkipKitchen = (categoryName: string) => {
-    setExtraCategories(prev => prev.map(c => 
-      c.name === categoryName ? { ...c, skipKitchen: !c.skipKitchen } : c
-    ));
-    setEditingSkipKitchen(null);
-  };
+
 
   const handleRenameCategory = (oldName: string, newName: string) => {
     if (!newName.trim() || oldName === newName) {
@@ -1366,20 +1357,7 @@ const VendorView: React.FC<Props> = ({
                                 </button>
                               </div>
                             </div>
-                            
-                            <div className="flex items-center justify-between mt-2 pt-2 border-t dark:border-gray-700">
-                              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Skip Kitchen</span>
-                              <button
-                                onClick={() => handleToggleSkipKitchen(cat.name)}
-                                className={`w-10 h-5 rounded-full transition-all relative ${
-                                  cat.skipKitchen ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
-                                }`}
-                              >
-                                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${
-                                  cat.skipKitchen ? 'left-5' : 'left-0.5'
-                                }`} />
-                              </button>
-                            </div>
+
                           </div>
                         );
                       }
@@ -1416,19 +1394,7 @@ const VendorView: React.FC<Props> = ({
                                   </p>
                                 </div>
                                 
-                                <div className="flex items-center gap-2 ml-4">
-                                  <span className="text-[8px] font-black text-gray-400">Skip Kitchen</span>
-                                  <button
-                                    onClick={() => handleToggleSkipKitchen(cat.name)}
-                                    className={`w-8 h-4 rounded-full transition-all relative ${
-                                      cat.skipKitchen ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
-                                    }`}
-                                  >
-                                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${
-                                      cat.skipKitchen ? 'left-4' : 'left-0.5'
-                                    }`} />
-                                  </button>
-                                </div>
+
                               </div>
                             )}
                           </div>
@@ -1885,19 +1851,7 @@ const VendorView: React.FC<Props> = ({
                 onChange={e => setNewClassName(e.target.value)} 
                 onKeyDown={e => e.key === 'Enter' && handleAddCategory()} 
               />
-              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <span className="text-xs font-black text-gray-400">Skip Kitchen</span>
-                <button
-                  onClick={() => setSkipKitchen(!skipKitchen)}
-                  className={`w-10 h-5 rounded-full transition-all relative ${
-                    skipKitchen ? 'bg-orange-500' : 'bg-gray-300'
-                  }`}
-                >
-                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${
-                    skipKitchen ? 'left-5' : 'left-0.5'
-                  }`} />
-                </button>
-              </div>
+
               <button onClick={handleAddCategory} className="w-full py-3 bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest text-xs">Confirm Category</button>
             </div>
           </div>
