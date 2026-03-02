@@ -2249,7 +2249,9 @@ const PosOnlyView: React.FC<Props> = ({
                     </button>
                     {settingsPanel === 'printer' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        {renderPrinterContent()}
+                        <div className="max-w-lg">
+                          {renderPrinterContent()}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -2271,7 +2273,9 @@ const PosOnlyView: React.FC<Props> = ({
                     </button>
                     {settingsPanel === 'receipt' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        {renderReceiptContent()}
+                        <div className="max-w-lg">
+                          {renderReceiptContent()}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -2293,7 +2297,9 @@ const PosOnlyView: React.FC<Props> = ({
                     </button>
                     {settingsPanel === 'staff' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        {renderStaffContent()}
+                        <div className="max-w-lg">
+                          {renderStaffContent()}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -2302,7 +2308,7 @@ const PosOnlyView: React.FC<Props> = ({
                 {/* ===== DESKTOP: Two-Panel Sidebar + Content ===== */}
                 <div className="hidden lg:flex gap-6 min-h-[500px]">
                   {/* Left Sidebar */}
-                  <div className="w-60 shrink-0">
+                  <div className="w-80 shrink-0">
                     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
                       {/* Printer Nav Item */}
                       <button
@@ -2381,9 +2387,11 @@ const PosOnlyView: React.FC<Props> = ({
                   {/* Right Content Panel */}
                   <div className="flex-1 min-h-0 overflow-y-auto">
                     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
-                      {settingsPanel === 'printer' && renderPrinterContent()}
-                      {settingsPanel === 'receipt' && renderReceiptContent()}
-                      {settingsPanel === 'staff' && renderStaffContent()}
+                      <div className="max-w-lg">
+                        {settingsPanel === 'printer' && renderPrinterContent()}
+                        {settingsPanel === 'receipt' && renderReceiptContent()}
+                        {settingsPanel === 'staff' && renderStaffContent()}
+                      </div>
                     </div>
                   </div>
                 </div>
