@@ -10,6 +10,7 @@ import LoginPage from './pages/LoginPage';
 import MarketingPage from './pages/MarketingPage';
 import { supabase } from './lib/supabase';
 import { LogOut, Sun, Moon, MapPin, LogIn, Loader2 } from 'lucide-react';
+import * as offlineQueue from './lib/offlineOrdersQueue';
 
 const App: React.FC = () => {
   // --- HYDRATED STATE ---
@@ -114,6 +115,22 @@ const App: React.FC = () => {
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
     };
   }, []);
+
+  // Online/Offline status listener
+  useEffect(() => {
+    const unsubscribe = offlineQueue.onOnlineStatusChange((isOnlineNow) => {
+      setIsOnline(isOnlineNow);
+      if (isOnlineNow) {
+        // Try to sync offline orders when back online
+        syncOfflineOrders();
+      }
+    });
+
+    // Update pending count on mount
+    setPendingOfflineOrdersCount(offlineQueue.getUnsyncedOrders().length);
+
+    return unsubscribe;
+  }, []);
   
   const [view, setView] = useState<'LANDING' | 'LOGIN' | 'APP' | 'MARKETING' | 'POS'>(() => {
     const savedView = localStorage.getItem('qs_view') as any;
@@ -146,6 +163,9 @@ const App: React.FC = () => {
     return localStorage.getItem('theme') === 'dark' || 
       (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
+
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [pendingOfflineOrdersCount, setPendingOfflineOrdersCount] = useState(0);
 
   const persistCache = (key: string, data: any) => {
     try {
@@ -931,6 +951,48 @@ const App: React.FC = () => {
     return data.summary;
   };
 
+  /**
+   * Sync offline orders to Supabase when back online
+   */
+  const syncOfflineOrders = async () => {
+    const unsyncedOrders = offlineQueue.getUnsyncedOrders();
+    if (unsyncedOrders.length === 0) return;
+
+    console.log(`Syncing ${unsyncedOrders.length} offline orders...`);
+
+    for (const offlineOrder of unsyncedOrders) {
+      try {
+        const { error } = await supabase.from('orders').insert([{
+          id: offlineOrder.id,
+          items: offlineOrder.items,
+          total: offlineOrder.total,
+          status: offlineOrder.status,
+          timestamp: offlineOrder.timestamp,
+          customer_id: offlineOrder.customer_id,
+          restaurant_id: offlineOrder.restaurant_id,
+          table_number: offlineOrder.table_number,
+          location_name: offlineOrder.location_name,
+          remark: offlineOrder.remark
+        }]);
+
+        if (error) {
+          console.error(`Failed to sync order ${offlineOrder.id}:`, error.message);
+        } else {
+          console.log(`Successfully synced order ${offlineOrder.id}`);
+          offlineQueue.markOrderAsSynced(offlineOrder.id);
+        }
+      } catch (err) {
+        console.error(`Error syncing order ${offlineOrder.id}:`, err);
+      }
+    }
+
+    // Refresh orders list after syncing
+    fetchOrders();
+    
+    // Update pending count
+    setPendingOfflineOrdersCount(offlineQueue.getUnsyncedOrders().length);
+  };
+
   const placePosOrder = async (items: CartItem[], remark: string, tableNumber: string): Promise<string> => {
     if (items.length === 0 || !currentUser?.restaurantId) return '';
     
@@ -938,22 +1000,91 @@ const App: React.FC = () => {
     const area = locations.find(l => l.name === res?.location);
     const code = area?.code || 'QS';
     
-    let nextNum = 1;
-    const { data: lastOrder } = await supabase.from('orders')
-      .select('id')
-      .ilike('id', `${code}%`)
-      .order('id', { ascending: false })
-      .limit(1);
-
-    if (lastOrder && lastOrder[0]) {
-      const lastIdFull = lastOrder[0].id;
-      const basePart = lastIdFull.split('-')[0];
-      const numPart = basePart.substring(code.length);
-      const parsed = parseInt(numPart);
-      if (!isNaN(parsed)) nextNum = parsed + 1;
-    }
-    const orderId = `${code}${String(nextNum).padStart(7, '0')}`;
+    // Calculate total
     const total = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+
+    // Check if user is online
+    if (!offlineQueue.isOnline()) {
+      console.warn('User is offline - queueing order locally');
+      
+      // Generate order ID without server query
+      // Use timestamp-based ID generation for offline mode
+      const timestamp = Date.now();
+      const random = Math.floor(Math.random() * 10000);
+      const orderId = `${code}${String(timestamp).slice(-7)}${String(random).padStart(4, '0')}`;
+
+      const offlineOrder: offlineQueue.OfflineOrder = {
+        id: orderId,
+        items,
+        total,
+        status: OrderStatus.COMPLETED,
+        timestamp: Date.now(),
+        customer_id: 'pos_user',
+        restaurant_id: currentUser.restaurantId,
+        table_number: tableNumber,
+        location_name: res?.location || 'Unspecified',
+        remark,
+        createdAt: Date.now(),
+        synced: false
+      };
+
+      // Queue the order locally
+      offlineQueue.addOfflineOrder(offlineOrder);
+      
+      // Update pending count
+      setPendingOfflineOrdersCount(prevCount => prevCount + 1);
+      
+      // Show notification
+      console.log(`Order queued for later sync: ${orderId}`);
+      
+      return orderId;
+    }
+
+    // User is online - proceed with normal flow
+    let nextNum = 1;
+    try {
+      const { data: lastOrder } = await supabase.from('orders')
+        .select('id')
+        .ilike('id', `${code}%`)
+        .order('id', { ascending: false })
+        .limit(1);
+
+      if (lastOrder && lastOrder[0]) {
+        const lastIdFull = lastOrder[0].id;
+        const basePart = lastIdFull.split('-')[0];
+        const numPart = basePart.substring(code.length);
+        const parsed = parseInt(numPart);
+        if (!isNaN(parsed)) nextNum = parsed + 1;
+      }
+    } catch (error) {
+      console.error('Error fetching last order number:', error);
+      // If we can't reach the server, fall back to offline mode
+      const timestamp = Date.now();
+      const random = Math.floor(Math.random() * 10000);
+      const orderId = `${code}${String(timestamp).slice(-7)}${String(random).padStart(4, '0')}`;
+
+      const offlineOrder: offlineQueue.OfflineOrder = {
+        id: orderId,
+        items,
+        total,
+        status: OrderStatus.COMPLETED,
+        timestamp: Date.now(),
+        customer_id: 'pos_user',
+        restaurant_id: currentUser.restaurantId,
+        table_number: tableNumber,
+        location_name: res?.location || 'Unspecified',
+        remark,
+        createdAt: Date.now(),
+        synced: false
+      };
+
+      offlineQueue.addOfflineOrder(offlineOrder);
+      setPendingOfflineOrdersCount(prevCount => prevCount + 1);
+      console.log(`Order queued due to connection error: ${orderId}`);
+      return orderId;
+    }
+
+    const orderId = `${code}${String(nextNum).padStart(7, '0')}`;
 
     const orderToInsert = {
       id: orderId,
@@ -969,7 +1100,28 @@ const App: React.FC = () => {
     };
 
     const { error } = await supabase.from('orders').insert([orderToInsert]);
-    if (error) throw error;
+    if (error) {
+      console.error('Failed to insert order:', error);
+      // If insert fails, queue it for later
+      const offlineOrder: offlineQueue.OfflineOrder = {
+        id: orderId,
+        items,
+        total,
+        status: OrderStatus.COMPLETED,
+        timestamp: Date.now(),
+        customer_id: 'pos_user',
+        restaurant_id: currentUser.restaurantId,
+        table_number: tableNumber,
+        location_name: res?.location || 'Unspecified',
+        remark,
+        createdAt: Date.now(),
+        synced: false
+      };
+      
+      offlineQueue.addOfflineOrder(offlineOrder);
+      setPendingOfflineOrdersCount(prevCount => prevCount + 1);
+      console.log(`Order queued due to insert error: ${orderId}`);
+    }
     
     // Return the order ID so it can be used for printing
     return orderId;
@@ -1080,6 +1232,8 @@ const App: React.FC = () => {
               onPermanentDeleteMenuItem={handleDeleteMenuItem}
               onFetchPaginatedOrders={onFetchPaginatedOrders}
               onFetchAllFilteredOrders={onFetchAllFilteredOrders}
+              isOnline={isOnline}
+              pendingOfflineOrdersCount={pendingOfflineOrdersCount}
             />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
@@ -1107,6 +1261,8 @@ const App: React.FC = () => {
                 onPermanentDeleteMenuItem={handleDeleteMenuItem}
                 onFetchPaginatedOrders={onFetchPaginatedOrders}
                 onFetchAllFilteredOrders={onFetchAllFilteredOrders}
+                isOnline={isOnline}
+                pendingOfflineOrdersCount={pendingOfflineOrdersCount}
               />
             ) : (
               <VendorView 

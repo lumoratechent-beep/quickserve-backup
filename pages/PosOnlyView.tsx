@@ -15,7 +15,7 @@ import {
   List, Clock, CheckCircle2, BarChart3, Hash, Menu, Settings, BookOpen,
   ChevronFirst, ChevronLast, X, Edit3, Archive, RotateCcw, Upload, Eye,
   AlertCircle, Users, UserPlus, Bluetooth, BluetoothConnected, PrinterIcon,
-  Filter, Tag, Layers, Coffee, ChevronDown, RotateCw
+  Filter, Tag, Layers, Coffee, ChevronDown, RotateCw, Wifi, WifiOff
 } from 'lucide-react';
 
 interface Props {
@@ -28,11 +28,12 @@ interface Props {
   onPermanentDeleteMenuItem?: (restaurantId: string, itemId: string) => void | Promise<void>;
   onFetchPaginatedOrders?: (filters: ReportFilters, page: number, pageSize: number) => Promise<ReportResponse>;
   onFetchAllFilteredOrders?: (filters: ReportFilters) => Promise<Order[]>;
+  isOnline?: boolean;
+  pendingOfflineOrdersCount?: number;
 }
 
 interface ReceiptSettings {
   autoPrintEnabled: boolean;
-  autoOpenDrawer: boolean;
   businessName: string;
   headerLine1: string;
   headerLine2: string;
@@ -48,7 +49,6 @@ interface ReceiptSettings {
 
 const getDefaultReceiptSettings = (restaurantName: string): ReceiptSettings => ({
   autoPrintEnabled: false,
-  autoOpenDrawer: false,
   businessName: restaurantName,
   headerLine1: '',
   headerLine2: '',
@@ -70,6 +70,10 @@ const PosOnlyView: React.FC<Props> = ({
   onUpdateMenu,
   onAddMenuItem,
   onPermanentDeleteMenuItem,
+  onFetchPaginatedOrders,
+  onFetchAllFilteredOrders,
+  isOnline = true,
+  pendingOfflineOrdersCount = 0
   onFetchPaginatedOrders,
   onFetchAllFilteredOrders,
 }) => {
@@ -159,7 +163,6 @@ const PosOnlyView: React.FC<Props> = ({
   const [receiptSettingsSaved, setReceiptSettingsSaved] = useState(false);
   const [selectedReportOrder, setSelectedReportOrder] = useState<Order | null>(null);
   const [receiptAccordion, setReceiptAccordion] = useState({ content: true, fields: false });
-  const [settingsPanel, setSettingsPanel] = useState<'PRINTER' | 'RECEIPT' | 'STAFF'>('PRINTER');
 
   // Staff Management State
   const [staffList, setStaffList] = useState<any[]>(() => {
@@ -1027,7 +1030,6 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const getReceiptPrintOptions = (): ReceiptPrintOptions => ({
-    autoOpenDrawer: receiptSettings.autoOpenDrawer,
     showDateTime: receiptSettings.showDateTime,
     showOrderId: receiptSettings.showOrderId,
     showTableNumber: receiptSettings.showTableNumber,
@@ -1072,7 +1074,38 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   return (
-    <div className="flex h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-900 overflow-hidden">
+    <div className="flex h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-900 overflow-hidden flex-col">
+      {/* Offline Status Banner */}
+      {!isOnline && (
+        <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <WifiOff className="w-5 h-5 text-red-600 dark:text-red-400" />
+            <div>
+              <p className="font-semibold text-red-900 dark:text-red-200 text-sm">You're Offline</p>
+              <p className="text-xs text-red-700 dark:text-red-300">Orders will be saved locally and synced when you're back online</p>
+            </div>
+          </div>
+          {pendingOfflineOrdersCount > 0 && (
+            <div className="bg-red-100 dark:bg-red-900/40 px-3 py-1 rounded-full">
+              <p className="text-sm font-semibold text-red-700 dark:text-red-300">{pendingOfflineOrdersCount} pending</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isOnline && pendingOfflineOrdersCount > 0 && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800 px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+            <div>
+              <p className="font-semibold text-yellow-900 dark:text-yellow-200 text-sm">Syncing Orders</p>
+              <p className="text-xs text-yellow-700 dark:text-yellow-300">{pendingOfflineOrdersCount} orders are being synced to the server</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-1 overflow-hidden">
       {isMobileMenuOpen && (
         <div 
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
@@ -1646,413 +1679,385 @@ const PosOnlyView: React.FC<Props> = ({
                 <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm p-5">
                   <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Settings</h1>
                   <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1 uppercase tracking-widest">Clear setup for printer, receipt, and staff access</p>
-
-                  <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <button
-                      onClick={() => setSettingsPanel('PRINTER')}
-                      className={`w-full px-4 py-3 rounded-xl border text-left transition-all ${
-                        settingsPanel === 'PRINTER'
-                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                          : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30'
-                      }`}
-                    >
-                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">1. Printer setup</p>
-                    </button>
-                    <button
-                      onClick={() => setSettingsPanel('RECEIPT')}
-                      className={`w-full px-4 py-3 rounded-xl border text-left transition-all ${
-                        settingsPanel === 'RECEIPT'
-                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                          : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30'
-                      }`}
-                    >
-                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">2. Receipt Format</p>
-                    </button>
-                    <button
-                      onClick={() => setSettingsPanel('STAFF')}
-                      className={`w-full px-4 py-3 rounded-xl border text-left transition-all ${
-                        settingsPanel === 'STAFF'
-                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                          : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30'
-                      }`}
-                    >
-                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">3. Staff management</p>
-                    </button>
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="rounded-xl border dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 p-3">
+                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Printer Status</p>
+                      <p className="mt-1 text-xs font-black dark:text-white uppercase tracking-wide">
+                        {printerStatus === 'connected' ? 'Connected' : printerStatus === 'connecting' ? 'Connecting' : 'Disconnected'}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 p-3">
+                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Auto Print</p>
+                      <p className="mt-1 text-xs font-black dark:text-white uppercase tracking-wide">
+                        {receiptSettings.autoPrintEnabled ? 'Enabled' : 'Disabled'}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 p-3">
+                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Staff Accounts</p>
+                      <p className="mt-1 text-xs font-black dark:text-white uppercase tracking-wide">{staffList.length} active</p>
+                    </div>
                   </div>
                 </div>
 
-                {settingsPanel === 'PRINTER' && (
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden">
-                    <div className="px-5 py-4 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          <PrinterIcon size={16} className="text-orange-500" />
-                          <h2 className="font-black dark:text-white uppercase tracking-tighter text-sm">1. Printer Setup</h2>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
-                          printerStatus === 'connected'
-                            ? 'bg-green-100 text-green-600'
-                            : printerStatus === 'connecting'
-                            ? 'bg-orange-100 text-orange-600'
-                            : 'bg-gray-100 text-gray-500'
-                        }`}>
-                          {printerStatus === 'connected' ? 'Connected' : printerStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="p-5">
-                      {!isBluetoothSupported && (
-                        <div className="text-center py-8">
-                          <AlertCircle size={32} className="mx-auto text-red-500 mb-3" />
-                          <h3 className="text-base font-black dark:text-white mb-1">Bluetooth Not Supported</h3>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{errorMessage}</p>
-                          <p className="text-[9px] text-gray-400 mt-3">Use Chrome, Edge, or Opera</p>
-                        </div>
-                      )}
-
-                      {isBluetoothSupported && (
-                        <>
-                          <div className={`p-4 rounded-xl border-2 transition-all mb-4 ${
+                <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+                  <div className="xl:col-span-3 space-y-6">
+                    {/* Printer Configuration */}
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden">
+                      <div className="px-5 py-4 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <PrinterIcon size={16} className="text-orange-500" />
+                            <h2 className="font-black dark:text-white uppercase tracking-tighter text-sm">1. Printer Setup</h2>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
                             printerStatus === 'connected'
-                              ? 'bg-green-50 dark:bg-green-900/10 border-green-200'
-                              : 'bg-gray-50 dark:bg-gray-800 border-gray-200'
+                              ? 'bg-green-100 text-green-600'
+                              : printerStatus === 'connecting'
+                              ? 'bg-orange-100 text-orange-600'
+                              : 'bg-gray-100 text-gray-500'
                           }`}>
-                            <div className="flex items-start justify-between">
-                              <div className="flex items-center gap-3">
-                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                                  printerStatus === 'connected'
-                                    ? 'bg-green-500 text-white'
-                                    : 'bg-gray-200 dark:bg-gray-700 text-gray-500'
-                                }`}>
-                                  <Printer size={20} />
+                            {printerStatus === 'connected' ? 'Connected' : printerStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Connect a Bluetooth receipt printer, run a test, and manage reconnect actions.</p>
+                      </div>
+                      <div className="p-5">
+                        {!isBluetoothSupported && (
+                          <div className="text-center py-8">
+                            <AlertCircle size={32} className="mx-auto text-red-500 mb-3" />
+                            <h3 className="text-base font-black dark:text-white mb-1">Bluetooth Not Supported</h3>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{errorMessage}</p>
+                            <p className="text-[9px] text-gray-400 mt-3">Use Chrome, Edge, or Opera</p>
+                          </div>
+                        )}
+
+                        {isBluetoothSupported && (
+                          <>
+                            <div className={`p-4 rounded-xl border-2 transition-all mb-4 ${
+                              printerStatus === 'connected'
+                                ? 'bg-green-50 dark:bg-green-900/10 border-green-200'
+                                : 'bg-gray-50 dark:bg-gray-800 border-gray-200'
+                            }`}>
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                                    printerStatus === 'connected'
+                                      ? 'bg-green-500 text-white'
+                                      : 'bg-gray-200 dark:bg-gray-700 text-gray-500'
+                                  }`}>
+                                    <Printer size={20} />
+                                  </div>
+                                  <div>
+                                    <h3 className="font-black dark:text-white text-xs">CX58D Thermal Printer</h3>
+                                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                                      {printerStatus === 'connected'
+                                        ? `Connected to ${connectedDevice?.name}`
+                                        : 'No printer connected'}
+                                    </p>
+                                  </div>
                                 </div>
+                              </div>
+                            </div>
+
+                            {printerStatus !== 'connected' ? (
+                              <div className="space-y-3">
+                                <button
+                                  onClick={scanForPrinters}
+                                  disabled={isScanning}
+                                  className="w-full py-3 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                  {isScanning ? (
+                                    <>
+                                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                      Scanning...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Bluetooth size={14} />
+                                      Scan for Bluetooth Printers
+                                    </>
+                                  )}
+                                </button>
+
+                                {devices.length > 0 && (
+                                  <div className="space-y-2">
+                                    <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Found Printers</h4>
+                                    {devices.map(device => (
+                                      <button
+                                        key={device.id}
+                                        onClick={() => connectToPrinter(device)}
+                                        className="w-full p-3 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg flex items-center justify-between hover:border-orange-500 transition-all group"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <Printer size={16} className="text-gray-400 group-hover:text-orange-500" />
+                                          <span className="font-bold dark:text-white text-xs">{device.name}</span>
+                                        </div>
+                                        <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Connect</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                <div className="p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <BluetoothConnected size={14} className="text-blue-500" />
+                                    <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Connected Device</span>
+                                  </div>
+                                  <p className="font-bold dark:text-white text-xs mb-1">{connectedDevice?.name}</p>
+                                  <p className="text-[8px] text-gray-500">ID: {connectedDevice?.id}</p>
+                                </div>
+
+                                <button
+                                  onClick={printTestPage}
+                                  disabled={testPrintStatus === 'printing'}
+                                  className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                  {testPrintStatus === 'printing' ? (
+                                    <>Printing...</>
+                                  ) : testPrintStatus === 'success' ? (
+                                    <>
+                                      <CheckCircle2 size={14} className="text-green-500" />
+                                      Test Page Sent!
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Printer size={14} />
+                                      Print Test Page
+                                    </>
+                                  )}
+                                </button>
+
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await printerService.reprintLast();
+                                    } catch (err: any) {
+                                      console.error('Reprint error:', err);
+                                      setErrorMessage(err?.message || 'Reprint failed');
+                                    }
+                                  }}
+                                  disabled={!printerService.hasLastReceipt()}
+                                  className="w-full py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-100 hover:text-orange-600 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+                                >
+                                  <RotateCw size={14} />
+                                  Reprint Last Receipt
+                                </button>
+
+                                <button
+                                  onClick={disconnectPrinter}
+                                  className="w-full py-2 bg-red-50 dark:bg-red-900/10 text-red-500 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-200"
+                                >
+                                  Disconnect Printer
+                                </button>
+                              </div>
+                            )}
+
+                            {errorMessage && (
+                              <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200">
+                                <p className="text-[9px] text-red-600 dark:text-red-400">{errorMessage}</p>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Staff Management */}
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden">
+                      <div className="px-5 py-4 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Users size={16} className="text-orange-500" />
+                          <h2 className="font-black dark:text-white uppercase tracking-tighter text-sm">3. Staff Access</h2>
+                        </div>
+                        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{staffList.length} Staff</span>
+                      </div>
+                      <div className="p-5 space-y-4">
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400">Add staff members to track transaction history and maintain audit trails.</p>
+
+                        {staffList.length === 0 ? (
+                          <div className="text-center py-8 border border-dashed dark:border-gray-700 rounded-lg">
+                            <Users size={24} className="mx-auto text-gray-300 mb-2" />
+                            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-black">No staff added yet</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {staffList.map((staff: any, idx: number) => (
+                              <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border dark:border-gray-700">
                                 <div>
-                                  <h3 className="font-black dark:text-white text-xs">CX58D Thermal Printer</h3>
-                                  <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                                    {printerStatus === 'connected'
-                                      ? `Connected to ${connectedDevice?.name}`
-                                      : 'No printer connected'}
-                                  </p>
+                                  <p className="font-black text-xs dark:text-white">{staff.username}</p>
+                                  <p className="text-[8px] text-gray-400 uppercase tracking-widest">Created: {new Date(staff.createdAt || Date.now()).toLocaleDateString()}</p>
                                 </div>
+                                <button
+                                  onClick={() => handleRemoveStaff(staff, idx)}
+                                  className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
                               </div>
-                            </div>
-                          </div>
-
-                          {printerStatus !== 'connected' ? (
-                            <div className="space-y-3">
-                              <button
-                                onClick={scanForPrinters}
-                                disabled={isScanning}
-                                className="w-full py-3 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                              >
-                                {isScanning ? (
-                                  <>
-                                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    Scanning...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Bluetooth size={14} />
-                                    Scan for Bluetooth Printers
-                                  </>
-                                )}
-                              </button>
-
-                              {devices.length > 0 && (
-                                <div className="space-y-2">
-                                  <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Found Printers</h4>
-                                  {devices.map(device => (
-                                    <button
-                                      key={device.id}
-                                      onClick={() => connectToPrinter(device)}
-                                      className="w-full p-3 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg flex items-center justify-between hover:border-orange-500 transition-all group"
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <Printer size={16} className="text-gray-400 group-hover:text-orange-500" />
-                                        <span className="font-bold dark:text-white text-xs">{device.name}</span>
-                                      </div>
-                                      <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Connect</span>
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="space-y-3">
-                              <div className="p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <BluetoothConnected size={14} className="text-blue-500" />
-                                  <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Connected Device</span>
-                                </div>
-                                <p className="font-bold dark:text-white text-xs mb-1">{connectedDevice?.name}</p>
-                                <p className="text-[8px] text-gray-500">ID: {connectedDevice?.id}</p>
-                              </div>
-
-                              <button
-                                onClick={printTestPage}
-                                disabled={testPrintStatus === 'printing'}
-                                className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                              >
-                                {testPrintStatus === 'printing' ? (
-                                  <>Printing...</>
-                                ) : testPrintStatus === 'success' ? (
-                                  <>
-                                    <CheckCircle2 size={14} className="text-green-500" />
-                                    Test Page Sent!
-                                  </>
-                                ) : (
-                                  <>
-                                    <Printer size={14} />
-                                    Print Test Page
-                                  </>
-                                )}
-                              </button>
-
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    await printerService.reprintLast();
-                                  } catch (err: any) {
-                                    console.error('Reprint error:', err);
-                                    setErrorMessage(err?.message || 'Reprint failed');
-                                  }
-                                }}
-                                disabled={!printerService.hasLastReceipt()}
-                                className="w-full py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-100 hover:text-orange-600 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
-                              >
-                                <RotateCw size={14} />
-                                Reprint Last Receipt
-                              </button>
-
-                              <button
-                                onClick={disconnectPrinter}
-                                className="w-full py-2 bg-red-50 dark:bg-red-900/10 text-red-500 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-200"
-                              >
-                                Disconnect Printer
-                              </button>
-                            </div>
-                          )}
-
-                          {errorMessage && (
-                            <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200">
-                              <p className="text-[9px] text-red-600 dark:text-red-400">{errorMessage}</p>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {settingsPanel === 'RECEIPT' && (
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden">
-                    <div className="px-5 py-4 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <CreditCard size={16} className="text-orange-500" />
-                        <h2 className="font-black dark:text-white uppercase tracking-tighter text-sm">2. Receipt Format</h2>
-                      </div>
-                      {receiptSettingsSaved && (
-                        <span className="text-[8px] font-black text-green-600 uppercase tracking-widest bg-green-50 px-2 py-1 rounded">Saved</span>
-                      )}
-                    </div>
-
-                    <div className="p-5 space-y-3">
-                      <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border dark:border-gray-700">
-                        <div>
-                          <h3 className="font-black text-xs dark:text-white">Auto-Print Receipt</h3>
-                          <p className="text-[9px] text-gray-500 dark:text-gray-400">Automatically print after successful checkout.</p>
-                        </div>
-                        <button
-                          onClick={() => updateReceiptSetting('autoPrintEnabled', !receiptSettings.autoPrintEnabled)}
-                          className={`w-12 h-6 rounded-full transition-all relative ${
-                            receiptSettings.autoPrintEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-                          }`}
-                        >
-                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                            receiptSettings.autoPrintEnabled ? 'left-7' : 'left-1'
-                          }`} />
-                        </button>
-                      </div>
-
-                      <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border dark:border-gray-700">
-                        <div>
-                          <h3 className="font-black text-xs dark:text-white">Auto Open Drawer</h3>
-                          <p className="text-[9px] text-gray-500 dark:text-gray-400">Send drawer pulse command after printing receipt.</p>
-                        </div>
-                        <button
-                          onClick={() => updateReceiptSetting('autoOpenDrawer', !receiptSettings.autoOpenDrawer)}
-                          className={`w-12 h-6 rounded-full transition-all relative ${
-                            receiptSettings.autoOpenDrawer ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-                          }`}
-                        >
-                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                            receiptSettings.autoOpenDrawer ? 'left-7' : 'left-1'
-                          }`} />
-                        </button>
-                      </div>
-
-                      <div className="border dark:border-gray-700 rounded-lg overflow-hidden">
-                        <button
-                          onClick={() => setReceiptAccordion(prev => ({ ...prev, content: !prev.content }))}
-                          className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all"
-                        >
-                          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Receipt Content</span>
-                          <ChevronDown size={14} className={`text-gray-400 transition-transform ${receiptAccordion.content ? 'rotate-180' : ''}`} />
-                        </button>
-                        {receiptAccordion.content && (
-                          <div className="p-3 space-y-3 border-t dark:border-gray-700">
-                            <div>
-                              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Business Name</label>
-                              <input
-                                type="text"
-                                value={receiptSettings.businessName}
-                                onChange={event => updateReceiptSetting('businessName', event.target.value)}
-                                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                                placeholder="Printed store name"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Header Line 1</label>
-                              <input
-                                type="text"
-                                value={receiptSettings.headerLine1}
-                                onChange={event => updateReceiptSetting('headerLine1', event.target.value)}
-                                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                                placeholder="Optional"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Header Line 2</label>
-                              <input
-                                type="text"
-                                value={receiptSettings.headerLine2}
-                                onChange={event => updateReceiptSetting('headerLine2', event.target.value)}
-                                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                                placeholder="Optional"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Footer Line 1</label>
-                              <input
-                                type="text"
-                                value={receiptSettings.footerLine1}
-                                onChange={event => updateReceiptSetting('footerLine1', event.target.value)}
-                                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                                placeholder="Thank you!"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Footer Line 2</label>
-                              <input
-                                type="text"
-                                value={receiptSettings.footerLine2}
-                                onChange={event => updateReceiptSetting('footerLine2', event.target.value)}
-                                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                                placeholder="Please come again"
-                              />
-                            </div>
+                            ))}
                           </div>
                         )}
-                      </div>
 
-                      <div className="border dark:border-gray-700 rounded-lg overflow-hidden">
                         <button
-                          onClick={() => setReceiptAccordion(prev => ({ ...prev, fields: !prev.fields }))}
-                          className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all"
+                          onClick={() => setIsAddStaffModalOpen(true)}
+                          className="w-full py-3 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
                         >
-                          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Printed Fields</span>
-                          <ChevronDown size={14} className={`text-gray-400 transition-transform ${receiptAccordion.fields ? 'rotate-180' : ''}`} />
-                        </button>
-                        {receiptAccordion.fields && (
-                          <div className="p-3 border-t dark:border-gray-700">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {[
-                                { key: 'showDateTime', label: 'Date & Time' },
-                                { key: 'showOrderId', label: 'Order ID' },
-                                { key: 'showTableNumber', label: 'Table Number' },
-                                { key: 'showItems', label: 'Items' },
-                                { key: 'showRemark', label: 'Remark' },
-                                { key: 'showTotal', label: 'Total' },
-                              ].map(field => (
-                                <label key={field.key} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-700/30 text-[10px] font-bold text-gray-700 dark:text-gray-200">
-                                  <input
-                                    type="checkbox"
-                                    checked={receiptSettings[field.key as keyof ReceiptSettings] as boolean}
-                                    onChange={event => updateReceiptSetting(field.key as keyof ReceiptSettings, event.target.checked as any)}
-                                    className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
-                                  />
-                                  {field.label}
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-end gap-2 pt-1">
-                        <button
-                          onClick={() => setReceiptSettings(getDefaultReceiptSettings(restaurant.name))}
-                          className="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500 hover:text-orange-500"
-                        >
-                          Reset
-                        </button>
-                        <button
-                          onClick={saveReceiptSettings}
-                          disabled={isSavingReceiptSettings}
-                          className="px-4 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center gap-2"
-                        >
-                          {isSavingReceiptSettings ? 'Saving...' : 'Save Receipt Settings'}
+                          <UserPlus size={16} /> Add Staff Member
                         </button>
                       </div>
                     </div>
                   </div>
-                )}
 
-                {settingsPanel === 'STAFF' && (
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden">
-                    <div className="px-5 py-4 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Users size={16} className="text-orange-500" />
-                        <h2 className="font-black dark:text-white uppercase tracking-tighter text-sm">3. Staff Management</h2>
-                      </div>
-                      <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{staffList.length} Staff</span>
-                    </div>
-                    <div className="p-5 space-y-4">
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400">Add staff members to track transaction history and maintain audit trails.</p>
-
-                      {staffList.length === 0 ? (
-                        <div className="text-center py-8 border border-dashed dark:border-gray-700 rounded-lg">
-                          <Users size={24} className="mx-auto text-gray-300 mb-2" />
-                          <p className="text-[10px] text-gray-400 uppercase tracking-widest font-black">No staff added yet</p>
+                  <div className="xl:col-span-2">
+                    {/* Receipt Settings */}
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden xl:sticky xl:top-4">
+                      <div className="px-5 py-4 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CreditCard size={16} className="text-orange-500" />
+                          <h2 className="font-black dark:text-white uppercase tracking-tighter text-sm">2. Receipt Format</h2>
                         </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {staffList.map((staff: any, idx: number) => (
-                            <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border dark:border-gray-700">
+                        {receiptSettingsSaved && (
+                          <span className="text-[8px] font-black text-green-600 uppercase tracking-widest bg-green-50 px-2 py-1 rounded">Saved</span>
+                        )}
+                      </div>
+
+                      <div className="p-5 space-y-3">
+                        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border dark:border-gray-700">
+                          <div>
+                            <h3 className="font-black text-xs dark:text-white">Auto-Print Receipt</h3>
+                            <p className="text-[9px] text-gray-500 dark:text-gray-400">Automatically print after successful checkout.</p>
+                          </div>
+                          <button
+                            onClick={() => updateReceiptSetting('autoPrintEnabled', !receiptSettings.autoPrintEnabled)}
+                            className={`w-12 h-6 rounded-full transition-all relative ${
+                              receiptSettings.autoPrintEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                            }`}
+                          >
+                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                              receiptSettings.autoPrintEnabled ? 'left-7' : 'left-1'
+                            }`} />
+                          </button>
+                        </div>
+
+                        <div className="border dark:border-gray-700 rounded-lg overflow-hidden">
+                          <button
+                            onClick={() => setReceiptAccordion(prev => ({ ...prev, content: !prev.content }))}
+                            className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all"
+                          >
+                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Receipt Content</span>
+                            <ChevronDown size={14} className={`text-gray-400 transition-transform ${receiptAccordion.content ? 'rotate-180' : ''}`} />
+                          </button>
+                          {receiptAccordion.content && (
+                            <div className="p-3 space-y-3 border-t dark:border-gray-700">
                               <div>
-                                <p className="font-black text-xs dark:text-white">{staff.username}</p>
-                                <p className="text-[8px] text-gray-400 uppercase tracking-widest">Created: {new Date(staff.createdAt || Date.now()).toLocaleDateString()}</p>
+                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Business Name</label>
+                                <input
+                                  type="text"
+                                  value={receiptSettings.businessName}
+                                  onChange={event => updateReceiptSetting('businessName', event.target.value)}
+                                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                                  placeholder="Printed store name"
+                                />
                               </div>
-                              <button
-                                onClick={() => handleRemoveStaff(staff, idx)}
-                                className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
-                              >
-                                <Trash2 size={14} />
-                              </button>
+                              <div>
+                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Header Line 1</label>
+                                <input
+                                  type="text"
+                                  value={receiptSettings.headerLine1}
+                                  onChange={event => updateReceiptSetting('headerLine1', event.target.value)}
+                                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                                  placeholder="Optional"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Header Line 2</label>
+                                <input
+                                  type="text"
+                                  value={receiptSettings.headerLine2}
+                                  onChange={event => updateReceiptSetting('headerLine2', event.target.value)}
+                                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                                  placeholder="Optional"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Footer Line 1</label>
+                                <input
+                                  type="text"
+                                  value={receiptSettings.footerLine1}
+                                  onChange={event => updateReceiptSetting('footerLine1', event.target.value)}
+                                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                                  placeholder="Thank you!"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Footer Line 2</label>
+                                <input
+                                  type="text"
+                                  value={receiptSettings.footerLine2}
+                                  onChange={event => updateReceiptSetting('footerLine2', event.target.value)}
+                                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                                  placeholder="Please come again"
+                                />
+                              </div>
                             </div>
-                          ))}
+                          )}
                         </div>
-                      )}
 
-                      <button
-                        onClick={() => setIsAddStaffModalOpen(true)}
-                        className="w-full py-3 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
-                      >
-                        <UserPlus size={16} /> Add Staff Member
-                      </button>
+                        <div className="border dark:border-gray-700 rounded-lg overflow-hidden">
+                          <button
+                            onClick={() => setReceiptAccordion(prev => ({ ...prev, fields: !prev.fields }))}
+                            className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all"
+                          >
+                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Printed Fields</span>
+                            <ChevronDown size={14} className={`text-gray-400 transition-transform ${receiptAccordion.fields ? 'rotate-180' : ''}`} />
+                          </button>
+                          {receiptAccordion.fields && (
+                            <div className="p-3 border-t dark:border-gray-700">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {[
+                                  { key: 'showDateTime', label: 'Date & Time' },
+                                  { key: 'showOrderId', label: 'Order ID' },
+                                  { key: 'showTableNumber', label: 'Table Number' },
+                                  { key: 'showItems', label: 'Items' },
+                                  { key: 'showRemark', label: 'Remark' },
+                                  { key: 'showTotal', label: 'Total' },
+                                ].map(field => (
+                                  <label key={field.key} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-700/30 text-[10px] font-bold text-gray-700 dark:text-gray-200">
+                                    <input
+                                      type="checkbox"
+                                      checked={receiptSettings[field.key as keyof ReceiptSettings] as boolean}
+                                      onChange={event => updateReceiptSetting(field.key as keyof ReceiptSettings, event.target.checked as any)}
+                                      className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                                    />
+                                    {field.label}
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2 pt-1">
+                          <button
+                            onClick={() => setReceiptSettings(getDefaultReceiptSettings(restaurant.name))}
+                            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500 hover:text-orange-500"
+                          >
+                            Reset
+                          </button>
+                          <button
+                            onClick={saveReceiptSettings}
+                            disabled={isSavingReceiptSettings}
+                            className="px-4 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center gap-2"
+                          >
+                            {isSavingReceiptSettings ? 'Saving...' : 'Save Receipt Settings'}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
             </div>
           )}
@@ -2531,6 +2536,7 @@ const PosOnlyView: React.FC<Props> = ({
           animation: slideLeft 0.3s ease-out;
         }
       `}</style>
+      </div>
     </div>
   );
 };
