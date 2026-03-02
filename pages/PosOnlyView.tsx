@@ -2249,9 +2249,7 @@ const PosOnlyView: React.FC<Props> = ({
                     </button>
                     {settingsPanel === 'printer' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        <div className="max-w-lg">
-                          {renderPrinterContent()}
-                        </div>
+                        {renderPrinterContent()}
                       </div>
                     )}
                   </div>
@@ -2273,9 +2271,7 @@ const PosOnlyView: React.FC<Props> = ({
                     </button>
                     {settingsPanel === 'receipt' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        <div className="max-w-lg">
-                          {renderReceiptContent()}
-                        </div>
+                        {renderReceiptContent()}
                       </div>
                     )}
                   </div>
@@ -2297,9 +2293,7 @@ const PosOnlyView: React.FC<Props> = ({
                     </button>
                     {settingsPanel === 'staff' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        <div className="max-w-lg">
-                          {renderStaffContent()}
-                        </div>
+                        {renderStaffContent()}
                       </div>
                     )}
                   </div>
@@ -2387,11 +2381,9 @@ const PosOnlyView: React.FC<Props> = ({
                   {/* Right Content Panel */}
                   <div className="flex-1 min-h-0 overflow-y-auto">
                     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
-                      <div className="max-w-lg">
-                        {settingsPanel === 'printer' && renderPrinterContent()}
-                        {settingsPanel === 'receipt' && renderReceiptContent()}
-                        {settingsPanel === 'staff' && renderStaffContent()}
-                      </div>
+                      {settingsPanel === 'printer' && renderPrinterContent()}
+                      {settingsPanel === 'receipt' && renderReceiptContent()}
+                      {settingsPanel === 'staff' && renderStaffContent()}
                     </div>
                   </div>
                 </div>
