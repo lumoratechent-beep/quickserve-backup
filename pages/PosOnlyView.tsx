@@ -10,13 +10,13 @@ import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import StandardReport from '../components/StandardReport';
 import {
-  ShoppingBag, Search, Download, Calendar, ChevronLeft, ChevronRight,
+  ShoppingBag, Search, Download, Calendar,
   Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid,
   List, Clock, CheckCircle2, BarChart3, Hash, Menu, Settings, BookOpen,
-  ChevronFirst, ChevronLast, X, Edit3, Archive, RotateCcw, Upload, Eye,
+  X, Edit3, Archive, RotateCcw, Upload, Eye,
   AlertCircle, Users, UserPlus, Bluetooth, BluetoothConnected, PrinterIcon,
   Filter, Tag, Layers, Coffee, ChevronDown, RotateCw, Wifi, WifiOff,
-  ArrowLeft, Receipt, Network
+  Receipt, Network
 } from 'lucide-react';
 
 interface Props {
@@ -1770,16 +1770,17 @@ const PosOnlyView: React.FC<Props> = ({
 
           {/* Settings Tab */}
           {activeTab === 'SETTINGS' && (
-            <div className="flex-1 overflow-hidden relative">
-              {/* Main Menu */}
-              <div className={`absolute inset-0 transition-transform duration-300 ease-in-out ${settingsPanel ? '-translate-x-full' : 'translate-x-0'}`}>
-                <div className="h-full flex flex-col items-center justify-center p-6">
-                  <div className="w-full max-w-sm space-y-3">
-                    <h1 className="text-lg font-black dark:text-white uppercase tracking-tighter text-center mb-8">Settings</h1>
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
+                <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Settings</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Printer, receipt, and staff configuration.</p>
 
+                <div className="space-y-3">
+                  {/* ===== PRINTER SETUP ACCORDION ===== */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
                     <button
-                      onClick={() => setSettingsPanel('printer')}
-                      className="w-full flex items-center gap-4 p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 hover:border-orange-400 dark:hover:border-orange-500 transition-all group"
+                      onClick={() => { setSettingsPanel(settingsPanel === 'printer' ? null : 'printer'); setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }}
+                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
                     >
                       <div className="w-10 h-10 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center">
                         <Printer size={18} className="text-orange-500" />
@@ -1788,62 +1789,11 @@ const PosOnlyView: React.FC<Props> = ({
                         <p className="text-xs font-black dark:text-white uppercase tracking-wide">Printer Setup</p>
                         <p className="text-[10px] text-gray-400">{savedPrinters.length > 0 ? savedPrinters[0].model : 'No printer configured'}</p>
                       </div>
-                      <ChevronRight size={16} className="text-gray-300 group-hover:text-orange-500 transition-colors" />
+                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'printer' ? 'rotate-180' : ''}`} />
                     </button>
-
-                    <button
-                      onClick={() => setSettingsPanel('receipt')}
-                      className="w-full flex items-center gap-4 p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 hover:border-orange-400 dark:hover:border-orange-500 transition-all group"
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
-                        <Receipt size={18} className="text-blue-500" />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Receipt</p>
-                        <p className="text-[10px] text-gray-400">{receiptSettings.autoPrintEnabled ? 'Auto-print on' : 'Auto-print off'}</p>
-                      </div>
-                      <ChevronRight size={16} className="text-gray-300 group-hover:text-orange-500 transition-colors" />
-                    </button>
-
-                    <button
-                      onClick={() => setSettingsPanel('staff')}
-                      className="w-full flex items-center gap-4 p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 hover:border-orange-400 dark:hover:border-orange-500 transition-all group"
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
-                        <Users size={18} className="text-violet-500" />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Staff Management</p>
-                        <p className="text-[10px] text-gray-400">{staffList.length} member{staffList.length !== 1 ? 's' : ''}</p>
-                      </div>
-                      <ChevronRight size={16} className="text-gray-300 group-hover:text-orange-500 transition-colors" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Slide-in Panel */}
-              <div className={`absolute inset-0 transition-transform duration-300 ease-in-out ${settingsPanel ? 'translate-x-0' : 'translate-x-full'}`}>
-                <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900">
-                  {/* Panel Header */}
-                  <div className="flex items-center gap-3 px-5 py-4 bg-white dark:bg-gray-800 border-b dark:border-gray-700">
-                    <button onClick={() => { setSettingsPanel(null); setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all">
-                      <ArrowLeft size={18} className="dark:text-white" />
-                    </button>
-                    <h2 className="text-sm font-black dark:text-white uppercase tracking-tighter">
-                      {settingsPanel === 'printer' && 'Printer Setup'}
-                      {settingsPanel === 'receipt' && 'Receipt'}
-                      {settingsPanel === 'staff' && 'Staff Management'}
-                    </h2>
-                  </div>
-
-                  {/* Panel Content */}
-                  <div className="flex-1 overflow-y-auto p-5">
-                    <div className="max-w-lg mx-auto">
-
-                      {/* ===== PRINTER SETUP PANEL ===== */}
-                      {settingsPanel === 'printer' && (
-                        <div className="space-y-4">
+                    {settingsPanel === 'printer' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg space-y-4">
                           {/* Connection Status */}
                           <div className={`p-4 rounded-xl border transition-all ${
                             printerStatus === 'connected'
@@ -2154,12 +2104,29 @@ const PosOnlyView: React.FC<Props> = ({
                             </div>
                           )}
                         </div>
-                      )}
+                      </div>
+                    )}
+                  </div>
 
-                      {/* ===== RECEIPT PANEL ===== */}
-                      {settingsPanel === 'receipt' && (
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
+                  {/* ===== RECEIPT ACCORDION ===== */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                    <button
+                      onClick={() => setSettingsPanel(settingsPanel === 'receipt' ? null : 'receipt')}
+                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
+                        <Receipt size={18} className="text-blue-500" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Receipt</p>
+                        <p className="text-[10px] text-gray-400">{receiptSettings.autoPrintEnabled ? 'Auto-print on' : 'Auto-print off'}</p>
+                      </div>
+                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'receipt' ? 'rotate-180' : ''}`} />
+                    </button>
+                    {settingsPanel === 'receipt' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg space-y-4">
+                          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
                             <div>
                               <p className="text-xs font-black dark:text-white">Auto-Print Receipt</p>
                               <p className="text-[9px] text-gray-400 mt-0.5">Print automatically after checkout</p>
@@ -2176,16 +2143,16 @@ const PosOnlyView: React.FC<Props> = ({
                             </button>
                           </div>
 
-                          <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl overflow-hidden">
                             <button
                               onClick={() => setReceiptAccordion(prev => ({ ...prev, content: !prev.content }))}
-                              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all"
+                              className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-600/30 transition-all"
                             >
                               <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Content</span>
                               <ChevronDown size={14} className={`text-gray-400 transition-transform ${receiptAccordion.content ? 'rotate-180' : ''}`} />
                             </button>
                             {receiptAccordion.content && (
-                              <div className="px-4 pb-4 space-y-3 border-t dark:border-gray-700 pt-3">
+                              <div className="px-4 pb-4 space-y-3 border-t dark:border-gray-600 pt-3">
                                 {[
                                   { key: 'businessName', label: 'Business Name', placeholder: 'Store name' },
                                   { key: 'headerLine1', label: 'Header Line 1', placeholder: 'Optional' },
@@ -2199,7 +2166,7 @@ const PosOnlyView: React.FC<Props> = ({
                                       type="text"
                                       value={receiptSettings[field.key as keyof ReceiptSettings] as string}
                                       onChange={e => updateReceiptSetting(field.key as keyof ReceiptSettings, e.target.value as any)}
-                                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                                      className="w-full px-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
                                       placeholder={field.placeholder}
                                     />
                                   </div>
@@ -2208,16 +2175,16 @@ const PosOnlyView: React.FC<Props> = ({
                             )}
                           </div>
 
-                          <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl overflow-hidden">
                             <button
                               onClick={() => setReceiptAccordion(prev => ({ ...prev, fields: !prev.fields }))}
-                              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all"
+                              className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-600/30 transition-all"
                             >
                               <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Visible Fields</span>
                               <ChevronDown size={14} className={`text-gray-400 transition-transform ${receiptAccordion.fields ? 'rotate-180' : ''}`} />
                             </button>
                             {receiptAccordion.fields && (
-                              <div className="px-4 pb-4 border-t dark:border-gray-700 pt-3">
+                              <div className="px-4 pb-4 border-t dark:border-gray-600 pt-3">
                                 <div className="grid grid-cols-2 gap-2">
                                   {[
                                     { key: 'showDateTime', label: 'Date & Time' },
@@ -2227,7 +2194,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     { key: 'showRemark', label: 'Remark' },
                                     { key: 'showTotal', label: 'Total' },
                                   ].map(field => (
-                                    <label key={field.key} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-700/30 text-[10px] font-bold text-gray-700 dark:text-gray-200 cursor-pointer">
+                                    <label key={field.key} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-200 cursor-pointer">
                                       <input
                                         type="checkbox"
                                         checked={receiptSettings[field.key as keyof ReceiptSettings] as boolean}
@@ -2261,20 +2228,37 @@ const PosOnlyView: React.FC<Props> = ({
                             <p className="text-center text-[9px] font-black text-green-500 uppercase tracking-widest">Saved successfully</p>
                           )}
                         </div>
-                      )}
+                      </div>
+                    )}
+                  </div>
 
-                      {/* ===== STAFF MANAGEMENT PANEL ===== */}
-                      {settingsPanel === 'staff' && (
-                        <div className="space-y-4">
+                  {/* ===== STAFF MANAGEMENT ACCORDION ===== */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                    <button
+                      onClick={() => setSettingsPanel(settingsPanel === 'staff' ? null : 'staff')}
+                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
+                        <Users size={18} className="text-violet-500" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Staff Management</p>
+                        <p className="text-[10px] text-gray-400">{staffList.length} member{staffList.length !== 1 ? 's' : ''}</p>
+                      </div>
+                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'staff' ? 'rotate-180' : ''}`} />
+                    </button>
+                    {settingsPanel === 'staff' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg space-y-4">
                           {staffList.length === 0 ? (
-                            <div className="text-center py-10 bg-white dark:bg-gray-800 rounded-xl border border-dashed dark:border-gray-700">
+                            <div className="text-center py-10 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-dashed dark:border-gray-600">
                               <Users size={24} className="mx-auto text-gray-300 mb-2" />
                               <p className="text-[10px] text-gray-400 uppercase tracking-widest font-black">No staff added yet</p>
                             </div>
                           ) : (
                             <div className="space-y-2">
                               {staffList.map((staff: any, idx: number) => (
-                                <div key={idx} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
+                                <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
                                   <div>
                                     <p className="text-xs font-black dark:text-white">{staff.username}</p>
                                     <p className="text-[9px] text-gray-400">Added {new Date(staff.createdAt || staff.created_at || Date.now()).toLocaleDateString()}</p>
@@ -2297,9 +2281,8 @@ const PosOnlyView: React.FC<Props> = ({
                             <UserPlus size={14} /> Add Staff Member
                           </button>
                         </div>
-                      )}
-
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
