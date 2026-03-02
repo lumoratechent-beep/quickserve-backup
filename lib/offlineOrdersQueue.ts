@@ -69,8 +69,9 @@ export const getNextOrderNumber = (code: string): number => {
 
 /**
  * Extract order number from an order ID
- * Handles both old format (e.g., "IOI90621796173") and new sequential format (e.g., "IOI0000042")
- * e.g., "IOI0000042" returns 42, "IOI90621796173" returns 90621796173
+ * Only processes NEW sequential format (IOI0000042)
+ * Returns 0 for old timestamp-based format (IOI90621796173) to ignore them
+ * This prevents old orders from interfering with new sequential numbering
  */
 export const extractOrderNumber = (orderId: string, code: string): number => {
   try {
@@ -82,12 +83,23 @@ export const extractOrderNumber = (orderId: string, code: string): number => {
       console.warn(`Order ID "${orderId}" doesn't start with code "${code}"`);
       return 0;
     }
+    
     const numPart = orderId.substring(code.length);
+    
+    // Only process NEW sequential format: exactly 7 digits, zero-padded (e.g., "0000042")
+    // Ignore old timestamp format (which has more digits and no zero-padding)
+    if (!/^\d{7}$/.test(numPart)) {
+      console.log(`Ignoring old timestamp-format order ${orderId} (not 7-digit sequential)`);
+      return 0;
+    }
+    
     const num = parseInt(numPart, 10);
     if (isNaN(num)) {
       console.warn(`Failed to parse order number from "${numPart}" (full ID: ${orderId})`);
       return 0;
     }
+    
+    console.log(`Extracted sequential order number ${num} from ${orderId}`);
     return num;
   } catch (error) {
     console.error('Failed to extract order number:', error, { orderId, code });

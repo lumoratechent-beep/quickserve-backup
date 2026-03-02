@@ -976,19 +976,23 @@ const App: React.FC = () => {
     for (const [restaurantId, codes] of restaurantCodes) {
       for (const code of codes) {
         try {
-          const { data: lastOrderData, error } = await supabase.from('orders')
+          // Check last 50 orders to find highest new-format sequential order
+          const { data: recentOrders, error } = await supabase.from('orders')
             .select('id')
             .eq('restaurant_id', restaurantId)
             .ilike('id', `${code}%`)
             .order('id', { ascending: false })
-            .limit(1);
+            .limit(50);
 
-          if (!error && lastOrderData && lastOrderData[0]) {
-            const lastIdFull = lastOrderData[0].id;
-            const lastNum = offlineQueue.extractOrderNumber(lastIdFull, code);
-            if (lastNum > 0) {
-              offlineQueue.updateOrderNumberTracker(code, lastNum);
-              console.log(`Updated tracker for ${code} (restaurant ${restaurantId}): highest number is ${lastNum} from ${lastIdFull}`);
+          if (!error && recentOrders && recentOrders.length > 0) {
+            // Find the first new-format order
+            for (const order of recentOrders) {
+              const lastNum = offlineQueue.extractOrderNumber(order.id, code);
+              if (lastNum > 0) {
+                offlineQueue.updateOrderNumberTracker(code, lastNum);
+                console.log(`Updated tracker for ${code} (restaurant ${restaurantId}): highest sequential number is ${lastNum} from ${order.id}`);
+                break;
+              }
             }
           }
         } catch (err) {
@@ -1104,24 +1108,30 @@ const App: React.FC = () => {
     // User is online - proceed with normal flow
     let nextNum = 1;
     try {
-      // Query for the highest order for THIS restaurant starting with this code
-      const { data: lastOrder, error: queryError } = await supabase.from('orders')
+      // Query for recent orders and find the HIGHEST new-format sequential order
+      // (ignoring old timestamp-based orders)
+      const { data: recentOrders, error: queryError } = await supabase.from('orders')
         .select('id')
         .eq('restaurant_id', currentUser.restaurantId)
         .ilike('id', `${code}%`)
         .order('id', { ascending: false })
-        .limit(1);
+        .limit(50);  // Check last 50 orders to find new format
 
-      console.log(`Queried last order for restaurant ${currentUser.restaurantId}, code ${code}:`, lastOrder, queryError);
+      console.log(`Queried last 50 orders for restaurant ${currentUser.restaurantId}, code ${code}`);
 
-      if (!queryError && lastOrder && lastOrder[0]) {
-        const lastNum = offlineQueue.extractOrderNumber(lastOrder[0].id, code);
-        console.log(`Extracted order number from ${lastOrder[0].id}: ${lastNum}`);
-        if (lastNum > 0) {
-          nextNum = lastNum + 1;
-          console.log(`Setting nextNum to ${nextNum} (from DB)`);
-        } else {
-          console.warn(`Failed to extract order number from ${lastOrder[0].id}`);
+      if (!queryError && recentOrders && recentOrders.length > 0) {
+        // Find the first new-format order (extractOrderNumber returns 0 for old format)
+        for (const order of recentOrders) {
+          const num = offlineQueue.extractOrderNumber(order.id, code);
+          if (num > 0) {
+            nextNum = num + 1;
+            console.log(`Found new-format order ${order.id}, nextNum will be ${nextNum}`);
+            break;
+          }
+        }
+        
+        if (nextNum === 1) {
+          console.log(`No new-format orders found in last 50, will start fresh at IOI0000001`);
         }
       } else {
         console.warn(`No existing orders found for code ${code}`, queryError);
