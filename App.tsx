@@ -1083,6 +1083,20 @@ const App: React.FC = () => {
       };
       
       offlineQueue.addOfflineOrder(offlineOrder);
+      setPendingOfflineOrdersCount(prevCount => prevCount + 1);
+      console.log(`Order queued due to connection error: ${orderId}`);
+      return orderId;
+    }
+
+    const orderId = `${code}${String(nextNum).padStart(7, '0')}`;
+
+    const orderToInsert = {
+      id: orderId,
+      items: items,
+      total: total,
+      status: OrderStatus.COMPLETED,
+      timestamp: Date.now(),
+      customer_id: 'pos_user',
       restaurant_id: currentUser.restaurantId,
       table_number: tableNumber,
       location_name: res?.location || 'Unspecified',
