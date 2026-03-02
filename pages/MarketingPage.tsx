@@ -13,8 +13,8 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted }) => {
       <nav className="fixed top-0 w-full z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src="/LOGO/6.png" alt="QuickServe" className="w-14 h-14 rounded-2xl" />
-            <img src="/LOGO/8.png" alt="QuickServe" className="h-12 dark:invert" />
+            <img src="/LOGO/6.png" alt="QuickServe" className="w-16 h-16 rounded-2xl" />
+            <img src="/LOGO/8.png" alt="QuickServe" className="h-20 dark:invert" />
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
             <a href="#features" className="hover:text-orange-500 transition-colors">Features</a>
