@@ -34,7 +34,6 @@ interface Props {
 }
 
 interface ReceiptSettings {
-  autoPrintEnabled: boolean;
   businessName: string;
   headerLine1: string;
   headerLine2: string;
@@ -44,12 +43,12 @@ interface ReceiptSettings {
   showItems: boolean;
   showRemark: boolean;
   showTotal: boolean;
+  showTaxes: boolean;
   footerLine1: string;
   footerLine2: string;
 }
 
 const getDefaultReceiptSettings = (restaurantName: string): ReceiptSettings => ({
-  autoPrintEnabled: false,
   businessName: restaurantName,
   headerLine1: '',
   headerLine2: '',
@@ -59,6 +58,7 @@ const getDefaultReceiptSettings = (restaurantName: string): ReceiptSettings => (
   showItems: true,
   showRemark: true,
   showTotal: true,
+  showTaxes: false,
   footerLine1: 'Thank you!',
   footerLine2: 'Please come again',
 });
@@ -98,7 +98,42 @@ interface SavedPrinter {
   deviceName?: string;
 }
 
-type SettingsPanel = null | 'printer' | 'receipt' | 'staff';
+interface FeatureSettings {
+  autoPrintReceipt: boolean;
+  autoOpenDrawer: boolean;
+  dineInEnabled: boolean;
+  takeawayEnabled: boolean;
+  deliveryEnabled: boolean;
+  customerDisplayEnabled: boolean;
+}
+
+const getDefaultFeatureSettings = (): FeatureSettings => ({
+  autoPrintReceipt: false,
+  autoOpenDrawer: false,
+  dineInEnabled: false,
+  takeawayEnabled: false,
+  deliveryEnabled: false,
+  customerDisplayEnabled: false,
+});
+
+interface PaymentType {
+  id: string;
+  name: string;
+}
+
+const getDefaultPaymentTypes = (): PaymentType[] => [
+  { id: 'cash', name: 'CASH' },
+  { id: 'qr', name: 'QR' },
+];
+
+interface TaxEntry {
+  id: string;
+  name: string;
+  percentage: number;
+  applyToItems: boolean;
+}
+
+type SettingsPanel = null | 'features' | 'printer' | 'receipt' | 'payment' | 'taxes' | 'staff';
 
 const PosOnlyView: React.FC<Props> = ({ 
   restaurant, 
@@ -213,7 +248,29 @@ const PosOnlyView: React.FC<Props> = ({
   const [isAddingStaff, setIsAddingStaff] = useState(false);
 
   // Settings panel navigation
-  const [settingsPanel, setSettingsPanel] = useState<SettingsPanel>('printer');
+  const [settingsPanel, setSettingsPanel] = useState<SettingsPanel>('features');
+
+  // Feature settings
+  const [featureSettings, setFeatureSettings] = useState<FeatureSettings>(() => {
+    const saved = localStorage.getItem(`features_${restaurant.id}`);
+    return saved ? JSON.parse(saved) : getDefaultFeatureSettings();
+  });
+
+  // Payment types
+  const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>(() => {
+    const saved = localStorage.getItem(`payment_types_${restaurant.id}`);
+    return saved ? JSON.parse(saved) : getDefaultPaymentTypes();
+  });
+  const [newPaymentTypeName, setNewPaymentTypeName] = useState('');
+
+  // Tax entries
+  const [taxEntries, setTaxEntries] = useState<TaxEntry[]>(() => {
+    const saved = localStorage.getItem(`taxes_${restaurant.id}`);
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [newTaxName, setNewTaxName] = useState('');
+  const [newTaxPercentage, setNewTaxPercentage] = useState('');
+  const [newTaxApplyToItems, setNewTaxApplyToItems] = useState(false);
 
   // Saved printers list
   const [savedPrinters, setSavedPrinters] = useState<SavedPrinter[]>(() => {
@@ -569,7 +626,7 @@ const PosOnlyView: React.FC<Props> = ({
       setIsCompletingPayment(false);
     }, 1800);
 
-    if (receiptSettings.autoPrintEnabled) {
+    if (featureSettings.autoPrintReceipt) {
       if (connectedDevice) {
         const printRestaurant = {
           ...restaurant,
@@ -855,6 +912,18 @@ const PosOnlyView: React.FC<Props> = ({
   }, [receiptSettings, restaurant.id]);
 
   useEffect(() => {
+    localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(featureSettings));
+  }, [featureSettings, restaurant.id]);
+
+  useEffect(() => {
+    localStorage.setItem(`payment_types_${restaurant.id}`, JSON.stringify(paymentTypes));
+  }, [paymentTypes, restaurant.id]);
+
+  useEffect(() => {
+    localStorage.setItem(`taxes_${restaurant.id}`, JSON.stringify(taxEntries));
+  }, [taxEntries, restaurant.id]);
+
+  useEffect(() => {
     if (!receiptSettingsSaved) return;
     const timer = setTimeout(() => setReceiptSettingsSaved(false), 2000);
     return () => clearTimeout(timer);
@@ -1123,6 +1192,48 @@ const PosOnlyView: React.FC<Props> = ({
     const updated = savedPrinters.filter(p => p.id !== printerId);
     setSavedPrinters(updated);
     localStorage.setItem(`printers_${restaurant.id}`, JSON.stringify(updated));
+  };
+
+  const updateFeatureSetting = <K extends keyof FeatureSettings>(key: K, value: FeatureSettings[K]) => {
+    setFeatureSettings(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleAddPaymentType = () => {
+    if (!newPaymentTypeName.trim()) return;
+    const newType: PaymentType = {
+      id: Date.now().toString(),
+      name: newPaymentTypeName.trim().toUpperCase(),
+    };
+    setPaymentTypes(prev => [...prev, newType]);
+    setNewPaymentTypeName('');
+  };
+
+  const handleRemovePaymentType = (id: string) => {
+    setPaymentTypes(prev => prev.filter(pt => pt.id !== id));
+  };
+
+  const handleAddTaxEntry = () => {
+    if (!newTaxName.trim() || !newTaxPercentage) return;
+    const entry: TaxEntry = {
+      id: Date.now().toString(),
+      name: newTaxName.trim(),
+      percentage: parseFloat(newTaxPercentage),
+      applyToItems: newTaxApplyToItems,
+    };
+    setTaxEntries(prev => [...prev, entry]);
+    setNewTaxName('');
+    setNewTaxPercentage('');
+    setNewTaxApplyToItems(false);
+  };
+
+  const handleRemoveTaxEntry = (id: string) => {
+    setTaxEntries(prev => prev.filter(t => t.id !== id));
+  };
+
+  const handleToggleTaxApply = (id: string) => {
+    setTaxEntries(prev =>
+      prev.map(t => t.id === id ? { ...t, applyToItems: !t.applyToItems } : t)
+    );
   };
 
   const getReceiptPrintOptions = (): ReceiptPrintOptions => ({
@@ -1485,23 +1596,6 @@ const PosOnlyView: React.FC<Props> = ({
 
   const renderReceiptContent = () => (
     <div className="space-y-4">
-      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-        <div>
-          <p className="text-xs font-black dark:text-white">Auto-Print Receipt</p>
-          <p className="text-[9px] text-gray-400 mt-0.5">Print automatically after checkout</p>
-        </div>
-        <button
-          onClick={() => updateReceiptSetting('autoPrintEnabled', !receiptSettings.autoPrintEnabled)}
-          className={`w-11 h-6 rounded-full transition-all relative ${
-            receiptSettings.autoPrintEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-          }`}
-        >
-          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-            receiptSettings.autoPrintEnabled ? 'left-6' : 'left-1'
-          }`} />
-        </button>
-      </div>
-
       <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl overflow-hidden">
         <button
           onClick={() => setReceiptAccordion(prev => ({ ...prev, content: !prev.content }))}
@@ -1552,6 +1646,7 @@ const PosOnlyView: React.FC<Props> = ({
                 { key: 'showItems', label: 'Items' },
                 { key: 'showRemark', label: 'Remark' },
                 { key: 'showTotal', label: 'Total' },
+                { key: 'showTaxes', label: 'Taxes' },
               ].map(field => (
                 <label key={field.key} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-200 cursor-pointer">
                   <input
@@ -1621,6 +1716,210 @@ const PosOnlyView: React.FC<Props> = ({
       >
         <UserPlus size={14} /> Add Staff Member
       </button>
+    </div>
+  );
+
+  const renderFeaturesContent = () => (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+        <div>
+          <p className="text-xs font-black dark:text-white">Auto-Print Receipt</p>
+          <p className="text-[9px] text-gray-400 mt-0.5">Print automatically after checkout</p>
+        </div>
+        <button
+          onClick={() => updateFeatureSetting('autoPrintReceipt', !featureSettings.autoPrintReceipt)}
+          className={`w-11 h-6 rounded-full transition-all relative ${
+            featureSettings.autoPrintReceipt ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+          }`}
+        >
+          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+            featureSettings.autoPrintReceipt ? 'left-6' : 'left-1'
+          }`} />
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+        <div>
+          <p className="text-xs font-black dark:text-white">Auto Open Drawer</p>
+          <p className="text-[9px] text-gray-400 mt-0.5">Open cash drawer after checkout</p>
+        </div>
+        <button
+          onClick={() => updateFeatureSetting('autoOpenDrawer', !featureSettings.autoOpenDrawer)}
+          className={`w-11 h-6 rounded-full transition-all relative ${
+            featureSettings.autoOpenDrawer ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+          }`}
+        >
+          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+            featureSettings.autoOpenDrawer ? 'left-6' : 'left-1'
+          }`} />
+        </button>
+      </div>
+
+      <div className="border-t dark:border-gray-700 pt-4">
+        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Dining Options</p>
+        <div className="space-y-2">
+          {([
+            { key: 'dineInEnabled' as const, label: 'Dine-in', desc: 'Allow dine-in orders' },
+            { key: 'takeawayEnabled' as const, label: 'Takeaway', desc: 'Allow takeaway orders' },
+            { key: 'deliveryEnabled' as const, label: 'Delivery', desc: 'Allow delivery orders' },
+          ]).map(item => (
+            <div key={item.key} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+              <div>
+                <p className="text-xs font-black dark:text-white">{item.label}</p>
+                <p className="text-[9px] text-gray-400 mt-0.5">{item.desc}</p>
+              </div>
+              <button
+                onClick={() => updateFeatureSetting(item.key, !featureSettings[item.key])}
+                className={`w-11 h-6 rounded-full transition-all relative ${
+                  featureSettings[item.key] ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                  featureSettings[item.key] ? 'left-6' : 'left-1'
+                }`} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+        <div>
+          <p className="text-xs font-black dark:text-white">Customer Display</p>
+          <p className="text-[9px] text-gray-400 mt-0.5">Enable external customer-facing display</p>
+        </div>
+        <button
+          onClick={() => updateFeatureSetting('customerDisplayEnabled', !featureSettings.customerDisplayEnabled)}
+          className={`w-11 h-6 rounded-full transition-all relative ${
+            featureSettings.customerDisplayEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+          }`}
+        >
+          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+            featureSettings.customerDisplayEnabled ? 'left-6' : 'left-1'
+          }`} />
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderPaymentTypesContent = () => (
+    <div className="space-y-4">
+      {paymentTypes.length === 0 ? (
+        <div className="text-center py-10 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-dashed dark:border-gray-600">
+          <CreditCard size={24} className="mx-auto text-gray-300 mb-2" />
+          <p className="text-[10px] text-gray-400 uppercase tracking-widest font-black">No payment types</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {paymentTypes.map(pt => (
+            <div key={pt.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+              <p className="text-xs font-black dark:text-white">{pt.name}</p>
+              <button onClick={() => handleRemovePaymentType(pt.id)} className="p-2 text-gray-300 hover:text-red-500 transition-colors">
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={newPaymentTypeName}
+          onChange={e => setNewPaymentTypeName(e.target.value)}
+          className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+          placeholder="e.g. CREDIT CARD"
+          onKeyDown={e => e.key === 'Enter' && handleAddPaymentType()}
+        />
+        <button
+          onClick={handleAddPaymentType}
+          disabled={!newPaymentTypeName.trim()}
+          className="px-4 py-2 bg-orange-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 disabled:opacity-40 transition-all flex items-center gap-1.5"
+        >
+          <Plus size={14} /> Add
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderTaxesContent = () => (
+    <div className="space-y-4">
+      {taxEntries.length === 0 ? (
+        <div className="text-center py-10 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-dashed dark:border-gray-600">
+          <Tag size={24} className="mx-auto text-gray-300 mb-2" />
+          <p className="text-[10px] text-gray-400 uppercase tracking-widest font-black">No taxes configured</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {taxEntries.map(tax => (
+            <div key={tax.id} className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-black dark:text-white">{tax.name} ({tax.percentage}%)</p>
+                  <p className="text-[9px] text-gray-400">{tax.applyToItems ? 'Applied to items' : 'Not applied to items'}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleToggleTaxApply(tax.id)}
+                    className={`w-11 h-6 rounded-full transition-all relative ${
+                      tax.applyToItems ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                      tax.applyToItems ? 'left-6' : 'left-1'
+                    }`} />
+                  </button>
+                  <button onClick={() => handleRemoveTaxEntry(tax.id)} className="p-2 text-gray-300 hover:text-red-500 transition-colors">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 space-y-3">
+        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Add Tax</p>
+        <div>
+          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Name</label>
+          <input
+            type="text"
+            value={newTaxName}
+            onChange={e => setNewTaxName(e.target.value)}
+            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+            placeholder="e.g. GST, SST"
+          />
+        </div>
+        <div>
+          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Percentage</label>
+          <input
+            type="number"
+            value={newTaxPercentage}
+            onChange={e => setNewTaxPercentage(e.target.value)}
+            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+            placeholder="e.g. 6"
+            min="0"
+            step="0.01"
+          />
+        </div>
+        <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={newTaxApplyToItems}
+            onChange={e => setNewTaxApplyToItems(e.target.checked)}
+            className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+          />
+          Apply to items by default
+        </label>
+        <button
+          onClick={handleAddTaxEntry}
+          disabled={!newTaxName.trim() || !newTaxPercentage}
+          className="w-full py-2.5 bg-orange-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest hover:bg-orange-600 disabled:opacity-40 transition-all flex items-center justify-center gap-1.5"
+        >
+          <Plus size={14} /> Add Tax
+        </button>
+      </div>
     </div>
   );
 
@@ -2228,10 +2527,34 @@ const PosOnlyView: React.FC<Props> = ({
             <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
                 <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Settings</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Printer, receipt, and staff configuration.</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Features, printer, receipt, payment, tax, and staff configuration.</p>
 
                 {/* ===== MOBILE: Accordion Layout ===== */}
                 <div className="lg:hidden space-y-3">
+                  {/* Features Accordion */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                    <button
+                      onClick={() => setSettingsPanel(settingsPanel === 'features' ? null : 'features')}
+                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center">
+                        <Layers size={18} className="text-emerald-500" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Features</p>
+                        <p className="text-[10px] text-gray-400">Auto-print, drawer, dining</p>
+                      </div>
+                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'features' ? 'rotate-180' : ''}`} />
+                    </button>
+                    {settingsPanel === 'features' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg">
+                          {renderFeaturesContent()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Printer Accordion */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
                     <button
@@ -2267,7 +2590,7 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                       <div className="flex-1 text-left">
                         <p className="text-xs font-black dark:text-white uppercase tracking-wide">Receipt</p>
-                        <p className="text-[10px] text-gray-400">{receiptSettings.autoPrintEnabled ? 'Auto-print on' : 'Auto-print off'}</p>
+                        <p className="text-[10px] text-gray-400">Configure receipt layout</p>
                       </div>
                       <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'receipt' ? 'rotate-180' : ''}`} />
                     </button>
@@ -2275,6 +2598,54 @@ const PosOnlyView: React.FC<Props> = ({
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
                         <div className="max-w-lg">
                           {renderReceiptContent()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Payment Types Accordion */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                    <button
+                      onClick={() => setSettingsPanel(settingsPanel === 'payment' ? null : 'payment')}
+                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
+                        <CreditCard size={18} className="text-green-500" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Payment Types</p>
+                        <p className="text-[10px] text-gray-400">{paymentTypes.length} types</p>
+                      </div>
+                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'payment' ? 'rotate-180' : ''}`} />
+                    </button>
+                    {settingsPanel === 'payment' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg">
+                          {renderPaymentTypesContent()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Taxes Accordion */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                    <button
+                      onClick={() => setSettingsPanel(settingsPanel === 'taxes' ? null : 'taxes')}
+                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
+                        <Tag size={18} className="text-amber-500" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Taxes</p>
+                        <p className="text-[10px] text-gray-400">{taxEntries.length} configured</p>
+                      </div>
+                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'taxes' ? 'rotate-180' : ''}`} />
+                    </button>
+                    {settingsPanel === 'taxes' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg">
+                          {renderTaxesContent()}
                         </div>
                       </div>
                     )}
@@ -2310,10 +2681,34 @@ const PosOnlyView: React.FC<Props> = ({
                   {/* Left Sidebar */}
                   <div className="flex-1">
                     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                      {/* Features Nav Item */}
+                      <button
+                        onClick={() => setSettingsPanel('features')}
+                        className={`w-full flex items-center gap-3 p-4 transition-all ${
+                          settingsPanel === 'features'
+                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          settingsPanel === 'features'
+                            ? 'bg-emerald-100 dark:bg-emerald-900/30'
+                            : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <Layers size={16} className={settingsPanel === 'features' ? 'text-emerald-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${
+                            settingsPanel === 'features' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'
+                          }`}>Features</p>
+                          <p className="text-[10px] text-gray-400">Auto-print, drawer, dining</p>
+                        </div>
+                      </button>
+
                       {/* Printer Nav Item */}
                       <button
                         onClick={() => { setSettingsPanel('printer'); setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }}
-                        className={`w-full flex items-center gap-3 p-4 transition-all ${
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
                           settingsPanel === 'printer'
                             ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
                             : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
@@ -2354,7 +2749,55 @@ const PosOnlyView: React.FC<Props> = ({
                           <p className={`text-xs font-black uppercase tracking-wide ${
                             settingsPanel === 'receipt' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'
                           }`}>Receipt</p>
-                          <p className="text-[10px] text-gray-400">{receiptSettings.autoPrintEnabled ? 'Auto-print on' : 'Auto-print off'}</p>
+                          <p className="text-[10px] text-gray-400">Configure receipt layout</p>
+                        </div>
+                      </button>
+
+                      {/* Payment Types Nav Item */}
+                      <button
+                        onClick={() => setSettingsPanel('payment')}
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                          settingsPanel === 'payment'
+                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          settingsPanel === 'payment'
+                            ? 'bg-green-100 dark:bg-green-900/30'
+                            : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <CreditCard size={16} className={settingsPanel === 'payment' ? 'text-green-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${
+                            settingsPanel === 'payment' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'
+                          }`}>Payment Types</p>
+                          <p className="text-[10px] text-gray-400">{paymentTypes.length} types</p>
+                        </div>
+                      </button>
+
+                      {/* Taxes Nav Item */}
+                      <button
+                        onClick={() => setSettingsPanel('taxes')}
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                          settingsPanel === 'taxes'
+                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          settingsPanel === 'taxes'
+                            ? 'bg-amber-100 dark:bg-amber-900/30'
+                            : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <Tag size={16} className={settingsPanel === 'taxes' ? 'text-amber-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${
+                            settingsPanel === 'taxes' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'
+                          }`}>Taxes</p>
+                          <p className="text-[10px] text-gray-400">{taxEntries.length} configured</p>
                         </div>
                       </button>
 
@@ -2388,8 +2831,11 @@ const PosOnlyView: React.FC<Props> = ({
                   <div className="w-[560px] shrink-0 min-h-0 overflow-y-auto">
                     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
                       <div className="max-w-lg">
+                        {settingsPanel === 'features' && renderFeaturesContent()}
                         {settingsPanel === 'printer' && renderPrinterContent()}
                         {settingsPanel === 'receipt' && renderReceiptContent()}
+                        {settingsPanel === 'payment' && renderPaymentTypesContent()}
+                        {settingsPanel === 'taxes' && renderTaxesContent()}
                         {settingsPanel === 'staff' && renderStaffContent()}
                       </div>
                     </div>
