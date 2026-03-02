@@ -1303,8 +1303,8 @@ const App: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
       <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-16 flex items-center justify-between px-8 shadow-sm">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('LANDING')}>
-          <img src="/LOGO/6.png" alt="QuickServe" className="w-8 h-8 rounded-lg" />
-          <img src="/LOGO/8.png" alt="QuickServe" className="h-6 dark:invert" />
+          <img src="/LOGO/6.png" alt="QuickServe" className="w-11 h-11 rounded-xl" />
+          <img src="/LOGO/8.png" alt="QuickServe" className="h-9 dark:invert" />
         </div>
         <div className="flex items-center gap-4">
           <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white">
