@@ -2308,7 +2308,7 @@ const PosOnlyView: React.FC<Props> = ({
                 {/* ===== DESKTOP: Two-Panel Sidebar + Content ===== */}
                 <div className="hidden lg:flex gap-6 min-h-[500px]">
                   {/* Left Sidebar */}
-                  <div className="w-80 shrink-0">
+                  <div className="flex-1">
                     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
                       {/* Printer Nav Item */}
                       <button
@@ -2385,7 +2385,7 @@ const PosOnlyView: React.FC<Props> = ({
                   </div>
 
                   {/* Right Content Panel */}
-                  <div className="flex-1 min-h-0 overflow-y-auto">
+                  <div className="w-[560px] shrink-0 min-h-0 overflow-y-auto">
                     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
                       <div className="max-w-lg">
                         {settingsPanel === 'printer' && renderPrinterContent()}
