@@ -213,7 +213,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [isAddingStaff, setIsAddingStaff] = useState(false);
 
   // Settings panel navigation
-  const [settingsPanel, setSettingsPanel] = useState<SettingsPanel>(null);
+  const [settingsPanel, setSettingsPanel] = useState<SettingsPanel>('printer');
 
   // Saved printers list
   const [savedPrinters, setSavedPrinters] = useState<SavedPrinter[]>(() => {
@@ -1169,6 +1169,461 @@ const PosOnlyView: React.FC<Props> = ({
     setIsMobileMenuOpen(false);
   };
 
+  const renderPrinterContent = () => (
+    <div className="space-y-4">
+      {/* Connection Status */}
+      <div className={`p-4 rounded-xl border transition-all ${
+        printerStatus === 'connected'
+          ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800'
+          : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+      }`}>
+        <div className="flex items-center gap-3">
+          <div className={`w-2 h-2 rounded-full ${
+            printerStatus === 'connected' ? 'bg-green-500' : printerStatus === 'connecting' ? 'bg-orange-500 animate-pulse' : 'bg-gray-300'
+          }`} />
+          <div className="flex-1">
+            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+              {printerStatus === 'connected' ? 'Connected' : printerStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
+            </p>
+            {connectedDevice && (
+              <p className="text-xs font-bold dark:text-white mt-0.5">{connectedDevice.name}</p>
+            )}
+          </div>
+          {printerStatus === 'connected' && (
+            <button onClick={disconnectPrinter} className="text-[9px] font-black text-red-500 uppercase tracking-widest hover:text-red-600">Disconnect</button>
+          )}
+        </div>
+      </div>
+
+      {/* Bluetooth Actions */}
+      {printerStatus !== 'connected' && isBluetoothSupported && (
+        <button
+          onClick={scanForPrinters}
+          disabled={isScanning}
+          className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {isScanning ? (
+            <><div className="w-3 h-3 border-2 border-white dark:border-gray-900 border-t-transparent rounded-full animate-spin" /> Scanning...</>
+          ) : (
+            <><Bluetooth size={14} /> Scan Bluetooth</>
+          )}
+        </button>
+      )}
+
+      {devices.length > 0 && printerStatus !== 'connected' && (
+        <div className="space-y-2">
+          {devices.map(device => (
+            <button
+              key={device.id}
+              onClick={() => connectToPrinter(device)}
+              className="w-full p-3 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl flex items-center justify-between hover:border-orange-500 transition-all"
+            >
+              <span className="font-bold dark:text-white text-xs">{device.name}</span>
+              <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Connect</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {printerStatus === 'connected' && (
+        <div className="flex gap-2">
+          <button
+            onClick={printTestPage}
+            disabled={testPrintStatus === 'printing'}
+            className="flex-1 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl font-black text-[9px] uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:border-orange-500 hover:text-orange-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {testPrintStatus === 'printing' ? 'Printing...' : testPrintStatus === 'success' ? (<><CheckCircle2 size={12} className="text-green-500" /> Sent!</>) : (<><Printer size={12} /> Test Print</>)}
+          </button>
+          <button
+            onClick={async () => { try { await printerService.reprintLast(); } catch (err: any) { setErrorMessage(err?.message || 'Reprint failed'); } }}
+            disabled={!printerService.hasLastReceipt()}
+            className="flex-1 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl font-black text-[9px] uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:border-orange-500 hover:text-orange-500 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+          >
+            <RotateCw size={12} /> Reprint
+          </button>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="p-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-200">
+          <p className="text-[9px] text-red-600 dark:text-red-400">{errorMessage}</p>
+        </div>
+      )}
+
+      {!isBluetoothSupported && (
+        <div className="text-center py-6">
+          <AlertCircle size={24} className="mx-auto text-red-400 mb-2" />
+          <p className="text-xs font-bold text-gray-500">{errorMessage || 'Bluetooth not supported'}</p>
+          <p className="text-[9px] text-gray-400 mt-1">Use Chrome, Edge, or Opera</p>
+        </div>
+      )}
+
+      {/* Divider */}
+      <div className="border-t dark:border-gray-700 pt-4">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Saved Printers</p>
+          <span className="text-[9px] font-black text-gray-300 uppercase">{savedPrinters.length}</span>
+        </div>
+
+        {savedPrinters.length === 0 && !isAddPrinterOpen && (
+          <div className="text-center py-6 border border-dashed dark:border-gray-700 rounded-xl">
+            <Printer size={20} className="mx-auto text-gray-300 mb-2" />
+            <p className="text-[10px] text-gray-400">No printers saved</p>
+          </div>
+        )}
+
+        {savedPrinters.map(printer => (
+          <div key={printer.id} className="mb-2 p-3 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-black dark:text-white">{printer.name}</p>
+                <p className="text-[10px] text-gray-400">{printer.model} &middot; {printer.paperWidth}mm &middot; {printer.connectionType}</p>
+              </div>
+              <button onClick={() => handleRemovePrinter(printer.id)} className="p-1.5 text-gray-300 hover:text-red-500 transition-colors">
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Add Printer */}
+      {!isAddPrinterOpen ? (
+        <button
+          onClick={() => setIsAddPrinterOpen(true)}
+          className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
+        >
+          <Plus size={14} /> Add Printer
+        </button>
+      ) : (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">New Printer</p>
+            <button onClick={() => { setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }} className="text-gray-400 hover:text-red-500">
+              <X size={14} />
+            </button>
+          </div>
+
+          <div>
+            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Name</label>
+            <input
+              type="text"
+              value={newPrinterName}
+              onChange={e => setNewPrinterName(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+              placeholder="e.g. Kitchen Printer"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Printer Model</label>
+            <select
+              value={newPrinterModel}
+              onChange={e => setNewPrinterModel(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+            >
+              <option value="">Select model...</option>
+              {PRINTER_MODELS.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+
+          {/* Connection type for "Other" model */}
+          {newPrinterModel === 'Other' && (
+            <div>
+              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Connection</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setNewPrinterConnectionType('bluetooth')}
+                  className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 border transition-all ${
+                    newPrinterConnectionType === 'bluetooth'
+                      ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 text-orange-600'
+                      : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500'
+                  }`}
+                >
+                  <Bluetooth size={12} /> Bluetooth
+                </button>
+                <button
+                  onClick={() => setNewPrinterConnectionType('ethernet')}
+                  className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 border transition-all ${
+                    newPrinterConnectionType === 'ethernet'
+                      ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 text-orange-600'
+                      : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500'
+                  }`}
+                >
+                  <Network size={12} /> Ethernet
+                </button>
+              </div>
+
+              {newPrinterConnectionType === 'ethernet' && (
+                <div className="mt-2">
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">IP Address</label>
+                  <input
+                    type="text"
+                    value={newPrinterIpAddress}
+                    onChange={e => setNewPrinterIpAddress(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                    placeholder="192.168.1.100"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Paper Width</label>
+            <select
+              value={newPrinterPaperWidth}
+              onChange={e => setNewPrinterPaperWidth(Number(e.target.value))}
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+            >
+              <option value={58}>58mm</option>
+              <option value={80}>80mm</option>
+            </select>
+          </div>
+
+          {/* Advanced Settings Toggle */}
+          <button
+            onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+            className="w-full flex items-center justify-between py-2 text-[9px] font-black text-gray-400 uppercase tracking-widest hover:text-orange-500 transition-colors"
+          >
+            Advanced Settings
+            <ChevronDown size={14} className={`transition-transform ${showAdvancedSettings ? 'rotate-180' : ''}`} />
+          </button>
+
+          {showAdvancedSettings && (
+            <div className="space-y-3 border-t dark:border-gray-700 pt-3">
+              <div>
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Print Mode</label>
+                <select
+                  value={newPrinterAdvanced.printMode}
+                  onChange={e => setNewPrinterAdvanced(prev => ({ ...prev, printMode: e.target.value }))}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                >
+                  <option value="Standard">Standard</option>
+                  <option value="Page Mode">Page Mode</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Print Width (dots)</label>
+                <input
+                  type="number"
+                  value={newPrinterAdvanced.printWidth}
+                  onChange={e => setNewPrinterAdvanced(prev => ({ ...prev, printWidth: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                  placeholder="384"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Print Resolution</label>
+                <select
+                  value={newPrinterAdvanced.printResolution}
+                  onChange={e => setNewPrinterAdvanced(prev => ({ ...prev, printResolution: e.target.value }))}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                >
+                  <option value="180 DPI">180 DPI</option>
+                  <option value="203 DPI">203 DPI</option>
+                  <option value="300 DPI">300 DPI</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Initial ESC/POS Commands</label>
+                <input
+                  type="text"
+                  value={newPrinterAdvanced.initCommands}
+                  onChange={e => setNewPrinterAdvanced(prev => ({ ...prev, initCommands: e.target.value }))}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white font-mono"
+                  placeholder="e.g. 0x1B 0x40"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Cutter ESC/POS Command</label>
+                <input
+                  type="text"
+                  value={newPrinterAdvanced.cutterCommands}
+                  onChange={e => setNewPrinterAdvanced(prev => ({ ...prev, cutterCommands: e.target.value }))}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white font-mono"
+                  placeholder="e.g. 0x1D 0x56 0x00"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Drawer ESC/POS Command</label>
+                <input
+                  type="text"
+                  value={newPrinterAdvanced.drawerCommands}
+                  onChange={e => setNewPrinterAdvanced(prev => ({ ...prev, drawerCommands: e.target.value }))}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white font-mono"
+                  placeholder="e.g. 0x1B 0x70 0x00"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={() => { setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }}
+              className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSavePrinter}
+              disabled={!newPrinterName.trim() || !newPrinterModel}
+              className="flex-1 py-2.5 bg-orange-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest hover:bg-orange-600 disabled:opacity-40 transition-all"
+            >
+              Save Printer
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderReceiptContent = () => (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+        <div>
+          <p className="text-xs font-black dark:text-white">Auto-Print Receipt</p>
+          <p className="text-[9px] text-gray-400 mt-0.5">Print automatically after checkout</p>
+        </div>
+        <button
+          onClick={() => updateReceiptSetting('autoPrintEnabled', !receiptSettings.autoPrintEnabled)}
+          className={`w-11 h-6 rounded-full transition-all relative ${
+            receiptSettings.autoPrintEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+          }`}
+        >
+          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+            receiptSettings.autoPrintEnabled ? 'left-6' : 'left-1'
+          }`} />
+        </button>
+      </div>
+
+      <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl overflow-hidden">
+        <button
+          onClick={() => setReceiptAccordion(prev => ({ ...prev, content: !prev.content }))}
+          className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-600/30 transition-all"
+        >
+          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Content</span>
+          <ChevronDown size={14} className={`text-gray-400 transition-transform ${receiptAccordion.content ? 'rotate-180' : ''}`} />
+        </button>
+        {receiptAccordion.content && (
+          <div className="px-4 pb-4 space-y-3 border-t dark:border-gray-600 pt-3">
+            {[
+              { key: 'businessName', label: 'Business Name', placeholder: 'Store name' },
+              { key: 'headerLine1', label: 'Header Line 1', placeholder: 'Optional' },
+              { key: 'headerLine2', label: 'Header Line 2', placeholder: 'Optional' },
+              { key: 'footerLine1', label: 'Footer Line 1', placeholder: 'Thank you!' },
+              { key: 'footerLine2', label: 'Footer Line 2', placeholder: 'Please come again' },
+            ].map(field => (
+              <div key={field.key}>
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">{field.label}</label>
+                <input
+                  type="text"
+                  value={receiptSettings[field.key as keyof ReceiptSettings] as string}
+                  onChange={e => updateReceiptSetting(field.key as keyof ReceiptSettings, e.target.value as any)}
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                  placeholder={field.placeholder}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl overflow-hidden">
+        <button
+          onClick={() => setReceiptAccordion(prev => ({ ...prev, fields: !prev.fields }))}
+          className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-600/30 transition-all"
+        >
+          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Visible Fields</span>
+          <ChevronDown size={14} className={`text-gray-400 transition-transform ${receiptAccordion.fields ? 'rotate-180' : ''}`} />
+        </button>
+        {receiptAccordion.fields && (
+          <div className="px-4 pb-4 border-t dark:border-gray-600 pt-3">
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { key: 'showDateTime', label: 'Date & Time' },
+                { key: 'showOrderId', label: 'Order ID' },
+                { key: 'showTableNumber', label: 'Table Number' },
+                { key: 'showItems', label: 'Items' },
+                { key: 'showRemark', label: 'Remark' },
+                { key: 'showTotal', label: 'Total' },
+              ].map(field => (
+                <label key={field.key} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-200 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={receiptSettings[field.key as keyof ReceiptSettings] as boolean}
+                    onChange={e => updateReceiptSetting(field.key as keyof ReceiptSettings, e.target.checked as any)}
+                    className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                  />
+                  {field.label}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          onClick={() => setReceiptSettings(getDefaultReceiptSettings(restaurant.name))}
+          className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-700 rounded-xl font-black uppercase text-[9px] tracking-widest text-gray-500 hover:text-orange-500 transition-colors"
+        >
+          Reset
+        </button>
+        <button
+          onClick={saveReceiptSettings}
+          disabled={isSavingReceiptSettings}
+          className="flex-1 py-2.5 bg-orange-500 text-white rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50"
+        >
+          {isSavingReceiptSettings ? 'Saving...' : 'Save'}
+        </button>
+      </div>
+      {receiptSettingsSaved && (
+        <p className="text-center text-[9px] font-black text-green-500 uppercase tracking-widest">Saved successfully</p>
+      )}
+    </div>
+  );
+
+  const renderStaffContent = () => (
+    <div className="space-y-4">
+      {staffList.length === 0 ? (
+        <div className="text-center py-10 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-dashed dark:border-gray-600">
+          <Users size={24} className="mx-auto text-gray-300 mb-2" />
+          <p className="text-[10px] text-gray-400 uppercase tracking-widest font-black">No staff added yet</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {staffList.map((staff: any, idx: number) => (
+            <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+              <div>
+                <p className="text-xs font-black dark:text-white">{staff.username}</p>
+                <p className="text-[9px] text-gray-400">Added {new Date(staff.createdAt || staff.created_at || Date.now()).toLocaleDateString()}</p>
+              </div>
+              <button
+                onClick={() => handleRemoveStaff(staff, idx)}
+                className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button
+        onClick={() => setIsAddStaffModalOpen(true)}
+        className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
+      >
+        <UserPlus size={14} /> Add Staff Member
+      </button>
+    </div>
+  );
+
   return (
     <div className="flex h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-900 overflow-hidden flex-col">
       {/* Offline Status Banner */}
@@ -1775,8 +2230,9 @@ const PosOnlyView: React.FC<Props> = ({
                 <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Settings</h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Printer, receipt, and staff configuration.</p>
 
-                <div className="space-y-3">
-                  {/* ===== PRINTER SETUP ACCORDION ===== */}
+                {/* ===== MOBILE: Accordion Layout ===== */}
+                <div className="lg:hidden space-y-3">
+                  {/* Printer Accordion */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
                     <button
                       onClick={() => { setSettingsPanel(settingsPanel === 'printer' ? null : 'printer'); setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }}
@@ -1793,322 +2249,14 @@ const PosOnlyView: React.FC<Props> = ({
                     </button>
                     {settingsPanel === 'printer' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        <div className="max-w-lg space-y-4">
-                          {/* Connection Status */}
-                          <div className={`p-4 rounded-xl border transition-all ${
-                            printerStatus === 'connected'
-                              ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800'
-                              : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                          }`}>
-                            <div className="flex items-center gap-3">
-                              <div className={`w-2 h-2 rounded-full ${
-                                printerStatus === 'connected' ? 'bg-green-500' : printerStatus === 'connecting' ? 'bg-orange-500 animate-pulse' : 'bg-gray-300'
-                              }`} />
-                              <div className="flex-1">
-                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                                  {printerStatus === 'connected' ? 'Connected' : printerStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
-                                </p>
-                                {connectedDevice && (
-                                  <p className="text-xs font-bold dark:text-white mt-0.5">{connectedDevice.name}</p>
-                                )}
-                              </div>
-                              {printerStatus === 'connected' && (
-                                <button onClick={disconnectPrinter} className="text-[9px] font-black text-red-500 uppercase tracking-widest hover:text-red-600">Disconnect</button>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Bluetooth Actions */}
-                          {printerStatus !== 'connected' && isBluetoothSupported && (
-                            <button
-                              onClick={scanForPrinters}
-                              disabled={isScanning}
-                              className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                            >
-                              {isScanning ? (
-                                <><div className="w-3 h-3 border-2 border-white dark:border-gray-900 border-t-transparent rounded-full animate-spin" /> Scanning...</>
-                              ) : (
-                                <><Bluetooth size={14} /> Scan Bluetooth</>
-                              )}
-                            </button>
-                          )}
-
-                          {devices.length > 0 && printerStatus !== 'connected' && (
-                            <div className="space-y-2">
-                              {devices.map(device => (
-                                <button
-                                  key={device.id}
-                                  onClick={() => connectToPrinter(device)}
-                                  className="w-full p-3 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl flex items-center justify-between hover:border-orange-500 transition-all"
-                                >
-                                  <span className="font-bold dark:text-white text-xs">{device.name}</span>
-                                  <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Connect</span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-
-                          {printerStatus === 'connected' && (
-                            <div className="flex gap-2">
-                              <button
-                                onClick={printTestPage}
-                                disabled={testPrintStatus === 'printing'}
-                                className="flex-1 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl font-black text-[9px] uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:border-orange-500 hover:text-orange-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                              >
-                                {testPrintStatus === 'printing' ? 'Printing...' : testPrintStatus === 'success' ? (<><CheckCircle2 size={12} className="text-green-500" /> Sent!</>) : (<><Printer size={12} /> Test Print</>)}
-                              </button>
-                              <button
-                                onClick={async () => { try { await printerService.reprintLast(); } catch (err: any) { setErrorMessage(err?.message || 'Reprint failed'); } }}
-                                disabled={!printerService.hasLastReceipt()}
-                                className="flex-1 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl font-black text-[9px] uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:border-orange-500 hover:text-orange-500 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
-                              >
-                                <RotateCw size={12} /> Reprint
-                              </button>
-                            </div>
-                          )}
-
-                          {errorMessage && (
-                            <div className="p-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-200">
-                              <p className="text-[9px] text-red-600 dark:text-red-400">{errorMessage}</p>
-                            </div>
-                          )}
-
-                          {!isBluetoothSupported && (
-                            <div className="text-center py-6">
-                              <AlertCircle size={24} className="mx-auto text-red-400 mb-2" />
-                              <p className="text-xs font-bold text-gray-500">{errorMessage || 'Bluetooth not supported'}</p>
-                              <p className="text-[9px] text-gray-400 mt-1">Use Chrome, Edge, or Opera</p>
-                            </div>
-                          )}
-
-                          {/* Divider */}
-                          <div className="border-t dark:border-gray-700 pt-4">
-                            <div className="flex items-center justify-between mb-3">
-                              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Saved Printers</p>
-                              <span className="text-[9px] font-black text-gray-300 uppercase">{savedPrinters.length}</span>
-                            </div>
-
-                            {savedPrinters.length === 0 && !isAddPrinterOpen && (
-                              <div className="text-center py-6 border border-dashed dark:border-gray-700 rounded-xl">
-                                <Printer size={20} className="mx-auto text-gray-300 mb-2" />
-                                <p className="text-[10px] text-gray-400">No printers saved</p>
-                              </div>
-                            )}
-
-                            {savedPrinters.map(printer => (
-                              <div key={printer.id} className="mb-2 p-3 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <p className="text-xs font-black dark:text-white">{printer.name}</p>
-                                    <p className="text-[10px] text-gray-400">{printer.model} &middot; {printer.paperWidth}mm &middot; {printer.connectionType}</p>
-                                  </div>
-                                  <button onClick={() => handleRemovePrinter(printer.id)} className="p-1.5 text-gray-300 hover:text-red-500 transition-colors">
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Add Printer */}
-                          {!isAddPrinterOpen ? (
-                            <button
-                              onClick={() => setIsAddPrinterOpen(true)}
-                              className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
-                            >
-                              <Plus size={14} /> Add Printer
-                            </button>
-                          ) : (
-                            <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 space-y-3">
-                              <div className="flex items-center justify-between">
-                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">New Printer</p>
-                                <button onClick={() => { setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }} className="text-gray-400 hover:text-red-500">
-                                  <X size={14} />
-                                </button>
-                              </div>
-
-                              <div>
-                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Name</label>
-                                <input
-                                  type="text"
-                                  value={newPrinterName}
-                                  onChange={e => setNewPrinterName(e.target.value)}
-                                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                                  placeholder="e.g. Kitchen Printer"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Printer Model</label>
-                                <select
-                                  value={newPrinterModel}
-                                  onChange={e => setNewPrinterModel(e.target.value)}
-                                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                                >
-                                  <option value="">Select model...</option>
-                                  {PRINTER_MODELS.map(m => <option key={m} value={m}>{m}</option>)}
-                                </select>
-                              </div>
-
-                              {/* Connection type for "Other" model */}
-                              {newPrinterModel === 'Other' && (
-                                <div>
-                                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Connection</label>
-                                  <div className="flex gap-2">
-                                    <button
-                                      onClick={() => setNewPrinterConnectionType('bluetooth')}
-                                      className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 border transition-all ${
-                                        newPrinterConnectionType === 'bluetooth'
-                                          ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 text-orange-600'
-                                          : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500'
-                                      }`}
-                                    >
-                                      <Bluetooth size={12} /> Bluetooth
-                                    </button>
-                                    <button
-                                      onClick={() => setNewPrinterConnectionType('ethernet')}
-                                      className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 border transition-all ${
-                                        newPrinterConnectionType === 'ethernet'
-                                          ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 text-orange-600'
-                                          : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500'
-                                      }`}
-                                    >
-                                      <Network size={12} /> Ethernet
-                                    </button>
-                                  </div>
-
-                                  {newPrinterConnectionType === 'ethernet' && (
-                                    <div className="mt-2">
-                                      <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">IP Address</label>
-                                      <input
-                                        type="text"
-                                        value={newPrinterIpAddress}
-                                        onChange={e => setNewPrinterIpAddress(e.target.value)}
-                                        className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                                        placeholder="192.168.1.100"
-                                      />
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-
-                              <div>
-                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Paper Width</label>
-                                <select
-                                  value={newPrinterPaperWidth}
-                                  onChange={e => setNewPrinterPaperWidth(Number(e.target.value))}
-                                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                                >
-                                  <option value={58}>58mm</option>
-                                  <option value={80}>80mm</option>
-                                </select>
-                              </div>
-
-                              {/* Advanced Settings Toggle */}
-                              <button
-                                onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
-                                className="w-full flex items-center justify-between py-2 text-[9px] font-black text-gray-400 uppercase tracking-widest hover:text-orange-500 transition-colors"
-                              >
-                                Advanced Settings
-                                <ChevronDown size={14} className={`transition-transform ${showAdvancedSettings ? 'rotate-180' : ''}`} />
-                              </button>
-
-                              {showAdvancedSettings && (
-                                <div className="space-y-3 border-t dark:border-gray-700 pt-3">
-                                  <div>
-                                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Print Mode</label>
-                                    <select
-                                      value={newPrinterAdvanced.printMode}
-                                      onChange={e => setNewPrinterAdvanced(prev => ({ ...prev, printMode: e.target.value }))}
-                                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                                    >
-                                      <option value="Standard">Standard</option>
-                                      <option value="Page Mode">Page Mode</option>
-                                    </select>
-                                  </div>
-
-                                  <div>
-                                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Print Width (dots)</label>
-                                    <input
-                                      type="number"
-                                      value={newPrinterAdvanced.printWidth}
-                                      onChange={e => setNewPrinterAdvanced(prev => ({ ...prev, printWidth: Number(e.target.value) }))}
-                                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                                      placeholder="384"
-                                    />
-                                  </div>
-
-                                  <div>
-                                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Print Resolution</label>
-                                    <select
-                                      value={newPrinterAdvanced.printResolution}
-                                      onChange={e => setNewPrinterAdvanced(prev => ({ ...prev, printResolution: e.target.value }))}
-                                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                                    >
-                                      <option value="180 DPI">180 DPI</option>
-                                      <option value="203 DPI">203 DPI</option>
-                                      <option value="300 DPI">300 DPI</option>
-                                    </select>
-                                  </div>
-
-                                  <div>
-                                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Initial ESC/POS Commands</label>
-                                    <input
-                                      type="text"
-                                      value={newPrinterAdvanced.initCommands}
-                                      onChange={e => setNewPrinterAdvanced(prev => ({ ...prev, initCommands: e.target.value }))}
-                                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white font-mono"
-                                      placeholder="e.g. 0x1B 0x40"
-                                    />
-                                  </div>
-
-                                  <div>
-                                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Cutter ESC/POS Command</label>
-                                    <input
-                                      type="text"
-                                      value={newPrinterAdvanced.cutterCommands}
-                                      onChange={e => setNewPrinterAdvanced(prev => ({ ...prev, cutterCommands: e.target.value }))}
-                                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white font-mono"
-                                      placeholder="e.g. 0x1D 0x56 0x00"
-                                    />
-                                  </div>
-
-                                  <div>
-                                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Drawer ESC/POS Command</label>
-                                    <input
-                                      type="text"
-                                      value={newPrinterAdvanced.drawerCommands}
-                                      onChange={e => setNewPrinterAdvanced(prev => ({ ...prev, drawerCommands: e.target.value }))}
-                                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white font-mono"
-                                      placeholder="e.g. 0x1B 0x70 0x00"
-                                    />
-                                  </div>
-                                </div>
-                              )}
-
-                              <div className="flex gap-2 pt-2">
-                                <button
-                                  onClick={() => { setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }}
-                                  className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500"
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  onClick={handleSavePrinter}
-                                  disabled={!newPrinterName.trim() || !newPrinterModel}
-                                  className="flex-1 py-2.5 bg-orange-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest hover:bg-orange-600 disabled:opacity-40 transition-all"
-                                >
-                                  Save Printer
-                                </button>
-                              </div>
-                            </div>
-                          )}
+                        <div className="max-w-lg">
+                          {renderPrinterContent()}
                         </div>
                       </div>
                     )}
                   </div>
 
-                  {/* ===== RECEIPT ACCORDION ===== */}
+                  {/* Receipt Accordion */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
                     <button
                       onClick={() => setSettingsPanel(settingsPanel === 'receipt' ? null : 'receipt')}
@@ -2125,114 +2273,14 @@ const PosOnlyView: React.FC<Props> = ({
                     </button>
                     {settingsPanel === 'receipt' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        <div className="max-w-lg space-y-4">
-                          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                            <div>
-                              <p className="text-xs font-black dark:text-white">Auto-Print Receipt</p>
-                              <p className="text-[9px] text-gray-400 mt-0.5">Print automatically after checkout</p>
-                            </div>
-                            <button
-                              onClick={() => updateReceiptSetting('autoPrintEnabled', !receiptSettings.autoPrintEnabled)}
-                              className={`w-11 h-6 rounded-full transition-all relative ${
-                                receiptSettings.autoPrintEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-                              }`}
-                            >
-                              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                                receiptSettings.autoPrintEnabled ? 'left-6' : 'left-1'
-                              }`} />
-                            </button>
-                          </div>
-
-                          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl overflow-hidden">
-                            <button
-                              onClick={() => setReceiptAccordion(prev => ({ ...prev, content: !prev.content }))}
-                              className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-600/30 transition-all"
-                            >
-                              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Content</span>
-                              <ChevronDown size={14} className={`text-gray-400 transition-transform ${receiptAccordion.content ? 'rotate-180' : ''}`} />
-                            </button>
-                            {receiptAccordion.content && (
-                              <div className="px-4 pb-4 space-y-3 border-t dark:border-gray-600 pt-3">
-                                {[
-                                  { key: 'businessName', label: 'Business Name', placeholder: 'Store name' },
-                                  { key: 'headerLine1', label: 'Header Line 1', placeholder: 'Optional' },
-                                  { key: 'headerLine2', label: 'Header Line 2', placeholder: 'Optional' },
-                                  { key: 'footerLine1', label: 'Footer Line 1', placeholder: 'Thank you!' },
-                                  { key: 'footerLine2', label: 'Footer Line 2', placeholder: 'Please come again' },
-                                ].map(field => (
-                                  <div key={field.key}>
-                                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">{field.label}</label>
-                                    <input
-                                      type="text"
-                                      value={receiptSettings[field.key as keyof ReceiptSettings] as string}
-                                      onChange={e => updateReceiptSetting(field.key as keyof ReceiptSettings, e.target.value as any)}
-                                      className="w-full px-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                                      placeholder={field.placeholder}
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl overflow-hidden">
-                            <button
-                              onClick={() => setReceiptAccordion(prev => ({ ...prev, fields: !prev.fields }))}
-                              className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-600/30 transition-all"
-                            >
-                              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Visible Fields</span>
-                              <ChevronDown size={14} className={`text-gray-400 transition-transform ${receiptAccordion.fields ? 'rotate-180' : ''}`} />
-                            </button>
-                            {receiptAccordion.fields && (
-                              <div className="px-4 pb-4 border-t dark:border-gray-600 pt-3">
-                                <div className="grid grid-cols-2 gap-2">
-                                  {[
-                                    { key: 'showDateTime', label: 'Date & Time' },
-                                    { key: 'showOrderId', label: 'Order ID' },
-                                    { key: 'showTableNumber', label: 'Table Number' },
-                                    { key: 'showItems', label: 'Items' },
-                                    { key: 'showRemark', label: 'Remark' },
-                                    { key: 'showTotal', label: 'Total' },
-                                  ].map(field => (
-                                    <label key={field.key} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-200 cursor-pointer">
-                                      <input
-                                        type="checkbox"
-                                        checked={receiptSettings[field.key as keyof ReceiptSettings] as boolean}
-                                        onChange={e => updateReceiptSetting(field.key as keyof ReceiptSettings, e.target.checked as any)}
-                                        className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
-                                      />
-                                      {field.label}
-                                    </label>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => setReceiptSettings(getDefaultReceiptSettings(restaurant.name))}
-                              className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-700 rounded-xl font-black uppercase text-[9px] tracking-widest text-gray-500 hover:text-orange-500 transition-colors"
-                            >
-                              Reset
-                            </button>
-                            <button
-                              onClick={saveReceiptSettings}
-                              disabled={isSavingReceiptSettings}
-                              className="flex-1 py-2.5 bg-orange-500 text-white rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50"
-                            >
-                              {isSavingReceiptSettings ? 'Saving...' : 'Save'}
-                            </button>
-                          </div>
-                          {receiptSettingsSaved && (
-                            <p className="text-center text-[9px] font-black text-green-500 uppercase tracking-widest">Saved successfully</p>
-                          )}
+                        <div className="max-w-lg">
+                          {renderReceiptContent()}
                         </div>
                       </div>
                     )}
                   </div>
 
-                  {/* ===== STAFF MANAGEMENT ACCORDION ===== */}
+                  {/* Staff Accordion */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
                     <button
                       onClick={() => setSettingsPanel(settingsPanel === 'staff' ? null : 'staff')}
@@ -2249,42 +2297,105 @@ const PosOnlyView: React.FC<Props> = ({
                     </button>
                     {settingsPanel === 'staff' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        <div className="max-w-lg space-y-4">
-                          {staffList.length === 0 ? (
-                            <div className="text-center py-10 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-dashed dark:border-gray-600">
-                              <Users size={24} className="mx-auto text-gray-300 mb-2" />
-                              <p className="text-[10px] text-gray-400 uppercase tracking-widest font-black">No staff added yet</p>
-                            </div>
-                          ) : (
-                            <div className="space-y-2">
-                              {staffList.map((staff: any, idx: number) => (
-                                <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                                  <div>
-                                    <p className="text-xs font-black dark:text-white">{staff.username}</p>
-                                    <p className="text-[9px] text-gray-400">Added {new Date(staff.createdAt || staff.created_at || Date.now()).toLocaleDateString()}</p>
-                                  </div>
-                                  <button
-                                    onClick={() => handleRemoveStaff(staff, idx)}
-                                    className="p-2 text-gray-300 hover:text-red-500 transition-colors"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          <button
-                            onClick={() => setIsAddStaffModalOpen(true)}
-                            className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
-                          >
-                            <UserPlus size={14} /> Add Staff Member
-                          </button>
+                        <div className="max-w-lg">
+                          {renderStaffContent()}
                         </div>
                       </div>
                     )}
                   </div>
                 </div>
+
+                {/* ===== DESKTOP: Two-Panel Sidebar + Content ===== */}
+                <div className="hidden lg:flex gap-6 min-h-[500px]">
+                  {/* Left Sidebar */}
+                  <div className="w-60 shrink-0">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                      {/* Printer Nav Item */}
+                      <button
+                        onClick={() => { setSettingsPanel('printer'); setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }}
+                        className={`w-full flex items-center gap-3 p-4 transition-all ${
+                          settingsPanel === 'printer'
+                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          settingsPanel === 'printer'
+                            ? 'bg-orange-100 dark:bg-orange-900/30'
+                            : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <Printer size={16} className={settingsPanel === 'printer' ? 'text-orange-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${
+                            settingsPanel === 'printer' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'
+                          }`}>Printer Setup</p>
+                          <p className="text-[10px] text-gray-400">{savedPrinters.length > 0 ? savedPrinters[0].model : 'No printer configured'}</p>
+                        </div>
+                      </button>
+
+                      {/* Receipt Nav Item */}
+                      <button
+                        onClick={() => setSettingsPanel('receipt')}
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                          settingsPanel === 'receipt'
+                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          settingsPanel === 'receipt'
+                            ? 'bg-orange-100 dark:bg-orange-900/30'
+                            : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <Receipt size={16} className={settingsPanel === 'receipt' ? 'text-orange-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${
+                            settingsPanel === 'receipt' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'
+                          }`}>Receipt</p>
+                          <p className="text-[10px] text-gray-400">{receiptSettings.autoPrintEnabled ? 'Auto-print on' : 'Auto-print off'}</p>
+                        </div>
+                      </button>
+
+                      {/* Staff Nav Item */}
+                      <button
+                        onClick={() => setSettingsPanel('staff')}
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                          settingsPanel === 'staff'
+                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          settingsPanel === 'staff'
+                            ? 'bg-orange-100 dark:bg-orange-900/30'
+                            : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <Users size={16} className={settingsPanel === 'staff' ? 'text-orange-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${
+                            settingsPanel === 'staff' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'
+                          }`}>Staff Management</p>
+                          <p className="text-[10px] text-gray-400">{staffList.length} member{staffList.length !== 1 ? 's' : ''}</p>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Right Content Panel */}
+                  <div className="flex-1 min-h-0 overflow-y-auto">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
+                      <div className="max-w-lg">
+                        {settingsPanel === 'printer' && renderPrinterContent()}
+                        {settingsPanel === 'receipt' && renderReceiptContent()}
+                        {settingsPanel === 'staff' && renderStaffContent()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             </div>
           )}
