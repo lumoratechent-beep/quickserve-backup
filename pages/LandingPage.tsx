@@ -147,8 +147,7 @@ const LandingPage: React.FC<Props> = ({ onScan, onLoginClick, isDarkMode, onTogg
     <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300 flex flex-col">
       <nav className="p-6 flex justify-between items-center max-w-7xl mx-auto w-full">
         <div className="flex items-center gap-2">
-          <img src="/LOGO/9.png" alt="QuickServe" className="w-20 h-20 rounded-2xl shadow-lg shadow-orange-200 dark:shadow-none" />
-          <img src="/LOGO/8.png" alt="QuickServe" className="h-[6.5rem] dark:invert" />
+          <img src="/LOGO/9.png" alt="QuickServe" className="h-16 dark:invert" />
         </div>
         <div className="flex items-center gap-4">
           <button onClick={onToggleDarkMode} className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
