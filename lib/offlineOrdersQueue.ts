@@ -16,6 +16,53 @@ export interface OfflineOrder {
 }
 
 const QUEUE_STORAGE_KEY = 'qs_offline_orders_queue';
+const ORDER_NUMBER_TRACKER_KEY = 'qs_offline_order_numbers';
+
+/**
+ * Track the highest order number per location code
+ */
+interface OrderNumberTracker {
+  [code: string]: number;
+}
+
+/**
+ * Get order number tracker
+ */
+const getOrderNumberTracker = (): OrderNumberTracker => {
+  try {
+    const data = localStorage.getItem(ORDER_NUMBER_TRACKER_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch (error) {
+    console.error('Failed to retrieve order number tracker:', error);
+    return {};
+  }
+};
+
+/**
+ * Update order number tracker with highest number for a code
+ */
+export const updateOrderNumberTracker = (code: string, nextNum: number): void => {
+  try {
+    const tracker = getOrderNumberTracker();
+    tracker[code] = nextNum;
+    localStorage.setItem(ORDER_NUMBER_TRACKER_KEY, JSON.stringify(tracker));
+  } catch (error) {
+    console.error('Failed to update order number tracker:', error);
+  }
+};
+
+/**
+ * Get the next order number for a location code
+ */
+export const getNextOrderNumber = (code: string): number => {
+  try {
+    const tracker = getOrderNumberTracker();
+    return (tracker[code] || 0) + 1;
+  } catch (error) {
+    console.error('Failed to get next order number:', error);
+    return 1;
+  }
+};
 
 /**
  * Add an order to the offline queue

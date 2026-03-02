@@ -1007,11 +1007,12 @@ const App: React.FC = () => {
     if (!offlineQueue.isOnline()) {
       console.warn('User is offline - queueing order locally');
       
-      // Generate order ID without server query
-      // Use timestamp-based ID generation for offline mode
-      const timestamp = Date.now();
-      const random = Math.floor(Math.random() * 10000);
-      const orderId = `${code}${String(timestamp).slice(-7)}${String(random).padStart(4, '0')}`;
+      // Get next sequential number from local tracker
+      const nextNum = offlineQueue.getNextOrderNumber(code);
+      const orderId = `${code}${String(nextNum).padStart(7, '0')}`;
+      
+      // Update the tracker
+      offlineQueue.updateOrderNumberTracker(code, nextNum);
 
       const offlineOrder: offlineQueue.OfflineOrder = {
         id: orderId,
@@ -1056,12 +1057,15 @@ const App: React.FC = () => {
         const parsed = parseInt(numPart);
         if (!isNaN(parsed)) nextNum = parsed + 1;
       }
+      
+      // Update local tracker with the latest number
+      offlineQueue.updateOrderNumberTracker(code, nextNum);
     } catch (error) {
       console.error('Error fetching last order number:', error);
       // If we can't reach the server, fall back to offline mode
-      const timestamp = Date.now();
-      const random = Math.floor(Math.random() * 10000);
-      const orderId = `${code}${String(timestamp).slice(-7)}${String(random).padStart(4, '0')}`;
+      const localNextNum = offlineQueue.getNextOrderNumber(code);
+      const orderId = `${code}${String(localNextNum).padStart(7, '0')}`;
+      offlineQueue.updateOrderNumberTracker(code, localNextNum);
 
       const offlineOrder: offlineQueue.OfflineOrder = {
         id: orderId,
@@ -1077,22 +1081,8 @@ const App: React.FC = () => {
         createdAt: Date.now(),
         synced: false
       };
-
+      
       offlineQueue.addOfflineOrder(offlineOrder);
-      setPendingOfflineOrdersCount(prevCount => prevCount + 1);
-      console.log(`Order queued due to connection error: ${orderId}`);
-      return orderId;
-    }
-
-    const orderId = `${code}${String(nextNum).padStart(7, '0')}`;
-
-    const orderToInsert = {
-      id: orderId,
-      items: items,
-      total: total,
-      status: OrderStatus.COMPLETED,
-      timestamp: Date.now(),
-      customer_id: 'pos_user',
       restaurant_id: currentUser.restaurantId,
       table_number: tableNumber,
       location_name: res?.location || 'Unspecified',
