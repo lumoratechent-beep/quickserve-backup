@@ -428,11 +428,21 @@ const App: React.FC = () => {
   useEffect(() => {
     const initApp = async () => {
       await Promise.allSettled([fetchUsers(), fetchLocations(), fetchRestaurants(), fetchOrders()]);
+       // Initialize order tracker from DB to ensure offline orders use correct sequence
+       await initializeOrderNumberTracker();
       setLastSyncTime(new Date());
       setIsLoading(false);
     };
     initApp();
   }, [fetchUsers, fetchLocations, fetchRestaurants, fetchOrders]);
+  
+    // Initialize tracker when user logs in (for CASHIER/VENDOR roles)
+    useEffect(() => {
+      if (currentRole === 'CASHIER' || currentRole === 'VENDOR') {
+        console.log(`[TRACKER] User logged in/switched role to ${currentRole}, initializing tracker`);
+        initializeOrderNumberTracker();
+      }
+    }, [currentUser?.restaurantId, currentRole]);
 
   // Real-time Subscriptions
   useEffect(() => {
@@ -951,6 +961,40 @@ const App: React.FC = () => {
     return data.summary;
   };
 
+    /**
+     * Initialize order number tracker from database on app start
+     * Ensures offline orders continue sequence from last online order
+     */
+    const initializeOrderNumberTracker = async () => {
+      if (!currentUser?.restaurantId) return;
+      try {
+        const restaurantList = restaurants.filter(r => r.id === currentUser.restaurantId);
+        if (restaurantList.length === 0) return;
+        for (const restaurant of restaurantList) {
+          const area = locations.find(l => l.name === restaurant.location);
+          const code = area?.code || 'QS';
+          const { data: recentOrders, error } = await supabase.from('orders')
+            .select('id')
+            .eq('restaurant_id', currentUser.restaurantId)
+            .ilike('id', `${code}%`)
+            .order('id', { ascending: false })
+            .limit(50);
+          if (!error && recentOrders && recentOrders.length > 0) {
+            for (const order of recentOrders) {
+              const num = offlineQueue.extractOrderNumber(order.id, code);
+              if (num > 0) {
+                offlineQueue.updateOrderNumberTracker(code, num);
+                console.log(`[INIT] Tracker for ${code}: highest=${num}`);
+                break;
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to initialize tracker:', error);
+      }
+    };
+
   /**
    * Sync offline orders to Supabase when back online
    */
@@ -1063,6 +1107,8 @@ const App: React.FC = () => {
     const res = restaurants.find(r => r.id === currentUser.restaurantId);
     const area = locations.find(l => l.name === res?.location);
     const code = area?.code || 'QS';
+   
+     console.log(`[ORDER] Placing order - Restaurant: ${res?.name}, Location: ${res?.location}, Code: ${code}, Online: ${offlineQueue.isOnline()}`);
     
     // Calculate total
     const total = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
