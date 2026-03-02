@@ -1303,7 +1303,7 @@ const App: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
       <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-16 flex items-center justify-between px-8 shadow-sm">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('LANDING')}>
-          <img src="/LOGO/6.png" alt="QuickServe" className="w-14 h-14 rounded-xl" />
+          <img src="/LOGO/9.png" alt="QuickServe" className="w-14 h-14 rounded-xl" />
           <img src="/LOGO/8.png" alt="QuickServe" className="h-[4.5rem] dark:invert" />
         </div>
         <div className="flex items-center gap-4">
