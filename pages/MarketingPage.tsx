@@ -13,8 +13,8 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted }) => {
       <nav className="fixed top-0 w-full z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center text-white font-black text-xl">Q</div>
-            <span className="text-2xl font-black tracking-tighter dark:text-white">QuickServe</span>
+            <img src="/LOGO/6.png" alt="QuickServe" className="w-10 h-10 rounded-xl" />
+            <img src="/LOGO/8.png" alt="QuickServe" className="h-8 dark:invert" />
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
             <a href="#features" className="hover:text-orange-500 transition-colors">Features</a>
@@ -192,7 +192,8 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted }) => {
               <span className="font-bold">Email: hello@quickserve.my</span>
             </div>
           </div>
-          <p className="mt-12 text-[10px] font-black text-gray-400 uppercase tracking-[0.4em]">© 2026 QuickServe Malaysia. All Rights Reserved.</p>
+          <img src="/LOGO/7.png" alt="QuickServe" className="h-16 mx-auto mb-8 dark:invert" />
+          <p className="mt-12 text-[10px] font-black text-gray-400 uppercase tracking-[0.4em]">&copy; 2026 QuickServe Malaysia. All Rights Reserved.</p>
         </div>
       </footer>
     </div>
