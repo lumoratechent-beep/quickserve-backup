@@ -960,26 +960,80 @@ const App: React.FC = () => {
 
     console.log(`Syncing ${unsyncedOrders.length} offline orders...`);
 
+    // First, fetch the highest order number for each location code from the database
+    // This ensures we don't create duplicates
+    const locationCodes = new Set<string>();
+    for (const order of unsyncedOrders) {
+      const area = locations.find(l => l.name === order.location_name);
+      const code = area?.code || 'QS';
+      locationCodes.add(code);
+    }
+
+    // Update local tracker with actual DB values for each code
+    for (const code of locationCodes) {
+      try {
+        const { data: lastOrderData, error } = await supabase.from('orders')
+          .select('id')
+          .ilike('id', `${code}%`)
+          .order('id', { ascending: false })
+          .limit(1);
+
+        if (!error && lastOrderData && lastOrderData[0]) {
+          const lastIdFull = lastOrderData[0].id;
+          const lastNum = offlineQueue.extractOrderNumber(lastIdFull, code);
+          if (lastNum > 0) {
+            offlineQueue.updateOrderNumberTracker(code, lastNum);
+            console.log(`Updated tracker for ${code}: highest number is ${lastNum}`);
+          }
+        }
+      } catch (err) {
+        console.error(`Failed to fetch last order for ${code}:`, err);
+      }
+    }
+
+    // Now sync all orders, regenerating IDs if they conflict
     for (const offlineOrder of unsyncedOrders) {
       try {
-        const { error } = await supabase.from('orders').insert([{
-          id: offlineOrder.id,
-          items: offlineOrder.items,
-          total: offlineOrder.total,
-          status: offlineOrder.status,
-          timestamp: offlineOrder.timestamp,
-          customer_id: offlineOrder.customer_id,
-          restaurant_id: offlineOrder.restaurant_id,
-          table_number: offlineOrder.table_number,
-          location_name: offlineOrder.location_name,
-          remark: offlineOrder.remark
-        }]);
+        const area = locations.find(l => l.name === offlineOrder.location_name);
+        const code = area?.code || 'QS';
+        let orderId = offlineOrder.id;
+        let retries = 0;
+        const maxRetries = 5;
 
-        if (error) {
-          console.error(`Failed to sync order ${offlineOrder.id}:`, error.message);
-        } else {
-          console.log(`Successfully synced order ${offlineOrder.id}`);
-          offlineQueue.markOrderAsSynced(offlineOrder.id);
+        // Try to insert; if duplicate, regenerate ID and retry
+        while (retries < maxRetries) {
+          const { error } = await supabase.from('orders').insert([{
+            id: orderId,
+            items: offlineOrder.items,
+            total: offlineOrder.total,
+            status: offlineOrder.status,
+            timestamp: offlineOrder.timestamp,
+            customer_id: offlineOrder.customer_id,
+            restaurant_id: offlineOrder.restaurant_id,
+            table_number: offlineOrder.table_number,
+            location_name: offlineOrder.location_name,
+            remark: offlineOrder.remark
+          }]);
+
+          if (!error) {
+            console.log(`Successfully synced order ${orderId}`);
+            offlineQueue.markOrderAsSynced(offlineOrder.id);
+            break;
+          } else if (error.code === '23505') {
+            // Duplicate key error - generate new ID
+            retries++;
+            const nextNum = offlineQueue.getNextOrderNumber(code);
+            orderId = `${code}${String(nextNum).padStart(7, '0')}`;
+            offlineQueue.updateOrderNumberTracker(code, nextNum);
+            console.warn(`Duplicate order ID, regenerating to ${orderId} (attempt ${retries})`);
+          } else {
+            console.error(`Failed to sync order ${orderId}:`, error.message);
+            break;
+          }
+        }
+
+        if (retries >= maxRetries) {
+          console.error(`Failed to sync order ${offlineOrder.id} after ${maxRetries} retries`);
         }
       } catch (err) {
         console.error(`Error syncing order ${offlineOrder.id}:`, err);
@@ -1051,14 +1105,11 @@ const App: React.FC = () => {
         .limit(1);
 
       if (lastOrder && lastOrder[0]) {
-        const lastIdFull = lastOrder[0].id;
-        const basePart = lastIdFull.split('-')[0];
-        const numPart = basePart.substring(code.length);
-        const parsed = parseInt(numPart);
-        if (!isNaN(parsed)) nextNum = parsed + 1;
+        const lastNum = offlineQueue.extractOrderNumber(lastOrder[0].id, code);
+        if (lastNum > 0) nextNum = lastNum + 1;
       }
       
-      // Update local tracker with the latest number
+      // Update local tracker with the latest number from DB
       offlineQueue.updateOrderNumberTracker(code, nextNum);
     } catch (error) {
       console.error('Error fetching last order number:', error);
@@ -1125,6 +1176,10 @@ const App: React.FC = () => {
       offlineQueue.addOfflineOrder(offlineOrder);
       setPendingOfflineOrdersCount(prevCount => prevCount + 1);
       console.log(`Order queued due to insert error: ${orderId}`);
+    } else {
+      // Successfully inserted - update tracker to remember this number
+      offlineQueue.updateOrderNumberTracker(code, nextNum);
+      console.log(`Order ${orderId} successfully created online`);
     }
     
     // Return the order ID so it can be used for printing

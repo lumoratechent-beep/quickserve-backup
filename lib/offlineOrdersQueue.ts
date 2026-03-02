@@ -44,8 +44,11 @@ const getOrderNumberTracker = (): OrderNumberTracker => {
 export const updateOrderNumberTracker = (code: string, nextNum: number): void => {
   try {
     const tracker = getOrderNumberTracker();
-    tracker[code] = nextNum;
-    localStorage.setItem(ORDER_NUMBER_TRACKER_KEY, JSON.stringify(tracker));
+    // Only update if the new number is higher than what we have
+    if (nextNum > (tracker[code] || 0)) {
+      tracker[code] = nextNum;
+      localStorage.setItem(ORDER_NUMBER_TRACKER_KEY, JSON.stringify(tracker));
+    }
   } catch (error) {
     console.error('Failed to update order number tracker:', error);
   }
@@ -61,6 +64,21 @@ export const getNextOrderNumber = (code: string): number => {
   } catch (error) {
     console.error('Failed to get next order number:', error);
     return 1;
+  }
+};
+
+/**
+ * Extract order number from an order ID
+ * e.g., "QS0000042" returns 42
+ */
+export const extractOrderNumber = (orderId: string, code: string): number => {
+  try {
+    if (!orderId.startsWith(code)) return 0;
+    const numPart = orderId.substring(code.length);
+    return parseInt(numPart, 10);
+  } catch (error) {
+    console.error('Failed to extract order number:', error);
+    return 0;
   }
 };
 
