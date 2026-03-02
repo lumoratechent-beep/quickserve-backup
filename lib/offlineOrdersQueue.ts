@@ -69,15 +69,28 @@ export const getNextOrderNumber = (code: string): number => {
 
 /**
  * Extract order number from an order ID
- * e.g., "QS0000042" returns 42
+ * Handles both old format (e.g., "IOI90621796173") and new sequential format (e.g., "IOI0000042")
+ * e.g., "IOI0000042" returns 42, "IOI90621796173" returns 90621796173
  */
 export const extractOrderNumber = (orderId: string, code: string): number => {
   try {
-    if (!orderId.startsWith(code)) return 0;
+    if (!orderId || !code) {
+      console.warn(`Invalid input: orderId="${orderId}", code="${code}"`);
+      return 0;
+    }
+    if (!orderId.startsWith(code)) {
+      console.warn(`Order ID "${orderId}" doesn't start with code "${code}"`);
+      return 0;
+    }
     const numPart = orderId.substring(code.length);
-    return parseInt(numPart, 10);
+    const num = parseInt(numPart, 10);
+    if (isNaN(num)) {
+      console.warn(`Failed to parse order number from "${numPart}" (full ID: ${orderId})`);
+      return 0;
+    }
+    return num;
   } catch (error) {
-    console.error('Failed to extract order number:', error);
+    console.error('Failed to extract order number:', error, { orderId, code });
     return 0;
   }
 };

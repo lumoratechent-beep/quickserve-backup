@@ -960,34 +960,40 @@ const App: React.FC = () => {
 
     console.log(`Syncing ${unsyncedOrders.length} offline orders...`);
 
-    // First, fetch the highest order number for each location code from the database
+    // First, fetch the highest order number for each restaurant/code combination from the database
     // This ensures we don't create duplicates
-    const locationCodes = new Set<string>();
+    const restaurantCodes = new Map<string, Set<string>>(); // restaurant_id -> codes
     for (const order of unsyncedOrders) {
+      if (!restaurantCodes.has(order.restaurant_id)) {
+        restaurantCodes.set(order.restaurant_id, new Set());
+      }
       const area = locations.find(l => l.name === order.location_name);
       const code = area?.code || 'QS';
-      locationCodes.add(code);
+      restaurantCodes.get(order.restaurant_id)!.add(code);
     }
 
-    // Update local tracker with actual DB values for each code
-    for (const code of locationCodes) {
-      try {
-        const { data: lastOrderData, error } = await supabase.from('orders')
-          .select('id')
-          .ilike('id', `${code}%`)
-          .order('id', { ascending: false })
-          .limit(1);
+    // Update local tracker with actual DB values for each restaurant/code
+    for (const [restaurantId, codes] of restaurantCodes) {
+      for (const code of codes) {
+        try {
+          const { data: lastOrderData, error } = await supabase.from('orders')
+            .select('id')
+            .eq('restaurant_id', restaurantId)
+            .ilike('id', `${code}%`)
+            .order('id', { ascending: false })
+            .limit(1);
 
-        if (!error && lastOrderData && lastOrderData[0]) {
-          const lastIdFull = lastOrderData[0].id;
-          const lastNum = offlineQueue.extractOrderNumber(lastIdFull, code);
-          if (lastNum > 0) {
-            offlineQueue.updateOrderNumberTracker(code, lastNum);
-            console.log(`Updated tracker for ${code}: highest number is ${lastNum}`);
+          if (!error && lastOrderData && lastOrderData[0]) {
+            const lastIdFull = lastOrderData[0].id;
+            const lastNum = offlineQueue.extractOrderNumber(lastIdFull, code);
+            if (lastNum > 0) {
+              offlineQueue.updateOrderNumberTracker(code, lastNum);
+              console.log(`Updated tracker for ${code} (restaurant ${restaurantId}): highest number is ${lastNum} from ${lastIdFull}`);
+            }
           }
+        } catch (err) {
+          console.error(`Failed to fetch last order for ${code}:`, err);
         }
-      } catch (err) {
-        console.error(`Failed to fetch last order for ${code}:`, err);
       }
     }
 
@@ -1098,15 +1104,27 @@ const App: React.FC = () => {
     // User is online - proceed with normal flow
     let nextNum = 1;
     try {
-      const { data: lastOrder } = await supabase.from('orders')
+      // Query for the highest order for THIS restaurant starting with this code
+      const { data: lastOrder, error: queryError } = await supabase.from('orders')
         .select('id')
+        .eq('restaurant_id', currentUser.restaurantId)
         .ilike('id', `${code}%`)
         .order('id', { ascending: false })
         .limit(1);
 
-      if (lastOrder && lastOrder[0]) {
+      console.log(`Queried last order for restaurant ${currentUser.restaurantId}, code ${code}:`, lastOrder, queryError);
+
+      if (!queryError && lastOrder && lastOrder[0]) {
         const lastNum = offlineQueue.extractOrderNumber(lastOrder[0].id, code);
-        if (lastNum > 0) nextNum = lastNum + 1;
+        console.log(`Extracted order number from ${lastOrder[0].id}: ${lastNum}`);
+        if (lastNum > 0) {
+          nextNum = lastNum + 1;
+          console.log(`Setting nextNum to ${nextNum} (from DB)`);
+        } else {
+          console.warn(`Failed to extract order number from ${lastOrder[0].id}`);
+        }
+      } else {
+        console.warn(`No existing orders found for code ${code}`, queryError);
       }
       
       // Update local tracker with the latest number from DB
