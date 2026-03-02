@@ -73,9 +73,7 @@ const PosOnlyView: React.FC<Props> = ({
   onFetchPaginatedOrders,
   onFetchAllFilteredOrders,
   isOnline = true,
-  pendingOfflineOrdersCount = 0
-  onFetchPaginatedOrders,
-  onFetchAllFilteredOrders,
+  pendingOfflineOrdersCount = 0,
 }) => {
   const toLocalDateInputValue = (date: Date) => {
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
