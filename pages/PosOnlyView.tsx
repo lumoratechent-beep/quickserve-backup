@@ -206,13 +206,11 @@ const PosOnlyView: React.FC<Props> = ({
   // Reports State
   const [reportStart, setReportStart] = useState(() => {
     const now = new Date();
-    // Default to today's date
-    return toLocalDateInputValue(now);
+    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
   });
   const [reportEnd, setReportEnd] = useState(() => {
     const now = new Date();
-    // Default to today's date
-    return toLocalDateInputValue(now);
+    return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
   });
   const [reportStatus, setReportStatus] = useState<string>('ALL');
   const [reportSearchQuery, setReportSearchQuery] = useState('');

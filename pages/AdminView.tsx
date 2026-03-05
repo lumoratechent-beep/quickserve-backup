@@ -508,11 +508,13 @@ const AdminView: React.FC<Props> = ({
   const [reportVendor, setReportVendor] = useState<string>('ALL');
   const [reportHub, setReportHub] = useState<string>('ALL');
   const [reportStart, setReportStart] = useState<string>(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 30); 
-    return d.toISOString().split('T')[0];
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
   });
-  const [reportEnd, setReportEnd] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [reportEnd, setReportEnd] = useState<string>(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+  });
   const [entriesPerPage, setEntriesPerPage] = useState<number>(25);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [reportData, setReportData] = useState<ReportResponse | null>(null);

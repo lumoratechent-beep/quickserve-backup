@@ -9,6 +9,9 @@ export default {
   ],
   darkMode: 'class',
   theme: {
+    fontFamily: {
+      sans: ['Poppins', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+    },
     extend: {
       animation: {
         'slide-left': 'slideLeft 0.3s ease-out',
