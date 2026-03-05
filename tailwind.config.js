@@ -10,6 +10,13 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      colors: {
+        gray: {
+          50: '#eef0f3',
+          100: '#dfe2e6',
+          200: '#c8ccd3',
+        },
+      },
       animation: {
         'slide-left': 'slideLeft 0.3s ease-out',
       },
