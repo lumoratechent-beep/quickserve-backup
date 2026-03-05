@@ -16,7 +16,7 @@ import {
   X, Edit3, Archive, RotateCcw, Upload, Eye,
   AlertCircle, Users, UserPlus, Bluetooth, BluetoothConnected, PrinterIcon,
   Filter, Tag, Layers, Coffee, ChevronDown, RotateCw, Wifi, WifiOff,
-  Receipt, Network
+  Receipt, Network, Type
 } from 'lucide-react';
 
 interface Props {
@@ -133,7 +133,7 @@ interface TaxEntry {
   applyToItems: boolean;
 }
 
-type SettingsPanel = null | 'features' | 'printer' | 'receipt' | 'payment' | 'taxes' | 'staff';
+type SettingsPanel = null | 'features' | 'printer' | 'receipt' | 'payment' | 'taxes' | 'staff' | 'ux';
 
 const PosOnlyView: React.FC<Props> = ({ 
   restaurant, 
@@ -244,6 +244,10 @@ const PosOnlyView: React.FC<Props> = ({
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [newStaffPhone, setNewStaffPhone] = useState('');
   const [isAddingStaff, setIsAddingStaff] = useState(false);
+
+  // User Experience settings
+  const FONT_OPTIONS = ['Poppins', 'Inter', 'Roboto', 'Open Sans', 'Lato', 'Nunito', 'Montserrat', 'Raleway'];
+  const [userFont, setUserFont] = useState<string>(() => localStorage.getItem(`ux_font_${restaurant.id}`) || 'Poppins');
 
   // Settings panel navigation
   const [settingsPanel, setSettingsPanel] = useState<SettingsPanel>('features');
@@ -920,6 +924,24 @@ const PosOnlyView: React.FC<Props> = ({
   useEffect(() => {
     localStorage.setItem(`taxes_${restaurant.id}`, JSON.stringify(taxEntries));
   }, [taxEntries, restaurant.id]);
+
+  // User Experience: persist font choice and apply to page
+  useEffect(() => {
+    localStorage.setItem(`ux_font_${restaurant.id}`, userFont);
+    document.documentElement.style.fontFamily = `'${userFont}', ui-sans-serif, system-ui, sans-serif`;
+    // Dynamically load Google Font if not already loaded
+    const fontId = `google-font-${userFont.replace(/\s+/g, '-').toLowerCase()}`;
+    if (!document.getElementById(fontId)) {
+      const link = document.createElement('link');
+      link.id = fontId;
+      link.rel = 'stylesheet';
+      link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(userFont)}:wght@300;400;500;600;700&display=swap`;
+      document.head.appendChild(link);
+    }
+    return () => {
+      document.documentElement.style.fontFamily = '';
+    };
+  }, [userFont, restaurant.id]);
 
   useEffect(() => {
     if (!receiptSettingsSaved) return;
@@ -1714,6 +1736,23 @@ const PosOnlyView: React.FC<Props> = ({
       >
         <UserPlus size={14} /> Add Staff Member
       </button>
+    </div>
+  );
+
+  const renderUXContent = () => (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Font Family</label>
+        <select
+          value={userFont}
+          onChange={e => setUserFont(e.target.value)}
+          className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+          style={{ fontFamily: `'${userFont}', sans-serif` }}
+        >
+          {FONT_OPTIONS.map(f => <option key={f} value={f} style={{ fontFamily: `'${f}', sans-serif` }}>{f}</option>)}
+        </select>
+        <p className="text-[9px] text-gray-400 mt-1.5">This only applies to your screen</p>
+      </div>
     </div>
   );
 
@@ -2672,9 +2711,31 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                     )}
                   </div>
-                </div>
 
-                {/* ===== DESKTOP: Two-Panel Sidebar + Content ===== */}
+                  {/* User Experience Accordion */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                    <button
+                      onClick={() => setSettingsPanel(settingsPanel === 'ux' ? null : 'ux')}
+                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
+                        <Type size={18} className="text-indigo-500" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">User Experience</p>
+                        <p className="text-[10px] text-gray-400">{userFont}</p>
+                      </div>
+                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'ux' ? 'rotate-180' : ''}`} />
+                    </button>
+                    {settingsPanel === 'ux' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg">
+                          {renderUXContent()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
                 <div className="hidden lg:flex gap-6 min-h-[500px]">
                   {/* Left Sidebar */}
                   <div className="flex-1">
@@ -2822,10 +2883,31 @@ const PosOnlyView: React.FC<Props> = ({
                           <p className="text-[10px] text-gray-400">{staffList.length} member{staffList.length !== 1 ? 's' : ''}</p>
                         </div>
                       </button>
-                    </div>
-                  </div>
 
-                  {/* Right Content Panel */}
+                      {/* User Experience Nav Item */}
+                      <button
+                        onClick={() => setSettingsPanel('ux')}
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                          settingsPanel === 'ux'
+                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          settingsPanel === 'ux'
+                            ? 'bg-indigo-100 dark:bg-indigo-900/30'
+                            : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <Type size={16} className={settingsPanel === 'ux' ? 'text-indigo-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${
+                            settingsPanel === 'ux' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'
+                          }`}>User Experience</p>
+                          <p className="text-[10px] text-gray-400">{userFont}</p>
+                        </div>
+                      </button>
+                    </div>
                   <div className="w-[560px] shrink-0 min-h-0 overflow-y-auto">
                     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
                       <div className="max-w-lg">
@@ -2835,6 +2917,7 @@ const PosOnlyView: React.FC<Props> = ({
                         {settingsPanel === 'payment' && renderPaymentTypesContent()}
                         {settingsPanel === 'taxes' && renderTaxesContent()}
                         {settingsPanel === 'staff' && renderStaffContent()}
+                        {settingsPanel === 'ux' && renderUXContent()}
                       </div>
                     </div>
                   </div>
