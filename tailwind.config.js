@@ -9,7 +9,18 @@ export default {
   ],
   darkMode: 'class',
   theme: {
+    fontFamily: {
+      sans: ['Poppins', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+    },
     extend: {
+      fontWeight: {
+        bold: '500',
+        extrabold: '600',
+        black: '600',
+      },
+      letterSpacing: {
+        normal: '0.02em',
+      },
       colors: {
         gray: {
           50: '#eef0f3',
