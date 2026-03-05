@@ -2908,6 +2908,9 @@ const PosOnlyView: React.FC<Props> = ({
                         </div>
                       </button>
                     </div>
+                  </div>
+
+                  {/* Right Content Panel */}
                   <div className="w-[560px] shrink-0 min-h-0 overflow-y-auto">
                     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
                       <div className="max-w-lg">
