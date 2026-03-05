@@ -246,8 +246,8 @@ const PosOnlyView: React.FC<Props> = ({
   const [isAddingStaff, setIsAddingStaff] = useState(false);
 
   // User Experience settings
-  const FONT_OPTIONS = ['Poppins', 'Inter', 'Roboto', 'Open Sans', 'Lato', 'Nunito', 'Montserrat', 'Raleway'];
-  const [userFont, setUserFont] = useState<string>(() => localStorage.getItem(`ux_font_${restaurant.id}`) || 'Poppins');
+  const FONT_OPTIONS = ['Inter', 'Roboto', 'Poppins', 'Open Sans', 'Lato', 'Nunito', 'Montserrat', 'Raleway'];
+  const [userFont, setUserFont] = useState<string>(() => localStorage.getItem(`ux_font_${restaurant.id}`) || 'Inter');
 
   // Settings panel navigation
   const [settingsPanel, setSettingsPanel] = useState<SettingsPanel>('features');

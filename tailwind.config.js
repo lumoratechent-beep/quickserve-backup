@@ -10,7 +10,7 @@ export default {
   darkMode: 'class',
   theme: {
     fontFamily: {
-      sans: ['Poppins', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
     },
     extend: {
       fontWeight: {
