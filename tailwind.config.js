@@ -19,7 +19,10 @@ export default {
         black: '600',
       },
       letterSpacing: {
-        normal: '0.02em',
+        normal: '0.03em',
+        wide: '0.06em',
+        wider: '0.1em',
+        widest: '0.16em',
       },
       colors: {
         gray: {
