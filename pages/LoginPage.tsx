@@ -58,7 +58,7 @@ const LoginPage: React.FC<Props> = ({ onLogin, onBack }) => {
           <img
             src="/LOGO/icon-192x192.png"
             alt="QuickServe logo"
-            className="w-16 h-16 rounded-2xl object-contain mb-4"
+            className="w-24 h-24 rounded-2xl object-contain mb-4"
           />
           <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Staff Portal</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-2">Manage your restaurant operations</p>
