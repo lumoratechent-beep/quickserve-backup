@@ -55,7 +55,11 @@ const LoginPage: React.FC<Props> = ({ onLogin, onBack }) => {
 
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-10">
-          <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center text-white font-black text-3xl shadow-xl shadow-orange-100 dark:shadow-none mb-4">Q</div>
+          <img
+            src="/LOGO/icon-192x192.png"
+            alt="QuickServe logo"
+            className="w-16 h-16 rounded-2xl object-contain mb-4"
+          />
           <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Staff Portal</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-2">Manage your restaurant operations</p>
         </div>
