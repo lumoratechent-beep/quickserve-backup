@@ -19,6 +19,8 @@ export interface ReceiptPrintOptions {
   headerLine2?: string;
   footerLine1?: string;
   footerLine2?: string;
+  drawerCommands?: string;
+  autoOpenDrawer?: boolean;
 }
 
 interface PrintJob {
@@ -398,6 +400,11 @@ class PrinterService {
         const success = await this.executePrint(job.order, job.restaurant, job.options);
         
         if (success) {
+          // If auto open drawer is enabled, open the drawer after printing
+          if (job.options?.autoOpenDrawer) {
+            console.log('Auto-opening drawer...');
+            await this.openDrawer(job.options?.drawerCommands);
+          }
           job.resolve(true);
         } else {
           job.reject(new Error('Printer did not respond - check if device is powered on'));
@@ -774,6 +781,53 @@ class PrinterService {
 
   hasLastReceipt(): boolean {
     return !!this.lastPrintedOrder;
+  }
+
+  /**
+   * Open the cash drawer using either custom commands or default ESC/POS command
+   * @param drawerCommands Optional custom ESC/POS commands as hex string (e.g., "1B7030304278" for standard drawer)
+   */
+  async openDrawer(drawerCommands?: string): Promise<boolean> {
+    try {
+      if (!await this.ensureConnection()) {
+        throw new Error('Printer not connected');
+      }
+
+      if (!this.characteristic) {
+        throw new Error('No writable characteristic found');
+      }
+
+      // If custom commands provided, use them
+      if (drawerCommands && drawerCommands.trim()) {
+        try {
+          // Convert hex string to Uint8Array
+          const hex = drawerCommands.trim().replace(/\s/g, '');
+          const data = new Uint8Array(hex.length / 2);
+          for (let i = 0; i < hex.length; i += 2) {
+            data[i / 2] = parseInt(hex.substr(i, 2), 16);
+          }
+          await this.writeDataInChunks(data);
+          console.log('Drawer opened with custom commands');
+          return true;
+        } catch (error) {
+          console.error('Failed to parse custom drawer commands:', error);
+          // Fall through to default command
+        }
+      }
+
+      // Default ESC/POS drawer open command
+      // ESC p m t1 t2 (0x1B 0x70 0x00 0x30 0x78 or similar)
+      // Standard: 0x1B 0x70 = ESC p, followed by 0x00 (mode) and 0x30 0x78 (timing)
+      const defaultDrawerCommand = new Uint8Array([0x1B, 0x70, 0x00, 0x30, 0x78]);
+      await this.writeDataInChunks(defaultDrawerCommand);
+      
+      console.log('Drawer opened with default ESC/POS command');
+      return true;
+
+    } catch (error) {
+      console.error('Open drawer error:', error);
+      return false;
+    }
   }
 
   getConnectionStatus() {

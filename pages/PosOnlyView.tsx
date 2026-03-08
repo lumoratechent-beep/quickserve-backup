@@ -1256,18 +1256,25 @@ const PosOnlyView: React.FC<Props> = ({
     );
   };
 
-  const getReceiptPrintOptions = (): ReceiptPrintOptions => ({
-    showDateTime: receiptSettings.showDateTime,
-    showOrderId: receiptSettings.showOrderId,
-    showTableNumber: receiptSettings.showTableNumber,
-    showItems: receiptSettings.showItems,
-    showRemark: receiptSettings.showRemark,
-    showTotal: receiptSettings.showTotal,
-    headerLine1: receiptSettings.headerLine1,
-    headerLine2: receiptSettings.headerLine2,
-    footerLine1: receiptSettings.footerLine1,
-    footerLine2: receiptSettings.footerLine2,
-  });
+  const getReceiptPrintOptions = (): ReceiptPrintOptions => {
+    const printer = savedPrinters.length > 0 ? savedPrinters[0] : null;
+    const drawerCommands = printer?.advancedSettings?.drawerCommands || '';
+
+    return {
+      showDateTime: receiptSettings.showDateTime,
+      showOrderId: receiptSettings.showOrderId,
+      showTableNumber: receiptSettings.showTableNumber,
+      showItems: receiptSettings.showItems,
+      showRemark: receiptSettings.showRemark,
+      showTotal: receiptSettings.showTotal,
+      headerLine1: receiptSettings.headerLine1,
+      headerLine2: receiptSettings.headerLine2,
+      footerLine1: receiptSettings.footerLine1,
+      footerLine2: receiptSettings.footerLine2,
+      drawerCommands: drawerCommands,
+      autoOpenDrawer: featureSettings.autoOpenDrawer
+    };
+  };
 
   const handleDownloadReport = async () => {
     const allOrders = await fetchReport(true) as Order[];

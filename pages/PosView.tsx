@@ -354,7 +354,44 @@ const PosView: React.FC<Props> = ({
   const handleCheckout = async () => {
     if (posCart.length === 0) return;
     try {
-      await onPlaceOrder(posCart, posRemark, posTableNo); // Returns orderId but not used here
+      const orderId = await onPlaceOrder(posCart, posRemark, posTableNo); // Returns orderId
+      
+      // If autoPrintReceipt is enabled, print the receipt
+      if (featureSettings.autoPrintReceipt && connectedDevice) {
+        const order = {
+          id: orderId,
+          items: posCart,
+          tableNumber: posTableNo,
+          remark: posRemark,
+          total: posCart.reduce((acc, item) => acc + (item.price * item.quantity), 0),
+          timestamp: Date.now()
+        };
+
+        // Get the first saved printer's drawer commands
+        const printer = savedPrinters.length > 0 ? savedPrinters[0] : null;
+        const drawerCommands = printer?.advancedSettings?.drawerCommands || '';
+
+        try {
+          await printerService.printReceipt(order, restaurant, {
+            businessName: receiptSettings.businessName,
+            showDateTime: true,
+            showOrderId: true,
+            showTableNumber: true,
+            showItems: true,
+            showRemark: !!posRemark,
+            showTotal: true,
+            headerLine1: receiptSettings.headerLine1,
+            headerLine2: receiptSettings.headerLine2,
+            footerLine1: receiptSettings.footerLine1,
+            footerLine2: receiptSettings.footerLine2,
+            drawerCommands: drawerCommands,
+            autoOpenDrawer: featureSettings.autoOpenDrawer
+          });
+        } catch (printError) {
+          console.error('Failed to print receipt:', printError);
+        }
+      }
+
       setPosCart([]);
       setPosRemark('');
       setPosTableNo('Counter');
@@ -376,9 +413,45 @@ const PosView: React.FC<Props> = ({
     
     try {
       setIsCompletingPayment(true);
-      await onPlaceOrder(cartItems, selectedQrOrder.remark || '', selectedQrOrder.tableNumber || '');
+      const orderId = await onPlaceOrder(cartItems, selectedQrOrder.remark || '', selectedQrOrder.tableNumber || '');
       // Mark the original order as COMPLETED
       await onUpdateOrder(selectedQrOrder.id, OrderStatus.COMPLETED);
+
+      // If autoPrintReceipt is enabled, print the receipt
+      if (featureSettings.autoPrintReceipt && connectedDevice && orderId) {
+        const order = {
+          id: orderId,
+          items: cartItems,
+          tableNumber: selectedQrOrder.tableNumber,
+          remark: selectedQrOrder.remark || '',
+          total: selectedQrOrder.total,
+          timestamp: Date.now()
+        };
+
+        // Get the first saved printer's drawer commands
+        const printer = savedPrinters.length > 0 ? savedPrinters[0] : null;
+        const drawerCommands = printer?.advancedSettings?.drawerCommands || '';
+
+        try {
+          await printerService.printReceipt(order, restaurant, {
+            businessName: receiptSettings.businessName,
+            showDateTime: true,
+            showOrderId: true,
+            showTableNumber: true,
+            showItems: true,
+            showRemark: !!selectedQrOrder.remark,
+            showTotal: true,
+            headerLine1: receiptSettings.headerLine1,
+            headerLine2: receiptSettings.headerLine2,
+            footerLine1: receiptSettings.footerLine1,
+            footerLine2: receiptSettings.footerLine2,
+            drawerCommands: drawerCommands,
+            autoOpenDrawer: featureSettings.autoOpenDrawer
+          });
+        } catch (printError) {
+          console.error('Failed to print receipt:', printError);
+        }
+      }
 
       setShowPaymentSuccess(true);
 
