@@ -28,10 +28,82 @@ const MenuItemFormModal: React.FC<Props> = ({
   onSaveModifier,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [newModifierOptionName, setNewModifierOptionName] = useState('');
-  const [newModifierOptionPrice, setNewModifierOptionPrice] = useState<number>(0);
+  const [showNewModifierForm, setShowNewModifierForm] = useState(false);
+  const [newModName, setNewModName] = useState('');
+  const [newModOptions, setNewModOptions] = useState<{ name: string; price: number }[]>([]);
+  const [newOptionName, setNewOptionName] = useState('');
+  const [newOptionPrice, setNewOptionPrice] = useState<number>(0);
 
   if (!isOpen) return null;
+
+  const linkedModifiers = formItem.linkedModifiers || [];
+
+  const handleToggleModifier = (modName: string) => {
+    if (linkedModifiers.includes(modName)) {
+      setFormItem(prev => ({
+        ...prev,
+        linkedModifiers: (prev.linkedModifiers || []).filter(n => n !== modName),
+      }));
+    } else {
+      if (linkedModifiers.length >= 4) {
+        alert('Maximum 4 modifiers per item.');
+        return;
+      }
+      setFormItem(prev => ({
+        ...prev,
+        linkedModifiers: [...(prev.linkedModifiers || []), modName],
+      }));
+    }
+  };
+
+  const handleRemoveLinkedModifier = (modName: string) => {
+    setFormItem(prev => ({
+      ...prev,
+      linkedModifiers: (prev.linkedModifiers || []).filter(n => n !== modName),
+    }));
+  };
+
+  const handleOpenNewModifierForm = () => {
+    setShowNewModifierForm(true);
+    setNewModName('');
+    setNewModOptions([]);
+    setNewOptionName('');
+    setNewOptionPrice(0);
+  };
+
+  const handleAddNewModOption = () => {
+    const name = newOptionName.trim();
+    if (!name) return;
+    setNewModOptions(prev => [...prev, { name, price: newOptionPrice || 0 }]);
+    setNewOptionName('');
+    setNewOptionPrice(0);
+  };
+
+  const handleSaveNewModifier = () => {
+    const name = newModName.trim();
+    if (!name) {
+      alert('Please enter a modifier name.');
+      return;
+    }
+    if (availableModifiers.some(m => m.name === name)) {
+      alert('A modifier with this name already exists.');
+      return;
+    }
+    const validOptions = newModOptions.filter(o => o.name.trim() !== '');
+    if (onSaveModifier) {
+      onSaveModifier({ name, options: validOptions, required: false });
+    }
+    // Auto-link the newly created modifier if under limit
+    if (linkedModifiers.length < 4) {
+      setFormItem(prev => ({
+        ...prev,
+        linkedModifiers: [...(prev.linkedModifiers || []), name],
+      }));
+    }
+    setShowNewModifierForm(false);
+    setNewModName('');
+    setNewModOptions([]);
+  };
 
   const handleAddSize = () => {
     setFormItem(prev => ({
@@ -55,68 +127,6 @@ const MenuItemFormModal: React.FC<Props> = ({
     });
   };
 
-  const handleStartNewModifierType = () => {
-    setFormItem(prev => ({
-      ...prev,
-      otherVariantName: '',
-      otherVariants: [],
-      otherVariantsEnabled: true,
-    }));
-  };
-
-  const handleSaveAsModifier = () => {
-    const name = formItem.otherVariantName?.trim();
-    if (!name) return;
-    const options = (formItem.otherVariants || []).filter(o => o.name.trim() !== '');
-    if (onSaveModifier) {
-      onSaveModifier({ name, options, required: false });
-    }
-  };
-
-  const isNewUnsavedModifier = formItem.otherVariantsEnabled
-    && formItem.otherVariantName?.trim()
-    && !availableModifiers.some(m => m.name === formItem.otherVariantName?.trim());
-
-  const handleUnselectModifier = () => {
-    setFormItem(prev => ({
-      ...prev,
-      otherVariantName: '',
-      otherVariants: [],
-      otherVariantsEnabled: false,
-    }));
-    setNewModifierOptionName('');
-    setNewModifierOptionPrice(0);
-  };
-
-  const handleAppendModifierOption = () => {
-    const optionName = newModifierOptionName.trim();
-    if (!optionName) return;
-
-    setFormItem(prev => ({
-      ...prev,
-      otherVariantsEnabled: true,
-      otherVariants: [...(prev.otherVariants || []), { name: optionName, price: newModifierOptionPrice || 0 }],
-    }));
-
-    setNewModifierOptionName('');
-    setNewModifierOptionPrice(0);
-  };
-
-  const handleRemoveOtherVariant = (index: number) => {
-    setFormItem(prev => ({
-      ...prev,
-      otherVariants: prev.otherVariants?.filter((_, i) => i !== index),
-    }));
-  };
-
-  const handleOtherVariantChange = (index: number, field: 'name' | 'price', value: string | number) => {
-    setFormItem(prev => {
-      const updated = [...(prev.otherVariants || [])];
-      updated[index] = { ...updated[index], [field]: value };
-      return { ...prev, otherVariants: updated };
-    });
-  };
-
   const handleAddAddOn = () => {
     setFormItem(prev => ({
       ...prev,
@@ -137,17 +147,6 @@ const MenuItemFormModal: React.FC<Props> = ({
       updated[index] = { ...updated[index], [field]: value };
       return { ...prev, addOns: updated };
     });
-  };
-
-  const handleSelectSavedModifier = (modifierName: string) => {
-    const modifier = availableModifiers.find(m => m.name === modifierName);
-    if (!modifier) return;
-    setFormItem(prev => ({
-      ...prev,
-      otherVariantName: modifier.name,
-      otherVariants: modifier.options.map(opt => ({ name: opt.name, price: opt.price })),
-      otherVariantsEnabled: true,
-    }));
   };
 
   return (
@@ -297,138 +296,130 @@ const MenuItemFormModal: React.FC<Props> = ({
           <div className="border-t dark:border-gray-700 pt-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-black dark:text-white">Modifier</h3>
-              <button type="button" onClick={handleStartNewModifierType} title="Start a new modifier type" className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+              <button type="button" onClick={handleOpenNewModifierForm} title="Create a new modifier" className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
                 <Plus size={16} />
               </button>
             </div>
 
             {availableModifiers.length > 0 && (
               <div className="mb-4">
-                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Select from saved modifiers</label>
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">
+                  Select modifiers (max 4) — {linkedModifiers.length}/4 active
+                </label>
                 <div className="flex flex-wrap gap-2">
-                  {availableModifiers.map(mod => (
-                    <button
-                      key={mod.name}
-                      type="button"
-                      onClick={() => handleSelectSavedModifier(mod.name)}
-                      className={`px-3 py-1.5 rounded-lg text-[9px] font-black tracking-wide transition-all border flex items-center gap-1 ${
-                        formItem.otherVariantName === mod.name
-                          ? 'bg-orange-500 text-white border-orange-500'
-                          : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-orange-300'
-                      }`}
-                    >
-                      <span>{mod.name} ({mod.options.length})</span>
-                      {formItem.otherVariantName === mod.name && (
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleUnselectModifier();
-                          }}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault();
+                  {availableModifiers.map(mod => {
+                    const isActive = linkedModifiers.includes(mod.name);
+                    return (
+                      <button
+                        key={mod.name}
+                        type="button"
+                        onClick={() => handleToggleModifier(mod.name)}
+                        className={`px-3 py-1.5 rounded-lg text-[9px] font-black tracking-wide transition-all border flex items-center gap-1 ${
+                          isActive
+                            ? 'bg-orange-500 text-white border-orange-500'
+                            : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-orange-300'
+                        }`}
+                      >
+                        <span>{mod.name} ({mod.options.length})</span>
+                        {isActive && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(event) => {
                               event.stopPropagation();
-                              handleUnselectModifier();
-                            }
-                          }}
-                          className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white/20 hover:bg-white/30"
-                          aria-label={`Unselect ${mod.name}`}
-                        >
-                          <X size={10} />
-                        </span>
-                      )}
-                    </button>
-                  ))}
+                              handleRemoveLinkedModifier(mod.name);
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                handleRemoveLinkedModifier(mod.name);
+                              }
+                            }}
+                            className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white/20 hover:bg-white/30"
+                            aria-label={`Unselect ${mod.name}`}
+                          >
+                            <X size={10} />
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
-            {(formItem.otherVariantsEnabled || (formItem.otherVariants && formItem.otherVariants.length > 0)) ? (
-              <div className="space-y-4">
+            {availableModifiers.length === 0 && !showNewModifierForm && (
+              <div className="text-center py-6 bg-gray-50 dark:bg-gray-700/30 rounded-lg border-2 border-dashed border-gray-200">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">No modifiers</p>
+                <p className="text-[8px] text-gray-400 mt-1">Click + to create a new modifier</p>
+              </div>
+            )}
+
+            {showNewModifierForm && (
+              <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">New Modifier</span>
+                  <button type="button" onClick={() => setShowNewModifierForm(false)} className="p-1 text-gray-400 hover:text-red-500">
+                    <X size={14} />
+                  </button>
+                </div>
                 <div>
                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Modifier Name</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
-                      value={formItem.otherVariantName}
-                      onChange={e => setFormItem(prev => ({ ...prev, otherVariantName: e.target.value, otherVariantsEnabled: true }))}
-                      placeholder="e.g. Sugar Level"
-                      autoFocus={formItem.otherVariantsEnabled && (!formItem.otherVariants || formItem.otherVariants.length === 0)}
-                    />
-                    {isNewUnsavedModifier && onSaveModifier && (
-                      <button
-                        type="button"
-                        onClick={handleSaveAsModifier}
-                        title="Save modifier to restaurant"
-                        className="px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1 transition-colors"
-                      >
-                        <Save size={14} /> Save
-                      </button>
-                    )}
-                  </div>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
+                    value={newModName}
+                    onChange={e => setNewModName(e.target.value)}
+                    placeholder="e.g. Sugar Level"
+                    autoFocus
+                  />
                 </div>
-
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{formItem.otherVariants?.length || 0} Options</span>
-                  </div>
-                  {(formItem.otherVariants || []).map((variant, idx) => (
-                    <div key={idx} className="flex gap-2 items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                      <input
-                        type="text"
-                        className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
-                        placeholder="Option name"
-                        value={variant.name}
-                        onChange={e => handleOtherVariantChange(idx, 'name', e.target.value)}
-                      />
-                      <input
-                        type="number"
-                        step="0.01"
-                        className="w-24 px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
-                        placeholder="+Price"
-                        value={variant.price === 0 ? '' : variant.price}
-                        onChange={e => handleOtherVariantChange(idx, 'price', e.target.value === '' ? 0 : Number(e.target.value))}
-                      />
-                      <button type="button" onClick={() => handleRemoveOtherVariant(idx)} className="p-2 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">
-                        <Trash2 size={16} />
+                  <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{newModOptions.length} Options</span>
+                  {newModOptions.map((opt, idx) => (
+                    <div key={idx} className="flex gap-2 items-center p-2 bg-white dark:bg-gray-800 rounded-lg">
+                      <span className="flex-1 text-xs font-bold dark:text-white">{opt.name}</span>
+                      <span className="text-xs text-gray-400">{opt.price > 0 ? `+RM${opt.price}` : 'Free'}</span>
+                      <button type="button" onClick={() => setNewModOptions(prev => prev.filter((_, i) => i !== idx))} className="p-1 text-red-400">
+                        <Trash2 size={12} />
                       </button>
                     </div>
                   ))}
-
-                  <div className="flex gap-2 items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-dashed border-gray-200 dark:border-gray-600">
+                  <div className="flex gap-2 items-center">
                     <input
                       type="text"
                       className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
-                      placeholder="New option"
-                      value={newModifierOptionName}
-                      onChange={e => setNewModifierOptionName(e.target.value)}
+                      placeholder="Option name"
+                      value={newOptionName}
+                      onChange={e => setNewOptionName(e.target.value)}
                     />
                     <input
                       type="number"
                       step="0.01"
                       className="w-24 px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
                       placeholder="+Price"
-                      value={newModifierOptionPrice === 0 ? '' : newModifierOptionPrice}
-                      onChange={e => setNewModifierOptionPrice(e.target.value === '' ? 0 : Number(e.target.value))}
+                      value={newOptionPrice === 0 ? '' : newOptionPrice}
+                      onChange={e => setNewOptionPrice(e.target.value === '' ? 0 : Number(e.target.value))}
                     />
                     <button
                       type="button"
-                      onClick={handleAppendModifierOption}
-                      disabled={!newModifierOptionName.trim()}
+                      onClick={handleAddNewModOption}
+                      disabled={!newOptionName.trim()}
                       className="px-3 py-2 rounded-lg text-[9px] font-black bg-orange-500 text-white disabled:opacity-40"
                     >
                       Add
                     </button>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="text-center py-6 bg-gray-50 dark:bg-gray-700/30 rounded-lg border-2 border-dashed border-gray-200">
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">0 Options</p>
-                <p className="text-[8px] text-gray-400 mt-1">Select a saved modifier or click + to start a new modifier type</p>
+                <button
+                  type="button"
+                  onClick={handleSaveNewModifier}
+                  disabled={!newModName.trim()}
+                  className="w-full py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1 transition-colors disabled:opacity-40"
+                >
+                  <Save size={14} /> Save Modifier
+                </button>
               </div>
             )}
           </div>

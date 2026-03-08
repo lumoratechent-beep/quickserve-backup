@@ -43,6 +43,7 @@ export interface MenuItem {
     enabled: boolean;
   };
   addOns?: AddOnItem[];
+  linkedModifiers?: string[];
 }
 
 export interface Area {
@@ -85,6 +86,7 @@ export interface CartItem extends MenuItem {
   selectedSize?: string;
   selectedTemp?: 'Hot' | 'Cold';
   selectedOtherVariant?: string;
+  selectedModifiers?: Record<string, string>;
   selectedAddOns?: SelectedAddOn[];
   tableNumber?: string;
   remark?: string;

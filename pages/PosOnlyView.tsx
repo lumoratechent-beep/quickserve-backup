@@ -183,6 +183,7 @@ const PosOnlyView: React.FC<Props> = ({
     otherVariantName: '',
     otherVariants: [],
     otherVariantsEnabled: false,
+    linkedModifiers: [],
     tempOptions: { enabled: false, hot: 0, cold: 0 },
     addOns: [],
   });
@@ -344,6 +345,7 @@ const PosOnlyView: React.FC<Props> = ({
       otherVariantName: '',
       otherVariants: [],
       otherVariantsEnabled: false,
+      linkedModifiers: [],
       tempOptions: { enabled: false, hot: 0, cold: 0 },
       addOns: [],
     });
@@ -352,6 +354,10 @@ const PosOnlyView: React.FC<Props> = ({
 
   const handleOpenEditModal = (item: MenuItem) => {
     setEditingItem(item);
+    // Backward compat: if linkedModifiers is empty but otherVariantName exists, seed from old field
+    const linked = item.linkedModifiers && item.linkedModifiers.length > 0
+      ? [...item.linkedModifiers]
+      : (item.otherVariantsEnabled && item.otherVariantName ? [item.otherVariantName] : []);
     setFormItem({
       ...item,
       sizes: item.sizes ? [...item.sizes] : [],
@@ -359,6 +365,7 @@ const PosOnlyView: React.FC<Props> = ({
       otherVariantName: item.otherVariantName || '',
       otherVariants: item.otherVariants ? [...item.otherVariants] : [],
       otherVariantsEnabled: !!item.otherVariantsEnabled,
+      linkedModifiers: linked,
       tempOptions: item.tempOptions ? { ...item.tempOptions } : { enabled: false, hot: 0, cold: 0 },
       addOns: item.addOns ? [...item.addOns] : [],
     });
@@ -380,6 +387,7 @@ const PosOnlyView: React.FC<Props> = ({
       otherVariantName: '',
       otherVariants: [],
       otherVariantsEnabled: false,
+      linkedModifiers: [],
       tempOptions: { enabled: false, hot: 0, cold: 0 },
       addOns: [],
     });
@@ -413,6 +421,7 @@ const PosOnlyView: React.FC<Props> = ({
       return;
     }
 
+    const linked = formItem.linkedModifiers || [];
     const payload: MenuItem = {
       id: editingItem?.id || crypto.randomUUID(),
       name: formItem.name.trim(),
@@ -423,9 +432,11 @@ const PosOnlyView: React.FC<Props> = ({
       isArchived: editingItem?.isArchived || false,
       sizes: formItem.sizesEnabled ? formItem.sizes : [],
       tempOptions: formItem.tempOptions?.enabled ? formItem.tempOptions : undefined,
-      otherVariantName: formItem.otherVariantName,
-      otherVariants: formItem.otherVariants,
-      otherVariantsEnabled: formItem.otherVariantsEnabled,
+      // Backward compat: set first linked modifier as otherVariantName
+      otherVariantName: linked[0] || '',
+      otherVariants: [],
+      otherVariantsEnabled: linked.length > 0,
+      linkedModifiers: linked,
       addOns: formItem.addOns || [],
     };
 
@@ -524,6 +535,7 @@ const PosOnlyView: React.FC<Props> = ({
       first.selectedSize === second.selectedSize &&
       first.selectedTemp === second.selectedTemp &&
       first.selectedOtherVariant === second.selectedOtherVariant &&
+      JSON.stringify(first.selectedModifiers || {}) === JSON.stringify(second.selectedModifiers || {}) &&
       firstAddOns === secondAddOns
     );
   };
@@ -558,6 +570,7 @@ const PosOnlyView: React.FC<Props> = ({
     const hasOptions =
       (sanitizedItem.sizes && sanitizedItem.sizes.length > 0) ||
       (sanitizedItem.tempOptions && sanitizedItem.tempOptions.enabled) ||
+      (sanitizedItem.linkedModifiers && sanitizedItem.linkedModifiers.length > 0) ||
       (sanitizedItem.otherVariantsEnabled && sanitizedItem.otherVariants && sanitizedItem.otherVariants.length > 0) ||
       (sanitizedItem.addOns && sanitizedItem.addOns.length > 0);
 
@@ -3259,7 +3272,10 @@ const PosOnlyView: React.FC<Props> = ({
                         <div className="mt-1 space-y-0.5">
                           {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
                           {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Temperature: {item.selectedTemp}</p>}
-                          {item.selectedOtherVariant && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.otherVariantName ? item.otherVariantName.charAt(0).toUpperCase() + item.otherVariantName.slice(1) : 'Option'}: {item.selectedOtherVariant}</p>}
+                          {item.selectedOtherVariant && !item.selectedModifiers && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.otherVariantName ? item.otherVariantName.charAt(0).toUpperCase() + item.otherVariantName.slice(1) : 'Option'}: {item.selectedOtherVariant}</p>}
+                          {item.selectedModifiers && Object.entries(item.selectedModifiers).map(([modName, optName]) => (
+                            optName && <p key={modName} className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {modName.charAt(0).toUpperCase() + modName.slice(1)}: {optName}</p>
+                          ))}
                           {item.selectedAddOns && item.selectedAddOns.length > 0 && (
                             <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">
                               • Add-ons: {item.selectedAddOns.map(addon => `${addon.name} x${addon.quantity}`).join(', ')}
@@ -3377,7 +3393,10 @@ const PosOnlyView: React.FC<Props> = ({
                         <p className="text-xs font-bold dark:text-white">{item.quantity}x {item.name}</p>
                         {item.selectedSize && <p className="text-[9px] text-gray-400 ml-3">-Size: {item.selectedSize}</p>}
                         {item.selectedTemp && <p className="text-[9px] text-gray-400 ml-3">-Temperature: {item.selectedTemp}</p>}
-                        {item.selectedOtherVariant && <p className="text-[9px] text-gray-400 ml-3">-{item.otherVariantName ? item.otherVariantName.charAt(0).toUpperCase() + item.otherVariantName.slice(1) : 'Option'}: {item.selectedOtherVariant}</p>}
+                        {item.selectedOtherVariant && !item.selectedModifiers && <p className="text-[9px] text-gray-400 ml-3">-{item.otherVariantName ? item.otherVariantName.charAt(0).toUpperCase() + item.otherVariantName.slice(1) : 'Option'}: {item.selectedOtherVariant}</p>}
+                        {item.selectedModifiers && Object.entries(item.selectedModifiers).map(([modName, optName]) => (
+                          optName && <p key={modName} className="text-[9px] text-gray-400 ml-3">-{modName.charAt(0).toUpperCase() + modName.slice(1)}: {optName}</p>
+                        ))}
                         {item.selectedAddOns?.map((addon, aIdx) => (
                           <p key={aIdx} className="text-[9px] text-gray-400 ml-3">-{addon.name}{addon.quantity > 1 ? ` x${addon.quantity}` : ''}</p>
                         ))}

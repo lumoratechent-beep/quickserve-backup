@@ -27,31 +27,29 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
   const addOnList = Array.isArray(item.addOns) ? item.addOns : [];
   const hasTempOptions = item.tempOptions && item.tempOptions.enabled;
 
-  // Normalize modifier names so we can avoid duplicate groups (legacy variant + modifier)
-  const normalizedVariantName = (item.otherVariantName || '').trim().toLowerCase();
-  const dedupedModifiers = useMemo(() => {
-    const seen = new Set<string>();
-    return modifiers.filter((modifier) => {
-      const key = modifier.name.trim().toLowerCase();
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }, [modifiers]);
-
-  const linkedModifier = useMemo(() => {
-    if (!item.otherVariantsEnabled || !normalizedVariantName) return null;
-    return dedupedModifiers.find(modifier => modifier.name.trim().toLowerCase() === normalizedVariantName) || null;
-  }, [item.otherVariantsEnabled, normalizedVariantName, dedupedModifiers]);
-
+  // Build active modifiers from linkedModifiers (new) or fall back to legacy otherVariantName (old)
   const activeModifiers = useMemo(() => {
-    if (!linkedModifier) return [];
-    // Prefer menu-linked options so cashier sees exactly what was configured on this item.
-    const options = variants.length > 0 ? variants : linkedModifier.options;
-    return [{ ...linkedModifier, options }];
-  }, [linkedModifier, variants]);
+    const linked = item.linkedModifiers || [];
+    if (linked.length > 0) {
+      // New multi-modifier: look up each linked name in restaurant-level modifiers
+      return linked
+        .map(name => modifiers.find(m => m.name === name))
+        .filter((m): m is ModifierData => !!m);
+    }
+    // Legacy fallback: single modifier via otherVariantName
+    if (item.otherVariantsEnabled && item.otherVariantName) {
+      const normalizedName = item.otherVariantName.trim().toLowerCase();
+      const found = modifiers.find(m => m.name.trim().toLowerCase() === normalizedName);
+      if (found) {
+        const options = variants.length > 0 ? variants : found.options;
+        return [{ ...found, options }];
+      }
+    }
+    return [];
+  }, [item.linkedModifiers, item.otherVariantsEnabled, item.otherVariantName, modifiers, variants]);
 
-  const shouldShowLegacyVariant = item.otherVariantsEnabled && variants.length > 0 && !linkedModifier;
+  // Show legacy variant UI only if no linked modifier matches and item has inline variants
+  const shouldShowLegacyVariant = item.otherVariantsEnabled && variants.length > 0 && activeModifiers.length === 0;
 
   const handleAddOnChange = (name: string, qty: number) => {
     if (qty <= 0) {
@@ -72,7 +70,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
       if (s) total += s.price;
     }
 
-    // Add variant price
+    // Add legacy variant price
     if (variant) {
       const v = variants.find(x => x.name === variant);
       if (v) total += v.price;
@@ -126,7 +124,8 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
       return { name, price: addon?.price || 0, quantity: qty };
     });
 
-    const selectedVariantFromModifier = linkedModifier ? selectedModifiers[linkedModifier.name] || '' : '';
+    // Build selectedOtherVariant for backward compat (first modifier's selection)
+    const firstModSelection = activeModifiers.length > 0 ? (selectedModifiers[activeModifiers[0].name] || '') : '';
 
     const cartItem: CartItem = {
       id: item.id,
@@ -140,13 +139,15 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
       otherVariantName: item.otherVariantName,
       otherVariants: variants || [],
       otherVariantsEnabled: item.otherVariantsEnabled,
+      linkedModifiers: item.linkedModifiers,
       tempOptions: item.tempOptions,
       addOns: addOnList || [],
       quantity: 1,
       restaurantId,
       selectedSize: size,
       selectedTemp: (temp as 'Hot' | 'Cold' | undefined),
-      selectedOtherVariant: variant || selectedVariantFromModifier,
+      selectedOtherVariant: variant || firstModSelection,
+      selectedModifiers: Object.keys(selectedModifiers).length > 0 ? selectedModifiers : undefined,
       selectedAddOns,
     };
 
@@ -209,7 +210,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
               </div>
             )}
 
-            {/* Variants */}
+            {/* Legacy Variants */}
             {shouldShowLegacyVariant && (
               <div>
                 <p className="font-bold text-sm mb-1">{item.otherVariantName || 'Options'}</p>

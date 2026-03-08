@@ -274,6 +274,7 @@ const App: React.FC = () => {
             otherVariantName: others.name || '',
             otherVariants: others.options || [],
             otherVariantsEnabled: others.enabled ?? false,
+            linkedModifiers: others.linkedModifiers || (others.enabled && others.name ? [others.name] : []),
             addOns: addOns
           };
         })
@@ -747,7 +748,8 @@ const App: React.FC = () => {
       other_variants: {
         name: item.otherVariantName,
         options: item.otherVariants,
-        enabled: item.otherVariantsEnabled
+        enabled: item.otherVariantsEnabled,
+        linkedModifiers: item.linkedModifiers || []
       },
       add_ons: item.addOns || []
     }).eq('id', item.id);
@@ -775,7 +777,8 @@ const App: React.FC = () => {
       other_variants: {
         name: item.otherVariantName,
         options: item.otherVariants,
-        enabled: item.otherVariantsEnabled
+        enabled: item.otherVariantsEnabled,
+        linkedModifiers: item.linkedModifiers || []
       },
       add_ons: item.addOns || []
     });
