@@ -625,7 +625,7 @@ const PosOnlyView: React.FC<Props> = ({
       total: cartTotal,
     });
     
-    setSelectedCashAmount(null);
+    setSelectedCashAmount(cartTotal);
     setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
     setShowPaymentModal(true);
   };
@@ -3539,7 +3539,7 @@ const PosOnlyView: React.FC<Props> = ({
       {/* Payment Modal */}
       {showPaymentModal && pendingOrderData && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => !isCompletingPayment && !showPaymentResult && setShowPaymentModal(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-4xl h-[600px] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-4xl h-[800px] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
             
             {/* Payment Input View */}
             <div className={`absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out ${showPaymentResult ? '-translate-x-full' : 'translate-x-0'}`}>
@@ -3556,7 +3556,7 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
 
               {/* Content */}
-              <div className="flex-1 overflow-y-auto p-8 space-y-8">
+              <div className="flex-1 p-8 space-y-8">
                 {/* Total Amount Due - Centered */}
                 <div className="text-center space-y-3">
                   <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
