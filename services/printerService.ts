@@ -494,13 +494,13 @@ class PrinterService {
         receipt = receipt.line(`#${safeOrderId}`);
       }
 
-      // Space + Table No (left) - BOLD
+      // Space + Table No (left) - EMPHASIZED
       if (showTableNumber && order.tableNumber) {
         receipt = receipt
           .line('')
-          .bold()
+          .size(1, 2)
           .line(`Table: ${safeTableNumber}`)
-          .bold(false);
+          .size(1, 1);
       }
 
       // Full single separator
