@@ -314,6 +314,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [selectedCashAmount, setSelectedCashAmount] = useState<number | null>(null);
   const [selectedPaymentType, setSelectedPaymentType] = useState<string>('');
   const [pendingOrderData, setPendingOrderData] = useState<any>(null);
+  const [showPaymentResult, setShowPaymentResult] = useState(false);
 
   const CASH_DENOMINATIONS = [10, 20, 50, 100];
 
@@ -658,17 +659,24 @@ const PosOnlyView: React.FC<Props> = ({
       remark: pendingOrderData.remark,
     };
 
-    setPosCart([]);
-    setPosRemark('');
-    setPosTableNo('Counter');
-    setShowPaymentModal(false);
-    setPendingOrderData(null);
-    setShowPaymentSuccess(true);
+    // Show payment result with slide animation
+    setShowPaymentResult(true);
+    setIsCompletingPayment(false);
 
+    // Auto-close after 3 seconds
     setTimeout(() => {
-      setShowPaymentSuccess(false);
-      setIsCompletingPayment(false);
-    }, 1800);
+      setShowPaymentResult(false);
+      setShowPaymentModal(false);
+      setPosCart([]);
+      setPosRemark('');
+      setPosTableNo('Counter');
+      setPendingOrderData(null);
+      setShowPaymentSuccess(true);
+      
+      setTimeout(() => {
+        setShowPaymentSuccess(false);
+      }, 1800);
+    }, 3000);
 
     if (featureSettings.autoPrintReceipt) {
       if (connectedDevice) {
@@ -3530,106 +3538,153 @@ const PosOnlyView: React.FC<Props> = ({
 
       {/* Payment Modal */}
       {showPaymentModal && pendingOrderData && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => !isCompletingPayment && setShowPaymentModal(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
-            {/* Header */}
-            <div className="px-8 py-4 border-b dark:border-gray-700 flex items-center justify-between flex-shrink-0">
-              <h3 className="font-black dark:text-white uppercase tracking-tighter text-2xl">Payment</h3>
-              <button 
-                onClick={() => setShowPaymentModal(false)} 
-                disabled={isCompletingPayment}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all disabled:opacity-50"
-              >
-                <X size={28} className="text-gray-400" />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-8 space-y-6">
-              {/* Total Amount Due - Centered */}
-              <div className="text-center space-y-2">
-                <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
-                <div className="text-6xl font-black text-orange-500 tracking-tighter">
-                  RM{pendingOrderData.total.toFixed(2)}
-                </div>
-              </div>
-
-              {/* Amount Received - Plain Input */}
-              <div className="space-y-2">
-                <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Amount Received</label>
-                <input 
-                  type="number" 
-                  value={selectedCashAmount ?? ''} 
-                  onChange={(e) => setSelectedCashAmount(e.target.value ? parseFloat(e.target.value) : null)}
-                  placeholder="Enter amount..."
-                  className="w-full p-3 bg-transparent border-b-2 dark:border-gray-600 border-gray-300 text-2xl font-black dark:text-white text-center focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
-                />
-              </div>
-
-              {/* Cash Denomination Boxes */}
-              <div className="space-y-2">
-                <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Quick Select</label>
-                <div className="grid grid-cols-4 gap-3">
-                  {CASH_DENOMINATIONS.map((amount) => (
-                    <button
-                      key={amount}
-                      onClick={() => setSelectedCashAmount(amount)}
-                      className={`p-3 rounded-xl font-black text-lg uppercase tracking-widest transition-all border-2 ${
-                        selectedCashAmount === amount
-                          ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
-                      }`}
-                    >
-                      RM {amount}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Payment Method */}
-              <div className="space-y-2">
-                <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
-                <select 
-                  value={selectedPaymentType} 
-                  onChange={(e) => setSelectedPaymentType(e.target.value)}
-                  className="w-full p-4 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-lg font-black dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => !isCompletingPayment && !showPaymentResult && setShowPaymentModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-4xl h-[600px] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
+            
+            {/* Payment Input View */}
+            <div className={`absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out ${showPaymentResult ? '-translate-x-full' : 'translate-x-0'}`}>
+              {/* Header */}
+              <div className="px-8 py-5 border-b dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+                <h3 className="font-black dark:text-white uppercase tracking-tighter text-2xl">Payment</h3>
+                <button 
+                  onClick={() => setShowPaymentModal(false)} 
+                  disabled={isCompletingPayment}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all disabled:opacity-50"
                 >
-                  <option value="">Select payment method...</option>
-                  {paymentTypes.map((type) => (
-                    <option key={type.id} value={type.id}>
-                      {type.name}
-                    </option>
-                  ))}
-                </select>
+                  <X size={28} className="text-gray-400" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-8 space-y-8">
+                {/* Total Amount Due - Centered */}
+                <div className="text-center space-y-3">
+                  <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
+                  <div className="text-6xl font-black text-orange-500 tracking-tighter">
+                    RM{pendingOrderData.total.toFixed(2)}
+                  </div>
+                </div>
+
+                {/* Amount Received - Plain Input */}
+                <div className="space-y-3">
+                  <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Amount Received</label>
+                  <input 
+                    type="number" 
+                    value={selectedCashAmount ?? ''} 
+                    onChange={(e) => setSelectedCashAmount(e.target.value ? parseFloat(e.target.value) : null)}
+                    placeholder="Enter amount..."
+                    className="w-full p-3 bg-transparent border-b-2 dark:border-gray-600 border-gray-300 text-2xl font-black dark:text-white text-center focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
+                  />
+                </div>
+
+                {/* Cash Denomination Boxes */}
+                <div className="space-y-3">
+                  <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Quick Select</label>
+                  <div className="grid grid-cols-4 gap-3">
+                    {CASH_DENOMINATIONS.map((amount) => (
+                      <button
+                        key={amount}
+                        onClick={() => setSelectedCashAmount(amount)}
+                        className={`p-3 rounded-xl font-black text-lg uppercase tracking-widest transition-all border-2 ${
+                          selectedCashAmount === amount
+                            ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
+                        }`}
+                      >
+                        RM {amount}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Payment Method */}
+                <div className="space-y-3">
+                  <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
+                  <select 
+                    value={selectedPaymentType} 
+                    onChange={(e) => setSelectedPaymentType(e.target.value)}
+                    className="w-full p-4 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-lg font-black dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
+                  >
+                    {paymentTypes.map((type) => (
+                      <option key={type.id} value={type.id}>
+                        {type.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Footer / Action Buttons */}
+              <div className="px-8 py-5 border-t dark:border-gray-700 flex gap-4 flex-shrink-0">
+                <button 
+                  onClick={() => setShowPaymentModal(false)} 
+                  disabled={isCompletingPayment}
+                  className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-lg uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleConfirmPayment} 
+                  disabled={isCompletingPayment || !selectedPaymentType}
+                  className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-black text-lg uppercase tracking-wider hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+                >
+                  {isCompletingPayment ? (
+                    <>
+                      <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard size={24} /> Confirm Payment
+                    </>
+                  )}
+                </button>
               </div>
             </div>
 
-            {/* Footer / Action Buttons */}
-            <div className="px-8 py-4 border-t dark:border-gray-700 flex gap-4 flex-shrink-0">
-              <button 
-                onClick={() => setShowPaymentModal(false)} 
-                disabled={isCompletingPayment}
-                className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-lg uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={handleConfirmPayment} 
-                disabled={isCompletingPayment || !selectedPaymentType}
-                className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-black text-lg uppercase tracking-wider hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
-              >
-                {isCompletingPayment ? (
-                  <>
-                    <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <CreditCard size={24} /> Confirm Payment
-                  </>
-                )}
-              </button>
+            {/* Payment Result View */}
+            <div className={`absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out ${showPaymentResult ? 'translate-x-0' : 'translate-x-full'}`}>
+              {/* Header */}
+              <div className="px-8 py-5 border-b dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+                <h3 className="font-black dark:text-white uppercase tracking-tighter text-2xl">Payment Complete</h3>
+                <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                  <CheckCircle2 size={24} className="text-green-600 dark:text-green-400" />
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 flex items-center justify-center p-8">
+                <div className="w-full space-y-10">
+                  {/* Total Paid */}
+                  <div className="text-center space-y-3">
+                    <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Total Paid</label>
+                    <div className="text-6xl font-black text-green-500 tracking-tighter">
+                      RM{(selectedCashAmount || 0).toFixed(2)}
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-t-2 border-dashed dark:border-gray-700"></div>
+
+                  {/* Change */}
+                  <div className="text-center space-y-3">
+                    <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Change</label>
+                    <div className="text-6xl font-black text-blue-500 tracking-tighter">
+                      RM{Math.max(0, (selectedCashAmount || 0) - pendingOrderData.total).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-8 py-5 border-t dark:border-gray-700 text-center flex-shrink-0">
+                <p className="text-sm font-black text-gray-400 uppercase tracking-widest">Thank you for your order!</p>
+              </div>
             </div>
+
+          </div>
+        </div>
+      )}
           </div>
         </div>
       )}
