@@ -2472,10 +2472,10 @@ const PosOnlyView: React.FC<Props> = ({
                                   </div>
                                 </div>
                                 <div className="flex gap-1">
-                                  <button onClick={() => handleEditModifier(modifier)} className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg">
+                                  <button onClick={() => handleEditModifier(modifier)} className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg" title="Edit">
                                     <Edit3 size={14} />
                                   </button>
-                                  <button onClick={() => handleRemoveModifier(modifier.name)} className="p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
+                                  <button onClick={() => handleRemoveModifier(modifier.name)} className="p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg" title="Remove">
                                     <Trash2 size={14} />
                                   </button>
                                 </div>
@@ -2502,7 +2502,6 @@ const PosOnlyView: React.FC<Props> = ({
                         return (
                           <div key={modifier.name} className="p-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all">
                             <div className="flex items-center justify-between gap-4">
-                              {/* Modifier Title */}
                               <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
                                 <div className="w-8 h-8 bg-purple-50 dark:bg-purple-900/20 text-purple-500 rounded-lg flex items-center justify-center">
                                   <Coffee size={16} />
@@ -2513,7 +2512,6 @@ const PosOnlyView: React.FC<Props> = ({
                                 </div>
                               </div>
 
-                              {/* Modifier Options (inline) */}
                               <div className="flex-1 min-w-0">
                                 {modifier.options.length > 0 ? (
                                   <div className="flex flex-wrap gap-1">
@@ -2534,7 +2532,6 @@ const PosOnlyView: React.FC<Props> = ({
                                 )}
                               </div>
 
-                              {/* Require Toggle */}
                               <div className="flex items-center gap-2 flex-shrink-0">
                                 <label className="flex items-center gap-2 cursor-pointer">
                                   <span className="text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase">Required</span>
@@ -2547,17 +2544,16 @@ const PosOnlyView: React.FC<Props> = ({
                                 </label>
                               </div>
 
-                              {/* Edit and Remove Icons */}
                               <div className="flex items-center gap-1 flex-shrink-0">
-                                <button 
-                                  onClick={() => handleEditModifier(modifier)} 
+                                <button
+                                  onClick={() => handleEditModifier(modifier)}
                                   className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded"
                                   title="Edit"
                                 >
                                   <Edit3 size={16} />
                                 </button>
-                                <button 
-                                  onClick={() => handleRemoveModifier(modifier.name)} 
+                                <button
+                                  onClick={() => handleRemoveModifier(modifier.name)}
                                   className="p-2 text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
                                   title="Remove"
                                 >
@@ -2565,10 +2561,6 @@ const PosOnlyView: React.FC<Props> = ({
                                 </button>
                               </div>
                             </div>
-                          </div>
-                        );
-                              </div>
-                            )}
                           </div>
                         );
                       })}
