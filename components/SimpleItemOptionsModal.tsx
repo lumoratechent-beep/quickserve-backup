@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { MenuItem, CartItem, SelectedAddOn, ModifierData } from '../src/types';
-import { X, Plus, Minus, AlertCircle } from 'lucide-react';
+import { X, Plus, Minus } from 'lucide-react';
 
 interface Props {
   item: MenuItem | null;
@@ -26,6 +26,32 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
   const variants = Array.isArray(item.otherVariants) ? item.otherVariants : [];
   const addOnList = Array.isArray(item.addOns) ? item.addOns : [];
   const hasTempOptions = item.tempOptions && item.tempOptions.enabled;
+
+  // Normalize modifier names so we can avoid duplicate groups (legacy variant + modifier)
+  const normalizedVariantName = (item.otherVariantName || '').trim().toLowerCase();
+  const dedupedModifiers = useMemo(() => {
+    const seen = new Set<string>();
+    return modifiers.filter((modifier) => {
+      const key = modifier.name.trim().toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [modifiers]);
+
+  const hasMatchingModifierForVariant =
+    item.otherVariantsEnabled &&
+    variants.length > 0 &&
+    !!normalizedVariantName &&
+    dedupedModifiers.some(modifier => modifier.name.trim().toLowerCase() === normalizedVariantName);
+
+  const activeModifiers = dedupedModifiers;
+
+  const shouldShowLegacyVariant = item.otherVariantsEnabled && variants.length > 0 && !hasMatchingModifierForVariant;
+  const matchingModifierName =
+    hasMatchingModifierForVariant
+      ? activeModifiers.find(modifier => modifier.name.trim().toLowerCase() === normalizedVariantName)?.name || ''
+      : '';
 
   const handleAddOnChange = (name: string, qty: number) => {
     if (qty <= 0) {
@@ -58,7 +84,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
 
     // Add modifier prices
     Object.entries(selectedModifiers).forEach(([modifierName, optionName]) => {
-      const modifier = modifiers.find(m => m.name === modifierName);
+      const modifier = activeModifiers.find(m => m.name === modifierName);
       if (modifier) {
         const option = modifier.options.find(o => o.name === optionName);
         if (option) total += option.price;
@@ -88,7 +114,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
     }
 
     // Validate required modifiers
-    for (const modifier of modifiers) {
+    for (const modifier of activeModifiers) {
       if (modifier.required && !selectedModifiers[modifier.name]) {
         alert(`Please select an option for ${modifier.name}`);
         return;
@@ -99,6 +125,8 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
       const addon = addOnList.find(x => x.name === name);
       return { name, price: addon?.price || 0, quantity: qty };
     });
+
+    const selectedVariantFromModifier = matchingModifierName ? selectedModifiers[matchingModifierName] || '' : '';
 
     const cartItem: CartItem = {
       id: item.id,
@@ -118,7 +146,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
       restaurantId,
       selectedSize: size,
       selectedTemp: (temp as 'Hot' | 'Cold' | undefined),
-      selectedOtherVariant: variant,
+      selectedOtherVariant: variant || selectedVariantFromModifier,
       selectedAddOns,
     };
 
@@ -182,7 +210,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
             )}
 
             {/* Variants */}
-            {item.otherVariantsEnabled && variants.length > 0 && (
+            {shouldShowLegacyVariant && (
               <div>
                 <p className="font-bold text-sm mb-1">{item.otherVariantName || 'Options'}</p>
                 <div className="space-y-1">
@@ -248,7 +276,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
             )}
 
             {/* Modifiers */}
-            {modifiers.map((modifier) => (
+            {activeModifiers.map((modifier) => (
               <div key={modifier.name}>
                 <p className="font-bold text-sm mb-1 flex items-center gap-2">
                   {modifier.name}
