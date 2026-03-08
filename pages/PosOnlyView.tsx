@@ -3531,57 +3531,70 @@ const PosOnlyView: React.FC<Props> = ({
       {/* Payment Modal */}
       {showPaymentModal && pendingOrderData && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => !isCompletingPayment && setShowPaymentModal(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             {/* Header */}
-            <div className="px-6 py-4 border-b dark:border-gray-700 flex items-center justify-between">
-              <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Payment</h3>
+            <div className="px-8 py-6 border-b dark:border-gray-700 flex items-center justify-between sticky top-0 bg-white dark:bg-gray-800 z-10">
+              <h3 className="font-black dark:text-white uppercase tracking-tighter text-2xl">Payment</h3>
               <button 
                 onClick={() => setShowPaymentModal(false)} 
                 disabled={isCompletingPayment}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all disabled:opacity-50"
               >
-                <X size={20} className="text-gray-400" />
+                <X size={28} className="text-gray-400" />
               </button>
             </div>
 
             {/* Content */}
-            <div className="p-6 space-y-6">
-              {/* Total Amount Due */}
-              <div className="space-y-2">
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
-                <div className="text-4xl font-black text-orange-500 tracking-tighter">
+            <div className="p-10 space-y-10">
+              {/* Total Amount Due - Centered */}
+              <div className="text-center space-y-4">
+                <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
+                <div className="text-7xl font-black text-orange-500 tracking-tighter">
                   RM{pendingOrderData.total.toFixed(2)}
                 </div>
               </div>
 
-              {/* Cash Received */}
-              <div className="space-y-2">
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Cash Received</label>
-                <select 
+              {/* Cash Received - Text Input */}
+              <div className="space-y-4">
+                <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Amount Received</label>
+                <input 
+                  type="number" 
                   value={selectedCashAmount ?? ''} 
-                  onChange={(e) => setSelectedCashAmount(e.target.value ? parseInt(e.target.value) : null)}
-                  className="w-full p-3 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-xl text-sm font-bold dark:text-white"
-                >
-                  <option value="">Select amount...</option>
-                  {CASH_DENOMINATIONS.map((amount) => (
-                    <option key={amount} value={amount}>
-                      RM {amount}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(e) => setSelectedCashAmount(e.target.value ? parseFloat(e.target.value) : null)}
+                  placeholder="Enter amount..."
+                  className="w-full p-6 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-2xl text-2xl font-black dark:text-white text-center focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
+                />
               </div>
 
-              {/* Divider */}
-              <div className="border-t dark:border-gray-700"></div>
+              {/* Cash Denomination Boxes */}
+              <div className="space-y-3">
+                <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Quick Select</label>
+                <div className="grid grid-cols-4 gap-4">
+                  {CASH_DENOMINATIONS.map((amount) => (
+                    <button
+                      key={amount}
+                      onClick={() => setSelectedCashAmount(amount)}
+                      className={`p-6 rounded-2xl font-black text-2xl uppercase tracking-widest transition-all border-2 ${
+                        selectedCashAmount === amount
+                          ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
+                      }`}
+                    >
+                      RM<br/>{amount}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-              {/* Payment Type */}
-              <div className="space-y-2">
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
+              {/* Payment Method */}
+              <div className="space-y-4">
+                <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
                 <select 
                   value={selectedPaymentType} 
                   onChange={(e) => setSelectedPaymentType(e.target.value)}
-                  className="w-full p-3 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-xl text-sm font-bold dark:text-white"
+                  className="w-full p-6 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-2xl text-lg font-black dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
                 >
+                  <option value="">Select payment method...</option>
                   {paymentTypes.map((type) => (
                     <option key={type.id} value={type.id}>
                       {type.name}
@@ -3592,27 +3605,27 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
 
             {/* Footer / Action Buttons */}
-            <div className="px-6 py-4 border-t dark:border-gray-700 flex gap-3">
+            <div className="px-10 py-6 border-t dark:border-gray-700 flex gap-4 sticky bottom-0 bg-white dark:bg-gray-800">
               <button 
                 onClick={() => setShowPaymentModal(false)} 
                 disabled={isCompletingPayment}
-                className="flex-1 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-bold text-sm uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-2xl font-black text-lg uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
               >
                 Cancel
               </button>
               <button 
                 onClick={handleConfirmPayment} 
                 disabled={isCompletingPayment || !selectedPaymentType}
-                className="flex-1 py-2 bg-orange-500 text-white rounded-xl font-bold text-sm uppercase tracking-wider hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 py-4 bg-orange-500 text-white rounded-2xl font-black text-lg uppercase tracking-wider hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
               >
                 {isCompletingPayment ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
                     Processing...
                   </>
                 ) : (
                   <>
-                    <CreditCard size={16} /> Confirm Payment
+                    <CreditCard size={24} /> Confirm Payment
                   </>
                 )}
               </button>
