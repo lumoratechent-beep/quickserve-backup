@@ -3685,9 +3685,6 @@ const PosOnlyView: React.FC<Props> = ({
           </div>
         </div>
       )}
-          </div>
-        </div>
-      )}
 
       <SimpleItemOptionsModal
         item={selectedItemForOptions}
