@@ -663,21 +663,6 @@ const PosOnlyView: React.FC<Props> = ({
     setShowPaymentResult(true);
     setIsCompletingPayment(false);
 
-    // Auto-close after 3 seconds
-    setTimeout(() => {
-      setShowPaymentResult(false);
-      setShowPaymentModal(false);
-      setPosCart([]);
-      setPosRemark('');
-      setPosTableNo('Counter');
-      setPendingOrderData(null);
-      setShowPaymentSuccess(true);
-      
-      setTimeout(() => {
-        setShowPaymentSuccess(false);
-      }, 1800);
-    }, 3000);
-
     if (featureSettings.autoPrintReceipt) {
       if (connectedDevice) {
         const printRestaurant = {
@@ -701,6 +686,20 @@ const PosOnlyView: React.FC<Props> = ({
         setCheckoutNotice('Order saved. Auto-print is enabled but no printer is connected.');
       }
     }
+  };
+
+  const finalizePaymentFlow = () => {
+    setShowPaymentResult(false);
+    setShowPaymentModal(false);
+    setPosCart([]);
+    setPosRemark('');
+    setPosTableNo('Counter');
+    setPendingOrderData(null);
+    setShowPaymentSuccess(true);
+
+    setTimeout(() => {
+      setShowPaymentSuccess(false);
+    }, 1800);
   };
 
   // Handle order status updates (e.g., marking as paid/completed)
@@ -3543,17 +3542,16 @@ const PosOnlyView: React.FC<Props> = ({
             
             {/* Payment Input View */}
             <div className={`absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out ${showPaymentResult ? '-translate-x-full' : 'translate-x-0'}`}>
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                disabled={isCompletingPayment}
+                className="absolute top-4 right-5 z-10 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all disabled:opacity-50"
+              >
+                <X size={28} className="text-gray-400" />
+              </button>
+
               {/* Content */}
-              <div className="flex-1 px-8 pb-8 pt-5 space-y-7">
-                <div className="flex justify-end">
-                  <button
-                    onClick={() => setShowPaymentModal(false)}
-                    disabled={isCompletingPayment}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all disabled:opacity-50"
-                  >
-                    <X size={28} className="text-gray-400" />
-                  </button>
-                </div>
+              <div className="flex-1 px-8 pb-8 pt-3 space-y-6">
                 {/* Total Amount Due - Centered */}
                 <div className="text-center space-y-3">
                   <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
@@ -3654,31 +3652,32 @@ const PosOnlyView: React.FC<Props> = ({
 
               {/* Content */}
               <div className="flex-1 flex items-center justify-center p-8">
-                <div className="w-full space-y-10">
-                  {/* Total Paid */}
-                  <div className="text-center space-y-3">
-                    <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Total Paid</label>
-                    <div className="text-6xl font-black text-green-500 tracking-tighter">
-                      RM{(selectedCashAmount || 0).toFixed(2)}
+                <div className="w-full space-y-8">
+                  <div className="grid grid-cols-2 rounded-2xl border-2 dark:border-gray-700 overflow-hidden">
+                    <div className="p-6 text-center space-y-2 bg-green-50/60 dark:bg-green-900/10">
+                      <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Total Paid</label>
+                      <div className="text-5xl font-black text-green-500 tracking-tighter">
+                        RM{(selectedCashAmount || 0).toFixed(2)}
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Divider */}
-                  <div className="border-t-2 border-dashed dark:border-gray-700"></div>
-
-                  {/* Change */}
-                  <div className="text-center space-y-3">
-                    <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Change</label>
-                    <div className="text-6xl font-black text-blue-500 tracking-tighter">
-                      RM{Math.max(0, (selectedCashAmount || 0) - pendingOrderData.total).toFixed(2)}
+                    <div className="p-6 text-center space-y-2 border-l-2 dark:border-gray-700 bg-blue-50/60 dark:bg-blue-900/10">
+                      <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Change</label>
+                      <div className="text-5xl font-black text-blue-500 tracking-tighter">
+                        RM{Math.max(0, (selectedCashAmount || 0) - pendingOrderData.total).toFixed(2)}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="px-8 py-5 border-t dark:border-gray-700 text-center flex-shrink-0">
-                <p className="text-sm font-black text-gray-400 uppercase tracking-widest">Thank you for your order!</p>
+              <div className="px-8 py-5 border-t dark:border-gray-700 flex-shrink-0">
+                <button
+                  onClick={finalizePaymentFlow}
+                  className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-lg uppercase tracking-wider hover:bg-orange-600 transition-all"
+                >
+                  Complete Payment
+                </button>
               </div>
             </div>
 
