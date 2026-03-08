@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { MenuItem, CartItem, SelectedAddOn } from '../src/types';
-import { X, Plus, Minus } from 'lucide-react';
+import { MenuItem, CartItem, SelectedAddOn, ModifierData } from '../src/types';
+import { X, Plus, Minus, AlertCircle } from 'lucide-react';
 
 interface Props {
   item: MenuItem | null;
   restaurantId: string;
   onClose: () => void;
   onConfirm: (item: CartItem) => void;
+  modifiers?: ModifierData[];
 }
 
-const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConfirm }) => {
+const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConfirm, modifiers = [] }) => {
   // If no item, don't show anything
   if (!item) return null;
 
@@ -18,6 +19,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
   const [temp, setTemp] = useState('');
   const [variant, setVariant] = useState('');
   const [addOns, setAddOns] = useState<Record<string, number>>({});
+  const [selectedModifiers, setSelectedModifiers] = useState<Record<string, string>>({});
 
   // Safety check - make sure arrays exist
   const sizes = Array.isArray(item.sizes) ? item.sizes : [];
@@ -54,6 +56,15 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
     if (temp === 'Hot' && item.tempOptions?.hot) total += item.tempOptions.hot;
     if (temp === 'Cold' && item.tempOptions?.cold) total += item.tempOptions.cold;
 
+    // Add modifier prices
+    Object.entries(selectedModifiers).forEach(([modifierName, optionName]) => {
+      const modifier = modifiers.find(m => m.name === modifierName);
+      if (modifier) {
+        const option = modifier.options.find(o => o.name === optionName);
+        if (option) total += option.price;
+      }
+    });
+
     // Add add-ons total
     Object.entries(addOns).forEach(([name, qty]) => {
       const addon = addOnList.find(x => x.name === name);
@@ -64,6 +75,26 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
   };
 
   const handleConfirm = () => {
+    // Validate size (always required if sizes exist)
+    if (sizes.length > 0 && !size) {
+      alert('Please select a size');
+      return;
+    }
+
+    // Validate temperature (always required if temp options exist)
+    if (hasTempOptions && !temp) {
+      alert('Please select a temperature');
+      return;
+    }
+
+    // Validate required modifiers
+    for (const modifier of modifiers) {
+      if (modifier.required && !selectedModifiers[modifier.name]) {
+        alert(`Please select an option for ${modifier.name}`);
+        return;
+      }
+    }
+
     const selectedAddOns: SelectedAddOn[] = Object.entries(addOns).map(([name, qty]) => {
       const addon = addOnList.find(x => x.name === name);
       return { name, price: addon?.price || 0, quantity: qty };
@@ -129,7 +160,10 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
             {/* Sizes */}
             {sizes.length > 0 && (
               <div>
-                <p className="font-bold text-sm mb-1">Size</p>
+                <p className="font-bold text-sm mb-1 flex items-center gap-2">
+                  Size
+                  <span className="text-red-500 text-xs">*</span>
+                </p>
                 <div className="space-y-1">
                   {sizes.map((s) => (
                     <label key={s.name} className="flex items-center gap-2 cursor-pointer text-sm">
@@ -180,7 +214,10 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
             {/* Temperature */}
             {hasTempOptions && (
               <div>
-                <p className="font-bold text-sm mb-1">Temperature</p>
+                <p className="font-bold text-sm mb-1 flex items-center gap-2">
+                  Temperature
+                  <span className="text-red-500 text-xs">*</span>
+                </p>
                 <div className="space-y-1">
                   {item.tempOptions?.hot !== undefined && (
                     <label className="flex items-center gap-2 cursor-pointer text-sm">
@@ -209,6 +246,32 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
                 </div>
               </div>
             )}
+
+            {/* Modifiers */}
+            {modifiers.map((modifier) => (
+              <div key={modifier.name}>
+                <p className="font-bold text-sm mb-1 flex items-center gap-2">
+                  {modifier.name}
+                  {modifier.required && (
+                    <span className="text-red-500 text-xs">*</span>
+                  )}
+                </p>
+                <div className="space-y-1">
+                  {modifier.options.map((option) => (
+                    <label key={option.name} className="flex items-center gap-2 cursor-pointer text-sm">
+                      <input
+                        type="radio"
+                        name={`modifier-${modifier.name}`}
+                        checked={selectedModifiers[modifier.name] === option.name}
+                        onChange={() => setSelectedModifiers({ ...selectedModifiers, [modifier.name]: option.name })}
+                      />
+                      <span>{option.name}</span>
+                      {option.price > 0 && <span className="text-orange-500 ml-auto">+RM{option.price.toFixed(2)}</span>}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

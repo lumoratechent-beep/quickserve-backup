@@ -202,6 +202,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [editingModifierName, setEditingModifierName] = useState<string | null>(null);
   const [tempModifierName, setTempModifierName] = useState('');
   const [tempModifierOptions, setTempModifierOptions] = useState<ModifierOption[]>([]);
+  const [tempModifierRequired, setTempModifierRequired] = useState(false);
 
   // Reports State
   const [reportStart, setReportStart] = useState(() => {
@@ -1003,6 +1004,7 @@ const PosOnlyView: React.FC<Props> = ({
     setEditingModifierName(modifier.name);
     setTempModifierName(modifier.name);
     setTempModifierOptions([...modifier.options]);
+    setTempModifierRequired(modifier.required || false);
     setShowAddModifierModal(true);
   };
 
@@ -1024,17 +1026,18 @@ const PosOnlyView: React.FC<Props> = ({
     if (editingModifierName) {
       setModifiers(prev => prev.map(modifier =>
         modifier.name === editingModifierName
-          ? { name: nextName, options: validOptions }
+          ? { name: nextName, options: validOptions, required: tempModifierRequired }
           : modifier
       ));
     } else {
-      setModifiers(prev => [...prev, { name: nextName, options: validOptions }]);
+      setModifiers(prev => [...prev, { name: nextName, options: validOptions, required: tempModifierRequired }]);
     }
 
     setShowAddModifierModal(false);
     setEditingModifierName(null);
     setTempModifierName('');
     setTempModifierOptions([]);
+    setTempModifierRequired(false);
   };
 
   const handleAddModifierOption = () => {
@@ -1075,6 +1078,14 @@ const PosOnlyView: React.FC<Props> = ({
       modifier.name === oldName ? { ...modifier, name: normalizedName } : modifier
     ));
     setRenamingModifier(null);
+  };
+
+  const handleToggleModifierRequired = (modifierName: string) => {
+    setModifiers(prev => prev.map(modifier =>
+      modifier.name === modifierName
+        ? { ...modifier, required: !modifier.required }
+        : modifier
+    ));
   };
 
   const scanForPrinters = async () => {
@@ -2490,63 +2501,72 @@ const PosOnlyView: React.FC<Props> = ({
 
                         return (
                           <div key={modifier.name} className="p-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3 flex-1">
+                            <div className="flex items-center justify-between gap-4">
+                              {/* Modifier Title */}
+                              <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
                                 <div className="w-8 h-8 bg-purple-50 dark:bg-purple-900/20 text-purple-500 rounded-lg flex items-center justify-center">
                                   <Coffee size={16} />
                                 </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-black dark:text-white uppercase tracking-tight">{modifier.name}</p>
+                                  <p className="text-[9px] font-bold text-gray-400">{modifier.options.length} Options</p>
+                                </div>
+                              </div>
 
-                                {renamingModifier === modifier.name ? (
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      autoFocus
-                                      className="px-2 py-1 text-sm font-black border dark:border-gray-600 rounded bg-white dark:bg-gray-700"
-                                      value={renameValue}
-                                      onChange={event => setRenameValue(event.target.value)}
-                                      onKeyDown={event => event.key === 'Enter' && handleRenameModifier(modifier.name, renameValue)}
-                                    />
-                                    <button onClick={() => handleRenameModifier(modifier.name, renameValue)} className="text-green-500">
-                                      <CheckCircle2 size={16} />
-                                    </button>
-                                    <button onClick={() => setRenamingModifier(null)} className="text-red-500">
-                                      <X size={16} />
-                                    </button>
+                              {/* Modifier Options (inline) */}
+                              <div className="flex-1 min-w-0">
+                                {modifier.options.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {modifier.options.slice(0, 3).map((option, idx) => (
+                                      <span key={idx} className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-[9px]">
+                                        <span className="font-bold text-gray-600 dark:text-gray-300">{option.name}</span>
+                                        <span className="font-black text-orange-500">+RM{option.price.toFixed(2)}</span>
+                                      </span>
+                                    ))}
+                                    {modifier.options.length > 3 && (
+                                      <span className="inline-flex items-center px-2 py-1 text-[9px] text-gray-400 italic">
+                                        +{modifier.options.length - 3} more
+                                      </span>
+                                    )}
                                   </div>
                                 ) : (
-                                  <div>
-                                    <p className="text-sm font-black dark:text-white uppercase tracking-tight">{modifier.name}</p>
-                                    <p className="text-[9px] font-bold text-gray-400">{modifier.options.length} Options</p>
-                                  </div>
+                                  <p className="text-[9px] text-gray-400 italic">No options</p>
                                 )}
                               </div>
 
-                              <div className="flex items-center gap-2">
-                                <button onClick={() => { setRenamingModifier(modifier.name); setRenameValue(modifier.name); }} className="p-2 text-gray-400 hover:text-orange-500">
+                              {/* Require Toggle */}
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <span className="text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase">Required</span>
+                                  <input
+                                    type="checkbox"
+                                    checked={modifier.required || false}
+                                    onChange={() => handleToggleModifierRequired(modifier.name)}
+                                    className="w-4 h-4 text-orange-500 rounded focus:ring-orange-500"
+                                  />
+                                </label>
+                              </div>
+
+                              {/* Edit and Remove Icons */}
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <button 
+                                  onClick={() => handleEditModifier(modifier)} 
+                                  className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded"
+                                  title="Edit"
+                                >
                                   <Edit3 size={16} />
                                 </button>
-                                <button onClick={() => handleEditModifier(modifier)} className="p-2 text-gray-400 hover:text-orange-500">
-                                  <Upload size={16} />
-                                </button>
-                                <button onClick={() => handleRemoveModifier(modifier.name)} className="p-2 text-red-400 hover:text-red-500">
+                                <button 
+                                  onClick={() => handleRemoveModifier(modifier.name)} 
+                                  className="p-2 text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                                  title="Remove"
+                                >
                                   <Trash2 size={16} />
                                 </button>
                               </div>
                             </div>
-
-                            {modifier.options.length > 0 && (
-                              <div className="mt-3 pl-11 space-y-1">
-                                {modifier.options.map((option, idx) => (
-                                  <div key={idx} className="flex items-center justify-between text-[9px]">
-                                    <span className="font-bold text-gray-600 dark:text-gray-300">{option.name}</span>
-                                    <span className="font-black text-orange-500">+RM{option.price.toFixed(2)}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {modifier.options.length === 0 && (
-                              <div className="mt-2 pl-11">
-                                <p className="text-[8px] text-gray-400 italic">No options</p>
+                          </div>
+                        );
                               </div>
                             )}
                           </div>
@@ -3006,6 +3026,22 @@ const PosOnlyView: React.FC<Props> = ({
                   />
                 </div>
 
+                {/* Required Toggle */}
+                <div className="flex items-center gap-3 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-900">
+                  <label className="flex items-center gap-3 cursor-pointer flex-1">
+                    <input
+                      type="checkbox"
+                      checked={tempModifierRequired}
+                      onChange={(e) => setTempModifierRequired(e.target.checked)}
+                      className="w-5 h-5 text-orange-500 rounded focus:ring-orange-500"
+                    />
+                    <div>
+                      <p className="text-[10px] font-black text-gray-700 dark:text-gray-200 uppercase tracking-wide">Required Modifier</p>
+                      <p className="text-[8px] text-gray-500 dark:text-gray-400">Cashier must select an option when adding this item to cart</p>
+                    </div>
+                  </label>
+                </div>
+
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Options</label>
@@ -3292,6 +3328,7 @@ const PosOnlyView: React.FC<Props> = ({
       <SimpleItemOptionsModal
         item={selectedItemForOptions}
         restaurantId={restaurant.id}
+        modifiers={modifiers}
         onClose={() => setSelectedItemForOptions(null)}
         onConfirm={(item) => {
           addToPosCart(item);
