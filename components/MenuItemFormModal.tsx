@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { MenuItem, AddOnItem, ModifierData } from '../src/types';
-import { X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle } from 'lucide-react';
+import { X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle, Save } from 'lucide-react';
 
 export type MenuFormItem = Partial<MenuItem & { sizesEnabled?: boolean }>;
 
@@ -13,6 +13,7 @@ interface Props {
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
   onImageUpload?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onSaveModifier?: (modifier: ModifierData) => void;
 }
 
 const MenuItemFormModal: React.FC<Props> = ({
@@ -24,6 +25,7 @@ const MenuItemFormModal: React.FC<Props> = ({
   onClose,
   onSubmit,
   onImageUpload,
+  onSaveModifier,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [newModifierOptionName, setNewModifierOptionName] = useState('');
@@ -61,6 +63,19 @@ const MenuItemFormModal: React.FC<Props> = ({
       otherVariantsEnabled: true,
     }));
   };
+
+  const handleSaveAsModifier = () => {
+    const name = formItem.otherVariantName?.trim();
+    if (!name) return;
+    const options = (formItem.otherVariants || []).filter(o => o.name.trim() !== '');
+    if (onSaveModifier) {
+      onSaveModifier({ name, options, required: false });
+    }
+  };
+
+  const isNewUnsavedModifier = formItem.otherVariantsEnabled
+    && formItem.otherVariantName?.trim()
+    && !availableModifiers.some(m => m.name === formItem.otherVariantName?.trim());
 
   const handleUnselectModifier = () => {
     setFormItem(prev => ({
@@ -334,14 +349,26 @@ const MenuItemFormModal: React.FC<Props> = ({
               <div className="space-y-4">
                 <div>
                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Modifier Name</label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
-                    value={formItem.otherVariantName}
-                    onChange={e => setFormItem(prev => ({ ...prev, otherVariantName: e.target.value, otherVariantsEnabled: true }))}
-                    placeholder="e.g. Sugar Level"
-                    autoFocus={formItem.otherVariantsEnabled && (!formItem.otherVariants || formItem.otherVariants.length === 0)}
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
+                      value={formItem.otherVariantName}
+                      onChange={e => setFormItem(prev => ({ ...prev, otherVariantName: e.target.value, otherVariantsEnabled: true }))}
+                      placeholder="e.g. Sugar Level"
+                      autoFocus={formItem.otherVariantsEnabled && (!formItem.otherVariants || formItem.otherVariants.length === 0)}
+                    />
+                    {isNewUnsavedModifier && onSaveModifier && (
+                      <button
+                        type="button"
+                        onClick={handleSaveAsModifier}
+                        title="Save modifier to restaurant"
+                        className="px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1 transition-colors"
+                      >
+                        <Save size={14} /> Save
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-2">

@@ -2959,6 +2959,14 @@ const PosOnlyView: React.FC<Props> = ({
           onClose={handleCloseFormModal}
           onSubmit={handleSaveMenuItem}
           onImageUpload={handleImageUpload}
+          onSaveModifier={(modifier) => {
+            const duplicate = modifiers.some(m => m.name === modifier.name);
+            if (duplicate) {
+              alert('A modifier with this name already exists.');
+              return;
+            }
+            setModifiers(prev => [...prev, modifier]);
+          }}
         />
 
         {showAddClassModal && (
