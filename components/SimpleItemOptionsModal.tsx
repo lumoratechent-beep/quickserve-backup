@@ -39,19 +39,19 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
     });
   }, [modifiers]);
 
-  const hasMatchingModifierForVariant =
-    item.otherVariantsEnabled &&
-    variants.length > 0 &&
-    !!normalizedVariantName &&
-    dedupedModifiers.some(modifier => modifier.name.trim().toLowerCase() === normalizedVariantName);
+  const linkedModifier = useMemo(() => {
+    if (!item.otherVariantsEnabled || !normalizedVariantName) return null;
+    return dedupedModifiers.find(modifier => modifier.name.trim().toLowerCase() === normalizedVariantName) || null;
+  }, [item.otherVariantsEnabled, normalizedVariantName, dedupedModifiers]);
 
-  const activeModifiers = dedupedModifiers;
+  const activeModifiers = useMemo(() => {
+    if (!linkedModifier) return [];
+    // Prefer menu-linked options so cashier sees exactly what was configured on this item.
+    const options = variants.length > 0 ? variants : linkedModifier.options;
+    return [{ ...linkedModifier, options }];
+  }, [linkedModifier, variants]);
 
-  const shouldShowLegacyVariant = item.otherVariantsEnabled && variants.length > 0 && !hasMatchingModifierForVariant;
-  const matchingModifierName =
-    hasMatchingModifierForVariant
-      ? activeModifiers.find(modifier => modifier.name.trim().toLowerCase() === normalizedVariantName)?.name || ''
-      : '';
+  const shouldShowLegacyVariant = item.otherVariantsEnabled && variants.length > 0 && !linkedModifier;
 
   const handleAddOnChange = (name: string, qty: number) => {
     if (qty <= 0) {
@@ -126,7 +126,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
       return { name, price: addon?.price || 0, quantity: qty };
     });
 
-    const selectedVariantFromModifier = matchingModifierName ? selectedModifiers[matchingModifierName] || '' : '';
+    const selectedVariantFromModifier = linkedModifier ? selectedModifiers[linkedModifier.name] || '' : '';
 
     const cartItem: CartItem = {
       id: item.id,
