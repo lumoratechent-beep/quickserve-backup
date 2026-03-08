@@ -310,6 +310,12 @@ const PosOnlyView: React.FC<Props> = ({
   const [isCompletingPayment, setIsCompletingPayment] = useState(false);
   const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
   const [checkoutNotice, setCheckoutNotice] = useState<string>('');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedCashAmount, setSelectedCashAmount] = useState<number | null>(null);
+  const [selectedPaymentType, setSelectedPaymentType] = useState<string>('');
+  const [pendingOrderData, setPendingOrderData] = useState<any>(null);
+
+  const CASH_DENOMINATIONS = [10, 20, 50, 100];
 
   const handleRemoveStaff = async (staff: any, index: number) => {
     const updated = staffList.filter((_: any, idx: number) => idx !== index);
@@ -610,6 +616,22 @@ const PosOnlyView: React.FC<Props> = ({
   const handleCheckout = async () => {
     if (posCart.length === 0 || isCompletingPayment) return;
 
+    // Store the pending order data and show payment modal
+    setPendingOrderData({
+      items: posCart,
+      remark: posRemark,
+      tableNumber: posTableNo,
+      total: cartTotal,
+    });
+    
+    setSelectedCashAmount(null);
+    setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
+    setShowPaymentModal(true);
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!pendingOrderData || !selectedPaymentType) return;
+
     setIsCompletingPayment(true);
     setCheckoutNotice('');
 
@@ -617,27 +639,30 @@ const PosOnlyView: React.FC<Props> = ({
     
     try {
       // Call onPlaceOrder and get the actual order ID from database
-      actualOrderId = await onPlaceOrder(posCart, posRemark, posTableNo);
+      actualOrderId = await onPlaceOrder(pendingOrderData.items, pendingOrderData.remark, pendingOrderData.tableNumber);
     } catch (error: any) {
       console.error('Order placement error:', error);
       toast(`Failed to place order: ${error?.message || 'Unknown error'}`, 'error');
       setIsCompletingPayment(false);
+      setShowPaymentModal(false);
       return;
     }
 
     // Use the real order ID from database for printing
     const orderForPrint = {
       id: actualOrderId,
-      tableNumber: posTableNo,
+      tableNumber: pendingOrderData.tableNumber,
       timestamp: Date.now(),
-      total: cartTotal,
-      items: posCart,
-      remark: posRemark,
+      total: pendingOrderData.total,
+      items: pendingOrderData.items,
+      remark: pendingOrderData.remark,
     };
 
     setPosCart([]);
     setPosRemark('');
     setPosTableNo('Counter');
+    setShowPaymentModal(false);
+    setPendingOrderData(null);
     setShowPaymentSuccess(true);
 
     setTimeout(() => {
@@ -3502,6 +3527,99 @@ const PosOnlyView: React.FC<Props> = ({
       </div>
 
 
+
+      {/* Payment Modal */}
+      {showPaymentModal && pendingOrderData && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => !isCompletingPayment && setShowPaymentModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="px-6 py-4 border-b dark:border-gray-700 flex items-center justify-between">
+              <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Payment</h3>
+              <button 
+                onClick={() => setShowPaymentModal(false)} 
+                disabled={isCompletingPayment}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all disabled:opacity-50"
+              >
+                <X size={20} className="text-gray-400" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Total Amount Due */}
+              <div className="space-y-2">
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
+                <div className="text-4xl font-black text-orange-500 tracking-tighter">
+                  RM{pendingOrderData.total.toFixed(2)}
+                </div>
+              </div>
+
+              {/* Cash Received */}
+              <div className="space-y-2">
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Cash Received</label>
+                <select 
+                  value={selectedCashAmount ?? ''} 
+                  onChange={(e) => setSelectedCashAmount(e.target.value ? parseInt(e.target.value) : null)}
+                  className="w-full p-3 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-xl text-sm font-bold dark:text-white"
+                >
+                  <option value="">Select amount...</option>
+                  {CASH_DENOMINATIONS.map((amount) => (
+                    <option key={amount} value={amount}>
+                      RM {amount}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t dark:border-gray-700"></div>
+
+              {/* Payment Type */}
+              <div className="space-y-2">
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
+                <select 
+                  value={selectedPaymentType} 
+                  onChange={(e) => setSelectedPaymentType(e.target.value)}
+                  className="w-full p-3 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-xl text-sm font-bold dark:text-white"
+                >
+                  {paymentTypes.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Footer / Action Buttons */}
+            <div className="px-6 py-4 border-t dark:border-gray-700 flex gap-3">
+              <button 
+                onClick={() => setShowPaymentModal(false)} 
+                disabled={isCompletingPayment}
+                className="flex-1 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-bold text-sm uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleConfirmPayment} 
+                disabled={isCompletingPayment || !selectedPaymentType}
+                className="flex-1 py-2 bg-orange-500 text-white rounded-xl font-bold text-sm uppercase tracking-wider hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isCompletingPayment ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <CreditCard size={16} /> Confirm Payment
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <SimpleItemOptionsModal
         item={selectedItemForOptions}
