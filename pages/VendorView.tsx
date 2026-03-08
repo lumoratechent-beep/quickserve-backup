@@ -41,6 +41,7 @@ interface CategoryData {
 interface ModifierData {
   name: string;
   options: ModifierOption[];
+    isRequired?: boolean;
 }
 
 interface ModifierOption {
@@ -608,7 +609,8 @@ const VendorView: React.FC<Props> = ({
     
     setModifiers(prev => [...prev, { 
       name: tempModifierName.trim(), 
-      options: validOptions 
+        options: validOptions,
+        isRequired: false
     }]);
     
     setShowAddModifierModal(false);
@@ -644,7 +646,7 @@ const VendorView: React.FC<Props> = ({
     
     setModifiers(prev => prev.map(m => 
       m.name === editingModifier 
-        ? { name: tempModifierName.trim(), options: validOptions }
+          ? { ...m, name: tempModifierName.trim(), options: validOptions }
         : m
     ));
     
@@ -658,6 +660,14 @@ const VendorView: React.FC<Props> = ({
     if (confirm(`Are you sure you want to remove the "${name}" modifier?`)) {
       setModifiers(prev => prev.filter(m => m.name !== name));
     }
+    };
+
+    const handleToggleModifierRequired = (modifierName: string) => {
+      setModifiers(prev => prev.map(m =>
+        m.name === modifierName
+          ? { ...m, isRequired: !m.isRequired }
+          : m
+      ));
   };
 
   const handleRenameModifier = (oldName: string, newName: string) => {
@@ -1440,7 +1450,7 @@ const VendorView: React.FC<Props> = ({
                       if (modifierViewMode === 'grid') {
                         return (
                           <div key={mod.name} className="p-4 bg-gray-50/50 dark:bg-gray-900/50 border dark:border-gray-700 rounded-lg hover:border-orange-200 transition-all">
-                            <div className="flex justify-between items-start mb-3">
+                              <div className="flex items-center justify-between mb-3">
                               <div className="flex items-center gap-2">
                                 <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg flex items-center justify-center">
                                   <Coffee size={16} />
@@ -1450,6 +1460,20 @@ const VendorView: React.FC<Props> = ({
                                   <p className="text-[8px] font-bold text-gray-400 uppercase">{mod.options.length} Options</p>
                                 </div>
                               </div>
+                              </div>
+                            
+                              <div className="flex justify-between items-center mb-3 px-1">
+                                <button
+                                  onClick={() => handleToggleModifierRequired(mod.name)}
+                                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all ${
+                                    mod.isRequired 
+                                      ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600' 
+                                      : 'bg-gray-100 dark:bg-gray-700 text-gray-400'
+                                  }`}
+                                >
+                                  {mod.isRequired ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
+                                  <span className="text-[8px] font-black uppercase">{mod.isRequired ? 'Must' : 'Optional'}</span>
+                                </button>
                               <div className="flex gap-1">
                                 <button onClick={() => handleEditModifier(mod)} className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg">
                                   <Edit3 size={14} />
@@ -1511,6 +1535,17 @@ const VendorView: React.FC<Props> = ({
                             </div>
                             
                             <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleToggleModifierRequired(mod.name)}
+                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                                    mod.isRequired 
+                                      ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600' 
+                                      : 'bg-gray-100 dark:bg-gray-700 text-gray-400'
+                                  }`}
+                                >
+                                  {mod.isRequired ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                                  <span className="text-[9px] font-black uppercase">{mod.isRequired ? 'Must' : 'Optional'}</span>
+                                </button>
                               <button onClick={() => handleEditModifier(mod)} className="p-2 text-gray-400 hover:text-orange-500">
                                 <Edit3 size={16} />
                               </button>

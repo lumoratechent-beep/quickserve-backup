@@ -148,6 +148,7 @@ export interface CategoryData {
 export interface ModifierData {
   name: string;
   options: ModifierOption[];
+    isRequired?: boolean;
 }
 
 export interface ModifierOption {
