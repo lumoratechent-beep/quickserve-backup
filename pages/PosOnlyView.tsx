@@ -3292,7 +3292,6 @@ const PosOnlyView: React.FC<Props> = ({
       <SimpleItemOptionsModal
         item={selectedItemForOptions}
         restaurantId={restaurant.id}
-          modifiers={restaurant.modifiers || []}
         onClose={() => setSelectedItemForOptions(null)}
         onConfirm={(item) => {
           addToPosCart(item);

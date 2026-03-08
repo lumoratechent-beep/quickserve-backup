@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
-import { MenuItem, CartItem, SelectedAddOn, ModifierData } from '../src/types';
+import { MenuItem, CartItem, SelectedAddOn } from '../src/types';
 import { X, Plus, Minus } from 'lucide-react';
 
 interface Props {
   item: MenuItem | null;
   restaurantId: string;
-  modifiers?: ModifierData[];
   onClose: () => void;
   onConfirm: (item: CartItem) => void;
 }
 
-const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, modifiers = [], onClose, onConfirm }) => {
+const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConfirm }) => {
   // If no item, don't show anything
   if (!item) return null;
 
@@ -25,24 +24,6 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, modifiers
   const variants = Array.isArray(item.otherVariants) ? item.otherVariants : [];
   const addOnList = Array.isArray(item.addOns) ? item.addOns : [];
   const hasTempOptions = item.tempOptions && item.tempOptions.enabled;
-
-  // Check if current modifier is required
-  const currentModifier = modifiers.find(m => m.name === item.otherVariantName);
-  const isModifierRequired = currentModifier?.isRequired || false;
-
-  // Validation: check if all required fields are selected
-  const isValid = () => {
-    // Size is mandatory when sizes exist
-    if (sizes.length > 0 && !size) return false;
-    
-    // Temperature is mandatory when temp options are enabled
-    if (hasTempOptions && !temp) return false;
-    
-    // Modifier is mandatory if marked as required
-    if (item.otherVariantsEnabled && isModifierRequired && !variant) return false;
-    
-    return true;
-  };
 
   const handleAddOnChange = (name: string, qty: number) => {
     if (qty <= 0) {
@@ -148,10 +129,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, modifiers
             {/* Sizes */}
             {sizes.length > 0 && (
               <div>
-                  <p className="font-bold text-sm mb-1 flex items-center gap-2">
-                    Size
-                    <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-orange-100 text-orange-600">Must</span>
-                  </p>
+                <p className="font-bold text-sm mb-1">Size</p>
                 <div className="space-y-1">
                   {sizes.map((s) => (
                     <label key={s.name} className="flex items-center gap-2 cursor-pointer text-sm">
@@ -172,15 +150,9 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, modifiers
             {/* Variants */}
             {item.otherVariantsEnabled && variants.length > 0 && (
               <div>
-                  <p className="font-bold text-sm mb-1 flex items-center gap-2">
-                    {item.otherVariantName || 'Options'}
-                    {isModifierRequired && (
-                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-orange-100 text-orange-600">Must</span>
-                    )}
-                  </p>
+                <p className="font-bold text-sm mb-1">{item.otherVariantName || 'Options'}</p>
                 <div className="space-y-1">
-                    {!isModifierRequired && (
-                      <label className="flex items-center gap-2 cursor-pointer text-sm">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm">
                     <input
                       type="radio"
                       name="variant"
@@ -189,7 +161,6 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, modifiers
                     />
                     <span>None</span>
                   </label>
-                    )}
                   {variants.map((v) => (
                     <label key={v.name} className="flex items-center gap-2 cursor-pointer text-sm">
                       <input
@@ -209,10 +180,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, modifiers
             {/* Temperature */}
             {hasTempOptions && (
               <div>
-                  <p className="font-bold text-sm mb-1 flex items-center gap-2">
-                    Temperature
-                    <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-orange-100 text-orange-600">Must</span>
-                  </p>
+                <p className="font-bold text-sm mb-1">Temperature</p>
                 <div className="space-y-1">
                   {item.tempOptions?.hot !== undefined && (
                     <label className="flex items-center gap-2 cursor-pointer text-sm">
@@ -284,8 +252,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, modifiers
           </div>
           <button
             onClick={handleConfirm}
-              disabled={!isValid()}
-              className="flex-1 py-3 bg-orange-500 text-white font-bold rounded-sm hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 py-3 bg-orange-500 text-white font-bold rounded-sm hover:bg-orange-600"
           >
             Add to Cart
           </button>
