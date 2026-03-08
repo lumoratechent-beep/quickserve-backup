@@ -3551,7 +3551,7 @@ const PosOnlyView: React.FC<Props> = ({
               </button>
 
               {/* Content */}
-              <div className="flex-1 px-8 pb-8 pt-3 space-y-6">
+              <div className="flex-1 px-8 pb-8 pt-7 space-y-6">
                 {/* Total Amount Due - Centered */}
                 <div className="text-center space-y-3">
                   <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
@@ -3652,19 +3652,19 @@ const PosOnlyView: React.FC<Props> = ({
 
               {/* Content */}
               <div className="flex-1 flex items-center justify-center p-8">
-                <div className="w-full space-y-8">
-                  <div className="grid grid-cols-2 rounded-2xl border-2 dark:border-gray-700 overflow-hidden">
-                    <div className="p-6 text-center space-y-2 bg-green-50/60 dark:bg-green-900/10">
-                      <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Total Paid</label>
+                <div className="w-full max-w-3xl">
+                  <div className="grid grid-cols-2">
+                    <div className="pr-8 text-right border-r-2 border-dotted dark:border-gray-700">
                       <div className="text-5xl font-black text-green-500 tracking-tighter">
                         RM{(selectedCashAmount || 0).toFixed(2)}
                       </div>
+                      <label className="block mt-3 text-sm font-black text-gray-400 uppercase tracking-widest">Total Paid</label>
                     </div>
-                    <div className="p-6 text-center space-y-2 border-l-2 dark:border-gray-700 bg-blue-50/60 dark:bg-blue-900/10">
-                      <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Change</label>
+                    <div className="pl-8 text-right">
                       <div className="text-5xl font-black text-blue-500 tracking-tighter">
                         RM{Math.max(0, (selectedCashAmount || 0) - pendingOrderData.total).toFixed(2)}
                       </div>
+                      <label className="block mt-3 text-sm font-black text-gray-400 uppercase tracking-widest">Total Change</label>
                     </div>
                   </div>
                 </div>
