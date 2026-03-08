@@ -3543,20 +3543,17 @@ const PosOnlyView: React.FC<Props> = ({
             
             {/* Payment Input View */}
             <div className={`absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out ${showPaymentResult ? '-translate-x-full' : 'translate-x-0'}`}>
-              {/* Header */}
-              <div className="px-8 py-5 border-b dark:border-gray-700 flex items-center justify-between flex-shrink-0">
-                <h3 className="font-black dark:text-white uppercase tracking-tighter text-2xl">Payment</h3>
-                <button 
-                  onClick={() => setShowPaymentModal(false)} 
-                  disabled={isCompletingPayment}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all disabled:opacity-50"
-                >
-                  <X size={28} className="text-gray-400" />
-                </button>
-              </div>
-
               {/* Content */}
-              <div className="flex-1 p-8 space-y-8">
+              <div className="flex-1 px-8 pb-8 pt-5 space-y-7">
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => setShowPaymentModal(false)}
+                    disabled={isCompletingPayment}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all disabled:opacity-50"
+                  >
+                    <X size={28} className="text-gray-400" />
+                  </button>
+                </div>
                 {/* Total Amount Due - Centered */}
                 <div className="text-center space-y-3">
                   <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
