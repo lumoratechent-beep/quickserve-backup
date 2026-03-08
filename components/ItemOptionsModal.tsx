@@ -232,7 +232,7 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
                       : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'
                   }`}
                 >
-                  <p className="text-[10px] font-black uppercase">None</p>
+                  <p className="text-[10px] font-black">None</p>
                   <p className="text-xs font-black">Default</p>
                 </button>
                 {otherVariants.map((option: any) => (
@@ -245,7 +245,7 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
                         : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'
                     }`}
                   >
-                    <p className="text-[10px] font-black uppercase">{option.name}</p>
+                    <p className="text-[10px] font-black">{option.name}</p>
                     <p className="text-xs font-black">+{option.price > 0 ? `RM${option.price.toFixed(2)}` : 'FREE'}</p>
                   </button>
                 ))}

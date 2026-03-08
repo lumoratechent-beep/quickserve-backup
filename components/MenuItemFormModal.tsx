@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { MenuItem, AddOnItem, ModifierData } from '../src/types';
 import { X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle } from 'lucide-react';
 
@@ -26,6 +26,8 @@ const MenuItemFormModal: React.FC<Props> = ({
   onImageUpload,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [newModifierOptionName, setNewModifierOptionName] = useState('');
+  const [newModifierOptionPrice, setNewModifierOptionPrice] = useState<number>(0);
 
   if (!isOpen) return null;
 
@@ -51,11 +53,38 @@ const MenuItemFormModal: React.FC<Props> = ({
     });
   };
 
-  const handleAddOtherVariant = () => {
+  const handleStartNewModifierType = () => {
     setFormItem(prev => ({
       ...prev,
-      otherVariants: [...(prev.otherVariants || []), { name: '', price: 0 }],
+      otherVariantName: '',
+      otherVariants: [],
+      otherVariantsEnabled: true,
     }));
+  };
+
+  const handleUnselectModifier = () => {
+    setFormItem(prev => ({
+      ...prev,
+      otherVariantName: '',
+      otherVariants: [],
+      otherVariantsEnabled: false,
+    }));
+    setNewModifierOptionName('');
+    setNewModifierOptionPrice(0);
+  };
+
+  const handleAppendModifierOption = () => {
+    const optionName = newModifierOptionName.trim();
+    if (!optionName) return;
+
+    setFormItem(prev => ({
+      ...prev,
+      otherVariantsEnabled: true,
+      otherVariants: [...(prev.otherVariants || []), { name: optionName, price: newModifierOptionPrice || 0 }],
+    }));
+
+    setNewModifierOptionName('');
+    setNewModifierOptionPrice(0);
   };
 
   const handleRemoveOtherVariant = (index: number) => {
@@ -253,7 +282,7 @@ const MenuItemFormModal: React.FC<Props> = ({
           <div className="border-t dark:border-gray-700 pt-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-black dark:text-white">Modifier</h3>
-              <button type="button" onClick={handleAddOtherVariant} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+              <button type="button" onClick={handleStartNewModifierType} title="Start a new modifier type" className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
                 <Plus size={16} />
               </button>
             </div>
@@ -267,13 +296,34 @@ const MenuItemFormModal: React.FC<Props> = ({
                       key={mod.name}
                       type="button"
                       onClick={() => handleSelectSavedModifier(mod.name)}
-                      className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${
+                      className={`px-3 py-1.5 rounded-lg text-[9px] font-black tracking-wide transition-all border flex items-center gap-1 ${
                         formItem.otherVariantName === mod.name
                           ? 'bg-orange-500 text-white border-orange-500'
                           : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-orange-300'
                       }`}
                     >
-                      {mod.name} ({mod.options.length})
+                      <span>{mod.name} ({mod.options.length})</span>
+                      {formItem.otherVariantName === mod.name && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleUnselectModifier();
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              handleUnselectModifier();
+                            }
+                          }}
+                          className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white/20 hover:bg-white/30"
+                          aria-label={`Unselect ${mod.name}`}
+                        >
+                          <X size={10} />
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -319,12 +369,38 @@ const MenuItemFormModal: React.FC<Props> = ({
                       </button>
                     </div>
                   ))}
+
+                  <div className="flex gap-2 items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-dashed border-gray-200 dark:border-gray-600">
+                    <input
+                      type="text"
+                      className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
+                      placeholder="New option"
+                      value={newModifierOptionName}
+                      onChange={e => setNewModifierOptionName(e.target.value)}
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-24 px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
+                      placeholder="+Price"
+                      value={newModifierOptionPrice === 0 ? '' : newModifierOptionPrice}
+                      onChange={e => setNewModifierOptionPrice(e.target.value === '' ? 0 : Number(e.target.value))}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAppendModifierOption}
+                      disabled={!newModifierOptionName.trim()}
+                      className="px-3 py-2 rounded-lg text-[9px] font-black bg-orange-500 text-white disabled:opacity-40"
+                    >
+                      Add
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
               <div className="text-center py-6 bg-gray-50 dark:bg-gray-700/30 rounded-lg border-2 border-dashed border-gray-200">
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">0 Options</p>
-                <p className="text-[8px] text-gray-400 mt-1">Click + to add modifier options</p>
+                <p className="text-[8px] text-gray-400 mt-1">Select a saved modifier or click + to start a new modifier type</p>
               </div>
             )}
           </div>
