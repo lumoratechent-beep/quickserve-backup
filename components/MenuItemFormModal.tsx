@@ -153,7 +153,7 @@ const MenuItemFormModal: React.FC<Props> = ({
     <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full p-6 shadow-2xl relative animate-in zoom-in fade-in duration-300 max-h-[85vh] overflow-y-auto">
         <button onClick={onClose} className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 transition-colors"><X size={20} /></button>
-        <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tighter">New Dish Broadcast</h2>
+        <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tighter">Menu Editor</h2>
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="border-b dark:border-gray-700 pb-4">
@@ -359,13 +359,12 @@ const MenuItemFormModal: React.FC<Props> = ({
             {showNewModifierForm && (
               <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">New Modifier</span>
                   <button type="button" onClick={() => setShowNewModifierForm(false)} className="p-1 text-gray-400 hover:text-red-500">
                     <X size={14} />
                   </button>
                 </div>
                 <div>
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Modifier Name</label>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">New Modifier Name</label>
                   <input
                     type="text"
                     className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
