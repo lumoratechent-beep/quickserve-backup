@@ -1072,6 +1072,17 @@ const PosOnlyView: React.FC<Props> = ({
   const handleRemoveModifier = (name: string) => {
     if (!confirm(`Are you sure you want to remove the "${name}" modifier?`)) return;
     setModifiers(prev => prev.filter(modifier => modifier.name !== name));
+
+    // Clean up linkedModifiers references from all menu items
+    const affectedItems = restaurant.menu.filter(item =>
+      item.linkedModifiers && item.linkedModifiers.includes(name)
+    );
+    affectedItems.forEach(item => {
+      onUpdateMenu?.(restaurant.id, {
+        ...item,
+        linkedModifiers: (item.linkedModifiers || []).filter(n => n !== name),
+      });
+    });
   };
 
   const handleRenameModifier = (oldName: string, newName: string) => {
@@ -1090,6 +1101,18 @@ const PosOnlyView: React.FC<Props> = ({
     setModifiers(prev => prev.map(modifier =>
       modifier.name === oldName ? { ...modifier, name: normalizedName } : modifier
     ));
+
+    // Update linkedModifiers references in all menu items
+    const affectedItems = restaurant.menu.filter(item =>
+      item.linkedModifiers && item.linkedModifiers.includes(oldName)
+    );
+    affectedItems.forEach(item => {
+      onUpdateMenu?.(restaurant.id, {
+        ...item,
+        linkedModifiers: (item.linkedModifiers || []).map(n => n === oldName ? normalizedName : n),
+      });
+    });
+
     setRenamingModifier(null);
   };
 

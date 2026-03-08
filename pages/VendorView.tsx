@@ -657,6 +657,17 @@ const VendorView: React.FC<Props> = ({
   const handleRemoveModifier = (name: string) => {
     if (confirm(`Are you sure you want to remove the "${name}" modifier?`)) {
       setModifiers(prev => prev.filter(m => m.name !== name));
+
+      // Clean up linkedModifiers references from all menu items
+      const affectedItems = restaurant.menu.filter(item =>
+        item.linkedModifiers && item.linkedModifiers.includes(name)
+      );
+      affectedItems.forEach(item => {
+        onUpdateMenu(restaurant.id, {
+          ...item,
+          linkedModifiers: (item.linkedModifiers || []).filter(n => n !== name),
+        });
+      });
     }
   };
 
@@ -665,10 +676,21 @@ const VendorView: React.FC<Props> = ({
       setEditingModifier(null);
       return;
     }
-    
-    setModifiers(prev => prev.map(m => 
+
+    setModifiers(prev => prev.map(m =>
       m.name === oldName ? { ...m, name: newName } : m
     ));
+
+    // Update linkedModifiers references in all menu items
+    const affectedItems = restaurant.menu.filter(item =>
+      item.linkedModifiers && item.linkedModifiers.includes(oldName)
+    );
+    affectedItems.forEach(item => {
+      onUpdateMenu(restaurant.id, {
+        ...item,
+        linkedModifiers: (item.linkedModifiers || []).map(n => n === oldName ? newName : n),
+      });
+    });
 
     setEditingModifier(null);
   };
