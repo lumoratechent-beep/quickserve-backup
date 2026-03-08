@@ -3222,8 +3222,8 @@ const PosOnlyView: React.FC<Props> = ({
                         <p className="text-xs text-orange-500 font-black">RM{item.price.toFixed(2)}</p>
                         <div className="mt-1 space-y-0.5">
                           {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
-                          {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.selectedTemp}</p>}
-                          {item.selectedOtherVariant && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.selectedOtherVariant}</p>}
+                          {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Temperature: {item.selectedTemp}</p>}
+                          {item.selectedOtherVariant && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.otherVariantName || 'Option'}: {item.selectedOtherVariant}</p>}
                           {item.selectedAddOns && item.selectedAddOns.length > 0 && (
                             <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">
                               • Add-ons: {item.selectedAddOns.map(addon => `${addon.name} x${addon.quantity}`).join(', ')}
@@ -3339,8 +3339,8 @@ const PosOnlyView: React.FC<Props> = ({
                       <div>
                         <p className="text-xs font-bold dark:text-white">{item.quantity}x {item.name}</p>
                         {item.selectedSize && <p className="text-[9px] text-gray-400 ml-3">-{item.selectedSize}</p>}
-                        {item.selectedTemp && <p className="text-[9px] text-gray-400 ml-3">-{item.selectedTemp}</p>}
-                        {item.selectedOtherVariant && <p className="text-[9px] text-gray-400 ml-3">-{item.selectedOtherVariant}</p>}
+                        {item.selectedTemp && <p className="text-[9px] text-gray-400 ml-3">-Temperature: {item.selectedTemp}</p>}
+                        {item.selectedOtherVariant && <p className="text-[9px] text-gray-400 ml-3">-{item.otherVariantName || 'Option'}: {item.selectedOtherVariant}</p>}
                         {item.selectedAddOns?.map((addon, aIdx) => (
                           <p key={aIdx} className="text-[9px] text-gray-400 ml-3">-{addon.name}{addon.quantity > 1 ? ` x${addon.quantity}` : ''}</p>
                         ))}
