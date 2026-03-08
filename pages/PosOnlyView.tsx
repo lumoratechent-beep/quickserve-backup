@@ -3539,7 +3539,7 @@ const PosOnlyView: React.FC<Props> = ({
       {/* Payment Modal */}
       {showPaymentModal && pendingOrderData && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => !isCompletingPayment && !showPaymentResult && setShowPaymentModal(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-4xl h-[800px] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-4xl h-[650px] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
             
             {/* Payment Input View */}
             <div className={`absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out ${showPaymentResult ? '-translate-x-full' : 'translate-x-0'}`}>
@@ -3568,13 +3568,16 @@ const PosOnlyView: React.FC<Props> = ({
                 {/* Amount Received - Plain Input */}
                 <div className="space-y-3">
                   <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Amount Received</label>
-                  <input 
-                    type="number" 
-                    value={selectedCashAmount ?? ''} 
-                    onChange={(e) => setSelectedCashAmount(e.target.value ? parseFloat(e.target.value) : null)}
-                    placeholder="Enter amount..."
-                    className="w-full p-3 bg-transparent border-b-2 dark:border-gray-600 border-gray-300 text-2xl font-black dark:text-white text-center focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
-                  />
+                  <div className="flex items-center justify-center border-b-2 dark:border-gray-600 border-gray-300 focus-within:border-orange-500 dark:focus-within:border-orange-500">
+                    <span className="text-2xl font-black text-gray-600 dark:text-gray-400 pb-3">RM</span>
+                    <input 
+                      type="number" 
+                      value={selectedCashAmount ?? ''} 
+                      onChange={(e) => setSelectedCashAmount(e.target.value ? parseFloat(e.target.value) : null)}
+                      placeholder="0.00"
+                      className="flex-1 p-3 bg-transparent text-2xl font-black dark:text-white text-center focus:outline-none border-none"
+                    />
+                  </div>
                 </div>
 
                 {/* Cash Denomination Boxes */}
