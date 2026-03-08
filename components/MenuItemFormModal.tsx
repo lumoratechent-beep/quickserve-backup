@@ -330,7 +330,7 @@ const MenuItemFormModal: React.FC<Props> = ({
               </div>
             )}
 
-            {formItem.otherVariants && formItem.otherVariants.length > 0 ? (
+            {(formItem.otherVariantsEnabled || (formItem.otherVariants && formItem.otherVariants.length > 0)) ? (
               <div className="space-y-4">
                 <div>
                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Modifier Name</label>
@@ -340,14 +340,15 @@ const MenuItemFormModal: React.FC<Props> = ({
                     value={formItem.otherVariantName}
                     onChange={e => setFormItem(prev => ({ ...prev, otherVariantName: e.target.value, otherVariantsEnabled: true }))}
                     placeholder="e.g. Sugar Level"
+                    autoFocus={formItem.otherVariantsEnabled && (!formItem.otherVariants || formItem.otherVariants.length === 0)}
                   />
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{formItem.otherVariants.length} Options</span>
+                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{formItem.otherVariants?.length || 0} Options</span>
                   </div>
-                  {formItem.otherVariants.map((variant, idx) => (
+                  {(formItem.otherVariants || []).map((variant, idx) => (
                     <div key={idx} className="flex gap-2 items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                       <input
                         type="text"
