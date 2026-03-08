@@ -3551,7 +3551,7 @@ const PosOnlyView: React.FC<Props> = ({
               </button>
 
               {/* Content */}
-              <div className="flex-1 px-8 pb-8 pt-7 space-y-6">
+              <div className="flex-1 px-8 pb-8 pt-[3.75rem] space-y-6">
                 {/* Total Amount Due - Centered */}
                 <div className="text-center space-y-3">
                   <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
@@ -3660,7 +3660,7 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                       <label className="block mt-3 text-sm font-black text-gray-400 uppercase tracking-widest">Total Paid</label>
                     </div>
-                    <div className="pl-8 text-right">
+                    <div className="pl-8 text-left">
                       <div className="text-5xl font-black text-blue-500 tracking-tighter">
                         RM{Math.max(0, (selectedCashAmount || 0) - pendingOrderData.total).toFixed(2)}
                       </div>
