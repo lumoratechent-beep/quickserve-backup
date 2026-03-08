@@ -320,6 +320,178 @@ class PrinterService {
     return false;
   }
 
+  /**
+   * Auto-reconnect to a previously paired printer by name, without showing the browser picker.
+   * Uses navigator.bluetooth.getDevices() to find already-paired devices silently.
+   * Returns true if reconnection succeeds, false otherwise.
+   */
+  async autoReconnect(deviceName: string): Promise<boolean> {
+    if (this.isConnected()) return true;
+
+    try {
+      // getDevices() returns previously granted devices without a user gesture
+      const bluetooth = (navigator as any).bluetooth;
+      if (!bluetooth || typeof bluetooth.getDevices !== 'function') {
+        console.log('getDevices() not supported, silent reconnect unavailable');
+        return false;
+      }
+
+      const devices: BluetoothDevice[] = await bluetooth.getDevices();
+      const target = devices.find((d: BluetoothDevice) => d.name === deviceName);
+
+      if (!target) {
+        console.log('Previously paired device not found:', deviceName);
+        return false;
+      }
+
+      // Need to watch for advertisements to reconnect
+      if (typeof (target as any).watchAdvertisements === 'function') {
+        const abortController = new AbortController();
+
+        const connectToDevice = async (): Promise<boolean> => {
+          try {
+            this.device = target;
+            this.disconnectRequested = false;
+
+            this.device.addEventListener('gattserverdisconnected', () => {
+              console.log('Printer disconnected');
+              if (!this.disconnectRequested) {
+                this.server = null;
+                this.service = null;
+                this.characteristic = null;
+              }
+            });
+
+            const server = await this.device.gatt?.connect();
+            if (!server) {
+              throw new Error('Failed to connect to GATT server');
+            }
+            this.server = server;
+
+            try {
+              this.service = await this.server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+            } catch (e) {
+              try {
+                this.service = await this.server.getPrimaryService('00001800-0000-1000-8000-00805f9b34fb');
+              } catch (e2) {
+                throw new Error('Could not find printer service');
+              }
+            }
+
+            const characteristics = await this.service.getCharacteristics();
+            for (const char of characteristics) {
+              if (char.properties.writeWithoutResponse) {
+                this.characteristic = char;
+                break;
+              } else if (char.properties.write) {
+                this.characteristic = char;
+              }
+            }
+
+            if (!this.characteristic) {
+              throw new Error('No writable characteristic found');
+            }
+
+            this.startKeepAlive();
+            this.reconnectAttempts = 0;
+            console.log('Auto-reconnected to printer:', deviceName);
+            return true;
+          } catch (error) {
+            console.error('Auto-reconnect GATT error:', error);
+            await this.cleanup();
+            this.device = null;
+            return false;
+          }
+        };
+
+        // Try direct GATT connect first (works if device is in range and already bonded)
+        const directResult = await connectToDevice();
+        if (directResult) {
+          abortController.abort();
+          return true;
+        }
+
+        // If direct connect fails, watch for advertisements briefly
+        return new Promise<boolean>((resolve) => {
+          const timeout = setTimeout(() => {
+            abortController.abort();
+            resolve(false);
+          }, 5000);
+
+          target.addEventListener('advertisementreceived', async () => {
+            clearTimeout(timeout);
+            abortController.abort();
+            const result = await connectToDevice();
+            resolve(result);
+          }, { once: true });
+
+          (target as any).watchAdvertisements({ signal: abortController.signal }).catch(() => {
+            clearTimeout(timeout);
+            resolve(false);
+          });
+        });
+      }
+
+      // Fallback: try direct GATT connect without watchAdvertisements
+      this.device = target;
+      this.disconnectRequested = false;
+
+      this.device.addEventListener('gattserverdisconnected', () => {
+        console.log('Printer disconnected');
+        if (!this.disconnectRequested) {
+          this.server = null;
+          this.service = null;
+          this.characteristic = null;
+        }
+      });
+
+      const server = await this.device.gatt?.connect();
+      if (!server) {
+        this.device = null;
+        return false;
+      }
+      this.server = server;
+
+      try {
+        this.service = await this.server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+      } catch (e) {
+        try {
+          this.service = await this.server.getPrimaryService('00001800-0000-1000-8000-00805f9b34fb');
+        } catch (e2) {
+          await this.cleanup();
+          this.device = null;
+          return false;
+        }
+      }
+
+      const characteristics = await this.service.getCharacteristics();
+      for (const char of characteristics) {
+        if (char.properties.writeWithoutResponse) {
+          this.characteristic = char;
+          break;
+        } else if (char.properties.write) {
+          this.characteristic = char;
+        }
+      }
+
+      if (!this.characteristic) {
+        await this.cleanup();
+        this.device = null;
+        return false;
+      }
+
+      this.startKeepAlive();
+      this.reconnectAttempts = 0;
+      console.log('Auto-reconnected to printer (direct):', deviceName);
+      return true;
+    } catch (error) {
+      console.error('Auto-reconnect error:', error);
+      await this.cleanup();
+      this.device = null;
+      return false;
+    }
+  }
+
   isConnected(): boolean {
     return this.server?.connected || false;
   }

@@ -227,6 +227,8 @@ const PosOnlyView: React.FC<Props> = ({
   const [devices, setDevices] = useState<PrinterDevice[]>([]);
   const [connectedDevice, setConnectedDevice] = useState<PrinterDevice | null>(null);
   const [printerStatus, setPrinterStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
+  const [realPrinterConnected, setRealPrinterConnected] = useState(false);
+  const [isAutoReconnecting, setIsAutoReconnecting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [testPrintStatus, setTestPrintStatus] = useState<'idle' | 'printing' | 'success' | 'error'>('idle');
   const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings>(() => getDefaultReceiptSettings(restaurant.name));
@@ -893,7 +895,23 @@ const PosOnlyView: React.FC<Props> = ({
       try {
         const printer = JSON.parse(savedPrinter);
         setConnectedDevice(printer);
-        setPrinterStatus('connected');
+        // Auto-reconnect silently without browser picker
+        setIsAutoReconnecting(true);
+        setPrinterStatus('connecting');
+        printerService.autoReconnect(printer.name).then((success) => {
+          if (success) {
+            setPrinterStatus('connected');
+            setRealPrinterConnected(true);
+          } else {
+            setPrinterStatus('disconnected');
+            setRealPrinterConnected(false);
+          }
+          setIsAutoReconnecting(false);
+        }).catch(() => {
+          setPrinterStatus('disconnected');
+          setRealPrinterConnected(false);
+          setIsAutoReconnecting(false);
+        });
       } catch (error) {
         console.error('Failed to load saved printer', error);
       }
@@ -962,6 +980,72 @@ const PosOnlyView: React.FC<Props> = ({
     const timer = setTimeout(() => setReceiptSettingsSaved(false), 2000);
     return () => clearTimeout(timer);
   }, [receiptSettingsSaved]);
+
+  // Periodically check real Bluetooth printer connection status
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const connected = printerService.isConnected();
+      setRealPrinterConnected(connected);
+      if (connectedDevice) {
+        setPrinterStatus(connected ? 'connected' : 'disconnected');
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [connectedDevice]);
+
+  const handlePrinterButtonClick = async () => {
+    if (!connectedDevice) {
+      // No saved printer - scan and connect in one go
+      if (!isBluetoothSupported) return;
+      setIsAutoReconnecting(true);
+      setPrinterStatus('connecting');
+      const found = await printerService.scanForPrinters();
+      if (found.length > 0) {
+        const device = found[0];
+        const success = await printerService.connect(device.name);
+        if (success) {
+          setConnectedDevice(device);
+          setPrinterStatus('connected');
+          setRealPrinterConnected(true);
+          localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
+          await supabase
+            .from('restaurants')
+            .update({ printer_settings: { connected: true, deviceId: device.id, deviceName: device.name } })
+            .eq('id', restaurant.id);
+        } else {
+          setPrinterStatus('error');
+          setRealPrinterConnected(false);
+        }
+      } else {
+        setPrinterStatus('disconnected');
+      }
+      setIsAutoReconnecting(false);
+      return;
+    }
+    if (realPrinterConnected) {
+      // Already connected - do nothing
+      return;
+    }
+    // Has saved printer but disconnected - try reconnect
+    setIsAutoReconnecting(true);
+    setPrinterStatus('connecting');
+    const success = await printerService.autoReconnect(connectedDevice.name);
+    if (success) {
+      setPrinterStatus('connected');
+      setRealPrinterConnected(true);
+    } else {
+      // Auto-reconnect failed, try with browser picker (requires user gesture - which this click is)
+      const pickSuccess = await printerService.connect(connectedDevice.name);
+      if (pickSuccess) {
+        setPrinterStatus('connected');
+        setRealPrinterConnected(true);
+      } else {
+        setPrinterStatus('error');
+        setRealPrinterConnected(false);
+      }
+    }
+    setIsAutoReconnecting(false);
+  };
 
   const handleAddCategory = () => {
     if (!newClassName.trim()) return;
@@ -1145,6 +1229,7 @@ const PosOnlyView: React.FC<Props> = ({
     if (success) {
       setConnectedDevice(device);
       setPrinterStatus('connected');
+      setRealPrinterConnected(true);
       localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
 
       await supabase
@@ -1159,6 +1244,7 @@ const PosOnlyView: React.FC<Props> = ({
         .eq('id', restaurant.id);
     } else {
       setPrinterStatus('error');
+      setRealPrinterConnected(false);
       setErrorMessage('Failed to connect to printer');
     }
   };
@@ -1167,6 +1253,7 @@ const PosOnlyView: React.FC<Props> = ({
     await printerService.disconnect();
     setConnectedDevice(null);
     setPrinterStatus('disconnected');
+    setRealPrinterConnected(false);
     localStorage.removeItem(`printer_${restaurant.id}`);
 
     supabase
@@ -2113,6 +2200,57 @@ const PosOnlyView: React.FC<Props> = ({
             <Settings size={20} /> Settings
           </button>
         </nav>
+
+        {/* Printer Connection Status */}
+        <div className="p-4 mt-auto border-t dark:border-gray-700 space-y-2">
+          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Printer Connection</label>
+          <button
+            onClick={handlePrinterButtonClick}
+            disabled={isAutoReconnecting}
+            className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg ${
+              isAutoReconnecting
+                ? 'bg-blue-500 text-white cursor-wait'
+                : realPrinterConnected
+                  ? 'bg-green-500 text-white hover:bg-green-600'
+                  : connectedDevice
+                    ? 'bg-red-500 text-white hover:bg-red-600'
+                    : 'bg-gray-400 text-white hover:bg-gray-500'
+            }`}
+          >
+            {isAutoReconnecting ? (
+              <>
+                <Bluetooth size={18} className="animate-pulse" />
+                Connecting...
+              </>
+            ) : realPrinterConnected ? (
+              <>
+                <BluetoothConnected size={18} />
+                Printer Connected
+              </>
+            ) : connectedDevice ? (
+              <>
+                <Bluetooth size={18} />
+                Printer Offline
+              </>
+            ) : (
+              <>
+                <Bluetooth size={18} />
+                No Printer
+              </>
+            )}
+          </button>
+          {connectedDevice && (
+            <div className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-700/50 rounded-xl border dark:border-gray-600">
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${
+                  isAutoReconnecting ? 'bg-blue-500 scale-125' : (realPrinterConnected ? 'bg-green-500' : 'bg-red-500')
+                } transition-all duration-300 animate-pulse`}></div>
+                <span className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest truncate">{connectedDevice.name}</span>
+              </div>
+              {isAutoReconnecting && <RotateCw size={10} className="animate-spin text-blue-500" />}
+            </div>
+          )}
+        </div>
       </aside>
 
       {/* Main Content Area - Same as PosView but without Settings tab */}
