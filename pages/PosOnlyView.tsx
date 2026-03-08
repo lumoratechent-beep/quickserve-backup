@@ -3531,9 +3531,9 @@ const PosOnlyView: React.FC<Props> = ({
       {/* Payment Modal */}
       {showPaymentModal && pendingOrderData && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => !isCompletingPayment && setShowPaymentModal(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
             {/* Header */}
-            <div className="px-8 py-6 border-b dark:border-gray-700 flex items-center justify-between sticky top-0 bg-white dark:bg-gray-800 z-10">
+            <div className="px-8 py-4 border-b dark:border-gray-700 flex items-center justify-between flex-shrink-0">
               <h3 className="font-black dark:text-white uppercase tracking-tighter text-2xl">Payment</h3>
               <button 
                 onClick={() => setShowPaymentModal(false)} 
@@ -3545,54 +3545,54 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
 
             {/* Content */}
-            <div className="p-10 space-y-10">
+            <div className="flex-1 overflow-y-auto p-8 space-y-6">
               {/* Total Amount Due - Centered */}
-              <div className="text-center space-y-4">
+              <div className="text-center space-y-2">
                 <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
-                <div className="text-7xl font-black text-orange-500 tracking-tighter">
+                <div className="text-6xl font-black text-orange-500 tracking-tighter">
                   RM{pendingOrderData.total.toFixed(2)}
                 </div>
               </div>
 
-              {/* Cash Received - Text Input */}
-              <div className="space-y-4">
+              {/* Amount Received - Plain Input */}
+              <div className="space-y-2">
                 <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Amount Received</label>
                 <input 
                   type="number" 
                   value={selectedCashAmount ?? ''} 
                   onChange={(e) => setSelectedCashAmount(e.target.value ? parseFloat(e.target.value) : null)}
                   placeholder="Enter amount..."
-                  className="w-full p-6 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-2xl text-2xl font-black dark:text-white text-center focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
+                  className="w-full p-3 bg-transparent border-b-2 dark:border-gray-600 border-gray-300 text-2xl font-black dark:text-white text-center focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
                 />
               </div>
 
               {/* Cash Denomination Boxes */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Quick Select</label>
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-4 gap-3">
                   {CASH_DENOMINATIONS.map((amount) => (
                     <button
                       key={amount}
                       onClick={() => setSelectedCashAmount(amount)}
-                      className={`p-6 rounded-2xl font-black text-2xl uppercase tracking-widest transition-all border-2 ${
+                      className={`p-3 rounded-xl font-black text-lg uppercase tracking-widest transition-all border-2 ${
                         selectedCashAmount === amount
                           ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
                           : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
                       }`}
                     >
-                      RM<br/>{amount}
+                      RM {amount}
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* Payment Method */}
-              <div className="space-y-4">
+              <div className="space-y-2">
                 <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
                 <select 
                   value={selectedPaymentType} 
                   onChange={(e) => setSelectedPaymentType(e.target.value)}
-                  className="w-full p-6 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-2xl text-lg font-black dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
+                  className="w-full p-4 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-lg font-black dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
                 >
                   <option value="">Select payment method...</option>
                   {paymentTypes.map((type) => (
@@ -3605,18 +3605,18 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
 
             {/* Footer / Action Buttons */}
-            <div className="px-10 py-6 border-t dark:border-gray-700 flex gap-4 sticky bottom-0 bg-white dark:bg-gray-800">
+            <div className="px-8 py-4 border-t dark:border-gray-700 flex gap-4 flex-shrink-0">
               <button 
                 onClick={() => setShowPaymentModal(false)} 
                 disabled={isCompletingPayment}
-                className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-2xl font-black text-lg uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-lg uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
               >
                 Cancel
               </button>
               <button 
                 onClick={handleConfirmPayment} 
                 disabled={isCompletingPayment || !selectedPaymentType}
-                className="flex-1 py-4 bg-orange-500 text-white rounded-2xl font-black text-lg uppercase tracking-wider hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+                className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-black text-lg uppercase tracking-wider hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
               >
                 {isCompletingPayment ? (
                   <>
