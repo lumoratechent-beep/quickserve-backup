@@ -494,11 +494,13 @@ class PrinterService {
         receipt = receipt.line(`#${safeOrderId}`);
       }
 
-      // Space + Table No (left)
+      // Space + Table No (left) - BOLD
       if (showTableNumber && order.tableNumber) {
         receipt = receipt
           .line('')
-          .line(`Table: ${safeTableNumber}`);
+          .bold()
+          .line(`Table: ${safeTableNumber}`)
+          .bold(false);
       }
 
       // Full single separator
@@ -517,18 +519,19 @@ class PrinterService {
           const spaceBetween = Math.max(1, this.charsPerLine - leftPart.length - rightPart.length);
           receipt = receipt.line(leftPart + ' '.repeat(spaceBetween) + rightPart);
 
-          // Variants with dash prefix
+          // Variants with labels
           if (item.selectedSize) {
             const safeSize = this.sanitizeText(item.selectedSize);
-            if (safeSize) receipt = receipt.line(`-${safeSize}`);
+            if (safeSize) receipt = receipt.line(`-Size : ${safeSize}`);
           }
           if (item.selectedTemp) {
             const safeTemp = this.sanitizeText(item.selectedTemp);
-            if (safeTemp) receipt = receipt.line(`-${safeTemp}`);
+            if (safeTemp) receipt = receipt.line(`-Temperature : ${safeTemp}`);
           }
           if (item.selectedOtherVariant) {
             const safeVariant = this.sanitizeText(item.selectedOtherVariant);
-            if (safeVariant) receipt = receipt.line(`-${safeVariant}`);
+            const variantLabel = this.sanitizeText(item.otherVariantName) || 'Variant';
+            if (safeVariant) receipt = receipt.line(`-${variantLabel} : ${safeVariant}`);
           }
 
           // Add-ons with dash prefix
