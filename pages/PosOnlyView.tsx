@@ -8,6 +8,7 @@ import * as counterOrdersCache from '../lib/counterOrdersCache';
 import printerService, { PrinterDevice, ReceiptPrintOptions } from '../services/printerService';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
+import { toast } from '../components/Toast';
 import StandardReport from '../components/StandardReport';
 import {
   ShoppingBag, Search, Download, Calendar,
@@ -321,7 +322,7 @@ const PosOnlyView: React.FC<Props> = ({
           .eq('id', staff.id);
 
         if (error) {
-          alert('Error removing staff: ' + error.message);
+          toast('Error removing staff: ' + error.message, 'error');
           return;
         }
       }
@@ -329,7 +330,7 @@ const PosOnlyView: React.FC<Props> = ({
       setStaffList(updated);
       localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
     } catch (error: any) {
-      alert('Error removing staff: ' + error.message);
+      toast('Error removing staff: ' + error.message, 'error');
     }
   };
 
@@ -404,22 +405,22 @@ const PosOnlyView: React.FC<Props> = ({
       setFormItem(prev => ({ ...prev, image: publicUrl }));
     } catch (error) {
       console.error('Upload failed:', error);
-      alert('Failed to upload image. Please try again.');
+      toast('Failed to upload image. Please try again.', 'error');
     }
   };
 
   const handleSaveMenuItem = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!formItem.name?.trim()) {
-      alert('Please enter item name');
+      toast('Please enter item name', 'warning');
       return;
     }
     if (!formItem.category?.trim()) {
-      alert('Please enter category');
+      toast('Please enter category', 'warning');
       return;
     }
     if (!onAddMenuItem && !onUpdateMenu) {
-      alert('Menu editing is not enabled for this account.');
+      toast('Menu editing is not enabled for this account.', 'warning');
       return;
     }
 
@@ -451,7 +452,7 @@ const PosOnlyView: React.FC<Props> = ({
       }
       handleCloseFormModal();
     } catch (error: any) {
-      alert('Failed to save menu item: ' + error.message);
+      toast('Failed to save menu item: ' + error.message, 'error');
     } finally {
       setIsSavingMenuItem(false);
     }
@@ -459,7 +460,7 @@ const PosOnlyView: React.FC<Props> = ({
 
   const handleArchiveItem = async (item: MenuItem) => {
     if (!onUpdateMenu) {
-      alert('Menu editing is not enabled for this account.');
+      toast('Menu editing is not enabled for this account.', 'warning');
       return;
     }
     await onUpdateMenu(restaurant.id, { ...item, isArchived: true });
@@ -467,7 +468,7 @@ const PosOnlyView: React.FC<Props> = ({
 
   const handleRestoreItem = async (item: MenuItem) => {
     if (!onUpdateMenu) {
-      alert('Menu editing is not enabled for this account.');
+      toast('Menu editing is not enabled for this account.', 'warning');
       return;
     }
     await onUpdateMenu(restaurant.id, { ...item, isArchived: false });
@@ -475,7 +476,7 @@ const PosOnlyView: React.FC<Props> = ({
 
   const handlePermanentDelete = async (itemId: string) => {
     if (!onPermanentDeleteMenuItem) {
-      alert('Permanent delete is not enabled for this account.');
+      toast('Permanent delete is not enabled for this account.', 'warning');
       return;
     }
     if (!confirm('Are you sure you want to permanently delete this item?')) return;
@@ -619,7 +620,7 @@ const PosOnlyView: React.FC<Props> = ({
       actualOrderId = await onPlaceOrder(posCart, posRemark, posTableNo);
     } catch (error: any) {
       console.error('Order placement error:', error);
-      alert(`Failed to place order: ${error?.message || 'Unknown error'}`);
+      toast(`Failed to place order: ${error?.message || 'Unknown error'}`, 'error');
       setIsCompletingPayment(false);
       return;
     }
@@ -1054,7 +1055,7 @@ const PosOnlyView: React.FC<Props> = ({
     const existsInMenu = restaurant.menu.some(item => item.category === categoryName);
     const existsInExtra = extraCategories.some(category => category.name === categoryName);
     if (existsInMenu || existsInExtra) {
-      alert('Category already exists.');
+      toast('Category already exists.', 'warning');
       return;
     }
 
@@ -1075,7 +1076,7 @@ const PosOnlyView: React.FC<Props> = ({
     const existsInMenu = restaurant.menu.some(item => item.category === normalizedName);
     const existsInExtra = extraCategories.some(category => category.name === normalizedName && category.name !== oldName);
     if (existsInMenu || existsInExtra) {
-      alert('Category already exists.');
+      toast('Category already exists.', 'warning');
       return;
     }
 
@@ -1107,14 +1108,14 @@ const PosOnlyView: React.FC<Props> = ({
 
   const handleSaveModifier = () => {
     if (!tempModifierName.trim()) {
-      alert('Please enter a modifier name');
+      toast('Please enter a modifier name', 'warning');
       return;
     }
 
     const nextName = tempModifierName.trim();
     const duplicate = modifiers.some(modifier => modifier.name === nextName && modifier.name !== editingModifierName);
     if (duplicate) {
-      alert('Modifier already exists.');
+      toast('Modifier already exists.', 'warning');
       return;
     }
 
@@ -1178,7 +1179,7 @@ const PosOnlyView: React.FC<Props> = ({
     const normalizedName = newName.trim();
     const duplicate = modifiers.some(modifier => modifier.name === normalizedName && modifier.name !== oldName);
     if (duplicate) {
-      alert('Modifier already exists.');
+      toast('Modifier already exists.', 'warning');
       return;
     }
 
@@ -1301,14 +1302,14 @@ const PosOnlyView: React.FC<Props> = ({
 
       if (error) {
         console.error('Cloud save failed, using local receipt settings only:', error);
-        alert('Receipt settings saved locally. Cloud sync is unavailable right now.');
+        toast('Receipt settings saved locally. Cloud sync is unavailable right now.', 'warning');
         setReceiptSettingsSaved(true);
         return;
       }
 
       setReceiptSettingsSaved(true);
     } catch (error: any) {
-      alert('Failed to save receipt settings: ' + error.message);
+      toast('Failed to save receipt settings: ' + error.message, 'error');
     } finally {
       setIsSavingReceiptSettings(false);
     }
@@ -3136,7 +3137,7 @@ const PosOnlyView: React.FC<Props> = ({
           onSaveModifier={(modifier) => {
             const duplicate = modifiers.some(m => m.name === modifier.name);
             if (duplicate) {
-              alert('A modifier with this name already exists.');
+              toast('A modifier with this name already exists.', 'warning');
               return;
             }
             setModifiers(prev => [...prev, modifier]);
@@ -3364,7 +3365,7 @@ const PosOnlyView: React.FC<Props> = ({
                             .select();
                           
                           if (error) {
-                            alert('Error saving to database: ' + error.message);
+                            toast('Error saving to database: ' + error.message, 'error');
                             setIsAddingStaff(false);
                             return;
                           }
@@ -3381,13 +3382,13 @@ const PosOnlyView: React.FC<Props> = ({
                           setNewStaffEmail('');
                           setNewStaffPhone('');
                           setIsAddingStaff(false);
-                          alert('Staff member added successfully!');
+                          toast('Staff member added successfully!', 'success');
                         } catch (error: any) {
-                          alert('Error: ' + error.message);
+                          toast('Error: ' + error.message, 'error');
                           setIsAddingStaff(false);
                         }
                       } else {
-                        alert('Please fill in all fields');
+                        toast('Please fill in all fields', 'warning');
                       }
                     }}
                     disabled={isAddingStaff}

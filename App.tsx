@@ -11,6 +11,7 @@ import MarketingPage from './pages/MarketingPage';
 import { supabase } from './lib/supabase';
 import { LogOut, Sun, Moon, MapPin, LogIn, Loader2 } from 'lucide-react';
 import * as offlineQueue from './lib/offlineOrdersQueue';
+import { toast } from './components/Toast';
 
 const App: React.FC = () => {
   // --- HYDRATED STATE ---
@@ -591,7 +592,7 @@ const App: React.FC = () => {
       .filter(res => !res || res.isOnline === false);
 
     if (offlineRestaurants.length > 0) {
-      alert(`Error: The following kitchen(s) are currently offline: ${offlineRestaurants.map(r => r?.name).join(', ')}. Please remove these items from your cart.`);
+      toast(`Error: The following kitchen(s) are currently offline: ${offlineRestaurants.map(r => r?.name).join(', ')}. Please remove these items from your cart.`, 'warning');
       return;
     }
 
@@ -626,8 +627,8 @@ const App: React.FC = () => {
     });
 
     const { error } = await supabase.from('orders').insert(ordersToInsert);
-    if (error) alert("Placement Error: " + error.message);
-    else { setCart([]); alert(`Your order(s) have been placed! Reference: ${baseOrderId}`); }
+    if (error) toast("Placement Error: " + error.message, 'error');
+    else { setCart([]); toast(`Your order(s) have been placed! Reference: ${baseOrderId}`, 'success'); }
   };
 
   const handleLogin = (user: User) => {
@@ -704,7 +705,7 @@ const App: React.FC = () => {
     
     // If master activation is disabled, cannot turn online
     if (!currentStatus && vendor && vendor.isActive === false) {
-      alert("Cannot turn online: Master Activation is disabled for this vendor.");
+      toast("Cannot turn online: Master Activation is disabled for this vendor.", 'warning');
       return;
     }
 
@@ -718,7 +719,7 @@ const App: React.FC = () => {
 
   const addToCart = (item: CartItem) => {
     const res = restaurants.find(r => r.id === item.restaurantId);
-    if (res && res.isOnline === false) { alert("This kitchen is currently offline."); return; }
+    if (res && res.isOnline === false) { toast("This kitchen is currently offline.", 'warning'); return; }
     setCart(prev => {
       const existing = prev.find(i => i.id === item.id && i.selectedSize === item.selectedSize && i.selectedTemp === item.selectedTemp && i.selectedOtherVariant === item.selectedOtherVariant);
       if (existing) return prev.map(i => (i.id === item.id && i.selectedSize === item.selectedSize && i.selectedTemp === item.selectedTemp && i.selectedOtherVariant === item.selectedOtherVariant) ? { ...i, quantity: i.quantity + 1 } : i);
@@ -755,7 +756,7 @@ const App: React.FC = () => {
     }).eq('id', item.id);
     
     if (error) {
-      alert("Error updating menu item: " + error.message);
+      toast("Error updating menu item: " + error.message, 'error');
       console.error("Update error:", error);
     } else {
       fetchRestaurants();
@@ -784,7 +785,7 @@ const App: React.FC = () => {
     });
     
     if (error) {
-      alert("Error adding menu item: " + error.message);
+      toast("Error adding menu item: " + error.message, 'error');
       console.error("Add error:", error);
     } else {
       fetchRestaurants();
@@ -816,7 +817,7 @@ const App: React.FC = () => {
       });
       
       if (resError) { 
-        alert("Error adding restaurant: " + resError.message);
+        toast("Error adding restaurant: " + resError.message, 'error');
         console.error("Restaurant error:", resError);
         return; 
       }
@@ -836,7 +837,7 @@ const App: React.FC = () => {
       });
       
       if (userError) { 
-        alert("Error adding user: " + userError.message);
+        toast("Error adding user: " + userError.message, 'error');
         console.error("User error:", userError);
         
         // Rollback: delete the restaurant we just created
@@ -854,10 +855,10 @@ const App: React.FC = () => {
       
       if (updateError) {
         console.error("Update error:", updateError);
-        alert("Restaurant created but couldn't link vendor. Please check manually.");
+        toast("Restaurant created but couldn't link vendor. Please check manually.", 'warning');
       } else {
         console.log("4. Restaurant updated with vendor_id successfully");
-        alert("Vendor added successfully!");
+        toast("Vendor added successfully!", 'success');
       }
       
       fetchUsers(); 
@@ -865,7 +866,7 @@ const App: React.FC = () => {
       
     } catch (error) {
       console.error("Unexpected error:", error);
-      alert("An unexpected error occurred");
+      toast("An unexpected error occurred", 'error');
     }
   };
 
@@ -896,7 +897,7 @@ const App: React.FC = () => {
     }
 
     const { error: resError } = await supabase.from('restaurants').update(resUpdate).eq('id', restaurant.id);
-    if (userError || resError) alert("Error updating vendor");
+    if (userError || resError) toast("Error updating vendor", 'error');
     fetchUsers(); fetchRestaurants();
   };
 

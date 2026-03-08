@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import printerService, { PrinterDevice, ReceiptPrintOptions } from '../services/printerService';
 import StandardReport from '../components/StandardReport';
 import ItemOptionsModal from '../components/SimpleItemOptionsModal';
+import { toast } from '../components/Toast';
 import {
   ShoppingBag, Search, Filter, Download, Calendar, ChevronLeft, ChevronRight,
   Printer, QrCode, CreditCard, Banknote, User, Trash2, Plus, Minus, LayoutGrid,
@@ -395,10 +396,10 @@ const PosView: React.FC<Props> = ({
       setPosCart([]);
       setPosRemark('');
       setPosTableNo('Counter');
-      alert('Order placed successfully!');
+      toast('Order placed successfully!', 'success');
     } catch (error) {
       console.error('Checkout error:', error);
-      alert('Failed to place order');
+      toast('Failed to place order', 'error');
     }
   };
 
@@ -466,7 +467,7 @@ const PosView: React.FC<Props> = ({
     } catch (error) {
       console.error('QR Checkout error:', error);
       setIsCompletingPayment(false);
-      alert('Failed to complete payment');
+      toast('Failed to complete payment', 'error');
     }
   };
 
@@ -647,7 +648,7 @@ const PosView: React.FC<Props> = ({
           .eq('id', staff.id);
 
         if (error) {
-          alert('Error removing staff: ' + error.message);
+          toast('Error removing staff: ' + error.message, 'error');
           return;
         }
       }
@@ -655,7 +656,7 @@ const PosView: React.FC<Props> = ({
       setStaffList(updated);
       localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
     } catch (error: any) {
-      alert('Error removing staff: ' + error.message);
+      toast('Error removing staff: ' + error.message, 'error');
     }
   };
 
@@ -749,14 +750,14 @@ const PosView: React.FC<Props> = ({
 
       if (error) {
         console.error('Cloud save failed, using local receipt settings only:', error);
-        alert('Receipt settings saved locally. Cloud sync is unavailable right now.');
+        toast('Receipt settings saved locally. Cloud sync is unavailable right now.', 'warning');
         setReceiptSettingsSaved(true);
         return;
       }
 
       setReceiptSettingsSaved(true);
     } catch (error: any) {
-      alert('Failed to save receipt settings: ' + error.message);
+      toast('Failed to save receipt settings: ' + error.message, 'error');
     } finally {
       setIsSavingReceiptSettings(false);
     }
@@ -2473,7 +2474,7 @@ const PosView: React.FC<Props> = ({
                             .select();
 
                           if (error) {
-                            alert('Error saving to database: ' + error.message);
+                            toast('Error saving to database: ' + error.message, 'error');
                             setIsAddingStaff(false);
                             return;
                           }
@@ -2489,13 +2490,13 @@ const PosView: React.FC<Props> = ({
                           setNewStaffEmail('');
                           setNewStaffPhone('');
                           setIsAddingStaff(false);
-                          alert('Staff member added successfully!');
+                          toast('Staff member added successfully!', 'success');
                         } catch (error: any) {
-                          alert('Error: ' + error.message);
+                          toast('Error: ' + error.message, 'error');
                           setIsAddingStaff(false);
                         }
                       } else {
-                        alert('Please fill in all fields');
+                        toast('Please fill in all fields', 'warning');
                       }
                     }}
                     disabled={isAddingStaff}

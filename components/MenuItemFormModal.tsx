@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { MenuItem, AddOnItem, ModifierData } from '../src/types';
 import { X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle, Save } from 'lucide-react';
+import { toast } from './Toast';
 
 export type MenuFormItem = Partial<MenuItem & { sizesEnabled?: boolean }>;
 
@@ -46,7 +47,7 @@ const MenuItemFormModal: React.FC<Props> = ({
       }));
     } else {
       if (linkedModifiers.length >= 4) {
-        alert('Maximum 4 modifiers per item.');
+        toast('Maximum 4 modifiers per item.', 'warning');
         return;
       }
       setFormItem(prev => ({
@@ -82,11 +83,11 @@ const MenuItemFormModal: React.FC<Props> = ({
   const handleSaveNewModifier = () => {
     const name = newModName.trim();
     if (!name) {
-      alert('Please enter a modifier name.');
+      toast('Please enter a modifier name.', 'warning');
       return;
     }
     if (availableModifiers.some(m => m.name === name)) {
-      alert('A modifier with this name already exists.');
+      toast('A modifier with this name already exists.', 'warning');
       return;
     }
     const validOptions = newModOptions.filter(o => o.name.trim() !== '');

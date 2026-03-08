@@ -3,6 +3,7 @@ import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilte
 import { uploadImage } from '../lib/storage';
 import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { toast } from '../components/Toast';
 
 interface Props {
   vendors: User[];
@@ -689,7 +690,7 @@ const AdminView: React.FC<Props> = ({
         setFormVendor({ ...formVendor, logo: publicUrl });
       } catch (error) {
         console.error("Upload failed:", error);
-        alert("Failed to upload logo. Please try again.");
+        toast("Failed to upload logo. Please try again.", 'error');
       }
     }
   };

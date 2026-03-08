@@ -14,6 +14,7 @@ import { supabase } from '../lib/supabase';
 import printerService, { PrinterDevice } from '../services/printerService';
 import MenuItemFormModal from '../components/MenuItemFormModal';
 import StandardReport from '../components/StandardReport';
+import { toast } from '../components/Toast';
 
 interface Props {
   restaurant: Restaurant;
@@ -503,7 +504,7 @@ const VendorView: React.FC<Props> = ({
         setFormItem({ ...formItem, image: publicUrl });
       } catch (error) {
         console.error("Upload failed:", error);
-        alert("Failed to upload image. Please try again.");
+        toast("Failed to upload image. Please try again.", 'error');
       }
     }
   };
@@ -553,7 +554,7 @@ const VendorView: React.FC<Props> = ({
   const handleAddCategory = () => {
     if (!newClassName.trim()) return;
     if (categories.includes(newClassName.trim())) {
-      alert("Category already exists.");
+      toast("Category already exists.", 'warning');
       return;
     }
     setExtraCategories(prev => [...prev, { name: newClassName.trim() }]);
@@ -600,7 +601,7 @@ const VendorView: React.FC<Props> = ({
 
   const handleSaveModifier = () => {
     if (!tempModifierName.trim()) {
-      alert("Please enter a modifier name");
+      toast("Please enter a modifier name", 'warning');
       return;
     }
     
@@ -781,7 +782,7 @@ const VendorView: React.FC<Props> = ({
     
     if (orderSettings.autoPrint) {
       if (!connectedDevice) {
-        alert('Printer is not connected. Please connect a printer in Settings.');
+        toast('Printer is not connected. Please connect a printer in Settings.', 'warning');
         return;
       }
 
@@ -795,7 +796,7 @@ const VendorView: React.FC<Props> = ({
           .single();
         
         if (error || !freshOrder) {
-          alert('Failed to fetch order details for printing.');
+          toast('Failed to fetch order details for printing.', 'error');
           return;
         }
         
@@ -814,12 +815,12 @@ const VendorView: React.FC<Props> = ({
         if (printSuccess) {
           console.log('Order queued/printed successfully');
         } else {
-          alert('Failed to queue print job. Please try again.');
+          toast('Failed to queue print job. Please try again.', 'error');
         }
         
       } catch (error) {
         console.error('Error:', error);
-        alert('Error occurred while printing.');
+        toast('Error occurred while printing.', 'error');
       } finally {
         setPrintingOrderId(null);
       }
@@ -828,7 +829,7 @@ const VendorView: React.FC<Props> = ({
 
   const handleManualPrint = async (order: Order) => {
     if (!connectedDevice) {
-      alert('No printer connected. Please connect a printer in Settings.');
+      toast('No printer connected. Please connect a printer in Settings.', 'warning');
       return;
     }
 
@@ -841,7 +842,7 @@ const VendorView: React.FC<Props> = ({
         .single();
       
       if (error || !freshOrder) {
-        alert('Failed to fetch order details for printing.');
+        toast('Failed to fetch order details for printing.', 'error');
         return;
       }
       
@@ -858,13 +859,13 @@ const VendorView: React.FC<Props> = ({
       const success = await printerService.printReceipt(orderToPrint, restaurant);
       
       if (success) {
-        alert('Order printed successfully!');
+        toast('Order printed successfully!', 'success');
       } else {
-        alert('Failed to print. Please try again.');
+        toast('Failed to print. Please try again.', 'error');
       }
     } catch (error) {
       console.error('Manual print error:', error);
-      alert('Error occurred while printing.');
+      toast('Error occurred while printing.', 'error');
     } finally {
       setPrintingOrderId(null);
     }

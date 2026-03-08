@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { MenuItem, CartItem, SelectedAddOn, ModifierData } from '../src/types';
 import { X, Plus, Minus } from 'lucide-react';
+import { toast } from './Toast';
 
 interface Props {
   item: MenuItem | null;
@@ -101,20 +102,20 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
   const handleConfirm = () => {
     // Validate size (always required if sizes exist)
     if (sizes.length > 0 && !size) {
-      alert('Please select a size');
+      toast('Please select a size', 'warning');
       return;
     }
 
     // Validate temperature (always required if temp options exist)
     if (hasTempOptions && !temp) {
-      alert('Please select a temperature');
+      toast('Please select a temperature', 'warning');
       return;
     }
 
     // Validate required modifiers
     for (const modifier of activeModifiers) {
       if (modifier.required && !selectedModifiers[modifier.name]) {
-        alert(`Please select an option for ${modifier.name}`);
+        toast(`Please select an option for ${modifier.name}`, 'warning');
         return;
       }
     }
