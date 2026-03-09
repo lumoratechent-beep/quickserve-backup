@@ -3,7 +3,7 @@ import { MenuItem, AddOnItem, ModifierData } from '../src/types';
 import { X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle, Save } from 'lucide-react';
 import { toast } from './Toast';
 
-export type MenuFormItem = Partial<MenuItem & { sizesEnabled?: boolean }>;
+export type MenuFormItem = Partial<MenuItem & { sizesEnabled?: boolean; variantOptionsEnabled?: boolean }>;
 
 interface Props {
   isOpen: boolean;
@@ -128,6 +128,62 @@ const MenuItemFormModal: React.FC<Props> = ({
     });
   };
 
+  const handleAddTempOption = () => {
+    setFormItem(prev => ({
+      ...prev,
+      tempOptions: {
+        ...(prev.tempOptions || { enabled: true, hot: 0, cold: 0 }),
+        options: [...(prev.tempOptions?.options || []), { name: '', price: 0 }],
+      },
+    }));
+  };
+
+  const handleRemoveTempOption = (index: number) => {
+    setFormItem(prev => ({
+      ...prev,
+      tempOptions: {
+        ...(prev.tempOptions || { enabled: true, hot: 0, cold: 0 }),
+        options: (prev.tempOptions?.options || []).filter((_, i) => i !== index),
+      },
+    }));
+  };
+
+  const handleTempOptionChange = (index: number, field: 'name' | 'price', value: string | number) => {
+    setFormItem(prev => {
+      const updated = [...(prev.tempOptions?.options || [])];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, tempOptions: { ...(prev.tempOptions || { enabled: true, hot: 0, cold: 0 }), options: updated } };
+    });
+  };
+
+  const handleAddVariantOption = () => {
+    setFormItem(prev => ({
+      ...prev,
+      variantOptions: {
+        ...(prev.variantOptions || { enabled: true, options: [] }),
+        options: [...(prev.variantOptions?.options || []), { name: '', price: 0 }],
+      },
+    }));
+  };
+
+  const handleRemoveVariantOption = (index: number) => {
+    setFormItem(prev => ({
+      ...prev,
+      variantOptions: {
+        ...(prev.variantOptions || { enabled: true, options: [] }),
+        options: (prev.variantOptions?.options || []).filter((_, i) => i !== index),
+      },
+    }));
+  };
+
+  const handleVariantOptionChange = (index: number, field: 'name' | 'price', value: string | number) => {
+    setFormItem(prev => {
+      const updated = [...(prev.variantOptions?.options || [])];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, variantOptions: { ...(prev.variantOptions || { enabled: true, options: [] }), options: updated } };
+    });
+  };
+
   const handleAddAddOn = () => {
     setFormItem(prev => ({
       ...prev,
@@ -198,10 +254,21 @@ const MenuItemFormModal: React.FC<Props> = ({
                   <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Thermal Options</span>
                   <button
                     type="button"
-                    onClick={() => setFormItem(prev => ({ ...prev, tempOptions: { ...(prev.tempOptions || { hot: 0, cold: 0, enabled: false }), enabled: !prev.tempOptions?.enabled } }))}
+                    onClick={() => setFormItem(prev => ({ ...prev, tempOptions: { ...(prev.tempOptions || { hot: 0, cold: 0, enabled: false, options: [] }), enabled: !prev.tempOptions?.enabled } }))}
                     className={`px-3 py-1 rounded text-[8px] font-black uppercase tracking-widest transition-all ${formItem.tempOptions?.enabled ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}
                   >
                     {formItem.tempOptions?.enabled ? 'Activated' : 'Disabled'}
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Variant Options</span>
+                  <button
+                    type="button"
+                    onClick={() => setFormItem(prev => ({ ...prev, variantOptions: { ...(prev.variantOptions || { enabled: false, options: [] }), enabled: !prev.variantOptions?.enabled } }))}
+                    className={`px-3 py-1 rounded text-[8px] font-black uppercase tracking-widest transition-all ${formItem.variantOptions?.enabled ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}
+                  >
+                    {formItem.variantOptions?.enabled ? 'Activated' : 'Disabled'}
                   </button>
                 </div>
               </div>
@@ -426,36 +493,70 @@ const MenuItemFormModal: React.FC<Props> = ({
 
           {formItem.tempOptions?.enabled && (
             <div className="border-t dark:border-gray-700 pt-4">
-              <h3 className="text-sm font-black dark:text-white mb-3">Thermal Options</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-orange-500">
-                    <ThermometerSun size={16} />
-                    <span className="text-[9px] font-black uppercase tracking-widest">Hot Surcharge</span>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-black dark:text-white">Thermal Options</h3>
+                <button type="button" onClick={handleAddTempOption} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                  <Plus size={16} />
+                </button>
+              </div>
+              <div className="space-y-2">
+                {formItem.tempOptions.options?.map((opt, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
+                      placeholder="e.g. Hot, Cold, Warm"
+                      value={opt.name}
+                      onChange={e => handleTempOptionChange(idx, 'name', e.target.value)}
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-24 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
+                      placeholder="+Price"
+                      value={opt.price === 0 ? '' : opt.price}
+                      onChange={e => handleTempOptionChange(idx, 'price', e.target.value === '' ? 0 : Number(e.target.value))}
+                    />
+                    <button type="button" onClick={() => handleRemoveTempOption(idx)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg">
+                      <Trash2 size={16} />
+                    </button>
                   </div>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="w-full px-3 py-2 bg-orange-50 dark:bg-orange-900/10 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
-                    value={formItem.tempOptions.hot === 0 ? '' : formItem.tempOptions.hot}
-                    onChange={e => setFormItem(prev => ({ ...prev, tempOptions: { ...(prev.tempOptions || { enabled: true, hot: 0, cold: 0 }), hot: e.target.value === '' ? 0 : Number(e.target.value), enabled: true } }))}
-                    placeholder="0.00"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-blue-500">
-                    <Info size={16} />
-                    <span className="text-[9px] font-black uppercase tracking-widest">Cold Surcharge</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {formItem.variantOptions?.enabled && (
+            <div className="border-t dark:border-gray-700 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-black dark:text-white">Variant Options</h3>
+                <button type="button" onClick={handleAddVariantOption} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                  <Plus size={16} />
+                </button>
+              </div>
+              <div className="space-y-2">
+                {formItem.variantOptions.options?.map((opt, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
+                      placeholder="Option name"
+                      value={opt.name}
+                      onChange={e => handleVariantOptionChange(idx, 'name', e.target.value)}
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-24 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
+                      placeholder="+Price"
+                      value={opt.price === 0 ? '' : opt.price}
+                      onChange={e => handleVariantOptionChange(idx, 'price', e.target.value === '' ? 0 : Number(e.target.value))}
+                    />
+                    <button type="button" onClick={() => handleRemoveVariantOption(idx)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg">
+                      <Trash2 size={16} />
+                    </button>
                   </div>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="w-full px-3 py-2 bg-blue-50 dark:bg-blue-900/10 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
-                    value={formItem.tempOptions.cold === 0 ? '' : formItem.tempOptions.cold}
-                    onChange={e => setFormItem(prev => ({ ...prev, tempOptions: { ...(prev.tempOptions || { enabled: true, hot: 0, cold: 0 }), cold: e.target.value === '' ? 0 : Number(e.target.value), enabled: true } }))}
-                    placeholder="0.00"
-                  />
-                </div>
+                ))}
               </div>
             </div>
           )}

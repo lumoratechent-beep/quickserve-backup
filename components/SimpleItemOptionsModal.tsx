@@ -19,6 +19,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
   const [size, setSize] = useState('');
   const [temp, setTemp] = useState('');
   const [variant, setVariant] = useState('');
+  const [variantOption, setVariantOption] = useState('');
   const [addOns, setAddOns] = useState<Record<string, number>>({});
   const [selectedModifiers, setSelectedModifiers] = useState<Record<string, string>>({});
 
@@ -26,7 +27,8 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
   const sizes = Array.isArray(item.sizes) ? item.sizes : [];
   const variants = Array.isArray(item.otherVariants) ? item.otherVariants : [];
   const addOnList = Array.isArray(item.addOns) ? item.addOns : [];
-  const hasTempOptions = item.tempOptions && item.tempOptions.enabled;
+  const hasTempOptions = item.tempOptions && item.tempOptions.enabled && item.tempOptions.options && item.tempOptions.options.length > 0;
+  const hasVariantOptions = item.variantOptions && item.variantOptions.enabled && item.variantOptions.options && item.variantOptions.options.length > 0;
 
   // Build active modifiers from linkedModifiers (new) or fall back to legacy otherVariantName (old)
   const activeModifiers = useMemo(() => {
@@ -77,9 +79,17 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
       if (v) total += v.price;
     }
 
-    // Add temp price
-    if (temp === 'Hot' && item.tempOptions?.hot) total += item.tempOptions.hot;
-    if (temp === 'Cold' && item.tempOptions?.cold) total += item.tempOptions.cold;
+    // Add temp price from options array
+    if (temp && item.tempOptions?.options) {
+      const t = item.tempOptions.options.find(x => x.name === temp);
+      if (t) total += t.price;
+    }
+
+    // Add variant option price
+    if (variantOption && item.variantOptions?.options) {
+      const v = item.variantOptions.options.find(x => x.name === variantOption);
+      if (v) total += v.price;
+    }
 
     // Add modifier prices
     Object.entries(selectedModifiers).forEach(([modifierName, optionName]) => {
@@ -109,6 +119,12 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
     // Validate temperature (always required if temp options exist)
     if (hasTempOptions && !temp) {
       toast('Please select a temperature', 'warning');
+      return;
+    }
+
+    // Validate variant option (always required if variant options exist)
+    if (hasVariantOptions && !variantOption) {
+      toast('Please select a variant option', 'warning');
       return;
     }
 
@@ -146,10 +162,11 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
       quantity: 1,
       restaurantId,
       selectedSize: size,
-      selectedTemp: (temp as 'Hot' | 'Cold' | undefined),
+      selectedTemp: temp || undefined,
       selectedOtherVariant: variant || firstModSelection,
       selectedModifiers: Object.keys(selectedModifiers).length > 0 ? selectedModifiers : undefined,
       selectedAddOns,
+      selectedVariantOption: variantOption || undefined,
     };
 
     onConfirm(cartItem);
@@ -249,30 +266,42 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
                   <span className="text-red-500 text-xs">*</span>
                 </p>
                 <div className="space-y-1">
-                  {item.tempOptions?.hot !== undefined && (
-                    <label className="flex items-center gap-2 cursor-pointer text-sm">
+                  {item.tempOptions?.options?.map((opt) => (
+                    <label key={opt.name} className="flex items-center gap-2 cursor-pointer text-sm">
                       <input
                         type="radio"
                         name="temp"
-                        checked={temp === 'Hot'}
-                        onChange={() => setTemp('Hot')}
+                        checked={temp === opt.name}
+                        onChange={() => setTemp(opt.name)}
                       />
-                      <span>Hot</span>
-                      {item.tempOptions.hot > 0 && <span className="text-orange-500 ml-auto">+RM{item.tempOptions.hot}</span>}
+                      <span>{opt.name}</span>
+                      {opt.price > 0 && <span className="text-orange-500 ml-auto">+RM{opt.price}</span>}
                     </label>
-                  )}
-                  {item.tempOptions?.cold !== undefined && (
-                    <label className="flex items-center gap-2 cursor-pointer text-sm">
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Variant Options */}
+            {hasVariantOptions && (
+              <div>
+                <p className="font-bold text-sm mb-1 flex items-center gap-2">
+                  Variant
+                  <span className="text-red-500 text-xs">*</span>
+                </p>
+                <div className="space-y-1">
+                  {item.variantOptions?.options?.map((opt) => (
+                    <label key={opt.name} className="flex items-center gap-2 cursor-pointer text-sm">
                       <input
                         type="radio"
-                        name="temp"
-                        checked={temp === 'Cold'}
-                        onChange={() => setTemp('Cold')}
+                        name="variantOption"
+                        checked={variantOption === opt.name}
+                        onChange={() => setVariantOption(opt.name)}
                       />
-                      <span>Cold</span>
-                      {item.tempOptions.cold > 0 && <span className="text-orange-500 ml-auto">+RM{item.tempOptions.cold}</span>}
+                      <span>{opt.name}</span>
+                      {opt.price > 0 && <span className="text-orange-500 ml-auto">+RM{opt.price}</span>}
                     </label>
-                  )}
+                  ))}
                 </div>
               </div>
             )}

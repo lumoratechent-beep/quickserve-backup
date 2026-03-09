@@ -41,6 +41,11 @@ export interface MenuItem {
     hot?: number;
     cold?: number;
     enabled: boolean;
+    options?: MenuItemVariant[];
+  };
+  variantOptions?: {
+    enabled: boolean;
+    options?: MenuItemVariant[];
   };
   addOns?: AddOnItem[];
   linkedModifiers?: string[];
@@ -84,10 +89,11 @@ export interface CartItem extends MenuItem {
   quantity: number;
   restaurantId: string;
   selectedSize?: string;
-  selectedTemp?: 'Hot' | 'Cold';
+  selectedTemp?: string;
   selectedOtherVariant?: string;
   selectedModifiers?: Record<string, string>;
   selectedAddOns?: SelectedAddOn[];
+  selectedVariantOption?: string;
   tableNumber?: string;
   remark?: string;
 }

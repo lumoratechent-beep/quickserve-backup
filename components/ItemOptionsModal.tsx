@@ -13,7 +13,7 @@ interface Props {
 const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConfirm }) => {
   // ALL HOOKS FIRST - these MUST be unconditional
   const [selectedSize, setSelectedSize] = useState('');
-  const [selectedTemp, setSelectedTemp] = useState<'Hot' | 'Cold' | undefined>(undefined);
+  const [selectedTemp, setSelectedTemp] = useState<string | undefined>(undefined);
   const [selectedOtherVariant, setSelectedOtherVariant] = useState('');
   const [selectedAddOns, setSelectedAddOns] = useState<Record<string, SelectedAddOn>>({});
 
@@ -39,16 +39,19 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
     return arr.filter((a: any) => a && typeof a.name === 'string' && typeof a.price === 'number') as AddOnItem[];
   }, [item?.id]);
 
-  const hasTempOptions = useMemo(() => {
-    if (!item?.tempOptions) return false;
-    return item.tempOptions.enabled === true;
+  const tempOptions = useMemo(() => {
+    if (!item?.tempOptions?.enabled) return [] as Array<{ name: string; price: number }>;
+    const arr = Array.isArray(item.tempOptions.options) ? item.tempOptions.options : [];
+    return arr.filter((o: any) => o && typeof o.name === 'string' && typeof o.price === 'number') as Array<{ name: string; price: number }>;
   }, [item?.id]);
+
+  const hasTempOptions = tempOptions.length > 0;
 
   // Initialize state when item changes
   useEffect(() => {
     if (!item) return;
     setSelectedSize(sizes[0]?.name || '');
-    setSelectedTemp(hasTempOptions ? 'Hot' : undefined);
+    setSelectedTemp(hasTempOptions ? tempOptions[0]?.name : undefined);
     setSelectedOtherVariant(item.otherVariantsEnabled && otherVariants[0] ? otherVariants[0].name : '');
     setSelectedAddOns({});
   }, [item?.id]);
@@ -107,9 +110,9 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
       if (vr) total += vr.price;
     }
 
-    if (item.tempOptions?.enabled) {
-      if (selectedTemp === 'Hot') total += item.tempOptions.hot || 0;
-      if (selectedTemp === 'Cold') total += item.tempOptions.cold || 0;
+    if (selectedTemp && item.tempOptions?.enabled && item.tempOptions.options) {
+      const tempOpt = item.tempOptions.options.find(o => o.name === selectedTemp);
+      if (tempOpt) total += tempOpt.price;
     }
 
     total += addOnTotal;
@@ -257,28 +260,20 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Temperature</label>
               <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setSelectedTemp('Hot')}
-                  className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition-all ${
-                    selectedTemp === 'Hot'
-                      ? 'border-orange-500 bg-orange-50 text-orange-600'
-                      : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'
-                  }`}
-                >
-                  <ThermometerSun size={18} className="text-orange-500" />
-                  <span className="text-[10px] font-black uppercase">Hot</span>
-                </button>
-                <button
-                  onClick={() => setSelectedTemp('Cold')}
-                  className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition-all ${
-                    selectedTemp === 'Cold'
-                      ? 'border-blue-500 bg-blue-50 text-blue-600'
-                      : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'
-                  }`}
-                >
-                  <Info size={18} className="text-blue-500" />
-                  <span className="text-[10px] font-black uppercase">Cold</span>
-                </button>
+                {tempOptions.map((opt) => (
+                  <button
+                    key={opt.name}
+                    onClick={() => setSelectedTemp(opt.name)}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      selectedTemp === opt.name
+                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                        : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'
+                    }`}
+                  >
+                    <p className="text-[10px] font-black uppercase">{opt.name}</p>
+                    <p className="text-xs font-black">+{opt.price > 0 ? `RM${opt.price.toFixed(2)}` : 'FREE'}</p>
+                  </button>
+                ))}
               </div>
             </div>
           )}

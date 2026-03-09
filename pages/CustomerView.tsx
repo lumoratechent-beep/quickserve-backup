@@ -34,7 +34,7 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
 
   const [selectedItemForVariants, setSelectedItemForVariants] = useState<{item: MenuItem, resId: string} | null>(null);
   const [selectedSize, setSelectedSize] = useState<string>('');
-  const [selectedTemp, setSelectedTemp] = useState<'Hot' | 'Cold' | undefined>(undefined);
+  const [selectedTemp, setSelectedTemp] = useState<string | undefined>(undefined);
   const [selectedOtherVariant, setSelectedOtherVariant] = useState<string>('');
   const [selectedAddOns, setSelectedAddOns] = useState<Record<string, SelectedAddOn>>({});
   const [gridColumns, setGridColumns] = useState<2 | 3>(3);
@@ -109,7 +109,7 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
     ) {
       setSelectedItemForVariants({ item, resId });
       setSelectedSize(item.sizes?.[0]?.name || '');
-      setSelectedTemp(item.tempOptions?.enabled ? 'Hot' : undefined);
+      setSelectedTemp(item.tempOptions?.enabled && item.tempOptions.options?.length ? item.tempOptions.options[0].name : undefined);
       setSelectedOtherVariant(item.otherVariantsEnabled ? (item.otherVariants?.[0]?.name || '') : '');
     } else {
       // No options, add directly to cart
@@ -151,8 +151,10 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
     }
     
     // Add temperature price
-    if (selectedTemp === 'Hot' && item.tempOptions?.hot) finalPrice += item.tempOptions.hot;
-    if (selectedTemp === 'Cold' && item.tempOptions?.cold) finalPrice += item.tempOptions.cold;
+    if (selectedTemp && item.tempOptions?.enabled && item.tempOptions.options) {
+      const tempOpt = item.tempOptions.options.find(o => o.name === selectedTemp);
+      if (tempOpt) finalPrice += tempOpt.price;
+    }
     
     // Add other variant price
     if (selectedOtherVariant) {
@@ -449,18 +451,24 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
                   </div>
                 )}
 
-                {selectedItemForVariants.item.tempOptions?.enabled && (
+                {selectedItemForVariants.item.tempOptions?.enabled && selectedItemForVariants.item.tempOptions.options && selectedItemForVariants.item.tempOptions.options.length > 0 && (
                   <div>
                     <label className="block text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3 ml-1">Temperature</label>
-                    <div className="flex gap-3">
-                      <button onClick={() => setSelectedTemp('Hot')} className={`flex-1 py-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${selectedTemp === 'Hot' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-gray-50 text-gray-500'}`}>
-                        <ThermometerSun size={20} className="text-orange-500" />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Hot</span>
-                      </button>
-                      <button onClick={() => setSelectedTemp('Cold')} className={`flex-1 py-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${selectedTemp === 'Cold' ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-50 text-gray-500'}`}>
-                        <Info size={20} className="text-blue-500" />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Cold</span>
-                      </button>
+                    <div className="grid grid-cols-2 gap-3">
+                      {selectedItemForVariants.item.tempOptions.options.map((opt) => (
+                        <button
+                          key={opt.name}
+                          onClick={() => setSelectedTemp(opt.name)}
+                          className={`flex-1 py-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${
+                            selectedTemp === opt.name
+                              ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 shadow-lg'
+                              : 'border-gray-50 dark:border-gray-700 text-gray-500 dark:text-gray-400'
+                          }`}
+                        >
+                          <span className="text-[10px] font-black uppercase tracking-widest">{opt.name}</span>
+                          <span className="text-xs font-black">+{opt.price > 0 ? `RM${opt.price.toFixed(2)}` : 'FREE'}</span>
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}

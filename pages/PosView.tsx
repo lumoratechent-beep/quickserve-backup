@@ -293,6 +293,7 @@ const PosView: React.FC<Props> = ({
       first.selectedSize === second.selectedSize &&
       first.selectedTemp === second.selectedTemp &&
       first.selectedOtherVariant === second.selectedOtherVariant &&
+      first.selectedVariantOption === second.selectedVariantOption &&
       firstAddOns === secondAddOns
     );
   };
@@ -318,8 +319,9 @@ const PosView: React.FC<Props> = ({
             enabled: item.tempOptions.enabled === true,
             hot: Number(item.tempOptions.hot || 0),
             cold: Number(item.tempOptions.cold || 0),
+            options: Array.isArray(item.tempOptions.options) ? item.tempOptions.options : [],
           }
-        : { enabled: false, hot: 0, cold: 0 },
+        : { enabled: false, hot: 0, cold: 0, options: [] },
     };
 
     const hasOptions =
@@ -1859,6 +1861,11 @@ const PosView: React.FC<Props> = ({
                                       • Temperature: {item.selectedTemp}
                                     </p>
                                   )}
+                                  {item.selectedVariantOption && (
+                                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                                      • Variant: {item.selectedVariantOption}
+                                    </p>
+                                  )}
                                   {item.selectedOtherVariant && (
                                     <p className="text-[10px] text-gray-500 dark:text-gray-400">
                                       • {item.selectedOtherVariant}
@@ -2568,6 +2575,9 @@ const PosView: React.FC<Props> = ({
                       {item.selectedTemp && (
                         <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.selectedTemp}</p>
                       )}
+                      {item.selectedVariantOption && (
+                        <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Variant: {item.selectedVariantOption}</p>
+                      )}
                       {item.selectedOtherVariant && (
                         <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.selectedOtherVariant}</p>
                       )}
@@ -2602,6 +2612,7 @@ const PosView: React.FC<Props> = ({
                         <div className="mt-1 space-y-0.5">
                           {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
                           {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.selectedTemp}</p>}
+                          {item.selectedVariantOption && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Variant: {item.selectedVariantOption}</p>}
                           {item.selectedOtherVariant && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.selectedOtherVariant}</p>}
                           {item.selectedAddOns && item.selectedAddOns.length > 0 && (
                             <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">

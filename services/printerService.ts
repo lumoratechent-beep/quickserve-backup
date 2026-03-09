@@ -705,6 +705,10 @@ class PrinterService {
             const variantLabel = this.sanitizeText(item.otherVariantName) || 'Variant';
             if (safeVariant) receipt = receipt.line(`-${variantLabel} : ${safeVariant}`);
           }
+          if (item.selectedVariantOption) {
+            const safeVariantOpt = this.sanitizeText(item.selectedVariantOption);
+            if (safeVariantOpt) receipt = receipt.line(`-Variant : ${safeVariantOpt}`);
+          }
 
           // Add-ons with dash prefix
           if (item.selectedAddOns && Array.isArray(item.selectedAddOns) && item.selectedAddOns.length > 0) {

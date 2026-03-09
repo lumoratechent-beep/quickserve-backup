@@ -382,7 +382,8 @@ const PosOnlyView: React.FC<Props> = ({
       otherVariants: [],
       otherVariantsEnabled: false,
       linkedModifiers: [],
-      tempOptions: { enabled: false, hot: 0, cold: 0 },
+      tempOptions: { enabled: false, hot: 0, cold: 0, options: [] },
+      variantOptions: { enabled: false, options: [] },
       addOns: [],
     });
     setIsFormModalOpen(true);
@@ -402,7 +403,8 @@ const PosOnlyView: React.FC<Props> = ({
       otherVariants: item.otherVariants ? [...item.otherVariants] : [],
       otherVariantsEnabled: !!item.otherVariantsEnabled,
       linkedModifiers: linked,
-      tempOptions: item.tempOptions ? { ...item.tempOptions } : { enabled: false, hot: 0, cold: 0 },
+      tempOptions: item.tempOptions ? { ...item.tempOptions, options: item.tempOptions.options ? [...item.tempOptions.options] : [] } : { enabled: false, hot: 0, cold: 0, options: [] },
+      variantOptions: item.variantOptions ? { ...item.variantOptions, options: item.variantOptions.options ? [...item.variantOptions.options] : [] } : { enabled: false, options: [] },
       addOns: item.addOns ? [...item.addOns] : [],
     });
     setIsFormModalOpen(true);
@@ -424,7 +426,8 @@ const PosOnlyView: React.FC<Props> = ({
       otherVariants: [],
       otherVariantsEnabled: false,
       linkedModifiers: [],
-      tempOptions: { enabled: false, hot: 0, cold: 0 },
+      tempOptions: { enabled: false, hot: 0, cold: 0, options: [] },
+      variantOptions: { enabled: false, options: [] },
       addOns: [],
     });
   };
@@ -468,6 +471,7 @@ const PosOnlyView: React.FC<Props> = ({
       isArchived: editingItem?.isArchived || false,
       sizes: formItem.sizesEnabled ? formItem.sizes : [],
       tempOptions: formItem.tempOptions?.enabled ? formItem.tempOptions : undefined,
+      variantOptions: formItem.variantOptions?.enabled ? formItem.variantOptions : undefined,
       // Backward compat: set first linked modifier as otherVariantName
       otherVariantName: linked[0] || '',
       otherVariants: [],
@@ -571,6 +575,7 @@ const PosOnlyView: React.FC<Props> = ({
       first.selectedSize === second.selectedSize &&
       first.selectedTemp === second.selectedTemp &&
       first.selectedOtherVariant === second.selectedOtherVariant &&
+      first.selectedVariantOption === second.selectedVariantOption &&
       JSON.stringify(first.selectedModifiers || {}) === JSON.stringify(second.selectedModifiers || {}) &&
       firstAddOns === secondAddOns
     );
@@ -599,13 +604,21 @@ const PosOnlyView: React.FC<Props> = ({
             enabled: item.tempOptions.enabled === true,
             hot: Number(item.tempOptions.hot || 0),
             cold: Number(item.tempOptions.cold || 0),
+            options: Array.isArray(item.tempOptions.options) ? item.tempOptions.options : [],
           }
-        : { enabled: false, hot: 0, cold: 0 },
+        : { enabled: false, hot: 0, cold: 0, options: [] },
+      variantOptions: item.variantOptions && typeof item.variantOptions === 'object'
+        ? {
+            enabled: item.variantOptions.enabled === true,
+            options: Array.isArray(item.variantOptions.options) ? item.variantOptions.options : [],
+          }
+        : { enabled: false, options: [] },
     };
 
     const hasOptions =
       (sanitizedItem.sizes && sanitizedItem.sizes.length > 0) ||
       (sanitizedItem.tempOptions && sanitizedItem.tempOptions.enabled) ||
+      (sanitizedItem.variantOptions && sanitizedItem.variantOptions.enabled) ||
       (sanitizedItem.linkedModifiers && sanitizedItem.linkedModifiers.length > 0) ||
       (sanitizedItem.otherVariantsEnabled && sanitizedItem.otherVariants && sanitizedItem.otherVariants.length > 0) ||
       (sanitizedItem.addOns && sanitizedItem.addOns.length > 0);
@@ -3556,6 +3569,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <div className="mt-1 space-y-0.5">
                           {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
                           {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Temperature: {item.selectedTemp}</p>}
+                          {item.selectedVariantOption && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Variant: {item.selectedVariantOption}</p>}
                           {item.selectedOtherVariant && !item.selectedModifiers && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.otherVariantName ? item.otherVariantName.charAt(0).toUpperCase() + item.otherVariantName.slice(1) : 'Option'}: {item.selectedOtherVariant}</p>}
                           {item.selectedModifiers && Object.entries(item.selectedModifiers).map(([modName, optName]) => (
                             optName && <p key={modName} className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {modName.charAt(0).toUpperCase() + modName.slice(1)}: {optName}</p>
@@ -3842,6 +3856,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <p className="text-xs font-bold dark:text-white">{item.quantity}x {item.name}</p>
                         {item.selectedSize && <p className="text-[9px] text-gray-400 ml-3">-Size: {item.selectedSize}</p>}
                         {item.selectedTemp && <p className="text-[9px] text-gray-400 ml-3">-Temperature: {item.selectedTemp}</p>}
+                        {item.selectedVariantOption && <p className="text-[9px] text-gray-400 ml-3">-Variant: {item.selectedVariantOption}</p>}
                         {item.selectedOtherVariant && !item.selectedModifiers && <p className="text-[9px] text-gray-400 ml-3">-{item.otherVariantName ? item.otherVariantName.charAt(0).toUpperCase() + item.otherVariantName.slice(1) : 'Option'}: {item.selectedOtherVariant}</p>}
                         {item.selectedModifiers && Object.entries(item.selectedModifiers).map(([modName, optName]) => (
                           optName && <p key={modName} className="text-[9px] text-gray-400 ml-3">-{modName.charAt(0).toUpperCase() + modName.slice(1)}: {optName}</p>

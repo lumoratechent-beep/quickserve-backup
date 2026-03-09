@@ -270,8 +270,16 @@ const App: React.FC = () => {
             tempOptions: {
               enabled: temp.enabled ?? false,
               hot: temp.hot ?? 0,
-              cold: temp.cold ?? 0
+              cold: temp.cold ?? 0,
+              options: Array.isArray(temp.options) ? temp.options : (temp.enabled ? [
+                ...(temp.hot !== undefined ? [{ name: 'Hot', price: temp.hot ?? 0 }] : []),
+                ...(temp.cold !== undefined ? [{ name: 'Cold', price: temp.cold ?? 0 }] : []),
+              ] : []),
             },
+            variantOptions: others.variantOptions ? {
+              enabled: others.variantOptions.enabled ?? false,
+              options: Array.isArray(others.variantOptions.options) ? others.variantOptions.options : [],
+            } : { enabled: false, options: [] },
             otherVariantName: others.name || '',
             otherVariants: others.options || [],
             otherVariantsEnabled: others.enabled ?? false,
@@ -750,12 +758,13 @@ const App: React.FC = () => {
       category: item.category,
       is_archived: item.isArchived,
       sizes: item.sizes,
-      temp_options: item.tempOptions || { enabled: false, hot: 0, cold: 0 },
+      temp_options: item.tempOptions || { enabled: false, hot: 0, cold: 0, options: [] },
       other_variants: {
         name: item.otherVariantName,
         options: item.otherVariants,
         enabled: item.otherVariantsEnabled,
-        linkedModifiers: item.linkedModifiers || []
+        linkedModifiers: item.linkedModifiers || [],
+        variantOptions: item.variantOptions || { enabled: false, options: [] }
       },
       add_ons: item.addOns || []
     }).eq('id', item.id);
@@ -779,12 +788,13 @@ const App: React.FC = () => {
       category: item.category,
       is_archived: false,
       sizes: item.sizes,
-      temp_options: item.tempOptions || { enabled: false, hot: 0, cold: 0 },
+      temp_options: item.tempOptions || { enabled: false, hot: 0, cold: 0, options: [] },
       other_variants: {
         name: item.otherVariantName,
         options: item.otherVariants,
         enabled: item.otherVariantsEnabled,
-        linkedModifiers: item.linkedModifiers || []
+        linkedModifiers: item.linkedModifiers || [],
+        variantOptions: item.variantOptions || { enabled: false, options: [] }
       },
       add_ons: item.addOns || []
     });
