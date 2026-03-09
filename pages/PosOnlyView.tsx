@@ -223,7 +223,6 @@ const PosOnlyView: React.FC<Props> = ({
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [reportData, setReportData] = useState<ReportResponse | null>(null);
   const [isReportLoading, setIsReportLoading] = useState(false);
-  const [isReportsAccordionOpen, setIsReportsAccordionOpen] = useState(false);
   const [reportsSubMenu, setReportsSubMenu] = useState<'salesReport' | 'statistics'>('salesReport');
 
   // Printer Settings State
@@ -1508,14 +1507,7 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const handleReportsClick = () => {
-    setIsReportsAccordionOpen(!isReportsAccordionOpen);
-    if (!isReportsAccordionOpen) {
-      setActiveTab('REPORTS');
-    }
-  };
-
-  const handleReportsSubMenuClick = (subMenu: 'salesReport' | 'statistics') => {
-    setReportsSubMenu(subMenu);
+    setReportsSubMenu('salesReport');
     setActiveTab('REPORTS');
     setIsMobileMenuOpen(false);
   };
@@ -2270,45 +2262,14 @@ const PosOnlyView: React.FC<Props> = ({
           
           <button 
             onClick={handleReportsClick}
-            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-medium transition-all ${
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
               activeTab === 'REPORTS' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <div className="flex items-center gap-3">
-              <BarChart3 size={20} /> Reports
-            </div>
-            <ChevronDown size={16} className={`transition-transform duration-200 ${
-              isReportsAccordionOpen ? 'rotate-180' : ''
-            }`} />
+            <BarChart3 size={20} /> Report
           </button>
-          
-          {/* Reports Sub-menu */}
-          {isReportsAccordionOpen && (
-            <div className="ml-8 space-y-1 mt-1">
-              <button
-                onClick={() => handleReportsSubMenuClick('salesReport')}
-                className={`w-full flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all ${
-                  activeTab === 'REPORTS' && reportsSubMenu === 'salesReport'
-                    ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
-                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                }`}
-              >
-                <Receipt size={16} /> Sales Report
-              </button>
-              <button
-                onClick={() => handleReportsSubMenuClick('statistics')}
-                className={`w-full flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all ${
-                  activeTab === 'REPORTS' && reportsSubMenu === 'statistics'
-                    ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
-                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                }`}
-              >
-                <BarChart3 size={16} /> Statistics
-              </button>
-            </div>
-          )}
           
           <button 
             onClick={() => handleTabSelection('SETTINGS')}
@@ -2390,7 +2351,7 @@ const PosOnlyView: React.FC<Props> = ({
               <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm truncate">
                 {activeTab === 'COUNTER' ? 'POS Counter' : 
                  activeTab === 'MENU_EDITOR' ? 'Menu Editor' : 
-                 activeTab === 'REPORTS' ? (reportsSubMenu === 'salesReport' ? 'Sales Report' : 'Statistics') : 
+                 activeTab === 'REPORTS' ? 'Sales Report' : 
                  'Settings'}
               </h1>
             </div>
