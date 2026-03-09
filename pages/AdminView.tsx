@@ -621,18 +621,20 @@ const AdminView: React.FC<Props> = ({
   const handleDownloadReport = async () => {
     const allOrders = await fetchReport(true);
     if (!allOrders || allOrders.length === 0) return;
-    const headers = ['Order ID', 'Kitchen', 'Hub', 'Table No', 'Date', 'Time', 'Status', 'Menu Order', 'Total Bill'];
+    const headers = ['Order ID', 'Kitchen', 'Hub', 'Table No', 'Date', 'Time', 'Status', 'Payment Method', 'Cashier', 'Menu Order', 'Total Bill'];
     const rows = allOrders.map(o => {
       const res = restaurants.find(r => r.id === o.restaurantId);
       return [
-        o.id, 
-        res?.name || 'Unknown', 
-        o.locationName || 'Unknown', 
+        o.id,
+        res?.name || 'Unknown',
+        o.locationName || 'Unknown',
         o.tableNumber || 'N/A',
         new Date(o.timestamp).toLocaleDateString(),
         new Date(o.timestamp).toLocaleTimeString(),
-        o.status, 
-        o.items.map(i => `${i.name} (x${i.quantity})`).join('; '), 
+        o.status,
+        o.paymentMethod || '',
+        o.cashierName || '',
+        o.items.map(i => `${i.name} (x${i.quantity})`).join('; '),
         o.total.toFixed(2)
       ];
     });
@@ -1088,6 +1090,8 @@ const AdminView: React.FC<Props> = ({
                           <th className="px-8 py-3 text-left">Date</th>
                           <th className="px-8 py-3 text-left">Time</th>
                           <th className="px-8 py-3 text-left">Status</th>
+                          <th className="px-8 py-3 text-left">Payment</th>
+                          <th className="px-8 py-3 text-left">Cashier</th>
                           <th className="px-8 py-3 text-right">Total Bill</th>
                         </tr>
                       </thead>
@@ -1110,13 +1114,15 @@ const AdminView: React.FC<Props> = ({
                               <td className="px-8 py-2.5">
                                 <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${report.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>{report.status === OrderStatus.COMPLETED ? 'Served' : report.status}</span>
                               </td>
+                              <td className="px-8 py-2.5 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">{report.paymentMethod || '-'}</td>
+                              <td className="px-8 py-2.5 text-[10px] font-black text-gray-700 dark:text-gray-300">{report.cashierName || '-'}</td>
                               <td className="px-8 py-2.5 text-right font-black dark:text-white text-[10px]">RM{report.total.toFixed(2)}</td>
                             </tr>
                           );
                         })}
                         {paginatedReports.length === 0 && (
                           <tr>
-                            <td colSpan={8} className="py-20 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">No matching records found.</td>
+                            <td colSpan={10} className="py-20 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">No matching records found.</td>
                           </tr>
                         )}
                       </tbody>

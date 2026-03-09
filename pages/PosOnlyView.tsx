@@ -24,7 +24,7 @@ interface Props {
   restaurant: Restaurant;
   orders: Order[];
   onUpdateOrder: (orderId: string, status: OrderStatus) => void;
-  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string) => Promise<string>; // Returns order ID
+  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string, paymentMethod?: string, cashierName?: string) => Promise<string>; // Returns order ID
   onUpdateMenu?: (restaurantId: string, updatedItem: MenuItem) => void | Promise<void>;
   onAddMenuItem?: (restaurantId: string, newItem: MenuItem) => void | Promise<void>;
   onPermanentDeleteMenuItem?: (restaurantId: string, itemId: string) => void | Promise<void>;
@@ -32,6 +32,7 @@ interface Props {
   onFetchAllFilteredOrders?: (filters: ReportFilters) => Promise<Order[]>;
   isOnline?: boolean;
   pendingOfflineOrdersCount?: number;
+  cashierName?: string;
 }
 
 interface ReceiptSettings {
@@ -136,10 +137,10 @@ interface TaxEntry {
 
 type SettingsPanel = null | 'features' | 'printer' | 'receipt' | 'payment' | 'taxes' | 'staff' | 'ux';
 
-const PosOnlyView: React.FC<Props> = ({ 
-  restaurant, 
-  orders, 
-  onUpdateOrder, 
+const PosOnlyView: React.FC<Props> = ({
+  restaurant,
+  orders,
+  onUpdateOrder,
   onPlaceOrder,
   onUpdateMenu,
   onAddMenuItem,
@@ -148,6 +149,7 @@ const PosOnlyView: React.FC<Props> = ({
   onFetchAllFilteredOrders,
   isOnline = true,
   pendingOfflineOrdersCount = 0,
+  cashierName,
 }) => {
   const toLocalDateInputValue = (date: Date) => {
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -661,7 +663,8 @@ const PosOnlyView: React.FC<Props> = ({
     
     try {
       // Call onPlaceOrder and get the actual order ID from database
-      actualOrderId = await onPlaceOrder(pendingOrderData.items, pendingOrderData.remark, pendingOrderData.tableNumber);
+      const paymentName = paymentTypes.find(p => p.id === selectedPaymentType)?.name || selectedPaymentType;
+      actualOrderId = await onPlaceOrder(pendingOrderData.items, pendingOrderData.remark, pendingOrderData.tableNumber, paymentName, cashierName);
     } catch (error: any) {
       console.error('Order placement error:', error);
       toast(`Failed to place order: ${error?.message || 'Unknown error'}`, 'error');
@@ -1472,13 +1475,15 @@ const PosOnlyView: React.FC<Props> = ({
   const handleDownloadReport = async () => {
     const allOrders = await fetchReport(true) as Order[];
     if (!allOrders || allOrders.length === 0) return;
-    const headers = ['Order ID', 'Table', 'Date', 'Time', 'Status', 'Items', 'Total'];
+    const headers = ['Order ID', 'Table', 'Date', 'Time', 'Status', 'Payment Method', 'Cashier', 'Items', 'Total'];
     const rows = allOrders.map(o => [
       o.id,
       o.tableNumber,
       new Date(o.timestamp).toLocaleDateString(),
       new Date(o.timestamp).toLocaleTimeString(),
       o.status,
+      o.paymentMethod || '',
+      o.cashierName || '',
       o.items.map(i => `${i.name} (x${i.quantity})`).join('; '),
       o.total.toFixed(2)
     ]);

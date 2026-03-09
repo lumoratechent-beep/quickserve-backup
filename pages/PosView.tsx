@@ -122,22 +122,24 @@ interface Props {
   restaurant: Restaurant;
   orders: Order[];
   onUpdateOrder: (orderId: string, status: OrderStatus) => void;
-  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string) => Promise<string>; // Returns order ID
+  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string, paymentMethod?: string, cashierName?: string) => Promise<string>; // Returns order ID
   onFetchPaginatedOrders?: (filters: ReportFilters, page: number, pageSize: number) => Promise<ReportResponse>;
   onFetchAllFilteredOrders?: (filters: ReportFilters) => Promise<Order[]>;
   onUpdateRestaurantSettings?: (restaurantId: string, settings: any) => Promise<void>;
   onSwitchToVendor?: () => void;
+  cashierName?: string;
 }
 
-const PosView: React.FC<Props> = ({ 
-  restaurant, 
-  orders, 
-  onUpdateOrder, 
+const PosView: React.FC<Props> = ({
+  restaurant,
+  orders,
+  onUpdateOrder,
   onPlaceOrder,
   onFetchPaginatedOrders,
   onFetchAllFilteredOrders,
   onUpdateRestaurantSettings,
-  onSwitchToVendor
+  onSwitchToVendor,
+  cashierName
 }) => {
   const [activeTab, setActiveTab] = useState<'COUNTER' | 'QR_ORDERS' | 'REPORTS' | 'QR_GEN' | 'SETTINGS'>('COUNTER');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -355,7 +357,7 @@ const PosView: React.FC<Props> = ({
   const handleCheckout = async () => {
     if (posCart.length === 0) return;
     try {
-      const orderId = await onPlaceOrder(posCart, posRemark, posTableNo); // Returns orderId
+      const orderId = await onPlaceOrder(posCart, posRemark, posTableNo, undefined, cashierName); // Returns orderId
       
       // If autoPrintReceipt is enabled, print the receipt
       if (featureSettings.autoPrintReceipt && connectedDevice) {
@@ -604,13 +606,15 @@ const PosView: React.FC<Props> = ({
   const handleDownloadReport = async () => {
     const allOrders = await fetchReport(true) as Order[];
     if (!allOrders || allOrders.length === 0) return;
-    const headers = ['Order ID', 'Table', 'Date', 'Time', 'Status', 'Items', 'Total'];
+    const headers = ['Order ID', 'Table', 'Date', 'Time', 'Status', 'Payment Method', 'Cashier', 'Items', 'Total'];
     const rows = allOrders.map(o => [
       o.id,
       o.tableNumber,
       new Date(o.timestamp).toLocaleDateString(),
       new Date(o.timestamp).toLocaleTimeString(),
       o.status,
+      o.paymentMethod || '',
+      o.cashierName || '',
       o.items.map(i => `${i.name} (x${i.quantity})`).join('; '),
       o.total.toFixed(2)
     ]);

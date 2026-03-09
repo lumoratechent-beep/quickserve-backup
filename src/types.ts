@@ -105,6 +105,8 @@ export interface Order {
   remark?: string;
   rejectionReason?: string;
   rejectionNote?: string;
+  paymentMethod?: string;
+  cashierName?: string;
 }
 
 export interface User {

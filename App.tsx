@@ -1105,7 +1105,7 @@ const App: React.FC = () => {
     setPendingOfflineOrdersCount(offlineQueue.getUnsyncedOrders().length);
   };
 
-  const placePosOrder = async (items: CartItem[], remark: string, tableNumber: string): Promise<string> => {
+  const placePosOrder = async (items: CartItem[], remark: string, tableNumber: string, paymentMethod?: string, cashierName?: string): Promise<string> => {
     if (items.length === 0 || !currentUser?.restaurantId) return '';
     
     const res = restaurants.find(r => r.id === currentUser.restaurantId);
@@ -1139,19 +1139,21 @@ const App: React.FC = () => {
         table_number: tableNumber,
         location_name: res?.location || 'Unspecified',
         remark,
+        payment_method: paymentMethod,
+        cashier_name: cashierName,
         createdAt: Date.now(),
         synced: false
       };
 
       // Queue the order locally
       offlineQueue.addOfflineOrder(offlineOrder);
-      
+
       // Update pending count
       setPendingOfflineOrdersCount(prevCount => prevCount + 1);
-      
+
       // Show notification
       console.log(`Order queued for later sync: ${orderId}`);
-      
+
       return orderId;
     }
 
@@ -1207,10 +1209,12 @@ const App: React.FC = () => {
         table_number: tableNumber,
         location_name: res?.location || 'Unspecified',
         remark,
+        payment_method: paymentMethod,
+        cashier_name: cashierName,
         createdAt: Date.now(),
         synced: false
       };
-      
+
       offlineQueue.addOfflineOrder(offlineOrder);
       setPendingOfflineOrdersCount(prevCount => prevCount + 1);
       console.log(`Order queued due to connection error: ${orderId}`);
@@ -1229,7 +1233,9 @@ const App: React.FC = () => {
       restaurant_id: currentUser.restaurantId,
       table_number: tableNumber,
       location_name: res?.location || 'Unspecified',
-      remark: remark
+      remark: remark,
+      payment_method: paymentMethod || null,
+      cashier_name: cashierName || null
     };
 
     const { error } = await supabase.from('orders').insert([orderToInsert]);
@@ -1247,10 +1253,12 @@ const App: React.FC = () => {
         table_number: tableNumber,
         location_name: res?.location || 'Unspecified',
         remark,
+        payment_method: paymentMethod,
+        cashier_name: cashierName,
         createdAt: Date.now(),
         synced: false
       };
-      
+
       offlineQueue.addOfflineOrder(offlineOrder);
       setPendingOfflineOrdersCount(prevCount => prevCount + 1);
       console.log(`Order queued due to insert error: ${orderId}`);
@@ -1370,6 +1378,7 @@ const App: React.FC = () => {
               onFetchAllFilteredOrders={onFetchAllFilteredOrders}
               isOnline={isOnline}
               pendingOfflineOrdersCount={pendingOfflineOrdersCount}
+              cashierName={currentUser?.username}
             />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
@@ -1378,12 +1387,12 @@ const App: React.FC = () => {
             </div>
           )
         )}
-        
+
         {currentRole === 'VENDOR' && view === 'APP' && (
           activeVendorRes ? (
             // Check platformAccess to determine which view to show
             activeVendorRes.platformAccess === 'pos_only' ? (
-              <PosOnlyView 
+              <PosOnlyView
                 restaurant={activeVendorRes}
                 orders={orders.filter(o => {
                   if (o.restaurantId !== currentUser?.restaurantId) return false;
@@ -1399,6 +1408,7 @@ const App: React.FC = () => {
                 onFetchAllFilteredOrders={onFetchAllFilteredOrders}
                 isOnline={isOnline}
                 pendingOfflineOrdersCount={pendingOfflineOrdersCount}
+                cashierName={currentUser?.username}
               />
             ) : (
               <VendorView 
@@ -1428,7 +1438,7 @@ const App: React.FC = () => {
         )}
         
         {currentRole === 'VENDOR' && view === 'POS' && activeVendorRes && (
-          <PosView 
+          <PosView
             restaurant={activeVendorRes}
             orders={orders}
             onUpdateOrder={updateOrderStatus}
@@ -1437,6 +1447,7 @@ const App: React.FC = () => {
             onFetchAllFilteredOrders={onFetchAllFilteredOrders}
             onUpdateRestaurantSettings={updateRestaurantSettings}
             onSwitchToVendor={() => setView('APP')}
+            cashierName={currentUser?.username}
           />
         )}
         

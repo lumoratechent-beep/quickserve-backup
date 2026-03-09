@@ -160,7 +160,9 @@ async function startServer() {
           locationName: o.location_name,
           remark: o.remark,
           rejectionReason: o.rejection_reason,
-          rejectionNote: o.rejection_note
+          rejectionNote: o.rejection_note,
+          paymentMethod: o.payment_method,
+          cashierName: o.cashier_name
         })),
         summary: {
           totalRevenue,

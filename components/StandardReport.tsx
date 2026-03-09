@@ -110,6 +110,8 @@ const StandardReport: React.FC<Props> = ({
                 <th className="px-4 py-3 text-left">Date</th>
                 <th className="px-4 py-3 text-left">Time</th>
                 <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-left">Payment</th>
+                <th className="px-4 py-3 text-left">Cashier</th>
                 <th className="px-4 py-3 text-right">Bill</th>
               </tr>
             </thead>
@@ -140,6 +142,8 @@ const StandardReport: React.FC<Props> = ({
                       {report.status === OrderStatus.COMPLETED ? 'Paid' : report.status === OrderStatus.SERVED ? 'Served' : report.status}
                     </span>
                   </td>
+                  <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">{report.paymentMethod || '-'}</td>
+                  <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300">{report.cashierName || '-'}</td>
                   <td className="px-4 py-2 text-right font-black dark:text-white text-xs">RM{report.total.toFixed(2)}</td>
                 </tr>
               ))}
