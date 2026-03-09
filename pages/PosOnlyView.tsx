@@ -3826,9 +3826,10 @@ const PosOnlyView: React.FC<Props> = ({
                 <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
                   selectedReportOrder.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-600' :
                   selectedReportOrder.status === OrderStatus.SERVED ? 'bg-blue-100 text-blue-600' :
+                  selectedReportOrder.status === OrderStatus.CANCELLED ? 'bg-red-100 text-red-600' :
                   'bg-orange-100 text-orange-600'
                 }`}>
-                  {selectedReportOrder.status === OrderStatus.COMPLETED ? 'Paid' : selectedReportOrder.status === OrderStatus.SERVED ? 'Served' : selectedReportOrder.status}
+                  {selectedReportOrder.status === OrderStatus.COMPLETED ? 'Paid' : selectedReportOrder.status === OrderStatus.SERVED ? 'Served' : selectedReportOrder.status === OrderStatus.CANCELLED ? 'Refunded' : selectedReportOrder.status}
                 </span>
               </div>
 
@@ -3867,32 +3868,54 @@ const PosOnlyView: React.FC<Props> = ({
                 <span className="text-lg font-black text-orange-500">{currencySymbol}{selectedReportOrder.total.toFixed(2)}</span>
               </div>
 
-              {connectedDevice && (
-                <button
-                  onClick={async () => {
-                    const printRestaurant = {
-                      ...restaurant,
-                      name: receiptSettings.businessName.trim() || restaurant.name,
-                    };
-                    const orderForPrint = {
-                      id: selectedReportOrder.id,
-                      tableNumber: selectedReportOrder.tableNumber,
-                      timestamp: selectedReportOrder.timestamp,
-                      total: selectedReportOrder.total,
-                      items: selectedReportOrder.items,
-                      remark: selectedReportOrder.remark || '',
-                    };
-                    try {
-                      await printerService.printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions());
-                    } catch (err) {
-                      console.error('Reprint error:', err);
-                    }
-                    setSelectedReportOrder(null);
-                  }}
-                  className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
-                >
-                  <Printer size={14} /> Reprint Receipt
-                </button>
+              {selectedReportOrder.status === OrderStatus.CANCELLED ? (
+                <div className="w-full py-3 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-xl font-black text-[10px] uppercase tracking-widest text-center">
+                  This order has been refunded
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      if (!connectedDevice) {
+                        toast('Printer is not connected. Please connect a printer to reprint.', 'warning');
+                        return;
+                      }
+                      const printRestaurant = {
+                        ...restaurant,
+                        name: receiptSettings.businessName.trim() || restaurant.name,
+                      };
+                      const orderForPrint = {
+                        id: selectedReportOrder.id,
+                        tableNumber: selectedReportOrder.tableNumber,
+                        timestamp: selectedReportOrder.timestamp,
+                        total: selectedReportOrder.total,
+                        items: selectedReportOrder.items,
+                        remark: selectedReportOrder.remark || '',
+                      };
+                      try {
+                        await printerService.printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions());
+                      } catch (err) {
+                        console.error('Reprint error:', err);
+                      }
+                      setSelectedReportOrder(null);
+                    }}
+                    className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Printer size={14} /> Reprint Receipt
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Are you sure you want to refund Order #${selectedReportOrder.id}? This action cannot be undone.`)) {
+                        handleOrderStatusUpdate(selectedReportOrder.id, OrderStatus.CANCELLED);
+                        toast('Order has been refunded.', 'success');
+                        setSelectedReportOrder(null);
+                      }
+                    }}
+                    className="flex-1 py-3 bg-red-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all flex items-center justify-center gap-2"
+                  >
+                    <RotateCcw size={14} /> Refund
+                  </button>
+                </div>
               )}
             </div>
           </div>

@@ -534,8 +534,13 @@ const App: React.FC = () => {
         filter: currentRole === 'CUSTOMER' && sessionLocation ? `location_name=eq.${sessionLocation}` : undefined
       }, (payload) => {
         const res = payload.new;
+        const newSettings = res.settings ? (typeof res.settings === 'string' ? JSON.parse(res.settings) : res.settings) : undefined;
         setRestaurants(prev => {
-          const updated = prev.map(r => r.id === res.id ? { ...r, isOnline: res.is_online === true || res.is_online === null } : r);
+          const updated = prev.map(r => r.id === res.id ? {
+            ...r,
+            isOnline: res.is_online === true || res.is_online === null,
+            ...(newSettings !== undefined ? { settings: newSettings } : {}),
+          } : r);
           persistCache('qs_cache_restaurants', updated);
           return updated;
         });
