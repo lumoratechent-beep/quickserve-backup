@@ -254,6 +254,27 @@ const PosOnlyView: React.FC<Props> = ({
   const FONT_OPTIONS = ['Inter', 'Roboto', 'Poppins', 'Open Sans', 'Lato', 'Nunito', 'Montserrat', 'Raleway'];
   const [userFont, setUserFont] = useState<string>(() => localStorage.getItem(`ux_font_${restaurant.id}`) || 'Inter');
 
+  const CURRENCY_OPTIONS = [
+    { code: 'MYR', symbol: 'RM', label: 'Ringgit Malaysia (RM)' },
+    { code: 'USD', symbol: '$', label: 'US Dollar ($)' },
+    { code: 'EUR', symbol: '€', label: 'Euro (€)' },
+    { code: 'GBP', symbol: '£', label: 'British Pound (£)' },
+    { code: 'SGD', symbol: 'S$', label: 'Singapore Dollar (S$)' },
+    { code: 'IDR', symbol: 'Rp', label: 'Indonesian Rupiah (Rp)' },
+    { code: 'THB', symbol: '฿', label: 'Thai Baht (฿)' },
+    { code: 'PHP', symbol: '₱', label: 'Philippine Peso (₱)' },
+    { code: 'VND', symbol: '₫', label: 'Vietnamese Dong (₫)' },
+    { code: 'JPY', symbol: '¥', label: 'Japanese Yen (¥)' },
+    { code: 'KRW', symbol: '₩', label: 'Korean Won (₩)' },
+    { code: 'INR', symbol: '₹', label: 'Indian Rupee (₹)' },
+    { code: 'AUD', symbol: 'A$', label: 'Australian Dollar (A$)' },
+    { code: 'CNY', symbol: '¥', label: 'Chinese Yuan (¥)' },
+    { code: 'TWD', symbol: 'NT$', label: 'Taiwan Dollar (NT$)' },
+    { code: 'BND', symbol: 'B$', label: 'Brunei Dollar (B$)' },
+  ];
+  const [userCurrency, setUserCurrency] = useState<string>(() => localStorage.getItem(`ux_currency_${restaurant.id}`) || 'MYR');
+  const currencySymbol = CURRENCY_OPTIONS.find(c => c.code === userCurrency)?.symbol || 'RM';
+
   // Settings panel navigation
   const [settingsPanel, setSettingsPanel] = useState<SettingsPanel>('features');
 
@@ -1007,6 +1028,11 @@ const PosOnlyView: React.FC<Props> = ({
       document.documentElement.style.fontFamily = '';
     };
   }, [userFont, restaurant.id]);
+
+  // User Experience: persist currency choice
+  useEffect(() => {
+    localStorage.setItem(`ux_currency_${restaurant.id}`, userCurrency);
+  }, [userCurrency, restaurant.id]);
 
   useEffect(() => {
     if (!receiptSettingsSaved) return;
@@ -1927,6 +1953,17 @@ const PosOnlyView: React.FC<Props> = ({
         </select>
         <p className="text-[9px] text-gray-400 mt-1.5">This only applies to your screen</p>
       </div>
+      <div>
+        <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Currency</label>
+        <select
+          value={userCurrency}
+          onChange={e => setUserCurrency(e.target.value)}
+          className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+        >
+          {CURRENCY_OPTIONS.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+        </select>
+        <p className="text-[9px] text-gray-400 mt-1.5">Currency symbol shown on prices</p>
+      </div>
     </div>
   );
 
@@ -2377,7 +2414,7 @@ const PosOnlyView: React.FC<Props> = ({
                             </div>
                             <div className={menuLayout === 'list' ? 'flex-1' : 'mt-3'}>
                               <h4 className="font-black text-xs dark:text-white uppercase tracking-tighter mb-1 line-clamp-1">{item.name}</h4>
-                              <p className="text-orange-500 font-black text-sm">RM{item.price.toFixed(2)}</p>
+                              <p className="text-orange-500 font-black text-sm">{currencySymbol}{item.price.toFixed(2)}</p>
                             </div>
                           </button>
                         ))}
@@ -2499,7 +2536,7 @@ const PosOnlyView: React.FC<Props> = ({
                             <div className="p-2">
                               <h3 className="font-black text-xs text-gray-900 dark:text-white mb-1 uppercase tracking-tight line-clamp-1">{item.name}</h3>
                               <div className="flex justify-between items-center">
-                                <span className="text-sm font-black text-orange-500">RM{item.price.toFixed(2)}</span>
+                                <span className="text-sm font-black text-orange-500">{currencySymbol}{item.price.toFixed(2)}</span>
                                 <span className="text-[8px] font-black uppercase tracking-widest text-gray-400 truncate ml-1">{item.category}</span>
                               </div>
                             </div>
@@ -2531,7 +2568,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     </div>
                                   </td>
                                   <td className="px-4 py-3 text-[9px] font-black uppercase text-gray-400">{item.category}</td>
-                                  <td className="px-4 py-3 font-black text-gray-900 dark:text-white text-xs">RM{item.price.toFixed(2)}</td>
+                                  <td className="px-4 py-3 font-black text-gray-900 dark:text-white text-xs">{currencySymbol}{item.price.toFixed(2)}</td>
                                   <td className="px-4 py-3 text-right">
                                     <div className="flex justify-end items-center gap-1">
                                       {menuStatusFilter === 'ACTIVE' ? (
@@ -2692,7 +2729,7 @@ const PosOnlyView: React.FC<Props> = ({
                                 {modifier.options.slice(0, 3).map((option, idx) => (
                                   <div key={idx} className="flex items-center justify-between text-[8px]">
                                     <span className="font-bold text-gray-600 dark:text-gray-300">{option.name}</span>
-                                    <span className="font-black text-orange-500">+RM{option.price.toFixed(2)}</span>
+                                    <span className="font-black text-orange-500">+{currencySymbol}{option.price.toFixed(2)}</span>
                                   </div>
                                 ))}
                                 {modifier.options.length > 3 && (
@@ -2725,7 +2762,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     {modifier.options.slice(0, 3).map((option, idx) => (
                                       <span key={idx} className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-[9px]">
                                         <span className="font-bold text-gray-600 dark:text-gray-300">{option.name}</span>
-                                        <span className="font-black text-orange-500">+RM{option.price.toFixed(2)}</span>
+                                        <span className="font-black text-orange-500">+{currencySymbol}{option.price.toFixed(2)}</span>
                                       </span>
                                     ))}
                                     {modifier.options.length > 3 && (
@@ -2949,7 +2986,7 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                       <div className="flex-1 text-left">
                         <p className="text-xs font-black dark:text-white uppercase tracking-wide">User Experience</p>
-                        <p className="text-[10px] text-gray-400">{userFont}</p>
+                        <p className="text-[10px] text-gray-400">{userFont} · {CURRENCY_OPTIONS.find(c => c.code === userCurrency)?.label}</p>
                       </div>
                       <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'ux' ? 'rotate-180' : ''}`} />
                     </button>
@@ -3130,7 +3167,7 @@ const PosOnlyView: React.FC<Props> = ({
                           <p className={`text-xs font-black uppercase tracking-wide ${
                             settingsPanel === 'ux' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'
                           }`}>User Experience</p>
-                          <p className="text-[10px] text-gray-400">{userFont}</p>
+                          <p className="text-[10px] text-gray-400">{userFont} · {CURRENCY_OPTIONS.find(c => c.code === userCurrency)?.label}</p>
                         </div>
                       </button>
                     </div>
@@ -3462,7 +3499,7 @@ const PosOnlyView: React.FC<Props> = ({
                     <div key={`${item.id}-${idx}`} className="flex items-center gap-4">
                       <div className="flex-1">
                         <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                        <p className="text-xs text-orange-500 font-black">RM{item.price.toFixed(2)}</p>
+                        <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toFixed(2)}</p>
                         <div className="mt-1 space-y-0.5">
                           {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
                           {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Temperature: {item.selectedTemp}</p>}
@@ -3504,11 +3541,11 @@ const PosOnlyView: React.FC<Props> = ({
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                   <span>Subtotal</span>
-                  <span>RM{cartTotal.toFixed(2)}</span>
+                  <span>{currencySymbol}{cartTotal.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
                   <span className="uppercase">Total</span>
-                  <span className="text-orange-500">RM{cartTotal.toFixed(2)}</span>
+                  <span className="text-orange-500">{currencySymbol}{cartTotal.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -3556,7 +3593,7 @@ const PosOnlyView: React.FC<Props> = ({
                 <div className="text-center space-y-3">
                   <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
                   <div className="text-6xl font-black text-orange-500 tracking-tighter">
-                    RM{pendingOrderData.total.toFixed(2)}
+                    {currencySymbol}{pendingOrderData.total.toFixed(2)}
                   </div>
                 </div>
 
@@ -3564,7 +3601,7 @@ const PosOnlyView: React.FC<Props> = ({
                 <div className="space-y-3">
                   <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Amount Received</label>
                   <div className="flex items-center justify-center border-b-2 dark:border-gray-600 border-gray-300 focus-within:border-orange-500 dark:focus-within:border-orange-500">
-                    <span className="text-2xl font-black text-gray-600 dark:text-gray-400 pb-3">RM</span>
+                    <span className="text-2xl font-black text-gray-600 dark:text-gray-400 pb-3">{currencySymbol}</span>
                     <input 
                       type="number" 
                       value={selectedCashAmount ?? ''} 
@@ -3589,7 +3626,7 @@ const PosOnlyView: React.FC<Props> = ({
                             : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
                         }`}
                       >
-                        RM {amount}
+                        {currencySymbol} {amount}
                       </button>
                     ))}
                   </div>
@@ -3656,13 +3693,13 @@ const PosOnlyView: React.FC<Props> = ({
                   <div className="grid grid-cols-2">
                     <div className="pr-8 text-right border-r-2 border-dotted dark:border-gray-700">
                       <div className="text-5xl font-black text-green-500 tracking-tighter">
-                        RM{(selectedCashAmount || 0).toFixed(2)}
+                        {currencySymbol}{(selectedCashAmount || 0).toFixed(2)}
                       </div>
                       <label className="block mt-3 text-sm font-black text-gray-400 uppercase tracking-widest">Total Paid</label>
                     </div>
                     <div className="pl-8 text-left">
                       <div className="text-5xl font-black text-blue-500 tracking-tighter">
-                        RM{Math.max(0, (selectedCashAmount || 0) - pendingOrderData.total).toFixed(2)}
+                        {currencySymbol}{Math.max(0, (selectedCashAmount || 0) - pendingOrderData.total).toFixed(2)}
                       </div>
                       <label className="block mt-3 text-sm font-black text-gray-400 uppercase tracking-widest">Total Change</label>
                     </div>
@@ -3745,7 +3782,7 @@ const PosOnlyView: React.FC<Props> = ({
                           <p key={aIdx} className="text-[9px] text-gray-400 ml-3">-{addon.name}{addon.quantity > 1 ? ` x${addon.quantity}` : ''}</p>
                         ))}
                       </div>
-                      <span className="text-xs font-bold dark:text-white shrink-0 ml-2">RM{(item.price * item.quantity).toFixed(2)}</span>
+                      <span className="text-xs font-bold dark:text-white shrink-0 ml-2">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
@@ -3760,7 +3797,7 @@ const PosOnlyView: React.FC<Props> = ({
 
               <div className="border-t dark:border-gray-700 pt-3 flex items-center justify-between">
                 <span className="text-xs font-black dark:text-white uppercase tracking-widest">Total</span>
-                <span className="text-lg font-black text-orange-500">RM{selectedReportOrder.total.toFixed(2)}</span>
+                <span className="text-lg font-black text-orange-500">{currencySymbol}{selectedReportOrder.total.toFixed(2)}</span>
               </div>
 
               {connectedDevice && (
