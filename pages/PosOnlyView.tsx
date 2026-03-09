@@ -16,7 +16,7 @@ import {
   List, Clock, CheckCircle2, BarChart3, Hash, Menu, Settings, BookOpen,
   X, Edit3, Archive, RotateCcw, Upload, Eye,
   AlertCircle, Users, UserPlus, Bluetooth, BluetoothConnected, PrinterIcon,
-  Filter, Tag, Layers, Coffee, ChevronDown, RotateCw, Wifi, WifiOff,
+  Filter, Tag, Layers, Coffee, ChevronDown, ChevronLeft, ChevronRight, RotateCw, Wifi, WifiOff,
   Receipt, Network, Type
 } from 'lucide-react';
 
@@ -158,6 +158,7 @@ const PosOnlyView: React.FC<Props> = ({
 
   const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS'>('COUNTER');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [menuLayout, setMenuLayout] = useState<'grid-3' | 'grid-4' | 'grid-5' | 'list'>('grid-4');
   const [posCart, setPosCart] = useState<CartItem[]>([]);
   const [posRemark, setPosRemark] = useState('');
@@ -2225,67 +2226,85 @@ const PosOnlyView: React.FC<Props> = ({
 
       {/* Left Sidebar Navigation */}
       <aside className={`
-        fixed lg:relative inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r dark:border-gray-700 
-        flex flex-col transition-transform duration-300 ease-in-out no-print
+        fixed lg:relative inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 border-r dark:border-gray-700 
+        flex flex-col transition-all duration-300 ease-in-out no-print
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        ${isSidebarCollapsed ? 'lg:w-16' : 'w-64'}
       `}>
-        <div className="p-6 border-b dark:border-gray-700 flex items-center gap-3">
-          <img src={restaurant.logo} className="w-10 h-10 rounded-lg shadow-sm" />
-          <div>
-            <h2 className="font-black dark:text-white text-sm uppercase tracking-tight">{restaurant.name}</h2>
-            <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mt-0.5">POS Only</p>
-          </div>
+        <div className={`border-b dark:border-gray-700 flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'p-6 gap-3'}`}>
+          <img src={restaurant.logo} className={`rounded-lg shadow-sm ${isSidebarCollapsed ? 'w-8 h-8' : 'w-10 h-10'}`} />
+          {!isSidebarCollapsed && (
+            <div>
+              <h2 className="font-black dark:text-white text-sm uppercase tracking-tight">{restaurant.name}</h2>
+              <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mt-0.5">POS Only</p>
+            </div>
+          )}
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className={`flex-1 space-y-2 ${isSidebarCollapsed ? 'p-2' : 'p-4'}`}>
           <button 
             onClick={() => handleTabSelection('COUNTER')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+            title="Counter"
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
               activeTab === 'COUNTER' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <ShoppingBag size={20} /> Counter
+            <ShoppingBag size={20} /> {!isSidebarCollapsed && 'Counter'}
           </button>
           
           <button 
             onClick={() => handleTabSelection('MENU_EDITOR')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+            title="Menu Editor"
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
               activeTab === 'MENU_EDITOR' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <BookOpen size={20} /> Menu Editor
+            <BookOpen size={20} /> {!isSidebarCollapsed && 'Menu Editor'}
           </button>
           
           <button 
             onClick={handleReportsClick}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+            title="Report"
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
               activeTab === 'REPORTS' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <BarChart3 size={20} /> Report
+            <BarChart3 size={20} /> {!isSidebarCollapsed && 'Report'}
           </button>
           
           <button 
             onClick={() => handleTabSelection('SETTINGS')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+            title="Settings"
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
               activeTab === 'SETTINGS' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <Settings size={20} /> Settings
+            <Settings size={20} /> {!isSidebarCollapsed && 'Settings'}
           </button>
         </nav>
 
+        {/* Sidebar Collapse Toggle */}
+        <div className={`hidden lg:flex ${isSidebarCollapsed ? 'justify-center p-2' : 'justify-end px-4'} pt-2`}>
+          <button
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-all"
+          >
+            {isSidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          </button>
+        </div>
+
         {/* Printer Connection Status */}
-        <div className="p-4 mt-auto border-t dark:border-gray-700 space-y-2">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Printer Connection</label>
+        <div className={`mt-auto border-t dark:border-gray-700 space-y-2 ${isSidebarCollapsed ? 'p-2' : 'p-4'}`}>
+          {!isSidebarCollapsed && <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Printer Connection</label>}
           <button
             onClick={handlePrinterButtonClick}
             disabled={isAutoReconnecting}
@@ -2302,26 +2321,26 @@ const PosOnlyView: React.FC<Props> = ({
             {isAutoReconnecting ? (
               <>
                 <Bluetooth size={18} className="animate-pulse" />
-                Connecting...
+                {!isSidebarCollapsed && 'Connecting...'}
               </>
             ) : realPrinterConnected ? (
               <>
                 <BluetoothConnected size={18} />
-                Printer Connected
+                {!isSidebarCollapsed && 'Printer Connected'}
               </>
             ) : connectedDevice ? (
               <>
                 <Bluetooth size={18} />
-                Printer Offline
+                {!isSidebarCollapsed && 'Printer Offline'}
               </>
             ) : (
               <>
                 <Bluetooth size={18} />
-                No Printer
+                {!isSidebarCollapsed && 'No Printer'}
               </>
             )}
           </button>
-          {connectedDevice && (
+          {connectedDevice && !isSidebarCollapsed && (
             <div className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-700/50 rounded-xl border dark:border-gray-600">
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${
