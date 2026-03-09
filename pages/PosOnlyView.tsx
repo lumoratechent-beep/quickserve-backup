@@ -223,6 +223,8 @@ const PosOnlyView: React.FC<Props> = ({
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [reportData, setReportData] = useState<ReportResponse | null>(null);
   const [isReportLoading, setIsReportLoading] = useState(false);
+  const [isReportsAccordionOpen, setIsReportsAccordionOpen] = useState(false);
+  const [reportsSubMenu, setReportsSubMenu] = useState<'salesReport' | 'statistics'>('salesReport');
 
   // Printer Settings State
   const [isBluetoothSupported, setIsBluetoothSupported] = useState(true);
@@ -1505,6 +1507,19 @@ const PosOnlyView: React.FC<Props> = ({
     setIsMobileMenuOpen(false);
   };
 
+  const handleReportsClick = () => {
+    setIsReportsAccordionOpen(!isReportsAccordionOpen);
+    if (!isReportsAccordionOpen) {
+      setActiveTab('REPORTS');
+    }
+  };
+
+  const handleReportsSubMenuClick = (subMenu: 'salesReport' | 'statistics') => {
+    setReportsSubMenu(subMenu);
+    setActiveTab('REPORTS');
+    setIsMobileMenuOpen(false);
+  };
+
   const renderPrinterContent = () => (
     <div className="space-y-4">
       {/* Connection Status */}
@@ -2254,15 +2269,46 @@ const PosOnlyView: React.FC<Props> = ({
           </button>
           
           <button 
-            onClick={() => handleTabSelection('REPORTS')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+            onClick={handleReportsClick}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-medium transition-all ${
               activeTab === 'REPORTS' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <BarChart3 size={20} /> Reports
+            <div className="flex items-center gap-3">
+              <BarChart3 size={20} /> Reports
+            </div>
+            <ChevronDown size={16} className={`transition-transform duration-200 ${
+              isReportsAccordionOpen ? 'rotate-180' : ''
+            }`} />
           </button>
+          
+          {/* Reports Sub-menu */}
+          {isReportsAccordionOpen && (
+            <div className="ml-8 space-y-1 mt-1">
+              <button
+                onClick={() => handleReportsSubMenuClick('salesReport')}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === 'REPORTS' && reportsSubMenu === 'salesReport'
+                    ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                }`}
+              >
+                <Receipt size={16} /> Sales Report
+              </button>
+              <button
+                onClick={() => handleReportsSubMenuClick('statistics')}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === 'REPORTS' && reportsSubMenu === 'statistics'
+                    ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                }`}
+              >
+                <BarChart3 size={16} /> Statistics
+              </button>
+            </div>
+          )}
           
           <button 
             onClick={() => handleTabSelection('SETTINGS')}
@@ -2344,7 +2390,7 @@ const PosOnlyView: React.FC<Props> = ({
               <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm truncate">
                 {activeTab === 'COUNTER' ? 'POS Counter' : 
                  activeTab === 'MENU_EDITOR' ? 'Menu Editor' : 
-                 activeTab === 'REPORTS' ? 'Sales Report' : 
+                 activeTab === 'REPORTS' ? (reportsSubMenu === 'salesReport' ? 'Sales Report' : 'Statistics') : 
                  'Settings'}
               </h1>
             </div>
@@ -2430,7 +2476,7 @@ const PosOnlyView: React.FC<Props> = ({
           )}
 
           {/* Reports Tab - Same as PosView */}
-          {activeTab === 'REPORTS' && (
+          {activeTab === 'REPORTS' && reportsSubMenu === 'salesReport' && (
             <div className="flex-1 overflow-y-auto p-6">
               <StandardReport
                 reportStart={reportStart}
@@ -2451,6 +2497,20 @@ const PosOnlyView: React.FC<Props> = ({
                 onDownloadReport={handleDownloadReport}
                 onSelectOrder={(order) => setSelectedReportOrder(order)}
               />
+            </div>
+          )}
+
+          {/* Statistics Sub-menu */}
+          {activeTab === 'REPORTS' && reportsSubMenu === 'statistics' && (
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="max-w-7xl mx-auto">
+                <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-6">Statistics</h1>
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-8 border dark:border-gray-700 text-center">
+                  <BarChart3 size={48} className="mx-auto text-gray-400 mb-4" />
+                  <h3 className="text-lg font-bold text-gray-600 dark:text-gray-400 mb-2">Statistics Coming Soon</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-500">Advanced analytics and statistics will be available here.</p>
+                </div>
+              </div>
             </div>
           )}
 
