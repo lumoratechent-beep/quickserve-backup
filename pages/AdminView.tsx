@@ -10,12 +10,12 @@ interface Props {
   restaurants: Restaurant[];
   orders: Order[];
   locations: Area[];
-  onAddVendor: (user: User, restaurant: Restaurant) => void;
-  onUpdateVendor: (user: User, restaurant: Restaurant) => void;
+  onAddVendor: (user: User, restaurant: Restaurant) => void | Promise<void>;
+  onUpdateVendor: (user: User, restaurant: Restaurant) => void | Promise<void>;
   onImpersonateVendor: (user: User) => void;
-  onAddLocation: (area: Area) => void;
-  onUpdateLocation: (area: Area) => void;
-  onDeleteLocation: (areaId: string) => void;
+  onAddLocation: (area: Area) => void | Promise<void>;
+  onUpdateLocation: (area: Area) => void | Promise<void>;
+  onDeleteLocation: (areaId: string) => void | Promise<void>;
   onToggleOnline: (restaurantId: string, currentStatus: boolean) => void;
   onRemoveVendorFromHub: (restaurantId: string) => void;
   onFetchPaginatedOrders?: (filters: ReportFilters, page: number, pageSize: number) => Promise<ReportResponse>;
@@ -470,6 +470,7 @@ const AdminView: React.FC<Props> = ({
   // Registration / Edit Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmittingVendor, setIsSubmittingVendor] = useState(false);
   const [editingVendor, setEditingVendor] = useState<{user: User, res: Restaurant} | null>(null);
   const [formVendor, setFormVendor] = useState({
     username: '',
@@ -486,6 +487,7 @@ const AdminView: React.FC<Props> = ({
 
   // Hub Modal State
   const [isAreaModalOpen, setIsAreaModalOpen] = useState(false);
+  const [isSubmittingArea, setIsSubmittingArea] = useState(false);
   const [editingArea, setEditingArea] = useState<Area | null>(null);
   const [formArea, setFormArea] = useState<{ name: string; city: string; state: string; code: string; type: 'MULTI' | 'SINGLE' }>({ 
     name: '', city: '', state: '', code: '', type: 'MULTI' 
@@ -697,34 +699,47 @@ const AdminView: React.FC<Props> = ({
     }
   };
 
-  const handleSubmitVendor = (e: React.FormEvent) => {
+  const handleSubmitVendor = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formVendor.username || !formVendor.location) return;
+    if (!formVendor.username || !formVendor.location) {
+      toast("Please fill out all required fields", 'error');
+      return;
+    }
     
-    const userPayload: User = { 
-      id: editingVendor?.user.id || '', 
-      username: formVendor.username, 
-      password: formVendor.password, 
-      role: 'VENDOR', 
-      email: formVendor.email, 
-      phone: formVendor.phone,
-      isActive: editingVendor ? editingVendor.user.isActive : true 
-    };
-    
-    const resPayload: Restaurant = { 
-      id: editingVendor?.res.id || '', 
-      name: formVendor.restaurantName, 
-      logo: formVendor.logo, 
-      vendorId: editingVendor?.user.id || '', 
-      location: formVendor.location, 
-      menu: editingVendor?.res.menu || [],
-      // Include platformAccess in the restaurant object
-      platformAccess: formVendor.platformAccess as PlatformAccess
-    };
-    
-    if (editingVendor) onUpdateVendor(userPayload, resPayload);
-    else onAddVendor(userPayload, resPayload);
-    setIsModalOpen(false);
+    setIsSubmittingVendor(true);
+    try {
+      const userPayload: User = { 
+        id: editingVendor?.user.id || '', 
+        username: formVendor.username, 
+        password: formVendor.password, 
+        role: 'VENDOR', 
+        email: formVendor.email, 
+        phone: formVendor.phone,
+        isActive: editingVendor ? editingVendor.user.isActive : true 
+      };
+      
+      const resPayload: Restaurant = { 
+        id: editingVendor?.res.id || '', 
+        name: formVendor.restaurantName, 
+        logo: formVendor.logo, 
+        vendorId: editingVendor?.user.id || '', 
+        location: formVendor.location, 
+        menu: editingVendor?.res.menu || [],
+        // Include platformAccess in the restaurant object
+        platformAccess: formVendor.platformAccess as PlatformAccess
+      };
+      
+      if (editingVendor) {
+        await onUpdateVendor(userPayload, resPayload);
+      } else {
+        await onAddVendor(userPayload, resPayload);
+      }
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error submitting vendor:', error);
+    } finally {
+      setIsSubmittingVendor(false);
+    }
   };
 
   const handleOpenHubEdit = (loc: Area) => {
@@ -739,14 +754,26 @@ const AdminView: React.FC<Props> = ({
     setIsAreaModalOpen(true);
   };
 
-  const handleHubSubmit = (e: React.FormEvent) => {
+  const handleHubSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingArea) {
-      onUpdateLocation({ ...editingArea, ...formArea });
-    } else {
-      onAddLocation({ ...formArea, id: '', isActive: true });
+    if (!formArea.name || !formArea.city || !formArea.state || !formArea.code) {
+      toast("Please fill out all hub fields", 'error');
+      return;
     }
-    setIsAreaModalOpen(false);
+    
+    setIsSubmittingArea(true);
+    try {
+      if (editingArea) {
+        await onUpdateLocation({ ...editingArea, ...formArea });
+      } else {
+        await onAddLocation({ ...formArea, id: '', isActive: true });
+      }
+      setIsAreaModalOpen(false);
+    } catch (error) {
+      console.error('Error submitting hub:', error);
+    } finally {
+      setIsSubmittingArea(false);
+    }
   };
 
   const toggleVendorStatus = (user: User) => {
@@ -1308,7 +1335,7 @@ const AdminView: React.FC<Props> = ({
                 </div>
 
                <div className="md:col-span-2 pt-4">
-                  <button type="submit" className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl hover:bg-orange-600 transition-all active:scale-95">Save Changes</button>
+                  <button type="submit" disabled={isSubmittingVendor} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl hover:bg-orange-600 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">{isSubmittingVendor ? <><RefreshCw size={16} className="animate-spin" /> Saving...</> : 'Save Changes'}</button>
                </div>
             </form>
           </div>
@@ -1351,9 +1378,9 @@ const AdminView: React.FC<Props> = ({
                 </div>
                 <div className="pt-4 flex gap-4">
                    {editingArea && (
-                     <button type="button" onClick={() => { if(confirm('Delete Hub?')) onDeleteLocation(editingArea.id); setIsAreaModalOpen(false); }} className="p-3 text-red-500 bg-red-50 dark:bg-red-900/10 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 size={24} /></button>
+                     <button type="button" onClick={async () => { if(confirm('Delete Hub?')) { setIsSubmittingArea(true); try { await onDeleteLocation(editingArea.id); setIsAreaModalOpen(false); } catch (error) { console.error('Error deleting hub:', error); } finally { setIsSubmittingArea(false); } } }} disabled={isSubmittingArea} className="p-3 text-red-500 bg-red-50 dark:bg-red-900/10 rounded-xl hover:bg-red-500 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"><Trash2 size={24} /></button>
                    )}
-                   <button type="submit" className="flex-1 py-4 bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl">Confirm Hub Data</button>
+                   <button type="submit" disabled={isSubmittingArea} className="flex-1 py-4 bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">{isSubmittingArea ? <><RefreshCw size={16} className="animate-spin" /> Processing...</> : 'Confirm Hub Data'}</button>
                 </div>
              </form>
           </div>

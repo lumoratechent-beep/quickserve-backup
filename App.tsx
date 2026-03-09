@@ -903,22 +903,67 @@ const App: React.FC = () => {
 
   const handleAddLocation = async (area: Area) => {
     const id = crypto.randomUUID();
-    const { error } = await supabase.from('areas').insert({
-      id, name: area.name, city: area.city, state: area.state, code: area.code, is_active: true, type: area.type || 'MULTI'
-    });
-    if (!error) fetchLocations();
+    try {
+      console.log("Adding hub:", area);
+      const { error } = await supabase.from('areas').insert({
+        id, name: area.name, city: area.city, state: area.state, code: area.code, is_active: true, type: area.type || 'MULTI'
+      });
+      
+      if (error) {
+        console.error("Hub insert error:", error);
+        toast("Error adding hub: " + error.message, 'error');
+        return;
+      }
+      
+      console.log("Hub inserted successfully, fetching locations...");
+      toast("Hub registered successfully!", 'success');
+      await fetchLocations();
+    } catch (error: any) {
+      console.error("Unexpected error adding hub:", error);
+      toast("Unexpected error: " + error.message, 'error');
+    }
   };
 
   const handleUpdateLocation = async (area: Area) => {
-    const { error } = await supabase.from('areas').update({
-      name: area.name, city: area.city, state: area.state, code: area.code, is_active: area.isActive, type: area.type
-    }).eq('id', area.id);
-    if (!error) fetchLocations();
+    try {
+      console.log("Updating hub:", area);
+      const { error } = await supabase.from('areas').update({
+        name: area.name, city: area.city, state: area.state, code: area.code, is_active: area.isActive, type: area.type
+      }).eq('id', area.id);
+      
+      if (error) {
+        console.error("Hub update error:", error);
+        toast("Error updating hub: " + error.message, 'error');
+        return;
+      }
+      
+      console.log("Hub updated successfully, fetching locations...");
+      toast("Hub updated successfully!", 'success');
+      await fetchLocations();
+    } catch (error: any) {
+      console.error("Unexpected error updating hub:", error);
+      toast("Unexpected error: " + error.message, 'error');
+    }
   };
 
   const handleDeleteLocation = async (areaId: string) => {
-    const { error } = await supabase.from('areas').delete().eq('id', areaId);
-    if (!error) fetchLocations();
+    try {
+      console.log("Deleting hub:", areaId);
+      const { error } = await supabase.from('areas').delete().eq('id', areaId);
+      
+      if (error) {
+        console.error("Hub delete error:", error);
+        toast("Error deleting hub: " + error.message, 'error');
+        return;
+      }
+      
+      console.log("Hub deleted successfully, fetching locations...");
+      toast("Hub deleted successfully!", 'success');
+      await fetchLocations();
+    } catch (error: any) {
+      console.error("Unexpected error deleting hub:", error);
+      toast("Unexpected error: " + error.message, 'error');
+    }
   };
 
   const onFetchPaginatedOrders = async (filters: ReportFilters, page: number, pageSize: number): Promise<ReportResponse> => {
