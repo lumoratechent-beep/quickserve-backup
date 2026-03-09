@@ -658,6 +658,12 @@ const PosOnlyView: React.FC<Props> = ({
   const handleConfirmPayment = async () => {
     if (!pendingOrderData || !selectedPaymentType) return;
 
+    // Validate amount received is not less than total
+    if (!selectedCashAmount || selectedCashAmount < pendingOrderData.total) {
+      toast('Amount received cannot be less than the total bill.', 'error');
+      return;
+    }
+
     setIsCompletingPayment(true);
     setCheckoutNotice('');
 
@@ -3649,8 +3655,15 @@ const PosOnlyView: React.FC<Props> = ({
                     <span className="text-2xl font-black text-gray-600 dark:text-gray-400 pb-3">{currencySymbol}</span>
                     <input 
                       type="number" 
+                      step="0.01"
                       value={selectedCashAmount ?? ''} 
                       onChange={(e) => setSelectedCashAmount(e.target.value ? parseFloat(e.target.value) : null)}
+                      onBlur={(e) => {
+                        if (selectedCashAmount !== null) {
+                          setSelectedCashAmount(parseFloat(selectedCashAmount.toFixed(2)));
+                          e.target.value = selectedCashAmount.toFixed(2);
+                        }
+                      }}
                       placeholder="0.00"
                       className="flex-1 p-3 bg-transparent text-2xl font-black dark:text-white text-center focus:outline-none border-none"
                     />
@@ -3671,7 +3684,7 @@ const PosOnlyView: React.FC<Props> = ({
                             : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
                         }`}
                       >
-                        {currencySymbol} {amount}
+                        {currencySymbol} {amount.toFixed(2)}
                       </button>
                     ))}
                   </div>
