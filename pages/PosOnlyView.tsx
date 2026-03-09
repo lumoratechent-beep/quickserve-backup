@@ -2289,7 +2289,7 @@ const PosOnlyView: React.FC<Props> = ({
             <div className="ml-8 space-y-1 mt-1">
               <button
                 onClick={() => handleReportsSubMenuClick('salesReport')}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                className={`w-full flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all ${
                   activeTab === 'REPORTS' && reportsSubMenu === 'salesReport'
                     ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
                     : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -2299,7 +2299,7 @@ const PosOnlyView: React.FC<Props> = ({
               </button>
               <button
                 onClick={() => handleReportsSubMenuClick('statistics')}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                className={`w-full flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all ${
                   activeTab === 'REPORTS' && reportsSubMenu === 'statistics'
                     ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
                     : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
