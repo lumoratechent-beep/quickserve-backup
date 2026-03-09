@@ -337,6 +337,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [checkoutNotice, setCheckoutNotice] = useState<string>('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedCashAmount, setSelectedCashAmount] = useState<number | null>(null);
+  const [cashAmountInput, setCashAmountInput] = useState<string>('');
   const [selectedPaymentType, setSelectedPaymentType] = useState<string>('');
   const [pendingOrderData, setPendingOrderData] = useState<any>(null);
   const [showPaymentResult, setShowPaymentResult] = useState(false);
@@ -651,6 +652,7 @@ const PosOnlyView: React.FC<Props> = ({
     });
     
     setSelectedCashAmount(cartTotal);
+    setCashAmountInput(cartTotal.toFixed(2));
     setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
     setShowPaymentModal(true);
   };
@@ -3625,7 +3627,7 @@ const PosOnlyView: React.FC<Props> = ({
 
       {/* Payment Modal */}
       {showPaymentModal && pendingOrderData && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => !isCompletingPayment && !showPaymentResult && setShowPaymentModal(false)}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => !isCompletingPayment && !showPaymentResult && setShowPaymentModal(false)}>
           <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-4xl h-[650px] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
             
             {/* Payment Input View */}
@@ -3654,14 +3656,21 @@ const PosOnlyView: React.FC<Props> = ({
                   <div className="flex items-center justify-center border-b-2 dark:border-gray-600 border-gray-300 focus-within:border-orange-500 dark:focus-within:border-orange-500">
                     <span className="text-2xl font-black text-gray-600 dark:text-gray-400 pb-3">{currencySymbol}</span>
                     <input 
-                      type="number" 
-                      step="0.01"
-                      value={selectedCashAmount ?? ''} 
-                      onChange={(e) => setSelectedCashAmount(e.target.value ? parseFloat(e.target.value) : null)}
-                      onBlur={(e) => {
+                      type="text" 
+                      inputMode="decimal"
+                      value={cashAmountInput} 
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9.]/g, '');
+                        setCashAmountInput(val);
+                        if (val === '' || val === '.') { setSelectedCashAmount(null); return; }
+                        const parsed = parseFloat(val);
+                        if (!isNaN(parsed)) setSelectedCashAmount(parsed);
+                      }}
+                      onBlur={() => {
                         if (selectedCashAmount !== null) {
-                          setSelectedCashAmount(parseFloat(selectedCashAmount.toFixed(2)));
-                          e.target.value = selectedCashAmount.toFixed(2);
+                          const rounded = parseFloat(selectedCashAmount.toFixed(2));
+                          setSelectedCashAmount(rounded);
+                          setCashAmountInput(rounded.toFixed(2));
                         }
                       }}
                       placeholder="0.00"
@@ -3677,7 +3686,7 @@ const PosOnlyView: React.FC<Props> = ({
                     {CASH_DENOMINATIONS.map((amount) => (
                       <button
                         key={amount}
-                        onClick={() => setSelectedCashAmount(amount)}
+                        onClick={() => { setSelectedCashAmount(amount); setCashAmountInput(amount.toFixed(2)); }}
                         className={`p-3 rounded-xl font-black text-lg uppercase tracking-widest transition-all border-2 ${
                           selectedCashAmount === amount
                             ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
