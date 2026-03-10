@@ -159,7 +159,8 @@ const PosOnlyView: React.FC<Props> = ({
   const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS'>('COUNTER');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [menuLayout, setMenuLayout] = useState<'grid-3' | 'grid-4' | 'grid-5' | 'list'>('grid-4');
+  const [menuLayout, setMenuLayout] = useState<'grid-3' | 'grid-4' | 'grid-5' | 'list'>('grid-5');
+  const [showLayoutPicker, setShowLayoutPicker] = useState(false);
   const [posCart, setPosCart] = useState<CartItem[]>([]);
   const [posRemark, setPosRemark] = useState('');
   const [posTableNo, setPosTableNo] = useState('Counter');
@@ -2417,11 +2418,18 @@ const PosOnlyView: React.FC<Props> = ({
                       </button>
                     ))}
                   </div>
-                  <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-xl shrink-0">
-                    <button onClick={() => setMenuLayout('grid-3')} className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-3' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}><LayoutGrid size={16} /></button>
-                    <button onClick={() => setMenuLayout('grid-4')} className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-4' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}><LayoutGrid size={16} /></button>
-                    <button onClick={() => setMenuLayout('grid-5')} className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-5' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}><LayoutGrid size={16} /></button>
-                    <button onClick={() => setMenuLayout('list')} className={`p-2 rounded-lg transition-all ${menuLayout === 'list' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}><List size={16} /></button>
+                  <div className="relative shrink-0">
+                    <button onClick={() => setShowLayoutPicker(!showLayoutPicker)} className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-all">
+                      <LayoutGrid size={16} />
+                    </button>
+                    {showLayoutPicker && (
+                      <div className="absolute right-0 top-full mt-1 z-50 flex items-center gap-1 bg-white dark:bg-gray-800 border dark:border-gray-700 p-1 rounded-xl shadow-lg">
+                        <button onClick={() => { setMenuLayout('grid-3'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-3' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>3</button>
+                        <button onClick={() => { setMenuLayout('grid-4'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-4' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>4</button>
+                        <button onClick={() => { setMenuLayout('grid-5'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-5' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>5</button>
+                        <button onClick={() => { setMenuLayout('list'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all ${menuLayout === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><List size={14} /></button>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="relative">
