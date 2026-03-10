@@ -552,10 +552,10 @@ const PosOnlyView: React.FC<Props> = ({
 
   const groupedMenu = useMemo(() => {
     const groups: Record<string, MenuItem[]> = {};
-    const cats = selectedCategory === 'ALL' ? categories.filter(c => c !== 'ALL') : [selectedCategory];
+    const cats = selectedCategory === 'ALL' ? categories.filter(c => c !== 'ALL').sort((a, b) => a.localeCompare(b)) : [selectedCategory];
     
     cats.forEach(cat => {
-      const items = filteredMenu.filter(i => i.category === cat);
+      const items = filteredMenu.filter(i => i.category === cat).sort((a, b) => a.name.localeCompare(b.name));
       if (items.length > 0) groups[cat] = items;
     });
     return groups;
@@ -2451,6 +2451,13 @@ const PosOnlyView: React.FC<Props> = ({
 
               <div className="flex-1 overflow-y-auto p-2 scroll-smooth">
                 <div className="space-y-4">
+                  {Object.entries(groupedMenu).map(([category, items]) => (
+                    <section key={category}>
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700"></div>
+                        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] whitespace-nowrap">{category}</h3>
+                        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700"></div>
+                      </div>
                       
                       <div className={`grid gap-1.5 ${
                         menuLayout === 'grid-3' ? 'grid-cols-3' : 
@@ -2459,7 +2466,7 @@ const PosOnlyView: React.FC<Props> = ({
                         menuLayout === 'grid-6' ? 'grid-cols-6' : 
                         'grid-cols-1'
                       }`}>
-                        {filteredMenu.map(item => (
+                        {items.map(item => (
                           <button
                             key={item.id}
                             onClick={() => handleMenuItemClick(item)}
@@ -2491,6 +2498,8 @@ const PosOnlyView: React.FC<Props> = ({
                           </button>
                         ))}
                       </div>
+                    </section>
+                  ))}
                 </div>
               </div>
             </>
