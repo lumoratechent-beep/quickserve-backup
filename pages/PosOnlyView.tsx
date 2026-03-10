@@ -159,7 +159,8 @@ const PosOnlyView: React.FC<Props> = ({
   const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS'>('COUNTER');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [menuLayout, setMenuLayout] = useState<'grid-3' | 'grid-4' | 'grid-5' | 'list'>('grid-5');
+  const [menuLayout, setMenuLayout] = useState<'grid-3' | 'grid-4' | 'grid-5' | 'grid-6' | 'list'>('grid-5');
+  const [flashItemId, setFlashItemId] = useState<string | null>(null);
   const [showLayoutPicker, setShowLayoutPicker] = useState(false);
   const [posCart, setPosCart] = useState<CartItem[]>([]);
   const [posRemark, setPosRemark] = useState('');
@@ -591,6 +592,8 @@ const PosOnlyView: React.FC<Props> = ({
       }
       return [...prev, item];
     });
+    setFlashItemId(item.id);
+    setTimeout(() => setFlashItemId(null), 500);
   };
 
   const handleMenuItemClick = (item: MenuItem) => {
@@ -2428,6 +2431,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <button onClick={() => { setMenuLayout('grid-3'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-3' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>3</button>
                         <button onClick={() => { setMenuLayout('grid-4'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-4' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>4</button>
                         <button onClick={() => { setMenuLayout('grid-5'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-5' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>5</button>
+                        <button onClick={() => { setMenuLayout('grid-6'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-6' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>6</button>
                         <button onClick={() => { setMenuLayout('list'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all ${menuLayout === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><List size={14} /></button>
                       </div>
                     )}
@@ -2452,16 +2456,23 @@ const PosOnlyView: React.FC<Props> = ({
                         menuLayout === 'grid-3' ? 'grid-cols-3' : 
                         menuLayout === 'grid-4' ? 'grid-cols-4' : 
                         menuLayout === 'grid-5' ? 'grid-cols-5' : 
+                        menuLayout === 'grid-6' ? 'grid-cols-6' : 
                         'grid-cols-1'
                       }`}>
                         {filteredMenu.map(item => (
                           <button
                             key={item.id}
                             onClick={() => handleMenuItemClick(item)}
-                            className={`bg-white dark:bg-gray-800 border dark:border-gray-700 text-left hover:border-orange-500 transition-all group shadow-sm flex ${
+                            className={`relative bg-white dark:bg-gray-800 border dark:border-gray-700 text-left hover:border-orange-500 transition-all group shadow-sm flex ${
                               menuLayout === 'list' ? 'flex-row items-center gap-4 p-2 rounded-xl' : 'flex-col p-2 rounded-xl'
-                            }`}
+                            } ${flashItemId === item.id ? 'ring-2 ring-green-500 border-green-500 scale-95' : ''}`}
+                            style={flashItemId === item.id ? { transition: 'all 0.15s ease-in-out' } : {}}
                           >
+                            {flashItemId === item.id && (
+                              <div className="absolute inset-0 bg-green-500/20 rounded-xl flex items-center justify-center z-10 pointer-events-none">
+                                <CheckCircle2 size={28} className="text-green-500 drop-shadow-md" />
+                              </div>
+                            )}
                             <div className={`${
                               menuLayout === 'list' ? 'w-16 h-16' : 'aspect-square w-full'
                             } rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0`}>
