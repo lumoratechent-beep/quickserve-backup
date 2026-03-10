@@ -3777,7 +3777,7 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
 
               {/* Content */}
-              <div className="flex-1 flex items-center justify-center p-8">
+              <div className="flex-1 flex flex-col items-center justify-start pt-6 p-8">
                 <div className="w-full max-w-3xl">
                   <div className="grid grid-cols-2">
                     <div className="pr-8 text-right border-r-2 border-dotted dark:border-gray-700">
@@ -3793,6 +3793,9 @@ const PosOnlyView: React.FC<Props> = ({
                       <label className="block mt-3 text-sm font-black text-gray-400 uppercase tracking-widest">Total Change</label>
                     </div>
                   </div>
+                </div>
+                <div className="w-full max-w-3xl mt-8 text-center">
+                  <p className="text-sm text-gray-400 dark:text-gray-500 italic">Please make sure all the balances are correct before completing the payment.</p>
                 </div>
               </div>
 
