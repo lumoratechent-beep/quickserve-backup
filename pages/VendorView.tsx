@@ -1273,7 +1273,7 @@ const VendorView: React.FC<Props> = ({
                       <div className="grid grid-cols-5 gap-3">
                         {currentMenu.map(item => (
                           <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden border dark:border-gray-700 hover:shadow-md transition-all group flex flex-col">
-                            <div className="relative aspect-square">
+                            <div className="relative aspect-square overflow-hidden">
                               <img src={item.image} className="w-full h-full object-cover" />
                               <div className="absolute top-2 right-2 flex gap-1">
                                 {menuStatusFilter === 'ACTIVE' ? (
