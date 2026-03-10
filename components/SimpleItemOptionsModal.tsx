@@ -226,7 +226,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
                           : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
                       }`}
                     >
-                      <p className="text-[10px] font-black uppercase">{s.name}</p>
+                      <p className="text-sm font-black uppercase text-gray-800 dark:text-white">{s.name}</p>
                       <p className="text-xs font-black">{s.price > 0 ? `+RM${s.price.toFixed(2)}` : 'FREE'}</p>
                     </button>
                   ))}
@@ -247,7 +247,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
                         : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
                     }`}
                   >
-                    <p className="text-[10px] font-black uppercase">None</p>
+                    <p className="text-sm font-black uppercase text-gray-800 dark:text-white">None</p>
                     <p className="text-xs font-black">Default</p>
                   </button>
                   {variants.map((v) => (
@@ -260,7 +260,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
                           : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
                       }`}
                     >
-                      <p className="text-[10px] font-black uppercase">{v.name}</p>
+                      <p className="text-sm font-black uppercase text-gray-800 dark:text-white">{v.name}</p>
                       <p className="text-xs font-black">{v.price > 0 ? `+RM${v.price.toFixed(2)}` : 'FREE'}</p>
                     </button>
                   ))}
@@ -286,7 +286,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
                           : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
                       }`}
                     >
-                      <p className="text-[10px] font-black uppercase">{opt.name}</p>
+                      <p className="text-sm font-black uppercase text-gray-800 dark:text-white">{opt.name}</p>
                       <p className="text-xs font-black">{opt.price > 0 ? `+RM${opt.price.toFixed(2)}` : 'FREE'}</p>
                     </button>
                   ))}
@@ -294,7 +294,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
               </div>
             )}
 
-            {/* Variant Options */}
+            {/* Variant Options */
             {hasVariantOptions && (
               <div>
                 <p className="text-sm font-black text-gray-700 dark:text-gray-100 uppercase tracking-widest mb-2 flex items-center gap-2">
@@ -312,7 +312,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
                           : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
                       }`}
                     >
-                      <p className="text-[10px] font-black uppercase">{opt.name}</p>
+                      <p className="text-sm font-black uppercase text-gray-800 dark:text-white">{opt.name}</p>
                       <p className="text-xs font-black">{opt.price > 0 ? `+RM${opt.price.toFixed(2)}` : 'FREE'}</p>
                     </button>
                   ))}
@@ -320,7 +320,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
               </div>
             )}
 
-            {/* Modifiers */}
+            {/* Modifiers */
             {activeModifiers.map((modifier) => (
               <div key={modifier.name}>
                 <p className="text-sm font-black text-gray-700 dark:text-gray-100 uppercase tracking-widest mb-2 flex items-center gap-2">
@@ -340,7 +340,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
                           : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
                       }`}
                     >
-                      <p className="text-[10px] font-black uppercase">{option.name}</p>
+                      <p className="text-sm font-black uppercase text-gray-800 dark:text-white">{option.name}</p>
                       <p className="text-xs font-black">{option.price > 0 ? `+RM${option.price.toFixed(2)}` : 'FREE'}</p>
                     </button>
                   ))}
