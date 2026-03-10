@@ -220,7 +220,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
                     <button
                       key={s.name}
                       onClick={() => setSize(s.name)}
-                      className={`p-3 rounded-xl border text-left transition-all ${
+                      className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
                         size === s.name
                           ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 shadow-sm'
                           : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
@@ -241,7 +241,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setVariant('')}
-                    className={`p-3 rounded-xl border text-left transition-all ${
+                    className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
                       variant === ''
                         ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 shadow-sm'
                         : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
@@ -254,7 +254,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
                     <button
                       key={v.name}
                       onClick={() => setVariant(v.name)}
-                      className={`p-3 rounded-xl border text-left transition-all ${
+                      className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
                         variant === v.name
                           ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 shadow-sm'
                           : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
@@ -280,7 +280,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
                     <button
                       key={opt.name}
                       onClick={() => setTemp(opt.name)}
-                      className={`p-3 rounded-xl border text-left transition-all ${
+                      className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
                         temp === opt.name
                           ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 shadow-sm'
                           : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
@@ -306,7 +306,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
                     <button
                       key={opt.name}
                       onClick={() => setVariantOption(opt.name)}
-                      className={`p-3 rounded-xl border text-left transition-all ${
+                      className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
                         variantOption === opt.name
                           ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 shadow-sm'
                           : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
@@ -334,7 +334,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
                     <button
                       key={option.name}
                       onClick={() => setSelectedModifiers({ ...selectedModifiers, [modifier.name]: option.name })}
-                      className={`p-3 rounded-xl border text-left transition-all ${
+                      className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
                         selectedModifiers[modifier.name] === option.name
                           ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 shadow-sm'
                           : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
