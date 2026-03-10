@@ -174,25 +174,29 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-gray-800 rounded-md w-full max-w-2xl shadow-xl"
+        className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl shadow-2xl border dark:border-gray-700 animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
+        style={{ maxHeight: '90vh', overflow: 'hidden' }}
       >
         {/* Header */}
-        <div className="p-4 border-b dark:border-gray-700 flex items-center justify-between">
-          <h2 className="font-black text-lg text-gray-900 dark:text-white">{item.name}</h2>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-            <X size={20} />
+        <div className="p-5 border-b dark:border-gray-700 flex items-center justify-between">
+          <div>
+            <h2 className="font-black text-lg text-gray-900 dark:text-white uppercase tracking-tight">{item.name}</h2>
+            <p className="text-[10px] text-orange-500 font-black uppercase tracking-widest">Customize item</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            <X size={18} className="text-gray-500" />
           </button>
         </div>
 
         {/* Main Content - Image Left, Options Right */}
-        <div className="p-4 flex gap-4 max-h-96">
+        <div className="p-5 flex gap-5 max-h-[60vh]">
           {/* Left: Image */}
-          <div className="w-32 h-32 flex-shrink-0 bg-gray-200 dark:bg-gray-700 rounded-md overflow-hidden">
+          <div className="w-36 h-36 flex-shrink-0 bg-gray-100 dark:bg-gray-700 rounded-xl overflow-hidden shadow-inner">
             {item.image ? (
               <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
             ) : (
@@ -203,26 +207,28 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
           </div>
 
           {/* Right: Options, Sizes, Variants, Temperature */}
-          <div className="flex-1 overflow-y-auto space-y-3">
+          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
             {/* Sizes */}
             {sizes.length > 0 && (
               <div>
-                <p className="font-bold text-sm mb-1 flex items-center gap-2">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
                   Size
-                  <span className="text-red-500 text-xs">*</span>
+                  <span className="text-red-500 text-[9px]">Required</span>
                 </p>
-                <div className="space-y-1">
+                <div className="grid grid-cols-2 gap-2">
                   {sizes.map((s) => (
-                    <label key={s.name} className="flex items-center gap-2 cursor-pointer text-sm">
-                      <input
-                        type="radio"
-                        name="size"
-                        checked={size === s.name}
-                        onChange={() => setSize(s.name)}
-                      />
-                      <span>{s.name}</span>
-                      {s.price > 0 && <span className="text-orange-500 ml-auto">+RM{s.price}</span>}
-                    </label>
+                    <button
+                      key={s.name}
+                      onClick={() => setSize(s.name)}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        size === s.name
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 shadow-sm'
+                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+                      }`}
+                    >
+                      <p className="text-[10px] font-black uppercase">{s.name}</p>
+                      <p className="text-xs font-black">{s.price > 0 ? `+RM${s.price.toFixed(2)}` : 'FREE'}</p>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -231,28 +237,32 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
             {/* Legacy Variants */}
             {shouldShowLegacyVariant && (
               <div>
-                <p className="font-bold text-sm mb-1">{item.otherVariantName || 'Options'}</p>
-                <div className="space-y-1">
-                  <label className="flex items-center gap-2 cursor-pointer text-sm">
-                    <input
-                      type="radio"
-                      name="variant"
-                      checked={variant === ''}
-                      onChange={() => setVariant('')}
-                    />
-                    <span>None</span>
-                  </label>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">{item.otherVariantName || 'Options'}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setVariant('')}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      variant === ''
+                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 shadow-sm'
+                        : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+                    }`}
+                  >
+                    <p className="text-[10px] font-black uppercase">None</p>
+                    <p className="text-xs font-black">Default</p>
+                  </button>
                   {variants.map((v) => (
-                    <label key={v.name} className="flex items-center gap-2 cursor-pointer text-sm">
-                      <input
-                        type="radio"
-                        name="variant"
-                        checked={variant === v.name}
-                        onChange={() => setVariant(v.name)}
-                      />
-                      <span>{v.name}</span>
-                      {v.price > 0 && <span className="text-orange-500 ml-auto">+RM{v.price}</span>}
-                    </label>
+                    <button
+                      key={v.name}
+                      onClick={() => setVariant(v.name)}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        variant === v.name
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 shadow-sm'
+                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+                      }`}
+                    >
+                      <p className="text-[10px] font-black uppercase">{v.name}</p>
+                      <p className="text-xs font-black">{v.price > 0 ? `+RM${v.price.toFixed(2)}` : 'FREE'}</p>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -261,22 +271,24 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
             {/* Temperature */}
             {hasTempOptions && (
               <div>
-                <p className="font-bold text-sm mb-1 flex items-center gap-2">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
                   Temperature
-                  <span className="text-red-500 text-xs">*</span>
+                  <span className="text-red-500 text-[9px]">Required</span>
                 </p>
-                <div className="space-y-1">
+                <div className="grid grid-cols-2 gap-2">
                   {item.tempOptions?.options?.map((opt) => (
-                    <label key={opt.name} className="flex items-center gap-2 cursor-pointer text-sm">
-                      <input
-                        type="radio"
-                        name="temp"
-                        checked={temp === opt.name}
-                        onChange={() => setTemp(opt.name)}
-                      />
-                      <span>{opt.name}</span>
-                      {opt.price > 0 && <span className="text-orange-500 ml-auto">+RM{opt.price}</span>}
-                    </label>
+                    <button
+                      key={opt.name}
+                      onClick={() => setTemp(opt.name)}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        temp === opt.name
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 shadow-sm'
+                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+                      }`}
+                    >
+                      <p className="text-[10px] font-black uppercase">{opt.name}</p>
+                      <p className="text-xs font-black">{opt.price > 0 ? `+RM${opt.price.toFixed(2)}` : 'FREE'}</p>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -285,22 +297,24 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
             {/* Variant Options */}
             {hasVariantOptions && (
               <div>
-                <p className="font-bold text-sm mb-1 flex items-center gap-2">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
                   Variant
-                  <span className="text-red-500 text-xs">*</span>
+                  <span className="text-red-500 text-[9px]">Required</span>
                 </p>
-                <div className="space-y-1">
+                <div className="grid grid-cols-2 gap-2">
                   {item.variantOptions?.options?.map((opt) => (
-                    <label key={opt.name} className="flex items-center gap-2 cursor-pointer text-sm">
-                      <input
-                        type="radio"
-                        name="variantOption"
-                        checked={variantOption === opt.name}
-                        onChange={() => setVariantOption(opt.name)}
-                      />
-                      <span>{opt.name}</span>
-                      {opt.price > 0 && <span className="text-orange-500 ml-auto">+RM{opt.price}</span>}
-                    </label>
+                    <button
+                      key={opt.name}
+                      onClick={() => setVariantOption(opt.name)}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        variantOption === opt.name
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 shadow-sm'
+                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+                      }`}
+                    >
+                      <p className="text-[10px] font-black uppercase">{opt.name}</p>
+                      <p className="text-xs font-black">{opt.price > 0 ? `+RM${opt.price.toFixed(2)}` : 'FREE'}</p>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -309,24 +323,26 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
             {/* Modifiers */}
             {activeModifiers.map((modifier) => (
               <div key={modifier.name}>
-                <p className="font-bold text-sm mb-1 flex items-center gap-2">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
                   {modifier.name}
                   {modifier.required && (
-                    <span className="text-red-500 text-xs">*</span>
+                    <span className="text-red-500 text-[9px]">Required</span>
                   )}
                 </p>
-                <div className="space-y-1">
+                <div className="grid grid-cols-2 gap-2">
                   {modifier.options.map((option) => (
-                    <label key={option.name} className="flex items-center gap-2 cursor-pointer text-sm">
-                      <input
-                        type="radio"
-                        name={`modifier-${modifier.name}`}
-                        checked={selectedModifiers[modifier.name] === option.name}
-                        onChange={() => setSelectedModifiers({ ...selectedModifiers, [modifier.name]: option.name })}
-                      />
-                      <span>{option.name}</span>
-                      {option.price > 0 && <span className="text-orange-500 ml-auto">+RM{option.price.toFixed(2)}</span>}
-                    </label>
+                    <button
+                      key={option.name}
+                      onClick={() => setSelectedModifiers({ ...selectedModifiers, [modifier.name]: option.name })}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        selectedModifiers[modifier.name] === option.name
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 shadow-sm'
+                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+                      }`}
+                    >
+                      <p className="text-[10px] font-black uppercase">{option.name}</p>
+                      <p className="text-xs font-black">{option.price > 0 ? `+RM${option.price.toFixed(2)}` : 'FREE'}</p>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -336,28 +352,29 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
 
         {/* Add-ons - Full Width Below */}
         {addOnList.length > 0 && (
-          <div className="p-4 border-t dark:border-gray-700">
-            <p className="font-bold text-sm mb-2">Add-ons</p>
+          <div className="p-5 border-t dark:border-gray-700">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Add-ons</p>
             <div className="grid grid-cols-2 gap-2">
               {addOnList.map((addon) => (
-                <div key={addon.name} className="flex items-center justify-between p-2 bg-gray-100 dark:bg-gray-700 rounded-sm">
+                <div key={addon.name} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                   <div>
-                    <p className="text-xs font-bold">{addon.name}</p>
-                    <p className="text-xs text-orange-500">RM{addon.price}</p>
+                    <p className="text-xs font-black dark:text-white">{addon.name}</p>
+                    <p className="text-[9px] text-orange-500 font-black">+RM{addon.price.toFixed(2)}</p>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleAddOnChange(addon.name, (addOns[addon.name] || 0) - 1)}
-                      className="p-1 bg-gray-300 dark:bg-gray-600 rounded text-xs"
+                      className="p-1.5 bg-white dark:bg-gray-800 rounded-lg text-gray-500 hover:bg-orange-500 hover:text-white transition-all"
+                      disabled={(addOns[addon.name] || 0) === 0}
                     >
-                      <Minus size={12} />
+                      <Minus size={14} />
                     </button>
-                    <span className="w-5 text-center text-xs font-bold">{addOns[addon.name] || 0}</span>
+                    <span className="w-6 text-center text-xs font-black dark:text-white">{addOns[addon.name] || 0}</span>
                     <button
                       onClick={() => handleAddOnChange(addon.name, (addOns[addon.name] || 0) + 1)}
-                      className="p-1 bg-gray-300 dark:bg-gray-600 rounded text-xs"
+                      className="p-1.5 bg-white dark:bg-gray-800 rounded-lg text-gray-500 hover:bg-orange-500 hover:text-white transition-all"
                     >
-                      <Plus size={12} />
+                      <Plus size={14} />
                     </button>
                   </div>
                 </div>
@@ -367,14 +384,14 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
         )}
 
         {/* Footer */}
-        <div className="p-4 border-t dark:border-gray-700 flex items-center justify-between gap-2">
+        <div className="p-5 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex items-center gap-4">
           <div>
-            <p className="text-xs text-gray-500">Total</p>
-            <p className="text-2xl font-black text-orange-500">RM{calculateTotal().toFixed(2)}</p>
+            <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Total</p>
+            <p className="text-2xl font-black dark:text-white">RM{calculateTotal().toFixed(2)}</p>
           </div>
           <button
             onClick={handleConfirm}
-            className="flex-1 py-3 bg-orange-500 text-white font-bold rounded-sm hover:bg-orange-600"
+            className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all"
           >
             Add to Cart
           </button>
