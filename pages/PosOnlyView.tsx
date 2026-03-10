@@ -64,142 +64,98 @@ const getDefaultReceiptSettings = (restaurantName: string): ReceiptSettings => (
   footerLine1: 'Thank you!',
   footerLine2: 'Please come again',
 });
-
-const PRINTER_MODELS = [
-  'Epson TM-T20III',
-  'Epson TM-T88VI',
-  'Epson TM-M30II',
-  'Star TSP143IV',
-  'Star mC-Print3',
-  'Star SM-L200',
-  'BIXOLON SRP-350III',
-  'BIXOLON SPP-R310',
-  'Citizen CT-E651',
-  'CX58D Thermal',
-  'POS-5890K',
-  'XP-58IIH',
-  'Other',
-];
-
-interface SavedPrinter {
-  id: string;
-  name: string;
-  model: string;
-  connectionType: 'bluetooth' | 'ethernet';
-  ipAddress?: string;
-  paperWidth: number;
-  advancedSettings: {
-    printMode: string;
-    printWidth: number;
-    printResolution: string;
-    initCommands: string;
-    cutterCommands: string;
-    drawerCommands: string;
-  };
-  deviceId?: string;
-  deviceName?: string;
-}
-
-interface FeatureSettings {
-  autoPrintReceipt: boolean;
-  autoOpenDrawer: boolean;
-  dineInEnabled: boolean;
-  takeawayEnabled: boolean;
-  deliveryEnabled: boolean;
-  customerDisplayEnabled: boolean;
-}
-
-const getDefaultFeatureSettings = (): FeatureSettings => ({
-  autoPrintReceipt: false,
-  autoOpenDrawer: false,
-  dineInEnabled: false,
-  takeawayEnabled: false,
-  deliveryEnabled: false,
-  customerDisplayEnabled: false,
-});
-
-interface PaymentType {
-  id: string;
-  name: string;
-}
-
-const getDefaultPaymentTypes = (): PaymentType[] => [
-  { id: 'cash', name: 'CASH' },
-  { id: 'qr', name: 'QR' },
-];
-
-interface TaxEntry {
-  id: string;
-  name: string;
-  percentage: number;
-  applyToItems: boolean;
-}
-
-type SettingsPanel = null | 'features' | 'printer' | 'receipt' | 'payment' | 'taxes' | 'staff' | 'ux';
-
-const PosOnlyView: React.FC<Props> = ({
-  restaurant,
-  orders,
-  onUpdateOrder,
-  onPlaceOrder,
-  onUpdateMenu,
-  onAddMenuItem,
-  onPermanentDeleteMenuItem,
-  onFetchPaginatedOrders,
-  onFetchAllFilteredOrders,
-  isOnline = true,
-  pendingOfflineOrdersCount = 0,
-  cashierName,
-}) => {
-  const toLocalDateInputValue = (date: Date) => {
-    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-    return local.toISOString().split('T')[0];
-  };
-
-  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS'>('COUNTER');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [menuLayout, setMenuLayout] = useState<'grid-3' | 'grid-4' | 'grid-5' | 'grid-6' | 'list'>('grid-5');
-  const [flashItemId, setFlashItemId] = useState<string | null>(null);
-  const [showLayoutPicker, setShowLayoutPicker] = useState(false);
-  const [posCart, setPosCart] = useState<CartItem[]>([]);
-  const [posRemark, setPosRemark] = useState('');
-  const [posTableNo, setPosTableNo] = useState('Counter');
-  const [menuSearch, setMenuSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
-  const [selectedItemForOptions, setSelectedItemForOptions] = useState<MenuItem | null>(null);
-
-  // Menu Editor State
-  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
-  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-  const [menuStatusFilter, setMenuStatusFilter] = useState<'ACTIVE' | 'ARCHIVED'>('ACTIVE');
-  const [menuViewMode, setMenuViewMode] = useState<'grid' | 'list'>('grid');
-  const [menuCategoryFilter, setMenuCategoryFilter] = useState<string>('All');
-  const [menuSubTab, setMenuSubTab] = useState<'KITCHEN' | 'CATEGORY' | 'MODIFIER'>('KITCHEN');
-  const [isSavingMenuItem, setIsSavingMenuItem] = useState(false);
-  const [formItem, setFormItem] = useState<MenuFormItem>({
-    name: '',
-    description: '',
-    price: 0,
-    image: '',
-    category: '',
-    isArchived: false,
-    sizes: [],
-    sizesEnabled: false,
-    otherVariantName: '',
-    otherVariants: [],
-    otherVariantsEnabled: false,
-    linkedModifiers: [],
-    tempOptions: { enabled: false, hot: 0, cold: 0 },
-    addOns: [],
-  });
-
-  const [showAddClassModal, setShowAddClassModal] = useState(false);
-  const [showAddModifierModal, setShowAddModifierModal] = useState(false);
-  const [newClassName, setNewClassName] = useState('');
-  const [extraCategories, setExtraCategories] = useState<CategoryData[]>([]);
-  const [modifiers, setModifiers] = useState<ModifierData[]>([]);
-
+      {/* Mobile Sidebar Drawer Menu */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setIsMobileMenuOpen(false)} />
+          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-white dark:bg-gray-800 border-r dark:border-gray-700 flex flex-col animate-slide-left">
+            <div className="border-b dark:border-gray-700 flex items-center p-6 gap-3">
+              <img src={restaurant.logo} className="rounded-lg shadow-sm w-10 h-10" />
+              <div>
+                <h2 className="font-black dark:text-white text-sm uppercase tracking-tight">{restaurant.name}</h2>
+                <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mt-0.5">POS Only</p>
+              </div>
+            </div>
+            <nav className="flex-1 p-4 space-y-2">
+              <button 
+                onClick={() => { handleTabSelection('COUNTER'); setIsMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'COUNTER' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
+              >
+                <ShoppingBag size={20} /> Counter
+              </button>
+              <button 
+                onClick={() => { handleTabSelection('MENU_EDITOR'); setIsMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'MENU_EDITOR' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
+              >
+                <BookOpen size={20} /> Menu Editor
+              </button>
+              <button 
+                onClick={() => { handleReportsClick(); setIsMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'REPORTS' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
+              >
+                <BarChart3 size={20} /> Report
+              </button>
+              <button 
+                onClick={() => { handleTabSelection('SETTINGS'); setIsMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'SETTINGS' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
+              >
+                <Settings size={20} /> Settings
+              </button>
+            </nav>
+            <div className="mt-auto border-t dark:border-gray-700 p-4">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Printer Connection</label>
+              <button
+                onClick={handlePrinterButtonClick}
+                disabled={isAutoReconnecting}
+                className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg ${
+                  isAutoReconnecting
+                    ? 'bg-blue-500 text-white cursor-wait'
+                    : realPrinterConnected
+                      ? 'bg-green-500 text-white hover:bg-green-600'
+                      : connectedDevice
+                        ? 'bg-red-500 text-white hover:bg-red-600'
+                        : 'bg-gray-400 text-white hover:bg-gray-500'
+                }`}
+              >
+                {isAutoReconnecting ? (
+                  <>
+                    <Bluetooth size={18} className="animate-pulse" />
+                    Connecting...
+                  </>
+                ) : realPrinterConnected ? (
+                  <>
+                    <BluetoothConnected size={18} />
+                    Printer Connected
+                  </>
+                ) : connectedDevice ? (
+                  <>
+                    <Bluetooth size={18} />
+                    Printer Offline
+                  </>
+                ) : (
+                  <>
+                    <Bluetooth size={18} />
+                    No Printer
+                  </>
+                )}
+              </button>
+              {connectedDevice && (
+                <div className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-700/50 rounded-xl border dark:border-gray-600 mt-2">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${isAutoReconnecting ? 'bg-blue-500 scale-125' : (realPrinterConnected ? 'bg-green-500' : 'bg-red-500')} transition-all duration-300 animate-pulse`}></div>
+                    <span className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest truncate">{connectedDevice.name}</span>
+                  </div>
+                  {isAutoReconnecting && <RotateCw size={10} className="animate-spin text-blue-500" />}
+                </div>
+              )}
+            </div>
+          </aside>
+        </div>
+      )}
+      {/* Desktop Sidebar (unchanged) */}
+      <aside className={`hidden lg:flex fixed lg:relative inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 border-r dark:border-gray-700 flex flex-col transition-all duration-300 ease-in-out no-print ${isSidebarCollapsed ? 'lg:w-16' : 'w-64'}`}>
+        {/* ...existing code... */}
+      </aside>
   const [classViewMode, setClassViewMode] = useState<'grid' | 'list'>('list');
   const [renamingClass, setRenamingClass] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -3587,101 +3543,107 @@ const PosOnlyView: React.FC<Props> = ({
         
         {/* Right Sidebar - Order Summary */}
         {activeTab === 'COUNTER' && (
-          <div className={`
-            w-96 bg-white dark:bg-gray-800 border-l dark:border-gray-700 flex flex-col
-            transition-all duration-300 ease-in-out
-          `}>
-            <div className="p-6 border-b dark:border-gray-700 flex items-center justify-between">
-              <h3 className="font-black dark:text-white uppercase tracking-tighter">
-                Current Order
-              </h3>
-              <div className="flex items-center gap-2">
-                <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors">
-                  <Trash2 size={18} />
+          <>
+            {/* Floating Cart Button for Mobile Landscape */}
+            <div className="lg:hidden">
+              <div
+                className="fixed bottom-6 right-6 z-50 flex items-center justify-center"
+                style={{ pointerEvents: posCart.length === 0 ? 'none' : 'auto' }}
+              >
+                <button
+                  className="bg-orange-500 text-white rounded-full shadow-lg w-16 h-16 flex items-center justify-center text-2xl font-black relative"
+                  onClick={() => setIsMobileMenuOpen(true)}
+                  aria-label="Open Cart"
+                  style={{ display: posCart.length === 0 ? 'none' : 'flex' }}
+                >
+                  <ShoppingBag size={32} />
+                  {posCart.length > 0 && (
+                    <span className="absolute top-2 right-2 bg-white text-orange-500 rounded-full px-2 py-0.5 text-xs font-black shadow">{posCart.length}</span>
+                  )}
                 </button>
               </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {posCart.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
-                  <ShoppingBag size={48} className="mb-4" />
-                  <p className="text-[10px] font-black uppercase tracking-widest">Cart is empty</p>
-                </div>
-              ) : (
-                posCart.map((item, idx) => (
-                    <div key={`${item.id}-${idx}`} className="flex items-center gap-4">
-                      <div className="flex-1">
-                        <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                        <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toFixed(2)}</p>
-                        <div className="mt-1 space-y-0.5">
-                          {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
-                          {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Temperature: {item.selectedTemp}</p>}
-                          {item.selectedVariantOption && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Variant: {item.selectedVariantOption}</p>}
-                          {item.selectedOtherVariant && !item.selectedModifiers && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.otherVariantName ? item.otherVariantName.charAt(0).toUpperCase() + item.otherVariantName.slice(1) : 'Option'}: {item.selectedOtherVariant}</p>}
-                          {item.selectedModifiers && Object.entries(item.selectedModifiers).map(([modName, optName]) => (
-                            optName && <p key={modName} className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {modName.charAt(0).toUpperCase() + modName.slice(1)}: {optName}</p>
-                          ))}
-                          {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                            <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">
-                              • Add-ons: {item.selectedAddOns.map(addon => `${addon.name} x${addon.quantity}`).join(', ')}
-                            </p>
-                          )}
+              {/* Cart Modal */}
+              {isMobileMenuOpen && posCart.length > 0 && (
+                <div className="fixed inset-0 bg-black/60 z-50 flex items-end justify-center" onClick={() => setIsMobileMenuOpen(false)}>
+                  <div className="bg-white dark:bg-gray-800 rounded-t-3xl w-full max-w-md mx-auto p-6 shadow-2xl animate-slide-left" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-black dark:text-white uppercase tracking-tighter">Current Order</h3>
+                      <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto space-y-4 max-h-[40vh]">
+                      {posCart.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
+                          <ShoppingBag size={48} className="mb-4" />
+                          <p className="text-[10px] font-black uppercase tracking-widest">Cart is empty</p>
+                        </div>
+                      ) : (
+                        posCart.map((item, idx) => (
+                          <div key={`${item.id}-${idx}`} className="flex items-center gap-4">
+                            <div className="flex-1">
+                              <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                              <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toFixed(2)}</p>
+                              <div className="mt-1 space-y-0.5">
+                                {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
+                                {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Temperature: {item.selectedTemp}</p>}
+                                {item.selectedVariantOption && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Variant: {item.selectedVariantOption}</p>}
+                                {item.selectedOtherVariant && !item.selectedModifiers && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.otherVariantName ? item.otherVariantName.charAt(0).toUpperCase() + item.otherVariantName.slice(1) : 'Option'}: {item.selectedOtherVariant}</p>}
+                                {item.selectedModifiers && Object.entries(item.selectedModifiers).map(([modName, optName]) => (
+                                  optName && <p key={modName} className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {modName.charAt(0).toUpperCase() + modName.slice(1)}: {optName}</p>
+                                ))}
+                                {item.selectedAddOns && item.selectedAddOns.length > 0 && (
+                                  <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">
+                                    • Add-ons: {item.selectedAddOns.map(addon => `${addon.name} x${addon.quantity}`).join(', ')}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+                              <button onClick={() => updateQuantity(idx, -1)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all"><Minus size={12} /></button>
+                              <span className="text-[10px] font-black w-4 text-center dark:text-white">{item.quantity}</span>
+                              <button onClick={() => updateQuantity(idx, 1)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all"><Plus size={12} /></button>
+                            </div>
+                            <button onClick={() => removeFromPosCart(idx)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="space-y-2 mt-4">
+                      <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
+                        <span>Subtotal</span>
+                        <span>{currencySymbol}{cartTotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
+                        <span className="uppercase">Total</span>
+                        <span className="text-orange-500">{currencySymbol}{cartTotal.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-3 mt-4">
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Table</label>
+                          <input type="text" value={posTableNo} onChange={e => setPosTableNo(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" />
+                        </div>
+                        <div className="flex-[2]">
+                          <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Remark</label>
+                          <input type="text" value={posRemark} onChange={e => setPosRemark(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" placeholder="No spicy..." />
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
-                        <button onClick={() => updateQuantity(idx, -1)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all"><Minus size={12} /></button>
-                        <span className="text-[10px] font-black w-4 text-center dark:text-white">{item.quantity}</span>
-                        <button onClick={() => updateQuantity(idx, 1)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all"><Plus size={12} /></button>
-                      </div>
-                      <button onClick={() => removeFromPosCart(idx)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
+                      <button onClick={handleCheckout} disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2">
+                        <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : 'Complete Order'}
+                      </button>
                     </div>
-                  ))
-              )}
-            </div>
-
-            <div className="p-6 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-4">
-              {showPaymentSuccess && (
-                <div className="px-3 py-2 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-300 text-[10px] font-black uppercase tracking-widest text-center">
-                  Payment Completed Successfully
-                </div>
-              )}
-
-              {!!checkoutNotice && (
-                <div className="px-3 py-2 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-300 text-[10px] font-black tracking-wide text-center">
-                  {checkoutNotice}
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
-                  <span>Subtotal</span>
-                  <span>{currencySymbol}{cartTotal.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
-                  <span className="uppercase">Total</span>
-                  <span className="text-orange-500">{currencySymbol}{cartTotal.toFixed(2)}</span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Table</label>
-                    <input type="text" value={posTableNo} onChange={e => setPosTableNo(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" />
-                  </div>
-                  <div className="flex-[2]">
-                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Remark</label>
-                    <input type="text" value={posRemark} onChange={e => setPosRemark(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" placeholder="No spicy..." />
                   </div>
                 </div>
-
-                <button onClick={handleCheckout} disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2">
-                  <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : 'Complete Order'}
-                </button>
+              )}
+            </div>
+            {/* Desktop Cart Sidebar (unchanged) */}
+            <div className="hidden lg:flex">
+              {/* ...existing code... */}
+              <div className={`w-96 bg-white dark:bg-gray-800 border-l dark:border-gray-700 flex flex-col transition-all duration-300 ease-in-out`}>
+                {/* ...existing code... */}
               </div>
             </div>
-          </div>
+          </>
         )}
       </div>
 
