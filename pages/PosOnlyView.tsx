@@ -342,6 +342,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [selectedPaymentType, setSelectedPaymentType] = useState<string>('');
   const [pendingOrderData, setPendingOrderData] = useState<any>(null);
   const [showPaymentResult, setShowPaymentResult] = useState(false);
+  const [showRefundConfirm, setShowRefundConfirm] = useState(false);
 
   const CASH_DENOMINATIONS = [10, 20, 50, 100];
 
@@ -3927,17 +3928,45 @@ const PosOnlyView: React.FC<Props> = ({
                     <Printer size={14} /> Reprint Receipt
                   </button>
                   <button
-                    onClick={() => {
-                      if (window.confirm(`Are you sure you want to refund Order #${selectedReportOrder.id}? This action cannot be undone.`)) {
-                        handleOrderStatusUpdate(selectedReportOrder.id, OrderStatus.CANCELLED);
-                        toast('Order has been refunded.', 'success');
-                        setSelectedReportOrder(null);
-                      }
-                    }}
+                    onClick={() => setShowRefundConfirm(true)}
                     className="flex-1 py-3 bg-red-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all flex items-center justify-center gap-2"
                   >
                     <RotateCcw size={14} /> Refund
                   </button>
+                </div>
+              )}
+
+              {/* Refund Confirmation Modal */}
+              {showRefundConfirm && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={() => setShowRefundConfirm(false)}>
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+                    <div className="p-6 text-center">
+                      <div className="w-14 h-14 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <RotateCcw size={28} className="text-red-500" />
+                      </div>
+                      <h3 className="text-lg font-black dark:text-white uppercase tracking-tight mb-2">Confirm Refund</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Are you sure you want to refund Order <span className="font-bold text-gray-700 dark:text-gray-200">#{selectedReportOrder.id}</span>? This action cannot be undone.</p>
+                    </div>
+                    <div className="flex border-t dark:border-gray-700">
+                      <button
+                        onClick={() => setShowRefundConfirm(false)}
+                        className="flex-1 py-4 text-sm font-black uppercase tracking-widest text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleOrderStatusUpdate(selectedReportOrder.id, OrderStatus.CANCELLED);
+                          toast('Order has been refunded.', 'success');
+                          setShowRefundConfirm(false);
+                          setSelectedReportOrder(null);
+                        }}
+                        className="flex-1 py-4 text-sm font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all border-l dark:border-gray-700"
+                      >
+                        Refund
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
