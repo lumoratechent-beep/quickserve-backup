@@ -182,7 +182,7 @@ const PosOnlyView: React.FC<Props> = ({
     description: '',
     price: 0,
     image: '',
-    category: 'Main Dish',
+    category: '',
     isArchived: false,
     sizes: [],
     sizesEnabled: false,
@@ -377,7 +377,7 @@ const PosOnlyView: React.FC<Props> = ({
       description: '',
       price: 0,
       image: '',
-      category: initialCategory || 'Main Dish',
+      category: initialCategory || '',
       isArchived: false,
       sizes: [],
       sizesEnabled: false,
@@ -421,7 +421,7 @@ const PosOnlyView: React.FC<Props> = ({
       description: '',
       price: 0,
       image: '',
-      category: 'Main Dish',
+      category: '',
       isArchived: false,
       sizes: [],
       sizesEnabled: false,
@@ -908,14 +908,24 @@ const PosOnlyView: React.FC<Props> = ({
   }, [cachedCounterOrders, restaurant.id]);
 
   useEffect(() => {
+    let cats: CategoryData[] = [];
     if (restaurant.categories && restaurant.categories.length > 0) {
-      setExtraCategories(restaurant.categories);
+      cats = [...restaurant.categories];
     } else {
       const savedCategories = localStorage.getItem(`categories_${restaurant.id}`);
       if (savedCategories) {
-        setExtraCategories(JSON.parse(savedCategories));
+        cats = JSON.parse(savedCategories);
       }
     }
+    // Sync: ensure every category used by menu items exists in extraCategories
+    const existingNames = new Set(cats.map(c => c.name));
+    restaurant.menu.forEach(item => {
+      if (item.category && !existingNames.has(item.category)) {
+        cats.push({ name: item.category });
+        existingNames.add(item.category);
+      }
+    });
+    setExtraCategories(cats);
 
     if (restaurant.modifiers && restaurant.modifiers.length > 0) {
       setModifiers(restaurant.modifiers);
@@ -1162,9 +1172,8 @@ const PosOnlyView: React.FC<Props> = ({
     }
 
     const normalizedName = newName.trim();
-    const existsInMenu = restaurant.menu.some(item => item.category === normalizedName);
     const existsInExtra = extraCategories.some(category => category.name === normalizedName && category.name !== oldName);
-    if (existsInMenu || existsInExtra) {
+    if (existsInExtra) {
       toast('Category already exists.', 'warning');
       return;
     }
@@ -1172,6 +1181,16 @@ const PosOnlyView: React.FC<Props> = ({
     setExtraCategories(prev => prev.map(category =>
       category.name === oldName ? { ...category, name: normalizedName } : category
     ));
+
+    // Update all menu items that use the old category name
+    const affectedItems = restaurant.menu.filter(item => item.category === oldName);
+    affectedItems.forEach(item => {
+      onUpdateMenu?.(restaurant.id, {
+        ...item,
+        category: normalizedName,
+      });
+    });
+
     setRenamingClass(null);
   };
 
