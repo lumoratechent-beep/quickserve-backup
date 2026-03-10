@@ -294,7 +294,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
               </div>
             )}
 
-            {/* Variant Options */
+            {/* Variant Options */}
             {hasVariantOptions && (
               <div>
                 <p className="text-sm font-black text-gray-700 dark:text-gray-100 uppercase tracking-widest mb-2 flex items-center gap-2">
@@ -320,7 +320,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
               </div>
             )}
 
-            {/* Modifiers */
+            {/* Modifiers */}
             {activeModifiers.map((modifier) => (
               <div key={modifier.name}>
                 <p className="text-sm font-black text-gray-700 dark:text-gray-100 uppercase tracking-widest mb-2 flex items-center gap-2">
