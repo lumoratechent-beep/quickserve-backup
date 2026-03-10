@@ -1387,7 +1387,9 @@ const App: React.FC = () => {
                 <p className="text-[10px] text-gray-400 font-bold uppercase">{currentUser.role}</p>
                 <p className="text-xs font-black dark:text-white">{currentUser.username}</p>
               </div>
-              <button onClick={handleLogout} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white"><LogOut size={20} /></button>
+              {isOnline && (
+                <button onClick={handleLogout} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white"><LogOut size={20} /></button>
+              )}
             </div>
           )}
         </div>
