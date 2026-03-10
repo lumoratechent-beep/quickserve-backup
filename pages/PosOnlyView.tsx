@@ -3976,24 +3976,12 @@ const getDefaultReceiptSettings = (restaurantName: string): ReceiptSettings => (
       )}
 
       <style>{`
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        @keyframes slideLeft {
-          from { transform: translateX(100%); }
-          to { transform: translateX(0); }
-        }
-        .animate-slide-left {
-          animation: slideLeft 0.3s ease-out;
-        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        @keyframes slideLeft { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        .animate-slide-left { animation: slideLeft 0.3s ease-out; }
       `}</style>
       </div>
     </div>
   );
-};
-
 export default PosOnlyView;
