@@ -524,8 +524,8 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const categories = useMemo(() => {
-    const cats = new Set(restaurant.menu.map(item => item.category));
-    return ['ALL', ...Array.from(cats)];
+    const cats = Array.from(new Set(restaurant.menu.map(item => item.category))).sort((a, b) => a.localeCompare(b));
+    return ['ALL', ...cats];
   }, [restaurant.menu]);
 
   const menuEditorCategories = useMemo(() => {
@@ -2407,7 +2407,7 @@ const PosOnlyView: React.FC<Props> = ({
             <>
               <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-4 flex flex-col gap-4">
                 <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4 overflow-x-auto no-scrollbar flex-1">
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-1">
                     {categories.map(cat => (
                       <button
                         key={cat}
