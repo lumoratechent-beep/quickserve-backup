@@ -211,7 +211,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
             {/* Sizes */}
             {sizes.length > 0 && (
               <div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                <p className="text-sm font-black text-gray-700 dark:text-gray-100 uppercase tracking-widest mb-2 flex items-center gap-2">
                   Size
                   <span className="text-red-500 text-[9px]">Required</span>
                 </p>
@@ -237,7 +237,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
             {/* Legacy Variants */}
             {shouldShowLegacyVariant && (
               <div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">{item.otherVariantName || 'Options'}</p>
+                <p className="text-sm font-black text-gray-700 dark:text-gray-100 uppercase tracking-widest mb-2">{item.otherVariantName || 'Options'}</p>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setVariant('')}
@@ -271,7 +271,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
             {/* Temperature */}
             {hasTempOptions && (
               <div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                <p className="text-sm font-black text-gray-700 dark:text-gray-100 uppercase tracking-widest mb-2 flex items-center gap-2">
                   Temperature
                   <span className="text-red-500 text-[9px]">Required</span>
                 </p>
@@ -297,7 +297,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
             {/* Variant Options */}
             {hasVariantOptions && (
               <div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                <p className="text-sm font-black text-gray-700 dark:text-gray-100 uppercase tracking-widest mb-2 flex items-center gap-2">
                   Variant
                   <span className="text-red-500 text-[9px]">Required</span>
                 </p>
@@ -323,7 +323,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
             {/* Modifiers */}
             {activeModifiers.map((modifier) => (
               <div key={modifier.name}>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                <p className="text-sm font-black text-gray-700 dark:text-gray-100 uppercase tracking-widest mb-2 flex items-center gap-2">
                   {modifier.name}
                   {modifier.required && (
                     <span className="text-red-500 text-[9px]">Required</span>
