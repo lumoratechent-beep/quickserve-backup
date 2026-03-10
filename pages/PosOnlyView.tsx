@@ -3769,15 +3769,12 @@ const PosOnlyView: React.FC<Props> = ({
             {/* Payment Result View */}
             <div className={`absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out ${showPaymentResult ? 'translate-x-0' : 'translate-x-full'}`}>
               {/* Header */}
-              <div className="px-8 py-5 border-b dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+              <div className="px-8 py-5 border-b dark:border-gray-700 flex items-center justify-center flex-shrink-0">
                 <h3 className="font-black dark:text-white uppercase tracking-tighter text-2xl">Payment Complete</h3>
-                <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                  <CheckCircle2 size={24} className="text-green-600 dark:text-green-400" />
-                </div>
               </div>
 
               {/* Content */}
-              <div className="flex-1 flex flex-col items-center justify-start pt-6 p-8">
+              <div className="flex-1 flex flex-col items-center justify-center p-8">
                 <div className="w-full max-w-3xl">
                   <div className="grid grid-cols-2">
                     <div className="pr-8 text-right border-r-2 border-dotted dark:border-gray-700">
