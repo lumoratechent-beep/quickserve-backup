@@ -690,10 +690,10 @@ const PosOnlyView: React.FC<Props> = ({
     setCheckoutNotice('');
 
     let actualOrderId: string = '';
+    const paymentName = paymentTypes.find(p => p.id === selectedPaymentType)?.name || selectedPaymentType;
     
     try {
       // Call onPlaceOrder and get the actual order ID from database
-      const paymentName = paymentTypes.find(p => p.id === selectedPaymentType)?.name || selectedPaymentType;
       actualOrderId = await onPlaceOrder(pendingOrderData.items, pendingOrderData.remark, pendingOrderData.tableNumber, paymentName, cashierName);
     } catch (error: any) {
       console.error('Order placement error:', error);
