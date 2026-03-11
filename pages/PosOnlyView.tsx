@@ -2300,30 +2300,24 @@ const PosOnlyView: React.FC<Props> = ({
     <div className="flex h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-900 overflow-hidden flex-col">
       {/* Offline Status Banner */}
       {!isOnline && (
-        <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <WifiOff className="w-5 h-5 text-red-600 dark:text-red-400" />
-            <div>
-              <p className="font-semibold text-red-900 dark:text-red-200 text-sm">You're Offline</p>
-              <p className="text-xs text-red-700 dark:text-red-300">Orders will be saved locally and synced when you're back online</p>
-            </div>
+        <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 px-4 py-1.5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <WifiOff className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
+            <p className="text-xs font-semibold text-red-900 dark:text-red-200">You're Offline — <span className="font-normal text-red-700 dark:text-red-300">Orders will be saved locally and synced when you're back online</span></p>
           </div>
           {pendingOfflineOrdersCount > 0 && (
-            <div className="bg-red-100 dark:bg-red-900/40 px-3 py-1 rounded-full">
-              <p className="text-sm font-semibold text-red-700 dark:text-red-300">{pendingOfflineOrdersCount} pending</p>
+            <div className="bg-red-100 dark:bg-red-900/40 px-2 py-0.5 rounded-full">
+              <p className="text-xs font-semibold text-red-700 dark:text-red-300">{pendingOfflineOrdersCount} pending</p>
             </div>
           )}
         </div>
       )}
 
       {isOnline && pendingOfflineOrdersCount > 0 && (
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800 px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-            <div>
-              <p className="font-semibold text-yellow-900 dark:text-yellow-200 text-sm">Syncing Orders</p>
-              <p className="text-xs text-yellow-700 dark:text-yellow-300">{pendingOfflineOrdersCount} orders are being synced to the server</p>
-            </div>
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800 px-4 py-1.5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+            <p className="text-xs font-semibold text-yellow-900 dark:text-yellow-200">Syncing Orders — <span className="font-normal text-yellow-700 dark:text-yellow-300">{pendingOfflineOrdersCount} orders are being synced to the server</span></p>
           </div>
         </div>
       )}
