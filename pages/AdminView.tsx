@@ -800,7 +800,7 @@ const AdminView: React.FC<Props> = ({
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-900">
+    <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-gray-50 dark:bg-gray-900">
 
       {/* ── Sidebar ── */}
       <aside
@@ -809,13 +809,7 @@ const AdminView: React.FC<Props> = ({
         }`}
       >
         {/* Brand */}
-        <div className="flex items-center gap-3 px-4 h-16 border-b border-white/10 flex-shrink-0">
-          <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center flex-shrink-0">
-            <ShieldCheck size={16} className="text-white" />
-          </div>
-          {!sidebarCollapsed && (
-            <span className="font-black text-white text-sm uppercase tracking-tighter truncate">QuickServe</span>
-          )}
+        <div className="flex items-center px-4 h-16 border-b border-white/10 flex-shrink-0">
           <button
             onClick={() => setSidebarCollapsed(v => !v)}
             className={`p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-white/10 transition-all flex-shrink-0 ${
@@ -898,7 +892,7 @@ const AdminView: React.FC<Props> = ({
 
         <div className="p-4 md:p-6 no-print">
         {activeTab === 'VENDORS' && (
-          <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+          <>
             <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-gray-50/50 dark:bg-gray-700/50">
               <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Vendor Directory</h3>
               <div className="flex flex-col sm:flex-row flex-wrap gap-4">
@@ -999,11 +993,11 @@ const AdminView: React.FC<Props> = ({
                 </tbody>
               </table>
             </div>
-          </div>
+          </>
         )}
 
         {activeTab === 'LOCATIONS' && (
-          <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+          <>
             <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-gray-50/50 dark:bg-gray-700/50">
               <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Hub Registry</h3>
               <div className="flex flex-col sm:flex-row flex-wrap gap-4">
@@ -1062,11 +1056,11 @@ const AdminView: React.FC<Props> = ({
                 </tbody>
               </table>
             </div>
-          </div>
+          </>
         )}
 
         {activeTab === 'REPORTS' && (
-          <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden animate-in fade-in duration-500">
+          <>
             <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 bg-gray-50/50 dark:bg-gray-700/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Sales Analysis</h3>
@@ -1292,11 +1286,11 @@ const AdminView: React.FC<Props> = ({
                 </div>
               )}
             </div>
-          </div>
+          </>
         )}
 
         {activeTab === 'SYSTEM' && (
-          <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+          <>
             <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 bg-gray-50/50 dark:bg-gray-700/50">
               <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">System Health Monitor</h3>
               <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Real-time platform diagnostics</p>
@@ -1304,7 +1298,7 @@ const AdminView: React.FC<Props> = ({
             <div className="p-4 md:p-8">
               <SystemStatusDashboard />
             </div>
-          </div>
+          </>
         )}
         </div>
       </div>
