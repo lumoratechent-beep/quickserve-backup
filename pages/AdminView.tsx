@@ -896,14 +896,6 @@ const AdminView: React.FC<Props> = ({
       {/* ── Main content ── */}
       <div className="flex-1 overflow-auto min-w-0">
 
-        {/* Page header */}
-        <div className="no-print sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 h-16 flex items-center">
-          <div>
-            <h1 className="text-lg font-black dark:text-white tracking-tighter uppercase leading-none">Platform Master</h1>
-            <p className="text-gray-400 font-bold uppercase tracking-[0.15em] text-[8px]">Administrative Controls</p>
-          </div>
-        </div>
-
         <div className="p-4 md:p-6 no-print">
         {activeTab === 'VENDORS' && (
           <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
