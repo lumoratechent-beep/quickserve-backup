@@ -24,7 +24,7 @@ interface Props {
   restaurant: Restaurant;
   orders: Order[];
   onUpdateOrder: (orderId: string, status: OrderStatus) => void;
-  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string, paymentMethod?: string, cashierName?: string) => Promise<string>; // Returns order ID
+  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string, paymentMethod?: string, cashierName?: string, amountReceived?: number) => Promise<string>; // Returns order ID
   onUpdateMenu?: (restaurantId: string, updatedItem: MenuItem) => void | Promise<void>;
   onAddMenuItem?: (restaurantId: string, newItem: MenuItem) => void | Promise<void>;
   onPermanentDeleteMenuItem?: (restaurantId: string, itemId: string) => void | Promise<void>;
@@ -694,7 +694,7 @@ const PosOnlyView: React.FC<Props> = ({
     
     try {
       // Call onPlaceOrder and get the actual order ID from database
-      actualOrderId = await onPlaceOrder(pendingOrderData.items, pendingOrderData.remark, pendingOrderData.tableNumber, paymentName, cashierName);
+      actualOrderId = await onPlaceOrder(pendingOrderData.items, pendingOrderData.remark, pendingOrderData.tableNumber, paymentName, cashierName, selectedCashAmount ?? undefined);
     } catch (error: any) {
       console.error('Order placement error:', error);
       toast(`Failed to place order: ${error?.message || 'Unknown error'}`, 'error');
@@ -727,6 +727,8 @@ const PosOnlyView: React.FC<Props> = ({
       customerId: '',
       paymentMethod: paymentName,
       cashierName: cashierName || '',
+      amountReceived: selectedCashAmount ?? undefined,
+      changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined,
     }]);
 
     // Show payment result with slide animation
@@ -4126,9 +4128,23 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               )}
 
-              <div className="border-t dark:border-gray-700 pt-3 flex items-center justify-between">
-                <span className="text-xs font-black dark:text-white uppercase tracking-widest">Total</span>
-                <span className="text-lg font-black text-orange-500">{currencySymbol}{selectedReportOrder.total.toFixed(2)}</span>
+              <div className="border-t dark:border-gray-700 pt-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black dark:text-white uppercase tracking-widest">Total</span>
+                  <span className="text-lg font-black text-orange-500">{currencySymbol}{selectedReportOrder.total.toFixed(2)}</span>
+                </div>
+                {selectedReportOrder.amountReceived != null && (
+                  <>
+                    <div className="flex items-center justify-between mt-1.5">
+                      <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400">Amount Received</span>
+                      <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{selectedReportOrder.amountReceived.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400">Change</span>
+                      <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{(selectedReportOrder.changeAmount ?? Math.max(0, selectedReportOrder.amountReceived - selectedReportOrder.total)).toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
               </div>
 
               {selectedReportOrder.status === OrderStatus.CANCELLED ? (

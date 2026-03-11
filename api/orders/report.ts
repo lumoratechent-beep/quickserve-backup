@@ -108,7 +108,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         rejectionReason: o.rejection_reason,
         rejectionNote: o.rejection_note,
         paymentMethod: o.payment_method,
-        cashierName: o.cashier_name
+        cashierName: o.cashier_name,
+        amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
+        changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined
       })),
       summary: {
         totalRevenue,

@@ -335,7 +335,11 @@ const App: React.FC = () => {
               locationName: o.location_name,
               remark: o.remark, 
               rejectionReason: o.rejection_reason, 
-              rejectionNote: o.rejection_note
+              rejectionNote: o.rejection_note,
+              paymentMethod: o.payment_method,
+              cashierName: o.cashier_name,
+              amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
+              changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined
             };
             if (lockedOrderIds.current.has(o.id)) {
               const localOrder = prev.find(p => p.id === o.id);
@@ -390,7 +394,11 @@ const App: React.FC = () => {
           locationName: o.location_name,
           remark: o.remark,
           rejectionReason: o.rejection_reason,
-          rejectionNote: o.rejection_note
+          rejectionNote: o.rejection_note,
+          paymentMethod: o.payment_method,
+          cashierName: o.cashier_name,
+          amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
+          changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined
         }));
 
         setOrders(prev => {
@@ -493,7 +501,11 @@ const App: React.FC = () => {
           locationName: o.location_name,
           remark: o.remark, 
           rejectionReason: o.rejection_reason, 
-          rejectionNote: o.rejection_note
+          rejectionNote: o.rejection_note,
+          paymentMethod: o.payment_method,
+          cashierName: o.cashier_name,
+          amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
+          changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined
         };
         
         setOrders(prev => {
@@ -1141,18 +1153,9 @@ const App: React.FC = () => {
             location_name: offlineOrder.location_name,
             remark: offlineOrder.remark,
             payment_method: offlineOrder.payment_method,
-            cashier_name: offlineOrder.cashier_name
-          }]);
-
-          if (!error) {
-            console.log(`Successfully synced order ${orderId}`);
-            offlineQueue.markOrderAsSynced(offlineOrder.id);
-            break;
-          } else if (error.code === '23505') {
-            // Duplicate key error - generate new ID
-            retries++;
-            const nextNum = offlineQueue.getNextOrderNumber(code);
-            orderId = `${code}${String(nextNum).padStart(7, '0')}`;
+            cashier_name: offlineOrder.cashier_name,
+            amount_received: offlineOrder.amount_received ?? null,
+            change_amount: offlineOrder.change_amount ?? null
             offlineQueue.updateOrderNumberTracker(code, nextNum);
             console.warn(`Duplicate order ID, regenerating to ${orderId} (attempt ${retries})`);
           } else {
@@ -1176,7 +1179,7 @@ const App: React.FC = () => {
     setPendingOfflineOrdersCount(offlineQueue.getUnsyncedOrders().length);
   };
 
-  const placePosOrder = async (items: CartItem[], remark: string, tableNumber: string, paymentMethod?: string, cashierName?: string): Promise<string> => {
+  const placePosOrder = async (items: CartItem[], remark: string, tableNumber: string, paymentMethod?: string, cashierName?: string, amountReceived?: number): Promise<string> => {
     if (items.length === 0 || !currentUser?.restaurantId) return '';
     
     const res = restaurants.find(r => r.id === currentUser.restaurantId);
@@ -1212,6 +1215,8 @@ const App: React.FC = () => {
         remark,
         payment_method: paymentMethod,
         cashier_name: cashierName,
+        amount_received: amountReceived,
+        change_amount: amountReceived != null ? Math.max(0, amountReceived - total) : undefined,
         createdAt: Date.now(),
         synced: false
       };
@@ -1282,6 +1287,8 @@ const App: React.FC = () => {
         remark,
         payment_method: paymentMethod,
         cashier_name: cashierName,
+        amount_received: amountReceived,
+        change_amount: amountReceived != null ? Math.max(0, amountReceived - total) : undefined,
         createdAt: Date.now(),
         synced: false
       };
@@ -1306,7 +1313,9 @@ const App: React.FC = () => {
       location_name: res?.location || 'Unspecified',
       remark: remark,
       payment_method: paymentMethod || null,
-      cashier_name: cashierName || null
+      cashier_name: cashierName || null,
+      amount_received: amountReceived ?? null,
+      change_amount: amountReceived != null ? Math.max(0, amountReceived - total) : null
     };
 
     const { error } = await supabase.from('orders').insert([orderToInsert]);
@@ -1326,6 +1335,8 @@ const App: React.FC = () => {
         remark,
         payment_method: paymentMethod,
         cashier_name: cashierName,
+        amount_received: amountReceived,
+        change_amount: amountReceived != null ? Math.max(0, amountReceived - total) : undefined,
         createdAt: Date.now(),
         synced: false
       };

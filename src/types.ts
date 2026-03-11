@@ -113,6 +113,8 @@ export interface Order {
   rejectionNote?: string;
   paymentMethod?: string;
   cashierName?: string;
+  amountReceived?: number;
+  changeAmount?: number;
 }
 
 export interface User {

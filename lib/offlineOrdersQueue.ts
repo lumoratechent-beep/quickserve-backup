@@ -13,6 +13,8 @@ export interface OfflineOrder {
   remark: string;
   payment_method?: string;
   cashier_name?: string;
+  amount_received?: number;
+  change_amount?: number;
   createdAt: number; // When it was queued
   synced?: boolean; // Whether it's been successfully synced
 }
