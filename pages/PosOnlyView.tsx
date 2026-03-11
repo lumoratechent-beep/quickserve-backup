@@ -704,14 +704,30 @@ const PosOnlyView: React.FC<Props> = ({
     }
 
     // Use the real order ID from database for printing
+    const nowTs = Date.now();
     const orderForPrint = {
       id: actualOrderId,
       tableNumber: pendingOrderData.tableNumber,
-      timestamp: Date.now(),
+      timestamp: nowTs,
       total: pendingOrderData.total,
       items: pendingOrderData.items,
       remark: pendingOrderData.remark,
     };
+
+    // Persist into the local report orders cache so it's visible offline
+    counterOrdersCache.mergeReportOrdersCache(restaurant.id, [{
+      id: actualOrderId,
+      items: pendingOrderData.items,
+      total: pendingOrderData.total,
+      status: OrderStatus.COMPLETED,
+      timestamp: nowTs,
+      restaurantId: restaurant.id,
+      tableNumber: pendingOrderData.tableNumber,
+      remark: pendingOrderData.remark || '',
+      customerId: '',
+      paymentMethod: paymentName,
+      cashierName: cashierName || '',
+    }]);
 
     // Show payment result with slide animation
     setShowPaymentResult(true);
@@ -789,7 +805,11 @@ const PosOnlyView: React.FC<Props> = ({
     const startTs = new Date(reportStart + 'T00:00:00').getTime();
     const endTs = new Date(reportEnd + 'T23:59:59').getTime();
 
-    const filtered = cachedCounterOrders
+    // Use the dedicated report cache (contains both locally-placed orders &
+    // previously-fetched server data) instead of the unpaid-queue cache.
+    const allCachedOrders = counterOrdersCache.getReportOrdersCache(restaurant.id);
+
+    const filtered = allCachedOrders
       .filter(order => {
         const inRange = order.timestamp >= startTs && order.timestamp <= endTs;
         const statusMatch = reportStatus === 'ALL' || order.status === reportStatus;
@@ -844,6 +864,8 @@ const PosOnlyView: React.FC<Props> = ({
 
       if (!isExport && onFetchPaginatedOrders) {
         const data = await onFetchPaginatedOrders(filters, currentPage, entriesPerPage);
+        // Persist fetched orders into local cache for offline access
+        counterOrdersCache.mergeReportOrdersCache(restaurant.id, data.orders);
         setReportData(data);
         return;
       }
@@ -859,8 +881,10 @@ const PosOnlyView: React.FC<Props> = ({
       const data: ReportResponse = await response.json();
       
       if (isExport) {
+        counterOrdersCache.mergeReportOrdersCache(restaurant.id, data.orders);
         return data.orders;
       } else {
+        counterOrdersCache.mergeReportOrdersCache(restaurant.id, data.orders);
         setReportData(data);
       }
     } catch (error) {

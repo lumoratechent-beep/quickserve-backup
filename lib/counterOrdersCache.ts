@@ -98,3 +98,42 @@ export const setLastSyncTime = (restaurantId: string): void => {
     console.error('Error setting last sync time:', error);
   }
 };
+
+// ─── Report Orders Cache ──────────────────────────────────────────────────────
+// Stores ALL orders (placed locally + fetched from server) for offline reports.
+// Capped at REPORT_ORDERS_MAX to stay within localStorage limits.
+
+const REPORT_ORDERS_KEY_PREFIX = 'qs_report_orders_';
+export const REPORT_ORDERS_MAX = 500;
+
+export const getReportOrdersCache = (restaurantId: string): Order[] => {
+  try {
+    const stored = localStorage.getItem(`${REPORT_ORDERS_KEY_PREFIX}${restaurantId}`);
+    return stored ? JSON.parse(stored) : [];
+  } catch (error) {
+    console.error('Error reading report orders cache:', error);
+    return [];
+  }
+};
+
+/**
+ * Merge new orders into the report cache, deduplicating by id and keeping
+ * the most recent `max` entries sorted newest-first.
+ */
+export const mergeReportOrdersCache = (
+  restaurantId: string,
+  orders: Order[],
+  max = REPORT_ORDERS_MAX
+): void => {
+  try {
+    const existing = getReportOrdersCache(restaurantId);
+    const map = new Map(existing.map(o => [o.id, o]));
+    orders.forEach(o => map.set(o.id, o));
+    const sorted = Array.from(map.values())
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, max);
+    localStorage.setItem(`${REPORT_ORDERS_KEY_PREFIX}${restaurantId}`, JSON.stringify(sorted));
+  } catch (error) {
+    console.error('Error merging report orders cache:', error);
+  }
+};
