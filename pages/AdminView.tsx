@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, PlatformAccess } from '../src/types';
 import { uploadImage } from '../lib/storage';
-import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw } from 'lucide-react';
+import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
 
@@ -494,6 +494,7 @@ const AdminView: React.FC<Props> = ({
   });
   
   const [viewingHubVendors, setViewingHubVendors] = useState<Area | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // QR Modal State
   const [generatingQrHub, setGeneratingQrHub] = useState<Area | null>(null);
@@ -799,28 +800,111 @@ const AdminView: React.FC<Props> = ({
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      {/* Keep all the existing JSX exactly as in your original code */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 md:mb-12 gap-6 no-print">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-black dark:text-white tracking-tighter uppercase leading-none mb-1">Platform Master</h1>
-          <p className="text-gray-500 font-bold uppercase tracking-widest text-[8px] md:text-[10px] ml-1">Administrative Controls</p>
+    <div className="flex min-h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-900">
+
+      {/* ── Sidebar ── */}
+      <aside
+        className={`no-print flex-shrink-0 transition-all duration-300 ease-in-out bg-[#111827] flex flex-col ${
+          sidebarCollapsed ? 'w-[68px]' : 'w-[240px]'
+        }`}
+      >
+        {/* Brand */}
+        <div className="flex items-center gap-3 px-4 h-16 border-b border-white/10 flex-shrink-0">
+          <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center flex-shrink-0">
+            <ShieldCheck size={16} className="text-white" />
+          </div>
+          {!sidebarCollapsed && (
+            <span className="font-black text-white text-sm uppercase tracking-tighter truncate">QuickServe</span>
+          )}
+          <button
+            onClick={() => setSidebarCollapsed(v => !v)}
+            className={`p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-white/10 transition-all flex-shrink-0 ${
+              sidebarCollapsed ? 'mx-auto' : 'ml-auto'
+            }`}
+          >
+            <Menu size={18} />
+          </button>
         </div>
-        <div className="flex bg-white dark:bg-gray-800 rounded-2xl p-1.5 border dark:border-gray-700 shadow-sm transition-colors overflow-x-auto hide-scrollbar">
-          {[
+
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+
+          {/* — GENERAL — */}
+          {!sidebarCollapsed ? (
+            <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest px-3 pb-1 pt-3">General</p>
+          ) : (
+            <div className="my-3 border-t border-white/10" />
+          )}
+
+          {([
             { id: 'VENDORS', label: 'Vendors', icon: Store },
             { id: 'LOCATIONS', label: 'Hubs', icon: MapPin },
-            { id: 'REPORTS', label: 'Report', icon: TrendingUp },
-            { id: 'SYSTEM', label: 'System', icon: Database }
-          ].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex-shrink-0 flex items-center gap-2 px-5 py-3 md:px-6 md:py-3 rounded-xl font-black transition-all text-[10px] md:text-xs uppercase tracking-widest ${activeTab === tab.id ? 'bg-orange-500 text-white shadow-xl' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
-              <tab.icon size={16} /> {tab.label}
+            { id: 'REPORTS', label: 'Reports', icon: TrendingUp },
+          ] as { id: 'VENDORS' | 'LOCATIONS' | 'REPORTS'; label: string; icon: React.ElementType }[]).map(item => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              title={sidebarCollapsed ? item.label : undefined}
+              className={`w-full flex items-center gap-3 rounded-xl transition-all ${
+                sidebarCollapsed ? 'justify-center py-2.5' : 'px-3 py-2.5'
+              } ${
+                activeTab === item.id
+                  ? 'bg-white/10 text-white'
+                  : 'text-gray-400 hover:bg-white/5 hover:text-white'
+              }`}
+            >
+              <item.icon size={18} className="flex-shrink-0" />
+              {!sidebarCollapsed && <span className="text-[13px] font-semibold">{item.label}</span>}
             </button>
           ))}
-        </div>
-      </div>
 
-      <div className="no-print">
+          {/* — ACCOUNT — */}
+          {!sidebarCollapsed ? (
+            <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest px-3 pb-1 pt-5">Account</p>
+          ) : (
+            <div className="my-3 border-t border-white/10" />
+          )}
+
+          <button
+            onClick={() => setActiveTab('SYSTEM')}
+            title={sidebarCollapsed ? 'System' : undefined}
+            className={`w-full flex items-center gap-3 rounded-xl transition-all ${
+              sidebarCollapsed ? 'justify-center py-2.5' : 'px-3 py-2.5'
+            } ${
+              activeTab === 'SYSTEM'
+                ? 'bg-white/10 text-white'
+                : 'text-gray-400 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <Database size={18} className="flex-shrink-0" />
+            {!sidebarCollapsed && <span className="text-[13px] font-semibold">System</span>}
+          </button>
+
+          <button
+            title={sidebarCollapsed ? 'Settings' : undefined}
+            className={`w-full flex items-center gap-3 rounded-xl transition-all text-gray-400 hover:bg-white/5 hover:text-white ${
+              sidebarCollapsed ? 'justify-center py-2.5' : 'px-3 py-2.5'
+            }`}
+          >
+            <Settings size={18} className="flex-shrink-0" />
+            {!sidebarCollapsed && <span className="text-[13px] font-semibold">Settings</span>}
+          </button>
+
+        </nav>
+      </aside>
+
+      {/* ── Main content ── */}
+      <div className="flex-1 overflow-auto min-w-0">
+
+        {/* Page header */}
+        <div className="no-print sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 h-16 flex items-center">
+          <div>
+            <h1 className="text-lg font-black dark:text-white tracking-tighter uppercase leading-none">Platform Master</h1>
+            <p className="text-gray-400 font-bold uppercase tracking-[0.15em] text-[8px]">Administrative Controls</p>
+          </div>
+        </div>
+
+        <div className="p-4 md:p-6 no-print">
         {activeTab === 'VENDORS' && (
           <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
             <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-gray-50/50 dark:bg-gray-700/50">
@@ -1230,6 +1314,7 @@ const AdminView: React.FC<Props> = ({
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* MODALS SECTION */}
