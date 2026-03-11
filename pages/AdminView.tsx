@@ -800,35 +800,16 @@ const AdminView: React.FC<Props> = ({
   };
 
   return (
-    <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-gray-50 dark:bg-gray-900">
+    <div className="flex h-[calc(100vh-64px)] overflow-hidden">
 
       {/* ── Sidebar ── */}
-      <aside
-        className={`no-print flex-shrink-0 transition-all duration-300 ease-in-out bg-[#111827] flex flex-col ${
-          sidebarCollapsed ? 'w-[68px]' : 'w-[240px]'
-        }`}
-      >
-        {/* Brand */}
-        <div className="flex items-center px-4 h-16 border-b border-white/10 flex-shrink-0">
-          <button
-            onClick={() => setSidebarCollapsed(v => !v)}
-            className={`p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-white/10 transition-all flex-shrink-0 ${
-              sidebarCollapsed ? 'mx-auto' : 'ml-auto'
-            }`}
-          >
-            <Menu size={18} />
-          </button>
-        </div>
+      <aside className="no-print flex-shrink-0 w-[220px] bg-[#111827] flex flex-col">
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+        <nav className="flex-1 overflow-hidden py-4 px-2 space-y-0.5">
 
           {/* — GENERAL — */}
-          {!sidebarCollapsed ? (
-            <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest px-3 pb-1 pt-3">General</p>
-          ) : (
-            <div className="my-3 border-t border-white/10" />
-          )}
+          <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest px-3 pb-1">General</p>
 
           {([
             { id: 'VENDORS', label: 'Vendors', icon: Store },
@@ -838,62 +819,49 @@ const AdminView: React.FC<Props> = ({
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              title={sidebarCollapsed ? item.label : undefined}
-              className={`w-full flex items-center gap-3 rounded-xl transition-all ${
-                sidebarCollapsed ? 'justify-center py-2.5' : 'px-3 py-2.5'
-              } ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
                 activeTab === item.id
                   ? 'bg-white/10 text-white'
                   : 'text-gray-400 hover:bg-white/5 hover:text-white'
               }`}
             >
               <item.icon size={18} className="flex-shrink-0" />
-              {!sidebarCollapsed && <span className="text-[13px] font-semibold">{item.label}</span>}
+              <span className="text-[13px] font-semibold">{item.label}</span>
             </button>
           ))}
 
           {/* — ACCOUNT — */}
-          {!sidebarCollapsed ? (
-            <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest px-3 pb-1 pt-5">Account</p>
-          ) : (
-            <div className="my-3 border-t border-white/10" />
-          )}
+          <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest px-3 pb-1 pt-5">Account</p>
 
           <button
             onClick={() => setActiveTab('SYSTEM')}
-            title={sidebarCollapsed ? 'System' : undefined}
-            className={`w-full flex items-center gap-3 rounded-xl transition-all ${
-              sidebarCollapsed ? 'justify-center py-2.5' : 'px-3 py-2.5'
-            } ${
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
               activeTab === 'SYSTEM'
                 ? 'bg-white/10 text-white'
                 : 'text-gray-400 hover:bg-white/5 hover:text-white'
             }`}
           >
             <Database size={18} className="flex-shrink-0" />
-            {!sidebarCollapsed && <span className="text-[13px] font-semibold">System</span>}
+            <span className="text-[13px] font-semibold">System</span>
           </button>
 
           <button
-            title={sidebarCollapsed ? 'Settings' : undefined}
-            className={`w-full flex items-center gap-3 rounded-xl transition-all text-gray-400 hover:bg-white/5 hover:text-white ${
-              sidebarCollapsed ? 'justify-center py-2.5' : 'px-3 py-2.5'
-            }`}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-gray-400 hover:bg-white/5 hover:text-white"
           >
             <Settings size={18} className="flex-shrink-0" />
-            {!sidebarCollapsed && <span className="text-[13px] font-semibold">Settings</span>}
+            <span className="text-[13px] font-semibold">Settings</span>
           </button>
 
         </nav>
       </aside>
 
       {/* ── Main content ── */}
-      <div className="flex-1 overflow-auto min-w-0">
+      <div className="flex-1 overflow-auto min-w-0 bg-gray-100 dark:bg-gray-900">
 
         <div className="p-4 md:p-6 no-print">
         {activeTab === 'VENDORS' && (
-          <>
-            <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-gray-50/50 dark:bg-gray-700/50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+            <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-gray-50 dark:bg-gray-700/50">
               <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Vendor Directory</h3>
               <div className="flex flex-col sm:flex-row flex-wrap gap-4">
                 <div className="relative flex-1 sm:flex-none sm:w-64">
@@ -993,12 +961,12 @@ const AdminView: React.FC<Props> = ({
                 </tbody>
               </table>
             </div>
-          </>
+          </div>
         )}
 
         {activeTab === 'LOCATIONS' && (
-          <>
-            <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-gray-50/50 dark:bg-gray-700/50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+            <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-gray-50 dark:bg-gray-700/50">
               <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Hub Registry</h3>
               <div className="flex flex-col sm:flex-row flex-wrap gap-4">
                 <div className="relative flex-1 sm:flex-none sm:w-64">
@@ -1056,12 +1024,12 @@ const AdminView: React.FC<Props> = ({
                 </tbody>
               </table>
             </div>
-          </>
+          </div>
         )}
 
         {activeTab === 'REPORTS' && (
-          <>
-            <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 bg-gray-50/50 dark:bg-gray-700/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+            <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Sales Analysis</h3>
               </div>
@@ -1286,19 +1254,19 @@ const AdminView: React.FC<Props> = ({
                 </div>
               )}
             </div>
-          </>
+          </div>
         )}
 
         {activeTab === 'SYSTEM' && (
-          <>
-            <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 bg-gray-50/50 dark:bg-gray-700/50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+            <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
               <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">System Health Monitor</h3>
               <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Real-time platform diagnostics</p>
             </div>
             <div className="p-4 md:p-8">
               <SystemStatusDashboard />
             </div>
-          </>
+          </div>
         )}
         </div>
       </div>
