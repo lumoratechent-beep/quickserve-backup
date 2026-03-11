@@ -1156,6 +1156,17 @@ const App: React.FC = () => {
             cashier_name: offlineOrder.cashier_name,
             amount_received: offlineOrder.amount_received ?? null,
             change_amount: offlineOrder.change_amount ?? null
+          }]);
+
+          if (!error) {
+            console.log(`Successfully synced order ${orderId}`);
+            offlineQueue.markOrderAsSynced(offlineOrder.id);
+            break;
+          } else if (error.code === '23505') {
+            // Duplicate key error - generate new ID
+            retries++;
+            const nextNum = offlineQueue.getNextOrderNumber(code);
+            orderId = `${code}${String(nextNum).padStart(7, '0')}`;
             offlineQueue.updateOrderNumberTracker(code, nextNum);
             console.warn(`Duplicate order ID, regenerating to ${orderId} (attempt ${retries})`);
           } else {
