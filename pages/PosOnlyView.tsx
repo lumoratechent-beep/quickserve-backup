@@ -2411,8 +2411,8 @@ const PosOnlyView: React.FC<Props> = ({
             >
               <Menu size={24} />
             </button>
-            <div className="ml-4 flex items-center gap-2">
-              <img src={restaurant.logo} className="w-8 h-8 rounded-lg shadow-sm" />
+            <div className="ml-4 flex items-center gap-2 flex-1 min-w-0">
+              <img src={restaurant.logo} className="w-8 h-8 rounded-lg shadow-sm flex-shrink-0" />
               <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm truncate">
                 {activeTab === 'COUNTER' ? 'POS Counter' : 
                  activeTab === 'MENU_EDITOR' ? 'Menu Editor' : 
@@ -2420,6 +2420,26 @@ const PosOnlyView: React.FC<Props> = ({
                  'Settings'}
               </h1>
             </div>
+            {/* Mobile View Option (only on COUNTER tab) */}
+            {activeTab === 'COUNTER' && (
+              <div className="relative ml-2 flex-shrink-0">
+                <button
+                  onClick={() => setShowLayoutPicker(!showLayoutPicker)}
+                  className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-all"
+                >
+                  <LayoutGrid size={18} />
+                </button>
+                {showLayoutPicker && (
+                  <div className="absolute right-0 top-full mt-1 z-50 flex items-center gap-1 bg-white dark:bg-gray-800 border dark:border-gray-700 p-1 rounded-xl shadow-lg">
+                    <button onClick={() => { setMenuLayout('grid-3'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-3' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>3</button>
+                    <button onClick={() => { setMenuLayout('grid-4'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-4' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>4</button>
+                    <button onClick={() => { setMenuLayout('grid-5'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-5' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>5</button>
+                    <button onClick={() => { setMenuLayout('grid-6'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-6' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>6</button>
+                    <button onClick={() => { setMenuLayout('list'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all ${menuLayout === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><List size={14} /></button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Counter Tab - Same as PosView */}
