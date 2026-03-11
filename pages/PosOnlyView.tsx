@@ -158,6 +158,7 @@ const PosOnlyView: React.FC<Props> = ({
 
   const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS'>('COUNTER');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showMobileCart, setShowMobileCart] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [menuLayout, setMenuLayout] = useState<'grid-3' | 'grid-4' | 'grid-5' | 'grid-6' | 'list'>('grid-5');
   const [flashItemId, setFlashItemId] = useState<string | null>(null);
@@ -2424,14 +2425,14 @@ const PosOnlyView: React.FC<Props> = ({
           {/* Counter Tab - Same as PosView */}
           {activeTab === 'COUNTER' && (
             <>
-              <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-4 flex flex-col gap-4">
+              <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 lg:px-6 py-3 lg:py-4 flex flex-col gap-3 lg:gap-4">
                 <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-1">
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-1 pb-1">
                     {categories.map(cat => (
                       <button
                         key={cat}
                         onClick={() => setSelectedCategory(cat)}
-                        className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest whitespace-nowrap transition-all ${
+                        className={`px-3 py-1.5 lg:px-4 lg:py-2 rounded-lg font-black text-[10px] uppercase tracking-widest whitespace-nowrap transition-all ${
                           selectedCategory === cat 
                             ? 'bg-black text-white dark:bg-white dark:text-black' 
                             : 'bg-gray-100 dark:bg-gray-700 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -2441,7 +2442,7 @@ const PosOnlyView: React.FC<Props> = ({
                       </button>
                     ))}
                   </div>
-                  <div className="relative shrink-0">
+                  <div className="relative shrink-0 hidden lg:block">
                     <button onClick={() => setShowLayoutPicker(!showLayoutPicker)} className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-all">
                       <LayoutGrid size={16} />
                     </button>
@@ -2468,7 +2469,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-2 scroll-smooth">
+              <div className="flex-1 overflow-y-auto p-2 pb-24 lg:pb-2 scroll-smooth">
                 <div className="space-y-4">
                   {Object.entries(groupedMenu).map(([category, items]) => (
                     <section key={category}>
@@ -2479,10 +2480,10 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                       
                       <div className={`grid gap-1.5 ${
-                        menuLayout === 'grid-3' ? 'grid-cols-3' : 
-                        menuLayout === 'grid-4' ? 'grid-cols-4' : 
-                        menuLayout === 'grid-5' ? 'grid-cols-5' : 
-                        menuLayout === 'grid-6' ? 'grid-cols-6' : 
+                        menuLayout === 'grid-3' ? 'grid-cols-2 sm:grid-cols-3' : 
+                        menuLayout === 'grid-4' ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4' : 
+                        menuLayout === 'grid-5' ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5' : 
+                        menuLayout === 'grid-6' ? 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-6' : 
                         'grid-cols-1'
                       }`}>
                         {items.map(item => (
@@ -3585,10 +3586,10 @@ const PosOnlyView: React.FC<Props> = ({
           </div>
         )}
         
-        {/* Right Sidebar - Order Summary */}
+        {/* Right Sidebar - Order Summary (Desktop) */}
         {activeTab === 'COUNTER' && (
           <div className={`
-            w-96 bg-white dark:bg-gray-800 border-l dark:border-gray-700 flex flex-col
+            hidden lg:flex w-96 bg-white dark:bg-gray-800 border-l dark:border-gray-700 flex-col
             transition-all duration-300 ease-in-out
           `}>
             <div className="p-6 border-b dark:border-gray-700 flex items-center justify-between">
@@ -3685,12 +3686,117 @@ const PosOnlyView: React.FC<Props> = ({
         )}
       </div>
 
+      {/* Mobile Floating Cart Button */}
+      {activeTab === 'COUNTER' && posCart.length > 0 && !showMobileCart && (
+        <button
+          onClick={() => setShowMobileCart(true)}
+          className="lg:hidden fixed bottom-6 right-6 z-40 bg-orange-500 text-white w-16 h-16 rounded-full shadow-2xl shadow-orange-500/40 flex items-center justify-center active:scale-95 transition-transform"
+        >
+          <ShoppingBag size={24} />
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center shadow-lg">
+            {posCart.reduce((sum, item) => sum + item.quantity, 0)}
+          </span>
+        </button>
+      )}
+
+      {/* Mobile Cart Drawer */}
+      {showMobileCart && (
+        <div className="lg:hidden fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowMobileCart(false)} />
+          <div className="absolute inset-x-0 bottom-0 bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl flex flex-col max-h-[85vh] animate-slide-up">
+            {/* Drag Handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full" />
+            </div>
+
+            {/* Cart Header */}
+            <div className="px-5 py-3 border-b dark:border-gray-700 flex items-center justify-between">
+              <h3 className="font-black dark:text-white uppercase tracking-tighter text-base">
+                Cart ({posCart.reduce((sum, item) => sum + item.quantity, 0)})
+              </h3>
+              <div className="flex items-center gap-3">
+                <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors p-1">
+                  <Trash2 size={18} />
+                </button>
+                <button onClick={() => setShowMobileCart(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1">
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Cart Items */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+              {posCart.map((item, idx) => (
+                <div key={`${item.id}-${idx}`} className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter truncate">{item.name}</h4>
+                    <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toFixed(2)}</p>
+                    <div className="mt-0.5 space-y-0.5">
+                      {item.selectedSize && <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• Size: {item.selectedSize}</p>}
+                      {item.selectedTemp && <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• Temp: {item.selectedTemp}</p>}
+                      {item.selectedVariantOption && <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• {item.selectedVariantOption}</p>}
+                      {item.selectedOtherVariant && !item.selectedModifiers && <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• {item.otherVariantName || 'Option'}: {item.selectedOtherVariant}</p>}
+                      {item.selectedModifiers && Object.entries(item.selectedModifiers).map(([modName, optName]) => (
+                        optName && <p key={modName} className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• {modName}: {optName}</p>
+                      ))}
+                      {item.selectedAddOns && item.selectedAddOns.length > 0 && (
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">
+                          • Add-ons: {item.selectedAddOns.map(addon => `${addon.name} x${addon.quantity}`).join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-white dark:bg-gray-800 p-1 rounded-lg shadow-sm shrink-0">
+                    <button onClick={() => updateQuantity(idx, -1)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-all"><Minus size={12} /></button>
+                    <span className="text-xs font-black w-5 text-center dark:text-white">{item.quantity}</span>
+                    <button onClick={() => updateQuantity(idx, 1)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-all"><Plus size={12} /></button>
+                  </div>
+                  <button onClick={() => removeFromPosCart(idx)} className="text-gray-300 hover:text-red-500 shrink-0 p-1"><Trash2 size={14} /></button>
+                </div>
+              ))}
+            </div>
+
+            {/* Cart Footer */}
+            <div className="px-5 py-4 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-3">
+              {showPaymentSuccess && (
+                <div className="px-3 py-2 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-300 text-[10px] font-black uppercase tracking-widest text-center">
+                  Payment Completed Successfully
+                </div>
+              )}
+
+              {!!checkoutNotice && (
+                <div className="px-3 py-2 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-300 text-[10px] font-black tracking-wide text-center">
+                  {checkoutNotice}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black dark:text-white uppercase tracking-widest">Total</span>
+                <span className="text-xl font-black text-orange-500">{currencySymbol}{cartTotal.toFixed(2)}</span>
+              </div>
+
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <input type="text" value={posTableNo} onChange={e => setPosTableNo(e.target.value)} className="w-full p-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" placeholder="Table" />
+                </div>
+                <div className="flex-[2]">
+                  <input type="text" value={posRemark} onChange={e => setPosRemark(e.target.value)} className="w-full p-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" placeholder="Remark..." />
+                </div>
+              </div>
+
+              <button onClick={() => { setShowMobileCart(false); handleCheckout(); }} disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2">
+                <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : `Pay ${currencySymbol}${cartTotal.toFixed(2)}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
 
       {/* Payment Modal */}
       {showPaymentModal && pendingOrderData && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => !isCompletingPayment && !showPaymentResult && setShowPaymentModal(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-4xl h-[650px] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end lg:items-center justify-center lg:p-4" onClick={() => !isCompletingPayment && !showPaymentResult && setShowPaymentModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-t-3xl lg:rounded-3xl shadow-2xl w-full lg:max-w-4xl h-[90vh] lg:h-[650px] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
             
             {/* Payment Input View */}
             <div className={`absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out ${showPaymentResult ? '-translate-x-full' : 'translate-x-0'}`}>
@@ -3703,11 +3809,11 @@ const PosOnlyView: React.FC<Props> = ({
               </button>
 
               {/* Content */}
-              <div className="flex-1 px-8 pb-8 pt-[3.75rem] space-y-6">
+              <div className="flex-1 px-5 lg:px-8 pb-6 lg:pb-8 pt-[3.75rem] space-y-4 lg:space-y-6 overflow-y-auto">
                 {/* Total Amount Due - Centered */}
-                <div className="text-center space-y-3">
-                  <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
-                  <div className="text-6xl font-black text-orange-500 tracking-tighter">
+                <div className="text-center space-y-2 lg:space-y-3">
+                  <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
+                  <div className="text-4xl lg:text-6xl font-black text-orange-500 tracking-tighter">
                     {currencySymbol}{pendingOrderData.total.toFixed(2)}
                   </div>
                 </div>
@@ -3742,9 +3848,9 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {/* Cash Denomination Boxes */}
-                <div className="space-y-3">
-                  <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Quick Select</label>
-                  <div className="grid grid-cols-4 gap-3">
+                <div className="space-y-2 lg:space-y-3">
+                  <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Quick Select</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3">
                     {CASH_DENOMINATIONS.map((amount) => (
                       <button
                         key={amount}
@@ -3762,12 +3868,12 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {/* Payment Method */}
-                <div className="space-y-3">
-                  <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
+                <div className="space-y-2 lg:space-y-3">
+                  <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
                   <select 
                     value={selectedPaymentType} 
                     onChange={(e) => setSelectedPaymentType(e.target.value)}
-                    className="w-full p-4 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-lg font-black dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
+                    className="w-full p-3 lg:p-4 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-base lg:text-lg font-black dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
                   >
                     {paymentTypes.map((type) => (
                       <option key={type.id} value={type.id}>
@@ -3779,7 +3885,7 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
 
               {/* Footer / Action Buttons */}
-              <div className="px-8 py-5 border-t dark:border-gray-700 flex gap-4 flex-shrink-0">
+              <div className="px-5 lg:px-8 py-4 lg:py-5 border-t dark:border-gray-700 flex gap-3 lg:gap-4 flex-shrink-0">
                 <button 
                   onClick={() => setShowPaymentModal(false)} 
                   disabled={isCompletingPayment}
@@ -3816,18 +3922,18 @@ const PosOnlyView: React.FC<Props> = ({
               {/* Content */}
               <div className="flex-1 flex flex-col items-center justify-center p-8">
                 <div className="w-full max-w-3xl">
-                  <div className="grid grid-cols-2">
-                    <div className="pr-8 text-right border-r-2 border-dotted dark:border-gray-700">
-                      <div className="text-5xl font-black text-green-500 tracking-tighter">
+                  <div className="grid grid-cols-1 sm:grid-cols-2">
+                    <div className="sm:pr-8 text-center sm:text-right sm:border-r-2 border-dotted dark:border-gray-700 pb-4 sm:pb-0">
+                      <div className="text-3xl lg:text-5xl font-black text-green-500 tracking-tighter">
                         {currencySymbol}{(selectedCashAmount || 0).toFixed(2)}
                       </div>
-                      <label className="block mt-3 text-sm font-black text-gray-400 uppercase tracking-widest">Total Paid</label>
+                      <label className="block mt-2 lg:mt-3 text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Total Paid</label>
                     </div>
-                    <div className="pl-8 text-left">
-                      <div className="text-5xl font-black text-blue-500 tracking-tighter">
+                    <div className="sm:pl-8 text-center sm:text-left border-t sm:border-t-0 border-dotted dark:border-gray-700 pt-4 sm:pt-0">
+                      <div className="text-3xl lg:text-5xl font-black text-blue-500 tracking-tighter">
                         {currencySymbol}{Math.max(0, (selectedCashAmount || 0) - pendingOrderData.total).toFixed(2)}
                       </div>
-                      <label className="block mt-3 text-sm font-black text-gray-400 uppercase tracking-widest">Total Change</label>
+                      <label className="block mt-2 lg:mt-3 text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Total Change</label>
                     </div>
                   </div>
                 </div>
@@ -4027,6 +4133,13 @@ const PosOnlyView: React.FC<Props> = ({
         }
         .animate-slide-left {
           animation: slideLeft 0.3s ease-out;
+        }
+        @keyframes slideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        .animate-slide-up {
+          animation: slideUp 0.3s ease-out;
         }
       `}</style>
       </div>
