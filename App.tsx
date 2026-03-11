@@ -71,6 +71,7 @@ const App: React.FC = () => {
   const isStatusLocked = useRef<boolean>(false);
   const isFetchingRef = useRef(false);
   const lastOrderTimestampRef = useRef<number>(0);
+  const syncOfflineOrdersRef = useRef<() => Promise<void>>(async () => {});
   
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
@@ -117,18 +118,26 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // Keep syncOfflineOrders ref up to date so event listeners always call the latest version
+  useEffect(() => { syncOfflineOrdersRef.current = syncOfflineOrders; });
+
   // Online/Offline status listener
   useEffect(() => {
     const unsubscribe = offlineQueue.onOnlineStatusChange((isOnlineNow) => {
       setIsOnline(isOnlineNow);
       if (isOnlineNow) {
         // Try to sync offline orders when back online
-        syncOfflineOrders();
+        syncOfflineOrdersRef.current();
       }
     });
 
     // Update pending count on mount
     setPendingOfflineOrdersCount(offlineQueue.getUnsyncedOrders().length);
+
+    // If already online on mount with pending orders, trigger sync
+    if (navigator.onLine && offlineQueue.getUnsyncedOrders().length > 0) {
+      syncOfflineOrdersRef.current();
+    }
 
     return unsubscribe;
   }, []);
@@ -1130,7 +1139,9 @@ const App: React.FC = () => {
             restaurant_id: offlineOrder.restaurant_id,
             table_number: offlineOrder.table_number,
             location_name: offlineOrder.location_name,
-            remark: offlineOrder.remark
+            remark: offlineOrder.remark,
+            payment_method: offlineOrder.payment_method,
+            cashier_name: offlineOrder.cashier_name
           }]);
 
           if (!error) {
