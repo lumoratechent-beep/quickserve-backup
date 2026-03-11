@@ -150,6 +150,8 @@ const PosView: React.FC<Props> = ({
   const [activeTab, setActiveTab] = useState<'COUNTER' | 'QR_ORDERS' | 'REPORTS' | 'QR_GEN' | 'SETTINGS'>('COUNTER');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [menuLayout, setMenuLayout] = useState<'grid-3' | 'grid-4' | 'grid-5' | 'list'>('grid-5');
+  const [mobileMenuLayout, setMobileMenuLayout] = useState<'2' | '3' | 'list'>('3');
+  const [showLayoutPicker, setShowLayoutPicker] = useState(false);
   const [posCart, setPosCart] = useState<CartItem[]>([]);
   const [posRemark, setPosRemark] = useState('');
   const [posTableNo, setPosTableNo] = useState('Counter');
@@ -1876,16 +1878,16 @@ const PosView: React.FC<Props> = ({
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Mobile Header */}
-          <div className="lg:hidden flex items-center p-4 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30 no-print">
+          <div className="lg:hidden flex items-center p-4 landscape:py-1.5 landscape:px-2 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30 no-print">
             <button 
               onClick={() => setIsMobileMenuOpen(true)}
               className="p-2 -ml-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             >
               <Menu size={24} />
             </button>
-            <div className="ml-4 flex items-center gap-2">
-              <img src={restaurant.logo} className="w-8 h-8 rounded-lg shadow-sm" />
-              <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm truncate">
+            <div className="ml-4 flex items-center gap-2 flex-1 min-w-0">
+              <img src={restaurant.logo} className="w-8 h-8 landscape:w-6 landscape:h-6 rounded-lg shadow-sm flex-shrink-0" />
+              <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm landscape:text-xs truncate">
                 {activeTab === 'COUNTER' ? 'POS Counter' : 
                  activeTab === 'QR_ORDERS' ? 'QR Orders' : 
                  activeTab === 'REPORTS' ? 'Sales Report' : 
@@ -1893,20 +1895,38 @@ const PosView: React.FC<Props> = ({
                  'Settings'}
               </h1>
             </div>
+            {/* Mobile View Option (only on COUNTER tab) */}
+            {activeTab === 'COUNTER' && (
+              <div className="relative ml-2 flex-shrink-0">
+                <button
+                  onClick={() => setShowLayoutPicker(!showLayoutPicker)}
+                  className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-all"
+                >
+                  <LayoutGrid size={18} />
+                </button>
+                {showLayoutPicker && (
+                  <div className="absolute right-0 top-full mt-1 z-50 flex items-center gap-1 bg-white dark:bg-gray-800 border dark:border-gray-700 p-1 rounded-xl shadow-lg">
+                    <button onClick={() => { setMobileMenuLayout('2'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${mobileMenuLayout === '2' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>2</button>
+                    <button onClick={() => { setMobileMenuLayout('3'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${mobileMenuLayout === '3' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>3</button>
+                    <button onClick={() => { setMobileMenuLayout('list'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all ${mobileMenuLayout === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><List size={14} /></button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Counter Tab */}
           {activeTab === 'COUNTER' && (
             <>
               {/* Category Tabs & Search */}
-              <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-4 flex flex-col gap-4">
+              <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 lg:px-6 py-3 lg:py-4 max-lg:landscape:py-1.5 flex flex-col gap-3 lg:gap-4 max-lg:landscape:gap-1">
                 <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4 overflow-x-auto no-scrollbar flex-1">
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-1 pb-1">
                     {categories.map(cat => (
                       <button
                         key={cat}
                         onClick={() => setSelectedCategory(cat)}
-                        className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest whitespace-nowrap transition-all ${
+                        className={`px-3 py-1.5 lg:px-4 lg:py-2 max-lg:landscape:py-0.5 max-lg:landscape:px-2 rounded-lg font-black text-[10px] uppercase tracking-widest whitespace-nowrap transition-all ${
                           selectedCategory === cat 
                             ? 'bg-black text-white dark:bg-white dark:text-black' 
                             : 'bg-gray-100 dark:bg-gray-700 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -1916,31 +1936,18 @@ const PosView: React.FC<Props> = ({
                       </button>
                     ))}
                   </div>
-                  <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-xl shrink-0">
-                    <button 
-                      onClick={() => setMenuLayout('grid-3')} 
-                      className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-3' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}
-                    >
+                  <div className="relative shrink-0 hidden lg:block">
+                    <button onClick={() => setShowLayoutPicker(!showLayoutPicker)} className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-all">
                       <LayoutGrid size={16} />
                     </button>
-                    <button 
-                      onClick={() => setMenuLayout('grid-4')} 
-                      className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-4' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}
-                    >
-                      <LayoutGrid size={16} />
-                    </button>
-                    <button 
-                      onClick={() => setMenuLayout('grid-5')} 
-                      className={`p-2 rounded-lg transition-all ${menuLayout === 'grid-5' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}
-                    >
-                      <LayoutGrid size={16} />
-                    </button>
-                    <button 
-                      onClick={() => setMenuLayout('list')} 
-                      className={`p-2 rounded-lg transition-all ${menuLayout === 'list' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}
-                    >
-                      <List size={16} />
-                    </button>
+                    {showLayoutPicker && (
+                      <div className="absolute right-0 top-full mt-1 z-50 flex items-center gap-1 bg-white dark:bg-gray-800 border dark:border-gray-700 p-1 rounded-xl shadow-lg">
+                        <button onClick={() => { setMenuLayout('grid-3'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-3' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>3</button>
+                        <button onClick={() => { setMenuLayout('grid-4'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-4' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>4</button>
+                        <button onClick={() => { setMenuLayout('grid-5'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-5' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>5</button>
+                        <button onClick={() => { setMenuLayout('list'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all ${menuLayout === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><List size={14} /></button>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="relative">
@@ -1948,7 +1955,7 @@ const PosView: React.FC<Props> = ({
                   <input 
                     type="text" 
                     placeholder="Search menu items..." 
-                    className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border-none rounded-xl text-xs font-black dark:text-white outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+                    className="w-full pl-12 pr-4 py-3 max-lg:landscape:py-1.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl text-xs font-black dark:text-white outline-none focus:ring-2 focus:ring-orange-500 transition-all"
                     value={menuSearch}
                     onChange={e => setMenuSearch(e.target.value)}
                   />
@@ -1956,7 +1963,7 @@ const PosView: React.FC<Props> = ({
               </div>
 
               {/* Menu Content */}
-              <div className="flex-1 overflow-y-auto p-2 scroll-smooth">
+              <div className="flex-1 overflow-y-auto p-2 pb-24 lg:pb-2 scroll-smooth">
                 <div className="space-y-4">
                   {Object.entries(groupedMenu).map(([category, items]) => (
                     <section key={category}>
@@ -1967,17 +1974,23 @@ const PosView: React.FC<Props> = ({
                       </div>
                       
                       <div className={`grid gap-1.5 ${
-                        menuLayout === 'grid-3' ? 'grid-cols-3' : 
-                        menuLayout === 'grid-4' ? 'grid-cols-4' : 
-                        menuLayout === 'grid-5' ? 'grid-cols-5' : 
+                        mobileMenuLayout === '2' ? 'grid-cols-2' :
+                        mobileMenuLayout === '3' ? 'grid-cols-3' :
                         'grid-cols-1'
+                      } ${
+                        menuLayout === 'list' ? 'lg:grid-cols-1' :
+                        menuLayout === 'grid-3' ? 'lg:grid-cols-3' :
+                        menuLayout === 'grid-4' ? 'lg:grid-cols-4' :
+                        'lg:grid-cols-5'
                       }`}>
                         {items.map(item => (
                           <button
                             key={item.id}
                             onClick={() => handleMenuItemClick(item)}
-                            className={`relative bg-white dark:bg-gray-800 border dark:border-gray-700 text-left hover:border-orange-500 transition-all group shadow-sm flex ${
-                              menuLayout === 'list' ? 'flex-row items-center gap-4 p-2 rounded-xl' : 'flex-col p-2 rounded-xl'
+                            className={`relative bg-white dark:bg-gray-800 border dark:border-gray-700 text-left hover:border-orange-500 transition-all group shadow-sm flex p-2 rounded-xl ${
+                              mobileMenuLayout === 'list' ? 'flex-row items-center gap-4' : 'flex-col'
+                            } ${
+                              menuLayout === 'list' ? 'lg:flex-row lg:items-center lg:gap-4' : 'lg:flex-col lg:items-stretch lg:gap-0'
                             } ${flashItemId === item.id ? 'ring-2 ring-green-500 border-green-500 scale-95' : ''}`}
                             style={flashItemId === item.id ? { transition: 'all 0.15s ease-in-out' } : {}}
                           >
@@ -1987,7 +2000,9 @@ const PosView: React.FC<Props> = ({
                               </div>
                             )}
                             <div className={`${
-                              menuLayout === 'list' ? 'w-16 h-16' : 'aspect-square w-full'
+                              mobileMenuLayout === 'list' ? 'w-16 h-16' : 'aspect-square w-full'
+                            } ${
+                              menuLayout === 'list' ? 'lg:w-16 lg:h-16 lg:aspect-auto' : 'lg:aspect-square lg:w-full'
                             } rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0`}>
                               {item.image ? (
                                 <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
@@ -1997,7 +2012,7 @@ const PosView: React.FC<Props> = ({
                                 </div>
                               )}
                             </div>
-                            <div className={menuLayout === 'list' ? 'flex-1' : 'mt-3'}>
+                            <div className={`${mobileMenuLayout === 'list' ? 'flex-1' : 'mt-3'} ${menuLayout === 'list' ? 'lg:flex-1 lg:mt-0' : 'lg:flex-none lg:mt-3'}`}>
                               <h4 className="font-black text-xs dark:text-white uppercase tracking-tighter mb-1 line-clamp-1">{item.name}</h4>
                               <p className="text-orange-500 font-black text-sm">{currencySymbol}{item.price.toFixed(2)}</p>
                             </div>
@@ -2764,7 +2779,7 @@ const PosView: React.FC<Props> = ({
         {/* Right Sidebar - Order Summary (Shared between Counter and QR Orders) */}
         {(activeTab === 'COUNTER' || (activeTab === 'QR_ORDERS' && selectedQrOrder)) && (
           <div className={`
-            w-96 bg-white dark:bg-gray-800 border-l dark:border-gray-700 flex flex-col
+            hidden lg:flex w-96 bg-white dark:bg-gray-800 border-l dark:border-gray-700 flex-col
             transform-gpu transition-all duration-300 ease-in-out
             ${activeTab === 'QR_ORDERS' ? (isOrderSummaryOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0 pointer-events-none') : ''}
           `}>
