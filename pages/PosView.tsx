@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters } from '../src/types';
 import { supabase } from '../lib/supabase';
+import * as counterOrdersCache from '../lib/counterOrdersCache';
 import printerService, { PrinterDevice, ReceiptPrintOptions } from '../services/printerService';
 import StandardReport from '../components/StandardReport';
 import ItemOptionsModal from '../components/SimpleItemOptionsModal';
@@ -13,7 +14,8 @@ import {
   List, Clock, CheckCircle2, AlertCircle, RefreshCw, BarChart3, Receipt, Hash,
   Settings2, Menu, Wifi, WifiOff, ExternalLink, X, ChevronFirst, ChevronLast,
   Coffee, BookOpen, BarChart, QrCode as QrCodeIcon, Settings, ChevronUp,
-  Users, UserPlus, Bluetooth, BluetoothConnected, Tag, Layers, ChevronDown, RotateCw, Network, Type
+  Users, UserPlus, Bluetooth, BluetoothConnected, Tag, Layers, ChevronDown, RotateCw, Network, Type,
+  RotateCcw
 } from 'lucide-react';
 
 interface ReceiptSettings {
@@ -127,6 +129,8 @@ interface Props {
   onFetchAllFilteredOrders?: (filters: ReportFilters) => Promise<Order[]>;
   onUpdateRestaurantSettings?: (restaurantId: string, settings: any) => Promise<void>;
   onSwitchToVendor?: () => void;
+  isOnline?: boolean;
+  pendingOfflineOrdersCount?: number;
   cashierName?: string;
 }
 
@@ -139,6 +143,8 @@ const PosView: React.FC<Props> = ({
   onFetchAllFilteredOrders,
   onUpdateRestaurantSettings,
   onSwitchToVendor,
+  isOnline = true,
+  pendingOfflineOrdersCount = 0,
   cashierName
 }) => {
   const [activeTab, setActiveTab] = useState<'COUNTER' | 'QR_ORDERS' | 'REPORTS' | 'QR_GEN' | 'SETTINGS'>('COUNTER');
@@ -157,6 +163,49 @@ const PosView: React.FC<Props> = ({
   const [isOrderSummaryOpen, setIsOrderSummaryOpen] = useState(false);
   const [isCompletingPayment, setIsCompletingPayment] = useState(false);
   const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
+
+  // Counter Orders Cache State
+  const [cachedCounterOrders, setCachedCounterOrders] = useState<Order[]>(() => {
+    return counterOrdersCache.getCachedCounterOrders(restaurant.id);
+  });
+  const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [checkoutNotice, setCheckoutNotice] = useState<string>('');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedCashAmount, setSelectedCashAmount] = useState<number | null>(null);
+  const [cashAmountInput, setCashAmountInput] = useState<string>('');
+  const [selectedPaymentType, setSelectedPaymentType] = useState<string>('');
+  const [pendingOrderData, setPendingOrderData] = useState<any>(null);
+  const [showPaymentResult, setShowPaymentResult] = useState(false);
+  const [showRefundConfirm, setShowRefundConfirm] = useState(false);
+  const [selectedReportOrder, setSelectedReportOrder] = useState<Order | null>(null);
+  const [reportsSubMenu, setReportsSubMenu] = useState<'salesReport' | 'statistics'>('salesReport');
+  const [flashItemId, setFlashItemId] = useState<string | null>(null);
+  const [showMobileCart, setShowMobileCart] = useState(false);
+  const [realPrinterConnected, setRealPrinterConnected] = useState(false);
+  const [isAutoReconnecting, setIsAutoReconnecting] = useState(false);
+
+  const CASH_DENOMINATIONS = [10, 20, 50, 100];
+
+  const CURRENCY_OPTIONS = [
+    { code: 'MYR', symbol: 'RM', label: 'Ringgit Malaysia (RM)' },
+    { code: 'USD', symbol: '$', label: 'US Dollar ($)' },
+    { code: 'EUR', symbol: '€', label: 'Euro (€)' },
+    { code: 'GBP', symbol: '£', label: 'British Pound (£)' },
+    { code: 'SGD', symbol: 'S$', label: 'Singapore Dollar (S$)' },
+    { code: 'IDR', symbol: 'Rp', label: 'Indonesian Rupiah (Rp)' },
+    { code: 'THB', symbol: '฿', label: 'Thai Baht (฿)' },
+    { code: 'PHP', symbol: '₱', label: 'Philippine Peso (₱)' },
+    { code: 'VND', symbol: '₫', label: 'Vietnamese Dong (₫)' },
+    { code: 'JPY', symbol: '¥', label: 'Japanese Yen (¥)' },
+    { code: 'KRW', symbol: '₩', label: 'Korean Won (₩)' },
+    { code: 'INR', symbol: '₹', label: 'Indian Rupee (₹)' },
+    { code: 'AUD', symbol: 'A$', label: 'Australian Dollar (A$)' },
+    { code: 'CNY', symbol: '¥', label: 'Chinese Yuan (¥)' },
+    { code: 'TWD', symbol: 'NT$', label: 'Taiwan Dollar (NT$)' },
+    { code: 'BND', symbol: 'B$', label: 'Brunei Dollar (B$)' },
+  ];
+  const [userCurrency, setUserCurrency] = useState<string>(() => localStorage.getItem(`ux_currency_${restaurant.id}`) || 'MYR');
+  const currencySymbol = CURRENCY_OPTIONS.find(c => c.code === userCurrency)?.symbol || 'RM';
 
   // Reports State
   const [reportStart, setReportStart] = useState(() => {
@@ -306,6 +355,8 @@ const PosView: React.FC<Props> = ({
       }
       return [...prev, item];
     });
+    setFlashItemId(item.id);
+    setTimeout(() => setFlashItemId(null), 500);
   };
 
   const handleMenuItemClick = (item: MenuItem) => {
@@ -357,54 +408,17 @@ const PosView: React.FC<Props> = ({
   }, [posCart]);
 
   const handleCheckout = async () => {
-    if (posCart.length === 0) return;
-    try {
-      const orderId = await onPlaceOrder(posCart, posRemark, posTableNo, undefined, cashierName); // Returns orderId
-      
-      // If autoPrintReceipt is enabled, print the receipt
-      if (featureSettings.autoPrintReceipt && connectedDevice) {
-        const order = {
-          id: orderId,
-          items: posCart,
-          tableNumber: posTableNo,
-          remark: posRemark,
-          total: posCart.reduce((acc, item) => acc + (item.price * item.quantity), 0),
-          timestamp: Date.now()
-        };
-
-        // Get the first saved printer's drawer commands
-        const printer = savedPrinters.length > 0 ? savedPrinters[0] : null;
-        const drawerCommands = printer?.advancedSettings?.drawerCommands || '';
-
-        try {
-          await printerService.printReceipt(order, restaurant, {
-            businessName: receiptSettings.businessName,
-            showDateTime: true,
-            showOrderId: true,
-            showTableNumber: true,
-            showItems: true,
-            showRemark: !!posRemark,
-            showTotal: true,
-            headerLine1: receiptSettings.headerLine1,
-            headerLine2: receiptSettings.headerLine2,
-            footerLine1: receiptSettings.footerLine1,
-            footerLine2: receiptSettings.footerLine2,
-            drawerCommands: drawerCommands,
-            autoOpenDrawer: featureSettings.autoOpenDrawer
-          });
-        } catch (printError) {
-          console.error('Failed to print receipt:', printError);
-        }
-      }
-
-      setPosCart([]);
-      setPosRemark('');
-      setPosTableNo('Counter');
-      toast('Order placed successfully!', 'success');
-    } catch (error) {
-      console.error('Checkout error:', error);
-      toast('Failed to place order', 'error');
-    }
+    if (posCart.length === 0 || isCompletingPayment) return;
+    setPendingOrderData({
+      items: posCart,
+      remark: posRemark,
+      tableNumber: posTableNo,
+      total: cartTotal,
+    });
+    setSelectedCashAmount(cartTotal);
+    setCashAmountInput(cartTotal.toFixed(2));
+    setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
+    setShowPaymentModal(true);
   };
 
   const handleQrCheckout = async () => {
@@ -494,22 +508,53 @@ const PosView: React.FC<Props> = ({
     }, 320);
   };
 
+  const buildOfflineReportData = (isExport = false): ReportResponse | Order[] => {
+    const startTs = new Date(reportStart + 'T00:00:00').getTime();
+    const endTs = new Date(reportEnd + 'T23:59:59').getTime();
+    const allCachedOrders = counterOrdersCache.getReportOrdersCache(restaurant.id);
+    const filtered = allCachedOrders
+      .filter(order => {
+        const inRange = order.timestamp >= startTs && order.timestamp <= endTs;
+        const statusMatch = reportStatus === 'ALL' || order.status === reportStatus;
+        const searchMatch = !reportSearchQuery || order.id.toLowerCase().includes(reportSearchQuery.toLowerCase());
+        return inRange && statusMatch && searchMatch;
+      })
+      .sort((a, b) => b.timestamp - a.timestamp);
+    const completedOrders = filtered.filter(o => o.status === OrderStatus.COMPLETED);
+    const summary = {
+      totalRevenue: completedOrders.reduce((sum, o) => sum + o.total, 0),
+      orderVolume: filtered.length,
+      efficiency: filtered.length > 0 ? Math.round((completedOrders.length / filtered.length) * 100) : 0,
+    };
+    if (isExport) return filtered;
+    const pageStart = (currentPage - 1) * entriesPerPage;
+    return { orders: filtered.slice(pageStart, pageStart + entriesPerPage), summary, totalCount: filtered.length };
+  };
+
   const fetchReport = async (isExport = false) => {
-    if (!onFetchPaginatedOrders) return;
+    if (!isOnline) {
+      if (isExport) return buildOfflineReportData(true) as Order[];
+      setReportData(buildOfflineReportData(false) as ReportResponse);
+      return;
+    }
     if (!isExport) setIsReportLoading(true);
     try {
-      const data = await onFetchPaginatedOrders({
+      const filters: ReportFilters = {
         restaurantId: restaurant.id,
         startDate: reportStart,
         endDate: reportEnd,
         status: reportStatus,
         search: reportSearchQuery
-      }, isExport ? 1 : currentPage, isExport ? 10000 : entriesPerPage);
-      
-      if (isExport) {
-        return data.orders;
-      } else {
+      };
+      if (isExport && onFetchAllFilteredOrders) {
+        const orders = await onFetchAllFilteredOrders(filters);
+        return orders;
+      }
+      if (!isExport && onFetchPaginatedOrders) {
+        const data = await onFetchPaginatedOrders(filters, currentPage, entriesPerPage);
+        counterOrdersCache.mergeReportOrdersCache(restaurant.id, data.orders);
         setReportData(data);
+        return;
       }
     } catch (error) {
       console.error('Report error:', error);
@@ -523,6 +568,17 @@ const PosView: React.FC<Props> = ({
       fetchReport();
     }
   }, [activeTab, reportStart, reportEnd, reportStatus, reportSearchQuery, currentPage, entriesPerPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [entriesPerPage, reportStatus, reportStart, reportEnd, reportSearchQuery]);
+
+  useEffect(() => {
+    if (activeTab === 'REPORTS' && orders.length > 0) {
+      const timer = setTimeout(() => { fetchReport(); }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [orders.length, activeTab]);
 
   useEffect(() => {
     if (!('bluetooth' in navigator) || !(navigator as any).bluetooth) {
@@ -847,6 +903,136 @@ const PosView: React.FC<Props> = ({
   const handleTabSelection = (tab: 'COUNTER' | 'QR_ORDERS' | 'REPORTS' | 'QR_GEN' | 'SETTINGS') => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
+  };
+
+  const getReceiptPrintOptions = (): ReceiptPrintOptions => {
+    const printer = savedPrinters.length > 0 ? savedPrinters[0] : null;
+    const drawerCommands = printer?.advancedSettings?.drawerCommands || '';
+    return {
+      showDateTime: receiptSettings.showDateTime,
+      showOrderId: receiptSettings.showOrderId,
+      showTableNumber: receiptSettings.showTableNumber,
+      showItems: receiptSettings.showItems,
+      showRemark: receiptSettings.showRemark,
+      showTotal: receiptSettings.showTotal,
+      headerLine1: receiptSettings.headerLine1,
+      headerLine2: receiptSettings.headerLine2,
+      footerLine1: receiptSettings.footerLine1,
+      footerLine2: receiptSettings.footerLine2,
+      drawerCommands: drawerCommands,
+      autoOpenDrawer: featureSettings.autoOpenDrawer
+    };
+  };
+
+  const handleOrderStatusUpdate = async (orderId: string, newStatus: OrderStatus) => {
+    try {
+      onUpdateOrder(orderId, newStatus);
+      if (newStatus === OrderStatus.COMPLETED || newStatus === OrderStatus.CANCELLED) {
+        counterOrdersCache.removeCounterOrderFromCache(restaurant.id, orderId);
+        setCachedCounterOrders(prev => prev.filter(o => o.id !== orderId));
+      } else {
+        setCachedCounterOrders(prev =>
+          prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o)
+        );
+      }
+    } catch (error) {
+      console.error('Error updating order status:', error);
+    }
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!pendingOrderData || !selectedPaymentType) return;
+    if (!selectedCashAmount || selectedCashAmount < pendingOrderData.total) {
+      toast('Amount received cannot be less than the total bill.', 'error');
+      return;
+    }
+    setIsCompletingPayment(true);
+    setCheckoutNotice('');
+    let actualOrderId: string = '';
+    const paymentName = paymentTypes.find(p => p.id === selectedPaymentType)?.name || selectedPaymentType;
+    try {
+      actualOrderId = await onPlaceOrder(pendingOrderData.items, pendingOrderData.remark, pendingOrderData.tableNumber, paymentName, cashierName, selectedCashAmount ?? undefined);
+    } catch (error: any) {
+      console.error('Order placement error:', error);
+      toast(`Failed to place order: ${error?.message || 'Unknown error'}`, 'error');
+      setIsCompletingPayment(false);
+      setShowPaymentModal(false);
+      return;
+    }
+    const nowTs = Date.now();
+    const orderForPrint = {
+      id: actualOrderId,
+      tableNumber: pendingOrderData.tableNumber,
+      timestamp: nowTs,
+      total: pendingOrderData.total,
+      items: pendingOrderData.items,
+      remark: pendingOrderData.remark,
+    };
+    counterOrdersCache.mergeReportOrdersCache(restaurant.id, [{
+      id: actualOrderId,
+      items: pendingOrderData.items,
+      total: pendingOrderData.total,
+      status: OrderStatus.COMPLETED,
+      timestamp: nowTs,
+      restaurantId: restaurant.id,
+      tableNumber: pendingOrderData.tableNumber,
+      remark: pendingOrderData.remark || '',
+      customerId: '',
+      paymentMethod: paymentName,
+      cashierName: cashierName || '',
+      amountReceived: selectedCashAmount ?? undefined,
+      changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined,
+    }]);
+    setShowPaymentResult(true);
+    setIsCompletingPayment(false);
+    if (featureSettings.autoPrintReceipt) {
+      if (connectedDevice) {
+        const printRestaurant = { ...restaurant, name: receiptSettings.businessName.trim() || restaurant.name };
+        printerService.printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions())
+          .then((printSuccess) => {
+            if (!printSuccess) setCheckoutNotice('Order saved. Receipt printing did not complete.');
+          })
+          .catch((printError: any) => {
+            setCheckoutNotice(`Order saved. ${printError?.message || 'Receipt printing failed'}`);
+          });
+      } else {
+        setCheckoutNotice('Order saved. Auto-print is enabled but no printer is connected.');
+      }
+    }
+  };
+
+  const finalizePaymentFlow = () => {
+    setShowPaymentResult(false);
+    setShowPaymentModal(false);
+    setPosCart([]);
+    setPosRemark('');
+    setPosTableNo('Counter');
+    setPendingOrderData(null);
+    setShowPaymentSuccess(true);
+    setTimeout(() => setShowPaymentSuccess(false), 1800);
+  };
+
+  const handlePrinterButtonClick = async () => {
+    if (isAutoReconnecting) return;
+    if (realPrinterConnected) {
+      await disconnectPrinter();
+      setRealPrinterConnected(false);
+      return;
+    }
+    if (connectedDevice) {
+      setIsAutoReconnecting(true);
+      try {
+        const success = await printerService.connect(connectedDevice.name);
+        if (success) setRealPrinterConnected(true);
+        else setRealPrinterConnected(false);
+      } catch (e) {
+        setRealPrinterConnected(false);
+      } finally {
+        setIsAutoReconnecting(false);
+      }
+      return;
+    }
+    setActiveTab('SETTINGS');
   };
 
   const renderFeaturesContent = () => (
@@ -1423,6 +1609,20 @@ const PosView: React.FC<Props> = ({
         </select>
         <p className="text-[9px] text-gray-400 mt-1.5">This only applies to your screen</p>
       </div>
+      <div>
+        <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Currency</label>
+        <select
+          value={userCurrency}
+          onChange={e => {
+            setUserCurrency(e.target.value);
+            localStorage.setItem(`pos_currency_${restaurant.id}`, e.target.value);
+          }}
+          className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+        >
+          {CURRENCY_OPTIONS.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+        </select>
+        <p className="text-[9px] text-gray-400 mt-1.5">Changes the currency symbol shown on screen</p>
+      </div>
     </div>
   );
 
@@ -1548,7 +1748,32 @@ const PosView: React.FC<Props> = ({
   );
 
   return (
-    <div className="flex h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-900 overflow-hidden">
+    <div className="flex h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-900 overflow-hidden flex-col">
+      {/* Offline Status Banner */}
+      {!isOnline && (
+        <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 px-4 py-1.5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <WifiOff className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
+            <p className="text-xs font-semibold text-red-900 dark:text-red-200">You're Offline — <span className="font-normal text-red-700 dark:text-red-300">Orders will be saved locally and synced when you're back online</span></p>
+          </div>
+          {pendingOfflineOrdersCount > 0 && (
+            <div className="bg-red-100 dark:bg-red-900/40 px-2 py-0.5 rounded-full">
+              <p className="text-xs font-semibold text-red-700 dark:text-red-300">{pendingOfflineOrdersCount} pending</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isOnline && pendingOfflineOrdersCount > 0 && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800 px-4 py-1.5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+            <p className="text-xs font-semibold text-yellow-900 dark:text-yellow-200">Syncing Orders — <span className="font-normal text-yellow-700 dark:text-yellow-300">{pendingOfflineOrdersCount} orders are being synced to the server</span></p>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-1 overflow-hidden">
       {isMobileMenuOpen && (
         <div 
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
@@ -1751,10 +1976,16 @@ const PosView: React.FC<Props> = ({
                           <button
                             key={item.id}
                             onClick={() => handleMenuItemClick(item)}
-                            className={`bg-white dark:bg-gray-800 border dark:border-gray-700 text-left hover:border-orange-500 transition-all group shadow-sm flex ${
+                            className={`relative bg-white dark:bg-gray-800 border dark:border-gray-700 text-left hover:border-orange-500 transition-all group shadow-sm flex ${
                               menuLayout === 'list' ? 'flex-row items-center gap-4 p-2 rounded-xl' : 'flex-col p-2 rounded-xl'
-                            }`}
+                            } ${flashItemId === item.id ? 'ring-2 ring-green-500 border-green-500 scale-95' : ''}`}
+                            style={flashItemId === item.id ? { transition: 'all 0.15s ease-in-out' } : {}}
                           >
+                            {flashItemId === item.id && (
+                              <div className="absolute inset-0 bg-green-500/20 rounded-xl flex items-center justify-center z-10 pointer-events-none">
+                                <CheckCircle2 size={28} className="text-green-500 drop-shadow-md" />
+                              </div>
+                            )}
                             <div className={`${
                               menuLayout === 'list' ? 'w-16 h-16' : 'aspect-square w-full'
                             } rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0`}>
@@ -1768,7 +1999,7 @@ const PosView: React.FC<Props> = ({
                             </div>
                             <div className={menuLayout === 'list' ? 'flex-1' : 'mt-3'}>
                               <h4 className="font-black text-xs dark:text-white uppercase tracking-tighter mb-1 line-clamp-1">{item.name}</h4>
-                              <p className="text-orange-500 font-black text-sm">RM{item.price.toFixed(2)}</p>
+                              <p className="text-orange-500 font-black text-sm">{currencySymbol}{item.price.toFixed(2)}</p>
                             </div>
                           </button>
                         ))}
@@ -1844,7 +2075,7 @@ const PosView: React.FC<Props> = ({
                                       x{item.quantity} {item.name}
                                     </p>
                                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                                      RM{(item.price * item.quantity).toFixed(2)}
+                                      {currencySymbol}{(item.price * item.quantity).toFixed(2)}
                                     </p>
                                   </div>
                                 </div>
@@ -1878,7 +2109,7 @@ const PosView: React.FC<Props> = ({
                                       <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Add-ons:</p>
                                       {item.selectedAddOns.map((addon, addonIdx) => (
                                         <p key={addonIdx} className="text-[10px] text-gray-500 dark:text-gray-400 ml-2">
-                                          • {addon.name} x{addon.quantity} (+RM{(addon.price * addon.quantity).toFixed(2)})
+                                          • {addon.name} x{addon.quantity} (+{currencySymbol}{(addon.price * addon.quantity).toFixed(2)})
                                         </p>
                                       ))}
                                     </div>
@@ -1891,7 +2122,7 @@ const PosView: React.FC<Props> = ({
                           {/* Order Total */}
                           <div className="mt-4 pt-3 border-t dark:border-gray-700 flex justify-between items-center">
                             <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Total</span>
-                            <span className="text-xl font-black text-orange-500">RM{order.total.toFixed(2)}</span>
+                            <span className="text-xl font-black text-orange-500">{currencySymbol}{order.total.toFixed(2)}</span>
                           </div>
 
                           {/* Remark if any */}
@@ -1913,6 +2144,14 @@ const PosView: React.FC<Props> = ({
           {/* Reports Tab */}
           {activeTab === 'REPORTS' && (
             <div className="flex-1 overflow-y-auto p-6">
+              {!isOnline && (
+                <div className="mb-4 flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl">
+                  <WifiOff size={14} className="text-amber-500 shrink-0" />
+                  <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">
+                    Offline — showing locally cached orders only
+                  </p>
+                </div>
+              )}
               <StandardReport
                 reportStart={reportStart}
                 reportEnd={reportEnd}
@@ -1930,6 +2169,7 @@ const PosView: React.FC<Props> = ({
                 onChangeEntriesPerPage={setEntriesPerPage}
                 onChangeCurrentPage={setCurrentPage}
                 onDownloadReport={handleDownloadReport}
+                onSelectOrder={(order) => setSelectedReportOrder(order)}
               />
             </div>
           )}
@@ -2560,10 +2800,10 @@ const PosView: React.FC<Props> = ({
                     <div className="flex items-center gap-4">
                       <div className="flex-1">
                         <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                        <p className="text-xs text-orange-500 font-black">RM{item.price.toFixed(2)} x{item.quantity}</p>
+                        <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toFixed(2)} x{item.quantity}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-black text-xs dark:text-white">RM{(item.price * item.quantity).toFixed(2)}</p>
+                        <p className="font-black text-xs dark:text-white">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</p>
                       </div>
                     </div>
                     
@@ -2588,7 +2828,7 @@ const PosView: React.FC<Props> = ({
                           <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Add-ons:</p>
                           {item.selectedAddOns.map((addon, addonIdx) => (
                             <p key={addonIdx} className="text-[9px] text-gray-500 dark:text-gray-400 ml-2">
-                              • {addon.name} x{addon.quantity} (+RM{(addon.price * addon.quantity).toFixed(2)})
+                              • {addon.name} x{addon.quantity} (+{currencySymbol}{(addon.price * addon.quantity).toFixed(2)})
                             </p>
                           ))}
                         </div>
@@ -2608,7 +2848,7 @@ const PosView: React.FC<Props> = ({
                     <div key={`${item.id}-${idx}`} className="flex items-center gap-4">
                       <div className="flex-1">
                         <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                        <p className="text-xs text-orange-500 font-black">RM{item.price.toFixed(2)}</p>
+                        <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toFixed(2)}</p>
                         <div className="mt-1 space-y-0.5">
                           {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
                           {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.selectedTemp}</p>}
@@ -2655,14 +2895,20 @@ const PosView: React.FC<Props> = ({
                 </div>
               )}
 
+              {!!checkoutNotice && (
+                <div className="px-3 py-2 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-300 text-[10px] font-black tracking-wide text-center">
+                  {checkoutNotice}
+                </div>
+              )}
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                   <span>Subtotal</span>
-                  <span>RM{selectedQrOrder ? selectedQrOrder.total.toFixed(2) : cartTotal.toFixed(2)}</span>
+                  <span>{currencySymbol}{selectedQrOrder ? selectedQrOrder.total.toFixed(2) : cartTotal.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
                   <span className="uppercase">Total</span>
-                  <span className="text-orange-500">RM{selectedQrOrder ? selectedQrOrder.total.toFixed(2) : cartTotal.toFixed(2)}</span>
+                  <span className="text-orange-500">{currencySymbol}{selectedQrOrder ? selectedQrOrder.total.toFixed(2) : cartTotal.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -2702,10 +2948,10 @@ const PosView: React.FC<Props> = ({
 
                   <button 
                     onClick={handleCheckout}
-                    disabled={posCart.length === 0}
+                    disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
                     className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
                   >
-                    <CreditCard size={16} /> Complete Order
+                    <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : 'Complete Order'}
                   </button>
                 </div>
               )}
@@ -2713,6 +2959,420 @@ const PosView: React.FC<Props> = ({
           </div>
         )}
       </div>
+      </div>
+
+      {/* Mobile Floating Cart Button */}
+      {activeTab === 'COUNTER' && posCart.length > 0 && !showMobileCart && (
+        <button
+          onClick={() => setShowMobileCart(true)}
+          className="lg:hidden fixed bottom-6 right-6 z-40 bg-orange-500 text-white w-16 h-16 rounded-full shadow-2xl shadow-orange-500/40 flex items-center justify-center active:scale-95 transition-transform"
+        >
+          <ShoppingBag size={24} />
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center shadow-lg">
+            {posCart.reduce((sum, item) => sum + item.quantity, 0)}
+          </span>
+        </button>
+      )}
+
+      {/* Mobile Cart Drawer */}
+      {showMobileCart && (
+        <div className="lg:hidden fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowMobileCart(false)} />
+          <div className="absolute inset-x-0 bottom-0 bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl flex flex-col max-h-[85vh] animate-slide-up">
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full" />
+            </div>
+            <div className="px-5 py-3 border-b dark:border-gray-700 flex items-center justify-between">
+              <h3 className="font-black dark:text-white uppercase tracking-tighter text-base">
+                Cart ({posCart.reduce((sum, item) => sum + item.quantity, 0)})
+              </h3>
+              <div className="flex items-center gap-3">
+                <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors p-1">
+                  <Trash2 size={18} />
+                </button>
+                <button onClick={() => setShowMobileCart(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1">
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+              {posCart.map((item, idx) => (
+                <div key={`${item.id}-${idx}`} className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter truncate">{item.name}</h4>
+                    <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toFixed(2)}</p>
+                    <div className="mt-0.5 space-y-0.5">
+                      {item.selectedSize && <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• Size: {item.selectedSize}</p>}
+                      {item.selectedTemp && <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• Temp: {item.selectedTemp}</p>}
+                      {item.selectedVariantOption && <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• {item.selectedVariantOption}</p>}
+                      {item.selectedOtherVariant && !item.selectedModifiers && <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• {item.otherVariantName || 'Option'}: {item.selectedOtherVariant}</p>}
+                      {item.selectedModifiers && Object.entries(item.selectedModifiers).map(([modName, optName]) => (
+                        optName && <p key={modName} className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• {modName}: {optName}</p>
+                      ))}
+                      {item.selectedAddOns && item.selectedAddOns.length > 0 && (
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">
+                          • Add-ons: {item.selectedAddOns.map(addon => `${addon.name} x${addon.quantity}`).join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-white dark:bg-gray-800 p-1 rounded-lg shadow-sm shrink-0">
+                    <button onClick={() => updateQuantity(idx, -1)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-all"><Minus size={12} /></button>
+                    <span className="text-xs font-black w-5 text-center dark:text-white">{item.quantity}</span>
+                    <button onClick={() => updateQuantity(idx, 1)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-all"><Plus size={12} /></button>
+                  </div>
+                  <button onClick={() => removeFromPosCart(idx)} className="text-gray-300 hover:text-red-500 shrink-0 p-1"><Trash2 size={14} /></button>
+                </div>
+              ))}
+            </div>
+            <div className="px-5 py-4 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-3">
+              {showPaymentSuccess && (
+                <div className="px-3 py-2 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-300 text-[10px] font-black uppercase tracking-widest text-center">
+                  Payment Completed Successfully
+                </div>
+              )}
+              {!!checkoutNotice && (
+                <div className="px-3 py-2 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-300 text-[10px] font-black tracking-wide text-center">
+                  {checkoutNotice}
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black dark:text-white uppercase tracking-widest">Total</span>
+                <span className="text-xl font-black text-orange-500">{currencySymbol}{cartTotal.toFixed(2)}</span>
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <input type="text" value={posTableNo} onChange={e => setPosTableNo(e.target.value)} className="w-full p-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" placeholder="Table" />
+                </div>
+                <div className="flex-[2]">
+                  <input type="text" value={posRemark} onChange={e => setPosRemark(e.target.value)} className="w-full p-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" placeholder="Remark..." />
+                </div>
+              </div>
+              <button onClick={() => { setShowMobileCart(false); handleCheckout(); }} disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2">
+                <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : `Pay ${currencySymbol}${cartTotal.toFixed(2)}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Modal */}
+      {showPaymentModal && pendingOrderData && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end lg:items-center justify-center lg:p-4" onClick={() => !isCompletingPayment && !showPaymentResult && setShowPaymentModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-t-3xl lg:rounded-3xl shadow-2xl w-full lg:max-w-4xl h-[90vh] lg:h-[650px] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
+
+            {/* Payment Input View */}
+            <div className={`absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out ${showPaymentResult ? '-translate-x-full' : 'translate-x-0'}`}>
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                disabled={isCompletingPayment}
+                className="absolute top-4 right-5 z-10 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all disabled:opacity-50"
+              >
+                <X size={28} className="text-gray-400" />
+              </button>
+
+              <div className="flex-1 px-5 lg:px-8 pb-6 lg:pb-8 pt-[3.75rem] space-y-4 lg:space-y-6 overflow-y-auto">
+                <div className="text-center space-y-2 lg:space-y-3">
+                  <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
+                  <div className="text-4xl lg:text-6xl font-black text-orange-500 tracking-tighter">
+                    {currencySymbol}{pendingOrderData.total.toFixed(2)}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Amount Received</label>
+                  <div className="flex items-center justify-center border-b-2 dark:border-gray-600 border-gray-300 focus-within:border-orange-500 dark:focus-within:border-orange-500">
+                    <span className="text-2xl font-black text-gray-600 dark:text-gray-400 pb-3">{currencySymbol}</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={cashAmountInput}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9.]/g, '');
+                        setCashAmountInput(val);
+                        if (val === '' || val === '.') { setSelectedCashAmount(null); return; }
+                        const parsed = parseFloat(val);
+                        if (!isNaN(parsed)) setSelectedCashAmount(parsed);
+                      }}
+                      onBlur={() => {
+                        if (selectedCashAmount !== null) {
+                          const rounded = parseFloat(selectedCashAmount.toFixed(2));
+                          setSelectedCashAmount(rounded);
+                          setCashAmountInput(rounded.toFixed(2));
+                        }
+                      }}
+                      placeholder="0.00"
+                      className="flex-1 p-3 bg-transparent text-2xl font-black dark:text-white text-center focus:outline-none border-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2 lg:space-y-3">
+                  <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Quick Select</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3">
+                    {CASH_DENOMINATIONS.map((amount) => (
+                      <button
+                        key={amount}
+                        onClick={() => { setSelectedCashAmount(amount); setCashAmountInput(amount.toFixed(2)); }}
+                        className={`p-3 rounded-xl font-black text-lg uppercase tracking-widest transition-all border-2 ${
+                          selectedCashAmount === amount
+                            ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
+                        }`}
+                      >
+                        {currencySymbol} {amount.toFixed(2)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2 lg:space-y-3">
+                  <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
+                  <select
+                    value={selectedPaymentType}
+                    onChange={(e) => setSelectedPaymentType(e.target.value)}
+                    className="w-full p-3 lg:p-4 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-base lg:text-lg font-black dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
+                  >
+                    {paymentTypes.map((type) => (
+                      <option key={type.id} value={type.id}>
+                        {type.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="px-5 lg:px-8 py-4 lg:py-5 border-t dark:border-gray-700 flex gap-3 lg:gap-4 flex-shrink-0">
+                <button
+                  onClick={() => setShowPaymentModal(false)}
+                  disabled={isCompletingPayment}
+                  className="flex-1 py-2 lg:py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmPayment}
+                  disabled={isCompletingPayment || !selectedPaymentType}
+                  className="flex-1 py-2 lg:py-3 bg-orange-500 text-white rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-1 lg:gap-3"
+                >
+                  {isCompletingPayment ? (
+                    <>
+                      <div className="w-4 h-4 lg:w-5 lg:h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard size={16} className="lg:hidden" /><CreditCard size={24} className="hidden lg:block" /> Confirm Payment
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Payment Result View */}
+            <div className={`absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out ${showPaymentResult ? 'translate-x-0' : 'translate-x-full'}`}>
+              <div className="px-8 py-5 border-b dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+                <h3 className="font-black dark:text-white uppercase tracking-tighter text-2xl">Payment Complete</h3>
+              </div>
+              <div className="flex-1 flex flex-col items-center justify-center p-8">
+                <div className="w-full max-w-3xl">
+                  <div className="grid grid-cols-1 sm:grid-cols-2">
+                    <div className="sm:pr-8 text-center sm:text-right sm:border-r-2 border-dotted dark:border-gray-700 pb-4 sm:pb-0">
+                      <div className="text-3xl lg:text-5xl font-black text-green-500 tracking-tighter">
+                        {currencySymbol}{(selectedCashAmount || 0).toFixed(2)}
+                      </div>
+                      <label className="block mt-2 lg:mt-3 text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Total Paid</label>
+                    </div>
+                    <div className="sm:pl-8 text-center sm:text-left border-t sm:border-t-0 border-dotted dark:border-gray-700 pt-4 sm:pt-0">
+                      <div className="text-3xl lg:text-5xl font-black text-blue-500 tracking-tighter">
+                        {currencySymbol}{Math.max(0, (selectedCashAmount || 0) - pendingOrderData.total).toFixed(2)}
+                      </div>
+                      <label className="block mt-2 lg:mt-3 text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Total Change</label>
+                    </div>
+                  </div>
+                </div>
+                <div className="w-full max-w-3xl mt-8 text-center">
+                  <p className="text-sm text-gray-400 dark:text-gray-500 italic">Please make sure all the balances are correct before completing the payment.</p>
+                </div>
+              </div>
+              <div className="px-8 py-5 border-t dark:border-gray-700 flex-shrink-0">
+                <button
+                  onClick={finalizePaymentFlow}
+                  className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-lg uppercase tracking-wider hover:bg-orange-600 transition-all"
+                >
+                  Complete Payment
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Order Detail Popup from Report */}
+      {selectedReportOrder && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedReportOrder(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b dark:border-gray-700 flex items-center justify-between sticky top-0 bg-white dark:bg-gray-800 z-10">
+              <div>
+                <h3 className="font-black dark:text-white uppercase tracking-tighter">Order #{selectedReportOrder.id}</h3>
+                <p className="text-[9px] text-gray-400 uppercase tracking-widest mt-0.5">
+                  {new Date(selectedReportOrder.timestamp).toLocaleDateString()} {new Date(selectedReportOrder.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+              <button onClick={() => setSelectedReportOrder(null)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all">
+                <X size={18} className="text-gray-400" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Table</span>
+                <span className="text-xs font-black dark:text-white">#{selectedReportOrder.tableNumber}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Status</span>
+                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                  selectedReportOrder.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-600' :
+                  selectedReportOrder.status === OrderStatus.SERVED ? 'bg-blue-100 text-blue-600' :
+                  selectedReportOrder.status === OrderStatus.CANCELLED ? 'bg-red-100 text-red-600' :
+                  'bg-orange-100 text-orange-600'
+                }`}>
+                  {selectedReportOrder.status === OrderStatus.COMPLETED ? 'Paid' : selectedReportOrder.status === OrderStatus.SERVED ? 'Served' : selectedReportOrder.status === OrderStatus.CANCELLED ? 'Refunded' : selectedReportOrder.status}
+                </span>
+              </div>
+
+              <div className="border-t dark:border-gray-700 pt-3">
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Items</p>
+                <div className="space-y-2">
+                  {selectedReportOrder.items.map((item, idx) => (
+                    <div key={idx} className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs font-bold dark:text-white">{item.quantity}x {item.name}</p>
+                        {item.selectedSize && <p className="text-[9px] text-gray-400 ml-3">-Size: {item.selectedSize}</p>}
+                        {item.selectedTemp && <p className="text-[9px] text-gray-400 ml-3">-Temperature: {item.selectedTemp}</p>}
+                        {item.selectedVariantOption && <p className="text-[9px] text-gray-400 ml-3">-Variant: {item.selectedVariantOption}</p>}
+                        {item.selectedOtherVariant && !item.selectedModifiers && <p className="text-[9px] text-gray-400 ml-3">-{item.otherVariantName ? item.otherVariantName.charAt(0).toUpperCase() + item.otherVariantName.slice(1) : 'Option'}: {item.selectedOtherVariant}</p>}
+                        {item.selectedModifiers && Object.entries(item.selectedModifiers).map(([modName, optName]) => (
+                          optName && <p key={modName} className="text-[9px] text-gray-400 ml-3">-{modName.charAt(0).toUpperCase() + modName.slice(1)}: {optName}</p>
+                        ))}
+                        {item.selectedAddOns?.map((addon, aIdx) => (
+                          <p key={aIdx} className="text-[9px] text-gray-400 ml-3">-{addon.name}{addon.quantity > 1 ? ` x${addon.quantity}` : ''}</p>
+                        ))}
+                      </div>
+                      <span className="text-xs font-bold dark:text-white shrink-0 ml-2">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {selectedReportOrder.remark && (
+                <div className="border-t dark:border-gray-700 pt-3">
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Remark</p>
+                  <p className="text-xs dark:text-gray-300">{selectedReportOrder.remark}</p>
+                </div>
+              )}
+
+              <div className="border-t dark:border-gray-700 pt-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black dark:text-white uppercase tracking-widest">Total</span>
+                  <span className="text-lg font-black text-orange-500">{currencySymbol}{selectedReportOrder.total.toFixed(2)}</span>
+                </div>
+                {selectedReportOrder.amountReceived != null && (
+                  <>
+                    <div className="flex items-center justify-between mt-1.5">
+                      <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400">Amount Received</span>
+                      <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{selectedReportOrder.amountReceived.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400">Change</span>
+                      <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{(selectedReportOrder.changeAmount ?? Math.max(0, selectedReportOrder.amountReceived - selectedReportOrder.total)).toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {selectedReportOrder.status === OrderStatus.CANCELLED ? (
+                <div className="w-full py-3 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-xl font-black text-[10px] uppercase tracking-widest text-center">
+                  This order has been refunded
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      if (!connectedDevice) {
+                        toast('Printer is not connected. Please connect a printer to reprint.', 'warning');
+                        return;
+                      }
+                      const printRestaurant = {
+                        ...restaurant,
+                        name: receiptSettings.businessName.trim() || restaurant.name,
+                      };
+                      const orderForPrint = {
+                        id: selectedReportOrder.id,
+                        tableNumber: selectedReportOrder.tableNumber,
+                        timestamp: selectedReportOrder.timestamp,
+                        total: selectedReportOrder.total,
+                        items: selectedReportOrder.items,
+                        remark: selectedReportOrder.remark || '',
+                      };
+                      try {
+                        await printerService.printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions());
+                      } catch (err) {
+                        console.error('Reprint error:', err);
+                      }
+                      setSelectedReportOrder(null);
+                    }}
+                    className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Printer size={14} /> Reprint Receipt
+                  </button>
+                  <button
+                    onClick={() => setShowRefundConfirm(true)}
+                    className="flex-1 py-3 bg-red-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all flex items-center justify-center gap-2"
+                  >
+                    <RotateCcw size={14} /> Refund
+                  </button>
+                </div>
+              )}
+
+              {/* Refund Confirmation Modal */}
+              {showRefundConfirm && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={() => setShowRefundConfirm(false)}>
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+                    <div className="p-6 text-center">
+                      <div className="w-14 h-14 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <RotateCcw size={28} className="text-red-500" />
+                      </div>
+                      <h3 className="text-lg font-black dark:text-white uppercase tracking-tight mb-2">Confirm Refund</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Are you sure you want to refund Order <span className="font-bold text-gray-700 dark:text-gray-200">#{selectedReportOrder.id}</span>? This action cannot be undone.</p>
+                    </div>
+                    <div className="flex border-t dark:border-gray-700">
+                      <button
+                        onClick={() => setShowRefundConfirm(false)}
+                        className="flex-1 py-4 text-sm font-black uppercase tracking-widest text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleOrderStatusUpdate(selectedReportOrder.id, OrderStatus.CANCELLED);
+                          toast('Order has been refunded.', 'success');
+                          setShowRefundConfirm(false);
+                          setSelectedReportOrder(null);
+                        }}
+                        className="flex-1 py-4 text-sm font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all border-l dark:border-gray-700"
+                      >
+                        Refund
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <ItemOptionsModal
         item={selectedItemForOptions}
@@ -2742,6 +3402,13 @@ const PosView: React.FC<Props> = ({
         }
         .animate-slide-left {
           animation: slideLeft 0.3s ease-out;
+        }
+        @keyframes slideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        .animate-slide-up {
+          animation: slideUp 0.3s ease-out;
         }
       `}</style>
     </div>
