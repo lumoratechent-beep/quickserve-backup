@@ -785,7 +785,48 @@ const PosOnlyView: React.FC<Props> = ({
     return cachedCounterOrders;
   }, [cachedCounterOrders]);
 
+  const buildOfflineReportData = (isExport = false): ReportResponse | Order[] => {
+    const startTs = new Date(reportStart + 'T00:00:00').getTime();
+    const endTs = new Date(reportEnd + 'T23:59:59').getTime();
+
+    const filtered = cachedCounterOrders
+      .filter(order => {
+        const inRange = order.timestamp >= startTs && order.timestamp <= endTs;
+        const statusMatch = reportStatus === 'ALL' || order.status === reportStatus;
+        const searchMatch = !reportSearchQuery ||
+          order.id.toLowerCase().includes(reportSearchQuery.toLowerCase());
+        return inRange && statusMatch && searchMatch;
+      })
+      .sort((a, b) => b.timestamp - a.timestamp);
+
+    const completedOrders = filtered.filter(o => o.status === OrderStatus.COMPLETED);
+    const summary = {
+      totalRevenue: completedOrders.reduce((sum, o) => sum + o.total, 0),
+      orderVolume: filtered.length,
+      efficiency: filtered.length > 0
+        ? Math.round((completedOrders.length / filtered.length) * 100)
+        : 0,
+    };
+
+    if (isExport) return filtered;
+
+    const pageStart = (currentPage - 1) * entriesPerPage;
+    return {
+      orders: filtered.slice(pageStart, pageStart + entriesPerPage),
+      summary,
+      totalCount: filtered.length,
+    };
+  };
+
   const fetchReport = async (isExport = false) => {
+    // ─── OFFLINE: serve directly from local cache ───────────────────────────
+    if (!isOnline) {
+      if (isExport) return buildOfflineReportData(true) as Order[];
+      setReportData(buildOfflineReportData(false) as ReportResponse);
+      return;
+    }
+
+    // ─── ONLINE: fetch from server ──────────────────────────────────────────
     if (!isExport) setIsReportLoading(true);
     try {
       const filters: ReportFilters = {
@@ -2555,6 +2596,14 @@ const PosOnlyView: React.FC<Props> = ({
           {/* Reports Tab - Same as PosView */}
           {activeTab === 'REPORTS' && reportsSubMenu === 'salesReport' && (
             <div className="flex-1 overflow-y-auto p-6">
+              {!isOnline && (
+                <div className="mb-4 flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl">
+                  <WifiOff size={14} className="text-amber-500 shrink-0" />
+                  <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">
+                    Offline — showing locally cached orders only
+                  </p>
+                </div>
+              )}
               <StandardReport
                 reportStart={reportStart}
                 reportEnd={reportEnd}
