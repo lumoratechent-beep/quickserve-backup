@@ -195,8 +195,8 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
 
         {/* Main Content - Image Left, Options Right */}
         <div className="p-5 flex gap-5 max-h-[60vh]">
-          {/* Left: Image */}
-          <div className="w-36 h-36 flex-shrink-0 bg-gray-100 dark:bg-gray-700 rounded-xl overflow-hidden shadow-inner">
+          {/* Left: Image — hidden on mobile */}
+          <div className="hidden sm:block w-36 h-36 flex-shrink-0 bg-gray-100 dark:bg-gray-700 rounded-xl overflow-hidden shadow-inner">
             {item.image ? (
               <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
             ) : (
