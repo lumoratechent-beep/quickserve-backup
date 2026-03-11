@@ -3889,23 +3889,23 @@ const PosOnlyView: React.FC<Props> = ({
                 <button 
                   onClick={() => setShowPaymentModal(false)} 
                   disabled={isCompletingPayment}
-                  className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-lg uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                  className="flex-1 py-2 lg:py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={handleConfirmPayment} 
                   disabled={isCompletingPayment || !selectedPaymentType}
-                  className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-black text-lg uppercase tracking-wider hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+                  className="flex-1 py-2 lg:py-3 bg-orange-500 text-white rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-1 lg:gap-3"
                 >
                   {isCompletingPayment ? (
                     <>
-                      <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <div className="w-4 h-4 lg:w-5 lg:h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
                       Processing...
                     </>
                   ) : (
                     <>
-                      <CreditCard size={24} /> Confirm Payment
+                      <CreditCard size={16} className="lg:hidden" /><CreditCard size={24} className="hidden lg:block" /> Confirm Payment
                     </>
                   )}
                 </button>
