@@ -1061,16 +1061,26 @@ const App: React.FC = () => {
     try {
       console.log("Deleting hub:", areaId);
 
-      // Find the area's name so we can unlink restaurants that reference it
+      // Find the area's name so we can unlink restaurants and orders that reference it
       const areaToDelete = locations.find(l => l.id === areaId);
       if (areaToDelete) {
-        const { error: unlinkError } = await supabase
+        const { error: unlinkRestaurantsError } = await supabase
           .from('restaurants')
           .update({ location_name: null })
           .eq('location_name', areaToDelete.name);
-        if (unlinkError) {
-          console.error("Error unlinking restaurants from hub:", unlinkError);
-          toast("Error unlinking restaurants from hub: " + unlinkError.message, 'error');
+        if (unlinkRestaurantsError) {
+          console.error("Error unlinking restaurants from hub:", unlinkRestaurantsError);
+          toast("Error unlinking restaurants from hub: " + unlinkRestaurantsError.message, 'error');
+          return;
+        }
+
+        const { error: unlinkOrdersError } = await supabase
+          .from('orders')
+          .update({ location_name: null })
+          .eq('location_name', areaToDelete.name);
+        if (unlinkOrdersError) {
+          console.error("Error unlinking orders from hub:", unlinkOrdersError);
+          toast("Error unlinking orders from hub: " + unlinkOrdersError.message, 'error');
           return;
         }
       }
