@@ -2367,6 +2367,35 @@ const PosOnlyView: React.FC<Props> = ({
           >
             <ShoppingBag size={20} /> {!isSidebarCollapsed && 'Counter'}
           </button>
+
+          {showQrOrders && (
+            <button
+              onClick={() => handleTabSelection('QR_ORDERS')}
+              title="QR Orders"
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4'} py-3 rounded-xl font-medium transition-all ${
+                activeTab === 'QR_ORDERS'
+                  ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <QrCode size={20} />
+                {!isSidebarCollapsed && 'QR Orders'}
+              </div>
+              {!isSidebarCollapsed && (() => {
+                const pendingQr = orders.filter(o => o.status === OrderStatus.PENDING).length;
+                return pendingQr > 0 ? (
+                  <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">{pendingQr}</span>
+                ) : null;
+              })()}
+              {isSidebarCollapsed && (() => {
+                const pendingQr = orders.filter(o => o.status === OrderStatus.PENDING).length;
+                return pendingQr > 0 ? (
+                  <span className="absolute top-1 right-1 bg-orange-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center">{pendingQr}</span>
+                ) : null;
+              })()}
+            </button>
+          )}
           
           <button 
             onClick={() => handleTabSelection('MENU_EDITOR')}
@@ -2403,35 +2432,6 @@ const PosOnlyView: React.FC<Props> = ({
           >
             <Settings size={20} /> {!isSidebarCollapsed && 'Settings'}
           </button>
-
-          {showQrOrders && (
-            <button
-              onClick={() => handleTabSelection('QR_ORDERS')}
-              title="QR Orders"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4'} py-3 rounded-xl font-medium transition-all ${
-                activeTab === 'QR_ORDERS'
-                  ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <QrCode size={20} />
-                {!isSidebarCollapsed && 'QR Orders'}
-              </div>
-              {!isSidebarCollapsed && (() => {
-                const pendingQr = orders.filter(o => o.status === OrderStatus.PENDING).length;
-                return pendingQr > 0 ? (
-                  <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">{pendingQr}</span>
-                ) : null;
-              })()}
-              {isSidebarCollapsed && (() => {
-                const pendingQr = orders.filter(o => o.status === OrderStatus.PENDING).length;
-                return pendingQr > 0 ? (
-                  <span className="absolute top-1 right-1 bg-orange-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center">{pendingQr}</span>
-                ) : null;
-              })()}
-            </button>
-          )}
         </nav>
 
         {/* Sidebar Collapse Toggle */}
@@ -3439,7 +3439,6 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
             </div>
           )}
-        </div>
 
         <MenuItemFormModal
           isOpen={isFormModalOpen}
@@ -3854,6 +3853,7 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
             </div>
           )}
+        </div>
         
         {/* Right Sidebar - Order Summary (Desktop) */}
         {activeTab === 'COUNTER' && (
