@@ -704,6 +704,11 @@ const App: React.FC = () => {
     setView('LANDING');
   };
 
+  // Adapter for POS views — matches their onUpdateOrder prop signature
+  const updateOrderForPos = (orderId: string, status: OrderStatus, paymentDetails?: { paymentMethod?: string; cashierName?: string; amountReceived?: number; changeAmount?: number }) => {
+    updateOrderStatus(orderId, status, undefined, undefined, paymentDetails);
+  };
+
   // FIXED: Updated updateOrderStatus to handle printing correctly
   const updateOrderStatus = async (orderId: string, status: OrderStatus, reason?: string, note?: string, paymentDetails?: { paymentMethod?: string; cashierName?: string; amountReceived?: number; changeAmount?: number }) => {
     // Don't lock if we're just marking as ONGOING (for printing)
@@ -1477,7 +1482,7 @@ const App: React.FC = () => {
                 const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
                 return o.timestamp > oneDayAgo;
               })}
-              onUpdateOrder={updateOrderStatus}
+              onUpdateOrder={updateOrderForPos}
               onPlaceOrder={placePosOrder}
               onUpdateMenu={handleUpdateMenuItem}
               onAddMenuItem={handleAddMenuItem}
@@ -1507,7 +1512,7 @@ const App: React.FC = () => {
                   const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
                   return o.timestamp > oneDayAgo;
                 })}
-                onUpdateOrder={updateOrderStatus}
+                onUpdateOrder={updateOrderForPos}
                 onPlaceOrder={placePosOrder}
                 onUpdateMenu={handleUpdateMenuItem}
                 onAddMenuItem={handleAddMenuItem}
@@ -1526,7 +1531,7 @@ const App: React.FC = () => {
                   const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
                   return o.timestamp > oneDayAgo;
                 })}
-                onUpdateOrder={updateOrderStatus}
+                onUpdateOrder={updateOrderForPos}
                 onPlaceOrder={placePosOrder}
                 onUpdateMenu={handleUpdateMenuItem}
                 onAddMenuItem={handleAddMenuItem}
