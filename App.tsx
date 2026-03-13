@@ -1060,6 +1060,21 @@ const App: React.FC = () => {
   const handleDeleteLocation = async (areaId: string) => {
     try {
       console.log("Deleting hub:", areaId);
+
+      // Find the area's name so we can unlink restaurants that reference it
+      const areaToDelete = locations.find(l => l.id === areaId);
+      if (areaToDelete) {
+        const { error: unlinkError } = await supabase
+          .from('restaurants')
+          .update({ location_name: null })
+          .eq('location_name', areaToDelete.name);
+        if (unlinkError) {
+          console.error("Error unlinking restaurants from hub:", unlinkError);
+          toast("Error unlinking restaurants from hub: " + unlinkError.message, 'error');
+          return;
+        }
+      }
+
       const { error } = await supabase.from('areas').delete().eq('id', areaId);
       
       if (error) {
@@ -1071,6 +1086,7 @@ const App: React.FC = () => {
       console.log("Hub deleted successfully, fetching locations...");
       toast("Hub deleted successfully!", 'success');
       await fetchLocations();
+      await fetchRestaurants();
     } catch (error: any) {
       console.error("Unexpected error deleting hub:", error);
       toast("Unexpected error: " + error.message, 'error');
