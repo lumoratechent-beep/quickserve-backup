@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { Restaurant, Order, OrderStatus, MenuItem, MenuItemVariant, AddOnItem, ReportResponse, ReportFilters } from '../src/types';
+import { Restaurant, Order, OrderStatus, MenuItem, MenuItemVariant, AddOnItem, ReportResponse, ReportFilters, QS_DEFAULT_HUB } from '../src/types';
 import { uploadImage } from '../lib/storage';
 import { 
   ShoppingBag, BookOpen, BarChart3, Edit3, CheckCircle, Clock, X, Plus, Trash2, 
@@ -698,7 +698,7 @@ const VendorView: React.FC<Props> = ({
 
   const getQrUrl = (hubName: string, table: string) => {
     const baseUrl = window.location.origin + window.location.pathname;
-    if (restaurant.location === 'QuickServe Hub') {
+    if (restaurant.location === QS_DEFAULT_HUB) {
       return `${baseUrl}?restaurant=${encodeURIComponent(restaurant.id)}&table=${encodeURIComponent(table)}`;
     }
     return `${baseUrl}?loc=${encodeURIComponent(hubName)}&table=${table}`;
@@ -1004,7 +1004,7 @@ const VendorView: React.FC<Props> = ({
             <div className="max-w-4xl mx-auto no-print">
               <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Table QR Codes</h1>
               <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">
-                {restaurant.location === 'QuickServe Hub'
+                {restaurant.location === QS_DEFAULT_HUB
                   ? `Direct menu QR codes for ${restaurant.name}.`
                   : `Generate ordering labels for your tables at ${restaurant.location}.`}
               </p>

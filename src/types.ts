@@ -1,6 +1,6 @@
 // src/types.ts
 
-export const QS_DEFAULT_HUB = 'QuickServe Hub';
+export const QS_DEFAULT_HUB = 'QSH';
 
 export type Role = 'CUSTOMER' | 'VENDOR' | 'ADMIN' | 'CASHIER';
 
