@@ -159,6 +159,8 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS'>('COUNTER');
+  const [counterMode, setCounterMode] = useState<'COUNTER_ORDER' | 'QR_ORDER'>('COUNTER_ORDER');
+  const [selectedQrOrderForPayment, setSelectedQrOrderForPayment] = useState<Order | null>(null);
   const [qrOrderFilter, setQrOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
   const [rejectingQrOrderId, setRejectingQrOrderId] = useState<string | null>(null);
   const [qrRejectionReason, setQrRejectionReason] = useState('Item out of stock');
@@ -2541,6 +2543,77 @@ const PosOnlyView: React.FC<Props> = ({
           {/* Counter Tab - Same as PosView */}
           {activeTab === 'COUNTER' && (
             <>
+              {/* Mode toggle bar — only in POS+QR mode */}
+              {showQrOrders && (
+                <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 lg:px-6 py-2 flex items-center gap-2">
+                  <button
+                    onClick={() => { setCounterMode('COUNTER_ORDER'); setSelectedQrOrderForPayment(null); }}
+                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                      counterMode === 'COUNTER_ORDER' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >Counter Order</button>
+                  <button
+                    onClick={() => { setCounterMode('QR_ORDER'); setSelectedQrOrderForPayment(null); }}
+                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                      counterMode === 'QR_ORDER' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >QR Order</button>
+                </div>
+              )}
+
+              {/* QR Order selection panel */}
+              {showQrOrders && counterMode === 'QR_ORDER' ? (
+                <div className="flex-1 overflow-y-auto p-4">
+                  <div className="mb-4">
+                    <h2 className="text-sm font-black dark:text-white uppercase tracking-tighter">Select Served QR Order</h2>
+                    <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-0.5">Tap an order to load it for payment.</p>
+                  </div>
+                  {(() => {
+                    const servedOrders = orders.filter(o => o.status === OrderStatus.SERVED);
+                    if (servedOrders.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center justify-center py-20 text-center opacity-30">
+                          <QrCode size={48} className="mb-4" />
+                          <p className="text-[10px] font-black uppercase tracking-widest">No served orders waiting</p>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="space-y-3">
+                        {servedOrders.map(order => (
+                          <button
+                            key={order.id}
+                            onClick={() => setSelectedQrOrderForPayment(order)}
+                            className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                              selectedQrOrderForPayment?.id === order.id
+                                ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/10'
+                                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-orange-300'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <QrCode size={14} className="text-orange-500" />
+                                <span className="text-xs font-black dark:text-white uppercase">Table {order.tableNumber}</span>
+                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">#{order.id}</span>
+                              </div>
+                              <span className="text-xs font-black text-orange-500">{currencySymbol}{order.total.toFixed(2)}</span>
+                            </div>
+                            <div className="space-y-0.5">
+                              {order.items.map((item, idx) => (
+                                <p key={idx} className="text-[10px] text-gray-500 dark:text-gray-400">x{item.quantity} {item.name}</p>
+                              ))}
+                            </div>
+                            {selectedQrOrderForPayment?.id === order.id && (
+                              <p className="mt-2 text-[9px] font-black text-orange-500 uppercase tracking-widest">Selected — see right panel to complete payment</p>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              ) : (
+                <>
               <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 lg:px-6 py-3 lg:py-4 max-lg:landscape:py-1.5 flex flex-col gap-3 lg:gap-4 max-lg:landscape:gap-1">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-1 pb-1">
@@ -2646,6 +2719,8 @@ const PosOnlyView: React.FC<Props> = ({
                   ))}
                 </div>
               </div>
+            </>
+              )}
             </>
           )}
 
@@ -3859,17 +3934,101 @@ const PosOnlyView: React.FC<Props> = ({
             hidden lg:flex w-96 bg-white dark:bg-gray-800 border-l dark:border-gray-700 flex-col
             transition-all duration-300 ease-in-out
           `}>
-            <div className="p-6 border-b dark:border-gray-700 flex items-center justify-between">
-              <h3 className="font-black dark:text-white uppercase tracking-tighter">
-                Current Order
-              </h3>
-              <div className="flex items-center gap-2">
-                <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors">
-                  <Trash2 size={18} />
-                </button>
+            {/* Sidebar header */}
+            <div className="p-4 border-b dark:border-gray-700">
+              {showQrOrders && (
+                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 mb-3">
+                  <button
+                    onClick={() => { setCounterMode('COUNTER_ORDER'); setSelectedQrOrderForPayment(null); }}
+                    className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                      counterMode === 'COUNTER_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
+                    }`}
+                  >Counter</button>
+                  <button
+                    onClick={() => { setCounterMode('QR_ORDER'); setSelectedQrOrderForPayment(null); }}
+                    className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                      counterMode === 'QR_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
+                    }`}
+                  >QR Order</button>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <h3 className="font-black dark:text-white uppercase tracking-tighter text-sm">
+                  {showQrOrders && counterMode === 'QR_ORDER'
+                    ? (selectedQrOrderForPayment ? `Order #${selectedQrOrderForPayment.id}` : 'QR Order')
+                    : 'Current Order'}
+                </h3>
+                {(counterMode === 'COUNTER_ORDER' || !showQrOrders) && (
+                  <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors">
+                    <Trash2 size={18} />
+                  </button>
+                )}
+                {showQrOrders && counterMode === 'QR_ORDER' && selectedQrOrderForPayment && (
+                  <button onClick={() => setSelectedQrOrderForPayment(null)} className="text-gray-400 hover:text-red-500 transition-colors">
+                    <X size={18} />
+                  </button>
+                )}
               </div>
             </div>
 
+            {/* QR ORDER mode — show selected QR order items */}
+            {showQrOrders && counterMode === 'QR_ORDER' ? (
+              <>
+                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                  {!selectedQrOrderForPayment ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
+                      <QrCode size={48} className="mb-4" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">Select a served order from the left</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
+                        <QrCode size={14} className="text-purple-500 shrink-0" />
+                        <span className="text-[10px] font-black text-purple-700 dark:text-purple-400 uppercase tracking-widest">Table {selectedQrOrderForPayment.tableNumber}</span>
+                      </div>
+                      {selectedQrOrderForPayment.items.map((item, idx) => (
+                        <div key={`qr-${item.id}-${idx}`} className="flex items-center gap-4">
+                          <div className="flex-1">
+                            <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                            <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toFixed(2)}</p>
+                            <div className="mt-1 space-y-0.5">
+                              {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
+                              {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Temp: {item.selectedTemp}</p>}
+                              {item.selectedOtherVariant && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.selectedOtherVariant}</p>}
+                            </div>
+                          </div>
+                          <span className="text-xs font-black dark:text-white bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-lg">x{item.quantity}</span>
+                        </div>
+                      ))}
+                      {selectedQrOrderForPayment.remark && (
+                        <div className="p-3 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-xl">
+                          <p className="text-[9px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest mb-1">Remark</p>
+                          <p className="text-xs text-gray-700 dark:text-gray-300 italic">{selectedQrOrderForPayment.remark}</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+                <div className="p-6 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-4">
+                  <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
+                    <span className="uppercase text-xs text-gray-400 tracking-widest">Total</span>
+                    <span className="text-orange-500">{currencySymbol}{(selectedQrOrderForPayment?.total ?? 0).toFixed(2)}</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (!selectedQrOrderForPayment) return;
+                      onUpdateOrder(selectedQrOrderForPayment.id, OrderStatus.COMPLETED);
+                      setSelectedQrOrderForPayment(null);
+                    }}
+                    disabled={!selectedQrOrderForPayment}
+                    className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                  >
+                    <CreditCard size={16} /> Complete Payment
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {posCart.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
@@ -3949,6 +4108,8 @@ const PosOnlyView: React.FC<Props> = ({
                 </button>
               </div>
             </div>
+              </>
+            )}
           </div>
         )}
       </div>
