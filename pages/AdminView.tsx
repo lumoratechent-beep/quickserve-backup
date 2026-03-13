@@ -883,7 +883,7 @@ const AdminView: React.FC<Props> = ({
         <div className="flex-1 overflow-auto">
         {activeTab === 'VENDORS' && (
           <div>
-            <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="px-4 md:px-8 py-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               <div>
                 <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Vendor Directory</h3>
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Manage registered kitchens and their platform access</p>
@@ -993,7 +993,7 @@ const AdminView: React.FC<Props> = ({
 
         {activeTab === 'LOCATIONS' && (
           <div>
-            <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="px-4 md:px-8 py-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               <div>
                 <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Hub Registry</h3>
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Configure service locations and generate table QR codes</p>
@@ -1061,7 +1061,7 @@ const AdminView: React.FC<Props> = ({
 
         {activeTab === 'REPORTS' && (
           <div>
-            <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="px-4 md:px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Sales Analysis</h3>
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Platform-wide order history, revenue and performance metrics</p>
@@ -1292,7 +1292,7 @@ const AdminView: React.FC<Props> = ({
 
         {activeTab === 'SYSTEM' && (
           <div>
-            <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700">
+            <div className="px-4 md:px-8 py-6">
               <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">System Health Monitor</h3>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Real-time diagnostics across all platform services and integrations</p>
             </div>
