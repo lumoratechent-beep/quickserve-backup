@@ -5,6 +5,7 @@ import VendorView from './pages/VendorView';
 import AdminView from './pages/AdminView';
 import PosView from './pages/PosView';
 import PosOnlyView from './pages/PosOnlyView'; // Import the new POS Only view
+import PosQrView from './pages/PosQrView'; // Import POS + QR view
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import MarketingPage from './pages/MarketingPage';
@@ -585,7 +586,7 @@ const App: React.FC = () => {
   // Vendor Polling Fallback (skip for pos_only restaurants - they use local cache)
   useEffect(() => {
     let interval: any;
-    // Only poll for VENDOR with non-pos_only access
+    // Only poll for VENDOR with non-pos_only access (pos_and_qr also needs polling for incoming QR orders)
     const shouldPoll = currentRole === 'VENDOR' && 
                        activeVendorRes?.platformAccess !== 'pos_only';
     
@@ -1488,6 +1489,25 @@ const App: React.FC = () => {
             // Check platformAccess to determine which view to show
             activeVendorRes.platformAccess === 'pos_only' ? (
               <PosOnlyView
+                restaurant={activeVendorRes}
+                orders={orders.filter(o => {
+                  if (o.restaurantId !== currentUser?.restaurantId) return false;
+                  const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+                  return o.timestamp > oneDayAgo;
+                })}
+                onUpdateOrder={updateOrderStatus}
+                onPlaceOrder={placePosOrder}
+                onUpdateMenu={handleUpdateMenuItem}
+                onAddMenuItem={handleAddMenuItem}
+                onPermanentDeleteMenuItem={handleDeleteMenuItem}
+                onFetchPaginatedOrders={onFetchPaginatedOrders}
+                onFetchAllFilteredOrders={onFetchAllFilteredOrders}
+                isOnline={isOnline}
+                pendingOfflineOrdersCount={pendingOfflineOrdersCount}
+                cashierName={currentUser?.username}
+              />
+            ) : activeVendorRes.platformAccess === 'pos_and_qr' ? (
+              <PosQrView
                 restaurant={activeVendorRes}
                 orders={orders.filter(o => {
                   if (o.restaurantId !== currentUser?.restaurantId) return false;

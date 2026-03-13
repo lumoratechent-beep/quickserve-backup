@@ -959,7 +959,7 @@ const AdminView: React.FC<Props> = ({
                         <td className="px-8 py-5 text-sm font-bold text-gray-500 dark:text-gray-400 uppercase truncate max-w-[120px]">{res?.location || 'Unassigned'}</td>
                         <td className="px-8 py-5 text-center">
                           <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-300">
-                            {(res?.platformAccess || 'pos_and_kitchen') === 'pos_only' ? 'POS Only' : 'POS & Kitchen'}
+                            {(res?.platformAccess || 'pos_and_kitchen') === 'pos_only' ? 'POS Only' : (res?.platformAccess === 'pos_and_qr' ? 'POS & QR' : 'POS & Kitchen')}
                           </span>
                         </td>
                         <td className="px-8 py-5 text-center">
@@ -1378,6 +1378,17 @@ const AdminView: React.FC<Props> = ({
                      }`}
                    >
                      POS Only
+                   </button>
+                   <button
+                     type="button"
+                     onClick={() => setFormVendor({...formVendor, platformAccess: 'pos_and_qr'})}
+                     className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                       formVendor.platformAccess === 'pos_and_qr' 
+                         ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' 
+                         : 'text-gray-400'
+                     }`}
+                   >
+                     POS & QR
                    </button>
                  </div>
                  <p className="text-[8px] text-gray-400 mt-1 ml-1">

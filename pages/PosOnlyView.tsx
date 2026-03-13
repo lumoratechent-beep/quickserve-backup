@@ -13,7 +13,7 @@ import StandardReport from '../components/StandardReport';
 import {
   ShoppingBag, Search, Download, Calendar,
   Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid,
-  List, Clock, CheckCircle2, BarChart3, Hash, Menu, Settings, BookOpen,
+  List, Clock, CheckCircle, CheckCircle2, BarChart3, Hash, Menu, Settings, BookOpen,
   X, Edit3, Archive, RotateCcw, Upload, Eye,
   AlertCircle, Users, UserPlus, Bluetooth, BluetoothConnected, PrinterIcon,
   Filter, Tag, Layers, Coffee, ChevronDown, ChevronLeft, ChevronRight, RotateCw, Wifi, WifiOff,
@@ -33,6 +33,7 @@ interface Props {
   isOnline?: boolean;
   pendingOfflineOrdersCount?: number;
   cashierName?: string;
+  showQrOrders?: boolean;
 }
 
 interface ReceiptSettings {
@@ -150,13 +151,18 @@ const PosOnlyView: React.FC<Props> = ({
   isOnline = true,
   pendingOfflineOrdersCount = 0,
   cashierName,
+  showQrOrders = false,
 }) => {
   const toLocalDateInputValue = (date: Date) => {
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
     return local.toISOString().split('T')[0];
   };
 
-  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS'>('COUNTER');
+  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS'>('COUNTER');
+  const [qrOrderFilter, setQrOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
+  const [rejectingQrOrderId, setRejectingQrOrderId] = useState<string | null>(null);
+  const [qrRejectionReason, setQrRejectionReason] = useState('Item out of stock');
+  const [qrRejectionNote, setQrRejectionNote] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showMobileCart, setShowMobileCart] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -1616,7 +1622,7 @@ const PosOnlyView: React.FC<Props> = ({
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
   const paginatedReports = reportData?.orders || [];
 
-  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS') => {
+  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS') => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
   };
@@ -2344,7 +2350,7 @@ const PosOnlyView: React.FC<Props> = ({
           {!isSidebarCollapsed && (
             <div>
               <h2 className="font-black dark:text-white text-sm uppercase tracking-tight">{restaurant.name}</h2>
-              <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mt-0.5">POS Only</p>
+              <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mt-0.5">{showQrOrders ? 'POS + QR' : 'POS Only'}</p>
             </div>
           )}
         </div>
@@ -2397,6 +2403,35 @@ const PosOnlyView: React.FC<Props> = ({
           >
             <Settings size={20} /> {!isSidebarCollapsed && 'Settings'}
           </button>
+
+          {showQrOrders && (
+            <button
+              onClick={() => handleTabSelection('QR_ORDERS')}
+              title="QR Orders"
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4'} py-3 rounded-xl font-medium transition-all ${
+                activeTab === 'QR_ORDERS'
+                  ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <QrCode size={20} />
+                {!isSidebarCollapsed && 'QR Orders'}
+              </div>
+              {!isSidebarCollapsed && (() => {
+                const pendingQr = orders.filter(o => o.status === OrderStatus.PENDING).length;
+                return pendingQr > 0 ? (
+                  <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">{pendingQr}</span>
+                ) : null;
+              })()}
+              {isSidebarCollapsed && (() => {
+                const pendingQr = orders.filter(o => o.status === OrderStatus.PENDING).length;
+                return pendingQr > 0 ? (
+                  <span className="absolute top-1 right-1 bg-orange-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center">{pendingQr}</span>
+                ) : null;
+              })()}
+            </button>
+          )}
         </nav>
 
         {/* Sidebar Collapse Toggle */}
@@ -2479,6 +2514,7 @@ const PosOnlyView: React.FC<Props> = ({
                 {activeTab === 'COUNTER' ? 'POS Counter' : 
                  activeTab === 'MENU_EDITOR' ? 'Menu Editor' : 
                  activeTab === 'REPORTS' ? 'Sales Report' : 
+                 activeTab === 'QR_ORDERS' ? 'QR Orders' :
                  'Settings'}
               </h1>
             </div>
@@ -3681,6 +3717,143 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
           </div>
         )}
+
+          {/* QR Orders Tab */}
+          {activeTab === 'QR_ORDERS' && showQrOrders && (
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+              <div className="max-w-4xl mx-auto">
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                  <div>
+                    <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter">QR Orders</h1>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1 uppercase tracking-widest">Manage incoming orders from QR scan customers.</p>
+                  </div>
+                  <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm overflow-x-auto hide-scrollbar">
+                    <button onClick={() => setQrOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Active</button>
+                    <button onClick={() => setQrOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Served</button>
+                    <button onClick={() => setQrOrderFilter(OrderStatus.COMPLETED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.COMPLETED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Paid</button>
+                    <button onClick={() => setQrOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Cancelled</button>
+                    <button onClick={() => setQrOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>All</button>
+                  </div>
+                </div>
+
+                {(() => {
+                  const filteredQrOrders = orders.filter(o => {
+                    if (qrOrderFilter === 'ALL') return true;
+                    if (qrOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
+                    return o.status === qrOrderFilter;
+                  });
+
+                  if (filteredQrOrders.length === 0) {
+                    return (
+                      <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
+                        <div className="w-16 h-16 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                          <QrCode size={24} />
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white uppercase tracking-tighter">No QR Orders</h3>
+                        <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">Waiting for customers to scan and order...</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-4">
+                      {filteredQrOrders.map(order => (
+                        <div key={order.id} className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 transition-all hover:border-orange-200">
+                          <div className="flex flex-col md:flex-row md:items-start gap-6">
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                                <div className="flex items-center gap-3 flex-wrap">
+                                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">#{order.id}</span>
+                                  <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg">
+                                    <QrCode size={12} className="text-orange-500" />
+                                    <span className="text-xs font-black">Table {order.tableNumber}</span>
+                                  </div>
+                                  <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${
+                                    order.status === OrderStatus.PENDING ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400' :
+                                    order.status === OrderStatus.ONGOING ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' :
+                                    order.status === OrderStatus.SERVED ? 'bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400' :
+                                    order.status === OrderStatus.COMPLETED ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400' :
+                                    'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                                  }`}>{order.status}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                  <Clock size={14} />
+                                  <span>{new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2 mb-4">
+                                {order.items.map((item, idx) => (
+                                  <div key={idx} className="flex justify-between items-start text-sm border-l-2 border-gray-100 dark:border-gray-700 pl-3">
+                                    <div>
+                                      <p className="font-bold text-gray-900 dark:text-white">x{item.quantity} {item.name}</p>
+                                      <div className="flex flex-wrap gap-1 mt-0.5">
+                                        {item.selectedSize && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase">Size: {item.selectedSize}</span>}
+                                        {item.selectedTemp && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${item.selectedTemp === 'Hot' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>{item.selectedTemp}</span>}
+                                        {item.selectedOtherVariant && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase">{item.selectedOtherVariant}</span>}
+                                      </div>
+                                    </div>
+                                    <span className="text-gray-500 dark:text-gray-400 font-bold text-xs">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {order.remark && (
+                                <div className="mb-4 p-3 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-lg">
+                                  <p className="text-[9px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest mb-1">Remark</p>
+                                  <p className="text-xs text-gray-700 dark:text-gray-300 italic">{order.remark}</p>
+                                </div>
+                              )}
+
+                              <div className="pt-3 border-t dark:border-gray-700 flex justify-between items-center">
+                                <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Total</span>
+                                <span className="text-lg font-black text-orange-500">{currencySymbol}{order.total.toFixed(2)}</span>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-row md:flex-col gap-2 shrink-0">
+                              {order.status === OrderStatus.PENDING && (
+                                <>
+                                  <button
+                                    onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)}
+                                    className="flex-1 md:flex-none px-4 py-2 bg-green-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2"
+                                  >
+                                    <CheckCircle2 size={14} /> Accept
+                                  </button>
+                                  <button
+                                    onClick={() => setRejectingQrOrderId(order.id)}
+                                    className="flex-1 md:flex-none px-4 py-2 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-red-200 dark:hover:bg-red-900/40 transition-all flex items-center justify-center gap-2"
+                                  >
+                                    <X size={14} /> Reject
+                                  </button>
+                                </>
+                              )}
+                              {order.status === OrderStatus.ONGOING && (
+                                <button
+                                  onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)}
+                                  className="flex-1 md:flex-none px-4 py-2 bg-purple-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-purple-600 transition-all flex items-center justify-center gap-2"
+                                >
+                                  <CheckCircle size={14} /> Mark Served
+                                </button>
+                              )}
+                              {order.status === OrderStatus.SERVED && (
+                                <button
+                                  onClick={() => onUpdateOrder(order.id, OrderStatus.COMPLETED)}
+                                  className="flex-1 md:flex-none px-4 py-2 bg-green-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2"
+                                >
+                                  <CheckCircle2 size={14} /> Mark Paid
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
         
         {/* Right Sidebar - Order Summary (Desktop) */}
         {activeTab === 'COUNTER' && (
@@ -4224,6 +4397,63 @@ const PosOnlyView: React.FC<Props> = ({
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Order Rejection Modal */}
+      {rejectingQrOrderId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in fade-in duration-200">
+            <h3 className="text-lg font-black dark:text-white uppercase tracking-tighter mb-4">Reject QR Order</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Reason</label>
+                <div className="space-y-2">
+                  {['Item out of stock', 'Kitchen too busy', 'Restaurant closed early', 'Other'].map(reason => (
+                    <button
+                      key={reason}
+                      onClick={() => setQrRejectionReason(reason)}
+                      className={`w-full text-left px-4 py-3 rounded-xl border font-bold text-sm transition-all ${
+                        qrRejectionReason === reason
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                      }`}
+                    >
+                      {reason}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Note (optional)</label>
+                <textarea
+                  value={qrRejectionNote}
+                  onChange={e => setQrRejectionNote(e.target.value)}
+                  rows={2}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none text-sm font-medium dark:text-white resize-none"
+                  placeholder="Add a note..."
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => { setRejectingQrOrderId(null); setQrRejectionNote(''); }}
+                  className="flex-1 py-3 rounded-xl border dark:border-gray-600 font-black text-[10px] uppercase tracking-widest text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    onUpdateOrder(rejectingQrOrderId, OrderStatus.CANCELLED);
+                    setRejectingQrOrderId(null);
+                    setQrRejectionNote('');
+                  }}
+                  className="flex-1 py-3 rounded-xl bg-red-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all"
+                >
+                  Confirm Reject
+                </button>
+              </div>
             </div>
           </div>
         </div>

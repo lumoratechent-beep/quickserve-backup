@@ -3,7 +3,7 @@
 export type Role = 'CUSTOMER' | 'VENDOR' | 'ADMIN' | 'CASHIER';
 
 // Platform access type
-export type PlatformAccess = 'pos_and_kitchen' | 'pos_only';
+export type PlatformAccess = 'pos_and_kitchen' | 'pos_only' | 'pos_and_qr';
 
 export enum OrderStatus {
   PENDING = 'PENDING',
