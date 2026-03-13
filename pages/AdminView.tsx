@@ -480,7 +480,8 @@ const AdminView: React.FC<Props> = ({
     email: '',
     phone: '',
     logo: '',
-    platformAccess: 'pos_and_kitchen' as PlatformAccess
+    platformAccess: 'pos_and_kitchen' as PlatformAccess,
+    qrDirect: false
   });
 
   const vendorFileInputRef = useRef<HTMLInputElement>(null);
@@ -665,7 +666,8 @@ const AdminView: React.FC<Props> = ({
         email: user.email || '',
         phone: user.phone || '',
         logo: res.logo,
-        platformAccess: res.platformAccess || 'pos_and_kitchen'
+        platformAccess: res.platformAccess || 'pos_and_kitchen',
+        qrDirect: res.qrDirect || false
       });
       setShowPassword(false);
       setIsModalOpen(true);
@@ -682,7 +684,8 @@ const AdminView: React.FC<Props> = ({
       email: '', 
       phone: '', 
       logo: '',
-      platformAccess: 'pos_and_kitchen'
+      platformAccess: 'pos_and_kitchen',
+      qrDirect: false
     });
     setShowPassword(false);
     setIsModalOpen(true);
@@ -728,7 +731,8 @@ const AdminView: React.FC<Props> = ({
         location: formVendor.location, 
         menu: editingVendor?.res.menu || [],
         // Include platformAccess in the restaurant object
-        platformAccess: formVendor.platformAccess as PlatformAccess
+        platformAccess: formVendor.platformAccess as PlatformAccess,
+        qrDirect: formVendor.qrDirect
       };
       
       if (editingVendor) {
@@ -1394,6 +1398,24 @@ const AdminView: React.FC<Props> = ({
                  <p className="text-[8px] text-gray-400 mt-1 ml-1">
                    Determines what features this restaurant's staff can access
                  </p>
+               </div>
+
+               {/* QR Mode */}
+               <div className="md:col-span-2">
+                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">QR Mode</label>
+                 <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-xl border dark:border-gray-600">
+                   <div>
+                     <p className="text-xs font-black dark:text-white">Direct Restaurant QR</p>
+                     <p className="text-[9px] text-gray-400 mt-0.5">QR codes link directly to this restaurant's menu. Disable to link to hub location.</p>
+                   </div>
+                   <button
+                     type="button"
+                     onClick={() => setFormVendor({...formVendor, qrDirect: !formVendor.qrDirect})}
+                     className={`w-11 h-6 rounded-full transition-all relative flex-shrink-0 ml-4 ${formVendor.qrDirect ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                   >
+                     <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${formVendor.qrDirect ? 'left-6' : 'left-1'}`} />
+                   </button>
+                 </div>
                </div>
 
                {/* Password (7) */}

@@ -34,7 +34,6 @@ interface Props {
   pendingOfflineOrdersCount?: number;
   cashierName?: string;
   showQrOrders?: boolean;
-  hubType?: 'SINGLE' | 'MULTI';
 }
 
 interface ReceiptSettings {
@@ -153,7 +152,6 @@ const PosOnlyView: React.FC<Props> = ({
   pendingOfflineOrdersCount = 0,
   cashierName,
   showQrOrders = false,
-  hubType = 'MULTI',
 }) => {
   const toLocalDateInputValue = (date: Date) => {
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -2381,7 +2379,7 @@ const PosOnlyView: React.FC<Props> = ({
     const tableNames = Array.from({ length: count }, (_, i) => `${qrGenTablePrefix}${startNum + i}`);
 
     const buildQrUrl = (tableName: string) =>
-      hubType === 'SINGLE'
+      restaurant.qrDirect
         ? `${baseUrl}/?restaurant=${encodeURIComponent(restaurant.id)}&table=${encodeURIComponent(tableName)}`
         : `${baseUrl}/?loc=${encodeURIComponent(qrGenLocation || restaurant.location)}&table=${encodeURIComponent(tableName)}`;
 
@@ -2419,7 +2417,7 @@ const PosOnlyView: React.FC<Props> = ({
         </div>
       `).join('');
       printWindow.document.write(`
-        <html><head><title>QR Codes — ${qrGenLocation || restaurant.location}</title>
+        <html><head><title>QR Codes — ${qrGenLocation || (restaurant.qrDirect ? restaurant.name : restaurant.location)}</title>
         <style>@media print{body{margin:0}}</style></head>
         <body style="padding:16px;">${qrItems}</body></html>
       `);
@@ -2432,15 +2430,15 @@ const PosOnlyView: React.FC<Props> = ({
         {/* Config */}
         <div className="space-y-3">
           <div>
-            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Location Name</label>
+            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">{restaurant.qrDirect ? 'Restaurant Name (for labels)' : 'Location Name'}</label>
             <input
               type="text"
-              value={qrGenLocation || restaurant.location}
+              value={qrGenLocation || (restaurant.qrDirect ? restaurant.name : restaurant.location)}
               onChange={e => setQrGenLocation(e.target.value)}
               className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-              placeholder={restaurant.location || 'e.g. Main Hall'}
+              placeholder={restaurant.qrDirect ? restaurant.name : (restaurant.location || 'e.g. Main Hall')}
             />
-            <p className="text-[9px] text-gray-400 mt-1 ml-1">This maps to the <code className="font-mono">?loc=</code> parameter in the QR URL</p>
+            <p className="text-[9px] text-gray-400 mt-1 ml-1">{restaurant.qrDirect ? 'Used as a label on printed QR codes' : <span>This maps to the <code className="font-mono">?loc=</code> parameter in the QR URL</span>}</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

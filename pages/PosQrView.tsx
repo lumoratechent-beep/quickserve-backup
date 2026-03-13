@@ -18,7 +18,6 @@ interface Props {
   isOnline?: boolean;
   pendingOfflineOrdersCount?: number;
   cashierName?: string;
-  hubType?: 'SINGLE' | 'MULTI';
 }
 
 const PosQrView: React.FC<Props> = (props) => {

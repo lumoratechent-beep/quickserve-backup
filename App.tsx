@@ -267,6 +267,7 @@ const App: React.FC = () => {
         created_at: res.created_at,
         isOnline: res.is_online === true || res.is_online === null,
         platformAccess: (res.platform_access as PlatformAccess) || 'pos_and_kitchen',
+        qrDirect: res.qr_direct ?? false,
         settings: (() => {
           const localSettings = localStorage.getItem(`qs_settings_${res.id}`);
           const dbSettings = res.settings ? (typeof res.settings === 'string' ? JSON.parse(res.settings) : res.settings) : null;
@@ -893,7 +894,8 @@ const App: React.FC = () => {
         location_name: restaurant.location, 
         is_online: true,
         settings: {},
-        platform_access: restaurant.platformAccess || 'pos_and_kitchen'
+        platform_access: restaurant.platformAccess || 'pos_and_kitchen',
+        qr_direct: restaurant.qrDirect ?? false
       });
       
       if (resError) { 
@@ -970,7 +972,8 @@ const App: React.FC = () => {
       name: restaurant.name, 
       logo: restaurant.logo, 
       location_name: restaurant.location,
-      platform_access: restaurant.platformAccess
+      platform_access: restaurant.platformAccess,
+      qr_direct: restaurant.qrDirect ?? false
     };
     if (user.isActive === false) {
       resUpdate.is_online = false;
@@ -1563,7 +1566,6 @@ const App: React.FC = () => {
                 isOnline={isOnline}
                 pendingOfflineOrdersCount={pendingOfflineOrdersCount}
                 cashierName={currentUser?.username}
-                hubType={locations.find(l => l.name === activeVendorRes.location)?.type || 'MULTI'}
               />
             ) : activeVendorRes.platformAccess === 'pos_and_qr' ? (
               <PosQrView
@@ -1583,7 +1585,6 @@ const App: React.FC = () => {
                 isOnline={isOnline}
                 pendingOfflineOrdersCount={pendingOfflineOrdersCount}
                 cashierName={currentUser?.username}
-                hubType={locations.find(l => l.name === activeVendorRes.location)?.type || 'MULTI'}
               />
             ) : (
               <VendorView 
@@ -1602,7 +1603,6 @@ const App: React.FC = () => {
                 onFetchPaginatedOrders={onFetchPaginatedOrders}
                 onFetchAllFilteredOrders={onFetchAllFilteredOrders}
                 onSwitchToPos={() => setView('POS')}
-                hubType={locations.find(l => l.name === activeVendorRes.location)?.type || 'MULTI'}
               />
             )
           ) : (

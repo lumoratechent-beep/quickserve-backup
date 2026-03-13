@@ -28,7 +28,6 @@ interface Props {
   onFetchPaginatedOrders?: (filters: ReportFilters, page: number, pageSize: number) => Promise<ReportResponse>;
   onFetchAllFilteredOrders?: (filters: ReportFilters) => Promise<Order[]>;
   onSwitchToPos?: () => void;
-  hubType?: 'SINGLE' | 'MULTI';
 }
 
 interface OrderSettings {
@@ -68,8 +67,7 @@ const VendorView: React.FC<Props> = ({
   lastSyncTime,
   onFetchPaginatedOrders,
   onFetchAllFilteredOrders,
-  onSwitchToPos,
-  hubType = 'MULTI'
+  onSwitchToPos
 }) => {
   const [activeTab, setActiveTab] = useState<'ORDERS' | 'MENU' | 'REPORTS' | 'QR' | 'SETTINGS'>('ORDERS');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -700,7 +698,7 @@ const VendorView: React.FC<Props> = ({
 
   const getQrUrl = (hubName: string, table: string) => {
     const baseUrl = window.location.origin + window.location.pathname;
-    if (hubType === 'SINGLE') {
+    if (restaurant.qrDirect) {
       return `${baseUrl}?restaurant=${encodeURIComponent(restaurant.id)}&table=${encodeURIComponent(table)}`;
     }
     return `${baseUrl}?loc=${encodeURIComponent(hubName)}&table=${table}`;
@@ -1006,7 +1004,7 @@ const VendorView: React.FC<Props> = ({
             <div className="max-w-4xl mx-auto no-print">
               <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Table QR Codes</h1>
               <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">
-                {hubType === 'SINGLE'
+                {restaurant.qrDirect
                   ? `Direct menu QR codes for ${restaurant.name}.`
                   : `Generate ordering labels for your tables at ${restaurant.location}.`}
               </p>
