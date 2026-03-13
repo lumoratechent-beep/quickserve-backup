@@ -136,7 +136,7 @@ interface TaxEntry {
   applyToItems: boolean;
 }
 
-type SettingsPanel = null | 'features' | 'printer' | 'receipt' | 'payment' | 'taxes' | 'staff' | 'ux';
+type SettingsPanel = null | 'features' | 'printer' | 'receipt' | 'payment' | 'taxes' | 'staff' | 'ux' | 'qr_generator';
 
 const PosOnlyView: React.FC<Props> = ({
   restaurant,
@@ -315,6 +315,13 @@ const PosOnlyView: React.FC<Props> = ({
   const [newTaxName, setNewTaxName] = useState('');
   const [newTaxPercentage, setNewTaxPercentage] = useState('');
   const [newTaxApplyToItems, setNewTaxApplyToItems] = useState(false);
+
+  // QR Generator state
+  const [qrGenLocation, setQrGenLocation] = useState<string>(() => '');
+  const [qrGenTableCount, setQrGenTableCount] = useState<string>('5');
+  const [qrGenTablePrefix, setQrGenTablePrefix] = useState<string>('Table ');
+  const [qrGenStartNum, setQrGenStartNum] = useState<string>('1');
+  const [qrGenPreviewTable, setQrGenPreviewTable] = useState<string>('');
 
   // Saved printers list
   const [savedPrinters, setSavedPrinters] = useState<SavedPrinter[]>(() => {
@@ -2306,6 +2313,184 @@ const PosOnlyView: React.FC<Props> = ({
     </div>
   );
 
+  const renderQrGeneratorContent = () => {
+    const baseUrl = typeof window !== 'undefined'
+      ? `${window.location.protocol}//${window.location.host}`
+      : '';
+
+    const startNum = parseInt(qrGenStartNum, 10) || 1;
+    const count = Math.min(Math.max(parseInt(qrGenTableCount, 10) || 1, 1), 50);
+    const tableNames = Array.from({ length: count }, (_, i) => `${qrGenTablePrefix}${startNum + i}`);
+
+    const buildQrUrl = (tableName: string) =>
+      `${baseUrl}/?loc=${encodeURIComponent(qrGenLocation || restaurant.location)}&table=${encodeURIComponent(tableName)}`;
+
+    const buildQrImageUrl = (tableName: string) => {
+      const data = encodeURIComponent(buildQrUrl(tableName));
+      return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${data}&margin=10`;
+    };
+
+    const handleDownloadQr = async (tableName: string) => {
+      const imgUrl = buildQrImageUrl(tableName);
+      try {
+        const response = await fetch(imgUrl);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `QR_${qrGenLocation || restaurant.location}_${tableName}.png`.replace(/\s+/g, '_');
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch {
+        toast('Failed to download QR code. Try right-clicking the image and saving it.', 'warning');
+      }
+    };
+
+    const handlePrintQrs = () => {
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) { toast('Please allow popups to print QR codes.', 'warning'); return; }
+      const qrItems = tableNames.map(t => `
+        <div style="display:inline-block;margin:12px;text-align:center;border:1px solid #e5e7eb;border-radius:12px;padding:16px;break-inside:avoid;">
+          <img src="${buildQrImageUrl(t)}" style="width:160px;height:160px;" />
+          <div style="margin-top:8px;font-weight:900;font-size:14px;font-family:sans-serif;text-transform:uppercase;">${t}</div>
+          <div style="font-size:9px;color:#9ca3af;font-family:monospace;margin-top:4px;word-break:break-all;max-width:160px;">${buildQrUrl(t)}</div>
+        </div>
+      `).join('');
+      printWindow.document.write(`
+        <html><head><title>QR Codes — ${qrGenLocation || restaurant.location}</title>
+        <style>@media print{body{margin:0}}</style></head>
+        <body style="padding:16px;">${qrItems}</body></html>
+      `);
+      printWindow.document.close();
+      setTimeout(() => { printWindow.print(); }, 500);
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* Config */}
+        <div className="space-y-3">
+          <div>
+            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Location Name</label>
+            <input
+              type="text"
+              value={qrGenLocation || restaurant.location}
+              onChange={e => setQrGenLocation(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+              placeholder={restaurant.location || 'e.g. Main Hall'}
+            />
+            <p className="text-[9px] text-gray-400 mt-1 ml-1">This maps to the <code className="font-mono">?loc=</code> parameter in the QR URL</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Table Prefix</label>
+              <input
+                type="text"
+                value={qrGenTablePrefix}
+                onChange={e => setQrGenTablePrefix(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                placeholder="Table "
+              />
+            </div>
+            <div>
+              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Start Number</label>
+              <input
+                type="number"
+                value={qrGenStartNum}
+                onChange={e => setQrGenStartNum(e.target.value)}
+                min="1"
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                placeholder="1"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Number of Tables (max 50)</label>
+            <input
+              type="number"
+              value={qrGenTableCount}
+              onChange={e => setQrGenTableCount(e.target.value)}
+              min="1"
+              max="50"
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+              placeholder="5"
+            />
+          </div>
+        </div>
+
+        {/* Preview single QR */}
+        <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-3">
+          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Single QR Preview</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={qrGenPreviewTable}
+              onChange={e => setQrGenPreviewTable(e.target.value)}
+              className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+              placeholder={tableNames[0] || 'Table 1'}
+            />
+          </div>
+          {(() => {
+            const t = qrGenPreviewTable || tableNames[0];
+            if (!t) return null;
+            return (
+              <div className="flex flex-col items-center gap-3 py-2">
+                <img
+                  src={buildQrImageUrl(t)}
+                  alt={`QR for ${t}`}
+                  className="w-36 h-36 rounded-lg border dark:border-gray-600"
+                />
+                <p className="text-[10px] font-black dark:text-white uppercase tracking-widest">{t}</p>
+                <p className="text-[9px] text-gray-400 font-mono text-center break-all max-w-xs">{buildQrUrl(t)}</p>
+                <button
+                  onClick={() => handleDownloadQr(t)}
+                  className="px-4 py-2 bg-orange-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center gap-2"
+                >
+                  <Download size={14} /> Download
+                </button>
+              </div>
+            );
+          })()}
+        </div>
+
+        {/* Bulk generate */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{count} Table QR Codes</p>
+            <button
+              onClick={handlePrintQrs}
+              className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-500 hover:text-white dark:hover:bg-orange-500 dark:hover:text-white transition-all flex items-center gap-2"
+            >
+              <Printer size={14} /> Print All
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-3 max-h-72 overflow-y-auto pr-1">
+            {tableNames.map(t => (
+              <div key={t} className="flex flex-col items-center gap-1 p-2 bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600">
+                <img
+                  src={buildQrImageUrl(t)}
+                  alt={`QR ${t}`}
+                  className="w-full aspect-square rounded"
+                />
+                <p className="text-[9px] font-black dark:text-white uppercase tracking-tighter text-center line-clamp-1">{t}</p>
+                <button
+                  onClick={() => handleDownloadQr(t)}
+                  className="p-1 text-gray-400 hover:text-orange-500 transition-colors"
+                  title={`Download QR for ${t}`}
+                >
+                  <Download size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-900 overflow-hidden flex-col">
       {/* Offline Status Banner */}
@@ -3298,6 +3483,32 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                     )}
                   </div>
+
+                  {/* QR Generator Accordion */}
+                  {showQrOrders && (
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                      <button
+                        onClick={() => setSettingsPanel(settingsPanel === 'qr_generator' ? null : 'qr_generator')}
+                        className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
+                          <QrCode size={18} className="text-violet-500" />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className="text-xs font-black dark:text-white uppercase tracking-wide">QR Generator</p>
+                          <p className="text-[10px] text-gray-400">Generate table QR codes</p>
+                        </div>
+                        <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'qr_generator' ? 'rotate-180' : ''}`} />
+                      </button>
+                      {settingsPanel === 'qr_generator' && (
+                        <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                          <div className="max-w-lg">
+                            {renderQrGeneratorContent()}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="hidden lg:flex gap-6 min-h-[500px]">
                   {/* Left Sidebar */}
@@ -3470,6 +3681,32 @@ const PosOnlyView: React.FC<Props> = ({
                           <p className="text-[10px] text-gray-400">{userFont} · {CURRENCY_OPTIONS.find(c => c.code === userCurrency)?.label}</p>
                         </div>
                       </button>
+
+                      {/* QR Generator Nav Item (only for POS+QR) */}
+                      {showQrOrders && (
+                        <button
+                          onClick={() => setSettingsPanel('qr_generator')}
+                          className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                            settingsPanel === 'qr_generator'
+                              ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                              : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                          }`}
+                        >
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                            settingsPanel === 'qr_generator'
+                              ? 'bg-violet-100 dark:bg-violet-900/30'
+                              : 'bg-gray-100 dark:bg-gray-700'
+                          }`}>
+                            <QrCode size={16} className={settingsPanel === 'qr_generator' ? 'text-violet-500' : 'text-gray-400'} />
+                          </div>
+                          <div className="flex-1 text-left">
+                            <p className={`text-xs font-black uppercase tracking-wide ${
+                              settingsPanel === 'qr_generator' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'
+                            }`}>QR Generator</p>
+                            <p className="text-[10px] text-gray-400">Generate table QR codes</p>
+                          </div>
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -3484,6 +3721,7 @@ const PosOnlyView: React.FC<Props> = ({
                         {settingsPanel === 'taxes' && renderTaxesContent()}
                         {settingsPanel === 'staff' && renderStaffContent()}
                         {settingsPanel === 'ux' && renderUXContent()}
+                        {settingsPanel === 'qr_generator' && renderQrGeneratorContent()}
                       </div>
                     </div>
                   </div>
@@ -3988,21 +4226,52 @@ const PosOnlyView: React.FC<Props> = ({
                   )}
                 </div>
                 <div className="p-6 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-4">
-                  <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
-                    <span className="uppercase text-xs text-gray-400 tracking-widest">Total</span>
-                    <span className="text-orange-500">{currencySymbol}{(selectedQrOrderForPayment?.total ?? 0).toFixed(2)}</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
+                      <span>Subtotal</span>
+                      <span>{currencySymbol}{(selectedQrOrderForPayment?.total ?? 0).toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
+                      <span className="uppercase">Total</span>
+                      <span className="text-orange-500">{currencySymbol}{(selectedQrOrderForPayment?.total ?? 0).toFixed(2)}</span>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      if (!selectedQrOrderForPayment) return;
-                      onUpdateOrder(selectedQrOrderForPayment.id, OrderStatus.COMPLETED);
-                      setSelectedQrOrderForPayment(null);
-                    }}
-                    disabled={!selectedQrOrderForPayment}
-                    className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
-                  >
-                    <CreditCard size={16} /> Complete Payment
-                  </button>
+
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Table</label>
+                        <input
+                          type="text"
+                          value={selectedQrOrderForPayment?.tableNumber ?? ''}
+                          readOnly
+                          className="w-full p-2 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded-xl text-[10px] font-black dark:text-white cursor-not-allowed opacity-80"
+                        />
+                      </div>
+                      <div className="flex-[2]">
+                        <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Remark</label>
+                        <input
+                          type="text"
+                          value={selectedQrOrderForPayment?.remark ?? ''}
+                          readOnly
+                          className="w-full p-2 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded-xl text-[10px] font-black dark:text-white cursor-not-allowed opacity-80"
+                          placeholder="No remark"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        if (!selectedQrOrderForPayment) return;
+                        onUpdateOrder(selectedQrOrderForPayment.id, OrderStatus.COMPLETED);
+                        setSelectedQrOrderForPayment(null);
+                      }}
+                      disabled={!selectedQrOrderForPayment}
+                      className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                    >
+                      <CreditCard size={16} /> Complete Payment
+                    </button>
+                  </div>
                 </div>
               </>
             ) : (
