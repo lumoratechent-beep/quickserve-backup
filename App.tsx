@@ -314,7 +314,7 @@ const App: React.FC = () => {
       setRestaurants(formatted);
       persistCache('qs_cache_restaurants', formatted);
     }
-  }, [currentRole, sessionLocation, sessionRestaurantId]);
+  }, [currentRole, sessionLocation, sessionRestaurantId, sessionRestaurantSlug]);
 
   const fetchOrders = useCallback(async () => {
     if (isFetchingRef.current || !currentRole) return;
