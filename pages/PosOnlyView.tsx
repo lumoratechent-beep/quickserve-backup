@@ -2543,36 +2543,14 @@ const PosOnlyView: React.FC<Props> = ({
           {/* Counter Tab - Same as PosView */}
           {activeTab === 'COUNTER' && (
             <>
-              {/* Mode toggle bar — only in POS+QR mode */}
-              {showQrOrders && (
-                <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 lg:px-6 py-2 flex items-center gap-2">
-                  <button
-                    onClick={() => { setCounterMode('COUNTER_ORDER'); setSelectedQrOrderForPayment(null); }}
-                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                      counterMode === 'COUNTER_ORDER' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
-                  >Counter Order</button>
-                  <button
-                    onClick={() => { setCounterMode('QR_ORDER'); setSelectedQrOrderForPayment(null); }}
-                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                      counterMode === 'QR_ORDER' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
-                  >QR Order</button>
-                </div>
-              )}
-
               {/* QR Order selection panel */}
               {showQrOrders && counterMode === 'QR_ORDER' ? (
                 <div className="flex-1 overflow-y-auto p-4">
-                  <div className="mb-4">
-                    <h2 className="text-sm font-black dark:text-white uppercase tracking-tighter">Select Served QR Order</h2>
-                    <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-0.5">Tap an order to load it for payment.</p>
-                  </div>
                   {(() => {
                     const servedOrders = orders.filter(o => o.status === OrderStatus.SERVED);
                     if (servedOrders.length === 0) {
                       return (
-                        <div className="flex flex-col items-center justify-center py-20 text-center opacity-30">
+                        <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
                           <QrCode size={48} className="mb-4" />
                           <p className="text-[10px] font-black uppercase tracking-widest">No served orders waiting</p>
                         </div>
