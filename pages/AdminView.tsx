@@ -1322,7 +1322,7 @@ const AdminView: React.FC<Props> = ({
                </div>
 
                {/* QR Slug */}
-               {formVendor.location === 'QSH' && (
+               {formVendor.location === 'QuickServe Hub' && (
                  <div className="md:col-span-2">
                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">QR Short Code <span className="text-orange-500">*</span></label>
                    <input
