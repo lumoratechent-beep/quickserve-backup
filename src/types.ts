@@ -1,5 +1,7 @@
 // src/types.ts
 
+export const QS_DEFAULT_HUB = 'QuickServe Hub';
+
 export type Role = 'CUSTOMER' | 'VENDOR' | 'ADMIN' | 'CASHIER';
 
 // Platform access type
@@ -77,7 +79,6 @@ export interface Restaurant {
   categories?: CategoryData[];
   modifiers?: ModifierData[];
   platformAccess?: PlatformAccess; // Added for restaurant-based access control
-  qrDirect?: boolean; // When true, QR points directly to this restaurant's menu (bypasses hub)
 }
 
 export interface SelectedAddOn {

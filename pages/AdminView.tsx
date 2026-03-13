@@ -480,8 +480,7 @@ const AdminView: React.FC<Props> = ({
     email: '',
     phone: '',
     logo: '',
-    platformAccess: 'pos_and_kitchen' as PlatformAccess,
-    qrDirect: false
+    platformAccess: 'pos_and_kitchen' as PlatformAccess
   });
 
   const vendorFileInputRef = useRef<HTMLInputElement>(null);
@@ -666,8 +665,7 @@ const AdminView: React.FC<Props> = ({
         email: user.email || '',
         phone: user.phone || '',
         logo: res.logo,
-        platformAccess: res.platformAccess || 'pos_and_kitchen',
-        qrDirect: res.qrDirect || false
+        platformAccess: res.platformAccess || 'pos_and_kitchen'
       });
       setShowPassword(false);
       setIsModalOpen(true);
@@ -685,7 +683,6 @@ const AdminView: React.FC<Props> = ({
       phone: '', 
       logo: '',
       platformAccess: 'pos_and_kitchen',
-      qrDirect: false
     });
     setShowPassword(false);
     setIsModalOpen(true);
@@ -731,8 +728,7 @@ const AdminView: React.FC<Props> = ({
         location: formVendor.location, 
         menu: editingVendor?.res.menu || [],
         // Include platformAccess in the restaurant object
-        platformAccess: formVendor.platformAccess as PlatformAccess,
-        qrDirect: formVendor.qrDirect
+        platformAccess: formVendor.platformAccess as PlatformAccess
       };
       
       if (editingVendor) {
@@ -1400,24 +1396,6 @@ const AdminView: React.FC<Props> = ({
                  </p>
                </div>
 
-               {/* QR Mode */}
-               <div className="md:col-span-2">
-                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">QR Mode</label>
-                 <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-xl border dark:border-gray-600">
-                   <div>
-                     <p className="text-xs font-black dark:text-white">Direct Restaurant QR</p>
-                     <p className="text-[9px] text-gray-400 mt-0.5">QR codes link directly to this restaurant's menu. Disable to link to hub location.</p>
-                   </div>
-                   <button
-                     type="button"
-                     onClick={() => setFormVendor({...formVendor, qrDirect: !formVendor.qrDirect})}
-                     className={`w-11 h-6 rounded-full transition-all relative flex-shrink-0 ml-4 ${formVendor.qrDirect ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                   >
-                     <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${formVendor.qrDirect ? 'left-6' : 'left-1'}`} />
-                   </button>
-                 </div>
-               </div>
-
                {/* Password (7) */}
                 <div className="md:col-span-2">
                   <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Secret Key (Password)</label>
@@ -1468,14 +1446,6 @@ const AdminView: React.FC<Props> = ({
                       <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Short Code</label>
                       <input required type="text" maxLength={3} placeholder="e.g. SF" className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm uppercase" value={formArea.code} onChange={e => setFormArea({...formArea, code: e.target.value.toUpperCase()})} />
                    </div>
-                   <div>
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Hub Type</label>
-                      <div className="flex bg-gray-50 dark:bg-gray-700 p-1 rounded-xl">
-                        <button type="button" onClick={() => setFormArea({...formArea, type: 'MULTI'})} className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${formArea.type === 'MULTI' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}>Multi</button>
-                        <button type="button" onClick={() => setFormArea({...formArea, type: 'SINGLE'})} className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${formArea.type === 'SINGLE' ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' : 'text-gray-400'}`}>Single</button>
-                      </div>
-                   </div>
-                </div>
                 <div className="pt-4 flex gap-4">
                    {editingArea && (
                      <button type="button" onClick={async () => { if(confirm('Delete Hub?')) { setIsSubmittingArea(true); try { await onDeleteLocation(editingArea.id); setIsAreaModalOpen(false); } catch (error) { console.error('Error deleting hub:', error); } finally { setIsSubmittingArea(false); } } }} disabled={isSubmittingArea} className="p-3 text-red-500 bg-red-50 dark:bg-red-900/10 rounded-xl hover:bg-red-500 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"><Trash2 size={24} /></button>
