@@ -67,6 +67,15 @@ const App: React.FC = () => {
 
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
   
+  // --- STATUS PRIORITY (prevents stale realtime events from regressing order status) ---
+  const STATUS_PRIORITY: Record<string, number> = {
+    [OrderStatus.PENDING]: 0,
+    [OrderStatus.ONGOING]: 1,
+    [OrderStatus.SERVED]: 2,
+    [OrderStatus.COMPLETED]: 3,
+    [OrderStatus.CANCELLED]: 3,
+  };
+
   // --- TRANSACTION LOCKS ---
   const lockedOrderIds = useRef<Set<string>>(new Set());
   const isStatusLocked = useRef<boolean>(false);
@@ -355,9 +364,27 @@ const App: React.FC = () => {
               amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
               changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined
             };
-            if (lockedOrderIds.current.has(o.id)) {
-              const localOrder = prev.find(p => p.id === o.id);
-              if (localOrder) mappedOrder.status = localOrder.status;
+            const localOrder = prev.find(p => p.id === o.id);
+            if (localOrder) {
+              // If locked, keep local status entirely
+              if (lockedOrderIds.current.has(o.id)) {
+                mappedOrder.status = localOrder.status;
+                mappedOrder.paymentMethod = localOrder.paymentMethod;
+                mappedOrder.cashierName = localOrder.cashierName;
+                mappedOrder.amountReceived = localOrder.amountReceived;
+                mappedOrder.changeAmount = localOrder.changeAmount;
+              } else {
+                // Even without a lock, never regress status
+                const localPriority = STATUS_PRIORITY[localOrder.status] ?? 0;
+                const dbPriority = STATUS_PRIORITY[mappedOrder.status] ?? 0;
+                if (dbPriority < localPriority) {
+                  mappedOrder.status = localOrder.status;
+                  mappedOrder.paymentMethod = localOrder.paymentMethod ?? mappedOrder.paymentMethod;
+                  mappedOrder.cashierName = localOrder.cashierName ?? mappedOrder.cashierName;
+                  mappedOrder.amountReceived = localOrder.amountReceived ?? mappedOrder.amountReceived;
+                  mappedOrder.changeAmount = localOrder.changeAmount ?? mappedOrder.changeAmount;
+                }
+              }
             }
             return mappedOrder;
           });
@@ -577,24 +604,35 @@ const App: React.FC = () => {
         setOrders(prev => {
           const updated = prev.map(existing => {
             if (existing.id === o.id) {
-              // Don't override if it's locked AND it's an ONGOING status (for printing)
-              if (lockedOrderIds.current.has(o.id) && o.status === OrderStatus.ONGOING) {
-                return existing; // Keep local state for ongoing orders (don't override)
+              const incomingStatus = o.status as OrderStatus;
+
+              // If locked, only accept updates that match or advance the status
+              if (lockedOrderIds.current.has(o.id)) {
+                if (existing.status === incomingStatus) {
+                  // Confirmed — clear lock and accept update
+                  lockedOrderIds.current.delete(o.id);
+                } else {
+                  // Still locked and status doesn't match — keep local state
+                  return existing;
+                }
               }
-              
-              // Clear lock if status matches (meaning update was received)
-              if (lockedOrderIds.current.has(o.id) && existing.status === o.status) {
-                lockedOrderIds.current.delete(o.id);
+
+              // Prevent stale realtime events from regressing order status
+              const existingPriority = STATUS_PRIORITY[existing.status] ?? 0;
+              const incomingPriority = STATUS_PRIORITY[incomingStatus] ?? 0;
+              if (incomingPriority < existingPriority) {
+                return existing; // Never go backwards
               }
-              
-              // If still locked, don't update
-              if (lockedOrderIds.current.has(o.id)) return existing;
 
               return {
                 ...existing,
-                status: o.status as OrderStatus,
+                status: incomingStatus,
                 rejectionReason: o.rejection_reason,
-                rejectionNote: o.rejection_note
+                rejectionNote: o.rejection_note,
+                paymentMethod: o.payment_method ?? existing.paymentMethod,
+                cashierName: o.cashier_name ?? existing.cashierName,
+                amountReceived: o.amount_received != null ? Number(o.amount_received) : existing.amountReceived,
+                changeAmount: o.change_amount != null ? Number(o.change_amount) : existing.changeAmount,
               };
             }
             return existing;
@@ -804,9 +842,9 @@ const App: React.FC = () => {
       } : {}),
     }).eq('id', orderId);
     
-    // Only lock for non-ONGOING status changes
+    // Safety fallback: clear lock after 15s in case the realtime confirmation never arrives
     if (shouldLock) {
-      setTimeout(() => lockedOrderIds.current.delete(orderId), 3000);
+      setTimeout(() => lockedOrderIds.current.delete(orderId), 15000);
     }
   };
 
