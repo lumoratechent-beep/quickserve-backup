@@ -707,7 +707,7 @@ const App: React.FC = () => {
       return {
         id: finalOrderId, items: itemsForThisRestaurant, total: totalForThisRestaurant,
         status: OrderStatus.PENDING, timestamp: Date.now(), customer_id: 'guest_user',
-        restaurant_id: rid, table_number: sessionTable || 'N/A', location_name: sessionLocation || null,
+        restaurant_id: rid, table_number: sessionTable || 'N/A', location_name: sessionLocation || 'QuickServe Hub',
         remark: remark
       };
     });
