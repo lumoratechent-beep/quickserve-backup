@@ -17,7 +17,7 @@ import {
   X, Edit3, Archive, RotateCcw, Upload, Eye,
   AlertCircle, Users, UserPlus, Bluetooth, BluetoothConnected, PrinterIcon,
   Filter, Tag, Layers, Coffee, ChevronDown, ChevronLeft, ChevronRight, RotateCw, Wifi, WifiOff,
-  Receipt, Network, Type
+  Receipt, Network, Type, MessageSquare
 } from 'lucide-react';
 
 interface Props {
@@ -3720,137 +3720,135 @@ const PosOnlyView: React.FC<Props> = ({
           {/* QR Orders Tab */}
           {activeTab === 'QR_ORDERS' && showQrOrders && (
             <div className="flex-1 overflow-y-auto p-4 md:p-8">
-              <div className="max-w-4xl mx-auto">
-                <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-                  <div>
-                    <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter">QR Orders</h1>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1 uppercase tracking-widest">Manage incoming orders from QR scan customers.</p>
-                  </div>
-                  <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm overflow-x-auto hide-scrollbar">
-                    <button onClick={() => setQrOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Active</button>
-                    <button onClick={() => setQrOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Served</button>
-                    <button onClick={() => setQrOrderFilter(OrderStatus.COMPLETED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.COMPLETED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Paid</button>
-                    <button onClick={() => setQrOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Cancelled</button>
-                    <button onClick={() => setQrOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>All</button>
-                  </div>
+              <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                <div>
+                  <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter">QR Orders</h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1 uppercase tracking-widest">Manage incoming orders from QR scan customers.</p>
                 </div>
+                <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm overflow-x-auto hide-scrollbar">
+                  <button onClick={() => setQrOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Ongoing</button>
+                  <button onClick={() => setQrOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Served</button>
+                  <button onClick={() => setQrOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Cancelled</button>
+                  <button onClick={() => setQrOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>All</button>
+                </div>
+              </div>
 
-                {(() => {
-                  const filteredQrOrders = orders.filter(o => {
-                    if (qrOrderFilter === 'ALL') return true;
-                    if (qrOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
-                    return o.status === qrOrderFilter;
-                  });
+              {(() => {
+                const filteredQrOrders = orders.filter(o => {
+                  if (qrOrderFilter === 'ALL') return true;
+                  if (qrOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
+                  return o.status === qrOrderFilter;
+                });
 
-                  if (filteredQrOrders.length === 0) {
-                    return (
-                      <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
-                        <div className="w-16 h-16 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
-                          <QrCode size={24} />
-                        </div>
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white uppercase tracking-tighter">No QR Orders</h3>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">Waiting for customers to scan and order...</p>
-                      </div>
-                    );
-                  }
-
+                if (filteredQrOrders.length === 0) {
                   return (
-                    <div className="space-y-4">
-                      {filteredQrOrders.map(order => (
-                        <div key={order.id} className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 transition-all hover:border-orange-200">
-                          <div className="flex flex-col md:flex-row md:items-start gap-6">
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                                <div className="flex items-center gap-3 flex-wrap">
-                                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">#{order.id}</span>
-                                  <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg">
-                                    <QrCode size={12} className="text-orange-500" />
-                                    <span className="text-xs font-black">Table {order.tableNumber}</span>
-                                  </div>
-                                  <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${
-                                    order.status === OrderStatus.PENDING ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400' :
-                                    order.status === OrderStatus.ONGOING ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' :
-                                    order.status === OrderStatus.SERVED ? 'bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400' :
-                                    order.status === OrderStatus.COMPLETED ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400' :
-                                    'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
-                                  }`}>{order.status}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                  <Clock size={14} />
-                                  <span>{new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                </div>
-                              </div>
-
-                              <div className="space-y-2 mb-4">
-                                {order.items.map((item, idx) => (
-                                  <div key={idx} className="flex justify-between items-start text-sm border-l-2 border-gray-100 dark:border-gray-700 pl-3">
-                                    <div>
-                                      <p className="font-bold text-gray-900 dark:text-white">x{item.quantity} {item.name}</p>
-                                      <div className="flex flex-wrap gap-1 mt-0.5">
-                                        {item.selectedSize && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase">Size: {item.selectedSize}</span>}
-                                        {item.selectedTemp && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${item.selectedTemp === 'Hot' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>{item.selectedTemp}</span>}
-                                        {item.selectedOtherVariant && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase">{item.selectedOtherVariant}</span>}
-                                      </div>
-                                    </div>
-                                    <span className="text-gray-500 dark:text-gray-400 font-bold text-xs">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
-                                  </div>
-                                ))}
-                              </div>
-
-                              {order.remark && (
-                                <div className="mb-4 p-3 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-lg">
-                                  <p className="text-[9px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest mb-1">Remark</p>
-                                  <p className="text-xs text-gray-700 dark:text-gray-300 italic">{order.remark}</p>
-                                </div>
-                              )}
-
-                              <div className="pt-3 border-t dark:border-gray-700 flex justify-between items-center">
-                                <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Total</span>
-                                <span className="text-lg font-black text-orange-500">{currencySymbol}{order.total.toFixed(2)}</span>
-                              </div>
-                            </div>
-
-                            <div className="flex flex-row md:flex-col gap-2 shrink-0">
-                              {order.status === OrderStatus.PENDING && (
-                                <>
-                                  <button
-                                    onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)}
-                                    className="flex-1 md:flex-none px-4 py-2 bg-green-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2"
-                                  >
-                                    <CheckCircle2 size={14} /> Accept
-                                  </button>
-                                  <button
-                                    onClick={() => setRejectingQrOrderId(order.id)}
-                                    className="flex-1 md:flex-none px-4 py-2 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-red-200 dark:hover:bg-red-900/40 transition-all flex items-center justify-center gap-2"
-                                  >
-                                    <X size={14} /> Reject
-                                  </button>
-                                </>
-                              )}
-                              {order.status === OrderStatus.ONGOING && (
-                                <button
-                                  onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)}
-                                  className="flex-1 md:flex-none px-4 py-2 bg-purple-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-purple-600 transition-all flex items-center justify-center gap-2"
-                                >
-                                  <CheckCircle size={14} /> Mark Served
-                                </button>
-                              )}
-                              {order.status === OrderStatus.SERVED && (
-                                <button
-                                  onClick={() => onUpdateOrder(order.id, OrderStatus.COMPLETED)}
-                                  className="flex-1 md:flex-none px-4 py-2 bg-green-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2"
-                                >
-                                  <CheckCircle2 size={14} /> Mark Paid
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
+                      <div className="w-16 h-16 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                        <QrCode size={24} />
+                      </div>
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white uppercase tracking-tighter">No QR Orders</h3>
+                      <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">Waiting for customers to scan and order...</p>
                     </div>
                   );
-                })()}
-              </div>
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {filteredQrOrders.map(order => (
+                      <div key={order.id} className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-start gap-6 transition-all hover:border-orange-200">
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ORDER #{order.id}</span>
+                              <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg">
+                                <QrCode size={12} className="text-orange-500" />
+                                <span className="text-xs font-black">Table {order.tableNumber}</span>
+                              </div>
+                              <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${
+                                order.status === OrderStatus.PENDING ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400' :
+                                order.status === OrderStatus.ONGOING ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' :
+                                order.status === OrderStatus.SERVED ? 'bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400' :
+                                order.status === OrderStatus.COMPLETED ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400' :
+                                'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                              }`}>{order.status}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Clock size={14} className="text-gray-400" />
+                              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3">
+                            {order.items.map((item, idx) => (
+                              <div key={idx} className="flex justify-between items-start text-sm border-l-2 border-gray-100 dark:border-gray-700 pl-3">
+                                <div>
+                                  <p className="font-bold text-gray-900 dark:text-white">x{item.quantity} {item.name}</p>
+                                  <div className="flex flex-wrap gap-2 mt-1">
+                                    {item.selectedSize && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">Size: {item.selectedSize}</span>}
+                                    {item.selectedTemp && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${item.selectedTemp === 'Hot' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>Temp: {item.selectedTemp}</span>}
+                                    {item.selectedOtherVariant && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">{item.selectedOtherVariant}</span>}
+                                  </div>
+                                </div>
+                                <span className="text-gray-500 dark:text-gray-400 font-bold">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          {order.remark && (
+                            <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-lg">
+                              <div className="flex items-center gap-2 mb-1">
+                                <MessageSquare size={12} className="text-orange-500" />
+                                <span className="text-[9px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest">Special Remark</span>
+                              </div>
+                              <p className="text-xs text-gray-700 dark:text-gray-300 italic">{order.remark}</p>
+                            </div>
+                          )}
+
+                          <div className="mt-4 pt-4 border-t dark:border-gray-700 flex justify-between items-center">
+                            <span className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Grand Total</span>
+                            <span className="text-2xl font-black text-gray-900 dark:text-white">{currencySymbol}{order.total.toFixed(2)}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex md:flex-col gap-2 min-w-[140px] mt-2 md:mt-0">
+                          {order.status === OrderStatus.PENDING && (
+                            <>
+                              <button
+                                onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)}
+                                className="flex-1 py-3 px-4 bg-orange-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg"
+                              >
+                                Accept
+                              </button>
+                              <button
+                                onClick={() => setRejectingQrOrderId(order.id)}
+                                className="flex-1 py-3 px-4 bg-red-50 text-red-500 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-100"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                          {order.status === OrderStatus.ONGOING && (
+                            <button
+                              onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)}
+                              className="flex-1 py-4 px-4 bg-green-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-lg"
+                            >
+                              <CheckCircle size={18} /> Serve Order
+                            </button>
+                          )}
+                          {order.status === OrderStatus.SERVED && (
+                            <button
+                              onClick={() => onUpdateOrder(order.id, OrderStatus.COMPLETED)}
+                              className="flex-1 py-4 px-4 bg-blue-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-2 shadow-lg"
+                            >
+                              <CheckCircle2 size={18} /> Mark Paid
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
