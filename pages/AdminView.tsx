@@ -489,8 +489,8 @@ const AdminView: React.FC<Props> = ({
   const [isAreaModalOpen, setIsAreaModalOpen] = useState(false);
   const [isSubmittingArea, setIsSubmittingArea] = useState(false);
   const [editingArea, setEditingArea] = useState<Area | null>(null);
-  const [formArea, setFormArea] = useState<{ name: string; city: string; state: string; code: string; type: 'MULTI' | 'SINGLE' }>({ 
-    name: '', city: '', state: '', code: '', type: 'MULTI' 
+  const [formArea, setFormArea] = useState<{ name: string; city: string; state: string; code: string }>({ 
+    name: '', city: '', state: '', code: '' 
   });
   
   const [viewingHubVendors, setViewingHubVendors] = useState<Area | null>(null);
@@ -746,13 +746,13 @@ const AdminView: React.FC<Props> = ({
 
   const handleOpenHubEdit = (loc: Area) => {
     setEditingArea(loc);
-    setFormArea({ name: loc.name, city: loc.city, state: loc.state, code: loc.code, type: loc.type || 'MULTI' });
+    setFormArea({ name: loc.name, city: loc.city, state: loc.state, code: loc.code });
     setIsAreaModalOpen(true);
   };
 
   const handleOpenHubAdd = () => {
     setEditingArea(null);
-    setFormArea({ name: '', city: '', state: '', code: '', type: 'MULTI' });
+    setFormArea({ name: '', city: '', state: '', code: '' });
     setIsAreaModalOpen(true);
   };
 
@@ -1017,7 +1017,7 @@ const AdminView: React.FC<Props> = ({
                 <thead className="bg-gray-100 dark:bg-gray-800 text-gray-400 text-[10px] font-black uppercase tracking-widest">
                   <tr>
                     <th className="px-8 py-4 text-left">Hub</th>
-                    <th className="px-8 py-4 text-left">Type</th>
+
                     <th className="px-8 py-4 text-center">Status</th>
                     <th className="px-8 py-4 text-right">Actions</th>
                   </tr>
@@ -1034,11 +1034,7 @@ const AdminView: React.FC<Props> = ({
                           </div>
                         </div>
                       </td>
-                      <td className="px-8 py-5">
-                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-tighter ${loc.type === 'SINGLE' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' : 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400'}`}>
-                          {loc.type || 'MULTI'}
-                        </div>
-                      </td>
+
                       <td className="px-8 py-5 text-center">
                         <button onClick={() => toggleHubStatus(loc)} className={`p-2 rounded-xl transition-all ${loc.isActive !== false ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 bg-gray-50 dark:bg-gray-700'}`}>
                            {loc.isActive !== false ? <Power size={20} /> : <Power size={20} className="opacity-40" />}

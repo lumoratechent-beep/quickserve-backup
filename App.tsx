@@ -227,7 +227,7 @@ const App: React.FC = () => {
     const { data, error } = await supabase.from('areas').select('*').order('name');
     if (!error && data) {
       const mapped = data.map(l => ({
-        id: l.id, name: l.name, city: l.city, state: l.state, code: l.code, isActive: l.is_active ?? true, type: l.type as 'MULTI' | 'SINGLE'
+        id: l.id, name: l.name, city: l.city, state: l.state, code: l.code, isActive: l.is_active ?? true
       }));
       setLocations(mapped);
       persistCache('qs_cache_locations', mapped);
@@ -986,7 +986,7 @@ const App: React.FC = () => {
     try {
       console.log("Adding hub:", area);
       const { error } = await supabase.from('areas').insert({
-        id, name: area.name, city: area.city, state: area.state, code: area.code, is_active: true, type: area.type || 'MULTI'
+        id, name: area.name, city: area.city, state: area.state, code: area.code, is_active: true
       });
       
       if (error) {
@@ -1008,7 +1008,7 @@ const App: React.FC = () => {
     try {
       console.log("Updating hub:", area);
       const { error } = await supabase.from('areas').update({
-        name: area.name, city: area.city, state: area.state, code: area.code, is_active: area.isActive, type: area.type
+        name: area.name, city: area.city, state: area.state, code: area.code, is_active: area.isActive
       }).eq('id', area.id);
       
       if (error) {
@@ -1510,7 +1510,7 @@ const App: React.FC = () => {
           onPlaceOrder={placeOrder}
           locationName={sessionLocation || undefined}
           tableNo={sessionTable || undefined}
-          areaType={sessionRestaurantId ? 'SINGLE' : (currentArea?.type || 'MULTI')}
+          areaType={sessionRestaurantId ? 'SINGLE' : 'MULTI'}
           allRestaurants={restaurants}
         />}
         

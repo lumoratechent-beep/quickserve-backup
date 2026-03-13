@@ -60,7 +60,6 @@ export interface Area {
   state: string;
   code: string;
   isActive?: boolean;
-  type?: 'MULTI' | 'SINGLE';
 }
 
 export interface Restaurant {
