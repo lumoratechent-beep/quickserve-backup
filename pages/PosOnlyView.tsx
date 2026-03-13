@@ -361,6 +361,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [pendingOrderData, setPendingOrderData] = useState<any>(null);
   const [showPaymentResult, setShowPaymentResult] = useState(false);
   const [showRefundConfirm, setShowRefundConfirm] = useState(false);
+  const [isQrPaymentMode, setIsQrPaymentMode] = useState(false);
 
   const CASH_DENOMINATIONS = [10, 20, 50, 100];
 
@@ -690,6 +691,22 @@ const PosOnlyView: React.FC<Props> = ({
     setSelectedCashAmount(cartTotal);
     setCashAmountInput(cartTotal.toFixed(2));
     setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
+    setIsQrPaymentMode(false);
+    setShowPaymentModal(true);
+  };
+
+  const handleQrOrderCheckout = () => {
+    if (!selectedQrOrderForPayment || isCompletingPayment) return;
+    setPendingOrderData({
+      items: selectedQrOrderForPayment.items,
+      remark: selectedQrOrderForPayment.remark,
+      tableNumber: selectedQrOrderForPayment.tableNumber,
+      total: selectedQrOrderForPayment.total,
+    });
+    setSelectedCashAmount(selectedQrOrderForPayment.total);
+    setCashAmountInput(selectedQrOrderForPayment.total.toFixed(2));
+    setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
+    setIsQrPaymentMode(true);
     setShowPaymentModal(true);
   };
 
@@ -705,47 +722,76 @@ const PosOnlyView: React.FC<Props> = ({
     setIsCompletingPayment(true);
     setCheckoutNotice('');
 
-    let actualOrderId: string = '';
     const paymentName = paymentTypes.find(p => p.id === selectedPaymentType)?.name || selectedPaymentType;
-    
-    try {
-      // Call onPlaceOrder and get the actual order ID from database
-      actualOrderId = await onPlaceOrder(pendingOrderData.items, pendingOrderData.remark, pendingOrderData.tableNumber, paymentName, cashierName, selectedCashAmount ?? undefined);
-    } catch (error: any) {
-      console.error('Order placement error:', error);
-      toast(`Failed to place order: ${error?.message || 'Unknown error'}`, 'error');
-      setIsCompletingPayment(false);
-      setShowPaymentModal(false);
-      return;
+    const nowTs = Date.now();
+    let actualOrderId: string = '';
+
+    if (isQrPaymentMode && selectedQrOrderForPayment) {
+      // QR order already exists in DB — update its status and record payment
+      actualOrderId = selectedQrOrderForPayment.id;
+      try {
+        onUpdateOrder(actualOrderId, OrderStatus.COMPLETED);
+      } catch (error: any) {
+        console.error('QR order completion error:', error);
+        toast(`Failed to complete order: ${error?.message || 'Unknown error'}`, 'error');
+        setIsCompletingPayment(false);
+        setShowPaymentModal(false);
+        return;
+      }
+      // Persist payment data into the local report cache
+      counterOrdersCache.mergeReportOrdersCache(restaurant.id, [{
+        id: actualOrderId,
+        items: selectedQrOrderForPayment.items,
+        total: selectedQrOrderForPayment.total,
+        status: OrderStatus.COMPLETED,
+        timestamp: selectedQrOrderForPayment.timestamp,
+        restaurantId: restaurant.id,
+        tableNumber: selectedQrOrderForPayment.tableNumber,
+        remark: selectedQrOrderForPayment.remark || '',
+        customerId: '',
+        paymentMethod: paymentName,
+        cashierName: cashierName || '',
+        amountReceived: selectedCashAmount ?? undefined,
+        changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - selectedQrOrderForPayment.total) : undefined,
+      }]);
+    } else {
+      // Counter order — place a new order in DB
+      try {
+        actualOrderId = await onPlaceOrder(pendingOrderData.items, pendingOrderData.remark, pendingOrderData.tableNumber, paymentName, cashierName, selectedCashAmount ?? undefined);
+      } catch (error: any) {
+        console.error('Order placement error:', error);
+        toast(`Failed to place order: ${error?.message || 'Unknown error'}`, 'error');
+        setIsCompletingPayment(false);
+        setShowPaymentModal(false);
+        return;
+      }
+      // Persist into the local report orders cache so it's visible offline
+      counterOrdersCache.mergeReportOrdersCache(restaurant.id, [{
+        id: actualOrderId,
+        items: pendingOrderData.items,
+        total: pendingOrderData.total,
+        status: OrderStatus.COMPLETED,
+        timestamp: nowTs,
+        restaurantId: restaurant.id,
+        tableNumber: pendingOrderData.tableNumber,
+        remark: pendingOrderData.remark || '',
+        customerId: '',
+        paymentMethod: paymentName,
+        cashierName: cashierName || '',
+        amountReceived: selectedCashAmount ?? undefined,
+        changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined,
+      }]);
     }
 
-    // Use the real order ID from database for printing
-    const nowTs = Date.now();
+    // Use the real order ID for printing
     const orderForPrint = {
       id: actualOrderId,
       tableNumber: pendingOrderData.tableNumber,
-      timestamp: nowTs,
+      timestamp: isQrPaymentMode && selectedQrOrderForPayment ? selectedQrOrderForPayment.timestamp : nowTs,
       total: pendingOrderData.total,
       items: pendingOrderData.items,
       remark: pendingOrderData.remark,
     };
-
-    // Persist into the local report orders cache so it's visible offline
-    counterOrdersCache.mergeReportOrdersCache(restaurant.id, [{
-      id: actualOrderId,
-      items: pendingOrderData.items,
-      total: pendingOrderData.total,
-      status: OrderStatus.COMPLETED,
-      timestamp: nowTs,
-      restaurantId: restaurant.id,
-      tableNumber: pendingOrderData.tableNumber,
-      remark: pendingOrderData.remark || '',
-      customerId: '',
-      paymentMethod: paymentName,
-      cashierName: cashierName || '',
-      amountReceived: selectedCashAmount ?? undefined,
-      changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined,
-    }]);
 
     // Show payment result with slide animation
     setShowPaymentResult(true);
@@ -779,15 +825,19 @@ const PosOnlyView: React.FC<Props> = ({
   const finalizePaymentFlow = () => {
     setShowPaymentResult(false);
     setShowPaymentModal(false);
-    setPosCart([]);
-    setPosRemark('');
-    setPosTableNo('Counter');
     setPendingOrderData(null);
-    setShowPaymentSuccess(true);
-
-    setTimeout(() => {
-      setShowPaymentSuccess(false);
-    }, 1800);
+    if (isQrPaymentMode) {
+      setSelectedQrOrderForPayment(null);
+      setIsQrPaymentMode(false);
+    } else {
+      setPosCart([]);
+      setPosRemark('');
+      setPosTableNo('Counter');
+      setShowPaymentSuccess(true);
+      setTimeout(() => {
+        setShowPaymentSuccess(false);
+      }, 1800);
+    }
   };
 
   // Handle order status updates (e.g., marking as paid/completed)
@@ -4129,7 +4179,20 @@ const PosOnlyView: React.FC<Props> = ({
                           )}
                           {order.status === OrderStatus.SERVED && (
                             <button
-                              onClick={() => onUpdateOrder(order.id, OrderStatus.COMPLETED)}
+                              onClick={() => {
+                                setSelectedQrOrderForPayment(order);
+                                setPendingOrderData({
+                                  items: order.items,
+                                  remark: order.remark,
+                                  tableNumber: order.tableNumber,
+                                  total: order.total,
+                                });
+                                setSelectedCashAmount(order.total);
+                                setCashAmountInput(order.total.toFixed(2));
+                                setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
+                                setIsQrPaymentMode(true);
+                                setShowPaymentModal(true);
+                              }}
                               className="flex-1 py-4 px-4 bg-blue-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-2 shadow-lg"
                             >
                               <CheckCircle2 size={18} /> Mark Paid
@@ -4262,12 +4325,8 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
 
                     <button
-                      onClick={() => {
-                        if (!selectedQrOrderForPayment) return;
-                        onUpdateOrder(selectedQrOrderForPayment.id, OrderStatus.COMPLETED);
-                        setSelectedQrOrderForPayment(null);
-                      }}
-                      disabled={!selectedQrOrderForPayment}
+                      onClick={handleQrOrderCheckout}
+                      disabled={!selectedQrOrderForPayment || isCompletingPayment}
                       className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
                     >
                       <CreditCard size={16} /> Complete Payment
