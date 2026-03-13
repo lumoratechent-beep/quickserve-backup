@@ -904,6 +904,7 @@ const AdminView: React.FC<Props> = ({
                 <button onClick={handleOpenAdd} className="w-full sm:w-auto px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg transition-all active:scale-95">+ Register</button>
               </div>
             </div>
+            <div className="mx-4 md:mx-8 my-4 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm bg-white dark:bg-gray-800">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-100 dark:bg-gray-800 text-gray-400 text-[10px] font-black uppercase tracking-widest">
@@ -945,7 +946,7 @@ const AdminView: React.FC<Props> = ({
                     const res = restaurants.find(r => r.id === vendor.restaurantId);
                     const isOnline = res?.isOnline ?? false;
                     return (
-                      <tr key={vendor.id} className="hover:bg-white/60 dark:hover:bg-gray-800/60 transition-colors">
+                      <tr key={vendor.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                         <td className="px-8 py-5">
                           <div className="flex items-center gap-3">
                             <img src={res?.logo} className="w-10 h-10 rounded-xl shadow-sm object-cover border dark:border-gray-600" />
@@ -986,6 +987,7 @@ const AdminView: React.FC<Props> = ({
                 </tbody>
               </table>
             </div>
+            </div>
           </div>
         )}
 
@@ -1009,6 +1011,7 @@ const AdminView: React.FC<Props> = ({
                 </div>
               </div>
             </div>
+            <div className="mx-4 md:mx-8 my-4 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm bg-white dark:bg-gray-800">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-100 dark:bg-gray-800 text-gray-400 text-[10px] font-black uppercase tracking-widest">
@@ -1021,7 +1024,7 @@ const AdminView: React.FC<Props> = ({
                 </thead>
                 <tbody className="divide-y dark:divide-gray-700/50">
                   {filteredHubs.map(loc => (
-                    <tr key={loc.id} className="hover:bg-white/60 dark:hover:bg-gray-800/60 transition-colors group">
+                    <tr key={loc.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
                       <td className="px-8 py-5">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-orange-50 dark:bg-orange-900/30 text-orange-500 rounded-xl flex items-center justify-center shadow-inner group-hover:bg-orange-500 group-hover:text-white transition-all"><MapPin size={20} /></div>
@@ -1051,6 +1054,7 @@ const AdminView: React.FC<Props> = ({
                   ))}
                 </tbody>
               </table>
+            </div>
             </div>
           </div>
         )}
