@@ -34,6 +34,7 @@ interface Props {
   pendingOfflineOrdersCount?: number;
   cashierName?: string;
   showQrOrders?: boolean;
+  hubType?: 'SINGLE' | 'MULTI';
 }
 
 interface ReceiptSettings {
@@ -152,6 +153,7 @@ const PosOnlyView: React.FC<Props> = ({
   pendingOfflineOrdersCount = 0,
   cashierName,
   showQrOrders = false,
+  hubType = 'MULTI',
 }) => {
   const toLocalDateInputValue = (date: Date) => {
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -2379,7 +2381,9 @@ const PosOnlyView: React.FC<Props> = ({
     const tableNames = Array.from({ length: count }, (_, i) => `${qrGenTablePrefix}${startNum + i}`);
 
     const buildQrUrl = (tableName: string) =>
-      `${baseUrl}/?loc=${encodeURIComponent(qrGenLocation || restaurant.location)}&table=${encodeURIComponent(tableName)}`;
+      hubType === 'SINGLE'
+        ? `${baseUrl}/?restaurant=${encodeURIComponent(restaurant.id)}&table=${encodeURIComponent(tableName)}`
+        : `${baseUrl}/?loc=${encodeURIComponent(qrGenLocation || restaurant.location)}&table=${encodeURIComponent(tableName)}`;
 
     const buildQrImageUrl = (tableName: string) => {
       const data = encodeURIComponent(buildQrUrl(tableName));

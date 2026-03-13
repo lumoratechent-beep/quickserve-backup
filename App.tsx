@@ -1563,6 +1563,7 @@ const App: React.FC = () => {
                 isOnline={isOnline}
                 pendingOfflineOrdersCount={pendingOfflineOrdersCount}
                 cashierName={currentUser?.username}
+                hubType={locations.find(l => l.name === activeVendorRes.location)?.type || 'MULTI'}
               />
             ) : activeVendorRes.platformAccess === 'pos_and_qr' ? (
               <PosQrView
@@ -1582,6 +1583,7 @@ const App: React.FC = () => {
                 isOnline={isOnline}
                 pendingOfflineOrdersCount={pendingOfflineOrdersCount}
                 cashierName={currentUser?.username}
+                hubType={locations.find(l => l.name === activeVendorRes.location)?.type || 'MULTI'}
               />
             ) : (
               <VendorView 
