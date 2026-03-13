@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Restaurant, CartItem, Order, OrderStatus, MenuItem, AddOnItem, SelectedAddOn } from '../src/types';
+import { Restaurant, CartItem, Order, OrderStatus, MenuItem, ModifierData } from '../src/types';
 import { ShoppingCart, Plus, Minus, X, CheckCircle, ChevronRight, Info, ThermometerSun, Maximize2, MapPin, Hash, LayoutGrid, Grid3X3, MessageSquare, AlertTriangle, UtensilsCrossed, LogIn, WifiOff, Layers } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 
 interface Props {
   restaurants: Restaurant[];
@@ -33,10 +34,6 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
   }, [propOrders]);
 
   const [selectedItemForVariants, setSelectedItemForVariants] = useState<{item: MenuItem, resId: string} | null>(null);
-  const [selectedSize, setSelectedSize] = useState<string>('');
-  const [selectedTemp, setSelectedTemp] = useState<string | undefined>(undefined);
-  const [selectedOtherVariant, setSelectedOtherVariant] = useState<string>('');
-  const [selectedAddOns, setSelectedAddOns] = useState<Record<string, SelectedAddOn>>({});
   const [gridColumns, setGridColumns] = useState<2 | 3>(3);
   const [orderRemark, setOrderRemark] = useState('');
   const [dismissedOrders, setDismissedOrders] = useState<string[]>(() => {
@@ -97,100 +94,19 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
   }, [restaurants, activeRestaurant]);
 
   const handleInitialAdd = (item: MenuItem, resId: string) => {
-    // Reset selected add-ons
-    setSelectedAddOns({});
-    
-    // Check if item has any customizable options
-    if (
-      (item.sizes && item.sizes.length > 0) || 
-      (item.tempOptions && item.tempOptions.enabled) || 
+    const hasOptions =
+      (item.sizes && item.sizes.length > 0) ||
+      (item.tempOptions && item.tempOptions.enabled) ||
       (item.otherVariantsEnabled && item.otherVariants && item.otherVariants.length > 0) ||
-      (item.addOns && item.addOns.length > 0)
-    ) {
+      (item.addOns && item.addOns.length > 0) ||
+      (item.variantOptions?.enabled && item.variantOptions?.options && item.variantOptions.options.length > 0) ||
+      (item.linkedModifiers && item.linkedModifiers.length > 0);
+
+    if (hasOptions) {
       setSelectedItemForVariants({ item, resId });
-      setSelectedSize(item.sizes?.[0]?.name || '');
-      setSelectedTemp(item.tempOptions?.enabled && item.tempOptions.options?.length ? item.tempOptions.options[0].name : undefined);
-      setSelectedOtherVariant(item.otherVariantsEnabled ? (item.otherVariants?.[0]?.name || '') : '');
     } else {
-      // No options, add directly to cart
       onAddToCart({ ...item, quantity: 1, restaurantId: resId });
     }
-  };
-
-  const handleAddOnQuantityChange = (addOn: AddOnItem, change: number) => {
-    const current = selectedAddOns[addOn.name] || { name: addOn.name, price: addOn.price, quantity: 0 };
-    const newQuantity = Math.max(0, Math.min(addOn.maxQuantity || 99, current.quantity + change));
-    
-    if (newQuantity === 0) {
-      // Remove if quantity becomes 0
-      const newSelected = { ...selectedAddOns };
-      delete newSelected[addOn.name];
-      setSelectedAddOns(newSelected);
-    } else {
-      setSelectedAddOns({
-        ...selectedAddOns,
-        [addOn.name]: { name: addOn.name, price: addOn.price, quantity: newQuantity }
-      });
-    }
-  };
-
-  const calculateTotalAddOnPrice = (): number => {
-    return Object.values(selectedAddOns).reduce((sum, addon) => sum + (addon.price * addon.quantity), 0);
-  };
-
-  const confirmVariantAdd = () => {
-    if (!selectedItemForVariants) return;
-    const { item, resId } = selectedItemForVariants;
-    
-    let finalPrice = item.price;
-    
-    // Add size price
-    if (selectedSize) {
-      const sizeObj = item.sizes?.find(s => s.name === selectedSize);
-      if (sizeObj) finalPrice += sizeObj.price;
-    }
-    
-    // Add temperature price
-    if (selectedTemp && item.tempOptions?.enabled && item.tempOptions.options) {
-      const tempOpt = item.tempOptions.options.find(o => o.name === selectedTemp);
-      if (tempOpt) finalPrice += tempOpt.price;
-    }
-    
-    // Add other variant price
-    if (selectedOtherVariant) {
-      const otherObj = item.otherVariants?.find(v => v.name === selectedOtherVariant);
-      if (otherObj) finalPrice += otherObj.price;
-    }
-    
-    // Add add-ons total price
-    finalPrice += calculateTotalAddOnPrice();
-
-    // Create the cart item with selected add-ons
-    const cartItem: CartItem = {
-      id: item.id,
-      name: item.name,
-      description: item.description,
-      price: finalPrice,
-      image: item.image,
-      category: item.category,
-      isArchived: item.isArchived,
-      sizes: item.sizes,
-      otherVariantName: item.otherVariantName,
-      otherVariants: item.otherVariants,
-      otherVariantsEnabled: item.otherVariantsEnabled,
-      tempOptions: item.tempOptions,
-      addOns: item.addOns,
-      quantity: 1,
-      restaurantId: resId,
-      selectedSize,
-      selectedTemp,
-      selectedOtherVariant,
-      selectedAddOns: Object.values(selectedAddOns)
-    };
-
-    onAddToCart(cartItem);
-    setSelectedItemForVariants(null);
-    setSelectedAddOns({});
   };
 
   const toggleGrid = () => {
@@ -382,169 +298,18 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
         </div>
       </div>
 
-      {/* Variant Selection Modal */}
+      {/* Item Options Modal */}
       {selectedItemForVariants && (
-        <div className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 w-full max-w-sm rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in fade-in duration-300">
-            <div className="relative h-48">
-              <img src={selectedItemForVariants.item.image} className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-              <button onClick={() => setSelectedItemForVariants(null)} className="absolute top-4 right-4 p-2 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 transition-colors">
-                <X size={20} />
-              </button>
-              <div className="absolute bottom-6 left-6">
-                <h3 className="text-xl font-black text-white uppercase tracking-tight">{selectedItemForVariants.item.name}</h3>
-                <p className="text-[10px] text-orange-300 font-bold uppercase tracking-[0.3em]">{selectedItemForVariants.item.category}</p>
-              </div>
-            </div>
-            
-            <div className="p-8 max-h-[60vh] overflow-y-auto custom-scrollbar">
-              <div className="space-y-6">
-                {selectedItemForVariants.item.sizes && selectedItemForVariants.item.sizes.length > 0 && (
-                  <div>
-                    <label className="block text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3 ml-1">Choose Portion</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      {selectedItemForVariants.item.sizes.map(size => (
-                        <button
-                          key={size.name}
-                          onClick={() => setSelectedSize(size.name)}
-                          className={`p-4 rounded-2xl border-2 text-left transition-all duration-300 ${
-                            selectedSize === size.name ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 shadow-lg' : 'border-gray-50 dark:border-gray-700 text-gray-500 dark:text-gray-400'
-                          }`}
-                        >
-                          <p className="text-[10px] font-black uppercase tracking-tighter mb-1">{size.name}</p>
-                          <p className="font-black text-sm">+{size.price > 0 ? `RM${size.price.toFixed(2)}` : 'FREE'}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {selectedItemForVariants.item.otherVariantsEnabled && selectedItemForVariants.item.otherVariants && selectedItemForVariants.item.otherVariants.length > 0 && (
-                  <div>
-                    <label className="block text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3 ml-1">
-                      {selectedItemForVariants.item.otherVariantName || "Additional Options"}
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        onClick={() => setSelectedOtherVariant('')}
-                        className={`p-4 rounded-2xl border-2 text-left transition-all duration-300 ${
-                          selectedOtherVariant === '' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'border-gray-50 dark:border-gray-700 text-gray-500 dark:text-gray-400'
-                        }`}
-                      >
-                        <p className="text-[10px] font-black uppercase tracking-tighter mb-1">None</p>
-                        <p className="font-black text-sm">Default</p>
-                      </button>
-                      {selectedItemForVariants.item.otherVariants.map(variant => (
-                        <button
-                          key={variant.name}
-                          onClick={() => setSelectedOtherVariant(variant.name)}
-                          className={`p-4 rounded-2xl border-2 text-left transition-all duration-300 ${
-                            selectedOtherVariant === variant.name ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 shadow-lg' : 'border-gray-50 dark:border-gray-700 text-gray-500 dark:text-gray-400'
-                          }`}
-                        >
-                          <p className="text-[10px] font-black uppercase tracking-tighter mb-1">{variant.name}</p>
-                          <p className="font-black text-sm">+{variant.price > 0 ? `RM${variant.price.toFixed(2)}` : 'FREE'}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {selectedItemForVariants.item.tempOptions?.enabled && selectedItemForVariants.item.tempOptions.options && selectedItemForVariants.item.tempOptions.options.length > 0 && (
-                  <div>
-                    <label className="block text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3 ml-1">Temperature</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      {selectedItemForVariants.item.tempOptions.options.map((opt) => (
-                        <button
-                          key={opt.name}
-                          onClick={() => setSelectedTemp(opt.name)}
-                          className={`flex-1 py-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${
-                            selectedTemp === opt.name
-                              ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 shadow-lg'
-                              : 'border-gray-50 dark:border-gray-700 text-gray-500 dark:text-gray-400'
-                          }`}
-                        >
-                          <span className="text-[10px] font-black uppercase tracking-widest">{opt.name}</span>
-                          <span className="text-xs font-black">+{opt.price > 0 ? `RM${opt.price.toFixed(2)}` : 'FREE'}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Add-Ons Section */}
-                {selectedItemForVariants.item.addOns && selectedItemForVariants.item.addOns.length > 0 && (
-                  <div>
-                    <label className="block text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3 ml-1">
-                      Add-Ons
-                    </label>
-                    <div className="space-y-3">
-                      {selectedItemForVariants.item.addOns.map((addon, idx) => {
-                        const selectedAddon = selectedAddOns[addon.name];
-                        const quantity = selectedAddon?.quantity || 0;
-                        
-                        return (
-                          <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                            <div>
-                              <p className="font-black text-xs dark:text-white">{addon.name}</p>
-                              <p className="text-[9px] text-orange-500 font-black">+RM{addon.price.toFixed(2)}</p>
-                              {addon.required && (
-                                <span className="text-[8px] font-black text-red-500 uppercase tracking-widest">Required</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => handleAddOnQuantityChange(addon, -1)}
-                                className="p-1.5 bg-white dark:bg-gray-800 rounded-lg text-gray-500 hover:bg-orange-500 hover:text-white transition-all"
-                                disabled={quantity === 0}
-                              >
-                                <Minus size={14} />
-                              </button>
-                              <span className="font-black text-xs w-6 text-center dark:text-white">
-                                {quantity}
-                              </span>
-                              <button
-                                onClick={() => handleAddOnQuantityChange(addon, 1)}
-                                className="p-1.5 bg-white dark:bg-gray-800 rounded-lg text-gray-500 hover:bg-orange-500 hover:text-white transition-all"
-                                disabled={quantity >= (addon.maxQuantity || 99)}
-                              >
-                                <Plus size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="p-8 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80">
-              <div className="flex items-center justify-between gap-6">
-                <div>
-                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Total</p>
-                  <p className="text-2xl font-black dark:text-white">
-                    RM{(
-                      selectedItemForVariants.item.price + 
-                      (selectedItemForVariants.item.sizes?.find(s => s.name === selectedSize)?.price || 0) +
-                      (selectedTemp === 'Hot' ? (selectedItemForVariants.item.tempOptions?.hot || 0) : (selectedTemp === 'Cold' ? (selectedItemForVariants.item.tempOptions?.cold || 0) : 0)) +
-                      (selectedItemForVariants.item.otherVariants?.find(v => v.name === selectedOtherVariant)?.price || 0) +
-                      calculateTotalAddOnPrice()
-                    ).toFixed(2)}
-                  </p>
-                </div>
-                <button 
-                  onClick={confirmVariantAdd} 
-                  className="flex-1 py-4 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-orange-600 transition-all active:scale-95"
-                >
-                  Add to Cart
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <SimpleItemOptionsModal
+          item={selectedItemForVariants.item}
+          restaurantId={selectedItemForVariants.resId}
+          modifiers={restaurants.find(r => r.id === selectedItemForVariants.resId)?.modifiers as ModifierData[] | undefined}
+          onClose={() => setSelectedItemForVariants(null)}
+          onConfirm={(cartItem) => {
+            onAddToCart(cartItem);
+            setSelectedItemForVariants(null);
+          }}
+        />
       )}
 
       {/* Cart Drawer Button */}
