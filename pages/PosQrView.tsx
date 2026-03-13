@@ -8,7 +8,7 @@ import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, Rep
 interface Props {
   restaurant: Restaurant;
   orders: Order[];
-  onUpdateOrder: (orderId: string, status: OrderStatus) => void;
+  onUpdateOrder: (orderId: string, status: OrderStatus, paymentDetails?: { paymentMethod?: string; cashierName?: string; amountReceived?: number; changeAmount?: number }) => void;
   onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string, paymentMethod?: string, cashierName?: string, amountReceived?: number) => Promise<string>;
   onUpdateMenu?: (restaurantId: string, updatedItem: MenuItem) => void | Promise<void>;
   onAddMenuItem?: (restaurantId: string, newItem: MenuItem) => void | Promise<void>;

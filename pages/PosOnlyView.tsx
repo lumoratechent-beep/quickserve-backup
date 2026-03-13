@@ -23,7 +23,7 @@ import {
 interface Props {
   restaurant: Restaurant;
   orders: Order[];
-  onUpdateOrder: (orderId: string, status: OrderStatus) => void;
+  onUpdateOrder: (orderId: string, status: OrderStatus, paymentDetails?: { paymentMethod?: string; cashierName?: string; amountReceived?: number; changeAmount?: number }) => void;
   onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string, paymentMethod?: string, cashierName?: string, amountReceived?: number) => Promise<string>; // Returns order ID
   onUpdateMenu?: (restaurantId: string, updatedItem: MenuItem) => void | Promise<void>;
   onAddMenuItem?: (restaurantId: string, newItem: MenuItem) => void | Promise<void>;
@@ -730,7 +730,12 @@ const PosOnlyView: React.FC<Props> = ({
       // QR order already exists in DB — update its status and record payment
       actualOrderId = selectedQrOrderForPayment.id;
       try {
-        onUpdateOrder(actualOrderId, OrderStatus.COMPLETED);
+        onUpdateOrder(actualOrderId, OrderStatus.COMPLETED, {
+          paymentMethod: paymentName,
+          cashierName: cashierName || '',
+          amountReceived: selectedCashAmount ?? undefined,
+          changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - selectedQrOrderForPayment.total) : undefined,
+        });
       } catch (error: any) {
         console.error('QR order completion error:', error);
         toast(`Failed to complete order: ${error?.message || 'Unknown error'}`, 'error');

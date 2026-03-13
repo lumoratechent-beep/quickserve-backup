@@ -705,7 +705,7 @@ const App: React.FC = () => {
   };
 
   // FIXED: Updated updateOrderStatus to handle printing correctly
-  const updateOrderStatus = async (orderId: string, status: OrderStatus, reason?: string, note?: string) => {
+  const updateOrderStatus = async (orderId: string, status: OrderStatus, reason?: string, note?: string, paymentDetails?: { paymentMethod?: string; cashierName?: string; amountReceived?: number; changeAmount?: number }) => {
     // Don't lock if we're just marking as ONGOING (for printing)
     const shouldLock = status !== OrderStatus.ONGOING;
     
@@ -718,14 +718,26 @@ const App: React.FC = () => {
       ...o, 
       status, 
       rejectionReason: reason, 
-      rejectionNote: note 
+      rejectionNote: note,
+      ...(paymentDetails ? {
+        paymentMethod: paymentDetails.paymentMethod,
+        cashierName: paymentDetails.cashierName,
+        amountReceived: paymentDetails.amountReceived,
+        changeAmount: paymentDetails.changeAmount,
+      } : {}),
     } : o));
     
     // Update database
     await supabase.from('orders').update({ 
       status, 
       rejection_reason: reason, 
-      rejection_note: note 
+      rejection_note: note,
+      ...(paymentDetails ? {
+        payment_method: paymentDetails.paymentMethod,
+        cashier_name: paymentDetails.cashierName,
+        amount_received: paymentDetails.amountReceived,
+        change_amount: paymentDetails.changeAmount,
+      } : {}),
     }).eq('id', orderId);
     
     // Only lock for non-ONGOING status changes
