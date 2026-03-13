@@ -389,12 +389,13 @@ const PosOnlyView: React.FC<Props> = ({
 
   const handleOpenAddModal = (initialCategory?: string) => {
     setEditingItem(null);
+    const defaultCategory = initialCategory || menuEditorCategories.find(c => c !== 'All') || '';
     setFormItem({
       name: '',
       description: '',
       price: 0,
       image: '',
-      category: initialCategory || '',
+      category: defaultCategory,
       isArchived: false,
       sizes: [],
       sizesEnabled: false,

@@ -316,9 +316,10 @@ const MenuItemFormModal: React.FC<Props> = ({
               <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Category</label>
               <select
                 className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
-                value={formItem.category}
+                value={formItem.category || ''}
                 onChange={e => setFormItem(prev => ({ ...prev, category: e.target.value }))}
               >
+                {!formItem.category && <option value="">-- Select Category --</option>}
                 {categories.filter(c => c !== 'All').map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
