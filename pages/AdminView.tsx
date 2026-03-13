@@ -1441,11 +1441,10 @@ const AdminView: React.FC<Props> = ({
                       <input required type="text" className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm" value={formArea.state} onChange={e => setFormArea({...formArea, state: e.target.value})} />
                    </div>
                 </div>
-                <div className="grid grid-cols-2 gap-6">
-                   <div>
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Short Code</label>
-                      <input required type="text" maxLength={3} placeholder="e.g. SF" className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm uppercase" value={formArea.code} onChange={e => setFormArea({...formArea, code: e.target.value.toUpperCase()})} />
-                   </div>
+                <div>
+                   <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Short Code</label>
+                   <input required type="text" maxLength={3} placeholder="e.g. SF" className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm uppercase" value={formArea.code} onChange={e => setFormArea({...formArea, code: e.target.value.toUpperCase()})} />
+                </div>
                 <div className="pt-4 flex gap-4">
                    {editingArea && (
                      <button type="button" onClick={async () => { if(confirm('Delete Hub?')) { setIsSubmittingArea(true); try { await onDeleteLocation(editingArea.id); setIsAreaModalOpen(false); } catch (error) { console.error('Error deleting hub:', error); } finally { setIsSubmittingArea(false); } } }} disabled={isSubmittingArea} className="p-3 text-red-500 bg-red-50 dark:bg-red-900/10 rounded-xl hover:bg-red-500 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"><Trash2 size={24} /></button>
