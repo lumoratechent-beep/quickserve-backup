@@ -169,6 +169,10 @@ const App: React.FC = () => {
     return localStorage.getItem('qs_session_table');
   });
 
+  const [sessionRestaurantId, setSessionRestaurantId] = useState<string | null>(() => {
+    return localStorage.getItem('qs_session_restaurant_id');
+  });
+
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('theme') === 'dark' || 
@@ -235,7 +239,9 @@ const App: React.FC = () => {
     
     let query = supabase.from('restaurants').select('*');
     
-    if (currentRole === 'CUSTOMER' && sessionLocation) {
+    if (currentRole === 'CUSTOMER' && sessionRestaurantId) {
+      query = query.eq('id', sessionRestaurantId).eq('is_online', true);
+    } else if (currentRole === 'CUSTOMER' && sessionLocation) {
       query = query.eq('location_name', sessionLocation).eq('is_online', true);
     }
 
@@ -301,7 +307,7 @@ const App: React.FC = () => {
       setRestaurants(formatted);
       persistCache('qs_cache_restaurants', formatted);
     }
-  }, [currentRole, sessionLocation]);
+  }, [currentRole, sessionLocation, sessionRestaurantId]);
 
   const fetchOrders = useCallback(async () => {
     if (isFetchingRef.current || !currentRole) return;
@@ -434,16 +440,32 @@ const App: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const loc = params.get('loc');
+    const restaurantId = params.get('restaurant');
     const table = params.get('table');
-    if (loc && table) {
+    if (restaurantId && table) {
+      // Direct restaurant QR (SINGLE hub) — bypass hub, go straight to restaurant menu
+      setSessionRestaurantId(restaurantId);
+      setSessionTable(table);
+      setSessionLocation(null);
+      setCurrentRole('CUSTOMER');
+      setView('APP');
+      localStorage.setItem('qs_role', 'CUSTOMER');
+      localStorage.setItem('qs_view', 'APP');
+      localStorage.setItem('qs_session_restaurant_id', restaurantId);
+      localStorage.setItem('qs_session_table', table);
+      localStorage.removeItem('qs_session_location');
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (loc && table) {
       setSessionLocation(loc);
       setSessionTable(table);
+      setSessionRestaurantId(null);
       setCurrentRole('CUSTOMER');
       setView('APP');
       localStorage.setItem('qs_role', 'CUSTOMER');
       localStorage.setItem('qs_view', 'APP');
       localStorage.setItem('qs_session_location', loc);
       localStorage.setItem('qs_session_table', table);
+      localStorage.removeItem('qs_session_restaurant_id');
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
@@ -680,13 +702,15 @@ const App: React.FC = () => {
     setCurrentUser(null); 
     setCurrentRole(null); 
     setSessionLocation(null);
-    setSessionTable(null); 
+    setSessionTable(null);
+    setSessionRestaurantId(null);
     setView('LANDING'); 
     localStorage.removeItem('qs_user');
     localStorage.removeItem('qs_role');
     localStorage.removeItem('qs_view');
     localStorage.removeItem('qs_session_location');
     localStorage.removeItem('qs_session_table');
+    localStorage.removeItem('qs_session_restaurant_id');
     localStorage.removeItem('qs_cache_users');
     localStorage.removeItem('qs_cache_restaurants');
     localStorage.removeItem('qs_cache_orders');
@@ -696,8 +720,10 @@ const App: React.FC = () => {
   const handleClearSession = () => {
     setSessionLocation(null);
     setSessionTable(null);
+    setSessionRestaurantId(null);
     localStorage.removeItem('qs_session_location');
     localStorage.removeItem('qs_session_table');
+    localStorage.removeItem('qs_session_restaurant_id');
     localStorage.removeItem('qs_role');
     localStorage.removeItem('qs_view');
     setCurrentRole(null);
@@ -1471,7 +1497,22 @@ const App: React.FC = () => {
           </div>
         )}
         
-        {currentRole === 'CUSTOMER' && <CustomerView restaurants={restaurants.filter(r => r.location === sessionLocation && r.isOnline === true)} cart={cart} orders={orders} onAddToCart={addToCart} onRemoveFromCart={removeFromCart} onPlaceOrder={placeOrder} locationName={sessionLocation || undefined} tableNo={sessionTable || undefined} areaType={currentArea?.type || 'MULTI'} allRestaurants={restaurants} />}
+        {currentRole === 'CUSTOMER' && <CustomerView
+          restaurants={
+            sessionRestaurantId
+              ? restaurants.filter(r => r.id === sessionRestaurantId && r.isOnline === true)
+              : restaurants.filter(r => r.location === sessionLocation && r.isOnline === true)
+          }
+          cart={cart}
+          orders={orders}
+          onAddToCart={addToCart}
+          onRemoveFromCart={removeFromCart}
+          onPlaceOrder={placeOrder}
+          locationName={sessionLocation || undefined}
+          tableNo={sessionTable || undefined}
+          areaType={sessionRestaurantId ? 'SINGLE' : (currentArea?.type || 'MULTI')}
+          allRestaurants={restaurants}
+        />}
         
         {currentRole === 'CASHIER' && view === 'APP' && (
           currentUser && restaurants.find(r => r.id === currentUser.restaurantId) ? (
@@ -1559,6 +1600,7 @@ const App: React.FC = () => {
                 onFetchPaginatedOrders={onFetchPaginatedOrders}
                 onFetchAllFilteredOrders={onFetchAllFilteredOrders}
                 onSwitchToPos={() => setView('POS')}
+                hubType={locations.find(l => l.name === activeVendorRes.location)?.type || 'MULTI'}
               />
             )
           ) : (

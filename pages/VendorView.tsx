@@ -28,6 +28,7 @@ interface Props {
   onFetchPaginatedOrders?: (filters: ReportFilters, page: number, pageSize: number) => Promise<ReportResponse>;
   onFetchAllFilteredOrders?: (filters: ReportFilters) => Promise<Order[]>;
   onSwitchToPos?: () => void;
+  hubType?: 'SINGLE' | 'MULTI';
 }
 
 interface OrderSettings {
@@ -67,7 +68,8 @@ const VendorView: React.FC<Props> = ({
   lastSyncTime,
   onFetchPaginatedOrders,
   onFetchAllFilteredOrders,
-  onSwitchToPos
+  onSwitchToPos,
+  hubType = 'MULTI'
 }) => {
   const [activeTab, setActiveTab] = useState<'ORDERS' | 'MENU' | 'REPORTS' | 'QR' | 'SETTINGS'>('ORDERS');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -698,6 +700,9 @@ const VendorView: React.FC<Props> = ({
 
   const getQrUrl = (hubName: string, table: string) => {
     const baseUrl = window.location.origin + window.location.pathname;
+    if (hubType === 'SINGLE') {
+      return `${baseUrl}?restaurant=${encodeURIComponent(restaurant.id)}&table=${encodeURIComponent(table)}`;
+    }
     return `${baseUrl}?loc=${encodeURIComponent(hubName)}&table=${table}`;
   };
 
@@ -1000,7 +1005,11 @@ const VendorView: React.FC<Props> = ({
           {activeTab === 'QR' && (
             <div className="max-w-4xl mx-auto no-print">
               <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Table QR Codes</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Generate ordering labels for your tables at {restaurant.location}.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">
+                {hubType === 'SINGLE'
+                  ? `Direct menu QR codes for ${restaurant.name}.`
+                  : `Generate ordering labels for your tables at ${restaurant.location}.`}
+              </p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="bg-white dark:bg-gray-800 p-8 rounded-xl border dark:border-gray-700 shadow-sm space-y-6">
