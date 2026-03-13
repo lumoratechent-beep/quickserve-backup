@@ -894,10 +894,9 @@ const AdminView: React.FC<Props> = ({
         </div>
 
         <div className="flex-1 overflow-auto">
-        <div className="p-4 md:p-6 no-print">
         {activeTab === 'VENDORS' && (
           <div>
-            <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white dark:bg-gray-800">
+            <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Vendor Directory</h3>
               <div className="flex flex-col sm:flex-row flex-wrap gap-4">
                 <div className="relative flex-1 sm:flex-none sm:w-64">
@@ -915,9 +914,9 @@ const AdminView: React.FC<Props> = ({
                 <button onClick={handleOpenAdd} className="w-full sm:w-auto px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg transition-all active:scale-95">+ Register</button>
               </div>
             </div>
-            <div className="overflow-x-auto bg-white dark:bg-gray-800">
+            <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                <thead className="bg-gray-100 dark:bg-gray-800 text-gray-400 text-[10px] font-black uppercase tracking-widest">
                   <tr>
                     <th className="px-8 py-4 text-left group">
                       <div className="inline-flex items-center gap-1.5">
@@ -951,12 +950,12 @@ const AdminView: React.FC<Props> = ({
                     <th className="px-8 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y dark:divide-gray-700">
+                <tbody className="divide-y dark:divide-gray-700/50">
                   {filteredVendors.map(vendor => {
                     const res = restaurants.find(r => r.id === vendor.restaurantId);
                     const isOnline = res?.isOnline ?? false;
                     return (
-                      <tr key={vendor.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <tr key={vendor.id} className="hover:bg-white/60 dark:hover:bg-gray-800/60 transition-colors">
                         <td className="px-8 py-5">
                           <div className="flex items-center gap-3">
                             <img src={res?.logo} className="w-10 h-10 rounded-xl shadow-sm object-cover border dark:border-gray-600" />
@@ -1002,7 +1001,7 @@ const AdminView: React.FC<Props> = ({
 
         {activeTab === 'LOCATIONS' && (
           <div>
-            <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white dark:bg-gray-800">
+            <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Hub Registry</h3>
               <div className="flex flex-col sm:flex-row flex-wrap gap-4">
                 <div className="relative flex-1 sm:flex-none sm:w-64">
@@ -1017,9 +1016,9 @@ const AdminView: React.FC<Props> = ({
                 </div>
               </div>
             </div>
-            <div className="overflow-x-auto bg-white dark:bg-gray-800">
+            <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                <thead className="bg-gray-100 dark:bg-gray-800 text-gray-400 text-[10px] font-black uppercase tracking-widest">
                   <tr>
                     <th className="px-8 py-4 text-left">Hub</th>
                     <th className="px-8 py-4 text-left">Type</th>
@@ -1027,9 +1026,9 @@ const AdminView: React.FC<Props> = ({
                     <th className="px-8 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y dark:divide-gray-700">
+                <tbody className="divide-y dark:divide-gray-700/50">
                   {filteredHubs.map(loc => (
-                    <tr key={loc.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors group">
+                    <tr key={loc.id} className="hover:bg-white/60 dark:hover:bg-gray-800/60 transition-colors group">
                       <td className="px-8 py-5">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-orange-50 dark:bg-orange-900/30 text-orange-500 rounded-xl flex items-center justify-center shadow-inner group-hover:bg-orange-500 group-hover:text-white transition-all"><MapPin size={20} /></div>
@@ -1065,7 +1064,7 @@ const AdminView: React.FC<Props> = ({
 
         {activeTab === 'REPORTS' && (
           <div>
-            <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Sales Analysis</h3>
               </div>
@@ -1295,7 +1294,7 @@ const AdminView: React.FC<Props> = ({
 
         {activeTab === 'SYSTEM' && (
           <div>
-            <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 bg-white dark:bg-gray-800">
+            <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700">
               <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">System Health Monitor</h3>
               <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Real-time platform diagnostics</p>
             </div>
@@ -1304,7 +1303,6 @@ const AdminView: React.FC<Props> = ({
             </div>
           </div>
         )}
-        </div>
         </div>
       </div>
 
