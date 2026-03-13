@@ -462,6 +462,17 @@ const AdminView: React.FC<Props> = ({
   onFetchStats
 }) => {
   const [activeTab, setActiveTab] = useState<'VENDORS' | 'LOCATIONS' | 'REPORTS' | 'SYSTEM'>('VENDORS');
+
+  const generateSlug = (name: string): string => {
+    const base = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    if (!base) return '';
+    const existingSlugs = new Set(restaurants.filter(r => r.id !== editingVendor?.res.id).map(r => r.slug).filter(Boolean));
+    if (!existingSlugs.has(base)) return base;
+    let i = 2;
+    while (existingSlugs.has(`${base}-${i}`)) i++;
+    return `${base}-${i}`;
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
   const [hubSearchQuery, setHubSearchQuery] = useState('');
   const [vendorFilter, setVendorFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
@@ -658,6 +669,7 @@ const AdminView: React.FC<Props> = ({
     const res = restaurants.find(r => r.id === user.restaurantId);
     if (res) {
       setEditingVendor({ user, res });
+      const autoSlug = res.slug || (res.location === 'QuickServe Hub' && res.name ? res.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : '');
       setFormVendor({
         username: user.username,
         password: user.password || '',
@@ -667,7 +679,7 @@ const AdminView: React.FC<Props> = ({
         phone: user.phone || '',
         logo: res.logo,
         platformAccess: res.platformAccess || 'pos_and_kitchen',
-        slug: res.slug || ''
+        slug: autoSlug
       });
       setShowPassword(false);
       setIsModalOpen(true);
@@ -1311,28 +1323,34 @@ const AdminView: React.FC<Props> = ({
                {/* Kitchen Name (1) & Assign Hub (2) */}
                <div>
                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Kitchen Name</label>
-                 <input required type="text" className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm" value={formVendor.restaurantName} onChange={e => setFormVendor({...formVendor, restaurantName: e.target.value})} />
+                 <input required type="text" className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm" value={formVendor.restaurantName} onChange={e => {
+                   const name = e.target.value;
+                   const updates: any = { restaurantName: name };
+                   if (formVendor.location === 'QuickServe Hub') updates.slug = generateSlug(name);
+                   setFormVendor({...formVendor, ...updates});
+                 }} />
                </div>
                <div>
                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Assign to Hub</label>
-                 <select required className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm appearance-none cursor-pointer" value={formVendor.location} onChange={e => setFormVendor({...formVendor, location: e.target.value})}>
+                 <select required className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm appearance-none cursor-pointer" value={formVendor.location} onChange={e => {
+                   const loc = e.target.value;
+                   const updates: any = { location: loc };
+                   if (loc === 'QuickServe Hub' && formVendor.restaurantName) updates.slug = generateSlug(formVendor.restaurantName);
+                   else updates.slug = '';
+                   setFormVendor({...formVendor, ...updates});
+                 }}>
                    <option value="">Select a Hub</option>
                    {locations.filter(l => l.isActive !== false).map(loc => <option key={loc.id} value={loc.name}>{loc.name}</option>)}
                  </select>
                </div>
 
-               {/* QR Slug */}
-               {formVendor.location === 'QuickServe Hub' && (
+               {/* QR Slug (auto-generated) */}
+               {formVendor.location === 'QuickServe Hub' && formVendor.slug && (
                  <div className="md:col-span-2">
-                   <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">QR Short Code <span className="text-orange-500">*</span></label>
-                   <input
-                     type="text"
-                     className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm lowercase"
-                     value={formVendor.slug}
-                     onChange={e => setFormVendor({...formVendor, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')})}
-                     placeholder="e.g. burger-palace"
-                   />
-                   <p className="text-[9px] text-gray-400 mt-1 ml-1">Lowercase letters, numbers, and hyphens only. Used in QR URL: <code className="font-mono">?r=burger-palace</code></p>
+                   <div className="flex items-center gap-2 p-3 bg-orange-50 dark:bg-orange-900/10 rounded-xl border border-orange-100 dark:border-orange-900/20">
+                     <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest">QR Link:</span>
+                     <code className="text-[10px] font-bold text-gray-600 dark:text-gray-300">?r={formVendor.slug}</code>
+                   </div>
                  </div>
                )}
 
