@@ -2378,10 +2378,14 @@ const PosOnlyView: React.FC<Props> = ({
     const count = Math.min(Math.max(parseInt(qrGenTableCount, 10) || 1, 1), 50);
     const tableNames = Array.from({ length: count }, (_, i) => `${qrGenTablePrefix}${startNum + i}`);
 
-    const buildQrUrl = (tableName: string) =>
-      restaurant.location === QS_DEFAULT_HUB
-        ? `${baseUrl}/?restaurant=${encodeURIComponent(restaurant.id)}&table=${encodeURIComponent(tableName)}`
-        : `${baseUrl}/?loc=${encodeURIComponent(qrGenLocation || restaurant.location)}&table=${encodeURIComponent(tableName)}`;
+    const buildQrUrl = (tableName: string) => {
+      if (restaurant.location === QS_DEFAULT_HUB) {
+        const identifier = restaurant.slug || restaurant.id;
+        const param = restaurant.slug ? 'r' : 'restaurant';
+        return `${baseUrl}/?${param}=${encodeURIComponent(identifier)}&table=${encodeURIComponent(tableName)}`;
+      }
+      return `${baseUrl}/?loc=${encodeURIComponent(qrGenLocation || restaurant.location)}&table=${encodeURIComponent(tableName)}`;
+    };
 
     const buildQrImageUrl = (tableName: string) => {
       const data = encodeURIComponent(buildQrUrl(tableName));

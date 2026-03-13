@@ -480,7 +480,8 @@ const AdminView: React.FC<Props> = ({
     email: '',
     phone: '',
     logo: '',
-    platformAccess: 'pos_and_kitchen' as PlatformAccess
+    platformAccess: 'pos_and_kitchen' as PlatformAccess,
+    slug: ''
   });
 
   const vendorFileInputRef = useRef<HTMLInputElement>(null);
@@ -665,7 +666,8 @@ const AdminView: React.FC<Props> = ({
         email: user.email || '',
         phone: user.phone || '',
         logo: res.logo,
-        platformAccess: res.platformAccess || 'pos_and_kitchen'
+        platformAccess: res.platformAccess || 'pos_and_kitchen',
+        slug: res.slug || ''
       });
       setShowPassword(false);
       setIsModalOpen(true);
@@ -674,7 +676,7 @@ const AdminView: React.FC<Props> = ({
 
   const handleOpenAdd = () => {
     setEditingVendor(null);
-    setFormVendor({ 
+      setFormVendor({ 
       username: '', 
       password: '', 
       restaurantName: '', 
@@ -683,6 +685,7 @@ const AdminView: React.FC<Props> = ({
       phone: '', 
       logo: '',
       platformAccess: 'pos_and_kitchen',
+      slug: ''
     });
     setShowPassword(false);
     setIsModalOpen(true);
@@ -728,7 +731,8 @@ const AdminView: React.FC<Props> = ({
         location: formVendor.location, 
         menu: editingVendor?.res.menu || [],
         // Include platformAccess in the restaurant object
-        platformAccess: formVendor.platformAccess as PlatformAccess
+        platformAccess: formVendor.platformAccess as PlatformAccess,
+        slug: formVendor.slug || undefined
       };
       
       if (editingVendor) {
@@ -1316,6 +1320,21 @@ const AdminView: React.FC<Props> = ({
                    {locations.filter(l => l.isActive !== false).map(loc => <option key={loc.id} value={loc.name}>{loc.name}</option>)}
                  </select>
                </div>
+
+               {/* QR Slug */}
+               {formVendor.location === 'QSH' && (
+                 <div className="md:col-span-2">
+                   <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">QR Short Code <span className="text-orange-500">*</span></label>
+                   <input
+                     type="text"
+                     className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm lowercase"
+                     value={formVendor.slug}
+                     onChange={e => setFormVendor({...formVendor, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')})}
+                     placeholder="e.g. burger-palace"
+                   />
+                   <p className="text-[9px] text-gray-400 mt-1 ml-1">Lowercase letters, numbers, and hyphens only. Used in QR URL: <code className="font-mono">?r=burger-palace</code></p>
+                 </div>
+               )}
 
                {/* Logo URL (3) & Contact Phone (4) */}
                <div className="space-y-4">

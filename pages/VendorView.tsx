@@ -699,7 +699,9 @@ const VendorView: React.FC<Props> = ({
   const getQrUrl = (hubName: string, table: string) => {
     const baseUrl = window.location.origin + window.location.pathname;
     if (restaurant.location === QS_DEFAULT_HUB) {
-      return `${baseUrl}?restaurant=${encodeURIComponent(restaurant.id)}&table=${encodeURIComponent(table)}`;
+      const identifier = restaurant.slug || restaurant.id;
+      const param = restaurant.slug ? 'r' : 'restaurant';
+      return `${baseUrl}?${param}=${encodeURIComponent(identifier)}&table=${encodeURIComponent(table)}`;
     }
     return `${baseUrl}?loc=${encodeURIComponent(hubName)}&table=${table}`;
   };

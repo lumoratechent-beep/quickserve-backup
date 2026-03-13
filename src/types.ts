@@ -78,6 +78,7 @@ export interface Restaurant {
   categories?: CategoryData[];
   modifiers?: ModifierData[];
   platformAccess?: PlatformAccess; // Added for restaurant-based access control
+  slug?: string; // Short URL identifier e.g. 'burger-palace'
 }
 
 export interface SelectedAddOn {
