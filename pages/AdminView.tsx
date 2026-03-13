@@ -819,21 +819,8 @@ const AdminView: React.FC<Props> = ({
         ${sidebarCollapsed ? 'lg:w-16' : 'w-64'}
       `}>
 
-        {/* Brand Header */}
-        <div className={`border-b dark:border-gray-700 flex items-center ${sidebarCollapsed ? 'p-3 justify-center' : 'p-6 gap-3'}`}>
-          <div className={`rounded-lg bg-orange-500 flex items-center justify-center shrink-0 ${sidebarCollapsed ? 'w-8 h-8' : 'w-10 h-10'}`}>
-            <ShieldCheck size={sidebarCollapsed ? 16 : 20} className="text-white" />
-          </div>
-          {!sidebarCollapsed && (
-            <div>
-              <h2 className="font-black dark:text-white text-sm uppercase tracking-tight">Admin Panel</h2>
-              <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mt-0.5">Platform Management</p>
-            </div>
-          )}
-        </div>
-
         {/* Navigation */}
-        <nav className={`flex-1 space-y-1 ${sidebarCollapsed ? 'p-2' : 'p-4'}`}>
+        <nav className={`flex-1 space-y-1 ${sidebarCollapsed ? 'p-2 pt-4' : 'p-4 pt-5'}`}>
           {([
             { id: 'VENDORS', label: 'Vendors', icon: Store },
             { id: 'LOCATIONS', label: 'Hubs', icon: MapPin },
@@ -897,7 +884,10 @@ const AdminView: React.FC<Props> = ({
         {activeTab === 'VENDORS' && (
           <div>
             <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-              <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Vendor Directory</h3>
+              <div>
+                <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Vendor Directory</h3>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Manage registered kitchens and their platform access</p>
+              </div>
               <div className="flex flex-col sm:flex-row flex-wrap gap-4">
                 <div className="relative flex-1 sm:flex-none sm:w-64">
                   <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -1002,7 +992,10 @@ const AdminView: React.FC<Props> = ({
         {activeTab === 'LOCATIONS' && (
           <div>
             <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-              <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Hub Registry</h3>
+              <div>
+                <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Hub Registry</h3>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Configure service locations and generate table QR codes</p>
+              </div>
               <div className="flex flex-col sm:flex-row flex-wrap gap-4">
                 <div className="relative flex-1 sm:flex-none sm:w-64">
                   <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -1067,6 +1060,7 @@ const AdminView: React.FC<Props> = ({
             <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Sales Analysis</h3>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Platform-wide order history, revenue and performance metrics</p>
               </div>
               <div className="flex items-center gap-2 w-full md:w-auto">
                 <div className="relative w-full md:w-64">
@@ -1296,7 +1290,7 @@ const AdminView: React.FC<Props> = ({
           <div>
             <div className="px-4 md:px-8 py-6 border-b dark:border-gray-700">
               <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">System Health Monitor</h3>
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Real-time platform diagnostics</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Real-time diagnostics across all platform services and integrations</p>
             </div>
             <div className="p-4 md:p-8">
               <SystemStatusDashboard />
