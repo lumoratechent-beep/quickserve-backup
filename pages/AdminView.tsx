@@ -1291,14 +1291,8 @@ const AdminView: React.FC<Props> = ({
         )}
 
         {activeTab === 'SYSTEM' && (
-          <div>
-            <div className="px-4 md:px-8 py-6">
-              <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">System Health Monitor</h3>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Real-time diagnostics across all platform services and integrations</p>
-            </div>
-            <div className="p-4 md:p-8">
-              <SystemStatusDashboard />
-            </div>
+          <div className="p-4 md:p-8">
+            <SystemStatusDashboard />
           </div>
         )}
         </div>
