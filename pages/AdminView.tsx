@@ -461,7 +461,7 @@ const AdminView: React.FC<Props> = ({
   onFetchAllFilteredOrders,
   onFetchStats
 }) => {
-  const [activeTab, setActiveTab] = useState<'VENDORS' | 'LOCATIONS' | 'REPORTS' | 'PEOPLE' | 'SYSTEM'>('VENDORS');
+  const [activeTab, setActiveTab] = useState<'VENDORS' | 'LOCATIONS' | 'REPORTS' | 'SYSTEM'>('VENDORS');
   const [searchQuery, setSearchQuery] = useState('');
   const [hubSearchQuery, setHubSearchQuery] = useState('');
   const [vendorFilter, setVendorFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
@@ -825,9 +825,8 @@ const AdminView: React.FC<Props> = ({
             { id: 'VENDORS', label: 'Vendors', icon: Store },
             { id: 'LOCATIONS', label: 'Hubs', icon: MapPin },
             { id: 'REPORTS', label: 'Reports', icon: TrendingUp },
-            { id: 'PEOPLE', label: 'People', icon: Users },
             { id: 'SYSTEM', label: 'System', icon: Database },
-          ] as { id: 'VENDORS' | 'LOCATIONS' | 'REPORTS' | 'PEOPLE' | 'SYSTEM'; label: string; icon: React.ElementType }[]).map(item => (
+          ] as { id: 'VENDORS' | 'LOCATIONS' | 'REPORTS' | 'SYSTEM'; label: string; icon: React.ElementType }[]).map(item => (
             <button
               key={item.id}
               onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
@@ -876,7 +875,6 @@ const AdminView: React.FC<Props> = ({
               {activeTab === 'VENDORS' ? 'Vendors' :
                activeTab === 'LOCATIONS' ? 'Hubs' :
                activeTab === 'REPORTS' ? 'Reports' :
-               activeTab === 'PEOPLE' ? 'People' :
                'System'}
             </h1>
           </div>
@@ -1295,18 +1293,6 @@ const AdminView: React.FC<Props> = ({
         {activeTab === 'SYSTEM' && (
           <div className="p-4 md:p-8">
             <SystemStatusDashboard />
-          </div>
-        )}
-
-        {activeTab === 'PEOPLE' && (
-          <div className="p-4 md:p-8">
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-8 md:p-12 text-center shadow-sm">
-              <div className="mx-auto w-14 h-14 rounded-2xl bg-orange-50 dark:bg-orange-900/20 text-orange-500 flex items-center justify-center">
-                <Users size={26} />
-              </div>
-              <h3 className="mt-5 text-xl font-black uppercase tracking-tighter dark:text-white">People</h3>
-              <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-gray-400">Under Development</p>
-            </div>
           </div>
         )}
 
