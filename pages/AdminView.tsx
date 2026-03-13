@@ -495,6 +495,7 @@ const AdminView: React.FC<Props> = ({
   
   const [viewingHubVendors, setViewingHubVendors] = useState<Area | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // QR Modal State
   const [generatingQrHub, setGeneratingQrHub] = useState<Area | null>(null);
@@ -800,64 +801,99 @@ const AdminView: React.FC<Props> = ({
   };
 
   return (
-    <div className="flex h-[calc(100vh-64px)] overflow-hidden">
+    <div className="flex h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-900 overflow-hidden">
 
-      {/* ── Sidebar ── */}
-      <aside className="no-print flex-shrink-0 w-[220px] bg-[#111827] flex flex-col">
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`
+        fixed lg:relative inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 border-r dark:border-gray-700
+        flex flex-col transition-all duration-300 ease-in-out no-print
+        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        ${sidebarCollapsed ? 'lg:w-16' : 'w-64'}
+      `}>
+
+        {/* Brand Header */}
+        <div className={`border-b dark:border-gray-700 flex items-center ${sidebarCollapsed ? 'p-3 justify-center' : 'p-6 gap-3'}`}>
+          <div className={`rounded-lg bg-orange-500 flex items-center justify-center shrink-0 ${sidebarCollapsed ? 'w-8 h-8' : 'w-10 h-10'}`}>
+            <ShieldCheck size={sidebarCollapsed ? 16 : 20} className="text-white" />
+          </div>
+          {!sidebarCollapsed && (
+            <div>
+              <h2 className="font-black dark:text-white text-sm uppercase tracking-tight">Admin Panel</h2>
+              <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mt-0.5">Platform Management</p>
+            </div>
+          )}
+        </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-hidden py-4 px-2 space-y-0.5">
-
-          {/* — GENERAL — */}
-          <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest px-3 pb-1">General</p>
-
+        <nav className={`flex-1 space-y-1 ${sidebarCollapsed ? 'p-2' : 'p-4'}`}>
           {([
             { id: 'VENDORS', label: 'Vendors', icon: Store },
             { id: 'LOCATIONS', label: 'Hubs', icon: MapPin },
             { id: 'REPORTS', label: 'Reports', icon: TrendingUp },
-          ] as { id: 'VENDORS' | 'LOCATIONS' | 'REPORTS'; label: string; icon: React.ElementType }[]).map(item => (
+            { id: 'SYSTEM', label: 'System', icon: Database },
+          ] as { id: 'VENDORS' | 'LOCATIONS' | 'REPORTS' | 'SYSTEM'; label: string; icon: React.ElementType }[]).map(item => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
+              onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
+              title={item.label}
+              className={`w-full flex items-center gap-3 ${sidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
                 activeTab === item.id
-                  ? 'bg-white/10 text-white'
-                  : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
               }`}
             >
-              <item.icon size={18} className="flex-shrink-0" />
-              <span className="text-[13px] font-semibold">{item.label}</span>
+              <item.icon size={20} />
+              {!sidebarCollapsed && <span className="text-sm font-semibold">{item.label}</span>}
             </button>
           ))}
-
-          {/* — ACCOUNT — */}
-          <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest px-3 pb-1 pt-5">Account</p>
-
-          <button
-            onClick={() => setActiveTab('SYSTEM')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
-              activeTab === 'SYSTEM'
-                ? 'bg-white/10 text-white'
-                : 'text-gray-400 hover:bg-white/5 hover:text-white'
-            }`}
-          >
-            <Database size={18} className="flex-shrink-0" />
-            <span className="text-[13px] font-semibold">System</span>
-          </button>
-
-          <button
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-gray-400 hover:bg-white/5 hover:text-white"
-          >
-            <Settings size={18} className="flex-shrink-0" />
-            <span className="text-[13px] font-semibold">Settings</span>
-          </button>
-
         </nav>
+
+        {/* Collapse Toggle */}
+        <div className={`hidden lg:flex ${sidebarCollapsed ? 'justify-center p-2' : 'justify-end px-4'} py-2`}>
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-all"
+          >
+            {sidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          </button>
+        </div>
+        <div className="pb-2" />
       </aside>
 
-      {/* ── Main content ── */}
-      <div className="flex-1 overflow-auto min-w-0 bg-gray-100 dark:bg-gray-900">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
 
+        {/* Mobile Header */}
+        <div className="lg:hidden flex items-center p-4 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30 no-print">
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="p-2 -ml-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            <Menu size={24} />
+          </button>
+          <div className="ml-4 flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center">
+              <ShieldCheck size={16} className="text-white" />
+            </div>
+            <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm">
+              {activeTab === 'VENDORS' ? 'Vendors' :
+               activeTab === 'LOCATIONS' ? 'Hubs' :
+               activeTab === 'REPORTS' ? 'Reports' :
+               'System'}
+            </h1>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto">
         <div className="p-4 md:p-6 no-print">
         {activeTab === 'VENDORS' && (
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
@@ -1268,6 +1304,7 @@ const AdminView: React.FC<Props> = ({
             </div>
           </div>
         )}
+        </div>
         </div>
       </div>
 
