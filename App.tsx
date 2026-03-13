@@ -679,6 +679,10 @@ const App: React.FC = () => {
     }
 
     const area = locations.find(l => l.name === sessionLocation);
+    if (sessionLocation && !area) {
+      toast(`Order failed: The scanned location "${sessionLocation}" is not recognised. Please ask staff to scan a valid QR code.`, 'error');
+      return;
+    }
     const code = area?.code || 'QS';
     let nextNum = 1;
     const { data: lastOrder } = await supabase.from('orders')
