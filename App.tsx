@@ -1101,17 +1101,16 @@ const App: React.FC = () => {
 
   const handleDeleteVendor = async (userId: string, restaurantId: string) => {
     try {
-      // Delete menu items first (foreign key dependency)
-      const { error: menuError } = await supabase.from('menu_items').delete().eq('restaurant_id', restaurantId);
-      if (menuError) { toast('Error deleting menu items: ' + menuError.message, 'error'); throw menuError; }
+      if (restaurantId) {
+        // Delete menu items first (foreign key dependency)
+        await supabase.from('menu_items').delete().eq('restaurant_id', restaurantId);
 
-      // Delete orders for the restaurant
-      const { error: ordersError } = await supabase.from('orders').delete().eq('restaurant_id', restaurantId);
-      if (ordersError) { toast('Error deleting orders: ' + ordersError.message, 'error'); throw ordersError; }
+        // Delete orders for the restaurant
+        await supabase.from('orders').delete().eq('restaurant_id', restaurantId);
 
-      // Delete the restaurant
-      const { error: resError } = await supabase.from('restaurants').delete().eq('id', restaurantId);
-      if (resError) { toast('Error deleting restaurant: ' + resError.message, 'error'); throw resError; }
+        // Delete the restaurant
+        await supabase.from('restaurants').delete().eq('id', restaurantId);
+      }
 
       // Delete the user
       const { error: userError } = await supabase.from('users').delete().eq('id', userId);

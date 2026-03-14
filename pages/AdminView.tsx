@@ -685,6 +685,11 @@ const AdminView: React.FC<Props> = ({
       });
       setShowPassword(false);
       setIsModalOpen(true);
+    } else {
+      // Orphaned vendor — restaurant data missing from Supabase
+      if (confirm(`Restaurant data for "${user.username}" is missing. Do you want to remove this orphaned vendor record?`)) {
+        onDeleteVendor(user.id, user.restaurantId || '').catch(() => {});
+      }
     }
   };
 
@@ -996,6 +1001,9 @@ const AdminView: React.FC<Props> = ({
                         <td className="px-8 py-5 text-right">
                           <div className="flex justify-end gap-2">
                             <button onClick={() => handleOpenEdit(vendor)} className="p-2 text-gray-400 hover:text-blue-500"><Edit3 size={18} /></button>
+                            {!res && (
+                              <button onClick={() => { if (confirm(`Remove orphaned vendor "${vendor.username}"?`)) onDeleteVendor(vendor.id, vendor.restaurantId || '').catch(() => {}); }} className="p-2 text-gray-400 hover:text-red-500" title="Delete orphaned vendor"><Trash2 size={18} /></button>
+                            )}
                             <button onClick={() => onImpersonateVendor(vendor)} className="p-2 text-gray-400 hover:text-orange-500"><LogIn size={18} /></button>
                           </div>
                         </td>
