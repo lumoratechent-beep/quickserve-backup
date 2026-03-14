@@ -1033,7 +1033,7 @@ const AdminView: React.FC<Props> = ({
                 <thead className="bg-gray-100 dark:bg-gray-800 text-gray-400 text-[10px] font-black uppercase tracking-widest">
                   <tr>
                     <th className="px-8 py-4 text-left">Hub</th>
-
+                    <th className="px-8 py-4 text-center">Vendors</th>
                     <th className="px-8 py-4 text-center">Status</th>
                     <th className="px-8 py-4 text-right">Actions</th>
                   </tr>
@@ -1050,7 +1050,20 @@ const AdminView: React.FC<Props> = ({
                           </div>
                         </div>
                       </td>
-
+                      <td className="px-8 py-5 text-center">
+                        {(() => {
+                          const count = restaurants.filter(r => r.location === loc.name).length;
+                          return (
+                            <button
+                              onClick={() => setViewingHubVendors(loc)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:text-orange-500 text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50"
+                            >
+                              <Users size={14} />
+                              {count}
+                            </button>
+                          );
+                        })()}
+                      </td>
                       <td className="px-8 py-5 text-center">
                         <button onClick={() => toggleHubStatus(loc)} className={`p-2 rounded-xl transition-all ${loc.isActive !== false ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 bg-gray-50 dark:bg-gray-700'}`}>
                            {loc.isActive !== false ? <Power size={20} /> : <Power size={20} className="opacity-40" />}
@@ -1563,6 +1576,59 @@ const AdminView: React.FC<Props> = ({
                  </div>
                )}
              </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hub Vendors List Modal */}
+      {viewingHubVendors && (
+        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-2xl w-full p-8 shadow-2xl relative animate-in zoom-in fade-in duration-300">
+            <button onClick={() => setViewingHubVendors(null)} className="absolute top-6 right-6 p-2 text-gray-400 hover:text-red-500 transition-colors"><X size={24} /></button>
+            <h2 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Hub Vendors</h2>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6">{viewingHubVendors.name} — {viewingHubVendors.code}</p>
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+              {(() => {
+                const hubRestaurants = restaurants.filter(r => r.location === viewingHubVendors.name);
+                if (hubRestaurants.length === 0) {
+                  return (
+                    <div className="text-center py-12 opacity-40">
+                      <Store size={48} className="mx-auto mb-4 text-gray-300" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">No vendors assigned to this hub</p>
+                    </div>
+                  );
+                }
+                return hubRestaurants.map(res => {
+                  const vendor = vendors.find(v => v.restaurantId === res.id);
+                  return (
+                    <div key={res.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border dark:border-gray-700 group transition-all hover:bg-gray-100 dark:hover:bg-gray-700">
+                      <div className="flex items-center gap-3">
+                        {res.logo ? (
+                          <img src={res.logo} alt={res.name} className="w-10 h-10 rounded-xl object-cover" />
+                        ) : (
+                          <div className="w-10 h-10 bg-orange-50 dark:bg-orange-900/30 text-orange-500 rounded-xl flex items-center justify-center"><Store size={20} /></div>
+                        )}
+                        <div>
+                          <span className="font-black dark:text-white text-sm block uppercase tracking-tight">{res.name}</span>
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{vendor?.username || 'Unknown'}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Remove "${res.name}" from ${viewingHubVendors.name}?`)) {
+                            onRemoveVendorFromHub(res.id);
+                          }
+                        }}
+                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                        title="Remove from hub"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
           </div>
         </div>
       )}
