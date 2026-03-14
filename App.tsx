@@ -1099,6 +1099,32 @@ const App: React.FC = () => {
     fetchUsers(); fetchRestaurants();
   };
 
+  const handleDeleteVendor = async (userId: string, restaurantId: string) => {
+    try {
+      // Delete menu items first (foreign key dependency)
+      const { error: menuError } = await supabase.from('menu_items').delete().eq('restaurant_id', restaurantId);
+      if (menuError) { toast('Error deleting menu items: ' + menuError.message, 'error'); throw menuError; }
+
+      // Delete orders for the restaurant
+      const { error: ordersError } = await supabase.from('orders').delete().eq('restaurant_id', restaurantId);
+      if (ordersError) { toast('Error deleting orders: ' + ordersError.message, 'error'); throw ordersError; }
+
+      // Delete the restaurant
+      const { error: resError } = await supabase.from('restaurants').delete().eq('id', restaurantId);
+      if (resError) { toast('Error deleting restaurant: ' + resError.message, 'error'); throw resError; }
+
+      // Delete the user
+      const { error: userError } = await supabase.from('users').delete().eq('id', userId);
+      if (userError) { toast('Error deleting user: ' + userError.message, 'error'); throw userError; }
+
+      toast('Vendor deleted successfully!', 'success');
+      fetchUsers(); fetchRestaurants();
+    } catch (error: any) {
+      console.error('Delete vendor error:', error);
+      throw error;
+    }
+  };
+
   const handleAddLocation = async (area: Area) => {
     const id = crypto.randomUUID();
     try {
@@ -1779,6 +1805,7 @@ const App: React.FC = () => {
             onUpdateLocation={handleUpdateLocation} 
             onDeleteLocation={handleDeleteLocation} 
             onToggleOnline={toggleVendorOnline} 
+            onDeleteVendor={handleDeleteVendor}
             onRemoveVendorFromHub={(rid) => supabase.from('restaurants').update({ location_name: null }).eq('id', rid).then(() => fetchRestaurants())} 
             onFetchPaginatedOrders={onFetchPaginatedOrders}
             onFetchAllFilteredOrders={onFetchAllFilteredOrders}

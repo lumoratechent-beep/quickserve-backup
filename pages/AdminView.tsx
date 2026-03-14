@@ -18,6 +18,7 @@ interface Props {
   onDeleteLocation: (areaId: string) => void | Promise<void>;
   onToggleOnline: (restaurantId: string, currentStatus: boolean) => void;
   onRemoveVendorFromHub: (restaurantId: string) => void;
+  onDeleteVendor: (userId: string, restaurantId: string) => Promise<void>;
   onFetchPaginatedOrders?: (filters: ReportFilters, page: number, pageSize: number) => Promise<ReportResponse>;
   onFetchAllFilteredOrders?: (filters: ReportFilters) => Promise<Order[]>;
   onFetchStats?: (filters: ReportFilters) => Promise<any>;
@@ -457,6 +458,7 @@ const AdminView: React.FC<Props> = ({
   onDeleteLocation, 
   onToggleOnline, 
   onRemoveVendorFromHub,
+  onDeleteVendor,
   onFetchPaginatedOrders,
   onFetchAllFilteredOrders,
   onFetchStats
@@ -1458,8 +1460,25 @@ const AdminView: React.FC<Props> = ({
                   </div>
                 </div>
 
-               <div className="md:col-span-2 pt-4">
-                  <button type="submit" disabled={isSubmittingVendor} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl hover:bg-orange-600 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">{isSubmittingVendor ? <><RefreshCw size={16} className="animate-spin" /> Saving...</> : 'Save Changes'}</button>
+               <div className="md:col-span-2 pt-4 flex gap-3">
+                  <button type="submit" disabled={isSubmittingVendor} className="flex-1 py-4 bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl hover:bg-orange-600 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">{isSubmittingVendor ? <><RefreshCw size={16} className="animate-spin" /> Saving...</> : 'Save Changes'}</button>
+                  {editingVendor && (
+                    <button type="button" disabled={isSubmittingVendor} onClick={async () => {
+                      if (!confirm(`Are you sure you want to permanently delete "${editingVendor.res.name}"? This will remove the vendor, restaurant, and all menu items. This action cannot be undone.`)) return;
+                      setIsSubmittingVendor(true);
+                      try {
+                        await onDeleteVendor(editingVendor.user.id, editingVendor.res.id);
+                        setEditingVendor(null);
+                        setIsVendorModalOpen(false);
+                      } catch (e) {
+                        // error toast handled by parent
+                      } finally {
+                        setIsSubmittingVendor(false);
+                      }
+                    }} className="py-4 px-6 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl hover:bg-red-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                      <Trash2 size={16} /> Delete
+                    </button>
+                  )}
                </div>
             </form>
           </div>
