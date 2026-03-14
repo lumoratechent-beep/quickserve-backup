@@ -1469,7 +1469,7 @@ const AdminView: React.FC<Props> = ({
                       try {
                         await onDeleteVendor(editingVendor.user.id, editingVendor.res.id);
                         setEditingVendor(null);
-                        setIsVendorModalOpen(false);
+                        setIsModalOpen(false);
                       } catch (e) {
                         // error toast handled by parent
                       } finally {
