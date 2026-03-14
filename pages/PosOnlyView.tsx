@@ -252,7 +252,11 @@ const PosOnlyView: React.FC<Props> = ({
   const [isSavingReceiptSettings, setIsSavingReceiptSettings] = useState(false);
   const [receiptSettingsSaved, setReceiptSettingsSaved] = useState(false);
   const [selectedReportOrder, setSelectedReportOrder] = useState<Order | null>(null);
-  const [receiptAccordion, setReceiptAccordion] = useState({ content: true, fields: false });
+  const [receiptAccordion, setReceiptAccordion] = useState({ content: true, fields: false, orderCode: false });
+
+  // Ordering Number Code — custom prefix for order IDs
+  const [orderCode, setOrderCode] = useState<string>('');
+  const [isSavingOrderCode, setIsSavingOrderCode] = useState(false);
 
   // Staff Management State
   const [staffList, setStaffList] = useState<any[]>(() => {
@@ -1176,6 +1180,12 @@ const PosOnlyView: React.FC<Props> = ({
     setReceiptSettings(defaults);
   }, [restaurant.id, restaurant.name, (restaurant as any)?.settings]);
 
+  // Load order code from restaurant settings
+  useEffect(() => {
+    const saved = restaurant.settings?.orderCode || '';
+    setOrderCode(saved);
+  }, [restaurant.id, restaurant.settings?.orderCode]);
+
   useEffect(() => {
     localStorage.setItem(`receipt_settings_${restaurant.id}`, JSON.stringify(receiptSettings));
   }, [receiptSettings, restaurant.id]);
@@ -2077,6 +2087,87 @@ const PosOnlyView: React.FC<Props> = ({
                 </label>
               ))}
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Ordering Number Code */}
+      <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl overflow-hidden">
+        <button
+          onClick={() => setReceiptAccordion(prev => ({ ...prev, orderCode: !prev.orderCode }))}
+          className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-600/30 transition-all"
+        >
+          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Ordering Number</span>
+          <ChevronDown size={14} className={`text-gray-400 transition-transform ${receiptAccordion.orderCode ? 'rotate-180' : ''}`} />
+        </button>
+        {receiptAccordion.orderCode && (
+          <div className="px-4 pb-4 space-y-3 border-t dark:border-gray-600 pt-3">
+            <div>
+              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Order Code Prefix (2-5 characters)</label>
+              <input
+                type="text"
+                value={orderCode}
+                onChange={e => {
+                  const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 5);
+                  setOrderCode(val);
+                }}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white uppercase tracking-widest"
+                placeholder={(() => {
+                  const cleaned = restaurant.name.replace(/[^a-zA-Z\s]/g, '').trim();
+                  const words = cleaned.split(/\s+/).filter(Boolean);
+                  let code: string;
+                  if (words.length >= 3) code = words.slice(0, 3).map(w => w[0]).join('');
+                  else if (words.length === 2) code = words[0][0] + words[1].substring(0, 2);
+                  else code = (words[0] || 'QS').substring(0, 3);
+                  return code.toUpperCase().padEnd(3, 'X');
+                })()}
+                maxLength={5}
+                minLength={2}
+              />
+              <p className="text-[9px] text-gray-400 mt-1.5">
+                This prefix is used for order IDs (e.g., <span className="font-bold text-orange-500">{orderCode || (() => {
+                  const cleaned = restaurant.name.replace(/[^a-zA-Z\s]/g, '').trim();
+                  const words = cleaned.split(/\s+/).filter(Boolean);
+                  let code: string;
+                  if (words.length >= 3) code = words.slice(0, 3).map(w => w[0]).join('');
+                  else if (words.length === 2) code = words[0][0] + words[1].substring(0, 2);
+                  else code = (words[0] || 'QS').substring(0, 3);
+                  return code.toUpperCase().padEnd(3, 'X');
+                })()}0000001</span>). Each restaurant should have a unique code to avoid conflicts.
+              </p>
+            </div>
+            <button
+              onClick={async () => {
+                if (orderCode.length < 2) {
+                  toast('Order code must be at least 2 characters.', 'warning');
+                  return;
+                }
+                setIsSavingOrderCode(true);
+                try {
+                  const mergedSettings = {
+                    ...(restaurant.settings || {}),
+                    orderCode: orderCode.toUpperCase(),
+                  };
+                  const { error } = await supabase
+                    .from('restaurants')
+                    .update({ settings: mergedSettings })
+                    .eq('id', restaurant.id);
+                  if (error) {
+                    console.warn('Cloud save failed for order code:', error.message);
+                  }
+                  localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(mergedSettings));
+                  toast('Order code saved successfully!', 'success');
+                } catch (err: any) {
+                  toast('Failed to save order code: ' + err.message, 'error');
+                } finally {
+                  setIsSavingOrderCode(false);
+                }
+              }}
+              disabled={isSavingOrderCode || orderCode.length < 2}
+              className="w-full py-2.5 bg-orange-500 text-white rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50"
+            >
+              {isSavingOrderCode ? 'Saving...' : 'Save Order Code'}
+            </button>
           </div>
         )}
       </div>

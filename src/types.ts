@@ -74,6 +74,7 @@ export interface Restaurant {
   settings?: {
     showSalesReport?: boolean;
     showQrGenerator?: boolean;
+    orderCode?: string; // 2-5 char prefix for order IDs, unique per restaurant
   };
   categories?: CategoryData[];
   modifiers?: ModifierData[];

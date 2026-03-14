@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, PlatformAccess } from './src/types';
+import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, PlatformAccess, QS_DEFAULT_HUB } from './src/types';
 import CustomerView from './pages/CustomerView';
 import VendorView from './pages/VendorView';
 import AdminView from './pages/AdminView';
@@ -13,6 +13,46 @@ import { supabase } from './lib/supabase';
 import { LogOut, Sun, Moon, MapPin, LogIn, Loader2 } from 'lucide-react';
 import * as offlineQueue from './lib/offlineOrdersQueue';
 import { toast } from './components/Toast';
+
+/**
+ * Generate a default 3-character order code from a restaurant name.
+ * Takes initials of the first 3 words, or first 3 chars if single word.
+ * Always uppercase, alpha-only.
+ */
+const generateDefaultOrderCode = (restaurantName: string): string => {
+  const cleaned = restaurantName.replace(/[^a-zA-Z\s]/g, '').trim();
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  let code: string;
+  if (words.length >= 3) {
+    code = words.slice(0, 3).map(w => w[0]).join('');
+  } else if (words.length === 2) {
+    code = words[0][0] + words[1].substring(0, 2);
+  } else {
+    code = (words[0] || 'QS').substring(0, 3);
+  }
+  return code.toUpperCase().padEnd(3, 'X');
+};
+
+/**
+ * Resolve the order code for a restaurant. Priority:
+ * 1. Custom orderCode from restaurant settings
+ * 2. For QS_DEFAULT_HUB restaurants: auto-generated 3-char code from name
+ * 3. For hub restaurants: the area/hub code
+ * 4. Fallback: 'QS'
+ */
+const resolveOrderCode = (restaurant: Restaurant | undefined, areas: Area[]): string => {
+  if (!restaurant) return 'QS';
+  // Custom code set in settings takes top priority
+  const customCode = restaurant.settings?.orderCode?.trim();
+  if (customCode && customCode.length >= 2) return customCode.toUpperCase();
+  // QS_DEFAULT_HUB restaurants get a unique auto-generated code
+  if (restaurant.location === QS_DEFAULT_HUB) {
+    return generateDefaultOrderCode(restaurant.name);
+  }
+  // Hub restaurants use the area code
+  const area = areas.find(l => l.name === restaurant.location);
+  return area?.code || 'QS';
+};
 
 const App: React.FC = () => {
   // --- HYDRATED STATE ---
@@ -716,43 +756,48 @@ const App: React.FC = () => {
       return;
     }
 
-    const area = locations.find(l => l.name === sessionLocation);
-    if (sessionLocation && !area) {
-      toast(`Order failed: The scanned location "${sessionLocation}" is not recognised. Please ask staff to scan a valid QR code.`, 'error');
-      return;
-    }
-    const code = area?.code || 'QS';
-    let nextNum = 1;
-    const { data: lastOrder } = await supabase.from('orders')
-      .select('id')
-      .ilike('id', `${code}%`)
-      .order('id', { ascending: false })
-      .limit(1);
+    // Build orders per restaurant, each with its own unique order code
+    const ordersToInsert: any[] = [];
+    const orderIds: string[] = [];
 
-    if (lastOrder && lastOrder[0]) {
-      const lastIdFull = lastOrder[0].id;
-      const basePart = lastIdFull.split('-')[0];
-      const numPart = basePart.substring(code.length);
-      const parsed = parseInt(numPart);
-      if (!isNaN(parsed)) nextNum = parsed + 1;
-    }
-    const baseOrderId = `${code}${String(nextNum).padStart(7, '0')}`;
+    for (const rid of uniqueRestaurantIdsInCart) {
+      const res = restaurants.find(r => r.id === rid);
+      const code = resolveOrderCode(res, locations);
 
-    const ordersToInsert = uniqueRestaurantIdsInCart.map((rid, index) => {
+      // Query last order for THIS restaurant with its specific code prefix
+      let nextNum = 1;
+      const { data: recentOrders } = await supabase.from('orders')
+        .select('id')
+        .eq('restaurant_id', rid)
+        .ilike('id', `${code}%`)
+        .order('id', { ascending: false })
+        .limit(50);
+
+      if (recentOrders && recentOrders.length > 0) {
+        for (const order of recentOrders) {
+          const num = offlineQueue.extractOrderNumber(order.id, code);
+          if (num > 0) {
+            nextNum = num + 1;
+            break;
+          }
+        }
+      }
+
+      const orderId = `${code}${String(nextNum).padStart(7, '0')}`;
       const itemsForThisRestaurant = cart.filter(item => item.restaurantId === rid);
       const totalForThisRestaurant = itemsForThisRestaurant.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-      const finalOrderId = uniqueRestaurantIdsInCart.length > 1 ? `${baseOrderId}-${index + 1}` : baseOrderId;
-      return {
-        id: finalOrderId, items: itemsForThisRestaurant, total: totalForThisRestaurant,
+      ordersToInsert.push({
+        id: orderId, items: itemsForThisRestaurant, total: totalForThisRestaurant,
         status: OrderStatus.PENDING, timestamp: Date.now(), customer_id: 'guest_user',
-        restaurant_id: rid, table_number: sessionTable || 'N/A', location_name: sessionLocation || 'QuickServe Hub',
+        restaurant_id: rid, table_number: sessionTable || 'N/A', location_name: sessionLocation || QS_DEFAULT_HUB,
         remark: remark
-      };
-    });
+      });
+      orderIds.push(orderId);
+    }
 
     const { error } = await supabase.from('orders').insert(ordersToInsert);
     if (error) toast("Placement Error: " + error.message, 'error');
-    else { setCart([]); toast(`Your order(s) have been placed! Reference: ${baseOrderId}`, 'success'); }
+    else { setCart([]); toast(`Your order(s) have been placed! Reference: ${orderIds.join(', ')}`, 'success'); }
   };
 
   const handleLogin = (user: User) => {
@@ -1199,8 +1244,7 @@ const App: React.FC = () => {
         const restaurantList = restaurants.filter(r => r.id === currentUser.restaurantId);
         if (restaurantList.length === 0) return;
         for (const restaurant of restaurantList) {
-          const area = locations.find(l => l.name === restaurant.location);
-          const code = area?.code || 'QS';
+          const code = resolveOrderCode(restaurant, locations);
           const { data: recentOrders, error } = await supabase.from('orders')
             .select('id')
             .eq('restaurant_id', currentUser.restaurantId)
@@ -1239,8 +1283,8 @@ const App: React.FC = () => {
       if (!restaurantCodes.has(order.restaurant_id)) {
         restaurantCodes.set(order.restaurant_id, new Set());
       }
-      const area = locations.find(l => l.name === order.location_name);
-      const code = area?.code || 'QS';
+      const res = restaurants.find(r => r.id === order.restaurant_id);
+      const code = resolveOrderCode(res, locations);
       restaurantCodes.get(order.restaurant_id)!.add(code);
     }
 
@@ -1276,8 +1320,8 @@ const App: React.FC = () => {
     // Now sync all orders, regenerating IDs if they conflict
     for (const offlineOrder of unsyncedOrders) {
       try {
-        const area = locations.find(l => l.name === offlineOrder.location_name);
-        const code = area?.code || 'QS';
+        const res = restaurants.find(r => r.id === offlineOrder.restaurant_id);
+        const code = resolveOrderCode(res, locations);
         let orderId = offlineOrder.id;
         let retries = 0;
         const maxRetries = 5;
@@ -1337,8 +1381,7 @@ const App: React.FC = () => {
     if (items.length === 0 || !currentUser?.restaurantId) return '';
     
     const res = restaurants.find(r => r.id === currentUser.restaurantId);
-    const area = locations.find(l => l.name === res?.location);
-    const code = area?.code || 'QS';
+    const code = resolveOrderCode(res, locations);
    
      console.log(`[ORDER] Placing order - Restaurant: ${res?.name}, Location: ${res?.location}, Code: ${code}, Online: ${offlineQueue.isOnline()}`);
     
