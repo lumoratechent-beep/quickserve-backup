@@ -81,6 +81,7 @@ export interface Restaurant {
   platformAccess?: PlatformAccess; // Added for restaurant-based access control
   slug?: string; // Short URL identifier e.g. 'burger-palace'
   kitchenDivisions?: string[];
+  kitchenEnabled?: boolean; // Whether the Kitchen Display System is enabled
 }
 
 export interface SelectedAddOn {

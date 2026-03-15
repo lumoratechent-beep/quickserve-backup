@@ -38,6 +38,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(403).json({ error: 'Account deactivated' });
     }
 
+    // Block KITCHEN users if the restaurant's Kitchen Display System is disabled
+    if (data.role === 'KITCHEN' && data.restaurant_id) {
+      const { data: restaurantData, error: restaurantError } = await supabase
+        .from('restaurants')
+        .select('kitchen_enabled')
+        .eq('id', data.restaurant_id)
+        .single();
+
+      if (restaurantError || !restaurantData || restaurantData.kitchen_enabled !== true) {
+        return res.status(403).json({ error: 'Kitchen Display System is disabled for this restaurant. Contact your manager.' });
+      }
+    }
+
     // Map to camelCase to match frontend User interface
     const userResponse = {
       id: data.id,

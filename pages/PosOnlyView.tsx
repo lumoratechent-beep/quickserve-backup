@@ -340,7 +340,18 @@ const PosOnlyView: React.FC<Props> = ({
   // Feature settings
   const [featureSettings, setFeatureSettings] = useState<FeatureSettings>(() => {
     const saved = localStorage.getItem(`features_${restaurant.id}`);
-    return saved ? JSON.parse(saved) : getDefaultFeatureSettings();
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Sync kitchenEnabled from DB if it was enabled there but not in localStorage
+      if (restaurant.kitchenEnabled && !parsed.kitchenEnabled) {
+        parsed.kitchenEnabled = true;
+      }
+      return parsed;
+    }
+    const defaults = getDefaultFeatureSettings();
+    // Initialize from restaurant DB value
+    if (restaurant.kitchenEnabled) defaults.kitchenEnabled = true;
+    return defaults;
   });
 
   // Payment types
@@ -1648,6 +1659,13 @@ const PosOnlyView: React.FC<Props> = ({
 
   const updateFeatureSetting = <K extends keyof FeatureSettings>(key: K, value: FeatureSettings[K]) => {
     setFeatureSettings(prev => ({ ...prev, [key]: value }));
+    // Persist kitchenEnabled to Supabase so other devices (and login API) can read it
+    if (key === 'kitchenEnabled') {
+      supabase.from('restaurants').update({ kitchen_enabled: value }).eq('id', restaurant.id)
+        .then(({ error }) => {
+          if (error) console.warn('Failed to sync kitchen_enabled to DB:', error.message);
+        });
+    }
   };
 
   const handleAddPaymentType = () => {
@@ -4792,6 +4810,16 @@ const PosOnlyView: React.FC<Props> = ({
                         </div>
 
                         <div className="flex md:flex-col gap-2 min-w-[140px] mt-2 md:mt-0">
+                          {/* When kitchen is enabled, POS users can only see order status — kitchen handles accept/reject/serve */}
+                          {showKitchenFeature && !isKitchenUser && (order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) ? (
+                            <div className={`px-4 py-3 rounded-lg font-black text-[10px] uppercase tracking-widest text-center ${
+                              order.status === OrderStatus.PENDING ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400' :
+                              'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
+                            }`}>
+                              {order.status === OrderStatus.PENDING ? 'Waiting for Kitchen' : 'Kitchen Preparing'}
+                            </div>
+                          ) : (
+                          <>
                           {order.status === OrderStatus.PENDING && (
                             <>
                               <button
@@ -4836,6 +4864,8 @@ const PosOnlyView: React.FC<Props> = ({
                             >
                               <CheckCircle2 size={18} /> Mark Paid
                             </button>
+                          )}
+                          </>
                           )}
                         </div>
                       </div>

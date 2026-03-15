@@ -322,6 +322,7 @@ const App: React.FC = () => {
         platformAccess: (res.platform_access as PlatformAccess) || 'pos_and_kitchen',
         slug: res.slug || '',
         kitchenDivisions: res.kitchen_divisions || [],
+        kitchenEnabled: res.kitchen_enabled === true,
         settings: (() => {
           const localSettings = localStorage.getItem(`qs_settings_${res.id}`);
           const dbSettings = res.settings ? (typeof res.settings === 'string' ? JSON.parse(res.settings) : res.settings) : null;
@@ -842,6 +843,14 @@ const App: React.FC = () => {
     setCurrentRole(null);
     setView('LANDING');
   };
+
+  // Block KITCHEN users at runtime if KDS is disabled for their restaurant
+  useEffect(() => {
+    if (currentUser?.role === 'KITCHEN' && activeVendorRes && activeVendorRes.kitchenEnabled !== true) {
+      toast('Kitchen Display System has been disabled. You have been logged out.', 'warning');
+      handleLogout();
+    }
+  }, [currentUser?.role, activeVendorRes?.kitchenEnabled]);
 
   // Adapter for POS views — matches their onUpdateOrder prop signature
   const updateOrderForPos = (orderId: string, status: OrderStatus, paymentDetails?: { paymentMethod?: string; cashierName?: string; amountReceived?: number; changeAmount?: number }) => {
