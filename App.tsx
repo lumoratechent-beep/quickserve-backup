@@ -1,11 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, PlatformAccess, QS_DEFAULT_HUB } from './src/types';
 import CustomerView from './pages/CustomerView';
-import VendorView from './pages/VendorView';
 import AdminView from './pages/AdminView';
-import PosView from './pages/PosView';
-import PosOnlyView from './pages/PosOnlyView'; // Import the new POS Only view
-import PosQrView from './pages/PosQrView'; // Import POS + QR view
+import PosOnlyView from './pages/PosOnlyView';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import MarketingPage from './pages/MarketingPage';
@@ -708,12 +705,10 @@ const App: React.FC = () => {
     };
   }, [currentRole, sessionLocation, currentUser]);
 
-  // Vendor Polling Fallback (skip for pos_only restaurants - they use local cache)
+  // Vendor Polling Fallback (poll for all vendors since kitchen/QR features are now dynamic toggles)
   useEffect(() => {
     let interval: any;
-    // Only poll for VENDOR with non-pos_only access (pos_and_qr also needs polling for incoming QR orders)
-    const shouldPoll = currentRole === 'VENDOR' && 
-                       activeVendorRes?.platformAccess !== 'pos_only';
+    const shouldPoll = currentRole === 'VENDOR';
     
     if (shouldPoll) {
       // Initial fetch to ensure we have the latest before polling
@@ -725,7 +720,7 @@ const App: React.FC = () => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [currentRole, fetchNewOrders, activeVendorRes?.platformAccess]);
+  }, [currentRole, fetchNewOrders]);
 
   useEffect(() => {
     if (isDarkMode) document.documentElement.classList.add('dark');
@@ -1711,8 +1706,6 @@ const App: React.FC = () => {
 
         {currentRole === 'VENDOR' && view === 'APP' && (
           activeVendorRes ? (
-            // Check platformAccess to determine which view to show
-            activeVendorRes.platformAccess === 'pos_only' ? (
               <PosOnlyView
                 restaurant={activeVendorRes}
                 orders={orders.filter(o => {
@@ -1730,65 +1723,16 @@ const App: React.FC = () => {
                 isOnline={isOnline}
                 pendingOfflineOrdersCount={pendingOfflineOrdersCount}
                 cashierName={currentUser?.username}
-              />
-            ) : activeVendorRes.platformAccess === 'pos_and_qr' ? (
-              <PosQrView
-                restaurant={activeVendorRes}
-                orders={orders.filter(o => {
-                  if (o.restaurantId !== currentUser?.restaurantId) return false;
-                  const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-                  return o.timestamp > oneDayAgo;
-                })}
-                onUpdateOrder={updateOrderForPos}
-                onPlaceOrder={placePosOrder}
-                onUpdateMenu={handleUpdateMenuItem}
-                onAddMenuItem={handleAddMenuItem}
-                onPermanentDeleteMenuItem={handleDeleteMenuItem}
-                onFetchPaginatedOrders={onFetchPaginatedOrders}
-                onFetchAllFilteredOrders={onFetchAllFilteredOrders}
-                isOnline={isOnline}
-                pendingOfflineOrdersCount={pendingOfflineOrdersCount}
-                cashierName={currentUser?.username}
-              />
-            ) : (
-              <VendorView 
-                restaurant={activeVendorRes} 
-                orders={orders.filter(o => {
-                  if (o.restaurantId !== currentUser?.restaurantId) return false;
-                  const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-                  return o.timestamp > oneDayAgo;
-                })} 
-                onUpdateOrder={updateOrderStatus} 
-                onUpdateMenu={handleUpdateMenuItem} 
-                onAddMenuItem={handleAddMenuItem} 
-                onPermanentDeleteMenuItem={handleDeleteMenuItem} 
-                onToggleOnline={() => toggleVendorOnline(activeVendorRes.id, activeVendorRes.isOnline ?? true)} 
+                onKitchenUpdateOrder={updateOrderStatus}
+                onToggleOnline={() => toggleVendorOnline(activeVendorRes.id, activeVendorRes.isOnline ?? true)}
                 lastSyncTime={lastSyncTime}
-                onFetchPaginatedOrders={onFetchPaginatedOrders}
-                onFetchAllFilteredOrders={onFetchAllFilteredOrders}
-                onSwitchToPos={() => setView('POS')}
               />
-            )
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
               <Loader2 className="w-10 h-10 text-orange-500 animate-spin mb-4" />
-              <p className="text-gray-500 font-black uppercase tracking-widest text-[10px]">Loading Kitchen Dashboard...</p>
+              <p className="text-gray-500 font-black uppercase tracking-widest text-[10px]">Loading POS...</p>
             </div>
           )
-        )}
-        
-        {currentRole === 'VENDOR' && view === 'POS' && activeVendorRes && (
-          <PosView
-            restaurant={activeVendorRes}
-            orders={orders}
-            onUpdateOrder={updateOrderStatus}
-            onPlaceOrder={placePosOrder}
-            onFetchPaginatedOrders={onFetchPaginatedOrders}
-            onFetchAllFilteredOrders={onFetchAllFilteredOrders}
-            onUpdateRestaurantSettings={updateRestaurantSettings}
-            onSwitchToVendor={() => setView('APP')}
-            cashierName={currentUser?.username}
-          />
         )}
         
         {currentRole === 'ADMIN' && (

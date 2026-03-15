@@ -24,7 +24,8 @@ interface Props {
   restaurant: Restaurant;
   orders: Order[];
   onUpdateOrder: (orderId: string, status: OrderStatus, paymentDetails?: { paymentMethod?: string; cashierName?: string; amountReceived?: number; changeAmount?: number }) => void;
-  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string, paymentMethod?: string, cashierName?: string, amountReceived?: number) => Promise<string>; // Returns order ID
+  onKitchenUpdateOrder?: (orderId: string, status: OrderStatus, rejectionReason?: string, rejectionNote?: string) => void;
+  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string, paymentMethod?: string, cashierName?: string, amountReceived?: number) => Promise<string>;
   onUpdateMenu?: (restaurantId: string, updatedItem: MenuItem) => void | Promise<void>;
   onAddMenuItem?: (restaurantId: string, newItem: MenuItem) => void | Promise<void>;
   onPermanentDeleteMenuItem?: (restaurantId: string, itemId: string) => void | Promise<void>;
@@ -34,6 +35,8 @@ interface Props {
   pendingOfflineOrdersCount?: number;
   cashierName?: string;
   showQrOrders?: boolean;
+  onToggleOnline?: () => void;
+  lastSyncTime?: Date;
 }
 
 interface ReceiptSettings {
@@ -108,6 +111,8 @@ interface FeatureSettings {
   takeawayEnabled: boolean;
   deliveryEnabled: boolean;
   customerDisplayEnabled: boolean;
+  kitchenEnabled: boolean;
+  qrEnabled: boolean;
 }
 
 const getDefaultFeatureSettings = (): FeatureSettings => ({
@@ -117,7 +122,16 @@ const getDefaultFeatureSettings = (): FeatureSettings => ({
   takeawayEnabled: false,
   deliveryEnabled: false,
   customerDisplayEnabled: false,
+  kitchenEnabled: false,
+  qrEnabled: false,
 });
+
+const REJECTION_REASONS = [
+  'Item out of stock',
+  'Kitchen too busy',
+  'Restaurant closed early',
+  'Other'
+];
 
 interface PaymentType {
   id: string;
@@ -142,6 +156,7 @@ const PosOnlyView: React.FC<Props> = ({
   restaurant,
   orders,
   onUpdateOrder,
+  onKitchenUpdateOrder,
   onPlaceOrder,
   onUpdateMenu,
   onAddMenuItem,
@@ -152,19 +167,33 @@ const PosOnlyView: React.FC<Props> = ({
   pendingOfflineOrdersCount = 0,
   cashierName,
   showQrOrders = false,
+  onToggleOnline,
+  lastSyncTime,
 }) => {
   const toLocalDateInputValue = (date: Date) => {
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
     return local.toISOString().split('T')[0];
   };
 
-  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS'>('COUNTER');
+  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN'>('COUNTER');
   const [counterMode, setCounterMode] = useState<'COUNTER_ORDER' | 'QR_ORDER'>('COUNTER_ORDER');
   const [selectedQrOrderForPayment, setSelectedQrOrderForPayment] = useState<Order | null>(null);
   const [qrOrderFilter, setQrOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
   const [rejectingQrOrderId, setRejectingQrOrderId] = useState<string | null>(null);
   const [qrRejectionReason, setQrRejectionReason] = useState('Item out of stock');
   const [qrRejectionNote, setQrRejectionNote] = useState('');
+
+  // Kitchen state
+  const [kitchenOrderFilter, setKitchenOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
+  const [rejectingKitchenOrderId, setRejectingKitchenOrderId] = useState<string | null>(null);
+  const [kitchenRejectionReason, setKitchenRejectionReason] = useState('Item out of stock');
+  const [kitchenRejectionNote, setKitchenRejectionNote] = useState('');
+  const [kitchenOrderSettings, setKitchenOrderSettings] = useState<{ autoAccept: boolean; autoPrint: boolean }>(() => {
+    const saved = localStorage.getItem(`kitchen_settings_${restaurant.id}`);
+    return saved ? JSON.parse(saved) : { autoAccept: false, autoPrint: false };
+  });
+  const [showNewOrderAlert, setShowNewOrderAlert] = useState(false);
+  const [kitchenPrintingOrderId, setKitchenPrintingOrderId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showMobileCart, setShowMobileCart] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -1697,7 +1726,7 @@ const PosOnlyView: React.FC<Props> = ({
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
   const paginatedReports = reportData?.orders || [];
 
-  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS') => {
+  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN') => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
   };
@@ -1707,6 +1736,180 @@ const PosOnlyView: React.FC<Props> = ({
     setActiveTab('REPORTS');
     setIsMobileMenuOpen(false);
   };
+
+  // --- Kitchen Feature Logic ---
+  const showQrFeature = showQrOrders || featureSettings.qrEnabled;
+  const showKitchenFeature = featureSettings.kitchenEnabled;
+
+  const kitchenPendingOrders = useMemo(() => {
+    return orders.filter(o => o.status === OrderStatus.PENDING);
+  }, [orders]);
+
+  const kitchenPrevPendingCount = useRef(kitchenPendingOrders.length);
+
+  const triggerNewOrderAlert = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.1);
+      gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.8);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.8);
+    } catch (e) {
+      console.warn("Audio Context failed");
+    }
+    setShowNewOrderAlert(true);
+    setTimeout(() => setShowNewOrderAlert(false), 5000);
+  };
+
+  const handleKitchenAcceptAndPrint = async (orderId: string) => {
+    if (onKitchenUpdateOrder) {
+      onKitchenUpdateOrder(orderId, OrderStatus.ONGOING);
+    } else {
+      onUpdateOrder(orderId, OrderStatus.ONGOING);
+    }
+
+    if (kitchenOrderSettings.autoPrint) {
+      if (!connectedDevice) {
+        toast('Printer is not connected. Please connect a printer in Settings.', 'warning');
+        return;
+      }
+      try {
+        setKitchenPrintingOrderId(orderId);
+        const { data: freshOrder, error } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('id', orderId)
+          .single();
+
+        if (error || !freshOrder) {
+          toast('Failed to fetch order details for printing.', 'error');
+          return;
+        }
+
+        const orderToPrint = {
+          id: freshOrder.id,
+          tableNumber: freshOrder.table_number,
+          timestamp: freshOrder.timestamp,
+          total: Number(freshOrder.total || 0),
+          items: Array.isArray(freshOrder.items) ? freshOrder.items :
+                 (typeof freshOrder.items === 'string' ? JSON.parse(freshOrder.items) : []),
+          remark: freshOrder.remark || ''
+        };
+
+        const printSuccess = await printerService.printReceipt(orderToPrint, restaurant);
+        if (!printSuccess) {
+          toast('Failed to queue print job. Please try again.', 'error');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        toast('Error occurred while printing.', 'error');
+      } finally {
+        setKitchenPrintingOrderId(null);
+      }
+    }
+  };
+
+  const handleKitchenManualPrint = async (order: Order) => {
+    if (!connectedDevice) {
+      toast('No printer connected. Please connect a printer in Settings.', 'warning');
+      return;
+    }
+    setKitchenPrintingOrderId(order.id);
+    try {
+      const { data: freshOrder, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', order.id)
+        .single();
+
+      if (error || !freshOrder) {
+        toast('Failed to fetch order details for printing.', 'error');
+        return;
+      }
+
+      const orderToPrint = {
+        id: freshOrder.id,
+        tableNumber: freshOrder.table_number,
+        timestamp: freshOrder.timestamp,
+        total: Number(freshOrder.total || 0),
+        items: Array.isArray(freshOrder.items) ? freshOrder.items :
+               (typeof freshOrder.items === 'string' ? JSON.parse(freshOrder.items) : []),
+        remark: freshOrder.remark || ''
+      };
+
+      const success = await printerService.printReceipt(orderToPrint, restaurant);
+      if (success) {
+        toast('Order printed successfully!', 'success');
+      } else {
+        toast('Failed to print. Please try again.', 'error');
+      }
+    } catch (error) {
+      console.error('Manual print error:', error);
+      toast('Error occurred while printing.', 'error');
+    } finally {
+      setKitchenPrintingOrderId(null);
+    }
+  };
+
+  const handleKitchenConfirmRejection = () => {
+    if (rejectingKitchenOrderId) {
+      if (onKitchenUpdateOrder) {
+        onKitchenUpdateOrder(rejectingKitchenOrderId, OrderStatus.CANCELLED, kitchenRejectionReason, kitchenRejectionNote);
+      } else {
+        onUpdateOrder(rejectingKitchenOrderId, OrderStatus.CANCELLED);
+      }
+      setRejectingKitchenOrderId(null);
+      setKitchenRejectionReason(REJECTION_REASONS[0]);
+      setKitchenRejectionNote('');
+    }
+  };
+
+  const toggleKitchenOrderSetting = (key: 'autoAccept' | 'autoPrint') => {
+    setKitchenOrderSettings(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const kitchenFilteredOrders = useMemo(() => {
+    return orders.filter(o => {
+      if (kitchenOrderFilter === 'ALL') return true;
+      if (kitchenOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
+      return o.status === kitchenOrderFilter;
+    });
+  }, [orders, kitchenOrderFilter]);
+
+  const storeIsOnline = restaurant.isOnline !== false;
+
+  // Kitchen new order alert + auto-accept
+  useEffect(() => {
+    if (!showKitchenFeature) return;
+    if (kitchenPendingOrders.length > kitchenPrevPendingCount.current) {
+      triggerNewOrderAlert();
+
+      if (kitchenOrderSettings.autoAccept) {
+        const newOrders = orders.filter(o =>
+          o.status === OrderStatus.PENDING
+        );
+        newOrders.forEach(order => {
+          handleKitchenAcceptAndPrint(order.id);
+        });
+      }
+    }
+    kitchenPrevPendingCount.current = kitchenPendingOrders.length;
+  }, [kitchenPendingOrders.length, showKitchenFeature]);
+
+  // Persist kitchen order settings
+  useEffect(() => {
+    localStorage.setItem(`kitchen_settings_${restaurant.id}`, JSON.stringify(kitchenOrderSettings));
+  }, [kitchenOrderSettings, restaurant.id]);
 
   const renderPrinterContent = () => (
     <div className="space-y-4">
@@ -2336,6 +2539,101 @@ const PosOnlyView: React.FC<Props> = ({
           }`} />
         </button>
       </div>
+
+      <div className="border-t dark:border-gray-700 pt-4">
+        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Add-On Features</p>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+            <div>
+              <p className="text-xs font-black dark:text-white">Kitchen Display</p>
+              <p className="text-[9px] text-gray-400 mt-0.5">View and manage incoming orders from a kitchen dashboard</p>
+            </div>
+            <button
+              onClick={() => updateFeatureSetting('kitchenEnabled', !featureSettings.kitchenEnabled)}
+              className={`w-11 h-6 rounded-full transition-all relative ${
+                featureSettings.kitchenEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+              }`}
+            >
+              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                featureSettings.kitchenEnabled ? 'left-6' : 'left-1'
+              }`} />
+            </button>
+          </div>
+
+          {featureSettings.kitchenEnabled && (
+            <div className="ml-4 space-y-2 pb-2">
+              <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                <div>
+                  <p className="text-[10px] font-black dark:text-white">Auto-Accept Orders</p>
+                  <p className="text-[9px] text-gray-400">Automatically accept new incoming orders</p>
+                </div>
+                <button
+                  onClick={() => toggleKitchenOrderSetting('autoAccept')}
+                  className={`w-11 h-6 rounded-full transition-all relative ${
+                    kitchenOrderSettings.autoAccept ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                  }`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                    kitchenOrderSettings.autoAccept ? 'left-6' : 'left-1'
+                  }`} />
+                </button>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                <div>
+                  <p className="text-[10px] font-black dark:text-white">Auto-Print on Accept</p>
+                  <p className="text-[9px] text-gray-400">Print kitchen ticket when order is accepted</p>
+                </div>
+                <button
+                  onClick={() => toggleKitchenOrderSetting('autoPrint')}
+                  disabled={!connectedDevice}
+                  className={`w-11 h-6 rounded-full transition-all relative ${
+                    !connectedDevice
+                      ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
+                      : kitchenOrderSettings.autoPrint ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                  }`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                    kitchenOrderSettings.autoPrint ? 'left-6' : 'left-1'
+                  }`} />
+                </button>
+              </div>
+              {onToggleOnline && (
+                <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                  <div>
+                    <p className="text-[10px] font-black dark:text-white">Store Presence</p>
+                    <p className="text-[9px] text-gray-400">Toggle your store online/offline for customers</p>
+                  </div>
+                  <button
+                    onClick={onToggleOnline}
+                    className={`px-3 py-1.5 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all flex items-center gap-1.5 ${
+                      storeIsOnline ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                    }`}
+                  >
+                    {storeIsOnline ? <><Wifi size={12} /> Online</> : <><WifiOff size={12} /> Offline</>}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+            <div>
+              <p className="text-xs font-black dark:text-white">QR Ordering</p>
+              <p className="text-[9px] text-gray-400 mt-0.5">Accept orders from customers via QR code scan</p>
+            </div>
+            <button
+              onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
+              className={`w-11 h-6 rounded-full transition-all relative ${
+                featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+              }`}
+            >
+              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                featureSettings.qrEnabled ? 'left-6' : 'left-1'
+              }`} />
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 
@@ -2690,7 +2988,7 @@ const PosOnlyView: React.FC<Props> = ({
           {!isSidebarCollapsed && (
             <div>
               <h2 className="font-black dark:text-white text-sm uppercase tracking-tight">{restaurant.name}</h2>
-              <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mt-0.5">{showQrOrders ? 'POS + QR' : 'POS Only'}</p>
+              <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mt-0.5">{showKitchenFeature && showQrFeature ? 'POS + Kitchen + QR' : showKitchenFeature ? 'POS + Kitchen' : showQrFeature ? 'POS + QR' : 'POS Terminal'}</p>
             </div>
           )}
         </div>
@@ -2708,7 +3006,30 @@ const PosOnlyView: React.FC<Props> = ({
             <ShoppingBag size={20} /> {!isSidebarCollapsed && 'Counter'}
           </button>
 
-          {showQrOrders && (
+          {showKitchenFeature && (
+            <button 
+              onClick={() => handleTabSelection('KITCHEN')}
+              title="Kitchen Orders"
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4'} py-3 rounded-xl font-medium transition-all ${
+                activeTab === 'KITCHEN' 
+                  ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Coffee size={20} />
+                {!isSidebarCollapsed && 'Kitchen'}
+              </div>
+              {!isSidebarCollapsed && kitchenPendingOrders.length > 0 && (
+                <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">{kitchenPendingOrders.length}</span>
+              )}
+              {isSidebarCollapsed && kitchenPendingOrders.length > 0 && (
+                <span className="absolute top-1 right-1 bg-orange-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center">{kitchenPendingOrders.length}</span>
+              )}
+            </button>
+          )}
+
+          {showQrFeature && (
             <button
               onClick={() => handleTabSelection('QR_ORDERS')}
               title="QR Orders"
@@ -2855,6 +3176,7 @@ const PosOnlyView: React.FC<Props> = ({
                  activeTab === 'MENU_EDITOR' ? 'Menu Editor' : 
                  activeTab === 'REPORTS' ? 'Sales Report' : 
                  activeTab === 'QR_ORDERS' ? 'QR Orders' :
+                 activeTab === 'KITCHEN' ? 'Kitchen Orders' :
                  'Settings'}
               </h1>
             </div>
@@ -2882,7 +3204,7 @@ const PosOnlyView: React.FC<Props> = ({
           {activeTab === 'COUNTER' && (
             <>
               {/* QR Order selection panel */}
-              {showQrOrders && counterMode === 'QR_ORDER' ? (
+              {showQrFeature && counterMode === 'QR_ORDER' ? (
                 <div className="flex-1 overflow-y-auto p-4">
                   {(() => {
                     const servedOrders = orders.filter(o => o.status === OrderStatus.SERVED);
@@ -3638,7 +3960,7 @@ const PosOnlyView: React.FC<Props> = ({
                   </div>
 
                   {/* QR Generator Accordion */}
-                  {showQrOrders && (
+                  {showQrFeature && (
                     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
                       <button
                         onClick={() => setSettingsPanel(settingsPanel === 'qr_generator' ? null : 'qr_generator')}
@@ -3836,7 +4158,7 @@ const PosOnlyView: React.FC<Props> = ({
                       </button>
 
                       {/* QR Generator Nav Item (only for POS+QR) */}
-                      {showQrOrders && (
+                      {showQrFeature && (
                         <button
                           onClick={() => setSettingsPanel('qr_generator')}
                           className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
@@ -4162,7 +4484,7 @@ const PosOnlyView: React.FC<Props> = ({
         )}
 
           {/* QR Orders Tab */}
-          {activeTab === 'QR_ORDERS' && showQrOrders && (
+          {activeTab === 'QR_ORDERS' && showQrFeature && (
             <div className="flex-1 overflow-y-auto p-4 md:p-8">
               <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                 <div>
@@ -4308,6 +4630,137 @@ const PosOnlyView: React.FC<Props> = ({
               })()}
             </div>
           )}
+
+          {/* Kitchen Orders Tab */}
+          {activeTab === 'KITCHEN' && showKitchenFeature && (
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+              <div className="max-w-5xl mx-auto">
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                  <div className="flex items-center gap-4">
+                    <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Kitchen Orders</h1>
+                    {lastSyncTime && (
+                      <div className="flex items-center justify-center gap-2 text-[10px] font-black px-3 py-1.5 rounded-full border transition-all duration-300 min-w-[140px] shrink-0 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400">
+                        <div className="w-1.5 h-1.5 rounded-full bg-gray-300"></div>
+                        SYNC: {lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm overflow-x-auto hide-scrollbar">
+                    <button onClick={() => setKitchenOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>ONGOING</button>
+                    <button onClick={() => setKitchenOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>SERVED</button>
+                    <button onClick={() => setKitchenOrderFilter(OrderStatus.COMPLETED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === OrderStatus.COMPLETED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>PAID</button>
+                    <button onClick={() => setKitchenOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>CANCELLED</button>
+                    <button onClick={() => setKitchenOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>ALL</button>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {kitchenFilteredOrders.length === 0 ? (
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
+                      <div className="w-16 h-16 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                        <ShoppingBag size={24} />
+                      </div>
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white uppercase tracking-tighter">Kitchen Quiet</h3>
+                      <p className="text-gray-500 dark:text-gray-400 text-xs">Waiting for incoming signals...</p>
+                    </div>
+                  ) : (
+                    kitchenFilteredOrders.map(order => (
+                      <div key={order.id} className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-start gap-6 transition-all hover:border-orange-200">
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ORDER #{order.id}</span>
+                              <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg">
+                                <Hash size={12} className="text-orange-500" />
+                                <span className="text-xs font-black">Table {order.tableNumber}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Clock size={14} className="text-gray-400" />
+                              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                          </div>
+                          <div className="space-y-3">
+                            {order.items.map((item, idx) => (
+                              <div key={idx} className="flex justify-between items-start text-sm border-l-2 border-gray-100 dark:border-gray-700 pl-3">
+                                <div>
+                                  <p className="font-bold text-gray-900 dark:text-white">x{item.quantity} {item.name}</p>
+                                  <div className="flex flex-wrap gap-2 mt-1">
+                                    {item.selectedSize && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">Size: {item.selectedSize}</span>}
+                                    {item.selectedTemp && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${item.selectedTemp === 'Hot' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>Temp: {item.selectedTemp}</span>}
+                                    {item.selectedOtherVariant && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">{item.selectedOtherVariant}</span>}
+                                  </div>
+                                </div>
+                                <span className="text-gray-500 dark:text-gray-400 font-bold">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                              </div>
+                            ))}
+                          </div>
+                          {order.remark && (
+                            <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-lg">
+                              <div className="flex items-center gap-2 mb-1">
+                                <MessageSquare size={12} className="text-orange-500" />
+                                <span className="text-[9px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest">Special Remark</span>
+                              </div>
+                              <p className="text-xs text-gray-700 dark:text-gray-300 italic">{order.remark}</p>
+                            </div>
+                          )}
+                          <div className="mt-4 pt-4 border-t dark:border-gray-700 flex justify-between items-center">
+                            <span className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Grand Total</span>
+                            <span className="text-2xl font-black text-gray-900 dark:text-white">{currencySymbol}{order.total.toFixed(2)}</span>
+                          </div>
+                        </div>
+                        <div className="flex md:flex-col gap-2 min-w-[140px] mt-2 md:mt-0">
+                          {order.status === OrderStatus.PENDING && (
+                            <>
+                              <button 
+                                onClick={() => handleKitchenAcceptAndPrint(order.id)} 
+                                className="flex-1 py-3 px-4 bg-orange-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg"
+                              >
+                                Accept {kitchenOrderSettings.autoPrint && '& Print'}
+                              </button>
+                              
+                              {connectedDevice && (
+                                <button 
+                                  onClick={() => handleKitchenManualPrint(order)}
+                                  disabled={kitchenPrintingOrderId === order.id}
+                                  className="flex-1 py-3 px-4 bg-gray-600 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-gray-700 transition-all shadow-lg disabled:opacity-50"
+                                >
+                                  {kitchenPrintingOrderId === order.id ? 'Printing...' : 'Print Only'}
+                                </button>
+                              )}
+                              
+                              <button 
+                                onClick={() => setRejectingKitchenOrderId(order.id)} 
+                                className="flex-1 py-3 px-4 bg-red-50 text-red-500 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-100"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                          
+                          {order.status === OrderStatus.ONGOING && (
+                            <button 
+                              onClick={() => {
+                                if (onKitchenUpdateOrder) {
+                                  onKitchenUpdateOrder(order.id, OrderStatus.SERVED);
+                                } else {
+                                  onUpdateOrder(order.id, OrderStatus.SERVED);
+                                }
+                              }} 
+                              className="flex-1 py-4 px-4 bg-green-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-lg"
+                            >
+                              <CheckCircle size={18} />
+                              Serve Order
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         
         {/* Right Sidebar - Order Summary (Desktop) */}
@@ -4318,7 +4771,7 @@ const PosOnlyView: React.FC<Props> = ({
           `}>
             {/* Sidebar header */}
             <div className="p-4 border-b dark:border-gray-700">
-              {showQrOrders && (
+              {showQrFeature && (
                 <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 mb-3">
                   <button
                     onClick={() => { setCounterMode('COUNTER_ORDER'); setSelectedQrOrderForPayment(null); }}
@@ -4336,16 +4789,16 @@ const PosOnlyView: React.FC<Props> = ({
               )}
               <div className="flex items-center justify-between">
                 <h3 className="font-black dark:text-white uppercase tracking-tighter text-sm">
-                  {showQrOrders && counterMode === 'QR_ORDER'
+                  {showQrFeature && counterMode === 'QR_ORDER'
                     ? (selectedQrOrderForPayment ? `Order #${selectedQrOrderForPayment.id}` : 'QR Order')
                     : 'Current Order'}
                 </h3>
-                {(counterMode === 'COUNTER_ORDER' || !showQrOrders) && (
+                {(counterMode === 'COUNTER_ORDER' || !showQrFeature) && (
                   <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors">
                     <Trash2 size={18} />
                   </button>
                 )}
-                {showQrOrders && counterMode === 'QR_ORDER' && selectedQrOrderForPayment && (
+                {showQrFeature && counterMode === 'QR_ORDER' && selectedQrOrderForPayment && (
                   <button onClick={() => setSelectedQrOrderForPayment(null)} className="text-gray-400 hover:text-red-500 transition-colors">
                     <X size={18} />
                   </button>
@@ -4354,7 +4807,7 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
 
             {/* QR ORDER mode — show selected QR order items */}
-            {showQrOrders && counterMode === 'QR_ORDER' ? (
+            {showQrFeature && counterMode === 'QR_ORDER' ? (
               <>
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
                   {!selectedQrOrderForPayment ? (
@@ -5022,6 +5475,74 @@ const PosOnlyView: React.FC<Props> = ({
                   Confirm Reject
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Kitchen Order Rejection Modal */}
+      {rejectingKitchenOrderId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in fade-in duration-200">
+            <h3 className="text-lg font-black dark:text-white uppercase tracking-tighter mb-4">Reject Kitchen Order</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Reason</label>
+                <div className="space-y-2">
+                  {REJECTION_REASONS.map(reason => (
+                    <button
+                      key={reason}
+                      onClick={() => setKitchenRejectionReason(reason)}
+                      className={`w-full text-left px-4 py-3 rounded-xl border font-bold text-sm transition-all ${
+                        kitchenRejectionReason === reason
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                      }`}
+                    >
+                      {reason}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Note (optional)</label>
+                <textarea
+                  value={kitchenRejectionNote}
+                  onChange={e => setKitchenRejectionNote(e.target.value)}
+                  rows={2}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none text-sm font-medium dark:text-white resize-none"
+                  placeholder="Add a note..."
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => { setRejectingKitchenOrderId(null); setKitchenRejectionNote(''); }}
+                  className="flex-1 py-3 rounded-xl border dark:border-gray-600 font-black text-[10px] uppercase tracking-widest text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleKitchenConfirmRejection}
+                  className="flex-1 py-3 rounded-xl bg-red-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all"
+                >
+                  Confirm Reject
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Kitchen Order Alert */}
+      {showNewOrderAlert && showKitchenFeature && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-right fade-in duration-300">
+          <div className="bg-orange-500 text-white rounded-2xl shadow-2xl px-6 py-4 flex items-center gap-4">
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+              <Coffee size={20} />
+            </div>
+            <div>
+              <p className="font-black text-sm uppercase tracking-tight">New Order!</p>
+              <p className="text-[10px] font-bold opacity-80">A new order has arrived in the kitchen</p>
             </div>
           </div>
         </div>
