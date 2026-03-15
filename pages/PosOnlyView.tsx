@@ -152,7 +152,7 @@ interface TaxEntry {
   applyToItems: boolean;
 }
 
-type SettingsPanel = null | 'features' | 'printer' | 'receipt' | 'payment' | 'taxes' | 'staff' | 'ux' | 'qr_generator';
+type SettingsPanel = null | 'printer' | 'receipt' | 'payment' | 'taxes' | 'staff' | 'ux';
 
 const PosOnlyView: React.FC<Props> = ({
   restaurant,
@@ -333,7 +333,7 @@ const PosOnlyView: React.FC<Props> = ({
   const currencySymbol = CURRENCY_OPTIONS.find(c => c.code === userCurrency)?.symbol || 'RM';
 
   // Settings panel navigation
-  const [settingsPanel, setSettingsPanel] = useState<SettingsPanel>('features');
+  const [settingsPanel, setSettingsPanel] = useState<SettingsPanel>('printer');
 
   // Feature settings
   const [featureSettings, setFeatureSettings] = useState<FeatureSettings>(() => {
@@ -3728,9 +3728,17 @@ const PosOnlyView: React.FC<Props> = ({
             <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-3xl mx-auto animate-in fade-in duration-500">
                 <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Features</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Enable add-on features for your restaurant.</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Configure built-in and add-on features for your restaurant.</p>
 
                 <div className="space-y-6">
+                  {/* Built-in Features */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">Built-in Features</p>
+                    <div className="space-y-3">
+                      {renderFeaturesContent()}
+                    </div>
+                  </div>
+
                   {/* Add-On Features */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
                     <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">Add-On Features</p>
@@ -3835,6 +3843,17 @@ const PosOnlyView: React.FC<Props> = ({
                           }`} />
                         </button>
                       </div>
+
+                      {/* QR Generator (shown when QR enabled) */}
+                      {featureSettings.qrEnabled && (
+                        <div className="ml-4 pb-2">
+                          <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                            <p className="text-[10px] font-black dark:text-white mb-1">QR Generator</p>
+                            <p className="text-[9px] text-gray-400 mb-3">Generate table QR codes for your restaurant</p>
+                            {renderQrGeneratorContent()}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -3847,34 +3866,10 @@ const PosOnlyView: React.FC<Props> = ({
             <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
                 <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Settings</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Features, printer, receipt, payment, tax, and staff configuration.</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Printer, receipt, payment, tax, and staff configuration.</p>
 
                 {/* ===== MOBILE: Accordion Layout ===== */}
                 <div className="lg:hidden space-y-3">
-                  {/* Features Accordion */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
-                    <button
-                      onClick={() => setSettingsPanel(settingsPanel === 'features' ? null : 'features')}
-                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center">
-                        <Layers size={18} className="text-emerald-500" />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Built-in Features</p>
-                        <p className="text-[10px] text-gray-400">Auto-print, drawer, dining</p>
-                      </div>
-                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'features' ? 'rotate-180' : ''}`} />
-                    </button>
-                    {settingsPanel === 'features' && (
-                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        <div className="max-w-lg">
-                          {renderFeaturesContent()}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
                   {/* Printer Accordion */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
                     <button
@@ -4019,64 +4014,15 @@ const PosOnlyView: React.FC<Props> = ({
                     )}
                   </div>
 
-                  {/* QR Generator Accordion */}
-                  {showQrFeature && (
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
-                      <button
-                        onClick={() => setSettingsPanel(settingsPanel === 'qr_generator' ? null : 'qr_generator')}
-                        className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
-                      >
-                        <div className="w-10 h-10 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
-                          <QrCode size={18} className="text-violet-500" />
-                        </div>
-                        <div className="flex-1 text-left">
-                          <p className="text-xs font-black dark:text-white uppercase tracking-wide">QR Generator</p>
-                          <p className="text-[10px] text-gray-400">Generate table QR codes</p>
-                        </div>
-                        <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'qr_generator' ? 'rotate-180' : ''}`} />
-                      </button>
-                      {settingsPanel === 'qr_generator' && (
-                        <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                          <div className="max-w-lg">
-                            {renderQrGeneratorContent()}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
                 <div className="hidden lg:flex gap-6 min-h-[500px]">
                   {/* Left Sidebar */}
                   <div className="flex-1">
                     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
-                      {/* Features Nav Item */}
-                      <button
-                        onClick={() => setSettingsPanel('features')}
-                        className={`w-full flex items-center gap-3 p-4 transition-all ${
-                          settingsPanel === 'features'
-                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                        }`}
-                      >
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                          settingsPanel === 'features'
-                            ? 'bg-emerald-100 dark:bg-emerald-900/30'
-                            : 'bg-gray-100 dark:bg-gray-700'
-                        }`}>
-                          <Layers size={16} className={settingsPanel === 'features' ? 'text-emerald-500' : 'text-gray-400'} />
-                        </div>
-                        <div className="flex-1 text-left">
-                          <p className={`text-xs font-black uppercase tracking-wide ${
-                            settingsPanel === 'features' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'
-                          }`}>Built-in Features</p>
-                          <p className="text-[10px] text-gray-400">Auto-print, drawer, dining</p>
-                        </div>
-                      </button>
-
                       {/* Printer Nav Item */}
                       <button
                         onClick={() => { setSettingsPanel('printer'); setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }}
-                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                        className={`w-full flex items-center gap-3 p-4 transition-all ${
                           settingsPanel === 'printer'
                             ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
                             : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
@@ -4217,31 +4163,6 @@ const PosOnlyView: React.FC<Props> = ({
                         </div>
                       </button>
 
-                      {/* QR Generator Nav Item (only for POS+QR) */}
-                      {showQrFeature && (
-                        <button
-                          onClick={() => setSettingsPanel('qr_generator')}
-                          className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
-                            settingsPanel === 'qr_generator'
-                              ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                              : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                          }`}
-                        >
-                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                            settingsPanel === 'qr_generator'
-                              ? 'bg-violet-100 dark:bg-violet-900/30'
-                              : 'bg-gray-100 dark:bg-gray-700'
-                          }`}>
-                            <QrCode size={16} className={settingsPanel === 'qr_generator' ? 'text-violet-500' : 'text-gray-400'} />
-                          </div>
-                          <div className="flex-1 text-left">
-                            <p className={`text-xs font-black uppercase tracking-wide ${
-                              settingsPanel === 'qr_generator' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'
-                            }`}>QR Generator</p>
-                            <p className="text-[10px] text-gray-400">Generate table QR codes</p>
-                          </div>
-                        </button>
-                      )}
                     </div>
                   </div>
 
@@ -4249,14 +4170,12 @@ const PosOnlyView: React.FC<Props> = ({
                   <div className="w-[560px] shrink-0 min-h-0 overflow-y-auto">
                     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
                       <div className="max-w-lg">
-                        {settingsPanel === 'features' && renderFeaturesContent()}
                         {settingsPanel === 'printer' && renderPrinterContent()}
                         {settingsPanel === 'receipt' && renderReceiptContent()}
                         {settingsPanel === 'payment' && renderPaymentTypesContent()}
                         {settingsPanel === 'taxes' && renderTaxesContent()}
                         {settingsPanel === 'staff' && renderStaffContent()}
                         {settingsPanel === 'ux' && renderUXContent()}
-                        {settingsPanel === 'qr_generator' && renderQrGeneratorContent()}
                       </div>
                     </div>
                   </div>
