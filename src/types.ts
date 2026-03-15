@@ -2,7 +2,7 @@
 
 export const QS_DEFAULT_HUB = 'QuickServe Hub';
 
-export type Role = 'CUSTOMER' | 'VENDOR' | 'ADMIN' | 'CASHIER';
+export type Role = 'CUSTOMER' | 'VENDOR' | 'ADMIN' | 'CASHIER' | 'KITCHEN';
 
 // Platform access type
 export type PlatformAccess = 'pos_and_kitchen' | 'pos_only' | 'pos_and_qr';
@@ -80,6 +80,7 @@ export interface Restaurant {
   modifiers?: ModifierData[];
   platformAccess?: PlatformAccess; // Added for restaurant-based access control
   slug?: string; // Short URL identifier e.g. 'burger-palace'
+  kitchenDivisions?: string[];
 }
 
 export interface SelectedAddOn {
@@ -129,6 +130,7 @@ export interface User {
   isActive?: boolean;
   email?: string;
   phone?: string;
+  kitchenCategories?: string[];
 }
 
 export interface SalesData {

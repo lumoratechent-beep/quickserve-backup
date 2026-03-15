@@ -34,7 +34,7 @@ async function startServer() {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, username, role, restaurant_id, is_active, email, phone, password')
+        .select('id, username, role, restaurant_id, is_active, email, phone, password, kitchen_categories')
         .eq('username', username)
         .eq('password', password)
         .single();
@@ -57,7 +57,8 @@ async function startServer() {
         restaurantId: data.restaurant_id,
         isActive: data.is_active,
         email: data.email,
-        phone: data.phone
+        phone: data.phone,
+        kitchenCategories: data.kitchen_categories || undefined,
       };
       
       console.log('Login successful for:', username);

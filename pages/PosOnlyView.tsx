@@ -17,7 +17,7 @@ import {
   X, Edit3, Archive, RotateCcw, Upload, Eye,
   AlertCircle, Users, UserPlus, Bluetooth, BluetoothConnected, PrinterIcon,
   Filter, Tag, Layers, Coffee, ChevronDown, ChevronLeft, ChevronRight, RotateCw, Wifi, WifiOff,
-  Receipt, Network, Type, MessageSquare
+  Receipt, Network, Type, MessageSquare, Puzzle
 } from 'lucide-react';
 
 interface Props {
@@ -37,6 +37,8 @@ interface Props {
   showQrOrders?: boolean;
   onToggleOnline?: () => void;
   lastSyncTime?: Date;
+  userRole?: string;
+  onSaveKitchenDivisions?: (divisions: string[]) => void;
 }
 
 interface ReceiptSettings {
@@ -169,13 +171,15 @@ const PosOnlyView: React.FC<Props> = ({
   showQrOrders = false,
   onToggleOnline,
   lastSyncTime,
+  userRole = 'VENDOR',
+  onSaveKitchenDivisions,
 }) => {
   const toLocalDateInputValue = (date: Date) => {
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
     return local.toISOString().split('T')[0];
   };
 
-  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN'>('COUNTER');
+  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'FEATURES'>(userRole === 'KITCHEN' ? 'KITCHEN' : 'COUNTER');
   const [counterMode, setCounterMode] = useState<'COUNTER_ORDER' | 'QR_ORDER'>('COUNTER_ORDER');
   const [selectedQrOrderForPayment, setSelectedQrOrderForPayment] = useState<Order | null>(null);
   const [qrOrderFilter, setQrOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
@@ -194,6 +198,10 @@ const PosOnlyView: React.FC<Props> = ({
   });
   const [showNewOrderAlert, setShowNewOrderAlert] = useState(false);
   const [kitchenPrintingOrderId, setKitchenPrintingOrderId] = useState<string | null>(null);
+  const [kitchenDivisions, setKitchenDivisions] = useState<string[]>(restaurant.kitchenDivisions || []);
+  const [newDivisionName, setNewDivisionName] = useState('');
+  const [newStaffRole, setNewStaffRole] = useState<'CASHIER' | 'KITCHEN'>('CASHIER');
+  const [newStaffKitchenCategories, setNewStaffKitchenCategories] = useState<string[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showMobileCart, setShowMobileCart] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -1740,6 +1748,8 @@ const PosOnlyView: React.FC<Props> = ({
   // --- Kitchen Feature Logic ---
   const showQrFeature = showQrOrders || featureSettings.qrEnabled;
   const showKitchenFeature = featureSettings.kitchenEnabled;
+  const isKitchenUser = userRole === 'KITCHEN';
+  const isVendorUser = userRole === 'VENDOR';
 
   const kitchenPendingOrders = useMemo(() => {
     return orders.filter(o => o.status === OrderStatus.PENDING);
@@ -1887,6 +1897,21 @@ const PosOnlyView: React.FC<Props> = ({
   }, [orders, kitchenOrderFilter]);
 
   const storeIsOnline = restaurant.isOnline !== false;
+
+  const handleAddDivision = () => {
+    const name = newDivisionName.trim();
+    if (!name || kitchenDivisions.includes(name)) return;
+    const updated = [...kitchenDivisions, name];
+    setKitchenDivisions(updated);
+    setNewDivisionName('');
+    onSaveKitchenDivisions?.(updated);
+  };
+
+  const handleRemoveDivision = (name: string) => {
+    const updated = kitchenDivisions.filter(d => d !== name);
+    setKitchenDivisions(updated);
+    onSaveKitchenDivisions?.(updated);
+  };
 
   // Kitchen new order alert + auto-accept
   useEffect(() => {
@@ -2409,7 +2434,16 @@ const PosOnlyView: React.FC<Props> = ({
             <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
               <div>
                 <p className="text-xs font-black dark:text-white">{staff.username}</p>
-                <p className="text-[9px] text-gray-400">Added {new Date(staff.createdAt || staff.created_at || Date.now()).toLocaleDateString()}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                    staff.role === 'KITCHEN' 
+                      ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
+                      : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                  }`}>{staff.role === 'KITCHEN' ? 'Kitchen' : 'Cashier'}</span>
+                  {staff.role === 'KITCHEN' && staff.kitchen_categories && staff.kitchen_categories.length > 0 && (
+                    <span className="text-[9px] text-gray-400">{staff.kitchen_categories.join(', ')}</span>
+                  )}
+                </div>
               </div>
               <button
                 onClick={() => handleRemoveStaff(staff, idx)}
@@ -2538,101 +2572,6 @@ const PosOnlyView: React.FC<Props> = ({
             featureSettings.customerDisplayEnabled ? 'left-6' : 'left-1'
           }`} />
         </button>
-      </div>
-
-      <div className="border-t dark:border-gray-700 pt-4">
-        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Add-On Features</p>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-            <div>
-              <p className="text-xs font-black dark:text-white">Kitchen Display</p>
-              <p className="text-[9px] text-gray-400 mt-0.5">View and manage incoming orders from a kitchen dashboard</p>
-            </div>
-            <button
-              onClick={() => updateFeatureSetting('kitchenEnabled', !featureSettings.kitchenEnabled)}
-              className={`w-11 h-6 rounded-full transition-all relative ${
-                featureSettings.kitchenEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-              }`}
-            >
-              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                featureSettings.kitchenEnabled ? 'left-6' : 'left-1'
-              }`} />
-            </button>
-          </div>
-
-          {featureSettings.kitchenEnabled && (
-            <div className="ml-4 space-y-2 pb-2">
-              <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-                <div>
-                  <p className="text-[10px] font-black dark:text-white">Auto-Accept Orders</p>
-                  <p className="text-[9px] text-gray-400">Automatically accept new incoming orders</p>
-                </div>
-                <button
-                  onClick={() => toggleKitchenOrderSetting('autoAccept')}
-                  className={`w-11 h-6 rounded-full transition-all relative ${
-                    kitchenOrderSettings.autoAccept ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-                  }`}
-                >
-                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                    kitchenOrderSettings.autoAccept ? 'left-6' : 'left-1'
-                  }`} />
-                </button>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-                <div>
-                  <p className="text-[10px] font-black dark:text-white">Auto-Print on Accept</p>
-                  <p className="text-[9px] text-gray-400">Print kitchen ticket when order is accepted</p>
-                </div>
-                <button
-                  onClick={() => toggleKitchenOrderSetting('autoPrint')}
-                  disabled={!connectedDevice}
-                  className={`w-11 h-6 rounded-full transition-all relative ${
-                    !connectedDevice
-                      ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
-                      : kitchenOrderSettings.autoPrint ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-                  }`}
-                >
-                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                    kitchenOrderSettings.autoPrint ? 'left-6' : 'left-1'
-                  }`} />
-                </button>
-              </div>
-              {onToggleOnline && (
-                <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-                  <div>
-                    <p className="text-[10px] font-black dark:text-white">Store Presence</p>
-                    <p className="text-[9px] text-gray-400">Toggle your store online/offline for customers</p>
-                  </div>
-                  <button
-                    onClick={onToggleOnline}
-                    className={`px-3 py-1.5 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all flex items-center gap-1.5 ${
-                      storeIsOnline ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-                    }`}
-                  >
-                    {storeIsOnline ? <><Wifi size={12} /> Online</> : <><WifiOff size={12} /> Offline</>}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-            <div>
-              <p className="text-xs font-black dark:text-white">QR Ordering</p>
-              <p className="text-[9px] text-gray-400 mt-0.5">Accept orders from customers via QR code scan</p>
-            </div>
-            <button
-              onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
-              className={`w-11 h-6 rounded-full transition-all relative ${
-                featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-              }`}
-            >
-              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                featureSettings.qrEnabled ? 'left-6' : 'left-1'
-              }`} />
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -2994,6 +2933,7 @@ const PosOnlyView: React.FC<Props> = ({
         </div>
 
         <nav className={`flex-1 space-y-2 ${isSidebarCollapsed ? 'p-2' : 'p-4'}`}>
+          {!isKitchenUser && (
           <button 
             onClick={() => handleTabSelection('COUNTER')}
             title="Counter"
@@ -3005,6 +2945,7 @@ const PosOnlyView: React.FC<Props> = ({
           >
             <ShoppingBag size={20} /> {!isSidebarCollapsed && 'Counter'}
           </button>
+          )}
 
           {showKitchenFeature && (
             <button 
@@ -3029,7 +2970,7 @@ const PosOnlyView: React.FC<Props> = ({
             </button>
           )}
 
-          {showQrFeature && (
+          {showQrFeature && !isKitchenUser && (
             <button
               onClick={() => handleTabSelection('QR_ORDERS')}
               title="QR Orders"
@@ -3058,6 +2999,7 @@ const PosOnlyView: React.FC<Props> = ({
             </button>
           )}
           
+          {!isKitchenUser && (
           <button 
             onClick={() => handleTabSelection('MENU_EDITOR')}
             title="Menu Editor"
@@ -3069,7 +3011,9 @@ const PosOnlyView: React.FC<Props> = ({
           >
             <BookOpen size={20} /> {!isSidebarCollapsed && 'Menu Editor'}
           </button>
+          )}
           
+          {!isKitchenUser && (
           <button 
             onClick={handleReportsClick}
             title="Report"
@@ -3081,7 +3025,9 @@ const PosOnlyView: React.FC<Props> = ({
           >
             <BarChart3 size={20} /> {!isSidebarCollapsed && 'Report'}
           </button>
+          )}
           
+          {!isKitchenUser && (
           <button 
             onClick={() => handleTabSelection('SETTINGS')}
             title="Settings"
@@ -3093,6 +3039,21 @@ const PosOnlyView: React.FC<Props> = ({
           >
             <Settings size={20} /> {!isSidebarCollapsed && 'Settings'}
           </button>
+          )}
+
+          {!isKitchenUser && (
+          <button 
+            onClick={() => handleTabSelection('FEATURES')}
+            title="Features"
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
+              activeTab === 'FEATURES' 
+                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }`}
+          >
+            <Puzzle size={20} /> {!isSidebarCollapsed && 'Features'}
+          </button>
+          )}
         </nav>
 
         {/* Sidebar Collapse Toggle */}
@@ -3177,6 +3138,7 @@ const PosOnlyView: React.FC<Props> = ({
                  activeTab === 'REPORTS' ? 'Sales Report' : 
                  activeTab === 'QR_ORDERS' ? 'QR Orders' :
                  activeTab === 'KITCHEN' ? 'Kitchen Orders' :
+                 activeTab === 'FEATURES' ? 'Features' :
                  'Settings'}
               </h1>
             </div>
@@ -3782,6 +3744,167 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
           )}
 
+          {/* Features Tab */}
+          {activeTab === 'FEATURES' && (
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="max-w-3xl mx-auto animate-in fade-in duration-500">
+                <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Features</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Enable add-on features for your restaurant.</p>
+
+                <div className="space-y-6">
+                  {/* Basic POS Features */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">POS Features</p>
+                    <div className="space-y-3">
+                      {renderFeaturesContent()}
+                    </div>
+                  </div>
+
+                  {/* Add-On Features */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">Add-On Features</p>
+                    <div className="space-y-3">
+                      {/* Kitchen Display Toggle */}
+                      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                        <div>
+                          <p className="text-xs font-black dark:text-white">Kitchen Display System</p>
+                          <p className="text-[9px] text-gray-400 mt-0.5">Enable kitchen users to receive and manage orders</p>
+                        </div>
+                        <button
+                          onClick={() => updateFeatureSetting('kitchenEnabled', !featureSettings.kitchenEnabled)}
+                          className={`w-11 h-6 rounded-full transition-all relative ${
+                            featureSettings.kitchenEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                          }`}
+                        >
+                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                            featureSettings.kitchenEnabled ? 'left-6' : 'left-1'
+                          }`} />
+                        </button>
+                      </div>
+
+                      {/* Kitchen Sub-Settings */}
+                      {featureSettings.kitchenEnabled && (
+                        <div className="ml-4 space-y-3 pb-2">
+                          {/* Auto-Accept Orders */}
+                          <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                            <div>
+                              <p className="text-[10px] font-black dark:text-white">Auto-Accept Orders</p>
+                              <p className="text-[9px] text-gray-400">Automatically accept new incoming orders</p>
+                            </div>
+                            <button
+                              onClick={() => toggleKitchenOrderSetting('autoAccept')}
+                              className={`w-11 h-6 rounded-full transition-all relative ${
+                                kitchenOrderSettings.autoAccept ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                              }`}
+                            >
+                              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                                kitchenOrderSettings.autoAccept ? 'left-6' : 'left-1'
+                              }`} />
+                            </button>
+                          </div>
+
+                          {/* Auto-Print on Accept */}
+                          <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                            <div>
+                              <p className="text-[10px] font-black dark:text-white">Auto-Print on Accept</p>
+                              <p className="text-[9px] text-gray-400">Print kitchen ticket when order is accepted</p>
+                            </div>
+                            <button
+                              onClick={() => toggleKitchenOrderSetting('autoPrint')}
+                              disabled={!connectedDevice}
+                              className={`w-11 h-6 rounded-full transition-all relative ${
+                                !connectedDevice
+                                  ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
+                                  : kitchenOrderSettings.autoPrint ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                              }`}
+                            >
+                              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                                kitchenOrderSettings.autoPrint ? 'left-6' : 'left-1'
+                              }`} />
+                            </button>
+                          </div>
+
+                          {/* Store Presence */}
+                          {onToggleOnline && (
+                            <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                              <div>
+                                <p className="text-[10px] font-black dark:text-white">Store Presence</p>
+                                <p className="text-[9px] text-gray-400">Toggle your store online/offline for customers</p>
+                              </div>
+                              <button
+                                onClick={onToggleOnline}
+                                className={`px-3 py-1.5 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all flex items-center gap-1.5 ${
+                                  storeIsOnline ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                                }`}
+                              >
+                                {storeIsOnline ? <><Wifi size={12} /> Online</> : <><WifiOff size={12} /> Offline</>}
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Kitchen Divisions */}
+                          <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                            <p className="text-[10px] font-black dark:text-white mb-1">Kitchen Divisions</p>
+                            <p className="text-[9px] text-gray-400 mb-3">Divide orders by food category (e.g. Drinks, Main Course). Optional — used when assigning kitchen users.</p>
+                            
+                            {kitchenDivisions.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mb-3">
+                                {kitchenDivisions.map(div => (
+                                  <span key={div} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                                    {div}
+                                    <button onClick={() => handleRemoveDivision(div)} className="hover:text-red-500 transition-colors">
+                                      <X size={12} />
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={newDivisionName}
+                                onChange={e => setNewDivisionName(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleAddDivision()}
+                                className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                                placeholder="e.g. Drinks, Main Course"
+                              />
+                              <button
+                                onClick={handleAddDivision}
+                                disabled={!newDivisionName.trim()}
+                                className="px-4 py-2 bg-orange-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 disabled:opacity-40 transition-all flex items-center gap-1.5"
+                              >
+                                <Plus size={14} /> Add
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* QR Ordering Toggle */}
+                      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                        <div>
+                          <p className="text-xs font-black dark:text-white">QR Ordering</p>
+                          <p className="text-[9px] text-gray-400 mt-0.5">Accept orders from customers via QR code scan</p>
+                        </div>
+                        <button
+                          onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
+                          className={`w-11 h-6 rounded-full transition-all relative ${
+                            featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                          }`}
+                        >
+                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                            featureSettings.qrEnabled ? 'left-6' : 'left-1'
+                          }`} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Settings Tab */}
           {activeTab === 'SETTINGS' && (
             <div className="flex-1 overflow-y-auto p-6">
@@ -4363,7 +4486,7 @@ const PosOnlyView: React.FC<Props> = ({
         {/* Add Staff Modal */}
         {isAddStaffModalOpen && (
           <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-2xl relative animate-in zoom-in fade-in duration-300">
+            <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-2xl relative animate-in zoom-in fade-in duration-300 max-h-[90vh] overflow-y-auto">
               <button onClick={() => setIsAddStaffModalOpen(false)} className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 transition-colors"><X size={18} /></button>
               <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tighter">Add Staff Member</h2>
               <div className="space-y-4">
@@ -4411,6 +4534,54 @@ const PosOnlyView: React.FC<Props> = ({
                   />
                 </div>
 
+                {/* Role Selection */}
+                <div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Role</label>
+                  <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                    <button
+                      onClick={() => { setNewStaffRole('CASHIER'); setNewStaffKitchenCategories([]); }}
+                      className={`flex-1 py-2 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                        newStaffRole === 'CASHIER' ? 'bg-white dark:bg-gray-800 text-blue-600 shadow-sm' : 'text-gray-400'
+                      }`}
+                    >Cashier</button>
+                    {featureSettings.kitchenEnabled && (
+                      <button
+                        onClick={() => setNewStaffRole('KITCHEN')}
+                        className={`flex-1 py-2 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                          newStaffRole === 'KITCHEN' ? 'bg-white dark:bg-gray-800 text-orange-600 shadow-sm' : 'text-gray-400'
+                        }`}
+                      >Kitchen</button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Kitchen Category Assignment (only for Kitchen role + when divisions exist) */}
+                {newStaffRole === 'KITCHEN' && kitchenDivisions.length > 0 && (
+                  <div>
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Kitchen Categories</label>
+                    <p className="text-[9px] text-gray-400 mb-2 ml-1">Select which food categories this user handles. Leave empty for all.</p>
+                    <div className="flex flex-wrap gap-2">
+                      {kitchenDivisions.map(div => (
+                        <button
+                          key={div}
+                          onClick={() => {
+                            setNewStaffKitchenCategories(prev => 
+                              prev.includes(div) ? prev.filter(c => c !== div) : [...prev, div]
+                            );
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${
+                            newStaffKitchenCategories.includes(div)
+                              ? 'bg-orange-500 text-white border-orange-500'
+                              : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-orange-400'
+                          }`}
+                        >
+                          {div}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex gap-3 pt-4">
                   <button 
                     onClick={() => {
@@ -4419,6 +4590,8 @@ const PosOnlyView: React.FC<Props> = ({
                       setNewStaffPassword('');
                       setNewStaffEmail('');
                       setNewStaffPhone('');
+                      setNewStaffRole('CASHIER');
+                      setNewStaffKitchenCategories([]);
                     }}
                     className="flex-1 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500"
                   >
@@ -4429,17 +4602,19 @@ const PosOnlyView: React.FC<Props> = ({
                       if (newStaffUsername.trim() && newStaffPassword.trim() && newStaffEmail.trim() && newStaffPhone.trim()) {
                         setIsAddingStaff(true);
                         try {
-                          const newStaff = {
+                          const newStaff: Record<string, any> = {
                             username: newStaffUsername,
                             password: newStaffPassword,
                             email: newStaffEmail,
                             phone: newStaffPhone,
                             restaurant_id: restaurant.id,
-                            role: 'CASHIER',
-                            is_active: true
+                            role: newStaffRole,
+                            is_active: true,
                           };
+                          if (newStaffRole === 'KITCHEN' && newStaffKitchenCategories.length > 0) {
+                            newStaff.kitchen_categories = newStaffKitchenCategories;
+                          }
                           
-                          // Save to Supabase users table
                           const { data, error } = await supabase
                             .from('users')
                             .insert([newStaff])
@@ -4451,7 +4626,6 @@ const PosOnlyView: React.FC<Props> = ({
                             return;
                           }
                           
-                          // Also update local state with the data from database (includes created_at, id)
                           const staffFromDb = data && data.length > 0 ? data[0] : newStaff;
                           const updated = [...staffList, staffFromDb];
                           setStaffList(updated);
@@ -4462,6 +4636,8 @@ const PosOnlyView: React.FC<Props> = ({
                           setNewStaffPassword('');
                           setNewStaffEmail('');
                           setNewStaffPhone('');
+                          setNewStaffRole('CASHIER');
+                          setNewStaffKitchenCategories([]);
                           setIsAddingStaff(false);
                           toast('Staff member added successfully!', 'success');
                         } catch (error: any) {
@@ -4710,48 +4886,66 @@ const PosOnlyView: React.FC<Props> = ({
                           </div>
                         </div>
                         <div className="flex md:flex-col gap-2 min-w-[140px] mt-2 md:mt-0">
-                          {order.status === OrderStatus.PENDING && (
+                          {(isKitchenUser || isVendorUser) ? (
                             <>
-                              <button 
-                                onClick={() => handleKitchenAcceptAndPrint(order.id)} 
-                                className="flex-1 py-3 px-4 bg-orange-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg"
-                              >
-                                Accept {kitchenOrderSettings.autoPrint && '& Print'}
-                              </button>
+                              {order.status === OrderStatus.PENDING && (
+                                <>
+                                  <button 
+                                    onClick={() => handleKitchenAcceptAndPrint(order.id)} 
+                                    className="flex-1 py-3 px-4 bg-orange-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg"
+                                  >
+                                    Accept {kitchenOrderSettings.autoPrint && '& Print'}
+                                  </button>
                               
-                              {connectedDevice && (
+                                  {connectedDevice && (
+                                    <button 
+                                      onClick={() => handleKitchenManualPrint(order)}
+                                      disabled={kitchenPrintingOrderId === order.id}
+                                      className="flex-1 py-3 px-4 bg-gray-600 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-gray-700 transition-all shadow-lg disabled:opacity-50"
+                                    >
+                                      {kitchenPrintingOrderId === order.id ? 'Printing...' : 'Print Only'}
+                                    </button>
+                                  )}
+                              
+                                  <button 
+                                    onClick={() => setRejectingKitchenOrderId(order.id)} 
+                                    className="flex-1 py-3 px-4 bg-red-50 text-red-500 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-100"
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              )}
+                          
+                              {order.status === OrderStatus.ONGOING && (
                                 <button 
-                                  onClick={() => handleKitchenManualPrint(order)}
-                                  disabled={kitchenPrintingOrderId === order.id}
-                                  className="flex-1 py-3 px-4 bg-gray-600 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-gray-700 transition-all shadow-lg disabled:opacity-50"
+                                  onClick={() => {
+                                    if (onKitchenUpdateOrder) {
+                                      onKitchenUpdateOrder(order.id, OrderStatus.SERVED);
+                                    } else {
+                                      onUpdateOrder(order.id, OrderStatus.SERVED);
+                                    }
+                                  }} 
+                                  className="flex-1 py-4 px-4 bg-green-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-lg"
                                 >
-                                  {kitchenPrintingOrderId === order.id ? 'Printing...' : 'Print Only'}
+                                  <CheckCircle size={18} />
+                                  Serve Order
                                 </button>
                               )}
-                              
-                              <button 
-                                onClick={() => setRejectingKitchenOrderId(order.id)} 
-                                className="flex-1 py-3 px-4 bg-red-50 text-red-500 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-100"
-                              >
-                                Reject
-                              </button>
                             </>
-                          )}
-                          
-                          {order.status === OrderStatus.ONGOING && (
-                            <button 
-                              onClick={() => {
-                                if (onKitchenUpdateOrder) {
-                                  onKitchenUpdateOrder(order.id, OrderStatus.SERVED);
-                                } else {
-                                  onUpdateOrder(order.id, OrderStatus.SERVED);
-                                }
-                              }} 
-                              className="flex-1 py-4 px-4 bg-green-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-lg"
-                            >
-                              <CheckCircle size={18} />
-                              Serve Order
-                            </button>
+                          ) : (
+                            <div className={`px-4 py-3 rounded-lg font-black text-[10px] uppercase tracking-widest text-center ${
+                              order.status === OrderStatus.PENDING ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400' :
+                              order.status === OrderStatus.ONGOING ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' :
+                              order.status === OrderStatus.SERVED ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' :
+                              order.status === OrderStatus.COMPLETED ? 'bg-gray-50 text-gray-600 dark:bg-gray-900/20 dark:text-gray-400' :
+                              'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                            }`}>
+                              {order.status === OrderStatus.PENDING ? 'Waiting for Kitchen' :
+                               order.status === OrderStatus.ONGOING ? 'Preparing' :
+                               order.status === OrderStatus.SERVED ? 'Served' :
+                               order.status === OrderStatus.COMPLETED ? 'Completed' :
+                               'Cancelled'}
+                            </div>
                           )}
                         </div>
                       </div>

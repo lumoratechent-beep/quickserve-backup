@@ -257,7 +257,7 @@ const App: React.FC = () => {
     // Only fetch users if the user is an admin
     if (currentRole !== 'ADMIN') return;
     
-    const { data, error } = await supabase.from('users').select('id, username, role, restaurant_id, is_active, email, phone');
+    const { data, error } = await supabase.from('users').select('id, username, role, restaurant_id, is_active, email, phone, kitchen_categories');
     if (!error && data) {
       const mapped = data.map(u => ({
         id: u.id, 
@@ -266,7 +266,8 @@ const App: React.FC = () => {
         restaurantId: u.restaurant_id,
         isActive: u.is_active, 
         email: u.email, 
-        phone: u.phone
+        phone: u.phone,
+        kitchenCategories: u.kitchen_categories || undefined,
       }));
       setAllUsers(mapped);
       persistCache('qs_cache_users', mapped);
@@ -320,6 +321,7 @@ const App: React.FC = () => {
         isOnline: res.is_online === true || res.is_online === null,
         platformAccess: (res.platform_access as PlatformAccess) || 'pos_and_kitchen',
         slug: res.slug || '',
+        kitchenDivisions: res.kitchen_divisions || [],
         settings: (() => {
           const localSettings = localStorage.getItem(`qs_settings_${res.id}`);
           const dbSettings = res.settings ? (typeof res.settings === 'string' ? JSON.parse(res.settings) : res.settings) : null;
@@ -449,7 +451,7 @@ const App: React.FC = () => {
     const savedUser = localStorage.getItem('qs_user');
     if (!savedUser) return;
     const user = JSON.parse(savedUser);
-    if (user.role !== 'VENDOR' || !user.restaurantId) return;
+    if (user.role !== 'VENDOR' && user.role !== 'KITCHEN' || !user.restaurantId) return;
 
     isFetchingRef.current = true;
     try {
@@ -560,7 +562,7 @@ const App: React.FC = () => {
   }, []);
 
   // Compute active vendor and current area early for hooks
-  const activeVendorRes = currentUser?.role === 'VENDOR' ? restaurants.find(r => r.id === currentUser.restaurantId) : null;
+  const activeVendorRes = (currentUser?.role === 'VENDOR' || currentUser?.role === 'KITCHEN') ? restaurants.find(r => r.id === currentUser.restaurantId) : null;
   const currentArea = locations.find(l => l.name === sessionLocation);
 
   // Global Data Initialization
@@ -577,7 +579,7 @@ const App: React.FC = () => {
   
     // Initialize tracker when user logs in (for CASHIER/VENDOR roles)
     useEffect(() => {
-      if (currentRole === 'CASHIER' || currentRole === 'VENDOR') {
+      if (currentRole === 'CASHIER' || currentRole === 'VENDOR' || currentRole === 'KITCHEN') {
         console.log(`[TRACKER] User logged in/switched role to ${currentRole}, initializing tracker`);
         initializeOrderNumberTracker();
       }
@@ -708,7 +710,7 @@ const App: React.FC = () => {
   // Vendor Polling Fallback (poll for all vendors since kitchen/QR features are now dynamic toggles)
   useEffect(() => {
     let interval: any;
-    const shouldPoll = currentRole === 'VENDOR';
+    const shouldPoll = currentRole === 'VENDOR' || currentRole === 'KITCHEN';
     
     if (shouldPoll) {
       // Initial fetch to ensure we have the latest before polling
@@ -1589,6 +1591,20 @@ const App: React.FC = () => {
     setRestaurants(prev => prev.map(r => r.id === restaurantId ? { ...r, settings } : r));
   };
 
+  const saveKitchenDivisions = async (restaurantId: string, divisions: string[]) => {
+    const { error } = await supabase
+      .from('restaurants')
+      .update({ kitchen_divisions: divisions })
+      .eq('id', restaurantId);
+    
+    if (error) {
+      console.warn('Failed to save kitchen divisions:', error.message);
+    }
+    
+    localStorage.setItem(`qs_kitchen_divisions_${restaurantId}`, JSON.stringify(divisions));
+    setRestaurants(prev => prev.map(r => r.id === restaurantId ? { ...r, kitchenDivisions: divisions } : r));
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -1726,11 +1742,41 @@ const App: React.FC = () => {
                 onKitchenUpdateOrder={updateOrderStatus}
                 onToggleOnline={() => toggleVendorOnline(activeVendorRes.id, activeVendorRes.isOnline ?? true)}
                 lastSyncTime={lastSyncTime}
+                userRole="VENDOR"
+                onSaveKitchenDivisions={(divisions) => saveKitchenDivisions(activeVendorRes.id, divisions)}
               />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
               <Loader2 className="w-10 h-10 text-orange-500 animate-spin mb-4" />
               <p className="text-gray-500 font-black uppercase tracking-widest text-[10px]">Loading POS...</p>
+            </div>
+          )
+        )}
+
+        {currentRole === 'KITCHEN' && view === 'APP' && (
+          activeVendorRes ? (
+              <PosOnlyView
+                restaurant={activeVendorRes}
+                orders={orders.filter(o => {
+                  if (o.restaurantId !== currentUser?.restaurantId) return false;
+                  const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+                  return o.timestamp > oneDayAgo;
+                })}
+                onUpdateOrder={updateOrderForPos}
+                onPlaceOrder={placePosOrder}
+                onFetchPaginatedOrders={onFetchPaginatedOrders}
+                onFetchAllFilteredOrders={onFetchAllFilteredOrders}
+                isOnline={isOnline}
+                pendingOfflineOrdersCount={0}
+                cashierName={currentUser?.username}
+                onKitchenUpdateOrder={updateOrderStatus}
+                lastSyncTime={lastSyncTime}
+                userRole="KITCHEN"
+              />
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center p-12">
+              <Loader2 className="w-10 h-10 text-orange-500 animate-spin mb-4" />
+              <p className="text-gray-500 font-black uppercase tracking-widest text-[10px]">Loading Kitchen...</p>
             </div>
           )
         )}

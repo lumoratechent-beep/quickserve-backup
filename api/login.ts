@@ -25,7 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('id, username, role, restaurant_id, is_active, email, phone, password')
+      .select('id, username, role, restaurant_id, is_active, email, phone, password, kitchen_categories')
       .eq('username', username)
       .eq('password', password)
       .single();
@@ -46,7 +46,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       restaurantId: data.restaurant_id,
       isActive: data.is_active,
       email: data.email,
-      phone: data.phone
+      phone: data.phone,
+      kitchenCategories: data.kitchen_categories || undefined,
     };
 
     return res.status(200).json(userResponse);
