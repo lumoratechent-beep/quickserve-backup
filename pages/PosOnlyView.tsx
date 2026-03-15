@@ -153,6 +153,7 @@ interface TaxEntry {
 }
 
 type SettingsPanel = null | 'printer' | 'receipt' | 'payment' | 'taxes' | 'staff' | 'ux';
+type FeaturesPanel = 'builtin' | 'kitchen' | 'qr';
 
 const PosOnlyView: React.FC<Props> = ({
   restaurant,
@@ -334,6 +335,7 @@ const PosOnlyView: React.FC<Props> = ({
 
   // Settings panel navigation
   const [settingsPanel, setSettingsPanel] = useState<SettingsPanel>('printer');
+  const [featuresPanel, setFeaturesPanel] = useState<FeaturesPanel>('builtin');
 
   // Feature settings
   const [featureSettings, setFeatureSettings] = useState<FeatureSettings>(() => {
@@ -3726,137 +3728,318 @@ const PosOnlyView: React.FC<Props> = ({
           {/* Features Tab */}
           {activeTab === 'FEATURES' && (
             <div className="flex-1 overflow-y-auto p-6">
-              <div className="max-w-3xl mx-auto animate-in fade-in duration-500">
+              <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
                 <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Features</h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Configure built-in and add-on features for your restaurant.</p>
 
-                <div className="space-y-6">
-                  {/* Built-in Features */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">Built-in Features</p>
-                    <div className="space-y-3">
-                      {renderFeaturesContent()}
+                {/* ===== MOBILE: Accordion Layout ===== */}
+                <div className="lg:hidden space-y-3">
+                  {/* Built-in Features Accordion */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                    <button
+                      onClick={() => setFeaturesPanel(featuresPanel === 'builtin' ? 'builtin' : 'builtin')}
+                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center">
+                        <Layers size={18} className="text-emerald-500" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Built-in Features</p>
+                        <p className="text-[10px] text-gray-400">Auto-print, drawer, dining</p>
+                      </div>
+                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${featuresPanel === 'builtin' ? 'rotate-180' : ''}`} />
+                    </button>
+                    {featuresPanel === 'builtin' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg">
+                          {renderFeaturesContent()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Kitchen Display System Accordion */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                    <button
+                      onClick={() => setFeaturesPanel(featuresPanel === 'kitchen' ? 'builtin' : 'kitchen')}
+                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center">
+                        <Coffee size={18} className="text-orange-500" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Kitchen Display System</p>
+                        <p className="text-[10px] text-gray-400">{featureSettings.kitchenEnabled ? 'Enabled' : 'Disabled'}</p>
+                      </div>
+                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${featuresPanel === 'kitchen' ? 'rotate-180' : ''}`} />
+                    </button>
+                    {featuresPanel === 'kitchen' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg space-y-4">
+                          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                            <div>
+                              <p className="text-xs font-black dark:text-white">Enable Kitchen Display</p>
+                              <p className="text-[9px] text-gray-400 mt-0.5">Enable kitchen users to receive and manage orders</p>
+                            </div>
+                            <button
+                              onClick={() => updateFeatureSetting('kitchenEnabled', !featureSettings.kitchenEnabled)}
+                              className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.kitchenEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                            >
+                              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.kitchenEnabled ? 'left-6' : 'left-1'}`} />
+                            </button>
+                          </div>
+                          {featureSettings.kitchenEnabled && (
+                            <div className="space-y-4">
+                              <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                                <p className="text-[10px] font-black dark:text-white mb-1">Kitchen Divisions</p>
+                                <p className="text-[9px] text-gray-400 mb-3">Divide orders by food category (e.g. Drinks, Main Course).</p>
+                                {kitchenDivisions.length > 0 && (
+                                  <div className="flex flex-wrap gap-2 mb-3">
+                                    {kitchenDivisions.map(div => (
+                                      <span key={div} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                                        {div}
+                                        <button onClick={() => handleRemoveDivision(div)} className="hover:text-red-500 transition-colors"><X size={12} /></button>
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                <div className="flex gap-2">
+                                  <input type="text" value={newDivisionName} onChange={e => setNewDivisionName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddDivision()} className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white" placeholder="e.g. Drinks, Main Course" />
+                                  <button onClick={handleAddDivision} disabled={!newDivisionName.trim()} className="px-4 py-2 bg-orange-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 disabled:opacity-40 transition-all flex items-center gap-1.5"><Plus size={14} /> Add</button>
+                                </div>
+                              </div>
+                              <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                                <p className="text-[10px] font-black dark:text-white mb-1">Assign Kitchen Staff</p>
+                                <p className="text-[9px] text-gray-400 mb-3">Staff members with kitchen access</p>
+                                {staffList.filter((s: any) => s.role === 'KITCHEN').length === 0 ? (
+                                  <p className="text-[9px] text-gray-400 italic">No kitchen staff assigned yet. Add staff in Settings &gt; Staff Management.</p>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {staffList.filter((s: any) => s.role === 'KITCHEN').map((staff: any, idx: number) => (
+                                      <div key={idx} className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                                        <div>
+                                          <p className="text-[10px] font-black dark:text-white">{staff.username}</p>
+                                          {staff.kitchen_categories && staff.kitchen_categories.length > 0 && (
+                                            <p className="text-[9px] text-gray-400 mt-0.5">{staff.kitchen_categories.join(', ')}</p>
+                                          )}
+                                        </div>
+                                        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">Kitchen</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* QR Ordering Accordion */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                    <button
+                      onClick={() => setFeaturesPanel(featuresPanel === 'qr' ? 'builtin' : 'qr')}
+                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
+                        <QrCode size={18} className="text-violet-500" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">QR Ordering</p>
+                        <p className="text-[10px] text-gray-400">{featureSettings.qrEnabled ? 'Enabled' : 'Disabled'}</p>
+                      </div>
+                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${featuresPanel === 'qr' ? 'rotate-180' : ''}`} />
+                    </button>
+                    {featuresPanel === 'qr' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg space-y-4">
+                          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                            <div>
+                              <p className="text-xs font-black dark:text-white">Enable QR Ordering</p>
+                              <p className="text-[9px] text-gray-400 mt-0.5">Accept orders from customers via QR code scan</p>
+                            </div>
+                            <button
+                              onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
+                              className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                            >
+                              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
+                            </button>
+                          </div>
+                          {featureSettings.qrEnabled && (
+                            <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                              <p className="text-[10px] font-black dark:text-white mb-1">QR Generator</p>
+                              <p className="text-[9px] text-gray-400 mb-3">Generate table QR codes for your restaurant</p>
+                              {renderQrGeneratorContent()}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ===== DESKTOP: Left Nav + Right Content ===== */}
+                <div className="hidden lg:flex gap-6 min-h-[500px]">
+                  {/* Left Sidebar */}
+                  <div className="flex-1">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                      {/* Built-in Features Nav */}
+                      <button
+                        onClick={() => setFeaturesPanel('builtin')}
+                        className={`w-full flex items-center gap-3 p-4 transition-all ${
+                          featuresPanel === 'builtin'
+                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          featuresPanel === 'builtin' ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <Layers size={16} className={featuresPanel === 'builtin' ? 'text-emerald-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${featuresPanel === 'builtin' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Built-in Features</p>
+                          <p className="text-[10px] text-gray-400">Auto-print, drawer, dining</p>
+                        </div>
+                      </button>
+
+                      {/* Kitchen Display System Nav */}
+                      <button
+                        onClick={() => setFeaturesPanel('kitchen')}
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                          featuresPanel === 'kitchen'
+                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          featuresPanel === 'kitchen' ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <Coffee size={16} className={featuresPanel === 'kitchen' ? 'text-orange-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${featuresPanel === 'kitchen' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Kitchen Display System</p>
+                          <p className="text-[10px] text-gray-400">{featureSettings.kitchenEnabled ? 'Enabled' : 'Disabled'}</p>
+                        </div>
+                      </button>
+
+                      {/* QR Ordering Nav */}
+                      <button
+                        onClick={() => setFeaturesPanel('qr')}
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                          featuresPanel === 'qr'
+                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          featuresPanel === 'qr' ? 'bg-violet-100 dark:bg-violet-900/30' : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <QrCode size={16} className={featuresPanel === 'qr' ? 'text-violet-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${featuresPanel === 'qr' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>QR Ordering</p>
+                          <p className="text-[10px] text-gray-400">{featureSettings.qrEnabled ? 'Enabled' : 'Disabled'}</p>
+                        </div>
+                      </button>
                     </div>
                   </div>
 
-                  {/* Add-On Features */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">Add-On Features</p>
-                    <div className="space-y-3">
-                      {/* Kitchen Display Toggle */}
-                      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                        <div>
-                          <p className="text-xs font-black dark:text-white">Kitchen Display System</p>
-                          <p className="text-[9px] text-gray-400 mt-0.5">Enable kitchen users to receive and manage orders</p>
-                        </div>
-                        <button
-                          onClick={() => updateFeatureSetting('kitchenEnabled', !featureSettings.kitchenEnabled)}
-                          className={`w-11 h-6 rounded-full transition-all relative ${
-                            featureSettings.kitchenEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-                          }`}
-                        >
-                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                            featureSettings.kitchenEnabled ? 'left-6' : 'left-1'
-                          }`} />
-                        </button>
-                      </div>
+                  {/* Right Content Panel */}
+                  <div className="w-[560px] shrink-0 min-h-0 overflow-y-auto">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
+                      <div className="max-w-lg">
+                        {featuresPanel === 'builtin' && renderFeaturesContent()}
 
-                      {/* Kitchen Sub-Settings */}
-                      {featureSettings.kitchenEnabled && (
-                        <div className="ml-4 space-y-3 pb-2">
-                          {/* Kitchen Divisions */}
-                          <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-                            <p className="text-[10px] font-black dark:text-white mb-1">Kitchen Divisions</p>
-                            <p className="text-[9px] text-gray-400 mb-3">Divide orders by food category (e.g. Drinks, Main Course). Optional — used when assigning kitchen users.</p>
-                            
-                            {kitchenDivisions.length > 0 && (
-                              <div className="flex flex-wrap gap-2 mb-3">
-                                {kitchenDivisions.map(div => (
-                                  <span key={div} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg text-[10px] font-black uppercase tracking-wider">
-                                    {div}
-                                    <button onClick={() => handleRemoveDivision(div)} className="hover:text-red-500 transition-colors">
-                                      <X size={12} />
-                                    </button>
-                                  </span>
-                                ))}
+                        {featuresPanel === 'kitchen' && (
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                              <div>
+                                <p className="text-xs font-black dark:text-white">Enable Kitchen Display</p>
+                                <p className="text-[9px] text-gray-400 mt-0.5">Enable kitchen users to receive and manage orders</p>
                               </div>
-                            )}
-
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={newDivisionName}
-                                onChange={e => setNewDivisionName(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleAddDivision()}
-                                className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                                placeholder="e.g. Drinks, Main Course"
-                              />
                               <button
-                                onClick={handleAddDivision}
-                                disabled={!newDivisionName.trim()}
-                                className="px-4 py-2 bg-orange-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 disabled:opacity-40 transition-all flex items-center gap-1.5"
+                                onClick={() => updateFeatureSetting('kitchenEnabled', !featureSettings.kitchenEnabled)}
+                                className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.kitchenEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
                               >
-                                <Plus size={14} /> Add
+                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.kitchenEnabled ? 'left-6' : 'left-1'}`} />
                               </button>
                             </div>
-                          </div>
-
-                          {/* Assign Staff */}
-                          <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-                            <p className="text-[10px] font-black dark:text-white mb-1">Assign Kitchen Staff</p>
-                            <p className="text-[9px] text-gray-400 mb-3">Staff members with kitchen access</p>
-                            {staffList.filter((s: any) => s.role === 'KITCHEN').length === 0 ? (
-                              <p className="text-[9px] text-gray-400 italic">No kitchen staff assigned yet. Add staff in Settings &gt; Staff Management.</p>
-                            ) : (
-                              <div className="space-y-2">
-                                {staffList.filter((s: any) => s.role === 'KITCHEN').map((staff: any, idx: number) => (
-                                  <div key={idx} className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
-                                    <div>
-                                      <p className="text-[10px] font-black dark:text-white">{staff.username}</p>
-                                      {staff.kitchen_categories && staff.kitchen_categories.length > 0 && (
-                                        <p className="text-[9px] text-gray-400 mt-0.5">{staff.kitchen_categories.join(', ')}</p>
-                                      )}
+                            {featureSettings.kitchenEnabled && (
+                              <div className="space-y-4">
+                                <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                                  <p className="text-[10px] font-black dark:text-white mb-1">Kitchen Divisions</p>
+                                  <p className="text-[9px] text-gray-400 mb-3">Divide orders by food category (e.g. Drinks, Main Course).</p>
+                                  {kitchenDivisions.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mb-3">
+                                      {kitchenDivisions.map(div => (
+                                        <span key={div} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                                          {div}
+                                          <button onClick={() => handleRemoveDivision(div)} className="hover:text-red-500 transition-colors"><X size={12} /></button>
+                                        </span>
+                                      ))}
                                     </div>
-                                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">Kitchen</span>
+                                  )}
+                                  <div className="flex gap-2">
+                                    <input type="text" value={newDivisionName} onChange={e => setNewDivisionName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddDivision()} className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white" placeholder="e.g. Drinks, Main Course" />
+                                    <button onClick={handleAddDivision} disabled={!newDivisionName.trim()} className="px-4 py-2 bg-orange-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 disabled:opacity-40 transition-all flex items-center gap-1.5"><Plus size={14} /> Add</button>
                                   </div>
-                                ))}
+                                </div>
+                                <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                                  <p className="text-[10px] font-black dark:text-white mb-1">Assign Kitchen Staff</p>
+                                  <p className="text-[9px] text-gray-400 mb-3">Staff members with kitchen access</p>
+                                  {staffList.filter((s: any) => s.role === 'KITCHEN').length === 0 ? (
+                                    <p className="text-[9px] text-gray-400 italic">No kitchen staff assigned yet. Add staff in Settings &gt; Staff Management.</p>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      {staffList.filter((s: any) => s.role === 'KITCHEN').map((staff: any, idx: number) => (
+                                        <div key={idx} className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                                          <div>
+                                            <p className="text-[10px] font-black dark:text-white">{staff.username}</p>
+                                            {staff.kitchen_categories && staff.kitchen_categories.length > 0 && (
+                                              <p className="text-[9px] text-gray-400 mt-0.5">{staff.kitchen_categories.join(', ')}</p>
+                                            )}
+                                          </div>
+                                          <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">Kitchen</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             )}
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {/* QR Ordering Toggle */}
-                      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                        <div>
-                          <p className="text-xs font-black dark:text-white">QR Ordering</p>
-                          <p className="text-[9px] text-gray-400 mt-0.5">Accept orders from customers via QR code scan</p>
-                        </div>
-                        <button
-                          onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
-                          className={`w-11 h-6 rounded-full transition-all relative ${
-                            featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-                          }`}
-                        >
-                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                            featureSettings.qrEnabled ? 'left-6' : 'left-1'
-                          }`} />
-                        </button>
-                      </div>
-
-                      {/* QR Generator (shown when QR enabled) */}
-                      {featureSettings.qrEnabled && (
-                        <div className="ml-4 pb-2">
-                          <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-                            <p className="text-[10px] font-black dark:text-white mb-1">QR Generator</p>
-                            <p className="text-[9px] text-gray-400 mb-3">Generate table QR codes for your restaurant</p>
-                            {renderQrGeneratorContent()}
+                        {featuresPanel === 'qr' && (
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                              <div>
+                                <p className="text-xs font-black dark:text-white">Enable QR Ordering</p>
+                                <p className="text-[9px] text-gray-400 mt-0.5">Accept orders from customers via QR code scan</p>
+                              </div>
+                              <button
+                                onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
+                                className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                              >
+                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
+                              </button>
+                            </div>
+                            {featureSettings.qrEnabled && (
+                              <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                                <p className="text-[10px] font-black dark:text-white mb-1">QR Generator</p>
+                                <p className="text-[9px] text-gray-400 mb-3">Generate table QR codes for your restaurant</p>
+                                {renderQrGeneratorContent()}
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
+
               </div>
             </div>
           )}
