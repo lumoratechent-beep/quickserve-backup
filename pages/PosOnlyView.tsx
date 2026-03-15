@@ -2947,28 +2947,7 @@ const PosOnlyView: React.FC<Props> = ({
           </button>
           )}
 
-          {showKitchenFeature && (
-            <button 
-              onClick={() => handleTabSelection('KITCHEN')}
-              title="Kitchen Orders"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4'} py-3 rounded-xl font-medium transition-all ${
-                activeTab === 'KITCHEN' 
-                  ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Coffee size={20} />
-                {!isSidebarCollapsed && 'Kitchen'}
-              </div>
-              {!isSidebarCollapsed && kitchenPendingOrders.length > 0 && (
-                <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">{kitchenPendingOrders.length}</span>
-              )}
-              {isSidebarCollapsed && kitchenPendingOrders.length > 0 && (
-                <span className="absolute top-1 right-1 bg-orange-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center">{kitchenPendingOrders.length}</span>
-              )}
-            </button>
-          )}
+
 
           {showQrFeature && !isKitchenUser && (
             <button
@@ -3752,14 +3731,6 @@ const PosOnlyView: React.FC<Props> = ({
                 <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Enable add-on features for your restaurant.</p>
 
                 <div className="space-y-6">
-                  {/* Basic POS Features */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">POS Features</p>
-                    <div className="space-y-3">
-                      {renderFeaturesContent()}
-                    </div>
-                  </div>
-
                   {/* Add-On Features */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
                     <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">Add-On Features</p>
@@ -3785,63 +3756,6 @@ const PosOnlyView: React.FC<Props> = ({
                       {/* Kitchen Sub-Settings */}
                       {featureSettings.kitchenEnabled && (
                         <div className="ml-4 space-y-3 pb-2">
-                          {/* Auto-Accept Orders */}
-                          <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-                            <div>
-                              <p className="text-[10px] font-black dark:text-white">Auto-Accept Orders</p>
-                              <p className="text-[9px] text-gray-400">Automatically accept new incoming orders</p>
-                            </div>
-                            <button
-                              onClick={() => toggleKitchenOrderSetting('autoAccept')}
-                              className={`w-11 h-6 rounded-full transition-all relative ${
-                                kitchenOrderSettings.autoAccept ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-                              }`}
-                            >
-                              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                                kitchenOrderSettings.autoAccept ? 'left-6' : 'left-1'
-                              }`} />
-                            </button>
-                          </div>
-
-                          {/* Auto-Print on Accept */}
-                          <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-                            <div>
-                              <p className="text-[10px] font-black dark:text-white">Auto-Print on Accept</p>
-                              <p className="text-[9px] text-gray-400">Print kitchen ticket when order is accepted</p>
-                            </div>
-                            <button
-                              onClick={() => toggleKitchenOrderSetting('autoPrint')}
-                              disabled={!connectedDevice}
-                              className={`w-11 h-6 rounded-full transition-all relative ${
-                                !connectedDevice
-                                  ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
-                                  : kitchenOrderSettings.autoPrint ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-                              }`}
-                            >
-                              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                                kitchenOrderSettings.autoPrint ? 'left-6' : 'left-1'
-                              }`} />
-                            </button>
-                          </div>
-
-                          {/* Store Presence */}
-                          {onToggleOnline && (
-                            <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-                              <div>
-                                <p className="text-[10px] font-black dark:text-white">Store Presence</p>
-                                <p className="text-[9px] text-gray-400">Toggle your store online/offline for customers</p>
-                              </div>
-                              <button
-                                onClick={onToggleOnline}
-                                className={`px-3 py-1.5 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all flex items-center gap-1.5 ${
-                                  storeIsOnline ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-                                }`}
-                              >
-                                {storeIsOnline ? <><Wifi size={12} /> Online</> : <><WifiOff size={12} /> Offline</>}
-                              </button>
-                            </div>
-                          )}
-
                           {/* Kitchen Divisions */}
                           <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
                             <p className="text-[10px] font-black dark:text-white mb-1">Kitchen Divisions</p>
@@ -3877,6 +3791,29 @@ const PosOnlyView: React.FC<Props> = ({
                                 <Plus size={14} /> Add
                               </button>
                             </div>
+                          </div>
+
+                          {/* Assign Staff */}
+                          <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                            <p className="text-[10px] font-black dark:text-white mb-1">Assign Kitchen Staff</p>
+                            <p className="text-[9px] text-gray-400 mb-3">Staff members with kitchen access</p>
+                            {staffList.filter((s: any) => s.role === 'KITCHEN').length === 0 ? (
+                              <p className="text-[9px] text-gray-400 italic">No kitchen staff assigned yet. Add staff in Settings &gt; Staff Management.</p>
+                            ) : (
+                              <div className="space-y-2">
+                                {staffList.filter((s: any) => s.role === 'KITCHEN').map((staff: any, idx: number) => (
+                                  <div key={idx} className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                                    <div>
+                                      <p className="text-[10px] font-black dark:text-white">{staff.username}</p>
+                                      {staff.kitchen_categories && staff.kitchen_categories.length > 0 && (
+                                        <p className="text-[9px] text-gray-400 mt-0.5">{staff.kitchen_categories.join(', ')}</p>
+                                      )}
+                                    </div>
+                                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">Kitchen</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
@@ -3924,7 +3861,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <Layers size={18} className="text-emerald-500" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Features</p>
+                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Built-in Features</p>
                         <p className="text-[10px] text-gray-400">Auto-print, drawer, dining</p>
                       </div>
                       <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'features' ? 'rotate-180' : ''}`} />
@@ -4131,7 +4068,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <div className="flex-1 text-left">
                           <p className={`text-xs font-black uppercase tracking-wide ${
                             settingsPanel === 'features' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'
-                          }`}>Features</p>
+                          }`}>Built-in Features</p>
                           <p className="text-[10px] text-gray-400">Auto-print, drawer, dining</p>
                         </div>
                       </button>
