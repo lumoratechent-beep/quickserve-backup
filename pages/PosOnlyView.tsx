@@ -3050,7 +3050,7 @@ const PosOnlyView: React.FC<Props> = ({
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <Puzzle size={20} className="rotate-90" /> {!isSidebarCollapsed && 'Features'}
+            <Puzzle size={20} className="-rotate-90" /> {!isSidebarCollapsed && 'Features'}
           </button>
           )}
         </nav>
