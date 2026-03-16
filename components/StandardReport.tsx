@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Order, OrderStatus, ReportResponse } from '../src/types';
 import { Calendar, Download, Search, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -41,6 +41,29 @@ const StandardReport: React.FC<Props> = ({
   onDownloadReport,
   onSelectOrder,
 }) => {
+  const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const [filterPayment, setFilterPayment] = useState<string>('ALL');
+  const [filterCashier, setFilterCashier] = useState<string>('ALL');
+
+  const uniquePayments = useMemo(() => {
+    const set = new Set(paginatedReports.map(o => o.paymentMethod || '-'));
+    return Array.from(set).sort();
+  }, [paginatedReports]);
+
+  const uniqueCashiers = useMemo(() => {
+    const set = new Set(paginatedReports.map(o => o.cashierName || '-'));
+    return Array.from(set).sort();
+  }, [paginatedReports]);
+
+  const filteredReports = useMemo(() => {
+    return paginatedReports.filter(o => {
+      if (filterStatus !== 'ALL' && o.status !== filterStatus) return false;
+      if (filterPayment !== 'ALL' && (o.paymentMethod || '-') !== filterPayment) return false;
+      if (filterCashier !== 'ALL' && (o.cashierName || '-') !== filterCashier) return false;
+      return true;
+    });
+  }, [paginatedReports, filterStatus, filterPayment, filterCashier]);
+
   return (
     <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
       <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Sales Report</h1>
@@ -86,19 +109,37 @@ const StandardReport: React.FC<Props> = ({
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 overflow-hidden shadow-sm">
-        <div className="p-4 border-b dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="relative max-w-sm w-full">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="text" placeholder="Search Order ID..." value={reportSearchQuery} onChange={(e) => onChangeReportSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white outline-none focus:ring-1 focus:ring-orange-500" />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Show</span>
-            <select value={entriesPerPage} onChange={(e) => onChangeEntriesPerPage(Number(e.target.value))} className="bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5 outline-none cursor-pointer">
-              <option value={30}>30</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
+        <div className="p-4 border-b dark:border-gray-700 flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="relative flex-1 min-w-0">
+              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input type="text" placeholder="Search Order ID..." value={reportSearchQuery} onChange={(e) => onChangeReportSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white outline-none focus:ring-1 focus:ring-orange-500" />
+            </div>
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="py-2 px-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500">
+              <option value="ALL">All Status</option>
+              <option value={OrderStatus.COMPLETED}>Paid</option>
+              <option value={OrderStatus.SERVED}>Served</option>
+              <option value={OrderStatus.PENDING}>Pending</option>
+              <option value={OrderStatus.ONGOING}>Ongoing</option>
+              <option value={OrderStatus.CANCELLED}>Cancelled</option>
             </select>
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Entries</span>
+            <select value={filterPayment} onChange={(e) => setFilterPayment(e.target.value)} className="py-2 px-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500">
+              <option value="ALL">All Payment</option>
+              {uniquePayments.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+            <select value={filterCashier} onChange={(e) => setFilterCashier(e.target.value)} className="py-2 px-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500">
+              <option value="ALL">All Cashier</option>
+              {uniqueCashiers.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Show</span>
+              <select value={entriesPerPage} onChange={(e) => onChangeEntriesPerPage(Number(e.target.value))} className="bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5 outline-none cursor-pointer">
+                <option value={30}>30</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Entries</span>
+            </div>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -116,7 +157,7 @@ const StandardReport: React.FC<Props> = ({
               </tr>
             </thead>
             <tbody className="divide-y dark:divide-gray-700">
-              {paginatedReports.map(report => (
+              {filteredReports.map(report => (
                 <tr key={report.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                   <td className="px-4 py-2">
                     {onSelectOrder ? (
