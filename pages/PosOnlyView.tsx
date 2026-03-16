@@ -3382,7 +3382,7 @@ const PosOnlyView: React.FC<Props> = ({
                             <button onClick={() => setMenuStatusFilter('ACTIVE')} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${menuStatusFilter === 'ACTIVE' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}><Eye size={14} /> <span className="hidden sm:inline">Active</span></button>
                             <button onClick={() => setMenuStatusFilter('ARCHIVED')} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${menuStatusFilter === 'ARCHIVED' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}><Archive size={14} /> <span className="hidden sm:inline">Archived</span></button>
                           </div>
-                          <button onClick={() => handleOpenAddModal()} className="px-6 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg">+ Add Item</button>
+                          <button onClick={() => handleOpenAddModal()} className="px-4 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">+ Add Item</button>
                         </div>
                       </>
                     ) : menuSubTab === 'CATEGORY' ? (
@@ -3393,7 +3393,7 @@ const PosOnlyView: React.FC<Props> = ({
                             <button onClick={() => setClassViewMode('list')} className={`p-2 rounded-lg transition-all ${classViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={18} /></button>
                           </div>
                         </div>
-                        <button onClick={() => setShowAddClassModal(true)} className="ml-auto px-6 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
+                        <button onClick={() => setShowAddClassModal(true)} className="ml-auto px-4 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
                           <Tag size={16} /> + New Category
                         </button>
                       </>
@@ -3405,7 +3405,7 @@ const PosOnlyView: React.FC<Props> = ({
                             <button onClick={() => setModifierViewMode('list')} className={`p-2 rounded-lg transition-all ${modifierViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={18} /></button>
                           </div>
                         </div>
-                        <button onClick={handleAddModifier} className="ml-auto px-6 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
+                        <button onClick={handleAddModifier} className="ml-auto px-4 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
                           <Coffee size={16} /> + New Modifier
                         </button>
                       </>
@@ -3775,7 +3775,7 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                       <div className="flex-1 text-left">
                         <p className="text-xs font-black dark:text-white uppercase tracking-wide">Kitchen Display System</p>
-                        <p className="text-[10px] text-gray-400">{featureSettings.kitchenEnabled ? 'Enabled' : 'Disabled'}</p>
+                        <p className="text-[10px] text-orange-500 font-black">Coming Soon</p>
                       </div>
                       <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${featuresPanel === 'kitchen' ? 'rotate-180' : ''}`} />
                     </button>
@@ -3784,59 +3784,11 @@ const PosOnlyView: React.FC<Props> = ({
                         <div className="max-w-lg space-y-4">
                           <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
                             <div>
-                              <p className="text-xs font-black dark:text-white">Enable Kitchen Display</p>
-                              <p className="text-[9px] text-gray-400 mt-0.5">Enable kitchen users to receive and manage orders</p>
+                              <p className="text-xs font-black dark:text-white">Kitchen Display System</p>
+                              <p className="text-[9px] text-gray-400 mt-0.5">This feature will be available in the next full enhancement</p>
                             </div>
-                            <button
-                              onClick={() => updateFeatureSetting('kitchenEnabled', !featureSettings.kitchenEnabled)}
-                              className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.kitchenEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                            >
-                              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.kitchenEnabled ? 'left-6' : 'left-1'}`} />
-                            </button>
+                            <span className="px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full text-[10px] font-black uppercase tracking-widest">Coming Soon</span>
                           </div>
-                          {featureSettings.kitchenEnabled && (
-                            <div className="space-y-4">
-                              <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-                                <p className="text-[10px] font-black dark:text-white mb-1">Kitchen Divisions</p>
-                                <p className="text-[9px] text-gray-400 mb-3">Divide orders by food category (e.g. Drinks, Main Course).</p>
-                                {kitchenDivisions.length > 0 && (
-                                  <div className="flex flex-wrap gap-2 mb-3">
-                                    {kitchenDivisions.map(div => (
-                                      <span key={div} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg text-[10px] font-black uppercase tracking-wider">
-                                        {div}
-                                        <button onClick={() => handleRemoveDivision(div)} className="hover:text-red-500 transition-colors"><X size={12} /></button>
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-                                <div className="flex gap-2">
-                                  <input type="text" value={newDivisionName} onChange={e => setNewDivisionName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddDivision()} className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white" placeholder="e.g. Drinks, Main Course" />
-                                  <button onClick={handleAddDivision} disabled={!newDivisionName.trim()} className="px-4 py-2 bg-orange-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 disabled:opacity-40 transition-all flex items-center gap-1.5"><Plus size={14} /> Add</button>
-                                </div>
-                              </div>
-                              <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-                                <p className="text-[10px] font-black dark:text-white mb-1">Assign Kitchen Staff</p>
-                                <p className="text-[9px] text-gray-400 mb-3">Staff members with kitchen access</p>
-                                {staffList.filter((s: any) => s.role === 'KITCHEN').length === 0 ? (
-                                  <p className="text-[9px] text-gray-400 italic">No kitchen staff assigned yet. Add staff in Settings &gt; Staff Management.</p>
-                                ) : (
-                                  <div className="space-y-2">
-                                    {staffList.filter((s: any) => s.role === 'KITCHEN').map((staff: any, idx: number) => (
-                                      <div key={idx} className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
-                                        <div>
-                                          <p className="text-[10px] font-black dark:text-white">{staff.username}</p>
-                                          {staff.kitchen_categories && staff.kitchen_categories.length > 0 && (
-                                            <p className="text-[9px] text-gray-400 mt-0.5">{staff.kitchen_categories.join(', ')}</p>
-                                          )}
-                                        </div>
-                                        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">Kitchen</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
                         </div>
                       </div>
                     )}
@@ -3853,7 +3805,7 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                       <div className="flex-1 text-left">
                         <p className="text-xs font-black dark:text-white uppercase tracking-wide">QR Ordering</p>
-                        <p className="text-[10px] text-gray-400">{featureSettings.qrEnabled ? 'Enabled' : 'Disabled'}</p>
+                        <p className="text-[10px] text-orange-500 font-black">Coming Soon</p>
                       </div>
                       <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${featuresPanel === 'qr' ? 'rotate-180' : ''}`} />
                     </button>
@@ -3862,23 +3814,11 @@ const PosOnlyView: React.FC<Props> = ({
                         <div className="max-w-lg space-y-4">
                           <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
                             <div>
-                              <p className="text-xs font-black dark:text-white">Enable QR Ordering</p>
-                              <p className="text-[9px] text-gray-400 mt-0.5">Accept orders from customers via QR code scan</p>
+                              <p className="text-xs font-black dark:text-white">QR Ordering</p>
+                              <p className="text-[9px] text-gray-400 mt-0.5">This feature will be available in the next full enhancement</p>
                             </div>
-                            <button
-                              onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
-                              className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                            >
-                              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
-                            </button>
+                            <span className="px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full text-[10px] font-black uppercase tracking-widest">Coming Soon</span>
                           </div>
-                          {featureSettings.qrEnabled && (
-                            <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-                              <p className="text-[10px] font-black dark:text-white mb-1">QR Generator</p>
-                              <p className="text-[9px] text-gray-400 mb-3">Generate table QR codes for your restaurant</p>
-                              {renderQrGeneratorContent()}
-                            </div>
-                          )}
                         </div>
                       </div>
                     )}
@@ -3926,7 +3866,7 @@ const PosOnlyView: React.FC<Props> = ({
                         </div>
                         <div className="flex-1 text-left">
                           <p className={`text-xs font-black uppercase tracking-wide ${featuresPanel === 'kitchen' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Kitchen Display System</p>
-                          <p className="text-[10px] text-gray-400">{featureSettings.kitchenEnabled ? 'Enabled' : 'Disabled'}</p>
+                          <p className="text-[10px] text-orange-500 font-black">Coming Soon</p>
                         </div>
                       </button>
 
@@ -3946,7 +3886,7 @@ const PosOnlyView: React.FC<Props> = ({
                         </div>
                         <div className="flex-1 text-left">
                           <p className={`text-xs font-black uppercase tracking-wide ${featuresPanel === 'qr' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>QR Ordering</p>
-                          <p className="text-[10px] text-gray-400">{featureSettings.qrEnabled ? 'Enabled' : 'Disabled'}</p>
+                          <p className="text-[10px] text-orange-500 font-black">Coming Soon</p>
                         </div>
                       </button>
                     </div>
@@ -3962,59 +3902,11 @@ const PosOnlyView: React.FC<Props> = ({
                           <div className="space-y-4">
                             <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
                               <div>
-                                <p className="text-xs font-black dark:text-white">Enable Kitchen Display</p>
-                                <p className="text-[9px] text-gray-400 mt-0.5">Enable kitchen users to receive and manage orders</p>
+                                <p className="text-xs font-black dark:text-white">Kitchen Display System</p>
+                                <p className="text-[9px] text-gray-400 mt-0.5">This feature will be available in the next full enhancement</p>
                               </div>
-                              <button
-                                onClick={() => updateFeatureSetting('kitchenEnabled', !featureSettings.kitchenEnabled)}
-                                className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.kitchenEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                              >
-                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.kitchenEnabled ? 'left-6' : 'left-1'}`} />
-                              </button>
+                              <span className="px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full text-[10px] font-black uppercase tracking-widest">Coming Soon</span>
                             </div>
-                            {featureSettings.kitchenEnabled && (
-                              <div className="space-y-4">
-                                <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-                                  <p className="text-[10px] font-black dark:text-white mb-1">Kitchen Divisions</p>
-                                  <p className="text-[9px] text-gray-400 mb-3">Divide orders by food category (e.g. Drinks, Main Course).</p>
-                                  {kitchenDivisions.length > 0 && (
-                                    <div className="flex flex-wrap gap-2 mb-3">
-                                      {kitchenDivisions.map(div => (
-                                        <span key={div} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg text-[10px] font-black uppercase tracking-wider">
-                                          {div}
-                                          <button onClick={() => handleRemoveDivision(div)} className="hover:text-red-500 transition-colors"><X size={12} /></button>
-                                        </span>
-                                      ))}
-                                    </div>
-                                  )}
-                                  <div className="flex gap-2">
-                                    <input type="text" value={newDivisionName} onChange={e => setNewDivisionName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddDivision()} className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white" placeholder="e.g. Drinks, Main Course" />
-                                    <button onClick={handleAddDivision} disabled={!newDivisionName.trim()} className="px-4 py-2 bg-orange-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 disabled:opacity-40 transition-all flex items-center gap-1.5"><Plus size={14} /> Add</button>
-                                  </div>
-                                </div>
-                                <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-                                  <p className="text-[10px] font-black dark:text-white mb-1">Assign Kitchen Staff</p>
-                                  <p className="text-[9px] text-gray-400 mb-3">Staff members with kitchen access</p>
-                                  {staffList.filter((s: any) => s.role === 'KITCHEN').length === 0 ? (
-                                    <p className="text-[9px] text-gray-400 italic">No kitchen staff assigned yet. Add staff in Settings &gt; Staff Management.</p>
-                                  ) : (
-                                    <div className="space-y-2">
-                                      {staffList.filter((s: any) => s.role === 'KITCHEN').map((staff: any, idx: number) => (
-                                        <div key={idx} className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
-                                          <div>
-                                            <p className="text-[10px] font-black dark:text-white">{staff.username}</p>
-                                            {staff.kitchen_categories && staff.kitchen_categories.length > 0 && (
-                                              <p className="text-[9px] text-gray-400 mt-0.5">{staff.kitchen_categories.join(', ')}</p>
-                                            )}
-                                          </div>
-                                          <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">Kitchen</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
                           </div>
                         )}
 
@@ -4022,23 +3914,11 @@ const PosOnlyView: React.FC<Props> = ({
                           <div className="space-y-4">
                             <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
                               <div>
-                                <p className="text-xs font-black dark:text-white">Enable QR Ordering</p>
-                                <p className="text-[9px] text-gray-400 mt-0.5">Accept orders from customers via QR code scan</p>
+                                <p className="text-xs font-black dark:text-white">QR Ordering</p>
+                                <p className="text-[9px] text-gray-400 mt-0.5">This feature will be available in the next full enhancement</p>
                               </div>
-                              <button
-                                onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
-                                className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                              >
-                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
-                              </button>
+                              <span className="px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full text-[10px] font-black uppercase tracking-widest">Coming Soon</span>
                             </div>
-                            {featureSettings.qrEnabled && (
-                              <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-                                <p className="text-[10px] font-black dark:text-white mb-1">QR Generator</p>
-                                <p className="text-[9px] text-gray-400 mb-3">Generate table QR codes for your restaurant</p>
-                                {renderQrGeneratorContent()}
-                              </div>
-                            )}
                           </div>
                         )}
                       </div>
