@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Order, OrderStatus, ReportResponse } from '../src/types';
-import { Calendar, Download, Search, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, ChevronDown, X, CreditCard, Users } from 'lucide-react';
+import { Calendar, Download, Search, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, CreditCard, Users } from 'lucide-react';
 
 interface Props {
   reportStart: string;
@@ -44,8 +44,26 @@ const StandardReport: React.FC<Props> = ({
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [filterPayment, setFilterPayment] = useState<string>('ALL');
   const [filterCashier, setFilterCashier] = useState<string>('ALL');
-  const [showRevenueDetail, setShowRevenueDetail] = useState(false);
-  const [detailRange, setDetailRange] = useState<'today' | 'week' | 'month'>('today');
+  const [detailRange, setDetailRange] = useState<'today' | 'week' | 'month'>('month');
+
+  // Auto-set date pickers when range preset changes
+  useEffect(() => {
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    if (detailRange === 'today') {
+      onChangeReportStart(todayStr);
+      onChangeReportEnd(todayStr);
+    } else if (detailRange === 'week') {
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      onChangeReportStart(startOfWeek.toISOString().split('T')[0]);
+      onChangeReportEnd(todayStr);
+    } else {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      onChangeReportStart(startOfMonth.toISOString().split('T')[0]);
+      onChangeReportEnd(todayStr);
+    }
+  }, [detailRange]);
 
   const uniquePayments = useMemo(() => {
     const set = new Set(paginatedReports.map(o => o.paymentMethod || '-'));
@@ -66,48 +84,33 @@ const StandardReport: React.FC<Props> = ({
     });
   }, [paginatedReports, filterStatus, filterPayment, filterCashier]);
 
-  // Detail panel data based on selected range
-  const detailOrders = useMemo(() => {
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    let rangeStart: Date;
-    if (detailRange === 'today') {
-      rangeStart = startOfDay;
-    } else if (detailRange === 'week') {
-      rangeStart = new Date(startOfDay);
-      rangeStart.setDate(rangeStart.getDate() - rangeStart.getDay());
-    } else {
-      rangeStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    }
-    return paginatedReports.filter(o => {
-      const t = new Date(o.timestamp);
-      return t >= rangeStart && o.status !== OrderStatus.CANCELLED;
-    });
-  }, [paginatedReports, detailRange]);
+  // Transaction type and cashier breakdowns from the current filtered data
+  const nonCancelledOrders = useMemo(
+    () => paginatedReports.filter(o => o.status !== OrderStatus.CANCELLED),
+    [paginatedReports],
+  );
 
   const detailTransactions = useMemo(() => {
     const map: Record<string, { count: number; total: number }> = {};
-    detailOrders.forEach(o => {
+    nonCancelledOrders.forEach(o => {
       const method = o.paymentMethod || 'Cash';
       if (!map[method]) map[method] = { count: 0, total: 0 };
       map[method].count += 1;
       map[method].total += o.total;
     });
     return Object.entries(map).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.total - a.total);
-  }, [detailOrders]);
+  }, [nonCancelledOrders]);
 
   const detailCashiers = useMemo(() => {
     const map: Record<string, { count: number; total: number }> = {};
-    detailOrders.forEach(o => {
+    nonCancelledOrders.forEach(o => {
       const name = o.cashierName || 'Unknown';
       if (!map[name]) map[name] = { count: 0, total: 0 };
       map[name].count += 1;
       map[name].total += o.total;
     });
     return Object.entries(map).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.total - a.total);
-  }, [detailOrders]);
-
-  const detailTotalSales = useMemo(() => detailOrders.reduce((s, o) => s + o.total, 0), [detailOrders]);
+  }, [nonCancelledOrders]);
 
   return (
     <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
@@ -116,13 +119,31 @@ const StandardReport: React.FC<Props> = ({
 
       <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm flex flex-col md:flex-row items-center gap-4 mb-6">
         <div className="flex-1 flex flex-col sm:flex-row gap-4 w-full">
-          <div className="flex-1">
+          <div>
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Period Selection</label>
+            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+              {(['today', 'week', 'month'] as const).map(range => (
+                <button
+                  key={range}
+                  onClick={() => setDetailRange(range)}
+                  className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                    detailRange === range
+                      ? 'bg-orange-500 text-white shadow-sm'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                  }`}
+                >
+                  {range === 'today' ? "Today" : range === 'week' ? 'This Week' : 'This Month'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex-1">
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Custom Range</label>
             <div className="flex items-center gap-2">
               <Calendar size={14} className="text-orange-500 shrink-0" />
-              <input type="date" value={reportStart} onChange={(e) => onChangeReportStart(e.target.value)} className="flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
+              <input type="date" value={reportStart} onChange={(e) => { onChangeReportStart(e.target.value); }} className="flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
               <span className="text-gray-400 font-black">to</span>
-              <input type="date" value={reportEnd} onChange={(e) => onChangeReportEnd(e.target.value)} className="flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
+              <input type="date" value={reportEnd} onChange={(e) => { onChangeReportEnd(e.target.value); }} className="flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
             </div>
           </div>
         </div>
@@ -130,110 +151,64 @@ const StandardReport: React.FC<Props> = ({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6">
+        {/* Total Revenue */}
         <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm">
           <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Total Revenue</p>
           <p className="text-xl md:text-2xl font-black dark:text-white">RM{reportData?.summary.totalRevenue.toFixed(2) || '0.00'}</p>
-          <button
-            onClick={() => setShowRevenueDetail(!showRevenueDetail)}
-            className="mt-2 text-[10px] font-black text-orange-500 hover:text-orange-600 uppercase tracking-widest flex items-center gap-1 transition-colors"
-          >
-            See more details <ChevronDown size={12} className={`transition-transform ${showRevenueDetail ? 'rotate-180' : ''}`} />
-          </button>
+          <p className="text-[9px] text-gray-400 font-bold mt-1">{reportData?.summary.orderVolume || 0} orders</p>
         </div>
+
+        {/* By Transaction Type */}
         <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm">
-          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Order Volume</p>
-          <p className="text-xl md:text-2xl font-black dark:text-white">{reportData?.summary.orderVolume || 0}</p>
+          <div className="flex items-center gap-1.5 mb-2">
+            <CreditCard size={12} className="text-orange-500" />
+            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">By Transaction Type</p>
+          </div>
+          {detailTransactions.length > 0 ? (
+            <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
+              {detailTransactions.map(t => (
+                <div key={t.name} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <div>
+                    <p className="text-[10px] font-black dark:text-white">{t.name}</p>
+                    <p className="text-[8px] text-gray-400 font-bold">{t.count} txn{t.count !== 1 ? 's' : ''}</p>
+                  </div>
+                  <p className="text-xs font-black text-orange-500">RM{t.total.toFixed(2)}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[10px] text-gray-400 text-center py-4">No transactions</p>
+          )}
         </div>
+
+        {/* By Cashier */}
         <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm">
-          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Efficiency</p>
-          <p className="text-xl md:text-2xl font-black text-green-500">{reportData?.summary.efficiency || 0}%</p>
+          <div className="flex items-center gap-1.5 mb-2">
+            <Users size={12} className="text-orange-500" />
+            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">By Cashier</p>
+          </div>
+          {detailCashiers.length > 0 ? (
+            <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
+              {detailCashiers.map(c => (
+                <div key={c.name} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                      <span className="text-[9px] font-black text-orange-600 dark:text-orange-400">{c.name.charAt(0).toUpperCase()}</span>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black dark:text-white">{c.name}</p>
+                      <p className="text-[8px] text-gray-400 font-bold">{c.count} order{c.count !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs font-black text-orange-500">RM{c.total.toFixed(2)}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[10px] text-gray-400 text-center py-4">No orders</p>
+          )}
         </div>
       </div>
-
-      {/* Revenue Detail Panel */}
-      {showRevenueDetail && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 shadow-sm mb-6 overflow-hidden animate-in slide-in-from-top duration-300">
-          <div className="p-4 border-b dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-black dark:text-white uppercase tracking-tighter">Total Sales Breakdown</h3>
-              <span className="text-xs font-bold text-orange-500">RM{detailTotalSales.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
-                {(['today', 'week', 'month'] as const).map(range => (
-                  <button
-                    key={range}
-                    onClick={() => setDetailRange(range)}
-                    className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
-                      detailRange === range
-                        ? 'bg-orange-500 text-white shadow-sm'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                    }`}
-                  >
-                    {range === 'today' ? "Today" : range === 'week' ? 'This Week' : 'This Month'}
-                  </button>
-                ))}
-              </div>
-              <button onClick={() => setShowRevenueDetail(false)} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all">
-                <X size={16} />
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x dark:divide-gray-700">
-            {/* Transaction Types */}
-            <div className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <CreditCard size={14} className="text-orange-500" />
-                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">By Transaction Type</h4>
-              </div>
-              {detailTransactions.length > 0 ? (
-                <div className="space-y-2">
-                  {detailTransactions.map(t => (
-                    <div key={t.name} className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                      <div>
-                        <p className="text-xs font-black dark:text-white">{t.name}</p>
-                        <p className="text-[9px] text-gray-400 font-bold">{t.count} transaction{t.count !== 1 ? 's' : ''}</p>
-                      </div>
-                      <p className="text-sm font-black text-orange-500">RM{t.total.toFixed(2)}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-gray-400 text-center py-6">No transactions in this period</p>
-              )}
-            </div>
-
-            {/* Cashier Breakdown */}
-            <div className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Users size={14} className="text-orange-500" />
-                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">By Cashier</h4>
-              </div>
-              {detailCashiers.length > 0 ? (
-                <div className="space-y-2">
-                  {detailCashiers.map(c => (
-                    <div key={c.name} className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
-                          <span className="text-[10px] font-black text-orange-600 dark:text-orange-400">{c.name.charAt(0).toUpperCase()}</span>
-                        </div>
-                        <div>
-                          <p className="text-xs font-black dark:text-white">{c.name}</p>
-                          <p className="text-[9px] text-gray-400 font-bold">{c.count} order{c.count !== 1 ? 's' : ''}</p>
-                        </div>
-                      </div>
-                      <p className="text-sm font-black text-orange-500">RM{c.total.toFixed(2)}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-gray-400 text-center py-6">No orders in this period</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 overflow-hidden shadow-sm">
         <div className="p-4 border-b dark:border-gray-700 flex flex-col gap-3">
