@@ -10,6 +10,7 @@ import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import { toast } from '../components/Toast';
 import StandardReport from '../components/StandardReport';
+import DashboardReport from '../components/DashboardReport';
 import {
   ShoppingBag, Search, Download, Calendar,
   Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid,
@@ -180,7 +181,7 @@ const PosOnlyView: React.FC<Props> = ({
     return local.toISOString().split('T')[0];
   };
 
-  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'FEATURES'>(userRole === 'KITCHEN' ? 'KITCHEN' : 'COUNTER');
+  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'DASHBOARD' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'FEATURES'>(userRole === 'KITCHEN' ? 'KITCHEN' : 'COUNTER');
   const [counterMode, setCounterMode] = useState<'COUNTER_ORDER' | 'QR_ORDER'>('COUNTER_ORDER');
   const [selectedQrOrderForPayment, setSelectedQrOrderForPayment] = useState<Order | null>(null);
   const [qrOrderFilter, setQrOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
@@ -1754,7 +1755,7 @@ const PosOnlyView: React.FC<Props> = ({
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
   const paginatedReports = reportData?.orders || [];
 
-  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'FEATURES') => {
+  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'DASHBOARD' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'FEATURES') => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
   };
@@ -3014,6 +3015,20 @@ const PosOnlyView: React.FC<Props> = ({
           
           {!isKitchenUser && (
           <button 
+            onClick={() => handleTabSelection('DASHBOARD')}
+            title="Dashboard"
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
+              activeTab === 'DASHBOARD' 
+                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }`}
+          >
+            <BarChart3 size={20} /> {!isSidebarCollapsed && 'Dashboard'}
+          </button>
+          )}
+
+          {!isKitchenUser && (
+          <button 
             onClick={handleReportsClick}
             title="Report"
             className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
@@ -3022,7 +3037,7 @@ const PosOnlyView: React.FC<Props> = ({
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <BarChart3 size={20} /> {!isSidebarCollapsed && 'Report'}
+            <Receipt size={20} /> {!isSidebarCollapsed && 'Report'}
           </button>
           )}
           
@@ -3135,6 +3150,7 @@ const PosOnlyView: React.FC<Props> = ({
                 {activeTab === 'COUNTER' ? 'POS Counter' : 
                  activeTab === 'MENU_EDITOR' ? 'Menu Editor' : 
                  activeTab === 'REPORTS' ? 'Sales Report' : 
+                 activeTab === 'DASHBOARD' ? 'Dashboard' : 
                  activeTab === 'QR_ORDERS' ? 'QR Orders' :
                  activeTab === 'KITCHEN' ? 'Kitchen Orders' :
                  activeTab === 'FEATURES' ? 'Features' :
@@ -3356,17 +3372,14 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
           )}
 
-          {/* Statistics Sub-menu */}
-          {activeTab === 'REPORTS' && reportsSubMenu === 'statistics' && (
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="max-w-7xl mx-auto">
-                <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-6">Statistics</h1>
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-8 border dark:border-gray-700 text-center">
-                  <BarChart3 size={48} className="mx-auto text-gray-400 mb-4" />
-                  <h3 className="text-lg font-bold text-gray-600 dark:text-gray-400 mb-2">Statistics Coming Soon</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-500">Advanced analytics and statistics will be available here.</p>
-                </div>
-              </div>
+          {/* Dashboard Report */}
+          {activeTab === 'DASHBOARD' && (
+            <div className="flex-1 overflow-hidden">
+              <DashboardReport
+                orders={orders}
+                currencySymbol={currencySymbol}
+                cashierName={cashierName}
+              />
             </div>
           )}
 
