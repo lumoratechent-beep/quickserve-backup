@@ -49,18 +49,19 @@ const StandardReport: React.FC<Props> = ({
   // Auto-set date pickers when range preset changes
   useEffect(() => {
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const toLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const todayStr = toLocal(now);
     if (detailRange === 'today') {
       onChangeReportStart(todayStr);
       onChangeReportEnd(todayStr);
     } else if (detailRange === 'week') {
-      const startOfWeek = new Date(now);
-      startOfWeek.setDate(now.getDate() - now.getDay());
-      onChangeReportStart(startOfWeek.toISOString().split('T')[0]);
+      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+      onChangeReportStart(toLocal(startOfWeek));
       onChangeReportEnd(todayStr);
     } else {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      onChangeReportStart(startOfMonth.toISOString().split('T')[0]);
+      onChangeReportStart(toLocal(startOfMonth));
       onChangeReportEnd(todayStr);
     }
   }, [detailRange]);
@@ -93,7 +94,7 @@ const StandardReport: React.FC<Props> = ({
   const detailTransactions = useMemo(() => {
     const map: Record<string, { count: number; total: number }> = {};
     nonCancelledOrders.forEach(o => {
-      const method = o.paymentMethod || 'Cash';
+      const method = o.paymentMethod || '-';
       if (!map[method]) map[method] = { count: 0, total: 0 };
       map[method].count += 1;
       map[method].total += o.total;
@@ -104,7 +105,7 @@ const StandardReport: React.FC<Props> = ({
   const detailCashiers = useMemo(() => {
     const map: Record<string, { count: number; total: number }> = {};
     nonCancelledOrders.forEach(o => {
-      const name = o.cashierName || 'Unknown';
+      const name = o.cashierName || '-';
       if (!map[name]) map[name] = { count: 0, total: 0 };
       map[name].count += 1;
       map[name].total += o.total;
@@ -155,7 +156,7 @@ const StandardReport: React.FC<Props> = ({
         <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm">
           <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Total Revenue</p>
           <p className="text-xl md:text-2xl font-black dark:text-white">RM{reportData?.summary.totalRevenue.toFixed(2) || '0.00'}</p>
-          <p className="text-[9px] text-gray-400 font-bold mt-1">{reportData?.summary.orderVolume || 0} orders</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 font-black mt-1">{reportData?.summary.orderVolume || 0} orders</p>
         </div>
 
         {/* By Transaction Type */}
@@ -167,12 +168,12 @@ const StandardReport: React.FC<Props> = ({
           {detailTransactions.length > 0 ? (
             <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
               {detailTransactions.map(t => (
-                <div key={t.name} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <div key={t.name} className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                   <div>
-                    <p className="text-[10px] font-black dark:text-white">{t.name}</p>
-                    <p className="text-[8px] text-gray-400 font-bold">{t.count} txn{t.count !== 1 ? 's' : ''}</p>
+                    <p className="text-xs font-black dark:text-white">{t.name}</p>
+                    <p className="text-[10px] text-gray-400 font-bold">{t.count} order{t.count !== 1 ? 's' : ''}</p>
                   </div>
-                  <p className="text-xs font-black text-orange-500">RM{t.total.toFixed(2)}</p>
+                  <p className="text-sm font-black text-orange-500">RM{t.total.toFixed(2)}</p>
                 </div>
               ))}
             </div>
@@ -190,17 +191,17 @@ const StandardReport: React.FC<Props> = ({
           {detailCashiers.length > 0 ? (
             <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
               {detailCashiers.map(c => (
-                <div key={c.name} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
-                      <span className="text-[9px] font-black text-orange-600 dark:text-orange-400">{c.name.charAt(0).toUpperCase()}</span>
+                <div key={c.name} className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                      <span className="text-[10px] font-black text-orange-600 dark:text-orange-400">{c.name.charAt(0).toUpperCase()}</span>
                     </div>
                     <div>
-                      <p className="text-[10px] font-black dark:text-white">{c.name}</p>
-                      <p className="text-[8px] text-gray-400 font-bold">{c.count} order{c.count !== 1 ? 's' : ''}</p>
+                      <p className="text-xs font-black dark:text-white">{c.name}</p>
+                      <p className="text-[10px] text-gray-400 font-bold">{c.count} order{c.count !== 1 ? 's' : ''}</p>
                     </div>
                   </div>
-                  <p className="text-xs font-black text-orange-500">RM{c.total.toFixed(2)}</p>
+                  <p className="text-sm font-black text-orange-500">RM{c.total.toFixed(2)}</p>
                 </div>
               ))}
             </div>
