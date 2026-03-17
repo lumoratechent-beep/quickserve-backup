@@ -71,6 +71,24 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
         return;
       }
 
+      // Redirect to Stripe Checkout for payment
+      const checkoutRes = await fetch('/api/stripe/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          restaurantId: data.restaurantId,
+          planId: selectedPlan,
+          mode: 'subscription',
+        }),
+      });
+
+      const checkoutData = await checkoutRes.json();
+      if (checkoutRes.ok && checkoutData.url) {
+        window.location.href = checkoutData.url;
+        return;
+      }
+
+      // If checkout fails, still let them log in
       onRegisterSuccess();
     } catch {
       setError('Connection error. Please try again later.');
@@ -321,16 +339,15 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
               {isSubmitting ? (
                 <>
                   <Loader2 size={20} className="animate-spin" />
-                  Creating Account...
+                  Processing...
                 </>
               ) : (
-                <>Start {TRIAL_DAYS}-Day Free Trial</>
+                <>Register & Pay Now</>
               )}
             </button>
 
             <p className="text-center text-gray-400 text-xs font-medium">
-              By registering, you agree to our Terms of Service. Your {TRIAL_DAYS}-day free trial starts today.
-              No payment required until your trial ends.
+              By registering, you agree to our Terms of Service. You will be redirected to Stripe to complete payment.
             </p>
 
             <p className="text-center text-gray-500 dark:text-gray-400 text-sm font-medium">
