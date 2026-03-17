@@ -67,11 +67,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .insert({
         name: restaurantName,
         logo: '',
-        menu: [],
+        vendor_id: null,
         location_name: 'QuickServe Hub',
         is_online: true,
+        settings: {},
         platform_access: platformAccess,
         kitchen_enabled: kitchenEnabled,
+        slug: null,
       })
       .select()
       .single();
@@ -82,24 +84,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Create vendor user
-    const { error: userError } = await supabase
+    const { data: newUser, error: userError } = await supabase
       .from('users')
       .insert({
         username,
-        password, // Note: In production, hash this with bcrypt
+        password,
         role: 'VENDOR',
         restaurant_id: restaurant.id,
         is_active: true,
         email,
         phone,
-      });
+      })
+      .select('id')
+      .single();
 
-    if (userError) {
+    if (userError || !newUser) {
       // Cleanup restaurant if user creation fails
       await supabase.from('restaurants').delete().eq('id', restaurant.id);
       console.error('User creation error:', userError);
       return res.status(500).json({ error: 'Failed to create user account.' });
     }
+
+    // Link vendor back to restaurant
+    await supabase.from('restaurants').update({ vendor_id: newUser.id }).eq('id', restaurant.id);
 
     // Create subscription with trial
     const trialStart = new Date();

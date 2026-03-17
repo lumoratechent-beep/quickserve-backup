@@ -211,9 +211,15 @@ async function startServer() {
       const { data: restaurant, error: restError } = await supabase
         .from('restaurants')
         .insert({
-          name: restaurantName, logo: '', menu: [],
-          location_name: 'QuickServe Hub', is_online: true,
-          platform_access: platformAccess, kitchen_enabled: kitchenEnabled,
+          name: restaurantName,
+          logo: '',
+          vendor_id: null,
+          location_name: 'QuickServe Hub',
+          is_online: true,
+          settings: {},
+          platform_access: platformAccess,
+          kitchen_enabled: kitchenEnabled,
+          slug: null,
         })
         .select().single();
 
@@ -222,18 +228,23 @@ async function startServer() {
         return res.status(500).json({ error: 'Failed to create restaurant.' });
       }
 
-      const { error: userError } = await supabase
+      const { data: newUser, error: userError } = await supabase
         .from('users')
         .insert({
           username, password, role: 'VENDOR',
           restaurant_id: restaurant.id, is_active: true, email, phone,
-        });
+        })
+        .select('id')
+        .single();
 
-      if (userError) {
+      if (userError || !newUser) {
         await supabase.from('restaurants').delete().eq('id', restaurant.id);
         console.error('User creation error:', userError);
         return res.status(500).json({ error: 'Failed to create user account.' });
       }
+
+      // Link vendor back to restaurant
+      await supabase.from('restaurants').update({ vendor_id: newUser.id }).eq('id', restaurant.id);
 
       const trialStart = new Date();
       const trialEnd = new Date();
