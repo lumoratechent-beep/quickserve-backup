@@ -1629,7 +1629,7 @@ const App: React.FC = () => {
   }
 
   if (view === 'REGISTER') {
-    return <RegisterPage onBack={() => setView('MARKETING')} onRegisterSuccess={() => {
+    return <RegisterPage onBack={() => setView('MARKETING')} onLoginClick={() => setView('LOGIN')} onRegisterSuccess={() => {
       toast('Registration successful! You can now log in.', 'success');
       setView('LOGIN');
     }} />;

@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { ChevronLeft, Check, AlertCircle, Loader2, ArrowRight, Crown, Sparkles, Star } from 'lucide-react';
+import { ChevronLeft, Check, AlertCircle, Loader2, ArrowRight, Crown, Sparkles, Star, LogIn } from 'lucide-react';
 import { PricingPlan, PlanId } from '../src/types';
 import { PRICING_PLANS, TRIAL_DAYS } from '../lib/pricingPlans';
 
 interface Props {
   onBack: () => void;
   onRegisterSuccess: () => void;
+  onLoginClick: () => void;
 }
 
-const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess }) => {
+const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick }) => {
   const [step, setStep] = useState<'plan' | 'details'>('plan');
   const [selectedPlan, setSelectedPlan] = useState<PlanId>('pro');
 
@@ -162,6 +163,18 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess }) => {
           <p className="text-center text-gray-400 text-xs mt-8 font-medium">
             All plans include a {TRIAL_DAYS}-day free trial. Cancel anytime. Prices in Malaysian Ringgit (RM).
           </p>
+
+          <div className="text-center mt-6">
+            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">
+              Already have an account?{' '}
+              <button
+                onClick={onLoginClick}
+                className="text-orange-500 font-black hover:text-orange-600 transition-colors inline-flex items-center gap-1"
+              >
+                <LogIn size={14} /> Log In
+              </button>
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -318,6 +331,17 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess }) => {
             <p className="text-center text-gray-400 text-xs font-medium">
               By registering, you agree to our Terms of Service. Your {TRIAL_DAYS}-day free trial starts today.
               No payment required until your trial ends.
+            </p>
+
+            <p className="text-center text-gray-500 dark:text-gray-400 text-sm font-medium">
+              Already have an account?{' '}
+              <button
+                type="button"
+                onClick={onLoginClick}
+                className="text-orange-500 font-black hover:text-orange-600 transition-colors inline-flex items-center gap-1"
+              >
+                <LogIn size={14} /> Log In
+              </button>
             </p>
           </form>
         </div>
