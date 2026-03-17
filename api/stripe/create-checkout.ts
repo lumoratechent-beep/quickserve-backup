@@ -1,0 +1,110 @@
+// Vercel serverless function: POST /api/stripe/create-checkout
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
+
+const supabase = createClient(
+  process.env.SUPABASE_URL || 'https://anknjpuiklglykguneax.supabase.co',
+  process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || ''
+);
+
+// Map plan IDs to Stripe price IDs (set these in env vars)
+const PLAN_PRICE_MAP: Record<string, string> = {
+  basic: process.env.STRIPE_PRICE_BASIC || '',
+  pro: process.env.STRIPE_PRICE_PRO || '',
+  pro_plus: process.env.STRIPE_PRICE_PRO_PLUS || '',
+};
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { restaurantId, planId, mode } = req.body || {};
+  // mode: 'subscription' (recurring) or 'payment' (one-time month)
+
+  if (!restaurantId || !planId) {
+    return res.status(400).json({ error: 'restaurantId and planId are required.' });
+  }
+
+  const priceId = PLAN_PRICE_MAP[planId];
+  if (!priceId) {
+    return res.status(400).json({ error: 'Invalid plan.' });
+  }
+
+  try {
+    // Get or create Stripe customer
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('stripe_customer_id')
+      .eq('restaurant_id', restaurantId)
+      .single();
+
+    let customerId = sub?.stripe_customer_id;
+
+    if (!customerId) {
+      // Get restaurant & user info for customer creation
+      const { data: restaurant } = await supabase
+        .from('restaurants')
+        .select('name')
+        .eq('id', restaurantId)
+        .single();
+
+      const { data: user } = await supabase
+        .from('users')
+        .select('email, username')
+        .eq('restaurant_id', restaurantId)
+        .eq('role', 'VENDOR')
+        .single();
+
+      const customer = await stripe.customers.create({
+        name: restaurant?.name || 'QuickServe Customer',
+        email: user?.email || undefined,
+        metadata: { restaurant_id: restaurantId },
+      });
+      customerId = customer.id;
+
+      // Save stripe customer ID
+      await supabase
+        .from('subscriptions')
+        .update({ stripe_customer_id: customerId })
+        .eq('restaurant_id', restaurantId);
+    }
+
+    const baseUrl = (req.headers.origin || req.headers.referer || 'https://quickserve.my').replace(/\/$/, '');
+
+    if (mode === 'payment') {
+      // One-time payment for a single month
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        mode: 'payment',
+        line_items: [{ price: priceId, quantity: 1 }],
+        success_url: `${baseUrl}?payment=success`,
+        cancel_url: `${baseUrl}?payment=cancelled`,
+        metadata: { restaurant_id: restaurantId, plan_id: planId },
+      });
+      return res.status(200).json({ url: session.url });
+    }
+
+    // Default: recurring subscription
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: 'subscription',
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${baseUrl}?payment=success`,
+      cancel_url: `${baseUrl}?payment=cancelled`,
+      subscription_data: {
+        metadata: { restaurant_id: restaurantId, plan_id: planId },
+      },
+      payment_method_collection: 'always',
+      metadata: { restaurant_id: restaurantId, plan_id: planId },
+    });
+
+    return res.status(200).json({ url: session.url });
+  } catch (err: any) {
+    console.error('Stripe checkout error:', err);
+    return res.status(500).json({ error: 'Failed to create checkout session.' });
+  }
+}

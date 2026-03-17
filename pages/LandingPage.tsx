@@ -12,9 +12,10 @@ interface Props {
   locations: Area[];
   onLearnMore?: () => void;
   onClearSession?: () => void;
+  onRegister?: () => void;
 }
 
-const LandingPage: React.FC<Props> = ({ onScan, onLoginClick, isDarkMode, onToggleDarkMode, locations, onLearnMore, onClearSession }) => {
+const LandingPage: React.FC<Props> = ({ onScan, onLoginClick, isDarkMode, onToggleDarkMode, locations, onLearnMore, onClearSession, onRegister }) => {
   const [showSimModal, setShowSimModal] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState('');

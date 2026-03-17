@@ -173,3 +173,31 @@ export interface ModifierOption {
   name: string;
   price: number;
 }
+
+// Subscription & Pricing
+export type PlanId = 'basic' | 'pro' | 'pro_plus';
+export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid';
+
+export interface PricingPlan {
+  id: PlanId;
+  name: string;
+  price: number; // RM per month
+  features: string[];
+  highlight?: boolean;
+}
+
+export interface Subscription {
+  id: string;
+  restaurant_id: string;
+  plan_id: PlanId;
+  status: SubscriptionStatus;
+  stripe_customer_id?: string;
+  stripe_subscription_id?: string;
+  trial_start: string;
+  trial_end: string;
+  current_period_start?: string;
+  current_period_end?: string;
+  cancel_at_period_end?: boolean;
+  created_at: string;
+  updated_at: string;
+}

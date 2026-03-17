@@ -6,6 +6,7 @@ import PosOnlyView from './pages/PosOnlyView';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import MarketingPage from './pages/MarketingPage';
+import RegisterPage from './pages/RegisterPage';
 import { supabase } from './lib/supabase';
 import { LogOut, Sun, Moon, MapPin, LogIn, Loader2 } from 'lucide-react';
 import * as offlineQueue from './lib/offlineOrdersQueue';
@@ -189,7 +190,7 @@ const App: React.FC = () => {
     return unsubscribe;
   }, []);
   
-  const [view, setView] = useState<'LANDING' | 'LOGIN' | 'APP' | 'MARKETING' | 'POS'>(() => {
+  const [view, setView] = useState<'LANDING' | 'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS'>(() => {
     const savedView = localStorage.getItem('qs_view') as any;
     const savedRole = localStorage.getItem('qs_role');
     const params = new URLSearchParams(window.location.search);
@@ -1624,11 +1625,18 @@ const App: React.FC = () => {
   }
 
   if (view === 'MARKETING') {
-    return <MarketingPage onGetStarted={() => setView('LANDING')} />;
+    return <MarketingPage onGetStarted={() => setView('REGISTER')} />;
+  }
+
+  if (view === 'REGISTER') {
+    return <RegisterPage onBack={() => setView('MARKETING')} onRegisterSuccess={() => {
+      toast('Registration successful! You can now log in.', 'success');
+      setView('LOGIN');
+    }} />;
   }
 
   if (view === 'LANDING') {
-    return <LandingPage onScan={handleScanSimulation} onLoginClick={() => setView('LOGIN')} isDarkMode={isDarkMode} onToggleDarkMode={() => setIsDarkMode(!isDarkMode)} locations={locations.filter(l => l.isActive !== false)} onLearnMore={() => setView('MARKETING')} onClearSession={handleClearSession} />;
+    return <LandingPage onScan={handleScanSimulation} onLoginClick={() => setView('LOGIN')} isDarkMode={isDarkMode} onToggleDarkMode={() => setIsDarkMode(!isDarkMode)} locations={locations.filter(l => l.isActive !== false)} onLearnMore={() => setView('MARKETING')} onClearSession={handleClearSession} onRegister={() => setView('REGISTER')} />;
   }
 
   if (view === 'LOGIN') {

@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Zap, DollarSign, MessageSquare, ArrowRight, ShieldCheck, Globe, Clock } from 'lucide-react';
+import { Zap, DollarSign, MessageSquare, ArrowRight, ShieldCheck, Globe, Clock, Check, Star, Crown, Sparkles } from 'lucide-react';
+import { PRICING_PLANS } from '../lib/pricingPlans';
+import { PlanId } from '../src/types';
 
 // Custom hook: triggers once when element enters viewport
 const useInView = (options?: IntersectionObserverInit) => {
@@ -219,37 +221,82 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted }) => {
         </div>
       </section>
 
-      {/* Trust Section */}
+      {/* Pricing Section */}
       <section id="pricing" ref={trustRef.ref} className="py-20 bg-black text-white overflow-hidden">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-12">
-          <div className={`max-w-xl transition-all duration-700 ${trustRef.isInView ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-12'}`}>
-            <h2 className="text-4xl md:text-6xl font-black leading-[0.9] tracking-tighter mb-6 uppercase">
-              Trusted by <br />
-              <span className="text-orange-500">Local Hubs</span> <br />
-              Across Malaysia.
+        <div className="max-w-7xl mx-auto px-6">
+          <div className={`text-center mb-16 transition-all duration-700 ${trustRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+            <h2 className="text-4xl md:text-6xl font-black leading-[0.9] tracking-tighter mb-4 uppercase">
+              Simple, <span className="text-orange-500">Transparent</span> Pricing
             </h2>
-            <div className="grid grid-cols-2 gap-6 mt-12">
-              <div className={`flex items-center gap-3 transition-all duration-500 delay-300 ${trustRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                <ShieldCheck className="text-orange-500" />
-                <span className="text-xs font-black uppercase tracking-widest">SST Compliant</span>
-              </div>
-              <div className={`flex items-center gap-3 transition-all duration-500 delay-[450ms] ${trustRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                <Globe className="text-orange-500" />
-                <span className="text-xs font-black uppercase tracking-widest">Local Support</span>
-              </div>
-            </div>
+            <p className="text-white/60 font-medium text-lg">30-day free trial on all plans. No credit card required.</p>
           </div>
-          <div className={`relative transition-all duration-700 delay-200 ${trustRef.isInView ? 'opacity-100 translate-x-0 scale-100' : 'opacity-0 translate-x-12 scale-95'}`}>
-            <div className="absolute inset-0 bg-orange-500/20 blur-[100px] animate-glow-pulse"></div>
-            <div className="relative p-8 sm:p-12 bg-white/5 backdrop-blur-xl rounded-[3rem] border border-white/10 text-center hover:border-orange-500/30 transition-all duration-500 hover:bg-white/10">
-              <p className="text-5xl font-black text-orange-500 mb-2">RM 0</p>
-              <p className="text-xs font-black uppercase tracking-[0.3em] text-white/60 mb-8">Upfront Cost</p>
-              <button
-                onClick={onGetStarted}
-                className="px-8 py-4 bg-white text-black rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-orange-500 hover:text-white hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-orange-500/25"
-              >
-                Join the Revolution
-              </button>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            {PRICING_PLANS.map((plan, i) => {
+              const icons: Record<PlanId, React.ReactNode> = {
+                basic: <Star size={24} />,
+                pro: <Crown size={24} />,
+                pro_plus: <Sparkles size={24} />,
+              };
+              return (
+                <div
+                  key={plan.id}
+                  className={`relative p-8 rounded-3xl border transition-all duration-500 delay-[${i * 150}ms] hover:-translate-y-2 ${
+                    plan.highlight
+                      ? 'bg-white/10 border-orange-500 shadow-2xl shadow-orange-500/20'
+                      : 'bg-white/5 border-white/10 hover:border-orange-500/40'
+                  } ${trustRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+                >
+                  {plan.highlight && (
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-orange-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full">
+                      Most Popular
+                    </div>
+                  )}
+
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-5 ${
+                    plan.highlight ? 'bg-orange-500 text-white' : 'bg-white/10 text-orange-500'
+                  }`}>
+                    {icons[plan.id]}
+                  </div>
+
+                  <h3 className="text-xl font-black uppercase tracking-tight mb-1">{plan.name}</h3>
+                  <div className="flex items-baseline gap-1 mb-6">
+                    <span className="text-4xl font-black">RM{plan.price}</span>
+                    <span className="text-white/40 font-bold text-sm">/month</span>
+                  </div>
+
+                  <ul className="space-y-3 mb-8">
+                    {plan.features.map((feature, j) => (
+                      <li key={j} className="flex items-start gap-3 text-sm text-white/70 font-medium">
+                        <Check size={16} className="text-orange-500 shrink-0 mt-0.5" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <button
+                    onClick={onGetStarted}
+                    className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                      plan.highlight
+                        ? 'bg-orange-500 text-white hover:bg-orange-600 hover:scale-[1.02]'
+                        : 'bg-white/10 text-white hover:bg-orange-500 hover:scale-[1.02]'
+                    }`}
+                  >
+                    Start Free Trial <ArrowRight size={16} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-8 mt-16">
+            <div className={`flex items-center gap-3 transition-all duration-500 delay-300 ${trustRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+              <ShieldCheck className="text-orange-500" />
+              <span className="text-xs font-black uppercase tracking-widest">SST Compliant</span>
+            </div>
+            <div className={`flex items-center gap-3 transition-all duration-500 delay-[450ms] ${trustRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+              <Globe className="text-orange-500" />
+              <span className="text-xs font-black uppercase tracking-widest">Local Support</span>
             </div>
           </div>
         </div>

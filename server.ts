@@ -178,7 +178,88 @@ async function startServer() {
     }
   });
 
-  app.post('/api/upload', upload.single('file'), async (req, res) => {
+  // Registration endpoint
+  app.post('/api/register', async (req, res) => {
+    const { restaurantName, ownerName, email, phone, username, password, planId } = req.body || {};
+    const VALID_PLANS = ['basic', 'pro', 'pro_plus'];
+    const TRIAL_DAYS = 30;
+
+    if (!restaurantName || !ownerName || !email || !phone || !username || !password || !planId) {
+      return res.status(400).json({ error: 'All fields are required.' });
+    }
+    if (!VALID_PLANS.includes(planId)) {
+      return res.status(400).json({ error: 'Invalid plan selected.' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+    }
+
+    try {
+      const { data: existingUser } = await supabase
+        .from('users').select('id').eq('username', username).single();
+      if (existingUser) return res.status(409).json({ error: 'Username is already taken.' });
+
+      const { data: existingEmail } = await supabase
+        .from('users').select('id').eq('email', email).single();
+      if (existingEmail) return res.status(409).json({ error: 'An account with this email already exists.' });
+
+      let platformAccess = 'pos_only';
+      let kitchenEnabled = false;
+      if (planId === 'pro') platformAccess = 'pos_and_qr';
+      else if (planId === 'pro_plus') { platformAccess = 'pos_and_qr'; kitchenEnabled = true; }
+
+      const { data: restaurant, error: restError } = await supabase
+        .from('restaurants')
+        .insert({
+          name: restaurantName, logo: '', menu: [],
+          location_name: 'QuickServe Hub', is_online: true,
+          platform_access: platformAccess, kitchen_enabled: kitchenEnabled,
+        })
+        .select().single();
+
+      if (restError || !restaurant) {
+        console.error('Restaurant creation error:', restError);
+        return res.status(500).json({ error: 'Failed to create restaurant.' });
+      }
+
+      const { error: userError } = await supabase
+        .from('users')
+        .insert({
+          username, password, role: 'VENDOR',
+          restaurant_id: restaurant.id, is_active: true, email, phone,
+        });
+
+      if (userError) {
+        await supabase.from('restaurants').delete().eq('id', restaurant.id);
+        console.error('User creation error:', userError);
+        return res.status(500).json({ error: 'Failed to create user account.' });
+      }
+
+      const trialStart = new Date();
+      const trialEnd = new Date();
+      trialEnd.setDate(trialEnd.getDate() + TRIAL_DAYS);
+
+      const { error: subError } = await supabase
+        .from('subscriptions')
+        .insert({
+          restaurant_id: restaurant.id, plan_id: planId, status: 'trialing',
+          trial_start: trialStart.toISOString(), trial_end: trialEnd.toISOString(),
+        });
+
+      if (subError) console.error('Subscription creation error:', subError);
+
+      res.status(201).json({
+        message: 'Registration successful! You can now log in.',
+        restaurantId: restaurant.id,
+        trialEnd: trialEnd.toISOString(),
+      });
+    } catch (err) {
+      console.error('Registration error:', err);
+      res.status(500).json({ error: 'Internal server error.' });
+    }
+  });
+
+  app.post('/api/upload', upload.single('file'), async (req: any, res: any) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded' });

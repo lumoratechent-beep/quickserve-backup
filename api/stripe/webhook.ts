@@ -1,0 +1,186 @@
+// Vercel serverless function: POST /api/stripe/webhook
+// Handles Stripe webhook events for subscription lifecycle
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
+
+const supabase = createClient(
+  process.env.SUPABASE_URL || 'https://anknjpuiklglykguneax.supabase.co',
+  process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || ''
+);
+
+const PLAN_PLATFORM_MAP: Record<string, { platformAccess: string; kitchenEnabled: boolean }> = {
+  basic: { platformAccess: 'pos_only', kitchenEnabled: false },
+  pro: { platformAccess: 'pos_and_qr', kitchenEnabled: false },
+  pro_plus: { platformAccess: 'pos_and_qr', kitchenEnabled: true },
+};
+
+// Vercel requires raw body for Stripe signature verification
+export const config = { api: { bodyParser: false } };
+
+async function getRawBody(req: VercelRequest): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  return new Promise((resolve, reject) => {
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const sig = req.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!sig || !webhookSecret) {
+    return res.status(400).json({ error: 'Missing signature or webhook secret.' });
+  }
+
+  let event: Stripe.Event;
+
+  try {
+    const rawBody = await getRawBody(req);
+    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+  } catch (err: any) {
+    console.error('Webhook signature verification failed:', err.message);
+    return res.status(400).json({ error: 'Webhook signature verification failed.' });
+  }
+
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const restaurantId = session.metadata?.restaurant_id;
+        const planId = session.metadata?.plan_id;
+
+        if (!restaurantId) break;
+
+        if (session.mode === 'subscription' && session.subscription) {
+          // Recurring subscription activated
+          const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+          await supabase
+            .from('subscriptions')
+            .update({
+              status: 'active',
+              stripe_subscription_id: subscription.id,
+              stripe_customer_id: session.customer as string,
+              plan_id: planId || undefined,
+              current_period_start: new Date(subscription.start_date * 1000).toISOString(),
+              current_period_end: subscription.ended_at ? new Date(subscription.ended_at * 1000).toISOString() : null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('restaurant_id', restaurantId);
+        } else if (session.mode === 'payment') {
+          // Single payment — extend by 30 days from now
+          const periodEnd = new Date();
+          periodEnd.setDate(periodEnd.getDate() + 30);
+
+          await supabase
+            .from('subscriptions')
+            .update({
+              status: 'active',
+              stripe_customer_id: session.customer as string,
+              current_period_start: new Date().toISOString(),
+              current_period_end: periodEnd.toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('restaurant_id', restaurantId);
+        }
+
+        // Update restaurant features based on plan
+        if (planId && PLAN_PLATFORM_MAP[planId]) {
+          const { platformAccess, kitchenEnabled } = PLAN_PLATFORM_MAP[planId];
+          await supabase
+            .from('restaurants')
+            .update({ platform_access: platformAccess, kitchen_enabled: kitchenEnabled })
+            .eq('id', restaurantId);
+        }
+        break;
+      }
+
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const restaurantId = subscription.metadata?.restaurant_id;
+        if (!restaurantId) break;
+
+        const statusMap: Record<string, string> = {
+          active: 'active',
+          trialing: 'trialing',
+          past_due: 'past_due',
+          canceled: 'canceled',
+          unpaid: 'unpaid',
+        };
+
+        await supabase
+          .from('subscriptions')
+          .update({
+            status: statusMap[subscription.status] || subscription.status,
+            current_period_start: new Date(subscription.start_date * 1000).toISOString(),
+            current_period_end: subscription.ended_at ? new Date(subscription.ended_at * 1000).toISOString() : null,
+            cancel_at_period_end: subscription.cancel_at_period_end,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('restaurant_id', restaurantId);
+
+        // Handle plan upgrade — check price to plan mapping
+        const planId = subscription.metadata?.plan_id;
+        if (planId && PLAN_PLATFORM_MAP[planId]) {
+          const { platformAccess, kitchenEnabled } = PLAN_PLATFORM_MAP[planId];
+          await supabase
+            .from('restaurants')
+            .update({ platform_access: platformAccess, kitchen_enabled: kitchenEnabled })
+            .eq('id', restaurantId);
+        }
+        break;
+      }
+
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const restaurantId = subscription.metadata?.restaurant_id;
+        if (!restaurantId) break;
+
+        await supabase
+          .from('subscriptions')
+          .update({
+            status: 'canceled',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('restaurant_id', restaurantId);
+        break;
+      }
+
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice;
+        const subscriptionId = invoice.parent?.subscription_details?.subscription
+          ? (typeof invoice.parent.subscription_details.subscription === 'string'
+            ? invoice.parent.subscription_details.subscription
+            : invoice.parent.subscription_details.subscription)
+          : null;
+        if (!subscriptionId) break;
+
+        await supabase
+          .from('subscriptions')
+          .update({
+            status: 'past_due',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('stripe_subscription_id', subscriptionId);
+        break;
+      }
+
+      default:
+        // Unhandled event type
+        break;
+    }
+
+    return res.status(200).json({ received: true });
+  } catch (err: any) {
+    console.error('Webhook processing error:', err);
+    return res.status(500).json({ error: 'Webhook processing failed.' });
+  }
+}
