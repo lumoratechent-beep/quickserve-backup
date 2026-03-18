@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
   plan_id TEXT NOT NULL CHECK (plan_id IN ('basic', 'pro', 'pro_plus')),
-  status TEXT NOT NULL DEFAULT 'trialing' CHECK (status IN ('trialing', 'active', 'past_due', 'canceled', 'unpaid')),
+  status TEXT NOT NULL DEFAULT 'pending_payment' CHECK (status IN ('pending_payment', 'trialing', 'active', 'past_due', 'canceled', 'unpaid')),
   stripe_customer_id TEXT,
   stripe_subscription_id TEXT,
   trial_start TIMESTAMPTZ NOT NULL DEFAULT NOW(),

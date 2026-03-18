@@ -10,6 +10,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || ''
 );
 
+const TRIAL_DAYS = 30;
+
 // Map plan IDs to Stripe price IDs (set these in env vars)
 const PLAN_PRICE_MAP: Record<string, string> = {
   basic: process.env.STRIPE_PRICE_BASIC || '',
@@ -88,7 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ url: session.url });
     }
 
-    // Default: recurring subscription
+    // Default: recurring subscription with free trial (card saved, no charge until trial ends)
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
@@ -96,6 +98,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       success_url: `${baseUrl}?payment=success`,
       cancel_url: `${baseUrl}?payment=cancelled`,
       subscription_data: {
+        trial_period_days: TRIAL_DAYS,
         metadata: { restaurant_id: restaurantId, plan_id: planId },
       },
       payment_method_collection: 'always',

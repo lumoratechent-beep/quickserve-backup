@@ -66,7 +66,7 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
         return;
       }
 
-      // Redirect to Stripe Checkout for payment
+      // Redirect to Stripe Checkout to save card and start trial
       const checkoutRes = await fetch('/api/stripe/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -83,7 +83,8 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
         return;
       }
 
-      // If checkout fails, still let them log in
+      // If Stripe checkout creation fails, inform user
+      setError('Could not start card setup. Please try logging in and upgrading from your dashboard.');
       onRegisterSuccess();
     } catch {
       setError('Connection error. Please try again later.');
@@ -373,7 +374,7 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3 mt-1 bg-orange-500 text-white rounded-xl font-black text-sm shadow-xl shadow-orange-100 dark:shadow-none hover:bg-orange-600 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3 mt-4 bg-orange-500 text-white rounded-xl font-black text-sm shadow-xl shadow-orange-100 dark:shadow-none hover:bg-orange-600 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <>
@@ -381,13 +382,13 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
                   Processing...
                 </>
               ) : (
-                <>Register & Pay Now</>
+                <>Start Free Trial</>
               )}
             </button>
           </form>
 
           <p className="text-center text-gray-400 text-[10px] font-medium mt-3">
-            By registering, you agree to our Terms of Service. You will be redirected to Stripe to complete payment.
+            By registering, you agree to our Terms of Service. You'll be redirected to securely save your card — no charge until your {TRIAL_DAYS}-day trial ends.
           </p>
         </div>
 

@@ -21,6 +21,10 @@ export function isSubscriptionActive(sub: Subscription): boolean {
   return sub.status === 'active' || (sub.status === 'trialing' && isTrialActive(sub));
 }
 
+export function isPendingPayment(sub: Subscription): boolean {
+  return sub.status === 'pending_payment';
+}
+
 export function daysLeftInTrial(sub: Subscription): number {
   if (sub.status !== 'trialing') return 0;
   const end = new Date(sub.trial_end).getTime();

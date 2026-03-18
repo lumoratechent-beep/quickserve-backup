@@ -83,7 +83,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'Failed to create restaurant.' });
     }
 
-    // Create vendor user
+    // Create vendor user (inactive until Stripe card is saved)
     const { data: newUser, error: userError } = await supabase
       .from('users')
       .insert({
@@ -91,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         password,
         role: 'VENDOR',
         restaurant_id: restaurant.id,
-        is_active: true,
+        is_active: false,
         email,
         phone,
       })
@@ -108,19 +108,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Link vendor back to restaurant
     await supabase.from('restaurants').update({ vendor_id: newUser.id }).eq('id', restaurant.id);
 
-    // Create subscription with trial
-    const trialStart = new Date();
-    const trialEnd = new Date();
-    trialEnd.setDate(trialEnd.getDate() + TRIAL_DAYS);
-
+    // Create subscription as pending_payment (activated by Stripe webhook after card saved)
     const { error: subError } = await supabase
       .from('subscriptions')
       .insert({
         restaurant_id: restaurant.id,
         plan_id: planId,
-        status: 'trialing',
-        trial_start: trialStart.toISOString(),
-        trial_end: trialEnd.toISOString(),
+        status: 'pending_payment',
       });
 
     if (subError) {
@@ -129,9 +123,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     return res.status(201).json({
-      message: 'Registration successful! You can now log in.',
+      message: 'Registration successful! Please complete card setup.',
       restaurantId: restaurant.id,
-      trialEnd: trialEnd.toISOString(),
     });
   } catch (err: any) {
     console.error('Registration error:', err);

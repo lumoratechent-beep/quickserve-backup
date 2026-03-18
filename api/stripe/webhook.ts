@@ -61,20 +61,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!restaurantId) break;
 
         if (session.mode === 'subscription' && session.subscription) {
-          // Recurring subscription activated
+          // Recurring subscription created (with or without trial)
           const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+          
+          const isTrialing = subscription.status === 'trialing';
+          const trialEnd = subscription.trial_end
+            ? new Date(subscription.trial_end * 1000).toISOString()
+            : null;
+
           await supabase
             .from('subscriptions')
             .update({
-              status: 'active',
+              status: isTrialing ? 'trialing' : 'active',
               stripe_subscription_id: subscription.id,
               stripe_customer_id: session.customer as string,
               plan_id: planId || undefined,
+              trial_start: isTrialing ? new Date().toISOString() : undefined,
+              trial_end: trialEnd || undefined,
               current_period_start: new Date(subscription.start_date * 1000).toISOString(),
               current_period_end: subscription.ended_at ? new Date(subscription.ended_at * 1000).toISOString() : null,
               updated_at: new Date().toISOString(),
             })
             .eq('restaurant_id', restaurantId);
+
+          // Activate the vendor user now that card is saved
+          await supabase
+            .from('users')
+            .update({ is_active: true })
+            .eq('restaurant_id', restaurantId)
+            .eq('role', 'VENDOR');
         } else if (session.mode === 'payment') {
           // Single payment — extend by 30 days from now
           const periodEnd = new Date();
@@ -114,6 +129,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           past_due: 'past_due',
           canceled: 'canceled',
           unpaid: 'unpaid',
+          incomplete: 'pending_payment',
+          incomplete_expired: 'canceled',
         };
 
         await supabase

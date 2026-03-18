@@ -193,6 +193,14 @@ const App: React.FC = () => {
     const savedView = localStorage.getItem('qs_view') as any;
     const params = new URLSearchParams(window.location.search);
     
+    // Handle Stripe payment redirect
+    const paymentStatus = params.get('payment');
+    if (paymentStatus === 'success' || paymentStatus === 'cancelled') {
+      // Clean URL without reloading
+      window.history.replaceState({}, '', window.location.pathname);
+      return 'LOGIN';
+    }
+
     // If no session and no params, show marketing page as the first impression
     if (!savedView && !params.get('loc')) {
       return 'MARKETING';
@@ -200,6 +208,21 @@ const App: React.FC = () => {
 
     return savedView || 'MARKETING';
   });
+
+  // Show toast for Stripe payment redirect on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentStatus = params.get('payment');
+    if (paymentStatus === 'success') {
+      toast('Your free trial is active! Log in to get started.', 'success');
+      window.history.replaceState({}, '', window.location.pathname);
+      setView('LOGIN');
+    } else if (paymentStatus === 'cancelled') {
+      toast('Card setup was cancelled. You can try again by registering.', 'error');
+      window.history.replaceState({}, '', window.location.pathname);
+      setView('LOGIN');
+    }
+  }, []);
   
   const [sessionLocation, setSessionLocation] = useState<string | null>(() => {
     return localStorage.getItem('qs_session_location');

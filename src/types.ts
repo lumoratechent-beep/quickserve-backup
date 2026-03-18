@@ -176,7 +176,7 @@ export interface ModifierOption {
 
 // Subscription & Pricing
 export type PlanId = 'basic' | 'pro' | 'pro_plus';
-export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid';
+export type SubscriptionStatus = 'pending_payment' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid';
 
 export interface PricingPlan {
   id: PlanId;
