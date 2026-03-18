@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Subscription, PlanId } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 import { daysLeftInTrial, isTrialActive, isSubscriptionActive } from '../lib/subscriptionService';
-import { Loader2, Check, Plus, RefreshCw, X, AlertCircle, CheckCircle } from 'lucide-react';
+import { Loader2, Check, Plus, RefreshCw, X, AlertCircle, CheckCircle, ArrowLeftRight } from 'lucide-react';
 import { toast } from '../components/Toast';
 
 interface BillingHistory {
@@ -288,14 +288,14 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   <p className="text-xs text-gray-400 mb-5 min-h-[16px]">{getDaysLabel(plan)}</p>
 
                   {/* Action — all same height */}
-                  <div className="flex items-center gap-3 min-h-[34px]">
+                  <div className="flex items-center gap-2 min-h-[34px] flex-wrap">
                     {isCurrent ? (
                       <>
                         {subscription?.stripe_subscription_id && (
                           <button
                             onClick={handleToggleAutoRenew}
                             disabled={isTogglingAutoRenew}
-                            className="px-4 py-2 rounded-lg text-xs font-semibold border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors disabled:opacity-50"
+                            className="px-3 py-2 rounded-lg text-xs font-semibold border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors disabled:opacity-50"
                           >
                             {isTogglingAutoRenew ? 'Processing...' : autoRenew ? 'Cancel Subscription' : 'Resume Subscription'}
                           </button>
@@ -303,9 +303,16 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                         <button
                           onClick={() => { setRenewError(''); setShowRenewConfirm(true); }}
                           disabled={isRenewing}
-                          className="px-4 py-2 rounded-lg text-xs font-semibold border border-orange-400 bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                          className="px-3 py-2 rounded-lg text-xs font-semibold border border-orange-400 bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50 flex items-center gap-1.5"
                         >
                           <RefreshCw size={12} /> Renew Plan
+                        </button>
+                        <button
+                          onClick={onUpgradeClick}
+                          className="px-3 py-2 rounded-lg text-xs font-semibold border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center gap-1.5"
+                        >
+                          <ArrowLeftRight size={12} />
+                          {subscription?.billing_interval === 'annual' ? 'Switch to Monthly' : 'Switch to Annual'}
                         </button>
                       </>
                     ) : isUpgrade ? (

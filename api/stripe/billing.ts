@@ -22,8 +22,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const customerId = req.query.customerId as string;
         if (!customerId) return res.status(400).json({ error: 'customerId is required.' });
 
+        // Fetch invoices (subscription payments)
         const invoices = await stripe.invoices.list({ customer: customerId, limit: 24 });
-        const result = invoices.data.map(inv => {
+        const invoiceItems = invoices.data.map(inv => {
           const lineDesc = inv.lines.data[0]?.description;
           return {
             id: inv.id,
@@ -33,7 +34,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             invoiceUrl: inv.invoice_pdf || inv.hosted_invoice_url || null,
           };
         });
-        return res.status(200).json({ invoices: result });
+
+        // Fetch direct PaymentIntents (renewal charges via renew-direct)
+        const paymentIntents = await stripe.paymentIntents.list({ customer: customerId, limit: 24 });
+        const directCharges = paymentIntents.data
+          .filter(pi => pi.status === 'succeeded' && pi.metadata?.type === 'renewal')
+          .map(pi => ({
+            id: pi.id,
+            date: pi.created ? new Date(pi.created * 1000).toISOString() : '',
+            description: pi.description || 'Plan Renewal',
+            amount: (pi.amount || 0) / 100,
+            invoiceUrl: null,
+          }));
+
+        // Merge and sort by date descending
+        const allItems = [...invoiceItems, ...directCharges]
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        return res.status(200).json({ invoices: allItems });
       }
 
       // GET /api/stripe/billing?action=payment-methods&customerId=...

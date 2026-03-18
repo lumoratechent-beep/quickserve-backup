@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Check, ArrowRight, Loader2 } from 'lucide-react';
+import { X, Check, ArrowRight, Loader2, RefreshCw, ArrowLeftRight } from 'lucide-react';
 import { PlanId, Subscription } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 
@@ -16,7 +16,9 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
   const [loadingPlanId, setLoadingPlanId] = useState<PlanId | null>(null);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState('');
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>(
+    subscription?.billing_interval === 'annual' ? 'annual' : 'monthly'
+  );
 
   const annualSavePct = Math.round((1 - PRICING_PLANS[1].annualPrice / PRICING_PLANS[1].price) * 100);
 
@@ -175,7 +177,7 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
                 >
                   {isCurrent ? (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 lg:px-4 py-1 bg-orange-500 text-white text-[8px] lg:text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg whitespace-nowrap">
-                      Current Plan
+                      Current Plan ({subscription?.billing_interval === 'annual' ? 'Annual' : 'Monthly'})
                     </div>
                   ) : plan.highlight && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 lg:px-4 py-1 bg-orange-500 text-white text-[8px] lg:text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg whitespace-nowrap">
@@ -214,9 +216,38 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
                   </ul>
 
                   {isCurrent ? (
-                    <div className="w-full py-2 lg:py-3 rounded-xl lg:rounded-2xl font-black text-[9px] lg:text-sm uppercase tracking-widest bg-gray-100 dark:bg-gray-700 text-gray-400 text-center mt-auto">
-                      Current Plan
-                    </div>
+                    (() => {
+                      const currentIsAnnual = subscription?.billing_interval === 'annual';
+                      const selectedIsAnnual = billingCycle === 'annual';
+                      const isSameInterval = currentIsAnnual === selectedIsAnnual;
+                      const isThisPlanLoading2 = loadingPlanId === plan.id && isLoading;
+
+                      return isSameInterval ? (
+                        <button
+                          disabled={isLoading || isRedirecting}
+                          onClick={(e) => { e.stopPropagation(); handleCheckout(plan.id); }}
+                          className="w-full py-2 lg:py-3 rounded-xl lg:rounded-2xl font-black text-[9px] lg:text-sm uppercase tracking-widest bg-orange-500 text-white shadow-xl shadow-orange-100 dark:shadow-none hover:bg-orange-600 hover:scale-[1.02] transition-all flex items-center justify-center gap-1 lg:gap-2 mt-auto disabled:opacity-50"
+                        >
+                          {isThisPlanLoading2 ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <><RefreshCw size={14} /> Renew Plan</>
+                          )}
+                        </button>
+                      ) : (
+                        <button
+                          disabled={isLoading || isRedirecting}
+                          onClick={(e) => { e.stopPropagation(); handleCheckout(plan.id); }}
+                          className="w-full py-2 lg:py-3 rounded-xl lg:rounded-2xl font-black text-[9px] lg:text-sm uppercase tracking-widest bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-orange-500 hover:text-white hover:scale-[1.02] transition-all flex items-center justify-center gap-1 lg:gap-2 mt-auto disabled:opacity-50"
+                        >
+                          {isThisPlanLoading2 ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <><ArrowLeftRight size={14} /> {selectedIsAnnual ? 'Switch to Annual' : 'Switch to Monthly'}</>
+                          )}
+                        </button>
+                      );
+                    })()
                   ) : (
                     <button
                       disabled={isLoading || isRedirecting}
