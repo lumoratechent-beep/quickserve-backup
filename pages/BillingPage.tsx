@@ -288,14 +288,14 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   <p className="text-xs text-gray-400 mb-5 min-h-[16px]">{getDaysLabel(plan)}</p>
 
                   {/* Action — all same height */}
-                  <div className="flex items-center gap-2 min-h-[34px] flex-wrap">
+                  <div className="flex items-center gap-2 min-h-[34px] flex-wrap md:flex-nowrap">
                     {isCurrent ? (
                       <>
                         {subscription?.stripe_subscription_id && (
                           <button
                             onClick={handleToggleAutoRenew}
                             disabled={isTogglingAutoRenew}
-                            className="px-3 py-2 rounded-lg text-xs font-semibold border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors disabled:opacity-50"
+                            className="w-full md:flex-1 px-3 py-2 rounded-lg text-xs font-semibold border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors disabled:opacity-50 whitespace-nowrap"
                           >
                             {isTogglingAutoRenew ? 'Processing...' : autoRenew ? 'Cancel Subscription' : 'Resume Subscription'}
                           </button>
@@ -303,13 +303,13 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                         <button
                           onClick={() => { setRenewError(''); setShowRenewConfirm(true); }}
                           disabled={isRenewing}
-                          className="px-3 py-2 rounded-lg text-xs font-semibold border border-orange-400 bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                          className="w-full md:flex-1 px-3 py-2 rounded-lg text-xs font-semibold border border-orange-400 bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 whitespace-nowrap"
                         >
                           <RefreshCw size={12} /> Renew Plan
                         </button>
                         <button
                           onClick={onUpgradeClick}
-                          className="px-3 py-2 rounded-lg text-xs font-semibold border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center gap-1.5"
+                          className="w-full md:flex-1 px-3 py-2 rounded-lg text-xs font-semibold border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
                         >
                           <ArrowLeftRight size={12} />
                           {subscription?.billing_interval === 'annual' ? 'Switch to Monthly' : 'Switch to Annual'}
@@ -318,19 +318,19 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     ) : isUpgrade ? (
                       <button
                         onClick={onUpgradeClick}
-                        className="px-4 py-2 rounded-lg text-xs font-semibold border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors"
+                        className="w-full px-4 py-2 rounded-lg text-xs font-semibold border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors text-center"
                       >
                         Upgrade
                       </button>
                     ) : isDowngrade ? (
                       <button
                         onClick={onUpgradeClick}
-                        className="px-4 py-2 rounded-lg text-xs font-semibold border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
+                        className="w-full px-4 py-2 rounded-lg text-xs font-semibold border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-orange-400 hover:text-orange-500 transition-colors text-center"
                       >
                         Downgrade
                       </button>
                     ) : (
-                      <span className="text-xs text-gray-400">—</span>
+                      <span className="w-full text-xs text-gray-400 text-center">—</span>
                     )}
                   </div>
                 </div>
