@@ -330,8 +330,8 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     );
                   })()}
 
-                  {/* Days remaining */}
-                  <p className="text-xs text-gray-400 mb-5 min-h-[16px]">{getDaysLabel(plan)}</p>
+                  {/* Days remaining (legacy line hidden for current plan; now shown inline with expiry text) */}
+                  <p className="text-xs text-gray-400 mb-5 min-h-[16px]">{isCurrent ? '' : getDaysLabel(plan)}</p>
 
                   {/* Action — all same height */}
                   <div className="mt-auto flex items-center gap-2 min-h-[34px] flex-wrap md:flex-nowrap">
