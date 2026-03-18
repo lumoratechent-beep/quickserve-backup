@@ -246,7 +246,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         {/* ── Plan ── */}
         <section>
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Plan</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
             {PRICING_PLANS.map(plan => {
               const isCurrent = plan.id === currentPlanId;
               const isUpgrade = PRICING_PLANS.indexOf(plan) > PRICING_PLANS.findIndex(p => p.id === currentPlanId);
@@ -256,8 +256,8 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   key={plan.id}
                   className={`relative rounded-xl border-2 p-5 transition-all h-full flex flex-col overflow-hidden ${
                     isCurrent
-                      ? 'border-orange-400 bg-white dark:bg-gray-800'
-                      : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60'
+                      ? 'border-orange-400 bg-white dark:bg-gray-800 lg:col-span-2'
+                      : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 lg:col-span-1'
                   }`}
                 >
                   {/* Checkmark badge */}
