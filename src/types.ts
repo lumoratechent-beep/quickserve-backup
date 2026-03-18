@@ -182,6 +182,8 @@ export interface PricingPlan {
   id: PlanId;
   name: string;
   price: number; // RM per month
+  annualPrice: number; // RM per month when billed annually
+  description: string;
   features: string[];
   highlight?: boolean;
 }
