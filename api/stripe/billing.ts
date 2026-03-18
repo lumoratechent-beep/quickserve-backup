@@ -38,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Also fetch direct PaymentIntents (old renewal charges before invoice migration)
         const paymentIntents = await stripe.paymentIntents.list({ customer: customerId, limit: 24 });
         const directCharges = paymentIntents.data
-          .filter(pi => pi.status === 'succeeded' && pi.metadata?.type === 'renewal' && !pi.invoice)
+          .filter(pi => pi.status === 'succeeded' && pi.metadata?.type === 'renewal')
           .map(pi => ({
             id: pi.id,
             date: pi.created ? new Date(pi.created * 1000).toISOString() : '',
