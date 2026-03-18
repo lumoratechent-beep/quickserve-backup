@@ -32,6 +32,8 @@ interface Props {
 
 const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeClick, onSubscriptionUpdated }) => {
   const [billingHistory, setBillingHistory] = useState<BillingHistory[]>([]);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize, setHistoryPageSize] = useState(10);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [autoRenew, setAutoRenew] = useState(!subscription?.cancel_at_period_end);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -74,6 +76,10 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     if (def) setSelectedMethodId(def.id);
     else if (paymentMethods.length) setSelectedMethodId(paymentMethods[0].id);
   }, [paymentMethods]);
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [historyPageSize, billingHistory.length]);
 
   const fetchBillingHistory = async () => {
     if (!subscription?.stripe_customer_id) return;
@@ -229,6 +235,10 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     );
   };
 
+  const totalHistoryPages = Math.max(1, Math.ceil(billingHistory.length / historyPageSize));
+  const paginatedHistory = billingHistory.slice((historyPage - 1) * historyPageSize, historyPage * historyPageSize);
+  const showHistoryPagination = billingHistory.length > 10;
+
   return (
     <div className="flex-1 overflow-y-auto p-6">
       <div className="max-w-6xl mx-auto space-y-10">
@@ -236,7 +246,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         {/* ── Plan ── */}
         <section>
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Plan</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
             {PRICING_PLANS.map(plan => {
               const isCurrent = plan.id === currentPlanId;
               const isUpgrade = PRICING_PLANS.indexOf(plan) > PRICING_PLANS.findIndex(p => p.id === currentPlanId);
@@ -244,7 +254,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
               return (
                 <div
                   key={plan.id}
-                  className={`relative rounded-xl border-2 p-5 transition-all ${
+                  className={`relative rounded-xl border-2 p-5 transition-all h-full flex flex-col overflow-hidden ${
                     isCurrent
                       ? 'border-orange-400 bg-white dark:bg-gray-800'
                       : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60'
@@ -288,14 +298,14 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   <p className="text-xs text-gray-400 mb-5 min-h-[16px]">{getDaysLabel(plan)}</p>
 
                   {/* Action — all same height */}
-                  <div className="flex items-center gap-2 min-h-[34px] flex-wrap md:flex-nowrap">
+                  <div className="mt-auto flex items-center gap-2 min-h-[34px] flex-wrap md:flex-nowrap">
                     {isCurrent ? (
                       <>
                         {subscription?.stripe_subscription_id && (
                           <button
                             onClick={handleToggleAutoRenew}
                             disabled={isTogglingAutoRenew}
-                            className="w-full md:flex-1 px-3 py-2 rounded-lg text-xs font-semibold border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors disabled:opacity-50 whitespace-nowrap"
+                            className="w-full md:flex-1 min-w-0 px-3 py-2 rounded-lg text-[11px] lg:text-xs font-semibold border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors disabled:opacity-50 whitespace-nowrap"
                           >
                             {isTogglingAutoRenew ? 'Processing...' : autoRenew ? 'Cancel Subscription' : 'Resume Subscription'}
                           </button>
@@ -303,13 +313,13 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                         <button
                           onClick={() => { setRenewError(''); setShowRenewConfirm(true); }}
                           disabled={isRenewing}
-                          className="w-full md:flex-1 px-3 py-2 rounded-lg text-xs font-semibold border border-orange-400 bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 whitespace-nowrap"
+                          className="w-full md:flex-1 min-w-0 px-3 py-2 rounded-lg text-[11px] lg:text-xs font-semibold border border-orange-400 bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 whitespace-nowrap"
                         >
                           <RefreshCw size={12} /> Renew Plan
                         </button>
                         <button
                           onClick={onUpgradeClick}
-                          className="w-full md:flex-1 px-3 py-2 rounded-lg text-xs font-semibold border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
+                          className="w-full md:flex-1 min-w-0 px-3 py-2 rounded-lg text-[11px] lg:text-xs font-semibold border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
                         >
                           <ArrowLeftRight size={12} />
                           {subscription?.billing_interval === 'annual' ? 'Switch to Monthly' : 'Switch to Annual'}
@@ -454,13 +464,29 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
 
         {/* ── Billing History ── */}
         <section>
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Billing History</h3>
+          <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Billing History</h3>
+            <div className="flex items-center gap-2">
+              <label htmlFor="billing-history-page-size" className="text-xs font-medium text-gray-500 dark:text-gray-400">View</label>
+              <select
+                id="billing-history-page-size"
+                value={historyPageSize}
+                onChange={(e) => setHistoryPageSize(Number(e.target.value))}
+                className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-semibold text-gray-700 dark:text-gray-200"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={30}>30</option>
+              </select>
+            </div>
+          </div>
 
           {isLoadingHistory ? (
             <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-gray-400" /></div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
                 <thead>
                   <tr className="border-b dark:border-gray-700">
                     <th className="pb-3 pr-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Date</th>
@@ -477,7 +503,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                       </td>
                     </tr>
                   ) : (
-                    billingHistory.map(inv => (
+                    paginatedHistory.map(inv => (
                       <tr key={inv.id} className="border-b dark:border-gray-700/60 last:border-0">
                         <td className="py-4 pr-6 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{formatDate(inv.date)}</td>
                         <td className="py-4 pr-6 text-sm text-gray-700 dark:text-gray-200">{inv.description}</td>
@@ -500,8 +526,43 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     ))
                   )}
                 </tbody>
-              </table>
-            </div>
+                </table>
+              </div>
+
+              {showHistoryPagination && (
+                <div className="mt-4 flex items-center justify-end gap-2 flex-wrap">
+                  <button
+                    onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                    disabled={historyPage === 1}
+                    className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-600 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Prev
+                  </button>
+
+                  {Array.from({ length: totalHistoryPages }, (_, i) => i + 1).map((pageNum) => (
+                    <button
+                      key={pageNum}
+                      onClick={() => setHistoryPage(pageNum)}
+                      className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${
+                        historyPage === pageNum
+                          ? 'border-orange-400 bg-orange-500 text-white'
+                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  ))}
+
+                  <button
+                    onClick={() => setHistoryPage((p) => Math.min(totalHistoryPages, p + 1))}
+                    disabled={historyPage === totalHistoryPages}
+                    className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-600 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </section>
       </div>
