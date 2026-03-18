@@ -197,8 +197,8 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 md:p-10">
-      <div className="max-w-3xl mx-auto space-y-10">
+    <div className="flex-1 overflow-y-auto p-6">
+      <div className="max-w-6xl mx-auto space-y-10">
 
         {/* ── Plan ── */}
         <section>
@@ -242,7 +242,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                           {isTogglingAutoRenew ? 'Processing...' : autoRenew ? 'Cancel Subscription' : 'Resume Subscription'}
                         </button>
                       ) : (
-                        <span className="text-xs text-gray-400">Add a card to manage subscription</span>
+                        <span className="text-xs text-gray-400 italic">Current plan</span>
                       )
                     ) : isUpgrade ? (
                       <>
@@ -273,21 +273,17 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         <section>
           <div className="flex items-center justify-between gap-4 mb-1">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">Enable auto renew</h3>
-            {subscription?.stripe_subscription_id ? (
-              <button
-                onClick={handleToggleAutoRenew}
-                disabled={isTogglingAutoRenew}
-                className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                  autoRenew ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
-                } ${isTogglingAutoRenew ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-              >
-                <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                  autoRenew ? 'translate-x-6' : 'translate-x-1'
-                }`} />
-              </button>
-            ) : (
-              <span className="text-xs text-gray-400 italic">No active subscription</span>
-            )}
+            <button
+              onClick={handleToggleAutoRenew}
+              disabled={isTogglingAutoRenew || !subscription?.stripe_subscription_id}
+              className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                autoRenew ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
+              } ${isTogglingAutoRenew || !subscription?.stripe_subscription_id ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                autoRenew ? 'translate-x-6' : 'translate-x-1'
+              }`} />
+            </button>
           </div>
           <p className="text-[11px] text-gray-400 leading-relaxed max-w-xl">
             This option, if checked, will renew your productive subscription, if the current plan expires. However, this might prevent you from downgrading.
@@ -313,8 +309,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                       if (isConfirming) {
                         handleDeleteCard(method.id);
                       } else {
-                        setConfirmingDeleteId(null);
-                        setSelectedMethodId(method.id);
+                        setConfirmingDeleteId(method.id);
                       }
                     }}
                     onMouseLeave={() => { if (isConfirming) setConfirmingDeleteId(null); }}
