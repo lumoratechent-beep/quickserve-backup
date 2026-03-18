@@ -66,7 +66,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     if (!subscription?.stripe_customer_id) return;
     setIsLoadingHistory(true);
     try {
-      const res = await fetch(`/api/stripe/billing-history?customerId=${encodeURIComponent(subscription.stripe_customer_id)}`);
+      const res = await fetch(`/api/stripe/billing?action=history&customerId=${encodeURIComponent(subscription.stripe_customer_id)}`);
       if (res.ok) {
         const data = await res.json();
         setBillingHistory(data.invoices || []);
@@ -80,7 +80,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     if (!subscription?.stripe_customer_id) return;
     setIsLoadingPayments(true);
     try {
-      const res = await fetch(`/api/stripe/payment-methods?customerId=${encodeURIComponent(subscription.stripe_customer_id)}`);
+      const res = await fetch(`/api/stripe/billing?action=payment-methods&customerId=${encodeURIComponent(subscription.stripe_customer_id)}`);
       if (res.ok) {
         const data = await res.json();
         setPaymentMethods(data.methods || []);
@@ -94,7 +94,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     if (!subscription?.stripe_subscription_id) return;
     setIsTogglingAutoRenew(true);
     try {
-      const res = await fetch('/api/stripe/toggle-auto-renew', {
+      const res = await fetch('/api/stripe/billing?action=toggle-auto-renew', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -115,7 +115,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     if (!subscription?.stripe_customer_id) return;
     setIsAddingCard(true);
     try {
-      const res = await fetch('/api/stripe/create-setup-session', {
+      const res = await fetch('/api/stripe/billing?action=setup-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ customerId: subscription.stripe_customer_id, restaurantId }),
@@ -132,7 +132,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   const handleDeleteCard = async (methodId: string) => {
     setIsDeletingCard(methodId);
     try {
-      const res = await fetch('/api/stripe/delete-payment-method', {
+      const res = await fetch('/api/stripe/billing?action=delete-payment-method', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ paymentMethodId: methodId }),
