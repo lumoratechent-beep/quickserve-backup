@@ -13,6 +13,7 @@ interface Props {
 
 const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscription, onClose, onUpgraded }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState('');
 
   const planIcons: Record<PlanId, React.ReactNode> = {
@@ -62,7 +63,7 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
       const res = await fetch('/api/stripe/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ restaurantId, planId, mode }),
+        body: JSON.stringify({ restaurantId, planId, mode, source: 'upgrade' }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -70,6 +71,7 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
         return;
       }
       if (data.url) {
+        setIsRedirecting(true);
         window.location.href = data.url;
       }
     } catch {
@@ -84,6 +86,14 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      {/* Redirecting overlay */}
+      {isRedirecting && (
+        <div className="absolute inset-0 z-[10000] flex flex-col items-center justify-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-md">
+          <Loader2 size={40} className="animate-spin text-orange-500 mb-4" />
+          <p className="text-sm font-black text-gray-700 dark:text-white uppercase tracking-widest">Redirecting to checkout...</p>
+          <p className="text-[10px] text-gray-400 mt-1">Please wait while we set things up</p>
+        </div>
+      )}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b dark:border-gray-700 p-6 flex items-center justify-between rounded-t-2xl">
           <div>
@@ -153,23 +163,23 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
                     <div className="flex flex-row gap-2">
                       <button
                         onClick={() => handleCheckout(plan.id, 'subscription')}
-                        disabled={isLoading}
+                        disabled={isLoading || isRedirecting}
                         className="flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-orange-500 text-white hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-1"
                       >
-                        <CreditCard size={12} /> Subscribe
+                        {isLoading ? <Loader2 size={12} className="animate-spin" /> : <><CreditCard size={12} /> Subscribe</>}
                       </button>
                       <button
                         onClick={() => handleCheckout(plan.id, 'payment')}
-                        disabled={isLoading}
-                        className="flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                        disabled={isLoading || isRedirecting}
+                        className="flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50 flex items-center justify-center gap-1"
                       >
-                        One-time
+                        {isLoading ? <Loader2 size={12} className="animate-spin" /> : 'One-time'}
                       </button>
                     </div>
                   ) : isUpgrade ? (
                     <button
                       onClick={() => handleUpgrade(plan.id)}
-                      disabled={isLoading}
+                      disabled={isLoading || isRedirecting}
                       className="w-full py-3 rounded-lg text-xs font-black uppercase tracking-wider bg-orange-500 text-white hover:bg-orange-600 hover:scale-[1.02] transition-all disabled:opacity-50 flex items-center justify-center gap-1"
                     >
                       {isLoading ? <Loader2 size={14} className="animate-spin" /> : <><ArrowRight size={14} /> Upgrade</>}

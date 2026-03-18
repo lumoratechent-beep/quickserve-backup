@@ -2606,6 +2606,135 @@ const PosOnlyView: React.FC<Props> = ({
     </div>
   );
 
+  const renderKitchenSettingsContent = () => {
+    const kitchenStaff = staffList.filter((s: any) => s.role === 'KITCHEN');
+    return (
+      <>
+        {/* Enable/Disable Toggle */}
+        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+          <div>
+            <p className="text-xs font-black dark:text-white">Kitchen Display System</p>
+            <p className="text-[9px] text-gray-400 mt-0.5">Route orders to kitchen screens with department support</p>
+          </div>
+          <button
+            onClick={() => updateFeatureSetting('kitchenEnabled', !featureSettings.kitchenEnabled)}
+            className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.kitchenEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+          >
+            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.kitchenEnabled ? 'left-6' : 'left-1'}`} />
+          </button>
+        </div>
+
+        {featureSettings.kitchenEnabled && (
+          <>
+            {/* Kitchen Order Settings */}
+            <div className="border-t dark:border-gray-700 pt-4">
+              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Order Settings</p>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                  <div>
+                    <p className="text-xs font-black dark:text-white">Auto-Accept Orders</p>
+                    <p className="text-[9px] text-gray-400 mt-0.5">Automatically accept incoming orders</p>
+                  </div>
+                  <button
+                    onClick={() => toggleKitchenOrderSetting('autoAccept')}
+                    className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoAccept ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${kitchenOrderSettings.autoAccept ? 'left-6' : 'left-1'}`} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                  <div>
+                    <p className="text-xs font-black dark:text-white">Auto-Print Orders</p>
+                    <p className="text-[9px] text-gray-400 mt-0.5">Print order ticket when accepted</p>
+                  </div>
+                  <button
+                    onClick={() => toggleKitchenOrderSetting('autoPrint')}
+                    className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoPrint ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${kitchenOrderSettings.autoPrint ? 'left-6' : 'left-1'}`} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Departments / Divisions */}
+            <div className="border-t dark:border-gray-700 pt-4">
+              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Departments</p>
+              <p className="text-[9px] text-gray-400 mb-3">Create kitchen departments to route specific categories to specific screens.</p>
+              {kitchenDivisions.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {kitchenDivisions.map(div => (
+                    <div key={div} className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg text-[10px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800">
+                      {div}
+                      <button onClick={() => handleRemoveDivision(div)} className="ml-1 text-orange-400 hover:text-red-500 transition-colors"><X size={12} /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newDivisionName}
+                  onChange={e => setNewDivisionName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleAddDivision(); }}
+                  placeholder="e.g. Grill, Pastry, Drinks..."
+                  className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                />
+                <button
+                  onClick={handleAddDivision}
+                  disabled={!newDivisionName.trim()}
+                  className="px-4 py-2 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50"
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+            </div>
+
+            {/* Kitchen Staff */}
+            <div className="border-t dark:border-gray-700 pt-4">
+              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Kitchen Staff</p>
+              <p className="text-[9px] text-gray-400 mb-3">Staff assigned to kitchen role can access the Kitchen Display.</p>
+              {kitchenStaff.length > 0 ? (
+                <div className="space-y-2 mb-3">
+                  {kitchenStaff.map((staff: any, idx: number) => (
+                    <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                      <div>
+                        <p className="text-xs font-black dark:text-white">{staff.username}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">Kitchen</span>
+                          {staff.kitchen_categories && staff.kitchen_categories.length > 0 && (
+                            <span className="text-[9px] text-gray-400">{staff.kitchen_categories.join(', ')}</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveStaff(staff, staffList.indexOf(staff))}
+                        className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-dashed dark:border-gray-600 mb-3">
+                  <Users size={20} className="mx-auto text-gray-300 mb-2" />
+                  <p className="text-[9px] text-gray-400 uppercase tracking-widest font-black">No kitchen staff yet</p>
+                </div>
+              )}
+              <button
+                onClick={() => { setNewStaffRole('KITCHEN'); setIsAddStaffModalOpen(true); }}
+                className="w-full py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
+              >
+                <UserPlus size={14} /> Add Kitchen Staff
+              </button>
+            </div>
+          </>
+        )}
+      </>
+    );
+  };
+
   const renderPaymentTypesContent = () => (
     <div className="space-y-4">
       {paymentTypes.length === 0 ? (
@@ -3792,20 +3921,7 @@ const PosOnlyView: React.FC<Props> = ({
                     {featuresPanel === 'kitchen' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
                         <div className="max-w-lg space-y-4">
-                          {canUseKitchen ? (
-                            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                              <div>
-                                <p className="text-xs font-black dark:text-white">Kitchen Display System</p>
-                                <p className="text-[9px] text-gray-400 mt-0.5">Route orders to kitchen screens with department support</p>
-                              </div>
-                              <button
-                                onClick={() => updateFeatureSetting('kitchenEnabled', !featureSettings.kitchenEnabled)}
-                                className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.kitchenEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                              >
-                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.kitchenEnabled ? 'left-6' : 'left-1'}`} />
-                              </button>
-                            </div>
-                          ) : (
+                          {canUseKitchen ? renderKitchenSettingsContent() : (
                             <div className="text-center py-6">
                               <Coffee size={32} className="mx-auto text-gray-300 mb-3" />
                               <p className="text-xs font-black dark:text-white mb-1">Upgrade to Pro Plus</p>
@@ -3941,20 +4057,7 @@ const PosOnlyView: React.FC<Props> = ({
 
                         {featuresPanel === 'kitchen' && (
                           <div className="space-y-4">
-                            {canUseKitchen ? (
-                              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                                <div>
-                                  <p className="text-xs font-black dark:text-white">Kitchen Display System</p>
-                                  <p className="text-[9px] text-gray-400 mt-0.5">Route orders to kitchen screens with department support</p>
-                                </div>
-                                <button
-                                  onClick={() => updateFeatureSetting('kitchenEnabled', !featureSettings.kitchenEnabled)}
-                                  className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.kitchenEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                                >
-                                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.kitchenEnabled ? 'left-6' : 'left-1'}`} />
-                                </button>
-                              </div>
-                            ) : (
+                            {canUseKitchen ? renderKitchenSettingsContent() : (
                               <div className="text-center py-8">
                                 <Coffee size={36} className="mx-auto text-gray-300 mb-3" />
                                 <p className="text-sm font-black dark:text-white mb-1">Upgrade to Pro Plus</p>

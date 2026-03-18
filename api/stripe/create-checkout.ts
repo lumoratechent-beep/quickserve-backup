@@ -29,8 +29,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { restaurantId, planId, mode } = req.body || {};
+  const { restaurantId, planId, mode, source } = req.body || {};
   // mode: 'subscription' (recurring) or 'payment' (one-time month)
+  // source: 'upgrade' (from in-app upgrade modal) or undefined (registration)
 
   if (!restaurantId || !planId) {
     return res.status(400).json({ error: 'restaurantId and planId are required.' });
@@ -82,6 +83,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const baseUrl = (req.headers.origin || req.headers.referer || 'https://quickserve.my').replace(/\/$/, '');
 
+    const cancelParams = source === 'upgrade' ? '?payment=cancelled&source=upgrade' : '?payment=cancelled';
+
     if (mode === 'payment') {
       // One-time payment for a single month
       const session = await stripe.checkout.sessions.create({
@@ -89,7 +92,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         mode: 'payment',
         line_items: [{ price: priceId, quantity: 1 }],
         success_url: `${baseUrl}?payment=success`,
-        cancel_url: `${baseUrl}?payment=cancelled`,
+        cancel_url: `${baseUrl}${cancelParams}`,
         metadata: { restaurant_id: restaurantId, plan_id: planId },
       });
       return res.status(200).json({ url: session.url });
@@ -102,7 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${baseUrl}?payment=success`,
-      cancel_url: `${baseUrl}?payment=cancelled`,
+      cancel_url: `${baseUrl}${cancelParams}`,
       subscription_data: {
         metadata: { restaurant_id: restaurantId, plan_id: planId },
       },

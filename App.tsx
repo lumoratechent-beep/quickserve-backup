@@ -197,9 +197,17 @@ const App: React.FC = () => {
     
     // Handle Stripe payment redirect
     const paymentStatus = params.get('payment');
-    if (paymentStatus === 'success' || paymentStatus === 'cancelled') {
-      // Clean URL without reloading
+    const paymentSource = params.get('source');
+    if (paymentStatus === 'success') {
       window.history.replaceState({}, '', window.location.pathname);
+      return 'LOGIN';
+    }
+    if (paymentStatus === 'cancelled') {
+      window.history.replaceState({}, '', window.location.pathname);
+      // If cancelled from in-app upgrade, go back to the app; otherwise to login
+      if (paymentSource === 'upgrade') {
+        return savedView || 'APP';
+      }
       return 'LOGIN';
     }
 
@@ -215,14 +223,20 @@ const App: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const paymentStatus = params.get('payment');
+    const paymentSource = params.get('source');
     if (paymentStatus === 'success') {
       toast('Your free trial is active! Log in to get started.', 'success');
       window.history.replaceState({}, '', window.location.pathname);
       setView('LOGIN');
     } else if (paymentStatus === 'cancelled') {
-      toast('Card setup was cancelled. You can try again by registering.', 'error');
       window.history.replaceState({}, '', window.location.pathname);
-      setView('LOGIN');
+      if (paymentSource === 'upgrade') {
+        toast('Checkout was cancelled. You can try again anytime.', 'warning');
+        // Stay on the current view (APP/POS) — don't redirect to login
+      } else {
+        toast('Card setup was cancelled. You can try again by registering.', 'error');
+        setView('LOGIN');
+      }
     }
   }, []);
   
