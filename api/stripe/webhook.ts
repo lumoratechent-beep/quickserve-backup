@@ -162,10 +162,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ? new Date(subItem.current_period_end * 1000).toISOString()
           : null;
 
+        // Also update plan_id from metadata so the webhook acts as a safety net
+        const planId = subscription.metadata?.plan_id;
+
         await supabase
           .from('subscriptions')
           .update({
             status: statusMap[subscription.status] || subscription.status,
+            ...(planId ? { plan_id: planId } : {}),
             current_period_start: periodStart,
             current_period_end: periodEnd,
             cancel_at_period_end: subscription.cancel_at_period_end,
@@ -173,8 +177,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           })
           .eq('restaurant_id', restaurantId);
 
-        // Handle plan upgrade — check price to plan mapping
-        const planId = subscription.metadata?.plan_id;
+        // Update restaurant features based on plan
         if (planId && PLAN_PLATFORM_MAP[planId]) {
           const { platformAccess, kitchenEnabled } = PLAN_PLATFORM_MAP[planId];
           await supabase

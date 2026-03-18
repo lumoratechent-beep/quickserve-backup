@@ -80,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     // Update local subscription record
-    await supabase
+    const { error: subError } = await supabase
       .from('subscriptions')
       .update({
         plan_id: newPlanId,
@@ -89,13 +89,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
       .eq('restaurant_id', restaurantId);
 
+    if (subError) {
+      console.error('Failed to update subscription in DB:', subError);
+      return res.status(500).json({ error: 'Stripe updated but failed to save plan change. Please refresh or contact support.' });
+    }
+
     // Update restaurant features based on new plan
     if (PLAN_PLATFORM_MAP[newPlanId]) {
       const { platformAccess, kitchenEnabled } = PLAN_PLATFORM_MAP[newPlanId];
-      await supabase
+      const { error: resError } = await supabase
         .from('restaurants')
         .update({ platform_access: platformAccess, kitchen_enabled: kitchenEnabled })
         .eq('id', restaurantId);
+
+      if (resError) {
+        console.error('Failed to update restaurant features in DB:', resError);
+      }
     }
 
     const updatedItem = updated.items.data[0];
