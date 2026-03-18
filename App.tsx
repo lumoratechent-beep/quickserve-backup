@@ -191,31 +191,37 @@ const App: React.FC = () => {
     return unsubscribe;
   }, []);
   
+  // Capture Stripe redirect params ONCE before any state initializer clears the URL
+  const stripeRedirectRef = useRef(() => {
+    const params = new URLSearchParams(window.location.search);
+    const payment = params.get('payment');
+    const source = params.get('source');
+    if (payment) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    return { payment, source };
+  });
+  const [stripeRedirect] = useState(() => stripeRedirectRef.current());
+
   const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS'>(() => {
     const savedView = localStorage.getItem('qs_view') as any;
-    const params = new URLSearchParams(window.location.search);
     
     // Handle Stripe payment redirect
-    const paymentStatus = params.get('payment');
-    const paymentSource = params.get('source');
-    if (paymentStatus === 'success') {
-      window.history.replaceState({}, '', window.location.pathname);
-      // If returning from an in-app upgrade checkout, stay on the current view
-      if (paymentSource === 'upgrade') {
+    if (stripeRedirect.payment === 'success') {
+      if (stripeRedirect.source === 'upgrade') {
         return savedView || 'APP';
       }
       return 'LOGIN';
     }
-    if (paymentStatus === 'cancelled') {
-      window.history.replaceState({}, '', window.location.pathname);
-      // If cancelled from in-app upgrade, go back to the app; otherwise to login
-      if (paymentSource === 'upgrade') {
+    if (stripeRedirect.payment === 'cancelled') {
+      if (stripeRedirect.source === 'upgrade') {
         return savedView || 'APP';
       }
       return 'LOGIN';
     }
 
     // If no session and no params, show marketing page as the first impression
+    const params = new URLSearchParams(window.location.search);
     if (!savedView && !params.get('loc')) {
       return 'MARKETING';
     }
@@ -225,26 +231,19 @@ const App: React.FC = () => {
 
   // Show toast for Stripe payment redirect on mount
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const paymentStatus = params.get('payment');
-    const paymentSource = params.get('source');
-    if (paymentStatus === 'success') {
-      window.history.replaceState({}, '', window.location.pathname);
-      if (paymentSource === 'upgrade') {
+    if (stripeRedirect.payment === 'success') {
+      if (stripeRedirect.source === 'upgrade') {
         toast('Plan upgraded successfully!', 'success');
         // Refresh subscription & restaurant data so new plan features unlock immediately
         fetchSubscriptions();
         fetchRestaurants();
-        // Stay on current view — don't redirect to login
       } else {
         toast('Your free trial is active! Log in to get started.', 'success');
         setView('LOGIN');
       }
-    } else if (paymentStatus === 'cancelled') {
-      window.history.replaceState({}, '', window.location.pathname);
-      if (paymentSource === 'upgrade') {
+    } else if (stripeRedirect.payment === 'cancelled') {
+      if (stripeRedirect.source === 'upgrade') {
         toast('Checkout was cancelled. You can try again anytime.', 'warning');
-        // Stay on the current view (APP/POS) — don't redirect to login
       } else {
         toast('Card setup was cancelled. You can try again by registering.', 'error');
         setView('LOGIN');

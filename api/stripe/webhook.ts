@@ -79,21 +79,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? new Date(subItem.current_period_end * 1000).toISOString()
             : null;
 
-          await supabase
-            .from('subscriptions')
-            .update({
+          const subUpdate: Record<string, any> = {
               status: isTrialing ? 'trialing' : 'active',
               stripe_subscription_id: subscription.id,
               stripe_customer_id: session.customer as string,
-              plan_id: planId || undefined,
               billing_interval: billingInterval,
-              trial_start: isTrialing ? new Date().toISOString() : undefined,
-              trial_end: trialEnd || undefined,
               current_period_start: periodStart,
               current_period_end: periodEnd,
               updated_at: new Date().toISOString(),
-            })
+          };
+          if (planId) subUpdate.plan_id = planId;
+          if (isTrialing) {
+            subUpdate.trial_start = new Date().toISOString();
+            subUpdate.trial_end = trialEnd;
+          }
+
+          const { error: subError } = await supabase
+            .from('subscriptions')
+            .update(subUpdate)
             .eq('restaurant_id', restaurantId);
+
+          if (subError) {
+            console.error('Webhook: Failed to update subscription for', restaurantId, subError);
+          }
 
           // Activate the vendor user now that card is saved
           await supabase
