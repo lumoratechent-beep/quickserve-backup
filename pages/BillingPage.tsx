@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Subscription, PlanId } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 import { daysLeftInTrial, isTrialActive, isSubscriptionActive } from '../lib/subscriptionService';
-import { Loader2, Check, Minus, Plus } from 'lucide-react';
+import { Loader2, Check, Plus } from 'lucide-react';
 
 interface BillingHistory {
   id: string;
@@ -216,45 +216,42 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     </div>
                   )}
 
-                  {/* Header: name + price */}
-                  <div className="flex items-start justify-between mb-1">
-                    <h4 className="text-base font-bold text-gray-900 dark:text-white">{plan.name}</h4>
-                    <div className="text-right shrink-0 ml-3">
-                      <span className="text-lg font-extrabold text-gray-900 dark:text-white">RM{plan.price}</span>
-                      <span className="text-xs text-gray-400 font-medium">/month</span>
-                    </div>
-                  </div>
+                  {/* Name + price stacked */}
+                  <h4 className="text-base font-bold text-gray-900 dark:text-white">{plan.name}</h4>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 font-semibold mb-0.5">RM{plan.price}<span className="text-xs font-medium text-gray-400">/month</span></p>
 
                   {/* Days remaining */}
-                  <p className="text-xs text-gray-400 mb-5">{getDaysLabel(plan)}</p>
+                  <p className="text-xs text-gray-400 mb-5 min-h-[16px]">{getDaysLabel(plan)}</p>
 
-                  {/* Action */}
-                  {isCurrent ? (
-                    <button
-                      onClick={handleToggleAutoRenew}
-                      disabled={isTogglingAutoRenew || !subscription?.stripe_subscription_id}
-                      className="px-4 py-2 rounded-lg text-xs font-semibold border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors disabled:opacity-40"
-                    >
-                      {isTogglingAutoRenew ? 'Processing...' : autoRenew ? 'Cancel Subscription' : 'Resume Subscription'}
-                    </button>
-                  ) : isUpgrade ? (
-                    <div className="flex items-center gap-3">
+                  {/* Action — all same height */}
+                  <div className="flex items-center gap-3 min-h-[34px]">
+                    {isCurrent ? (
                       <button
-                        onClick={onUpgradeClick}
-                        className="px-4 py-2 rounded-lg text-xs font-semibold border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors"
+                        onClick={handleToggleAutoRenew}
+                        disabled={isTogglingAutoRenew || !subscription?.stripe_subscription_id}
+                        className="px-4 py-2 rounded-lg text-xs font-semibold border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors disabled:opacity-40"
                       >
-                        Upgrade
+                        {isTogglingAutoRenew ? 'Processing...' : autoRenew ? 'Cancel Subscription' : 'Resume Subscription'}
                       </button>
-                      <button
-                        onClick={onUpgradeClick}
-                        className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                      >
-                        Learn more about this plan
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-gray-400">—</span>
-                  )}
+                    ) : isUpgrade ? (
+                      <>
+                        <button
+                          onClick={onUpgradeClick}
+                          className="px-4 py-2 rounded-lg text-xs font-semibold border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors"
+                        >
+                          Upgrade
+                        </button>
+                        <button
+                          onClick={onUpgradeClick}
+                          className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        >
+                          Learn more about this plan
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-xs text-gray-400">—</span>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -292,40 +289,51 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
             <div className="flex items-stretch gap-4 overflow-x-auto pb-4" onClick={() => setConfirmingDeleteId(null)}>
               {paymentMethods.map(method => {
                 const isSelected = method.id === selectedMethodId;
+                const isConfirming = confirmingDeleteId === method.id;
                 return (
                   <div
                     key={method.id}
-                    onClick={(e) => { e.stopPropagation(); setConfirmingDeleteId(null); setSelectedMethodId(method.id); }}
-                    className={`relative rounded-xl border-2 px-5 py-5 min-w-[220px] cursor-pointer transition-all select-none overflow-hidden ${
-                      isSelected
-                        ? 'border-orange-400 bg-white dark:bg-gray-800'
-                        : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60'
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isConfirming) {
+                        handleDeleteCard(method.id);
+                      } else {
+                        setConfirmingDeleteId(null);
+                        setSelectedMethodId(method.id);
+                      }
+                    }}
+                    onMouseLeave={() => { if (isConfirming) setConfirmingDeleteId(null); }}
+                    className={`group relative rounded-xl border-2 px-5 py-5 min-w-[220px] cursor-pointer transition-all select-none overflow-hidden ${
+                      isConfirming
+                        ? 'border-red-400 bg-red-50 dark:bg-red-900/20'
+                        : isSelected
+                          ? 'border-orange-400 bg-white dark:bg-gray-800'
+                          : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60'
                     }`}
                   >
                     {/* Checkmark */}
-                    {isSelected && (
+                    {isSelected && !isConfirming && (
                       <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center">
                         <Check size={14} className="text-white" strokeWidth={3} />
                       </div>
                     )}
 
-                    {/* Delete confirmation overlay */}
-                    {confirmingDeleteId === method.id && (
-                      <div
-                        className="absolute inset-0 rounded-xl bg-red-500/90 flex flex-col items-center justify-center z-10 cursor-default"
-                        onClick={(e) => e.stopPropagation()}
-                      >
+                    {/* Hover delete hint — shows on hover when not confirming */}
+                    {!isConfirming && (
+                      <div className="absolute inset-0 rounded-xl bg-red-500/80 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity z-10">
+                        <p className="text-white text-xs font-bold">Click to delete</p>
+                      </div>
+                    )}
+
+                    {/* Delete confirmation state */}
+                    {isConfirming && (
+                      <div className="absolute inset-0 rounded-xl bg-red-500/90 flex flex-col items-center justify-center z-10">
                         {isDeletingCard === method.id ? (
                           <Loader2 size={20} className="animate-spin text-white" />
                         ) : (
                           <>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleDeleteCard(method.id); }}
-                              className="text-white text-xs font-bold hover:underline"
-                            >
-                              Delete this card?
-                            </button>
-                            <p className="text-white/70 text-[10px] mt-1">Tap anywhere else to cancel</p>
+                            <p className="text-white text-xs font-bold">Confirm delete?</p>
+                            <p className="text-white/70 text-[10px] mt-1">Click to confirm · Hover away to cancel</p>
                           </>
                         )}
                       </div>
@@ -343,14 +351,6 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                         •••• •••• ••••{method.last4}
                       </span>
                     </div>
-
-                    {/* Delete trigger — bottom right circle */}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setConfirmingDeleteId(method.id); }}
-                      className="absolute -bottom-2.5 -right-2.5 w-6 h-6 rounded-full bg-orange-400 hover:bg-red-500 flex items-center justify-center shadow transition-colors"
-                    >
-                      <Minus size={14} className="text-white" strokeWidth={3} />
-                    </button>
                   </div>
                 );
               })}
