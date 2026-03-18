@@ -98,7 +98,7 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
     const annualSavePct = Math.round((1 - PRICING_PLANS[1].annualPrice / PRICING_PLANS[1].price) * 100);
 
     return (
-      <div className="h-screen overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors flex flex-col">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors flex flex-col overflow-y-auto">
         <button
           onClick={onBack}
           className="fixed top-4 left-4 lg:top-8 lg:left-8 z-50 flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 font-semibold transition-colors"
@@ -154,7 +154,7 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 lg:gap-6 flex-1 min-h-0">
+          <div className="grid grid-cols-3 gap-3 lg:gap-6">
             {PRICING_PLANS.map((plan) => {
               const displayPrice = billingCycle === 'annual' ? plan.annualPrice : plan.price;
 
@@ -215,7 +215,7 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
             })}
           </div>
 
-          <div className="shrink-0 pt-3 lg:pt-4">
+          <div className="pt-3 lg:pt-4 pb-2">
             <p className="text-center text-gray-400 text-[10px] lg:text-xs font-medium">
               All plans include a {TRIAL_DAYS}-day free trial. Cancel anytime. Prices in Malaysian Ringgit (MYR).
             </p>
