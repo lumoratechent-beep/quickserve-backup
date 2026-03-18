@@ -196,10 +196,11 @@ const App: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const payment = params.get('payment');
     const source = params.get('source');
+    const checkoutSessionId = params.get('checkout_session_id');
     if (payment) {
       window.history.replaceState({}, '', window.location.pathname);
     }
-    return { payment, source };
+    return { payment, source, checkoutSessionId };
   });
   const [stripeRedirect] = useState(() => stripeRedirectRef.current());
 
@@ -231,12 +232,40 @@ const App: React.FC = () => {
 
   // Show toast for Stripe payment redirect on mount
   useEffect(() => {
+    const refreshPlanState = async () => {
+      await Promise.all([fetchSubscriptions(), fetchRestaurants()]);
+    };
+
     if (stripeRedirect.payment === 'success') {
       if (stripeRedirect.source === 'upgrade') {
-        toast('Plan upgraded successfully!', 'success');
-        // Refresh subscription & restaurant data so new plan features unlock immediately
-        fetchSubscriptions();
-        fetchRestaurants();
+        const syncAfterCheckout = async () => {
+          if (stripeRedirect.checkoutSessionId) {
+            toast('Payment successful. Finalizing plan update...', 'info');
+            try {
+              const res = await fetch('/api/stripe/confirm-checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ checkoutSessionId: stripeRedirect.checkoutSessionId }),
+              });
+              const data = await res.json();
+              if (!res.ok) {
+                throw new Error(data?.error || 'Unable to sync plan update.');
+              }
+              await refreshPlanState();
+              const planLabel = (data?.planId || 'new').toString().replace('_', ' ').toUpperCase();
+              toast(`Plan updated to ${planLabel}.`, 'success');
+              return;
+            } catch (err) {
+              console.error('Post-checkout sync failed:', err);
+            }
+          }
+
+          // Fallback path when no session id is present or confirmation fails.
+          await refreshPlanState();
+          toast('Payment received. Plan sync may take a few seconds to appear.', 'warning');
+        };
+
+        syncAfterCheckout();
       } else {
         toast('Your free trial is active! Log in to get started.', 'success');
         setView('LOGIN');

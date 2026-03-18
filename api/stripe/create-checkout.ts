@@ -4,10 +4,11 @@ import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
 
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://anknjpuiklglykguneax.supabase.co',
-  process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || ''
+  supabaseServiceKey
 );
 
 // Map plan IDs to Stripe price IDs (set these in env vars)
@@ -32,6 +33,10 @@ const PLAN_TRIAL_COUPON_MAP: Record<string, string> = {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (!supabaseServiceKey) {
+    return res.status(500).json({ error: 'SUPABASE_SERVICE_KEY is not configured.' });
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -92,7 +97,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const baseUrl = (req.headers.origin || req.headers.referer || 'https://quickserve.my').replace(/\/$/, '');
 
-    const successParams = source === 'upgrade' ? '?payment=success&source=upgrade' : source === 'renew' ? '?payment=success&source=upgrade' : '?payment=success';
+    const successParams = source === 'upgrade'
+      ? '?payment=success&source=upgrade&checkout_session_id={CHECKOUT_SESSION_ID}'
+      : source === 'renew'
+        ? '?payment=success&source=upgrade&checkout_session_id={CHECKOUT_SESSION_ID}'
+        : '?payment=success&checkout_session_id={CHECKOUT_SESSION_ID}';
     const cancelParams = (source === 'upgrade' || source === 'renew') ? '?payment=cancelled&source=upgrade' : '?payment=cancelled';
 
     if (mode === 'payment') {

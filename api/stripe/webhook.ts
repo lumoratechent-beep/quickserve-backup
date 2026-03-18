@@ -5,10 +5,11 @@ import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
 
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://anknjpuiklglykguneax.supabase.co',
-  process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || ''
+  supabaseServiceKey
 );
 
 const PLAN_PLATFORM_MAP: Record<string, { platformAccess: string; kitchenEnabled: boolean }> = {
@@ -30,6 +31,10 @@ async function getRawBody(req: VercelRequest): Promise<Buffer> {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (!supabaseServiceKey) {
+    return res.status(500).json({ error: 'SUPABASE_SERVICE_KEY is not configured.' });
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -113,6 +118,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // Single payment — extend by 30 days
           // If renew_from is set, extend from that date (not from today)
           const renewFrom = session.metadata?.renew_from;
+          const billingInterval = session.metadata?.billing_interval || 'monthly';
           let periodStart: Date;
           if (renewFrom) {
             const renewDate = new Date(renewFrom);
@@ -128,6 +134,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .from('subscriptions')
             .update({
               status: 'active',
+              ...(planId ? { plan_id: planId } : {}),
+              billing_interval: billingInterval,
               stripe_customer_id: session.customer as string,
               current_period_start: periodStart.toISOString(),
               current_period_end: periodEnd.toISOString(),
