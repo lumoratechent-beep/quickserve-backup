@@ -198,28 +198,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const intervalLabel = isAnnual ? 'Annual' : 'Monthly';
         const chargeDescription = `QuickServe ${planNames[planId] || planId} Plan Renewal (${intervalLabel})`;
 
-        // Create invoice item (pending — auto-attached to next invoice)
-        await stripe.invoiceItems.create({
-          customer: renewSub.stripe_customer_id,
-          amount: totalAmount,
-          currency: 'myr',
-          description: chargeDescription,
-        });
+        // Create invoice item → invoice → pay in one flow
+        try {
+          await stripe.invoiceItems.create({
+            customer: renewSub.stripe_customer_id,
+            amount: totalAmount,
+            currency: 'myr',
+            description: chargeDescription,
+          });
+        } catch (iiErr: any) {
+          console.error('InvoiceItem creation failed:', iiErr?.message);
+          return res.status(500).json({ error: `Failed to create invoice item: ${iiErr?.message}` });
+        }
 
-        // Create invoice — collects the pending item above
-        const invoice = await stripe.invoices.create({
-          customer: renewSub.stripe_customer_id,
-          collection_method: 'charge_automatically',
-          default_payment_method: paymentMethodId,
-          auto_advance: false,
-          metadata: { restaurant_id: renewRestId, plan_id: planId, type: 'renewal' },
-        });
+        let invoice: Stripe.Invoice;
+        try {
+          invoice = await stripe.invoices.create({
+            customer: renewSub.stripe_customer_id,
+            default_payment_method: paymentMethodId,
+            auto_advance: true,
+            metadata: { restaurant_id: renewRestId, plan_id: planId, type: 'renewal' },
+          });
+        } catch (invErr: any) {
+          console.error('Invoice creation failed:', invErr?.message);
+          return res.status(500).json({ error: `Failed to create invoice: ${invErr?.message}` });
+        }
 
-        // Finalize (draft → open) then pay
-        await stripe.invoices.finalizeInvoice(invoice.id);
-        const paidInvoice = await stripe.invoices.pay(invoice.id, {
-          payment_method: paymentMethodId,
-        });
+        let paidInvoice: Stripe.Invoice;
+        try {
+          paidInvoice = await stripe.invoices.pay(invoice.id, {
+            payment_method: paymentMethodId,
+          });
+        } catch (payErr: any) {
+          console.error('Invoice pay failed:', payErr?.message);
+          return res.status(402).json({
+            error: payErr?.message || 'Payment failed. Please try a different card or contact your bank.',
+          });
+        }
 
         if (paidInvoice.status !== 'paid') {
           return res.status(402).json({
@@ -263,6 +278,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   } catch (err: any) {
     console.error(`Stripe billing error (${action}):`, err);
-    return res.status(500).json({ error: `Billing operation failed: ${action}` });
+    return res.status(500).json({ error: err?.message || `Billing operation failed: ${action}` });
   }
 }
