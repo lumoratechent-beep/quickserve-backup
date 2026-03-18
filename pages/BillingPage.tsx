@@ -311,20 +311,18 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     const d = new Date(expiryDate);
                     const formatted = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
                     const isExpired = d < new Date();
+                    const currentPlanDaysLeft = Math.max(0, Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
                     return (
                       <div className="space-y-1">
                         <p className={`text-xs font-semibold ${
                           isExpired ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'
                         }`}>
-                          Current Plan Expires: {formatted}
+                          Current Plan Expires: {formatted} ({currentPlanDaysLeft} days remaining)
                         </p>
                         {hasPendingDowngrade && previousPlanName && previousAccessEndDate && (
                           <>
                             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                              {previousPlanName} Plan End on : {new Date(previousAccessEndDate).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
-                            </p>
-                            <p className="text-xs text-gray-400">
-                              {previousPlanDaysLeft} days remaining
+                              {previousPlanName} Plan End on : {new Date(previousAccessEndDate).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })} ({previousPlanDaysLeft} days remaining)
                             </p>
                           </>
                         )}
