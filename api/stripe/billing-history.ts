@@ -20,13 +20,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       limit: 24,
     });
 
-    const result = invoices.data.map(inv => ({
-      id: inv.id,
-      date: inv.created ? new Date(inv.created * 1000).toISOString() : '',
-      description: inv.lines.data[0]?.description || `${(inv.lines.data[0]?.price as any)?.nickname || 'Subscription'} payment`,
-      amount: (inv.amount_paid || 0) / 100,
-      invoiceUrl: inv.invoice_pdf || inv.hosted_invoice_url || null,
-    }));
+    const result = invoices.data.map(inv => {
+      const lineDesc = inv.lines.data[0]?.description;
+      return {
+        id: inv.id,
+        date: inv.created ? new Date(inv.created * 1000).toISOString() : '',
+        description: lineDesc || inv.description || 'Subscription payment',
+        amount: (inv.amount_paid || 0) / 100,
+        invoiceUrl: inv.invoice_pdf || inv.hosted_invoice_url || null,
+      };
+    });
 
     return res.status(200).json({ invoices: result });
   } catch (err: any) {
