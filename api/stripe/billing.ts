@@ -138,8 +138,112 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ success: true, cancelAtPeriodEnd: !!cancelAtPeriodEnd });
       }
 
+      // POST /api/stripe/billing?action=renew-direct  body: { restaurantId, paymentMethodId }
+      // Charges the saved card directly for a renewal period (month or year)
+      case 'renew-direct': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { restaurantId: renewRestId, paymentMethodId: renewPmId } = req.body || {};
+        if (!renewRestId) return res.status(400).json({ error: 'restaurantId is required.' });
+
+        // Get subscription details
+        const { data: renewSub } = await supabase
+          .from('subscriptions')
+          .select('stripe_customer_id, plan_id, billing_interval, current_period_end, trial_end')
+          .eq('restaurant_id', renewRestId)
+          .single();
+
+        if (!renewSub?.stripe_customer_id) {
+          return res.status(400).json({ error: 'No Stripe customer found. Please add a payment method first.' });
+        }
+
+        const planId = renewSub.plan_id || 'basic';
+        const isAnnual = renewSub.billing_interval === 'annual';
+
+        // Determine the price
+        const PLAN_PRICES: Record<string, { monthly: number; annual: number }> = {
+          basic: { monthly: 30, annual: 25 },
+          pro: { monthly: 50, annual: 42 },
+          pro_plus: { monthly: 70, annual: 60 },
+        };
+        const planPrices = PLAN_PRICES[planId] || PLAN_PRICES.basic;
+        const monthlyPrice = isAnnual ? planPrices.annual : planPrices.monthly;
+        const months = isAnnual ? 12 : 1;
+        const totalAmount = monthlyPrice * months * 100; // in cents (MYR)
+
+        // Determine the payment method to use
+        let paymentMethodId = renewPmId;
+        if (!paymentMethodId) {
+          // Use the default payment method
+          const customer = await stripe.customers.retrieve(renewSub.stripe_customer_id) as Stripe.Customer;
+          paymentMethodId = typeof customer.invoice_settings?.default_payment_method === 'string'
+            ? customer.invoice_settings.default_payment_method
+            : customer.invoice_settings?.default_payment_method?.id;
+
+          if (!paymentMethodId) {
+            // Fallback: get the first available card
+            const pms = await stripe.paymentMethods.list({ customer: renewSub.stripe_customer_id, type: 'card', limit: 1 });
+            paymentMethodId = pms.data[0]?.id;
+          }
+        }
+
+        if (!paymentMethodId) {
+          return res.status(400).json({ error: 'No payment method found. Please add a card first.' });
+        }
+
+        const planNames: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
+        const intervalLabel = isAnnual ? 'Annual' : 'Monthly';
+
+        // Create a PaymentIntent and charge immediately
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: totalAmount,
+          currency: 'myr',
+          customer: renewSub.stripe_customer_id,
+          payment_method: paymentMethodId,
+          off_session: true,
+          confirm: true,
+          description: `QuickServe ${planNames[planId] || planId} Plan Renewal (${intervalLabel})`,
+          metadata: { restaurant_id: renewRestId, plan_id: planId, type: 'renewal' },
+        });
+
+        if (paymentIntent.status !== 'succeeded') {
+          return res.status(402).json({
+            error: 'Payment failed. Your card was declined. Please try a different card or contact your bank.',
+            code: paymentIntent.status,
+          });
+        }
+
+        // Payment succeeded — extend the subscription period
+        const renewFrom = renewSub.current_period_end || renewSub.trial_end;
+        let periodStart: Date;
+        if (renewFrom) {
+          const renewDate = new Date(renewFrom);
+          periodStart = renewDate > new Date() ? renewDate : new Date();
+        } else {
+          periodStart = new Date();
+        }
+        const periodEnd = new Date(periodStart);
+        periodEnd.setDate(periodEnd.getDate() + (isAnnual ? 365 : 30));
+
+        await supabase
+          .from('subscriptions')
+          .update({
+            status: 'active',
+            current_period_start: periodStart.toISOString(),
+            current_period_end: periodEnd.toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('restaurant_id', renewRestId);
+
+        return res.status(200).json({
+          success: true,
+          newPeriodEnd: periodEnd.toISOString(),
+          amountCharged: totalAmount / 100,
+          interval: intervalLabel,
+        });
+      }
+
       default:
-        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, toggle-auto-renew' });
+        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, toggle-auto-renew, renew-direct' });
     }
   } catch (err: any) {
     console.error(`Stripe billing error (${action}):`, err);

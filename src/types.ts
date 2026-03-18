@@ -196,6 +196,7 @@ export interface Subscription {
   status: SubscriptionStatus;
   stripe_customer_id?: string;
   stripe_subscription_id?: string;
+  billing_interval?: 'monthly' | 'annual';
   trial_start: string;
   trial_end: string;
   current_period_start?: string;

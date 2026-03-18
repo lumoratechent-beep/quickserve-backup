@@ -69,6 +69,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? new Date(subscription.trial_end * 1000).toISOString()
             : null;
 
+          const billingInterval = session.metadata?.billing_interval || 'monthly';
+
           await supabase
             .from('subscriptions')
             .update({
@@ -76,6 +78,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               stripe_subscription_id: subscription.id,
               stripe_customer_id: session.customer as string,
               plan_id: planId || undefined,
+              billing_interval: billingInterval,
               trial_start: isTrialing ? new Date().toISOString() : undefined,
               trial_end: trialEnd || undefined,
               current_period_start: new Date(subscription.start_date * 1000).toISOString(),

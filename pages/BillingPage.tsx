@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Subscription, PlanId } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 import { daysLeftInTrial, isTrialActive, isSubscriptionActive } from '../lib/subscriptionService';
-import { Loader2, Check, Plus, RefreshCw } from 'lucide-react';
+import { Loader2, Check, Plus, RefreshCw, X, AlertCircle, CheckCircle } from 'lucide-react';
+import { toast } from '../components/Toast';
 
 interface BillingHistory {
   id: string;
@@ -41,6 +42,8 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const [selectedMethodId, setSelectedMethodId] = useState<string | null>(null);
   const [isRenewing, setIsRenewing] = useState(false);
+  const [showRenewConfirm, setShowRenewConfirm] = useState(false);
+  const [renewError, setRenewError] = useState('');
 
   const currentPlanId = subscription?.plan_id || 'basic';
   const isActive = subscription ? isSubscriptionActive(subscription) : false;
@@ -156,21 +159,29 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
 
   const handleRenew = async () => {
     setIsRenewing(true);
+    setRenewError('');
     try {
-      const res = await fetch('/api/stripe/create-checkout', {
+      const res = await fetch('/api/stripe/billing?action=renew-direct', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           restaurantId,
-          planId: currentPlanId,
-          mode: 'payment',
-          source: 'renew',
-          renewFrom: subscription?.current_period_end || subscription?.trial_end,
+          paymentMethodId: selectedMethodId || undefined,
         }),
       });
       const data = await res.json();
-      if (data.url) window.location.href = data.url;
-    } catch { /* silent */ } finally {
+      if (!res.ok) {
+        setRenewError(data.error || 'Renewal failed. Please try again.');
+        return;
+      }
+      // Success — close modal, show toast, refresh data
+      setShowRenewConfirm(false);
+      toast(`Plan renewed successfully! New expiry: ${new Date(data.newPeriodEnd).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}`, 'success');
+      onSubscriptionUpdated?.();
+      fetchBillingHistory();
+    } catch {
+      setRenewError('Connection error. Please check your internet and try again.');
+    } finally {
       setIsRenewing(false);
     }
   };
@@ -250,7 +261,9 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   <h4 className="text-base font-bold text-gray-900 dark:text-white">
                     {plan.name}
                     {isCurrent && (
-                      <span className="ml-1.5 text-xs text-orange-500 font-semibold">— current plan</span>
+                      <span className="ml-1.5 text-xs text-orange-500 font-semibold">
+                        — Current Plan ({subscription?.billing_interval === 'annual' ? 'Annually' : 'Monthly'})
+                      </span>
                     )}
                   </h4>
                   <p className="text-sm text-gray-500 dark:text-gray-400 font-semibold mb-0.5">RM{plan.price}<span className="text-xs font-medium text-gray-400">/month</span></p>
@@ -288,11 +301,11 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                           </button>
                         )}
                         <button
-                          onClick={handleRenew}
+                          onClick={() => { setRenewError(''); setShowRenewConfirm(true); }}
                           disabled={isRenewing}
                           className="px-4 py-2 rounded-lg text-xs font-semibold border border-orange-400 bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50 flex items-center gap-1.5"
                         >
-                          {isRenewing ? <Loader2 size={14} className="animate-spin" /> : <><RefreshCw size={12} /> Renew Plan</>}
+                          <RefreshCw size={12} /> Renew Plan
                         </button>
                       </>
                     ) : isUpgrade ? (
@@ -485,6 +498,101 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
           )}
         </section>
       </div>
+
+      {/* ── Renew Confirmation Modal ── */}
+      {showRenewConfirm && (() => {
+        const plan = PRICING_PLANS.find(p => p.id === currentPlanId);
+        const isAnnual = subscription?.billing_interval === 'annual';
+        const price = plan ? (isAnnual ? plan.annualPrice : plan.price) : 0;
+        const totalAmount = isAnnual ? price * 12 : price;
+        const intervalLabel = isAnnual ? 'Annually' : 'Monthly';
+        const selectedCard = paymentMethods.find(m => m.id === selectedMethodId);
+        return (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 relative">
+              <button
+                onClick={() => { if (!isRenewing) { setShowRenewConfirm(false); setRenewError(''); } }}
+                className="absolute top-4 right-4 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                disabled={isRenewing}
+              >
+                <X size={18} className="text-gray-400" />
+              </button>
+
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">Renew Plan</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+                Confirm renewal of your <span className="font-semibold text-orange-500">{plan?.name}</span> plan ({intervalLabel}).
+              </p>
+
+              {/* Summary */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 mb-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Plan</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{plan?.name} ({intervalLabel})</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Amount</span>
+                  <span className="font-bold text-orange-500">RM {totalAmount.toFixed(2)}</span>
+                </div>
+                {selectedCard && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">Card</span>
+                    <span className="font-semibold text-gray-900 dark:text-white">
+                      {selectedCard.brand.toUpperCase()} •••• {selectedCard.last4}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Extends from</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    {(() => {
+                      const expiryDate = subscription?.current_period_end || subscription?.trial_end;
+                      if (!expiryDate) return 'Today';
+                      const d = new Date(expiryDate);
+                      return d > new Date()
+                        ? d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })
+                        : 'Today';
+                    })()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Error */}
+              {renewError && (
+                <div className="flex items-start gap-2 p-3 mb-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-100 dark:border-red-900/40">
+                  <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-red-600 dark:text-red-400 font-medium">{renewError}</p>
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowRenewConfirm(false); setRenewError(''); }}
+                  disabled={isRenewing}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRenew}
+                  disabled={isRenewing || paymentMethods.length === 0}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isRenewing ? (
+                    <><Loader2 size={16} className="animate-spin" /> Processing...</>
+                  ) : (
+                    <><CheckCircle size={16} /> Confirm & Pay</>
+                  )}
+                </button>
+              </div>
+
+              {paymentMethods.length === 0 && (
+                <p className="text-xs text-red-500 mt-3 text-center">No payment method found. Please add a card first.</p>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

@@ -103,7 +103,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         line_items: [{ price: priceId, quantity: 1 }],
         success_url: `${baseUrl}${successParams}`,
         cancel_url: `${baseUrl}${cancelParams}`,
-        metadata: { restaurant_id: restaurantId, plan_id: planId, ...(renewFrom ? { renew_from: renewFrom } : {}) },
+        metadata: { restaurant_id: restaurantId, plan_id: planId, billing_interval: isAnnual ? 'annual' : 'monthly', ...(renewFrom ? { renew_from: renewFrom } : {}) },
       });
       return res.status(200).json({ url: session.url });
     }
@@ -122,7 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
       ...(couponId ? { discounts: [{ coupon: couponId }] } : {}),
       payment_method_collection: 'always',
-      metadata: { restaurant_id: restaurantId, plan_id: planId },
+      metadata: { restaurant_id: restaurantId, plan_id: planId, billing_interval: isAnnual ? 'annual' : 'monthly' },
     });
 
     return res.status(200).json({ url: session.url });
