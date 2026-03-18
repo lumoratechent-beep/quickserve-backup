@@ -270,7 +270,7 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl lg:rounded-3xl shadow-2xl shadow-gray-200 dark:shadow-none border border-gray-100 dark:border-gray-700 p-4 lg:p-6 flex-1 min-h-0 overflow-y-auto">
-          <form onSubmit={handleSubmit} className="space-y-3 lg:space-y-4">
+          <form id="registerForm" onSubmit={handleSubmit} className="space-y-3 lg:space-y-4">
             {error && (
               <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-xs font-medium border border-red-100 dark:border-red-900/40">
                 <AlertCircle size={16} className="shrink-0 mt-0.5" />
@@ -368,37 +368,40 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
                 />
               </div>
             </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-sm shadow-xl shadow-orange-100 dark:shadow-none hover:bg-orange-600 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>Register & Pay Now</>
-              )}
-            </button>
-
-            <p className="text-center text-gray-400 text-[10px] font-medium">
-              By registering, you agree to our Terms of Service. You will be redirected to Stripe to complete payment.
-            </p>
-
-            <p className="text-center text-gray-500 dark:text-gray-400 text-xs font-medium">
-              Already have an account?{' '}
-              <button
-                type="button"
-                onClick={onLoginClick}
-                className="text-orange-500 font-black hover:text-orange-600 transition-colors inline-flex items-center gap-1"
-              >
-                <LogIn size={14} /> Log In
-              </button>
-            </p>
           </form>
+        </div>
+
+        <div className="shrink-0 pt-3 lg:pt-4 space-y-2">
+          <button
+            type="submit"
+            form="registerForm"
+            disabled={isSubmitting}
+            className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-sm shadow-xl shadow-orange-100 dark:shadow-none hover:bg-orange-600 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>Register & Pay Now</>
+            )}
+          </button>
+
+          <p className="text-center text-gray-400 text-[10px] font-medium">
+            By registering, you agree to our Terms of Service. You will be redirected to Stripe to complete payment.
+          </p>
+
+          <p className="text-center text-gray-500 dark:text-gray-400 text-xs font-medium">
+            Already have an account?{' '}
+            <button
+              type="button"
+              onClick={onLoginClick}
+              className="text-orange-500 font-black hover:text-orange-600 transition-colors inline-flex items-center gap-1"
+            >
+              <LogIn size={14} /> Log In
+            </button>
+          </p>
         </div>
       </div>
     </div>
