@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Zap, DollarSign, MessageSquare, ArrowRight, ShieldCheck, Globe, Clock, Check, Star, Crown, Sparkles } from 'lucide-react';
-import { PRICING_PLANS } from '../lib/pricingPlans';
-import { PlanId } from '../src/types';
+import { Zap, DollarSign, MessageSquare, ArrowRight, ShieldCheck, Globe, Clock, Check } from 'lucide-react';
+import { PRICING_PLANS, TRIAL_DAYS } from '../lib/pricingPlans';
 
 // Custom hook: triggers once when element enters viewport
 const useInView = (options?: IntersectionObserverInit) => {
@@ -52,6 +51,7 @@ interface Props {
 
 const MarketingPage: React.FC<Props> = ({ onGetStarted }) => {
   const [mounted, setMounted] = useState(false);
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const heroRef = useInView();
   const mockupRef = useInView({ threshold: 0.1 });
   const featuresRef = useInView({ threshold: 0.1 });
@@ -224,24 +224,51 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted }) => {
       {/* Pricing Section */}
       <section id="pricing" ref={trustRef.ref} className="py-20 bg-black text-white overflow-hidden">
         <div className="max-w-7xl mx-auto px-6">
-          <div className={`text-center mb-16 transition-all duration-700 ${trustRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <div className={`text-center mb-10 transition-all duration-700 ${trustRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             <h2 className="text-4xl md:text-6xl font-black leading-[0.9] tracking-tighter mb-4 uppercase">
               Simple, <span className="text-orange-500">Transparent</span> Pricing
             </h2>
-            <p className="text-white/60 font-medium text-lg">30-day free trial on all plans. No credit card required.</p>
+            <p className="text-white/60 font-medium text-lg">Cancel at any time. All plans include a {TRIAL_DAYS}-day free trial.</p>
+
+            {/* Monthly / Annual Toggle */}
+            {(() => {
+              const annualSavePct = Math.round((1 - PRICING_PLANS[1].annualPrice / PRICING_PLANS[1].price) * 100);
+              return (
+                <div className="inline-flex items-center mt-6 bg-white/10 rounded-full p-1">
+                  <button
+                    onClick={() => setBillingCycle('monthly')}
+                    className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${
+                      billingCycle === 'monthly'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    onClick={() => setBillingCycle('annual')}
+                    className={`px-6 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-1.5 ${
+                      billingCycle === 'annual'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    Annual
+                    <span className="text-xs text-orange-500 font-black">Save {annualSavePct}%</span>
+                  </button>
+                </div>
+              );
+            })()}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {PRICING_PLANS.map((plan, i) => {
-              const icons: Record<PlanId, React.ReactNode> = {
-                basic: <Star size={24} />,
-                pro: <Crown size={24} />,
-                pro_plus: <Sparkles size={24} />,
-              };
+              const displayPrice = billingCycle === 'annual' ? plan.annualPrice : plan.price;
+
               return (
                 <div
                   key={plan.id}
-                  className={`relative p-8 rounded-3xl border transition-all duration-500 delay-[${i * 150}ms] hover:-translate-y-2 ${
+                  className={`relative p-8 rounded-3xl border transition-all duration-500 delay-[${i * 150}ms] hover:-translate-y-2 flex flex-col ${
                     plan.highlight
                       ? 'bg-white/10 border-orange-500 shadow-2xl shadow-orange-500/20'
                       : 'bg-white/5 border-white/10 hover:border-orange-500/40'
@@ -253,19 +280,23 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted }) => {
                     </div>
                   )}
 
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-5 ${
-                    plan.highlight ? 'bg-orange-500 text-white' : 'bg-white/10 text-orange-500'
-                  }`}>
-                    {icons[plan.id]}
-                  </div>
-
                   <h3 className="text-xl font-black uppercase tracking-tight mb-1">{plan.name}</h3>
-                  <div className="flex items-baseline gap-1 mb-6">
-                    <span className="text-4xl font-black">RM{plan.price}</span>
-                    <span className="text-white/40 font-bold text-sm">/month</span>
+
+                  <p className="text-xs text-white/40 font-medium mb-4">{plan.description}</p>
+
+                  {/* Price display */}
+                  <div className="mb-4">
+                    <div className="flex items-baseline gap-1 flex-wrap">
+                      <span className="text-lg text-white/30 font-bold line-through">MYR {plan.price}</span>
+                      <span className="text-4xl font-black text-orange-500">MYR 0</span>
+                      <span className="text-white/40 font-bold text-sm">/mo</span>
+                    </div>
+                    <p className="text-xs text-white/40 font-medium mt-1">
+                      For 1 month, MYR {displayPrice}/mo after
+                    </p>
                   </div>
 
-                  <ul className="space-y-3 mb-8">
+                  <ul className="space-y-3 mb-8 flex-1">
                     {plan.features.map((feature, j) => (
                       <li key={j} className="flex items-start gap-3 text-sm text-white/70 font-medium">
                         <Check size={16} className="text-orange-500 shrink-0 mt-0.5" />
@@ -276,7 +307,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted }) => {
 
                   <button
                     onClick={onGetStarted}
-                    className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                    className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2 mt-auto ${
                       plan.highlight
                         ? 'bg-orange-500 text-white hover:bg-orange-600 hover:scale-[1.02]'
                         : 'bg-white/10 text-white hover:bg-orange-500 hover:scale-[1.02]'
