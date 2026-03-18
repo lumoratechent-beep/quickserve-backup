@@ -106,6 +106,13 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
           Back
         </button>
 
+        <button
+          onClick={onLoginClick}
+          className="fixed top-4 right-4 lg:top-8 lg:right-8 z-50 text-gray-600 dark:text-gray-400 font-semibold hover:text-orange-500 transition-colors"
+        >
+          Login
+        </button>
+
         <div className="max-w-5xl mx-auto px-4 py-6 lg:py-10 flex flex-col flex-1 min-h-0">
           <div className="text-center mb-3 lg:mb-5 shrink-0">
             <img
