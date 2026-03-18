@@ -91,8 +91,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .eq('restaurant_id', restaurantId)
             .eq('role', 'VENDOR');
         } else if (session.mode === 'payment') {
-          // Single payment — extend by 30 days from now
-          const periodEnd = new Date();
+          // Single payment — extend by 30 days
+          // If renew_from is set, extend from that date (not from today)
+          const renewFrom = session.metadata?.renew_from;
+          let periodStart: Date;
+          if (renewFrom) {
+            const renewDate = new Date(renewFrom);
+            // If the expiry is in the future, extend from it; if in the past, extend from now
+            periodStart = renewDate > new Date() ? renewDate : new Date();
+          } else {
+            periodStart = new Date();
+          }
+          const periodEnd = new Date(periodStart);
           periodEnd.setDate(periodEnd.getDate() + 30);
 
           await supabase
@@ -100,7 +110,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .update({
               status: 'active',
               stripe_customer_id: session.customer as string,
-              current_period_start: new Date().toISOString(),
+              current_period_start: periodStart.toISOString(),
               current_period_end: periodEnd.toISOString(),
               updated_at: new Date().toISOString(),
             })

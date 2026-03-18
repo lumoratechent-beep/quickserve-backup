@@ -200,6 +200,10 @@ const App: React.FC = () => {
     const paymentSource = params.get('source');
     if (paymentStatus === 'success') {
       window.history.replaceState({}, '', window.location.pathname);
+      // If returning from an in-app upgrade checkout, stay on the current view
+      if (paymentSource === 'upgrade') {
+        return savedView || 'APP';
+      }
       return 'LOGIN';
     }
     if (paymentStatus === 'cancelled') {
@@ -225,9 +229,14 @@ const App: React.FC = () => {
     const paymentStatus = params.get('payment');
     const paymentSource = params.get('source');
     if (paymentStatus === 'success') {
-      toast('Your free trial is active! Log in to get started.', 'success');
       window.history.replaceState({}, '', window.location.pathname);
-      setView('LOGIN');
+      if (paymentSource === 'upgrade') {
+        toast('Plan upgraded successfully!', 'success');
+        // Stay on current view — don't redirect to login
+      } else {
+        toast('Your free trial is active! Log in to get started.', 'success');
+        setView('LOGIN');
+      }
     } else if (paymentStatus === 'cancelled') {
       window.history.replaceState({}, '', window.location.pathname);
       if (paymentSource === 'upgrade') {

@@ -36,7 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { restaurantId, planId, mode, source, billingInterval } = req.body || {};
+  const { restaurantId, planId, mode, source, billingInterval, renewFrom } = req.body || {};
   // mode: 'subscription' (recurring) or 'payment' (one-time month)
   // source: 'upgrade' (from in-app upgrade/downgrade modal) or undefined (registration)
   // billingInterval: 'monthly' | 'annual' (default: 'monthly')
@@ -92,7 +92,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const baseUrl = (req.headers.origin || req.headers.referer || 'https://quickserve.my').replace(/\/$/, '');
 
-    const cancelParams = source === 'upgrade' ? '?payment=cancelled&source=upgrade' : '?payment=cancelled';
+    const successParams = source === 'upgrade' ? '?payment=success&source=upgrade' : source === 'renew' ? '?payment=success&source=upgrade' : '?payment=success';
+    const cancelParams = (source === 'upgrade' || source === 'renew') ? '?payment=cancelled&source=upgrade' : '?payment=cancelled';
 
     if (mode === 'payment') {
       // One-time payment for a single month
@@ -100,9 +101,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         customer: customerId,
         mode: 'payment',
         line_items: [{ price: priceId, quantity: 1 }],
-        success_url: `${baseUrl}?payment=success`,
+        success_url: `${baseUrl}${successParams}`,
         cancel_url: `${baseUrl}${cancelParams}`,
-        metadata: { restaurant_id: restaurantId, plan_id: planId },
+        metadata: { restaurant_id: restaurantId, plan_id: planId, ...(renewFrom ? { renew_from: renewFrom } : {}) },
       });
       return res.status(200).json({ url: session.url });
     }
@@ -114,7 +115,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       customer: customerId,
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${baseUrl}?payment=success`,
+      success_url: `${baseUrl}${successParams}`,
       cancel_url: `${baseUrl}${cancelParams}`,
       subscription_data: {
         metadata: { restaurant_id: restaurantId, plan_id: planId },
