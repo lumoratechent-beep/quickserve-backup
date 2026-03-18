@@ -38,6 +38,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   const [isTogglingAutoRenew, setIsTogglingAutoRenew] = useState(false);
   const [isAddingCard, setIsAddingCard] = useState(false);
   const [isDeletingCard, setIsDeletingCard] = useState<string | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const [selectedMethodId, setSelectedMethodId] = useState<string | null>(null);
 
   const currentPlanId = subscription?.plan_id || 'basic';
@@ -158,17 +159,15 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   };
 
   const getDaysLabel = (plan: typeof PRICING_PLANS[number]) => {
-    if (plan.id === currentPlanId) {
-      if (isTrial) return `${daysLeft} days remaining`;
-      if (subscription?.current_period_end) {
-        const end = new Date(subscription.current_period_end).getTime();
-        const now = Date.now();
-        const days = Math.max(0, Math.ceil((end - now) / (1000 * 60 * 60 * 24)));
-        return `${days} days`;
-      }
-      return '';
+    if (plan.id !== currentPlanId) return '';
+    if (isTrial) return `${daysLeft} days remaining`;
+    if (subscription?.current_period_end) {
+      const end = new Date(subscription.current_period_end).getTime();
+      const now = Date.now();
+      const days = Math.max(0, Math.ceil((end - now) / (1000 * 60 * 60 * 24)));
+      return `${days} days remaining`;
     }
-    return '365 days';
+    return '';
   };
 
   const brandLogo = (brand: string) => {
@@ -212,7 +211,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                 >
                   {/* Checkmark badge */}
                   {isCurrent && (
-                    <div className="absolute -top-2.5 -right-2.5 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center shadow">
+                    <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center">
                       <Check size={14} className="text-white" strokeWidth={3} />
                     </div>
                   )}
@@ -264,17 +263,12 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
 
         {/* ── Enable auto renew ── */}
         <section>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Enable auto renew</h3>
-              <p className="text-sm text-gray-400 mt-1 leading-relaxed max-w-xl">
-                This option, if checked, will renew your productive subscription, if the current plan expires. However, this might prevent you from downgrading.
-              </p>
-            </div>
+          <div className="flex items-center justify-between gap-4 mb-1">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Enable auto renew</h3>
             <button
               onClick={handleToggleAutoRenew}
               disabled={isTogglingAutoRenew || !subscription?.stripe_subscription_id}
-              className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors mt-1 ${
+              className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
                 autoRenew ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
               } ${isTogglingAutoRenew || !subscription?.stripe_subscription_id ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
             >
@@ -283,6 +277,9 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
               }`} />
             </button>
           </div>
+          <p className="text-[11px] text-gray-400 leading-relaxed max-w-xl">
+            This option, if checked, will renew your productive subscription, if the current plan expires. However, this might prevent you from downgrading.
+          </p>
         </section>
 
         {/* ── Payment Method ── */}
@@ -292,14 +289,14 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
           {isLoadingPayments ? (
             <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-gray-400" /></div>
           ) : (
-            <div className="flex items-stretch gap-4 overflow-x-auto pb-4">
+            <div className="flex items-stretch gap-4 overflow-x-auto pb-4" onClick={() => setConfirmingDeleteId(null)}>
               {paymentMethods.map(method => {
                 const isSelected = method.id === selectedMethodId;
                 return (
                   <div
                     key={method.id}
-                    onClick={() => setSelectedMethodId(method.id)}
-                    className={`relative rounded-xl border-2 px-5 py-5 min-w-[220px] cursor-pointer transition-all select-none ${
+                    onClick={(e) => { e.stopPropagation(); setConfirmingDeleteId(null); setSelectedMethodId(method.id); }}
+                    className={`relative rounded-xl border-2 px-5 py-5 min-w-[220px] cursor-pointer transition-all select-none overflow-hidden ${
                       isSelected
                         ? 'border-orange-400 bg-white dark:bg-gray-800'
                         : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60'
@@ -307,8 +304,30 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   >
                     {/* Checkmark */}
                     {isSelected && (
-                      <div className="absolute -top-2.5 -right-2.5 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center shadow">
+                      <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center">
                         <Check size={14} className="text-white" strokeWidth={3} />
+                      </div>
+                    )}
+
+                    {/* Delete confirmation overlay */}
+                    {confirmingDeleteId === method.id && (
+                      <div
+                        className="absolute inset-0 rounded-xl bg-red-500/90 flex flex-col items-center justify-center z-10 cursor-default"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {isDeletingCard === method.id ? (
+                          <Loader2 size={20} className="animate-spin text-white" />
+                        ) : (
+                          <>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteCard(method.id); }}
+                              className="text-white text-xs font-bold hover:underline"
+                            >
+                              Delete this card?
+                            </button>
+                            <p className="text-white/70 text-[10px] mt-1">Tap anywhere else to cancel</p>
+                          </>
+                        )}
                       </div>
                     )}
 
@@ -325,16 +344,12 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                       </span>
                     </div>
 
-                    {/* Delete */}
+                    {/* Delete trigger — bottom right circle */}
                     <button
-                      onClick={(e) => { e.stopPropagation(); handleDeleteCard(method.id); }}
-                      disabled={isDeletingCard === method.id}
-                      className="absolute -bottom-2.5 -right-2.5 w-6 h-6 rounded-full bg-orange-400 hover:bg-orange-500 flex items-center justify-center shadow transition-colors"
+                      onClick={(e) => { e.stopPropagation(); setConfirmingDeleteId(method.id); }}
+                      className="absolute -bottom-2.5 -right-2.5 w-6 h-6 rounded-full bg-orange-400 hover:bg-red-500 flex items-center justify-center shadow transition-colors"
                     >
-                      {isDeletingCard === method.id
-                        ? <Loader2 size={12} className="animate-spin text-white" />
-                        : <Minus size={14} className="text-white" strokeWidth={3} />
-                      }
+                      <Minus size={14} className="text-white" strokeWidth={3} />
                     </button>
                   </div>
                 );
