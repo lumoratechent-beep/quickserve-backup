@@ -121,7 +121,7 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
             </p>
 
             {/* Monthly / Annual Toggle */}
-            <div className="inline-flex items-center mt-3 lg:mt-4 bg-gray-200 dark:bg-gray-700 rounded-full p-1">
+            <div className="inline-flex items-center mt-4 lg:mt-6 bg-gray-200 dark:bg-gray-700 rounded-full p-1">
               <button
                 onClick={() => setBillingCycle('monthly')}
                 className={`px-4 lg:px-6 py-1.5 lg:py-2 rounded-full text-xs lg:text-sm font-bold transition-all ${
@@ -149,7 +149,6 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
           <div className="grid grid-cols-3 gap-3 lg:gap-6 flex-1 min-h-0">
             {PRICING_PLANS.map((plan) => {
               const displayPrice = billingCycle === 'annual' ? plan.annualPrice : plan.price;
-              const originalPrice = billingCycle === 'annual' ? plan.price : null;
 
               return (
                 <div
@@ -178,9 +177,7 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
                   {/* Price display */}
                   <div className="mb-1 lg:mb-2">
                     <div className="flex items-baseline gap-1 flex-wrap">
-                      {originalPrice && (
-                        <span className="text-sm lg:text-lg text-gray-400 font-bold line-through">MYR {originalPrice}</span>
-                      )}
+                      <span className="text-sm lg:text-lg text-gray-400 font-bold line-through">MYR {plan.price}</span>
                       <span className="text-xl lg:text-3xl font-black text-orange-500">MYR 0</span>
                       <span className="text-gray-400 font-bold text-[10px] lg:text-sm">/mo</span>
                     </div>
