@@ -71,6 +71,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           const billingInterval = session.metadata?.billing_interval || 'monthly';
 
+          const subItem = subscription.items.data[0];
+          const periodStart = subItem?.current_period_start
+            ? new Date(subItem.current_period_start * 1000).toISOString()
+            : new Date(subscription.start_date * 1000).toISOString();
+          const periodEnd = subItem?.current_period_end
+            ? new Date(subItem.current_period_end * 1000).toISOString()
+            : null;
+
           await supabase
             .from('subscriptions')
             .update({
@@ -81,8 +89,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               billing_interval: billingInterval,
               trial_start: isTrialing ? new Date().toISOString() : undefined,
               trial_end: trialEnd || undefined,
-              current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-              current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+              current_period_start: periodStart,
+              current_period_end: periodEnd,
               updated_at: new Date().toISOString(),
             })
             .eq('restaurant_id', restaurantId);
@@ -146,12 +154,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           incomplete_expired: 'canceled',
         };
 
+        const subItem = subscription.items.data[0];
+        const periodStart = subItem?.current_period_start
+          ? new Date(subItem.current_period_start * 1000).toISOString()
+          : new Date(subscription.start_date * 1000).toISOString();
+        const periodEnd = subItem?.current_period_end
+          ? new Date(subItem.current_period_end * 1000).toISOString()
+          : null;
+
         await supabase
           .from('subscriptions')
           .update({
             status: statusMap[subscription.status] || subscription.status,
-            current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+            current_period_start: periodStart,
+            current_period_end: periodEnd,
             cancel_at_period_end: subscription.cancel_at_period_end,
             updated_at: new Date().toISOString(),
           })

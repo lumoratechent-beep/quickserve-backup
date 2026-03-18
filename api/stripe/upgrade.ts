@@ -98,9 +98,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq('id', restaurantId);
     }
 
+    const updatedItem = updated.items.data[0];
+    const periodEnd = updatedItem?.current_period_end
+      ? new Date(updatedItem.current_period_end * 1000).toISOString()
+      : new Date().toISOString();
+
     return res.status(200).json({
       message: `Plan upgraded to ${newPlanId}`,
-      currentPeriodEnd: new Date(updated.current_period_end * 1000).toISOString(),
+      currentPeriodEnd: periodEnd,
     });
   } catch (err: any) {
     console.error('Upgrade error:', err);
