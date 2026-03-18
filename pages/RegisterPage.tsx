@@ -154,7 +154,7 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 lg:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 lg:gap-6">
             {PRICING_PLANS.map((plan) => {
               const displayPrice = billingCycle === 'annual' ? plan.annualPrice : plan.price;
 
