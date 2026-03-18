@@ -3,7 +3,6 @@ import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, R
 import CustomerView from './pages/CustomerView';
 import AdminView from './pages/AdminView';
 import PosOnlyView from './pages/PosOnlyView';
-import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import MarketingPage from './pages/MarketingPage';
 import RegisterPage from './pages/RegisterPage';
@@ -190,9 +189,8 @@ const App: React.FC = () => {
     return unsubscribe;
   }, []);
   
-  const [view, setView] = useState<'LANDING' | 'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS'>(() => {
+  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS'>(() => {
     const savedView = localStorage.getItem('qs_view') as any;
-    const savedRole = localStorage.getItem('qs_role');
     const params = new URLSearchParams(window.location.search);
     
     // If no session and no params, show marketing page as the first impression
@@ -200,12 +198,7 @@ const App: React.FC = () => {
       return 'MARKETING';
     }
 
-    // If it's a customer and we're at the root without params, always show landing
-    if (savedRole === 'CUSTOMER' && !params.get('loc')) {
-      return 'LANDING';
-    }
-    
-    return savedView || 'LANDING';
+    return savedView || 'MARKETING';
   });
   
   const [sessionLocation, setSessionLocation] = useState<string | null>(() => {
@@ -816,7 +809,7 @@ const App: React.FC = () => {
     setSessionTable(null);
     setSessionRestaurantId(null);
     setSessionRestaurantSlug(null);
-    setView('LANDING'); 
+    setView('MARKETING'); 
     localStorage.removeItem('qs_user');
     localStorage.removeItem('qs_role');
     localStorage.removeItem('qs_view');
@@ -842,7 +835,7 @@ const App: React.FC = () => {
     localStorage.removeItem('qs_role');
     localStorage.removeItem('qs_view');
     setCurrentRole(null);
-    setView('LANDING');
+    setView('MARKETING');
   };
 
   // Block KITCHEN users at runtime if KDS is disabled for their restaurant
@@ -1635,18 +1628,14 @@ const App: React.FC = () => {
     }} />;
   }
 
-  if (view === 'LANDING') {
-    return <LandingPage onScan={handleScanSimulation} onLoginClick={() => setView('LOGIN')} isDarkMode={isDarkMode} onToggleDarkMode={() => setIsDarkMode(!isDarkMode)} locations={locations.filter(l => l.isActive !== false)} onLearnMore={() => setView('MARKETING')} onClearSession={handleClearSession} onRegister={() => setView('REGISTER')} />;
-  }
-
   if (view === 'LOGIN') {
-    return <LoginPage onLogin={handleLogin} onBack={() => setView('LANDING')} />;
+    return <LoginPage onLogin={handleLogin} onBack={() => setView('MARKETING')} />;
   }
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
       <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-16 flex items-center justify-between px-8 shadow-sm">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('LANDING')}>
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('MARKETING')}>
           <img src={isDarkMode ? "/LOGO/9-dark.png" : "/LOGO/9.png"} alt="QuickServe" className="h-10" />
         </div>
         <div className="flex items-center gap-4">
