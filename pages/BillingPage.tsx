@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Subscription, PlanId } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 import { daysLeftInTrial, isTrialActive, isSubscriptionActive } from '../lib/subscriptionService';
-import { Loader2, Check, Plus } from 'lucide-react';
+import { Loader2, Check, Plus, RefreshCw } from 'lucide-react';
 
 interface BillingHistory {
   id: string;
@@ -40,6 +40,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   const [isDeletingCard, setIsDeletingCard] = useState<string | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const [selectedMethodId, setSelectedMethodId] = useState<string | null>(null);
+  const [isRenewing, setIsRenewing] = useState(false);
 
   const currentPlanId = subscription?.plan_id || 'basic';
   const isActive = subscription ? isSubscriptionActive(subscription) : false;
@@ -153,6 +154,27 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     }
   };
 
+  const handleRenew = async () => {
+    setIsRenewing(true);
+    try {
+      const res = await fetch('/api/stripe/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          restaurantId,
+          planId: currentPlanId,
+          mode: 'payment',
+          source: 'renew',
+          renewFrom: subscription?.current_period_end || subscription?.trial_end,
+        }),
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    } catch { /* silent */ } finally {
+      setIsRenewing(false);
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-MY', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
@@ -225,8 +247,29 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   )}
 
                   {/* Name + price stacked */}
-                  <h4 className="text-base font-bold text-gray-900 dark:text-white">{plan.name}</h4>
+                  <h4 className="text-base font-bold text-gray-900 dark:text-white">
+                    {plan.name}
+                    {isCurrent && (
+                      <span className="ml-1.5 text-xs text-orange-500 font-semibold">— current plan</span>
+                    )}
+                  </h4>
                   <p className="text-sm text-gray-500 dark:text-gray-400 font-semibold mb-0.5">RM{plan.price}<span className="text-xs font-medium text-gray-400">/month</span></p>
+
+                  {/* Expiry date for current plan */}
+                  {isCurrent && (() => {
+                    const expiryDate = subscription?.current_period_end || subscription?.trial_end;
+                    if (!expiryDate) return null;
+                    const d = new Date(expiryDate);
+                    const formatted = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
+                    const isExpired = d < new Date();
+                    return (
+                      <p className={`text-xs font-semibold ${
+                        isExpired ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'
+                      }`}>
+                        {isExpired ? 'Expired' : 'Expires'}: {formatted}
+                      </p>
+                    );
+                  })()}
 
                   {/* Days remaining */}
                   <p className="text-xs text-gray-400 mb-5 min-h-[16px]">{getDaysLabel(plan)}</p>
@@ -234,17 +277,24 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   {/* Action — all same height */}
                   <div className="flex items-center gap-3 min-h-[34px]">
                     {isCurrent ? (
-                      subscription?.stripe_subscription_id ? (
+                      <>
+                        {subscription?.stripe_subscription_id && (
+                          <button
+                            onClick={handleToggleAutoRenew}
+                            disabled={isTogglingAutoRenew}
+                            className="px-4 py-2 rounded-lg text-xs font-semibold border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors disabled:opacity-50"
+                          >
+                            {isTogglingAutoRenew ? 'Processing...' : autoRenew ? 'Cancel Subscription' : 'Resume Subscription'}
+                          </button>
+                        )}
                         <button
-                          onClick={handleToggleAutoRenew}
-                          disabled={isTogglingAutoRenew}
-                          className="px-4 py-2 rounded-lg text-xs font-semibold border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors disabled:opacity-50"
+                          onClick={handleRenew}
+                          disabled={isRenewing}
+                          className="px-4 py-2 rounded-lg text-xs font-semibold border border-orange-400 bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50 flex items-center gap-1.5"
                         >
-                          {isTogglingAutoRenew ? 'Processing...' : autoRenew ? 'Cancel Subscription' : 'Resume Subscription'}
+                          {isRenewing ? <Loader2 size={14} className="animate-spin" /> : <><RefreshCw size={12} /> Renew Plan</>}
                         </button>
-                      ) : (
-                        <span className="text-xs text-gray-400 italic">Current plan</span>
-                      )
+                      </>
                     ) : isUpgrade ? (
                       <button
                         onClick={onUpgradeClick}

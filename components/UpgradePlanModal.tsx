@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Check, ArrowRight, Loader2, RefreshCw } from 'lucide-react';
+import { X, Check, ArrowRight, Loader2 } from 'lucide-react';
 import { PlanId, Subscription } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 
@@ -88,40 +88,6 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
     }
   };
 
-  const [isRenewing, setIsRenewing] = useState(false);
-
-  const handleRenew = async () => {
-    setIsRenewing(true);
-    setError('');
-    try {
-      const res = await fetch('/api/stripe/create-checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          restaurantId,
-          planId: currentPlanId,
-          mode: 'payment',
-          source: 'renew',
-          billingInterval: billingCycle,
-          renewFrom: subscription?.current_period_end || subscription?.trial_end,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Failed to create checkout.');
-        return;
-      }
-      if (data.url) {
-        setIsRedirecting(true);
-        window.location.href = data.url;
-      }
-    } catch {
-      setError('Connection error. Please try again.');
-    } finally {
-      setIsRenewing(false);
-    }
-  };
-
   const planOrder: PlanId[] = ['basic', 'pro', 'pro_plus'];
   const currentIndex = planOrder.indexOf(currentPlanId);
 
@@ -207,7 +173,11 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
                   }`}
                   onClick={() => !isCurrent && !isLoading && !isRedirecting && handlePlanChange(plan.id)}
                 >
-                  {!isCurrent && plan.highlight && (
+                  {isCurrent ? (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 lg:px-4 py-1 bg-orange-500 text-white text-[8px] lg:text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg whitespace-nowrap">
+                      Current Plan
+                    </div>
+                  ) : plan.highlight && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 lg:px-4 py-1 bg-orange-500 text-white text-[8px] lg:text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg whitespace-nowrap">
                       Most Popular
                     </div>
@@ -215,9 +185,6 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
 
                   <h3 className="text-sm lg:text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight mb-0.5 lg:mb-1">
                     {plan.name}
-                    {isCurrent && (
-                      <span className="ml-1.5 text-[9px] lg:text-xs text-orange-500 font-bold normal-case tracking-normal">— current plan</span>
-                    )}
                   </h3>
 
                   <p className="text-[9px] lg:text-xs text-gray-500 dark:text-gray-400 font-medium mb-2 lg:mb-4 line-clamp-2">
@@ -235,20 +202,6 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
                         Billed MYR {displayPrice * 12}/year
                       </p>
                     )}
-                    {isCurrent && (() => {
-                      const expiryDate = subscription?.current_period_end || subscription?.trial_end;
-                      if (!expiryDate) return null;
-                      const d = new Date(expiryDate);
-                      const formatted = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
-                      const isExpired = d < new Date();
-                      return (
-                        <p className={`text-[9px] lg:text-xs font-semibold mt-0.5 ${
-                          isExpired ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'
-                        }`}>
-                          {isExpired ? 'Expired' : 'Expires'}: {formatted}
-                        </p>
-                      );
-                    })()}
                   </div>
 
                   <ul className="space-y-1 lg:space-y-2 mb-3 lg:mb-6 flex-1">
@@ -261,17 +214,9 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
                   </ul>
 
                   {isCurrent ? (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleRenew(); }}
-                      disabled={isRenewing || isRedirecting}
-                      className="w-full py-2 lg:py-3 rounded-xl lg:rounded-2xl font-black text-[9px] lg:text-sm uppercase tracking-widest bg-orange-500 text-white shadow-xl shadow-orange-100 dark:shadow-none hover:bg-orange-600 hover:scale-[1.02] transition-all flex items-center justify-center gap-1 lg:gap-2 mt-auto disabled:opacity-50"
-                    >
-                      {isRenewing ? (
-                        <Loader2 size={14} className="animate-spin" />
-                      ) : (
-                        <><RefreshCw size={14} /> Renew Plan</>
-                      )}
-                    </button>
+                    <div className="w-full py-2 lg:py-3 rounded-xl lg:rounded-2xl font-black text-[9px] lg:text-sm uppercase tracking-widest bg-gray-100 dark:bg-gray-700 text-gray-400 text-center mt-auto">
+                      Current Plan
+                    </div>
                   ) : (
                     <button
                       disabled={isLoading || isRedirecting}
