@@ -1124,22 +1124,25 @@ const App: React.FC = () => {
 
   const handleDeleteVendor = async (userId: string, restaurantId: string) => {
     try {
-      if (restaurantId) {
-        // Delete menu items first (foreign key dependency)
-        await supabase.from('menu_items').delete().eq('restaurant_id', restaurantId);
+      // Use RPC function which runs with SECURITY DEFINER to bypass RLS
+      const { data, error } = await supabase.rpc('delete_vendor', {
+        p_user_id: userId,
+        p_restaurant_id: restaurantId || null
+      });
 
-        // Delete orders for the restaurant
-        await supabase.from('orders').delete().eq('restaurant_id', restaurantId);
-
-        // Delete the restaurant
-        await supabase.from('restaurants').delete().eq('id', restaurantId);
+      if (error) {
+        toast('Error deleting vendor: ' + error.message, 'error');
+        throw error;
       }
 
-      // Delete the user
-      const { error: userError } = await supabase.from('users').delete().eq('id', userId);
-      if (userError) { toast('Error deleting user: ' + userError.message, 'error'); throw userError; }
+      if (data && !data.success) {
+        toast(data.message || 'Delete failed — records may still exist.', 'error');
+        throw new Error(data.message);
+      }
 
       toast('Vendor deleted successfully!', 'success');
+      // Remove from local state immediately for responsive UI
+      setAllUsers(prev => prev.filter(u => u.id !== userId));
       fetchUsers(); fetchRestaurants();
     } catch (error: any) {
       console.error('Delete vendor error:', error);
