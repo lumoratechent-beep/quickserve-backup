@@ -193,10 +193,13 @@ export interface Subscription {
   id: string;
   restaurant_id: string;
   plan_id: PlanId;
+  pending_plan_id?: PlanId | null;
   status: SubscriptionStatus;
   stripe_customer_id?: string;
   stripe_subscription_id?: string;
   billing_interval?: 'monthly' | 'annual';
+  pending_billing_interval?: 'monthly' | 'annual' | null;
+  pending_change_effective_at?: string | null;
   trial_start: string;
   trial_end: string;
   current_period_start?: string;

@@ -62,6 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const session = event.data.object as Stripe.Checkout.Session;
         const restaurantId = session.metadata?.restaurant_id;
         const planId = session.metadata?.plan_id;
+        let shouldUpdateFeaturesNow = true;
 
         if (!restaurantId) break;
 
@@ -115,37 +116,70 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .eq('restaurant_id', restaurantId)
             .eq('role', 'VENDOR');
         } else if (session.mode === 'payment') {
-          // Single payment — extend by 30 days
+          // Single payment renewal/change
           // If renew_from is set, extend from that date (not from today)
           const renewFrom = session.metadata?.renew_from;
           const billingInterval = session.metadata?.billing_interval || 'monthly';
+          const changeType = session.metadata?.change_type || 'renew';
+          const durationDays = billingInterval === 'annual' ? 365 : 30;
+          const renewDate = renewFrom ? new Date(renewFrom) : null;
+          const isFutureRenew = renewDate ? renewDate > new Date() : false;
+
+          if (changeType === 'downgrade' && isFutureRenew) {
+            shouldUpdateFeaturesNow = false;
+          }
+
           let periodStart: Date;
           if (renewFrom) {
-            const renewDate = new Date(renewFrom);
             // If the expiry is in the future, extend from it; if in the past, extend from now
-            periodStart = renewDate > new Date() ? renewDate : new Date();
+            periodStart = renewDate && renewDate > new Date() ? renewDate : new Date();
           } else {
             periodStart = new Date();
           }
           const periodEnd = new Date(periodStart);
-          periodEnd.setDate(periodEnd.getDate() + 30);
+          periodEnd.setDate(periodEnd.getDate() + durationDays);
+
+          const isScheduledDowngrade = changeType === 'downgrade' && isFutureRenew;
+          const subscriptionUpdate: Record<string, any> = {
+            status: 'active',
+            stripe_customer_id: session.customer as string,
+            current_period_start: periodStart.toISOString(),
+            current_period_end: periodEnd.toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+
+          if (isScheduledDowngrade) {
+            subscriptionUpdate.pending_plan_id = planId || null;
+            subscriptionUpdate.pending_billing_interval = billingInterval;
+            subscriptionUpdate.pending_change_effective_at = periodStart.toISOString();
+          } else {
+            if (planId) subscriptionUpdate.plan_id = planId;
+            subscriptionUpdate.billing_interval = billingInterval;
+            subscriptionUpdate.pending_plan_id = null;
+            subscriptionUpdate.pending_billing_interval = null;
+            subscriptionUpdate.pending_change_effective_at = null;
+          }
 
           await supabase
             .from('subscriptions')
-            .update({
-              status: 'active',
-              ...(planId ? { plan_id: planId } : {}),
-              billing_interval: billingInterval,
-              stripe_customer_id: session.customer as string,
-              current_period_start: periodStart.toISOString(),
-              current_period_end: periodEnd.toISOString(),
-              updated_at: new Date().toISOString(),
-            })
+            .update(subscriptionUpdate)
             .eq('restaurant_id', restaurantId);
+
+          // Keep metadata in Stripe for easier support/debugging in dashboard.
+          if (session.customer && typeof session.customer === 'string') {
+            await stripe.customers.update(session.customer, {
+              metadata: {
+                restaurant_id: restaurantId,
+                plan_id: planId || '',
+                billing_interval: billingInterval,
+                last_change_type: changeType,
+              },
+            });
+          }
         }
 
         // Update restaurant features based on plan
-        if (planId && PLAN_PLATFORM_MAP[planId]) {
+        if (shouldUpdateFeaturesNow && planId && PLAN_PLATFORM_MAP[planId]) {
           const { platformAccess, kitchenEnabled } = PLAN_PLATFORM_MAP[planId];
           await supabase
             .from('restaurants')

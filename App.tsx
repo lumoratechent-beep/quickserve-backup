@@ -447,6 +447,33 @@ const App: React.FC = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const roleCanOwnRestaurant = currentRole === 'VENDOR' || currentRole === 'CASHIER' || currentRole === 'KITCHEN';
+    const restaurantId = currentUser?.restaurantId;
+
+    if (!roleCanOwnRestaurant || !restaurantId) return;
+
+    const reconcileAccess = async () => {
+      try {
+        const res = await fetch('/api/stripe/reconcile-access', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ restaurantId }),
+        });
+
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.updated) {
+          await Promise.all([fetchRestaurants(), fetchSubscriptions()]);
+        }
+      } catch {
+        // Silent: this is a best-effort sync.
+      }
+    };
+
+    reconcileAccess();
+  }, [currentRole, currentUser?.restaurantId, fetchRestaurants, fetchSubscriptions]);
+
   const fetchOrders = useCallback(async () => {
     if (isFetchingRef.current || !currentRole) return;
     isFetchingRef.current = true;

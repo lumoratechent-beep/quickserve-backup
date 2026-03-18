@@ -25,31 +25,17 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
 
   const handlePlanChange = async (newPlanId: PlanId) => {
     if (newPlanId === currentPlanId) return;
+    const planOrder: PlanId[] = ['basic', 'pro', 'pro_plus'];
+    const currentIndex = planOrder.indexOf(currentPlanId);
+    const newIndex = planOrder.indexOf(newPlanId);
+    const changeType = newIndex > currentIndex ? 'upgrade' : 'downgrade';
+
     setIsLoading(true);
     setLoadingPlanId(newPlanId);
     setError('');
 
     try {
-      // If there's an active Stripe subscription, update it directly
-      if (subscription?.stripe_subscription_id) {
-        const res = await fetch('/api/stripe/upgrade', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ restaurantId, newPlanId, billingInterval: billingCycle }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          if (data.action === 'checkout') {
-            return handleCheckout(newPlanId);
-          }
-          setError(data.error || 'Plan change failed.');
-          return;
-        }
-        toast('Plan upgraded successfully!', 'success');
-        onUpgraded();
-      } else {
-        return handleCheckout(newPlanId);
-      }
+      return handleCheckout(newPlanId, changeType);
     } catch {
       setError('Connection error. Please try again.');
     } finally {
@@ -58,21 +44,27 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
     }
   };
 
-  const handleCheckout = async (planId: PlanId) => {
+  const handleCheckout = async (planId: PlanId, changeType: 'upgrade' | 'downgrade' | 'renew' = 'renew') => {
     setIsLoading(true);
     setLoadingPlanId(planId);
     setError('');
 
     try {
+      const renewFrom = changeType === 'upgrade'
+        ? undefined
+        : (subscription?.current_period_end || subscription?.trial_end || undefined);
+
       const res = await fetch('/api/stripe/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           restaurantId,
           planId,
-          mode: 'subscription',
+          mode: 'payment',
           source: 'upgrade',
           billingInterval: billingCycle,
+          renewFrom,
+          changeType,
         }),
       });
       const data = await res.json();
@@ -227,7 +219,7 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
                       return isSameInterval ? (
                         <button
                           disabled={isLoading || isRedirecting}
-                          onClick={(e) => { e.stopPropagation(); handleCheckout(plan.id); }}
+                          onClick={(e) => { e.stopPropagation(); handleCheckout(plan.id, 'renew'); }}
                           className="w-full py-2 lg:py-3 rounded-xl lg:rounded-2xl font-black text-[9px] lg:text-sm uppercase tracking-widest bg-orange-500 text-white shadow-xl shadow-orange-100 dark:shadow-none hover:bg-orange-600 hover:scale-[1.02] transition-all flex items-center justify-center gap-1 lg:gap-2 mt-auto disabled:opacity-50"
                         >
                           {isThisPlanLoading2 ? (
@@ -239,7 +231,7 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
                       ) : (
                         <button
                           disabled={isLoading || isRedirecting}
-                          onClick={(e) => { e.stopPropagation(); handleCheckout(plan.id); }}
+                          onClick={(e) => { e.stopPropagation(); handleCheckout(plan.id, 'renew'); }}
                           className="w-full py-2 lg:py-3 rounded-xl lg:rounded-2xl font-black text-[9px] lg:text-sm uppercase tracking-widest bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-orange-500 hover:text-white hover:scale-[1.02] transition-all flex items-center justify-center gap-1 lg:gap-2 mt-auto disabled:opacity-50"
                         >
                           {isThisPlanLoading2 ? (

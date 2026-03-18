@@ -41,7 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { restaurantId, planId, mode, source, billingInterval, renewFrom } = req.body || {};
+  const { restaurantId, planId, mode, source, billingInterval, renewFrom, changeType } = req.body || {};
   // mode: 'subscription' (recurring) or 'payment' (one-time month)
   // source: 'upgrade' (from in-app upgrade/downgrade modal) or undefined (registration)
   // billingInterval: 'monthly' | 'annual' (default: 'monthly')
@@ -112,7 +112,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         line_items: [{ price: priceId, quantity: 1 }],
         success_url: `${baseUrl}${successParams}`,
         cancel_url: `${baseUrl}${cancelParams}`,
-        metadata: { restaurant_id: restaurantId, plan_id: planId, billing_interval: isAnnual ? 'annual' : 'monthly', ...(renewFrom ? { renew_from: renewFrom } : {}) },
+        metadata: {
+          restaurant_id: restaurantId,
+          plan_id: planId,
+          billing_interval: isAnnual ? 'annual' : 'monthly',
+          ...(renewFrom ? { renew_from: renewFrom } : {}),
+          ...(changeType ? { change_type: changeType } : {}),
+        },
       });
       return res.status(200).json({ url: session.url });
     }
