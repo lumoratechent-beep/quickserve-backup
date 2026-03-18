@@ -207,6 +207,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
             {PRICING_PLANS.map(plan => {
               const isCurrent = plan.id === currentPlanId;
               const isUpgrade = PRICING_PLANS.indexOf(plan) > PRICING_PLANS.findIndex(p => p.id === currentPlanId);
+              const isDowngrade = PRICING_PLANS.indexOf(plan) < PRICING_PLANS.findIndex(p => p.id === currentPlanId);
               return (
                 <div
                   key={plan.id}
@@ -245,20 +246,19 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                         <span className="text-xs text-gray-400 italic">Current plan</span>
                       )
                     ) : isUpgrade ? (
-                      <>
-                        <button
-                          onClick={onUpgradeClick}
-                          className="px-4 py-2 rounded-lg text-xs font-semibold border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors"
-                        >
-                          Upgrade
-                        </button>
-                        <button
-                          onClick={onUpgradeClick}
-                          className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                        >
-                          Learn more about this plan
-                        </button>
-                      </>
+                      <button
+                        onClick={onUpgradeClick}
+                        className="px-4 py-2 rounded-lg text-xs font-semibold border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors"
+                      >
+                        Upgrade
+                      </button>
+                    ) : isDowngrade ? (
+                      <button
+                        onClick={onUpgradeClick}
+                        className="px-4 py-2 rounded-lg text-xs font-semibold border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
+                      >
+                        Downgrade
+                      </button>
                     ) : (
                       <span className="text-xs text-gray-400">—</span>
                     )}

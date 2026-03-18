@@ -17,18 +17,25 @@ const PLAN_PRICE_MAP: Record<string, string> = {
   pro_plus: process.env.STRIPE_PRICE_PRO_PLUS || '',
 };
 
+const PLAN_ANNUAL_PRICE_MAP: Record<string, string> = {
+  basic: process.env.STRIPE_PRICE_BASIC_ANNUAL || '',
+  pro: process.env.STRIPE_PRICE_PRO_ANNUAL || '',
+  pro_plus: process.env.STRIPE_PRICE_PRO_PLUS_ANNUAL || '',
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { restaurantId, newPlanId } = req.body || {};
+  const { restaurantId, newPlanId, billingInterval } = req.body || {};
 
   if (!restaurantId || !newPlanId) {
     return res.status(400).json({ error: 'restaurantId and newPlanId are required.' });
   }
 
-  const newPriceId = PLAN_PRICE_MAP[newPlanId];
+  const isAnnual = billingInterval === 'annual';
+  const newPriceId = isAnnual ? PLAN_ANNUAL_PRICE_MAP[newPlanId] : PLAN_PRICE_MAP[newPlanId];
   if (!newPriceId) {
     return res.status(400).json({ error: 'Invalid plan.' });
   }

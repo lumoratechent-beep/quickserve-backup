@@ -17,6 +17,13 @@ const PLAN_PRICE_MAP: Record<string, string> = {
   pro_plus: process.env.STRIPE_PRICE_PRO_PLUS || '',
 };
 
+// Map plan IDs to Stripe annual price IDs
+const PLAN_ANNUAL_PRICE_MAP: Record<string, string> = {
+  basic: process.env.STRIPE_PRICE_BASIC_ANNUAL || '',
+  pro: process.env.STRIPE_PRICE_PRO_ANNUAL || '',
+  pro_plus: process.env.STRIPE_PRICE_PRO_PLUS_ANNUAL || '',
+};
+
 // Map plan IDs to Stripe coupon IDs for first-month trial discount
 const PLAN_TRIAL_COUPON_MAP: Record<string, string> = {
   basic: process.env.STRIPE_COUPON_BASIC_TRIAL || '',
@@ -29,15 +36,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { restaurantId, planId, mode, source } = req.body || {};
+  const { restaurantId, planId, mode, source, billingInterval } = req.body || {};
   // mode: 'subscription' (recurring) or 'payment' (one-time month)
-  // source: 'upgrade' (from in-app upgrade modal) or undefined (registration)
+  // source: 'upgrade' (from in-app upgrade/downgrade modal) or undefined (registration)
+  // billingInterval: 'monthly' | 'annual' (default: 'monthly')
 
   if (!restaurantId || !planId) {
     return res.status(400).json({ error: 'restaurantId and planId are required.' });
   }
 
-  const priceId = PLAN_PRICE_MAP[planId];
+  const isAnnual = billingInterval === 'annual';
+  const priceId = isAnnual ? PLAN_ANNUAL_PRICE_MAP[planId] : PLAN_PRICE_MAP[planId];
   if (!priceId) {
     return res.status(400).json({ error: 'Invalid plan.' });
   }
@@ -98,8 +107,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ url: session.url });
     }
 
-    // Default: recurring subscription with first-month trial coupon
-    const couponId = PLAN_TRIAL_COUPON_MAP[planId];
+    // Only apply trial coupon for new registrations, not for plan changes (upgrade/downgrade)
+    const skipTrialCoupon = source === 'upgrade';
+    const couponId = skipTrialCoupon ? '' : PLAN_TRIAL_COUPON_MAP[planId];
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
