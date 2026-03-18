@@ -105,11 +105,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const cancelParams = (source === 'upgrade' || source === 'renew') ? '?payment=cancelled&source=upgrade' : '?payment=cancelled';
 
     if (mode === 'payment') {
-      // One-time payment for a single month
+      // One-time payment for renewal/upgrade/downgrade.
+      // Stripe Checkout `mode: payment` cannot use recurring prices directly,
+      // so we mirror the selected price into a one-time line item.
+      const stripePrice = await stripe.prices.retrieve(priceId, { expand: ['product'] });
+      const unitAmount = stripePrice.unit_amount;
+
+      if (!unitAmount || unitAmount <= 0) {
+        return res.status(400).json({ error: 'Selected plan price is invalid.' });
+      }
+
+      const productName = typeof stripePrice.product === 'string'
+        ? `QuickServe ${planId.replace('_', ' ').toUpperCase()} Plan`
+        : ('name' in stripePrice.product
+          ? stripePrice.product.name
+          : `QuickServe ${planId.replace('_', ' ').toUpperCase()} Plan`);
+
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
         mode: 'payment',
-        line_items: [{ price: priceId, quantity: 1 }],
+        line_items: [{
+          price_data: {
+            currency: stripePrice.currency,
+            unit_amount: unitAmount,
+            product_data: {
+              name: productName,
+            },
+          },
+          quantity: 1,
+        }],
         success_url: `${baseUrl}${successParams}`,
         cancel_url: `${baseUrl}${cancelParams}`,
         metadata: {
