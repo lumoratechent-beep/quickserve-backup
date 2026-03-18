@@ -47,7 +47,18 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   const [showRenewConfirm, setShowRenewConfirm] = useState(false);
   const [renewError, setRenewError] = useState('');
 
-  const currentPlanId = subscription?.plan_id || 'basic';
+  const hasPendingDowngrade = Boolean(
+    subscription?.pending_plan_id &&
+    subscription?.pending_change_effective_at &&
+    new Date(subscription.pending_change_effective_at) > new Date()
+  );
+
+  const currentPlanId = (hasPendingDowngrade ? subscription?.pending_plan_id : subscription?.plan_id) || 'basic';
+  const currentPlanInterval = hasPendingDowngrade
+    ? (subscription?.pending_billing_interval || subscription?.billing_interval)
+    : subscription?.billing_interval;
+  const previousAccessPlanId = hasPendingDowngrade ? subscription?.plan_id : null;
+  const previousAccessEndDate = hasPendingDowngrade ? subscription?.pending_change_effective_at : null;
   const isActive = subscription ? isSubscriptionActive(subscription) : false;
   const isTrial = subscription ? isTrialActive(subscription) : false;
   const daysLeft = subscription ? daysLeftInTrial(subscription) : 0;
@@ -239,13 +250,28 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   const paginatedHistory = billingHistory.slice((historyPage - 1) * historyPageSize, historyPage * historyPageSize);
   const showHistoryPagination = billingHistory.length > 10;
 
+  const previousPlanDaysLeft = previousAccessEndDate
+    ? Math.max(0, Math.ceil((new Date(previousAccessEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 0;
+
+  const previousPlanName = previousAccessPlanId
+    ? (PRICING_PLANS.find(p => p.id === previousAccessPlanId)?.name || previousAccessPlanId)
+    : '';
+
   return (
     <div className="flex-1 overflow-y-auto p-6">
       <div className="max-w-6xl mx-auto space-y-10">
 
         {/* ── Plan ── */}
         <section>
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Plan</h3>
+          <div className="mb-4 flex items-center gap-2 flex-wrap">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Plan</h3>
+            {hasPendingDowngrade && (
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-300/60 dark:border-amber-700/50">
+                Pending Downgrade Active
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
             {PRICING_PLANS.map(plan => {
               const isCurrent = plan.id === currentPlanId;
@@ -272,7 +298,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     {plan.name}
                     {isCurrent && (
                       <span className="ml-1.5 text-xs text-orange-500 font-semibold">
-                        — Current Plan ({subscription?.billing_interval === 'annual' ? 'Annually' : 'Monthly'})
+                        — Current Plan ({currentPlanInterval === 'annual' ? 'Annually' : 'Monthly'})
                       </span>
                     )}
                   </h4>
@@ -286,11 +312,23 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     const formatted = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
                     const isExpired = d < new Date();
                     return (
-                      <p className={`text-xs font-semibold ${
-                        isExpired ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'
-                      }`}>
-                        {isExpired ? 'Expired' : 'Expires'}: {formatted}
-                      </p>
+                      <div className="space-y-1">
+                        <p className={`text-xs font-semibold ${
+                          isExpired ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'
+                        }`}>
+                          Current Plan Expires: {formatted}
+                        </p>
+                        {hasPendingDowngrade && previousPlanName && previousAccessEndDate && (
+                          <>
+                            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                              {previousPlanName} Plan End on : {new Date(previousAccessEndDate).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {previousPlanDaysLeft} days remaining
+                            </p>
+                          </>
+                        )}
+                      </div>
                     );
                   })()}
 
@@ -322,7 +360,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                           className="w-full md:flex-1 min-w-0 px-3 py-2 rounded-lg text-[11px] lg:text-xs font-semibold border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
                         >
                           <ArrowLeftRight size={12} />
-                          {subscription?.billing_interval === 'annual' ? 'Switch to Monthly' : 'Switch to Annual'}
+                          {currentPlanInterval === 'annual' ? 'Switch to Monthly' : 'Switch to Annual'}
                         </button>
                       </>
                     ) : isUpgrade ? (

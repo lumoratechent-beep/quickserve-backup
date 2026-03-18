@@ -24,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Fetch invoices (subscription payments + renewal invoices)
         const invoices = await stripe.invoices.list({ customer: customerId, limit: 24 });
-        const result = invoices.data
+        const invoiceEntries = invoices.data
           .filter(inv => inv.status === 'paid')
           .map(inv => {
             const lineDesc = inv.lines.data[0]?.description;
@@ -36,6 +36,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               invoiceUrl: inv.invoice_pdf || inv.hosted_invoice_url || null,
             };
           });
+
+        // Fetch paid charges that are not tied to invoices (e.g. Checkout payment mode plan changes)
+        const charges = await stripe.charges.list({ customer: customerId, limit: 50 });
+        const chargeEntries = charges.data
+          .filter(ch => ch.paid && ch.status === 'succeeded' && (ch.metadata?.change_type || ch.metadata?.plan_id))
+          .map(ch => {
+            const changeType = ch.metadata?.change_type;
+            const planId = ch.metadata?.plan_id;
+            const planLabel = planId ? planId.replace('_', ' ').toUpperCase() : 'PLAN';
+            const changeLabel = changeType
+              ? `${changeType.charAt(0).toUpperCase()}${changeType.slice(1)}`
+              : 'Plan change';
+
+            return {
+              id: ch.id,
+              date: ch.created ? new Date(ch.created * 1000).toISOString() : '',
+              description: ch.description || `${changeLabel}: ${planLabel}`,
+              amount: (ch.amount || 0) / 100,
+              invoiceUrl: ch.receipt_url || null,
+            };
+          });
+
+        const result = [...invoiceEntries, ...chargeEntries]
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         return res.status(200).json({ invoices: result });
       }

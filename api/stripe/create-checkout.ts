@@ -136,6 +136,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }],
         success_url: `${baseUrl}${successParams}`,
         cancel_url: `${baseUrl}${cancelParams}`,
+        payment_intent_data: {
+          metadata: {
+            restaurant_id: restaurantId,
+            plan_id: planId,
+            billing_interval: isAnnual ? 'annual' : 'monthly',
+            ...(renewFrom ? { renew_from: renewFrom } : {}),
+            ...(changeType ? { change_type: changeType } : {}),
+          },
+        },
         metadata: {
           restaurant_id: restaurantId,
           plan_id: planId,
