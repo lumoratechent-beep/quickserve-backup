@@ -11,6 +11,7 @@ import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import { toast } from '../components/Toast';
 import StandardReport from '../components/StandardReport';
 import UpgradePlanModal from '../components/UpgradePlanModal';
+import BillingPage from './BillingPage';
 import {
   ShoppingBag, Search, Download, Calendar,
   Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid,
@@ -185,7 +186,7 @@ const PosOnlyView: React.FC<Props> = ({
     return local.toISOString().split('T')[0];
   };
 
-  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'FEATURES'>(userRole === 'KITCHEN' ? 'KITCHEN' : 'COUNTER');
+  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'FEATURES' | 'BILLING'>(userRole === 'KITCHEN' ? 'KITCHEN' : 'COUNTER');
   const [counterMode, setCounterMode] = useState<'COUNTER_ORDER' | 'QR_ORDER'>('COUNTER_ORDER');
   const [selectedQrOrderForPayment, setSelectedQrOrderForPayment] = useState<Order | null>(null);
   const [qrOrderFilter, setQrOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
@@ -1759,7 +1760,7 @@ const PosOnlyView: React.FC<Props> = ({
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
   const paginatedReports = reportData?.orders || [];
 
-  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'FEATURES') => {
+  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'FEATURES' | 'BILLING') => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
   };
@@ -3192,6 +3193,20 @@ const PosOnlyView: React.FC<Props> = ({
             <Puzzle size={20} className="-rotate-90" /> {!isSidebarCollapsed && 'Features'}
           </button>
           )}
+
+          {!isKitchenUser && (
+          <button 
+            onClick={() => handleTabSelection('BILLING')}
+            title="Billing"
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
+              activeTab === 'BILLING' 
+                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }`}
+          >
+            <CreditCard size={20} /> {!isSidebarCollapsed && 'Billing'}
+          </button>
+          )}
         </nav>
 
         {/* Sidebar Collapse Toggle */}
@@ -3277,6 +3292,7 @@ const PosOnlyView: React.FC<Props> = ({
                  activeTab === 'QR_ORDERS' ? 'QR Orders' :
                  activeTab === 'KITCHEN' ? 'Kitchen Orders' :
                  activeTab === 'FEATURES' ? 'Features' :
+                 activeTab === 'BILLING' ? 'Billing' :
                  'Settings'}
               </h1>
             </div>
@@ -4758,6 +4774,16 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
           </div>
         )}
+
+          {/* Billing Tab */}
+          {activeTab === 'BILLING' && (
+            <BillingPage
+              restaurantId={restaurant.id}
+              subscription={subscription}
+              onUpgradeClick={() => setShowUpgradeModal(true)}
+              onSubscriptionUpdated={onSubscriptionUpdated}
+            />
+          )}
 
           {/* QR Orders Tab */}
           {activeTab === 'QR_ORDERS' && showQrFeature && (
