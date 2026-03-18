@@ -2,10 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Subscription, PlanId } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 import { daysLeftInTrial, isTrialActive, isSubscriptionActive } from '../lib/subscriptionService';
-import {
-  CreditCard, Download, RefreshCw, ChevronRight, Crown, Star, Sparkles,
-  Loader2, AlertCircle, Plus, Trash2
-} from 'lucide-react';
+import { Loader2, Check, Minus, Plus } from 'lucide-react';
 
 interface BillingHistory {
   id: string;
@@ -22,6 +19,7 @@ interface PaymentMethod {
   expMonth: number;
   expYear: number;
   isDefault: boolean;
+  type: string; // 'credit' | 'debit'
 }
 
 interface Props {
@@ -30,12 +28,6 @@ interface Props {
   onUpgradeClick: () => void;
   onSubscriptionUpdated?: () => void;
 }
-
-const planIcons: Record<PlanId, React.ReactNode> = {
-  basic: <Star size={24} />,
-  pro: <Crown size={24} />,
-  pro_plus: <Sparkles size={24} />,
-};
 
 const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeClick, onSubscriptionUpdated }) => {
   const [billingHistory, setBillingHistory] = useState<BillingHistory[]>([]);
@@ -46,8 +38,9 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   const [isTogglingAutoRenew, setIsTogglingAutoRenew] = useState(false);
   const [isAddingCard, setIsAddingCard] = useState(false);
   const [isDeletingCard, setIsDeletingCard] = useState<string | null>(null);
+  const [selectedMethodId, setSelectedMethodId] = useState<string | null>(null);
 
-  const currentPlan = PRICING_PLANS.find(p => p.id === (subscription?.plan_id || 'basic'));
+  const currentPlanId = subscription?.plan_id || 'basic';
   const isActive = subscription ? isSubscriptionActive(subscription) : false;
   const isTrial = subscription ? isTrialActive(subscription) : false;
   const daysLeft = subscription ? daysLeftInTrial(subscription) : 0;
@@ -63,6 +56,12 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     }
   }, [subscription?.stripe_customer_id]);
 
+  useEffect(() => {
+    const def = paymentMethods.find(m => m.isDefault);
+    if (def) setSelectedMethodId(def.id);
+    else if (paymentMethods.length) setSelectedMethodId(paymentMethods[0].id);
+  }, [paymentMethods]);
+
   const fetchBillingHistory = async () => {
     if (!subscription?.stripe_customer_id) return;
     setIsLoadingHistory(true);
@@ -72,9 +71,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         const data = await res.json();
         setBillingHistory(data.invoices || []);
       }
-    } catch {
-      // silent — billing history is non-critical
-    } finally {
+    } catch { /* silent */ } finally {
       setIsLoadingHistory(false);
     }
   };
@@ -88,9 +85,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         const data = await res.json();
         setPaymentMethods(data.methods || []);
       }
-    } catch {
-      // silent
-    } finally {
+    } catch { /* silent */ } finally {
       setIsLoadingPayments(false);
     }
   };
@@ -104,16 +99,14 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           subscriptionId: subscription.stripe_subscription_id,
-          cancelAtPeriodEnd: autoRenew, // toggle: if currently auto-renewing, cancel at period end
+          cancelAtPeriodEnd: autoRenew,
         }),
       });
       if (res.ok) {
         setAutoRenew(!autoRenew);
         onSubscriptionUpdated?.();
       }
-    } catch {
-      // silent
-    } finally {
+    } catch { /* silent */ } finally {
       setIsTogglingAutoRenew(false);
     }
   };
@@ -125,18 +118,13 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
       const res = await fetch('/api/stripe/create-setup-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerId: subscription.stripe_customer_id,
-          restaurantId,
-        }),
+        body: JSON.stringify({ customerId: subscription.stripe_customer_id, restaurantId }),
       });
       if (res.ok) {
         const data = await res.json();
         if (data.url) window.location.href = data.url;
       }
-    } catch {
-      // silent
-    } finally {
+    } catch { /* silent */ } finally {
       setIsAddingCard(false);
     }
   };
@@ -152,303 +140,272 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
       if (res.ok) {
         setPaymentMethods(prev => prev.filter(m => m.id !== methodId));
       }
-    } catch {
-      // silent
-    } finally {
+    } catch { /* silent */ } finally {
       setIsDeletingCard(null);
     }
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-MY', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
+    return new Date(dateStr).toLocaleDateString('en-MY', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
-  const getStatusBadge = () => {
-    if (!subscription) return { label: 'No Plan', color: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' };
-    if (isTrial) return { label: 'Trial', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' };
-    if (subscription.status === 'active') return { label: 'Active', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' };
-    if (subscription.status === 'past_due') return { label: 'Past Due', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' };
-    if (subscription.status === 'canceled') return { label: 'Cancelled', color: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' };
-    return { label: subscription.status, color: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' };
+  const formatInvoiceLabel = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = d.toLocaleDateString('en-US', { month: 'long' });
+    const year = String(d.getFullYear()).slice(-2);
+    return `Invoice ${day} ${month} ${year}`;
   };
 
-  const statusBadge = getStatusBadge();
+  const getDaysLabel = (plan: typeof PRICING_PLANS[number]) => {
+    if (plan.id === currentPlanId) {
+      if (isTrial) return `${daysLeft} days remaining`;
+      if (subscription?.current_period_end) {
+        const end = new Date(subscription.current_period_end).getTime();
+        const now = Date.now();
+        const days = Math.max(0, Math.ceil((end - now) / (1000 * 60 * 60 * 24)));
+        return `${days} days`;
+      }
+      return '';
+    }
+    return '365 days';
+  };
 
-  const cardBrandIcon = (brand: string) => {
+  const brandLogo = (brand: string) => {
     const b = brand.toLowerCase();
-    if (b === 'visa') return '💳 Visa';
-    if (b === 'mastercard') return '💳 Mastercard';
-    if (b === 'amex') return '💳 Amex';
-    return `💳 ${brand}`;
+    if (b === 'mastercard') return (
+      <div className="flex items-center justify-center w-10 h-7 rounded bg-gray-900">
+        <span className="text-[8px] font-bold text-white tracking-tight leading-none">Master<br/>Card</span>
+      </div>
+    );
+    if (b === 'visa') return (
+      <div className="flex items-center justify-center w-10 h-7 rounded bg-blue-700">
+        <span className="text-[9px] font-black text-white italic">VISA</span>
+      </div>
+    );
+    return (
+      <div className="flex items-center justify-center w-10 h-7 rounded bg-gray-500">
+        <span className="text-[8px] font-bold text-white">{brand.slice(0, 4)}</span>
+      </div>
+    );
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
-      {/* ── Section 1: Current Plan ── */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 overflow-hidden">
-        <div className="p-6">
-          <div className="flex items-start justify-between">
-            {/* Left: plan info */}
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center text-orange-500">
-                {currentPlan ? planIcons[currentPlan.id] : <Star size={24} />}
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight">
-                    {currentPlan?.name || 'Basic'}
-                  </h2>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${statusBadge.color}`}>
-                    {statusBadge.label}
-                  </span>
+    <div className="flex-1 overflow-y-auto p-6 md:p-10">
+      <div className="max-w-3xl mx-auto space-y-10">
+
+        {/* ── Plan ── */}
+        <section>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Plan</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {PRICING_PLANS.map(plan => {
+              const isCurrent = plan.id === currentPlanId;
+              const isUpgrade = PRICING_PLANS.indexOf(plan) > PRICING_PLANS.findIndex(p => p.id === currentPlanId);
+              return (
+                <div
+                  key={plan.id}
+                  className={`relative rounded-xl border-2 p-5 transition-all ${
+                    isCurrent
+                      ? 'border-orange-400 bg-white dark:bg-gray-800'
+                      : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60'
+                  }`}
+                >
+                  {/* Checkmark badge */}
+                  {isCurrent && (
+                    <div className="absolute -top-2.5 -right-2.5 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center shadow">
+                      <Check size={14} className="text-white" strokeWidth={3} />
+                    </div>
+                  )}
+
+                  {/* Header: name + price */}
+                  <div className="flex items-start justify-between mb-1">
+                    <h4 className="text-base font-bold text-gray-900 dark:text-white">{plan.name}</h4>
+                    <div className="text-right shrink-0 ml-3">
+                      <span className="text-lg font-extrabold text-gray-900 dark:text-white">RM{plan.price}</span>
+                      <span className="text-xs text-gray-400 font-medium">/month</span>
+                    </div>
+                  </div>
+
+                  {/* Days remaining */}
+                  <p className="text-xs text-gray-400 mb-5">{getDaysLabel(plan)}</p>
+
+                  {/* Action */}
+                  {isCurrent ? (
+                    <button
+                      onClick={handleToggleAutoRenew}
+                      disabled={isTogglingAutoRenew || !subscription?.stripe_subscription_id}
+                      className="px-4 py-2 rounded-lg text-xs font-semibold border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors disabled:opacity-40"
+                    >
+                      {isTogglingAutoRenew ? 'Processing...' : autoRenew ? 'Cancel Subscription' : 'Resume Subscription'}
+                    </button>
+                  ) : isUpgrade ? (
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={onUpgradeClick}
+                        className="px-4 py-2 rounded-lg text-xs font-semibold border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors"
+                      >
+                        Upgrade
+                      </button>
+                      <button
+                        onClick={onUpgradeClick}
+                        className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                      >
+                        Learn more about this plan
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-400">—</span>
+                  )}
                 </div>
-                {isTrial && daysLeft > 0 && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    {daysLeft} day{daysLeft !== 1 ? 's' : ''} remaining in trial
-                  </p>
-                )}
-                {subscription?.current_period_end && !isTrial && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Renews on {formatDate(subscription.current_period_end)}
-                  </p>
-                )}
-                {subscription?.status === 'canceled' && (
-                  <p className="text-sm text-red-500 dark:text-red-400 mt-1">
-                    Your subscription has been cancelled
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Right: price */}
-            <div className="text-right">
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-black text-gray-900 dark:text-white">RM{currentPlan?.price || 30}</span>
-                <span className="text-sm text-gray-400 font-bold">/mo</span>
-              </div>
-            </div>
+              );
+            })}
           </div>
+        </section>
 
-          {/* Actions */}
-          <div className="flex items-center gap-3 mt-6 pt-4 border-t dark:border-gray-700">
-            <button
-              onClick={onUpgradeClick}
-              className="px-5 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center gap-2"
-            >
-              <ChevronRight size={14} />
-              {subscription?.status === 'canceled' ? 'Resubscribe' : 'Upgrade Plan'}
-            </button>
-            {isActive && subscription?.stripe_subscription_id && (
-              <button
-                onClick={handleToggleAutoRenew}
-                disabled={isTogglingAutoRenew}
-                className="px-5 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
-              >
-                {isTogglingAutoRenew ? 'Processing...' : autoRenew ? 'Cancel Subscription' : 'Resume Subscription'}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Learn more */}
-        <div className="px-6 py-3 bg-gray-50 dark:bg-gray-800/50 border-t dark:border-gray-700">
-          <button
-            onClick={onUpgradeClick}
-            className="text-xs text-orange-500 hover:text-orange-600 font-bold flex items-center gap-1 transition-colors"
-          >
-            Learn more about this plan <ChevronRight size={14} />
-          </button>
-        </div>
-      </div>
-
-      {/* ── Section 2: Auto-Renew ── */}
-      {isActive && subscription?.stripe_subscription_id && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 p-6">
-          <div className="flex items-center justify-between">
+        {/* ── Enable auto renew ── */}
+        <section>
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tight">
-                Auto-Renewal
-              </h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {autoRenew
-                  ? 'Your subscription will automatically renew at the end of each billing period.'
-                  : 'Auto-renewal is off. Your subscription will expire at the end of the current period.'}
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Enable auto renew</h3>
+              <p className="text-sm text-gray-400 mt-1 leading-relaxed max-w-xl">
+                This option, if checked, will renew your productive subscription, if the current plan expires. However, this might prevent you from downgrading.
               </p>
             </div>
             <button
               onClick={handleToggleAutoRenew}
-              disabled={isTogglingAutoRenew}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+              disabled={isTogglingAutoRenew || !subscription?.stripe_subscription_id}
+              className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors mt-1 ${
                 autoRenew ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
-              } ${isTogglingAutoRenew ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              } ${isTogglingAutoRenew || !subscription?.stripe_subscription_id ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
             >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
-                  autoRenew ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
+              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                autoRenew ? 'translate-x-6' : 'translate-x-1'
+              }`} />
             </button>
           </div>
-        </div>
-      )}
+        </section>
 
-      {/* ── Section 3: Payment Methods ── */}
-      {subscription?.stripe_customer_id && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700">
-          <div className="p-6 border-b dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tight">
-                Payment Methods
-              </h3>
+        {/* ── Payment Method ── */}
+        <section>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Payment Method</h3>
+
+          {isLoadingPayments ? (
+            <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-gray-400" /></div>
+          ) : (
+            <div className="flex items-stretch gap-4 overflow-x-auto pb-2">
+              {paymentMethods.map(method => {
+                const isSelected = method.id === selectedMethodId;
+                return (
+                  <div
+                    key={method.id}
+                    onClick={() => setSelectedMethodId(method.id)}
+                    className={`relative rounded-xl border-2 p-4 min-w-[180px] cursor-pointer transition-all select-none ${
+                      isSelected
+                        ? 'border-orange-400 bg-white dark:bg-gray-800'
+                        : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60'
+                    }`}
+                  >
+                    {/* Checkmark */}
+                    {isSelected && (
+                      <div className="absolute -top-2.5 -right-2.5 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center shadow">
+                        <Check size={14} className="text-white" strokeWidth={3} />
+                      </div>
+                    )}
+
+                    {/* Label */}
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 font-medium">
+                      {method.type === 'debit' ? 'Debit Card' : 'Credit Card'}
+                    </p>
+
+                    {/* Card visual */}
+                    <div className="flex items-center gap-2">
+                      {brandLogo(method.brand)}
+                      <span className="text-sm text-gray-700 dark:text-gray-300 font-mono tracking-wider">
+                        •••• •••• ••••{method.last4}
+                      </span>
+                    </div>
+
+                    {/* Delete */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteCard(method.id); }}
+                      disabled={isDeletingCard === method.id}
+                      className="absolute -bottom-2.5 -right-2.5 w-6 h-6 rounded-full bg-orange-400 hover:bg-orange-500 flex items-center justify-center shadow transition-colors"
+                    >
+                      {isDeletingCard === method.id
+                        ? <Loader2 size={12} className="animate-spin text-white" />
+                        : <Minus size={14} className="text-white" strokeWidth={3} />
+                      }
+                    </button>
+                  </div>
+                );
+              })}
+
+              {/* Add card */}
               <button
                 onClick={handleAddCard}
                 disabled={isAddingCard}
-                className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-all flex items-center gap-2"
+                className="rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 min-w-[100px] flex items-center justify-center hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-all"
               >
-                {isAddingCard ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
-                Add Card
+                {isAddingCard
+                  ? <Loader2 size={24} className="animate-spin text-gray-400" />
+                  : <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                      <Plus size={20} className="text-gray-400" />
+                    </div>
+                }
               </button>
             </div>
-          </div>
-
-          <div className="p-6">
-            {isLoadingPayments ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 size={20} className="animate-spin text-gray-400" />
-              </div>
-            ) : paymentMethods.length === 0 ? (
-              <div className="text-center py-8">
-                <CreditCard size={32} className="text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">No payment methods saved</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Add a card to manage your subscription</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {paymentMethods.map(method => (
-                  <div
-                    key={method.id}
-                    className="flex items-center justify-between p-4 rounded-xl border dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50"
-                  >
-                    <div className="flex items-center gap-3">
-                      <CreditCard size={20} className="text-gray-400" />
-                      <div>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">
-                          {cardBrandIcon(method.brand)} •••• {method.last4}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          Expires {String(method.expMonth).padStart(2, '0')}/{method.expYear}
-                        </p>
-                      </div>
-                      {method.isDefault && (
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
-                          Default
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => handleDeleteCard(method.id)}
-                      disabled={isDeletingCard === method.id || method.isDefault}
-                      className="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                      title={method.isDefault ? 'Cannot delete default payment method' : 'Remove card'}
-                    >
-                      {isDeletingCard === method.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── Section 4: Billing History ── */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700">
-        <div className="p-6 border-b dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tight">
-              Billing History
-            </h3>
-            <button
-              onClick={fetchBillingHistory}
-              disabled={isLoadingHistory}
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
-              title="Refresh"
-            >
-              <RefreshCw size={16} className={isLoadingHistory ? 'animate-spin' : ''} />
-            </button>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          {isLoadingHistory ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 size={20} className="animate-spin text-gray-400" />
-            </div>
-          ) : billingHistory.length === 0 ? (
-            <div className="text-center py-12">
-              <Receipt size={32} className="text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">No billing history yet</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Your invoices will appear here after your first payment</p>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                  <th className="px-6 py-3">Date</th>
-                  <th className="px-6 py-3">Details</th>
-                  <th className="px-6 py-3 text-right">Amount</th>
-                  <th className="px-6 py-3 text-center">Invoice</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y dark:divide-gray-700">
-                {billingHistory.map(invoice => (
-                  <tr key={invoice.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">
-                      {formatDate(invoice.date)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white font-medium">
-                      {invoice.description}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white font-bold text-right whitespace-nowrap">
-                      RM{invoice.amount.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      {invoice.invoiceUrl ? (
-                        <a
-                          href={invoice.invoiceUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-orange-500 hover:text-orange-600 bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded-lg transition-all"
-                        >
-                          <Download size={12} /> Download
-                        </a>
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           )}
-        </div>
+        </section>
+
+        {/* ── Billing History ── */}
+        <section>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Billing History</h3>
+
+          {isLoadingHistory ? (
+            <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-gray-400" /></div>
+          ) : billingHistory.length === 0 ? (
+            <p className="text-sm text-gray-400">No billing history yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b dark:border-gray-700">
+                    <th className="pb-3 pr-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Date</th>
+                    <th className="pb-3 pr-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Details</th>
+                    <th className="pb-3 pr-6 text-xs font-semibold text-gray-400 uppercase tracking-wider text-right">Amount</th>
+                    <th className="pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider text-right">Download</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {billingHistory.map(inv => (
+                    <tr key={inv.id} className="border-b dark:border-gray-700/60 last:border-0">
+                      <td className="py-4 pr-6 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{formatDate(inv.date)}</td>
+                      <td className="py-4 pr-6 text-sm text-gray-700 dark:text-gray-200">{inv.description}</td>
+                      <td className="py-4 pr-6 text-sm font-semibold text-gray-900 dark:text-white text-right whitespace-nowrap">RM{inv.amount.toFixed(2)}</td>
+                      <td className="py-4 text-right">
+                        {inv.invoiceUrl ? (
+                          <a
+                            href={inv.invoiceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-orange-500 hover:text-orange-600 font-medium transition-colors"
+                          >
+                            {formatInvoiceLabel(inv.date)}
+                          </a>
+                        ) : (
+                          <span className="text-sm text-gray-400">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );
 };
-
-// Need Receipt icon locally since it might not be imported in parent
-const Receipt: React.FC<{ size: number; className?: string }> = ({ size, className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" />
-    <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
-    <path d="M12 17.5v-11" />
-  </svg>
-);
 
 export default BillingPage;
