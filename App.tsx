@@ -232,6 +232,9 @@ const App: React.FC = () => {
       window.history.replaceState({}, '', window.location.pathname);
       if (paymentSource === 'upgrade') {
         toast('Plan upgraded successfully!', 'success');
+        // Refresh subscription & restaurant data so new plan features unlock immediately
+        fetchSubscriptions();
+        fetchRestaurants();
         // Stay on current view — don't redirect to login
       } else {
         toast('Your free trial is active! Log in to get started.', 'success');
@@ -1778,7 +1781,7 @@ const App: React.FC = () => {
               pendingOfflineOrdersCount={pendingOfflineOrdersCount}
               cashierName={currentUser?.username}
               subscription={currentUser?.restaurantId ? (vendorSubscriptions[currentUser.restaurantId] || null) : null}
-              onSubscriptionUpdated={fetchSubscriptions}
+              onSubscriptionUpdated={() => { fetchSubscriptions(); fetchRestaurants(); }}
             />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
@@ -1813,7 +1816,7 @@ const App: React.FC = () => {
                 userRole="VENDOR"
                 onSaveKitchenDivisions={(divisions) => saveKitchenDivisions(activeVendorRes.id, divisions)}
                 subscription={vendorSubscriptions[activeVendorRes.id] || null}
-                onSubscriptionUpdated={fetchSubscriptions}
+                onSubscriptionUpdated={() => { fetchSubscriptions(); fetchRestaurants(); }}
               />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
@@ -1843,7 +1846,7 @@ const App: React.FC = () => {
                 lastSyncTime={lastSyncTime}
                 userRole="KITCHEN"
                 subscription={vendorSubscriptions[activeVendorRes.id] || null}
-                onSubscriptionUpdated={fetchSubscriptions}
+                onSubscriptionUpdated={() => { fetchSubscriptions(); fetchRestaurants(); }}
               />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">

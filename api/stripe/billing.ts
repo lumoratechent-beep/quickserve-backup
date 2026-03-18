@@ -217,6 +217,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             customer: renewSub.stripe_customer_id,
             default_payment_method: paymentMethodId,
             auto_advance: true,
+            pending_invoice_items_behavior: 'include',
             metadata: { restaurant_id: renewRestId, plan_id: planId, type: 'renewal' },
           });
         } catch (invErr: any) {

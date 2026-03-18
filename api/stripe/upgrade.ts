@@ -23,6 +23,12 @@ const PLAN_ANNUAL_PRICE_MAP: Record<string, string> = {
   pro_plus: process.env.STRIPE_PRICE_PRO_PLUS_ANNUAL || '',
 };
 
+const PLAN_PLATFORM_MAP: Record<string, { platformAccess: string; kitchenEnabled: boolean }> = {
+  basic: { platformAccess: 'pos_only', kitchenEnabled: false },
+  pro: { platformAccess: 'pos_and_qr', kitchenEnabled: false },
+  pro_plus: { platformAccess: 'pos_and_qr', kitchenEnabled: true },
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -78,13 +84,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .from('subscriptions')
       .update({
         plan_id: newPlanId,
+        billing_interval: isAnnual ? 'annual' : 'monthly',
         updated_at: new Date().toISOString(),
       })
       .eq('restaurant_id', restaurantId);
 
+    // Update restaurant features based on new plan
+    if (PLAN_PLATFORM_MAP[newPlanId]) {
+      const { platformAccess, kitchenEnabled } = PLAN_PLATFORM_MAP[newPlanId];
+      await supabase
+        .from('restaurants')
+        .update({ platform_access: platformAccess, kitchen_enabled: kitchenEnabled })
+        .eq('id', restaurantId);
+    }
+
     return res.status(200).json({
       message: `Plan upgraded to ${newPlanId}`,
-      currentPeriodEnd: new Date(updated.start_date * 1000).toISOString(),
+      currentPeriodEnd: new Date(updated.current_period_end * 1000).toISOString(),
     });
   } catch (err: any) {
     console.error('Upgrade error:', err);

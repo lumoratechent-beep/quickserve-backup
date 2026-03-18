@@ -81,8 +81,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               billing_interval: billingInterval,
               trial_start: isTrialing ? new Date().toISOString() : undefined,
               trial_end: trialEnd || undefined,
-              current_period_start: new Date(subscription.start_date * 1000).toISOString(),
-              current_period_end: subscription.ended_at ? new Date(subscription.ended_at * 1000).toISOString() : null,
+              current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+              current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
               updated_at: new Date().toISOString(),
             })
             .eq('restaurant_id', restaurantId);
@@ -150,8 +150,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .from('subscriptions')
           .update({
             status: statusMap[subscription.status] || subscription.status,
-            current_period_start: new Date(subscription.start_date * 1000).toISOString(),
-            current_period_end: subscription.ended_at ? new Date(subscription.ended_at * 1000).toISOString() : null,
+            current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
             cancel_at_period_end: subscription.cancel_at_period_end,
             updated_at: new Date().toISOString(),
           })

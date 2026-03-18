@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Check, ArrowRight, Loader2, RefreshCw, ArrowLeftRight } from 'lucide-react';
 import { PlanId, Subscription } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
+import { toast } from '../components/Toast';
 
 interface Props {
   currentPlanId: PlanId;
@@ -44,6 +45,7 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
           setError(data.error || 'Plan change failed.');
           return;
         }
+        toast('Plan upgraded successfully!', 'success');
         onUpgraded();
       } else {
         return handleCheckout(newPlanId);
