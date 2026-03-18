@@ -23,7 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const result = invoices.data.map(inv => ({
       id: inv.id,
       date: inv.created ? new Date(inv.created * 1000).toISOString() : '',
-      description: inv.lines.data[0]?.description || `${inv.lines.data[0]?.plan?.nickname || 'Subscription'} payment`,
+      description: inv.lines.data[0]?.description || `${(inv.lines.data[0]?.price as any)?.nickname || 'Subscription'} payment`,
       amount: (inv.amount_paid || 0) / 100,
       invoiceUrl: inv.invoice_pdf || inv.hosted_invoice_url || null,
     }));
