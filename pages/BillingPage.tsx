@@ -292,14 +292,14 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
           {isLoadingPayments ? (
             <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-gray-400" /></div>
           ) : (
-            <div className="flex items-stretch gap-4 overflow-x-auto pb-2">
+            <div className="flex items-stretch gap-4 overflow-x-auto pb-4">
               {paymentMethods.map(method => {
                 const isSelected = method.id === selectedMethodId;
                 return (
                   <div
                     key={method.id}
                     onClick={() => setSelectedMethodId(method.id)}
-                    className={`relative rounded-xl border-2 p-4 min-w-[180px] cursor-pointer transition-all select-none ${
+                    className={`relative rounded-xl border-2 px-5 py-5 min-w-[220px] cursor-pointer transition-all select-none ${
                       isSelected
                         ? 'border-orange-400 bg-white dark:bg-gray-800'
                         : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60'
@@ -313,12 +313,12 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     )}
 
                     {/* Label */}
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 font-medium">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 font-medium">
                       {method.type === 'debit' ? 'Debit Card' : 'Credit Card'}
                     </p>
 
                     {/* Card visual */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       {brandLogo(method.brand)}
                       <span className="text-sm text-gray-700 dark:text-gray-300 font-mono tracking-wider">
                         •••• •••• ••••{method.last4}
@@ -344,12 +344,12 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
               <button
                 onClick={handleAddCard}
                 disabled={isAddingCard}
-                className="rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 min-w-[100px] flex items-center justify-center hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-all"
+                className="rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 min-w-[140px] min-h-[100px] flex items-center justify-center hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-all"
               >
                 {isAddingCard
                   ? <Loader2 size={24} className="animate-spin text-gray-400" />
-                  : <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                      <Plus size={20} className="text-gray-400" />
+                  : <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                      <Plus size={22} className="text-gray-400" />
                     </div>
                 }
               </button>
@@ -363,8 +363,6 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
 
           {isLoadingHistory ? (
             <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-gray-400" /></div>
-          ) : billingHistory.length === 0 ? (
-            <p className="text-sm text-gray-400">No billing history yet.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left">
@@ -377,27 +375,35 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   </tr>
                 </thead>
                 <tbody>
-                  {billingHistory.map(inv => (
-                    <tr key={inv.id} className="border-b dark:border-gray-700/60 last:border-0">
-                      <td className="py-4 pr-6 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{formatDate(inv.date)}</td>
-                      <td className="py-4 pr-6 text-sm text-gray-700 dark:text-gray-200">{inv.description}</td>
-                      <td className="py-4 pr-6 text-sm font-semibold text-gray-900 dark:text-white text-right whitespace-nowrap">RM{inv.amount.toFixed(2)}</td>
-                      <td className="py-4 text-right">
-                        {inv.invoiceUrl ? (
-                          <a
-                            href={inv.invoiceUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-orange-500 hover:text-orange-600 font-medium transition-colors"
-                          >
-                            {formatInvoiceLabel(inv.date)}
-                          </a>
-                        ) : (
-                          <span className="text-sm text-gray-400">—</span>
-                        )}
+                  {billingHistory.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-6 text-sm text-gray-400">
+                        No billing history yet.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    billingHistory.map(inv => (
+                      <tr key={inv.id} className="border-b dark:border-gray-700/60 last:border-0">
+                        <td className="py-4 pr-6 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{formatDate(inv.date)}</td>
+                        <td className="py-4 pr-6 text-sm text-gray-700 dark:text-gray-200">{inv.description}</td>
+                        <td className="py-4 pr-6 text-sm font-semibold text-gray-900 dark:text-white text-right whitespace-nowrap">RM{inv.amount.toFixed(2)}</td>
+                        <td className="py-4 text-right">
+                          {inv.invoiceUrl ? (
+                            <a
+                              href={inv.invoiceUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-orange-500 hover:text-orange-600 font-medium transition-colors"
+                            >
+                              {formatInvoiceLabel(inv.date)}
+                            </a>
+                          ) : (
+                            <span className="text-sm text-gray-400">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
