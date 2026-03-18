@@ -240,131 +240,131 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
   const currentPlan = PRICING_PLANS.find(p => p.id === selectedPlan)!;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors flex flex-col items-center justify-center px-4 py-12">
+    <div className="h-screen overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors flex flex-col">
       <button
         onClick={() => setStep('plan')}
-        className="fixed top-8 left-8 z-50 flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 font-semibold transition-colors"
+        className="fixed top-4 left-4 lg:top-6 lg:left-8 z-50 flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 font-semibold transition-colors"
       >
         <ChevronLeft size={20} />
         Change Plan
       </button>
 
-      <div className="w-full max-w-lg">
-        <div className="flex flex-col items-center mb-8">
+      <div className="w-full max-w-lg mx-auto px-4 py-4 lg:py-6 flex flex-col flex-1 min-h-0">
+        <div className="flex flex-col items-center mb-3 lg:mb-4 shrink-0">
           <img
             src="/LOGO/icon-192x192.png"
             alt="QuickServe logo"
-            className="w-20 h-20 rounded-2xl object-contain mb-4"
+            className="w-12 h-12 lg:w-16 lg:h-16 rounded-2xl object-contain mb-2"
           />
-          <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight">
+          <h1 className="text-xl lg:text-2xl font-black text-gray-900 dark:text-white tracking-tight">
             Create Your Account
           </h1>
-          <div className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-orange-50 dark:bg-orange-900/20 rounded-full">
-            <span className="text-orange-600 dark:text-orange-400 text-sm font-black uppercase tracking-wider">
+          <div className="mt-1.5 inline-flex items-center gap-2 px-3 py-1.5 bg-orange-50 dark:bg-orange-900/20 rounded-full">
+            <span className="text-orange-600 dark:text-orange-400 text-xs font-black uppercase tracking-wider">
               {currentPlan.name} Plan
             </span>
-            <span className="text-gray-400 dark:text-gray-500 text-sm font-bold">
+            <span className="text-gray-400 dark:text-gray-500 text-xs font-bold">
               — MYR 0/mo for 1 month, then MYR {billingCycle === 'annual' ? currentPlan.annualPrice : currentPlan.price}/mo
             </span>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl shadow-gray-200 dark:shadow-none border border-gray-100 dark:border-gray-700 p-8 md:p-10">
-          <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl lg:rounded-3xl shadow-2xl shadow-gray-200 dark:shadow-none border border-gray-100 dark:border-gray-700 p-4 lg:p-6 flex-1 min-h-0 overflow-y-auto">
+          <form onSubmit={handleSubmit} className="space-y-3 lg:space-y-4">
             {error && (
-              <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-sm font-medium border border-red-100 dark:border-red-900/40">
-                <AlertCircle size={18} className="shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-xs font-medium border border-red-100 dark:border-red-900/40">
+                <AlertCircle size={16} className="shrink-0 mt-0.5" />
                 <p>{error}</p>
               </div>
             )}
 
-            {/* Restaurant Name */}
-            <div>
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Restaurant Name</label>
-              <input
-                type="text"
-                required
-                value={restaurantName}
-                onChange={(e) => setRestaurantName(e.target.value)}
-                placeholder="e.g. Nasi Kandar Amin"
-                className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-700 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 dark:text-white font-medium transition-all"
-              />
-            </div>
-
-            {/* Owner Name */}
-            <div>
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Owner Name</label>
-              <input
-                type="text"
-                required
-                value={ownerName}
-                onChange={(e) => setOwnerName(e.target.value)}
-                placeholder="Full name"
-                className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-700 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 dark:text-white font-medium transition-all"
-              />
+            {/* Restaurant & Owner Name */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Restaurant Name</label>
+                <input
+                  type="text"
+                  required
+                  value={restaurantName}
+                  onChange={(e) => setRestaurantName(e.target.value)}
+                  placeholder="e.g. Nasi Kandar Amin"
+                  className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Owner Name</label>
+                <input
+                  type="text"
+                  required
+                  value={ownerName}
+                  onChange={(e) => setOwnerName(e.target.value)}
+                  placeholder="Full name"
+                  className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all"
+                />
+              </div>
             </div>
 
             {/* Email & Phone */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Email</label>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Email</label>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@email.com"
-                  className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-700 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 dark:text-white font-medium transition-all"
+                  className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Phone</label>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Phone</label>
                 <input
                   type="tel"
                   required
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+60 12-345 6789"
-                  className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-700 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 dark:text-white font-medium transition-all"
+                  className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all"
                 />
               </div>
             </div>
 
             {/* Username */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Username</label>
+              <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Username</label>
               <input
                 type="text"
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Choose a username for login"
-                className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-700 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 dark:text-white font-medium transition-all"
+                className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all"
               />
             </div>
 
             {/* Password */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Password</label>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Password</label>
                 <input
                   type="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Min 6 characters"
-                  className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-700 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 dark:text-white font-medium transition-all"
+                  className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Confirm Password</label>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 ml-1">Confirm Password</label>
                 <input
                   type="password"
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Re-enter password"
-                  className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-700 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 dark:text-white font-medium transition-all"
+                  className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-orange-500 dark:text-white text-sm font-medium transition-all"
                 />
               </div>
             </div>
@@ -372,11 +372,11 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-lg shadow-xl shadow-orange-100 dark:shadow-none hover:bg-orange-600 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-sm shadow-xl shadow-orange-100 dark:shadow-none hover:bg-orange-600 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 size={20} className="animate-spin" />
+                  <Loader2 size={18} className="animate-spin" />
                   Processing...
                 </>
               ) : (
@@ -384,11 +384,11 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
               )}
             </button>
 
-            <p className="text-center text-gray-400 text-xs font-medium">
+            <p className="text-center text-gray-400 text-[10px] font-medium">
               By registering, you agree to our Terms of Service. You will be redirected to Stripe to complete payment.
             </p>
 
-            <p className="text-center text-gray-500 dark:text-gray-400 text-sm font-medium">
+            <p className="text-center text-gray-500 dark:text-gray-400 text-xs font-medium">
               Already have an account?{' '}
               <button
                 type="button"

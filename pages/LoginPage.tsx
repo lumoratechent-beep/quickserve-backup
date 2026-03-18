@@ -6,9 +6,10 @@ import { User as UserIcon, Lock, ChevronLeft, AlertCircle } from 'lucide-react';
 interface Props {
   onLogin: (user: User) => void;
   onBack: () => void;
+  onRegister?: () => void;
 }
 
-const LoginPage: React.FC<Props> = ({ onLogin, onBack }) => {
+const LoginPage: React.FC<Props> = ({ onLogin, onBack, onRegister }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -114,6 +115,19 @@ const LoginPage: React.FC<Props> = ({ onLogin, onBack }) => {
             >
               {isSubmitting ? 'Signing In...' : 'Sign In'}
             </button>
+
+            {onRegister && (
+              <p className="text-center text-gray-500 dark:text-gray-400 text-sm font-medium">
+                Don't have an account?{' '}
+                <button
+                  type="button"
+                  onClick={onRegister}
+                  className="text-orange-500 font-black hover:text-orange-600 transition-colors"
+                >
+                  Register Now
+                </button>
+              </p>
+            )}
           </form>
         </div>
       </div>

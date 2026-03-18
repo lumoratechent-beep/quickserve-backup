@@ -1629,7 +1629,7 @@ const App: React.FC = () => {
   }
 
   if (view === 'LOGIN') {
-    return <LoginPage onLogin={handleLogin} onBack={() => setView('MARKETING')} />;
+    return <LoginPage onLogin={handleLogin} onBack={() => setView('MARKETING')} onRegister={() => setView('REGISTER')} />;
   }
 
   return (
