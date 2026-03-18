@@ -3837,18 +3837,21 @@ const PosOnlyView: React.FC<Props> = ({
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
                         <div className="max-w-lg space-y-4">
                           {canUseQr ? (
-                            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                              <div>
-                                <p className="text-xs font-black dark:text-white">QR Ordering</p>
-                                <p className="text-[9px] text-gray-400 mt-0.5">Let customers scan QR codes to order from their table</p>
+                            <>
+                              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                                <div>
+                                  <p className="text-xs font-black dark:text-white">QR Ordering</p>
+                                  <p className="text-[9px] text-gray-400 mt-0.5">Let customers scan QR codes to order from their table</p>
+                                </div>
+                                <button
+                                  onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
+                                  className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                >
+                                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
+                                </button>
                               </div>
-                              <button
-                                onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
-                                className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                              >
-                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
-                              </button>
-                            </div>
+                              {featureSettings.qrEnabled && renderQrGeneratorContent()}
+                            </>
                           ) : (
                             <div className="text-center py-6">
                               <QrCode size={32} className="mx-auto text-gray-300 mb-3" />
@@ -3965,18 +3968,21 @@ const PosOnlyView: React.FC<Props> = ({
                         {featuresPanel === 'qr' && (
                           <div className="space-y-4">
                             {canUseQr ? (
-                              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                                <div>
-                                  <p className="text-xs font-black dark:text-white">QR Ordering</p>
-                                  <p className="text-[9px] text-gray-400 mt-0.5">Let customers scan QR codes to order from their table</p>
+                              <>
+                                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                                  <div>
+                                    <p className="text-xs font-black dark:text-white">QR Ordering</p>
+                                    <p className="text-[9px] text-gray-400 mt-0.5">Let customers scan QR codes to order from their table</p>
+                                  </div>
+                                  <button
+                                    onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
+                                    className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                  >
+                                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
+                                  </button>
                                 </div>
-                                <button
-                                  onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
-                                  className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                                >
-                                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
-                                </button>
-                              </div>
+                                {featureSettings.qrEnabled && renderQrGeneratorContent()}
+                              </>
                             ) : (
                               <div className="text-center py-8">
                                 <QrCode size={36} className="mx-auto text-gray-300 mb-3" />

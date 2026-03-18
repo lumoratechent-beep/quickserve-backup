@@ -84,8 +84,8 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b dark:border-gray-700 p-6 flex items-center justify-between rounded-t-3xl">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b dark:border-gray-700 p-6 flex items-center justify-between rounded-t-2xl">
           <div>
             <h2 className="text-xl font-black text-gray-900 dark:text-white">Manage Subscription</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -95,7 +95,7 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
               )}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
             <X size={20} className="text-gray-500" />
           </button>
         </div>
@@ -116,7 +116,7 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
               return (
                 <div
                   key={plan.id}
-                  className={`relative p-6 rounded-2xl border-2 transition-all ${
+                  className={`relative p-6 rounded-xl border-2 transition-all ${
                     isCurrent
                       ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/10'
                       : 'border-gray-200 dark:border-gray-700 hover:border-orange-300'
@@ -150,18 +150,18 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
                   </ul>
 
                   {isCurrent ? (
-                    <div className="flex gap-2">
+                    <div className="flex flex-row gap-2">
                       <button
                         onClick={() => handleCheckout(plan.id, 'subscription')}
                         disabled={isLoading}
-                        className="flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-wider bg-orange-500 text-white hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-1"
+                        className="flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-orange-500 text-white hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-1"
                       >
-                        <CreditCard size={14} /> Subscribe
+                        <CreditCard size={12} /> Subscribe
                       </button>
                       <button
                         onClick={() => handleCheckout(plan.id, 'payment')}
                         disabled={isLoading}
-                        className="flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-wider bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                        className="flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
                       >
                         One-time
                       </button>
@@ -170,14 +170,14 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
                     <button
                       onClick={() => handleUpgrade(plan.id)}
                       disabled={isLoading}
-                      className="w-full py-3 rounded-xl text-xs font-black uppercase tracking-wider bg-orange-500 text-white hover:bg-orange-600 hover:scale-[1.02] transition-all disabled:opacity-50 flex items-center justify-center gap-1"
+                      className="w-full py-3 rounded-lg text-xs font-black uppercase tracking-wider bg-orange-500 text-white hover:bg-orange-600 hover:scale-[1.02] transition-all disabled:opacity-50 flex items-center justify-center gap-1"
                     >
                       {isLoading ? <Loader2 size={14} className="animate-spin" /> : <><ArrowRight size={14} /> Upgrade</>}
                     </button>
                   ) : (
                     <button
                       disabled
-                      className="w-full py-3 rounded-xl text-xs font-black uppercase tracking-wider bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+                      className="w-full py-3 rounded-lg text-xs font-black uppercase tracking-wider bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
                     >
                       Downgrade
                     </button>
