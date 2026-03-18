@@ -22,9 +22,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const customerId = req.query.customerId as string;
         if (!customerId) return res.status(400).json({ error: 'customerId is required.' });
 
-        // Fetch invoices (subscription payments)
+        // Fetch invoices (subscription payments + renewal invoices)
         const invoices = await stripe.invoices.list({ customer: customerId, limit: 24 });
-        const invoiceItems = invoices.data.map(inv => {
+        const result = invoices.data.map(inv => {
           const lineDesc = inv.lines.data[0]?.description;
           return {
             id: inv.id,
@@ -34,24 +34,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             invoiceUrl: inv.invoice_pdf || inv.hosted_invoice_url || null,
           };
         });
-
-        // Fetch direct PaymentIntents (renewal charges via renew-direct)
-        const paymentIntents = await stripe.paymentIntents.list({ customer: customerId, limit: 24 });
-        const directCharges = paymentIntents.data
-          .filter(pi => pi.status === 'succeeded' && pi.metadata?.type === 'renewal')
-          .map(pi => ({
-            id: pi.id,
-            date: pi.created ? new Date(pi.created * 1000).toISOString() : '',
-            description: pi.description || 'Plan Renewal',
-            amount: (pi.amount || 0) / 100,
-            invoiceUrl: null,
-          }));
-
-        // Merge and sort by date descending
-        const allItems = [...invoiceItems, ...directCharges]
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-        return res.status(200).json({ invoices: allItems });
+        return res.status(200).json({ invoices: result });
       }
 
       // GET /api/stripe/billing?action=payment-methods&customerId=...
@@ -211,22 +194,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const planNames: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
         const intervalLabel = isAnnual ? 'Annual' : 'Monthly';
 
-        // Create a PaymentIntent and charge immediately
-        const paymentIntent = await stripe.paymentIntents.create({
+        // Create an invoice and pay it immediately (so the user gets a downloadable invoice)
+        await stripe.invoiceItems.create({
+          customer: renewSub.stripe_customer_id,
           amount: totalAmount,
           currency: 'myr',
-          customer: renewSub.stripe_customer_id,
-          payment_method: paymentMethodId,
-          off_session: true,
-          confirm: true,
           description: `QuickServe ${planNames[planId] || planId} Plan Renewal (${intervalLabel})`,
+        });
+
+        const invoice = await stripe.invoices.create({
+          customer: renewSub.stripe_customer_id,
+          collection_method: 'charge_automatically',
+          default_payment_method: paymentMethodId,
+          auto_advance: true,
           metadata: { restaurant_id: renewRestId, plan_id: planId, type: 'renewal' },
         });
 
-        if (paymentIntent.status !== 'succeeded') {
+        const paidInvoice = await stripe.invoices.pay(invoice.id, {
+          payment_method: paymentMethodId,
+        });
+
+        if (paidInvoice.status !== 'paid') {
           return res.status(402).json({
             error: 'Payment failed. Your card was declined. Please try a different card or contact your bank.',
-            code: paymentIntent.status,
+            code: paidInvoice.status,
           });
         }
 
