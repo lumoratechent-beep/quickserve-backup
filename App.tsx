@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, PlatformAccess, QS_DEFAULT_HUB } from './src/types';
+import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, PlatformAccess, QS_DEFAULT_HUB, Subscription } from './src/types';
 import CustomerView from './pages/CustomerView';
 import AdminView from './pages/AdminView';
 import PosOnlyView from './pages/PosOnlyView';
@@ -88,6 +88,8 @@ const App: React.FC = () => {
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
+
+  const [vendorSubscriptions, setVendorSubscriptions] = useState<Record<string, Subscription>>({});
 
   const [isLoading, setIsLoading] = useState(() => {
     try {
@@ -382,6 +384,15 @@ const App: React.FC = () => {
     }
   }, [currentRole, sessionLocation, sessionRestaurantId, sessionRestaurantSlug]);
 
+  const fetchSubscriptions = useCallback(async () => {
+    const { data, error } = await supabase.from('subscriptions').select('*');
+    if (!error && data) {
+      const map: Record<string, Subscription> = {};
+      data.forEach((s: any) => { map[s.restaurant_id] = s; });
+      setVendorSubscriptions(map);
+    }
+  }, []);
+
   const fetchOrders = useCallback(async () => {
     if (isFetchingRef.current || !currentRole) return;
     isFetchingRef.current = true;
@@ -586,14 +597,14 @@ const App: React.FC = () => {
   // Global Data Initialization
   useEffect(() => {
     const initApp = async () => {
-      await Promise.allSettled([fetchUsers(), fetchLocations(), fetchRestaurants(), fetchOrders()]);
+      await Promise.allSettled([fetchUsers(), fetchLocations(), fetchRestaurants(), fetchOrders(), fetchSubscriptions()]);
        // Initialize order tracker from DB to ensure offline orders use correct sequence
        await initializeOrderNumberTracker();
       setLastSyncTime(new Date());
       setIsLoading(false);
     };
     initApp();
-  }, [fetchUsers, fetchLocations, fetchRestaurants, fetchOrders]);
+  }, [fetchUsers, fetchLocations, fetchRestaurants, fetchOrders, fetchSubscriptions]);
   
     // Initialize tracker when user logs in (for CASHIER/VENDOR roles)
     useEffect(() => {
@@ -1743,6 +1754,8 @@ const App: React.FC = () => {
               isOnline={isOnline}
               pendingOfflineOrdersCount={pendingOfflineOrdersCount}
               cashierName={currentUser?.username}
+              subscription={currentUser?.restaurantId ? (vendorSubscriptions[currentUser.restaurantId] || null) : null}
+              onSubscriptionUpdated={fetchSubscriptions}
             />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
@@ -1776,6 +1789,8 @@ const App: React.FC = () => {
                 lastSyncTime={lastSyncTime}
                 userRole="VENDOR"
                 onSaveKitchenDivisions={(divisions) => saveKitchenDivisions(activeVendorRes.id, divisions)}
+                subscription={vendorSubscriptions[activeVendorRes.id] || null}
+                onSubscriptionUpdated={fetchSubscriptions}
               />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
@@ -1804,6 +1819,8 @@ const App: React.FC = () => {
                 onKitchenUpdateOrder={updateOrderStatus}
                 lastSyncTime={lastSyncTime}
                 userRole="KITCHEN"
+                subscription={vendorSubscriptions[activeVendorRes.id] || null}
+                onSubscriptionUpdated={fetchSubscriptions}
               />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">

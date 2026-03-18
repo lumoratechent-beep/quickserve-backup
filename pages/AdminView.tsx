@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, PlatformAccess } from '../src/types';
+import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, PlatformAccess, Subscription, PlanId } from '../src/types';
 import { uploadImage } from '../lib/storage';
 import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
+import { PRICING_PLANS } from '../lib/pricingPlans';
 
 interface Props {
   vendors: User[];
@@ -494,8 +495,24 @@ const AdminView: React.FC<Props> = ({
     phone: '',
     logo: '',
     platformAccess: 'pos_and_kitchen' as PlatformAccess,
-    slug: ''
+    slug: '',
+    planId: 'basic' as PlanId
   });
+
+  // Subscription data for all restaurants
+  const [subscriptions, setSubscriptions] = useState<Record<string, Subscription>>({});
+
+  useEffect(() => {
+    const fetchSubscriptions = async () => {
+      const { data, error } = await supabase.from('subscriptions').select('*');
+      if (!error && data) {
+        const map: Record<string, Subscription> = {};
+        data.forEach((s: any) => { map[s.restaurant_id] = s; });
+        setSubscriptions(map);
+      }
+    };
+    fetchSubscriptions();
+  }, [restaurants]);
 
   const vendorFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -681,7 +698,8 @@ const AdminView: React.FC<Props> = ({
         phone: user.phone || '',
         logo: res.logo,
         platformAccess: res.platformAccess || 'pos_and_kitchen',
-        slug: autoSlug
+        slug: autoSlug,
+        planId: (subscriptions[res.id]?.plan_id as PlanId) || 'basic'
       });
       setShowPassword(false);
       setIsModalOpen(true);
@@ -704,7 +722,8 @@ const AdminView: React.FC<Props> = ({
       phone: '', 
       logo: '',
       platformAccess: 'pos_and_kitchen',
-      slug: ''
+      slug: '',
+      planId: 'basic' as PlanId
     });
     setShowPassword(false);
     setIsModalOpen(true);
@@ -749,8 +768,8 @@ const AdminView: React.FC<Props> = ({
         vendorId: editingVendor?.user.id || '', 
         location: formVendor.location, 
         menu: editingVendor?.res.menu || [],
-        // Include platformAccess in the restaurant object
-        platformAccess: formVendor.platformAccess as PlatformAccess,
+        // Derive platformAccess from plan selection
+        platformAccess: (formVendor.planId === 'pro_plus' ? 'pos_and_kitchen' : formVendor.planId === 'pro' ? 'pos_and_qr' : 'pos_only') as PlatformAccess,
         slug: formVendor.slug || undefined
       };
       
@@ -759,6 +778,27 @@ const AdminView: React.FC<Props> = ({
       } else {
         await onAddVendor(userPayload, resPayload);
       }
+
+      // Upsert subscription with selected plan
+      const restaurantId = resPayload.id || editingVendor?.res.id;
+      if (restaurantId) {
+        const planAccess: PlatformAccess = formVendor.planId === 'pro_plus' ? 'pos_and_kitchen' : formVendor.planId === 'pro' ? 'pos_and_qr' : 'pos_only';
+        await supabase.from('restaurants').update({ platform_access: planAccess }).eq('id', restaurantId);
+        const { data: existingSub } = await supabase.from('subscriptions').select('id').eq('restaurant_id', restaurantId).single();
+        if (existingSub) {
+          await supabase.from('subscriptions').update({ plan_id: formVendor.planId, updated_at: new Date().toISOString() }).eq('restaurant_id', restaurantId);
+        } else {
+          await supabase.from('subscriptions').insert({ restaurant_id: restaurantId, plan_id: formVendor.planId, status: 'active', trial_start: new Date().toISOString(), trial_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() });
+        }
+        // Refresh subscriptions
+        const { data: subData } = await supabase.from('subscriptions').select('*');
+        if (subData) {
+          const map: Record<string, Subscription> = {};
+          subData.forEach((s: any) => { map[s.restaurant_id] = s; });
+          setSubscriptions(map);
+        }
+      }
+
       setIsModalOpen(false);
     } catch (error) {
       console.error('Error submitting vendor:', error);
@@ -909,7 +949,7 @@ const AdminView: React.FC<Props> = ({
             <div className="px-4 md:px-8 py-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               <div>
                 <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Vendor Directory</h3>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Manage registered kitchens and their platform access</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Manage registered kitchens and their subscription plans</p>
               </div>
               <div className="flex flex-col sm:flex-row flex-wrap gap-4">
                 <div className="relative flex-1 sm:flex-none sm:w-64">
@@ -958,7 +998,8 @@ const AdminView: React.FC<Props> = ({
                         </button>
                       </div>
                     </th>
-                    <th className="px-8 py-4 text-center">Access</th>
+                    <th className="px-8 py-4 text-center">Plan</th>
+                    <th className="px-8 py-4 text-center">Plan Expiry</th>
                     <th className="px-8 py-4 text-center">Master Activation</th>
                     <th className="px-8 py-4 text-center">Live Status</th>
                     <th className="px-8 py-4 text-right">Actions</th>
@@ -981,9 +1022,24 @@ const AdminView: React.FC<Props> = ({
                         </td>
                         <td className="px-8 py-5 text-sm font-bold text-gray-500 dark:text-gray-400 uppercase truncate max-w-[120px]">{res?.location || 'Unassigned'}</td>
                         <td className="px-8 py-5 text-center">
-                          <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-300">
-                            {(res?.platformAccess || 'pos_and_kitchen') === 'pos_only' ? 'POS Only' : (res?.platformAccess === 'pos_and_qr' ? 'POS & QR' : 'POS & Kitchen')}
-                          </span>
+                          {(() => {
+                            const sub = res ? subscriptions[res.id] : null;
+                            const planId = sub?.plan_id || 'basic';
+                            const planColors: Record<string, string> = { basic: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300', pro: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', pro_plus: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' };
+                            const planLabels: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
+                            return <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${planColors[planId] || planColors.basic}`}>{planLabels[planId] || 'Basic'}</span>;
+                          })()}
+                        </td>
+                        <td className="px-8 py-5 text-center">
+                          {(() => {
+                            const sub = res ? subscriptions[res.id] : null;
+                            if (!sub) return <span className="text-[9px] font-bold text-gray-400">—</span>;
+                            const endDate = sub.current_period_end || sub.trial_end;
+                            if (!endDate) return <span className="text-[9px] font-bold text-gray-400">—</span>;
+                            const d = new Date(endDate);
+                            const isExpired = d < new Date();
+                            return <span className={`text-[9px] font-black ${isExpired ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>{d.toLocaleDateString()}</span>;
+                          })()}
                         </td>
                         <td className="px-8 py-5 text-center">
                           <button onClick={() => toggleVendorStatus(vendor)} className={`p-2 rounded-xl transition-all ${vendor.isActive ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 bg-gray-50 dark:bg-gray-700'}`}>
@@ -1409,46 +1465,27 @@ const AdminView: React.FC<Props> = ({
                  <input required type="text" className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm" value={formVendor.username} onChange={e => setFormVendor({...formVendor, username: e.target.value})} />
                </div>
 
-               {/* Platform Access (NEW) */}
+               {/* Plan Selection */}
                <div className="md:col-span-2">
-                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Platform Access</label>
+                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Plan</label>
                  <div className="flex bg-gray-50 dark:bg-gray-700 p-1 rounded-xl">
-                   <button
-                     type="button"
-                     onClick={() => setFormVendor({...formVendor, platformAccess: 'pos_and_kitchen'})}
-                     className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                       formVendor.platformAccess === 'pos_and_kitchen' 
-                         ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' 
-                         : 'text-gray-400'
-                     }`}
-                   >
-                     POS & Kitchen
-                   </button>
-                   <button
-                     type="button"
-                     onClick={() => setFormVendor({...formVendor, platformAccess: 'pos_only'})}
-                     className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                       formVendor.platformAccess === 'pos_only' 
-                         ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' 
-                         : 'text-gray-400'
-                     }`}
-                   >
-                     POS Only
-                   </button>
-                   <button
-                     type="button"
-                     onClick={() => setFormVendor({...formVendor, platformAccess: 'pos_and_qr'})}
-                     className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                       formVendor.platformAccess === 'pos_and_qr' 
-                         ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' 
-                         : 'text-gray-400'
-                     }`}
-                   >
-                     POS & QR
-                   </button>
+                   {PRICING_PLANS.map(plan => (
+                     <button
+                       key={plan.id}
+                       type="button"
+                       onClick={() => setFormVendor({...formVendor, planId: plan.id})}
+                       className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                         formVendor.planId === plan.id 
+                           ? 'bg-white dark:bg-gray-600 shadow-sm text-orange-500' 
+                           : 'text-gray-400'
+                       }`}
+                     >
+                       {plan.name}
+                     </button>
+                   ))}
                  </div>
                  <p className="text-[8px] text-gray-400 mt-1 ml-1">
-                   Determines what features this restaurant's staff can access
+                   Basic = POS only · Pro = POS + QR · Pro Plus = POS + QR + Kitchen
                  </p>
                </div>
 

@@ -1,7 +1,7 @@
 // pages/PosOnlyView.tsx
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters, CategoryData, ModifierData, ModifierOption, QS_DEFAULT_HUB } from '../src/types';
+import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters, CategoryData, ModifierData, ModifierOption, QS_DEFAULT_HUB, Subscription, PlanId } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { uploadImage } from '../lib/storage';
 import * as counterOrdersCache from '../lib/counterOrdersCache';
@@ -10,6 +10,7 @@ import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import { toast } from '../components/Toast';
 import StandardReport from '../components/StandardReport';
+import UpgradePlanModal from '../components/UpgradePlanModal';
 import {
   ShoppingBag, Search, Download, Calendar,
   Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid,
@@ -39,6 +40,8 @@ interface Props {
   lastSyncTime?: Date;
   userRole?: string;
   onSaveKitchenDivisions?: (divisions: string[]) => void;
+  subscription?: Subscription | null;
+  onSubscriptionUpdated?: () => void;
 }
 
 interface ReceiptSettings {
@@ -174,6 +177,8 @@ const PosOnlyView: React.FC<Props> = ({
   lastSyncTime,
   userRole = 'VENDOR',
   onSaveKitchenDivisions,
+  subscription = null,
+  onSubscriptionUpdated,
 }) => {
   const toLocalDateInputValue = (date: Date) => {
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -1766,8 +1771,13 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   // --- Kitchen Feature Logic ---
-  const showQrFeature = showQrOrders || featureSettings.qrEnabled;
-  const showKitchenFeature = featureSettings.kitchenEnabled;
+  // Plan-based feature gating
+  const vendorPlan: PlanId = subscription?.plan_id || 'basic';
+  const canUseQr = vendorPlan === 'pro' || vendorPlan === 'pro_plus';
+  const canUseKitchen = vendorPlan === 'pro_plus';
+  const showQrFeature = canUseQr && (showQrOrders || featureSettings.qrEnabled);
+  const showKitchenFeature = canUseKitchen && featureSettings.kitchenEnabled;
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const isKitchenUser = userRole === 'KITCHEN';
   const isVendorUser = userRole === 'VENDOR';
 
@@ -3775,20 +3785,34 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                       <div className="flex-1 text-left">
                         <p className="text-xs font-black dark:text-white uppercase tracking-wide">Kitchen Display System</p>
-                        <p className="text-[10px] text-orange-500 font-black">Coming Soon</p>
+                        {canUseKitchen ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plus Plan</p>}
                       </div>
                       <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${featuresPanel === 'kitchen' ? 'rotate-180' : ''}`} />
                     </button>
                     {featuresPanel === 'kitchen' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
                         <div className="max-w-lg space-y-4">
-                          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                            <div>
-                              <p className="text-xs font-black dark:text-white">Kitchen Display System</p>
-                              <p className="text-[9px] text-gray-400 mt-0.5">This feature will be available in the next full enhancement</p>
+                          {canUseKitchen ? (
+                            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                              <div>
+                                <p className="text-xs font-black dark:text-white">Kitchen Display System</p>
+                                <p className="text-[9px] text-gray-400 mt-0.5">Route orders to kitchen screens with department support</p>
+                              </div>
+                              <button
+                                onClick={() => updateFeatureSetting('kitchenEnabled', !featureSettings.kitchenEnabled)}
+                                className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.kitchenEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                              >
+                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.kitchenEnabled ? 'left-6' : 'left-1'}`} />
+                              </button>
                             </div>
-                            <span className="px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full text-[10px] font-black uppercase tracking-widest">Coming Soon</span>
-                          </div>
+                          ) : (
+                            <div className="text-center py-6">
+                              <Coffee size={32} className="mx-auto text-gray-300 mb-3" />
+                              <p className="text-xs font-black dark:text-white mb-1">Upgrade to Pro Plus</p>
+                              <p className="text-[9px] text-gray-400 mb-4">Kitchen Display System requires the Pro Plus plan</p>
+                              <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -3805,20 +3829,34 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                       <div className="flex-1 text-left">
                         <p className="text-xs font-black dark:text-white uppercase tracking-wide">QR Ordering</p>
-                        <p className="text-[10px] text-orange-500 font-black">Coming Soon</p>
+                        {canUseQr ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plan</p>}
                       </div>
                       <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${featuresPanel === 'qr' ? 'rotate-180' : ''}`} />
                     </button>
                     {featuresPanel === 'qr' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
                         <div className="max-w-lg space-y-4">
-                          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                            <div>
-                              <p className="text-xs font-black dark:text-white">QR Ordering</p>
-                              <p className="text-[9px] text-gray-400 mt-0.5">This feature will be available in the next full enhancement</p>
+                          {canUseQr ? (
+                            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                              <div>
+                                <p className="text-xs font-black dark:text-white">QR Ordering</p>
+                                <p className="text-[9px] text-gray-400 mt-0.5">Let customers scan QR codes to order from their table</p>
+                              </div>
+                              <button
+                                onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
+                                className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                              >
+                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
+                              </button>
                             </div>
-                            <span className="px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full text-[10px] font-black uppercase tracking-widest">Coming Soon</span>
-                          </div>
+                          ) : (
+                            <div className="text-center py-6">
+                              <QrCode size={32} className="mx-auto text-gray-300 mb-3" />
+                              <p className="text-xs font-black dark:text-white mb-1">Upgrade to Pro</p>
+                              <p className="text-[9px] text-gray-400 mb-4">QR Ordering requires the Pro plan or higher</p>
+                              <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -3866,7 +3904,7 @@ const PosOnlyView: React.FC<Props> = ({
                         </div>
                         <div className="flex-1 text-left">
                           <p className={`text-xs font-black uppercase tracking-wide ${featuresPanel === 'kitchen' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Kitchen Display System</p>
-                          <p className="text-[10px] text-orange-500 font-black">Coming Soon</p>
+                          {canUseKitchen ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plus Plan</p>}
                         </div>
                       </button>
 
@@ -3886,7 +3924,7 @@ const PosOnlyView: React.FC<Props> = ({
                         </div>
                         <div className="flex-1 text-left">
                           <p className={`text-xs font-black uppercase tracking-wide ${featuresPanel === 'qr' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>QR Ordering</p>
-                          <p className="text-[10px] text-orange-500 font-black">Coming Soon</p>
+                          {canUseQr ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plan</p>}
                         </div>
                       </button>
                     </div>
@@ -3900,25 +3938,53 @@ const PosOnlyView: React.FC<Props> = ({
 
                         {featuresPanel === 'kitchen' && (
                           <div className="space-y-4">
-                            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                              <div>
-                                <p className="text-xs font-black dark:text-white">Kitchen Display System</p>
-                                <p className="text-[9px] text-gray-400 mt-0.5">This feature will be available in the next full enhancement</p>
+                            {canUseKitchen ? (
+                              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                                <div>
+                                  <p className="text-xs font-black dark:text-white">Kitchen Display System</p>
+                                  <p className="text-[9px] text-gray-400 mt-0.5">Route orders to kitchen screens with department support</p>
+                                </div>
+                                <button
+                                  onClick={() => updateFeatureSetting('kitchenEnabled', !featureSettings.kitchenEnabled)}
+                                  className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.kitchenEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                >
+                                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.kitchenEnabled ? 'left-6' : 'left-1'}`} />
+                                </button>
                               </div>
-                              <span className="px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full text-[10px] font-black uppercase tracking-widest">Coming Soon</span>
-                            </div>
+                            ) : (
+                              <div className="text-center py-8">
+                                <Coffee size={36} className="mx-auto text-gray-300 mb-3" />
+                                <p className="text-sm font-black dark:text-white mb-1">Upgrade to Pro Plus</p>
+                                <p className="text-[10px] text-gray-400 mb-4">Kitchen Display System requires the Pro Plus plan</p>
+                                <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
+                              </div>
+                            )}
                           </div>
                         )}
 
                         {featuresPanel === 'qr' && (
                           <div className="space-y-4">
-                            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                              <div>
-                                <p className="text-xs font-black dark:text-white">QR Ordering</p>
-                                <p className="text-[9px] text-gray-400 mt-0.5">This feature will be available in the next full enhancement</p>
+                            {canUseQr ? (
+                              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                                <div>
+                                  <p className="text-xs font-black dark:text-white">QR Ordering</p>
+                                  <p className="text-[9px] text-gray-400 mt-0.5">Let customers scan QR codes to order from their table</p>
+                                </div>
+                                <button
+                                  onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
+                                  className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                >
+                                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
+                                </button>
                               </div>
-                              <span className="px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full text-[10px] font-black uppercase tracking-widest">Coming Soon</span>
-                            </div>
+                            ) : (
+                              <div className="text-center py-8">
+                                <QrCode size={36} className="mx-auto text-gray-300 mb-3" />
+                                <p className="text-sm font-black dark:text-white mb-1">Upgrade to Pro</p>
+                                <p className="text-[10px] text-gray-400 mb-4">QR Ordering requires the Pro plan or higher</p>
+                                <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -5702,6 +5768,20 @@ const PosOnlyView: React.FC<Props> = ({
           animation: slideUp 0.3s ease-out;
         }
       `}</style>
+
+      {/* Upgrade Plan Modal */}
+      {showUpgradeModal && (
+        <UpgradePlanModal
+          currentPlanId={vendorPlan}
+          restaurantId={restaurant.id}
+          subscription={subscription}
+          onClose={() => setShowUpgradeModal(false)}
+          onUpgraded={() => {
+            setShowUpgradeModal(false);
+            onSubscriptionUpdated?.();
+          }}
+        />
+      )}
       </div>
     </div>
   );
