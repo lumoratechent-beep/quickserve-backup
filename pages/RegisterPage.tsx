@@ -186,7 +186,7 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
                   <div className="mb-1 lg:mb-2">
                     <div className="flex items-baseline gap-1 flex-wrap">
                       <span className="text-sm lg:text-lg text-gray-400 font-bold line-through">MYR {plan.price}</span>
-                      <span className="text-xl lg:text-3xl font-black text-orange-500">MYR 0</span>
+                      <span className="text-xl lg:text-3xl font-black text-orange-500">MYR {plan.trialPrice}</span>
                       <span className="text-gray-400 font-bold text-[10px] lg:text-sm">/mo</span>
                     </div>
                     <p className="text-[9px] lg:text-xs text-gray-400 font-medium mt-0.5">
@@ -265,7 +265,7 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
               {currentPlan.name} Plan
             </span>
             <span className="text-gray-400 dark:text-gray-500 text-xs font-bold">
-              — MYR 0/mo for 1 month, then MYR {billingCycle === 'annual' ? currentPlan.annualPrice : currentPlan.price}/mo
+              — MYR {currentPlan.trialPrice}/mo for 1 month, then MYR {billingCycle === 'annual' ? currentPlan.annualPrice : currentPlan.price}/mo
             </span>
           </div>
         </div>

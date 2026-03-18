@@ -6,6 +6,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     name: 'Basic',
     price: 30,
     annualPrice: 25,
+    trialPrice: 15,
     description: 'Essential POS features to get your restaurant running smoothly.',
     features: [
       'Full POS system',
@@ -19,6 +20,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     name: 'Pro',
     price: 50,
     annualPrice: 42,
+    trialPrice: 0,
     highlight: true,
     description: 'Advanced ordering with QR and tablet for higher productivity.',
     features: [
@@ -30,8 +32,9 @@ export const PRICING_PLANS: PricingPlan[] = [
   {
     id: 'pro_plus',
     name: 'Pro Plus',
-    price: 65,
-    annualPrice: 55,
+    price: 70,
+    annualPrice: 60,
+    trialPrice: 0,
     description: 'Full kitchen integration with display system and smart routing.',
     features: [
       'Everything in Pro Plan',

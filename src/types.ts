@@ -183,6 +183,7 @@ export interface PricingPlan {
   name: string;
   price: number; // RM per month
   annualPrice: number; // RM per month when billed annually
+  trialPrice: number; // RM per month during trial period
   description: string;
   features: string[];
   highlight?: boolean;
