@@ -240,7 +240,7 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
   const currentPlan = PRICING_PLANS.find(p => p.id === selectedPlan)!;
 
   return (
-    <div className="h-screen overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors flex flex-col">
+    <div className="h-screen overflow-y-auto bg-gray-50 dark:bg-gray-900 transition-colors">
       <button
         onClick={() => setStep('plan')}
         className="fixed top-4 left-4 lg:top-6 lg:left-8 z-50 flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 font-semibold transition-colors"
@@ -249,12 +249,12 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
         Change Plan
       </button>
 
-      <div className="w-full max-w-lg mx-auto px-4 py-4 lg:py-6 flex flex-col flex-1 min-h-0">
-        <div className="flex flex-col items-center mb-3 lg:mb-4 shrink-0">
+      <div className="w-full max-w-lg mx-auto px-4 py-6 lg:py-10">
+        <div className="flex flex-col items-center mb-4 lg:mb-6">
           <img
             src="/LOGO/icon-192x192.png"
             alt="QuickServe logo"
-            className="w-12 h-12 lg:w-16 lg:h-16 rounded-2xl object-contain mb-2"
+            className="w-12 h-12 lg:w-14 lg:h-14 rounded-2xl object-contain mb-2"
           />
           <h1 className="text-xl lg:text-2xl font-black text-gray-900 dark:text-white tracking-tight">
             Create Your Account
@@ -269,8 +269,8 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl lg:rounded-3xl shadow-2xl shadow-gray-200 dark:shadow-none border border-gray-100 dark:border-gray-700 p-4 lg:p-6 flex-1 min-h-0 flex flex-col">
-          <form id="registerForm" onSubmit={handleSubmit} className="space-y-3 lg:space-y-4 flex-1 min-h-0 overflow-y-auto">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl lg:rounded-3xl shadow-2xl shadow-gray-200 dark:shadow-none border border-gray-100 dark:border-gray-700 p-4 lg:p-6">
+          <form onSubmit={handleSubmit} className="space-y-3">
             {error && (
               <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-xs font-medium border border-red-100 dark:border-red-900/40">
                 <AlertCircle size={16} className="shrink-0 mt-0.5" />
@@ -368,14 +368,12 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
                 />
               </div>
             </div>
-          </form>
 
-          <div className="shrink-0 pt-3 lg:pt-4 space-y-2 border-t border-gray-100 dark:border-gray-700 mt-3">
+            {/* Submit Button */}
             <button
               type="submit"
-              form="registerForm"
               disabled={isSubmitting}
-              className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-sm shadow-xl shadow-orange-100 dark:shadow-none hover:bg-orange-600 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3 mt-1 bg-orange-500 text-white rounded-xl font-black text-sm shadow-xl shadow-orange-100 dark:shadow-none hover:bg-orange-600 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <>
@@ -386,23 +384,23 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
                 <>Register & Pay Now</>
               )}
             </button>
+          </form>
 
-            <p className="text-center text-gray-400 text-[10px] font-medium">
-              By registering, you agree to our Terms of Service. You will be redirected to Stripe to complete payment.
-            </p>
-
-            <p className="text-center text-gray-500 dark:text-gray-400 text-xs font-medium">
-              Already have an account?{' '}
-              <button
-                type="button"
-                onClick={onLoginClick}
-                className="text-orange-500 font-black hover:text-orange-600 transition-colors inline-flex items-center gap-1"
-              >
-                <LogIn size={14} /> Log In
-              </button>
-            </p>
-          </div>
+          <p className="text-center text-gray-400 text-[10px] font-medium mt-3">
+            By registering, you agree to our Terms of Service. You will be redirected to Stripe to complete payment.
+          </p>
         </div>
+
+        <p className="text-center text-gray-500 dark:text-gray-400 text-xs font-medium mt-4">
+          Already have an account?{' '}
+          <button
+            type="button"
+            onClick={onLoginClick}
+            className="text-orange-500 font-black hover:text-orange-600 transition-colors inline-flex items-center gap-1"
+          >
+            <LogIn size={14} /> Log In
+          </button>
+        </p>
       </div>
     </div>
   );
