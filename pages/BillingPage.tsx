@@ -57,6 +57,14 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     }
   }, [subscription?.stripe_customer_id]);
 
+  // Re-check for stripe_customer_id after returning from setup session
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('setup') === 'success') {
+      onSubscriptionUpdated?.();
+    }
+  }, []);
+
   useEffect(() => {
     const def = paymentMethods.find(m => m.isDefault);
     if (def) setSelectedMethodId(def.id);
@@ -113,13 +121,12 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   };
 
   const handleAddCard = async () => {
-    if (!subscription?.stripe_customer_id) return;
     setIsAddingCard(true);
     try {
       const res = await fetch('/api/stripe/billing?action=setup-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerId: subscription.stripe_customer_id, restaurantId }),
+        body: JSON.stringify({ customerId: subscription?.stripe_customer_id, restaurantId }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -226,13 +233,17 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   {/* Action — all same height */}
                   <div className="flex items-center gap-3 min-h-[34px]">
                     {isCurrent ? (
-                      <button
-                        onClick={handleToggleAutoRenew}
-                        disabled={isTogglingAutoRenew || !subscription?.stripe_subscription_id}
-                        className="px-4 py-2 rounded-lg text-xs font-semibold border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors disabled:opacity-40"
-                      >
-                        {isTogglingAutoRenew ? 'Processing...' : autoRenew ? 'Cancel Subscription' : 'Resume Subscription'}
-                      </button>
+                      subscription?.stripe_subscription_id ? (
+                        <button
+                          onClick={handleToggleAutoRenew}
+                          disabled={isTogglingAutoRenew}
+                          className="px-4 py-2 rounded-lg text-xs font-semibold border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors disabled:opacity-50"
+                        >
+                          {isTogglingAutoRenew ? 'Processing...' : autoRenew ? 'Cancel Subscription' : 'Resume Subscription'}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-400">Add a card to manage subscription</span>
+                      )
                     ) : isUpgrade ? (
                       <>
                         <button
@@ -262,17 +273,21 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         <section>
           <div className="flex items-center justify-between gap-4 mb-1">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">Enable auto renew</h3>
-            <button
-              onClick={handleToggleAutoRenew}
-              disabled={isTogglingAutoRenew || !subscription?.stripe_subscription_id}
-              className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                autoRenew ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
-              } ${isTogglingAutoRenew || !subscription?.stripe_subscription_id ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
-            >
-              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                autoRenew ? 'translate-x-6' : 'translate-x-1'
-              }`} />
-            </button>
+            {subscription?.stripe_subscription_id ? (
+              <button
+                onClick={handleToggleAutoRenew}
+                disabled={isTogglingAutoRenew}
+                className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                  autoRenew ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
+                } ${isTogglingAutoRenew ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              >
+                <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                  autoRenew ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </button>
+            ) : (
+              <span className="text-xs text-gray-400 italic">No active subscription</span>
+            )}
           </div>
           <p className="text-[11px] text-gray-400 leading-relaxed max-w-xl">
             This option, if checked, will renew your productive subscription, if the current plan expires. However, this might prevent you from downgrading.

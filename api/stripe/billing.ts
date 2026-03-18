@@ -2,8 +2,14 @@
 // Consolidated billing endpoint — dispatches by ?action= query param
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
+
+const supabase = createClient(
+  process.env.SUPABASE_URL || 'https://anknjpuiklglykguneax.supabase.co',
+  process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || ''
+);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = req.query.action as string;
@@ -54,11 +60,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ methods });
       }
 
-      // POST /api/stripe/billing?action=setup-session  body: { customerId, restaurantId }
+      // POST /api/stripe/billing?action=setup-session  body: { customerId?, restaurantId }
       case 'setup-session': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-        const { customerId, restaurantId } = req.body || {};
-        if (!customerId) return res.status(400).json({ error: 'customerId is required.' });
+        const { customerId: inputCustomerId, restaurantId } = req.body || {};
+        if (!restaurantId) return res.status(400).json({ error: 'restaurantId is required.' });
+
+        let customerId = inputCustomerId as string | undefined;
+
+        // If no customerId provided, look up or create a Stripe customer
+        if (!customerId) {
+          const { data: sub } = await supabase
+            .from('subscriptions')
+            .select('stripe_customer_id')
+            .eq('restaurant_id', restaurantId)
+            .single();
+
+          customerId = sub?.stripe_customer_id || undefined;
+        }
+
+        if (!customerId) {
+          const { data: restaurant } = await supabase
+            .from('restaurants')
+            .select('name')
+            .eq('id', restaurantId)
+            .single();
+
+          const { data: user } = await supabase
+            .from('users')
+            .select('email, username')
+            .eq('restaurant_id', restaurantId)
+            .eq('role', 'VENDOR')
+            .single();
+
+          const customer = await stripe.customers.create({
+            name: restaurant?.name || 'QuickServe Customer',
+            email: user?.email || undefined,
+            metadata: { restaurant_id: restaurantId },
+          });
+          customerId = customer.id;
+
+          await supabase
+            .from('subscriptions')
+            .update({ stripe_customer_id: customerId })
+            .eq('restaurant_id', restaurantId);
+        }
 
         const baseUrl = (req.headers.origin || req.headers.referer || 'https://quickserve.my').replace(/\/$/, '');
         const session = await stripe.checkout.sessions.create({
@@ -69,7 +115,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           cancel_url: `${baseUrl}?setup=cancelled`,
           metadata: { restaurant_id: restaurantId || '' },
         });
-        return res.status(200).json({ url: session.url });
+        return res.status(200).json({ url: session.url, customerId });
       }
 
       // POST /api/stripe/billing?action=delete-payment-method  body: { paymentMethodId }
