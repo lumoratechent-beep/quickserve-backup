@@ -3283,7 +3283,7 @@ const PosOnlyView: React.FC<Props> = ({
         {featureSettings.kitchenEnabled && (
           <>
             {/* Departments / Divisions */}
-            <div className="border-t dark:border-gray-700 pt-3">
+            <div className="pt-3">
               <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Departments</p>
               <p className="text-[9px] text-gray-400 mb-2">Create kitchen departments to route specific categories to specific screens.</p>
               {kitchenDivisions.length > 0 && (
@@ -3373,7 +3373,7 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
 
             {/* Kitchen Staff */}
-            <div className="border-t dark:border-gray-700 pt-3 mt-3">
+            <div className="pt-3 mt-3">
               <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Kitchen Staff</p>
               <p className="text-[9px] text-gray-400 mb-2">Staff assigned to kitchen role can access the Kitchen Display.</p>
               {kitchenStaff.length > 0 ? (
