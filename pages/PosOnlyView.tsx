@@ -179,6 +179,14 @@ interface TaxEntry {
   applyToItems: boolean;
 }
 
+interface SavedBillEntry {
+  id: string;
+  items: CartItem[];
+  remark: string;
+  tableNumber: string;
+  createdAt: number;
+}
+
 type SettingsPanel = null | 'printer' | 'receipt' | 'payment' | 'staff' | 'ux';
 type FeaturesPanel = 'builtin' | 'kitchen' | 'qr';
 
@@ -211,7 +219,7 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'FEATURES' | 'BILLING'>(userRole === 'KITCHEN' ? 'KITCHEN' : 'COUNTER');
-  const [counterMode, setCounterMode] = useState<'COUNTER_ORDER' | 'QR_ORDER'>('COUNTER_ORDER');
+  const [counterMode, setCounterMode] = useState<'SAVED_BILL' | 'COUNTER_ORDER' | 'QR_ORDER'>('COUNTER_ORDER');
   const [selectedQrOrderForPayment, setSelectedQrOrderForPayment] = useState<Order | null>(null);
   const [qrOrderFilter, setQrOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
   const [rejectingQrOrderId, setRejectingQrOrderId] = useState<string | null>(null);
@@ -245,6 +253,10 @@ const PosOnlyView: React.FC<Props> = ({
   const [posCart, setPosCart] = useState<CartItem[]>([]);
   const [posRemark, setPosRemark] = useState('');
   const [posTableNo, setPosTableNo] = useState('Counter');
+  const [savedBills, setSavedBills] = useState<SavedBillEntry[]>(() => {
+    const saved = localStorage.getItem(`saved_bills_${restaurant.id}`);
+    return saved ? JSON.parse(saved) : [];
+  });
   const [menuSearch, setMenuSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [selectedItemForOptions, setSelectedItemForOptions] = useState<MenuItem | null>(null);
@@ -906,6 +918,91 @@ const PosOnlyView: React.FC<Props> = ({
     return posCart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   }, [posCart]);
 
+  const activeTaxEntries = useMemo(() => {
+    return taxEntries.filter(tax => tax.applyToItems);
+  }, [taxEntries]);
+
+  const cartTaxLines = useMemo(() => {
+    return activeTaxEntries.map(tax => ({
+      id: tax.id,
+      name: tax.name,
+      percentage: tax.percentage,
+      amount: (cartTotal * tax.percentage) / 100,
+    }));
+  }, [activeTaxEntries, cartTotal]);
+  const cartTaxTotal = useMemo(() => cartTaxLines.reduce((sum, tax) => sum + tax.amount, 0), [cartTaxLines]);
+  const cartGrandTotal = useMemo(() => cartTotal + cartTaxTotal, [cartTotal, cartTaxTotal]);
+
+  const selectedQrOrderSubtotal = selectedQrOrderForPayment?.total ?? 0;
+  const selectedQrTaxLines = useMemo(() => {
+    return activeTaxEntries.map(tax => ({
+      id: tax.id,
+      name: tax.name,
+      percentage: tax.percentage,
+      amount: (selectedQrOrderSubtotal * tax.percentage) / 100,
+    }));
+  }, [activeTaxEntries, selectedQrOrderSubtotal]);
+  const selectedQrTaxTotal = useMemo(() => selectedQrTaxLines.reduce((sum, tax) => sum + tax.amount, 0), [selectedQrTaxLines]);
+  const selectedQrGrandTotal = useMemo(() => selectedQrOrderSubtotal + selectedQrTaxTotal, [selectedQrOrderSubtotal, selectedQrTaxTotal]);
+
+  const saveCurrentBill = () => {
+    if (posCart.length === 0) {
+      toast('Cart is empty. Add items before saving bill.', 'warning');
+      return;
+    }
+
+    const entry: SavedBillEntry = {
+      id: `${Date.now()}`,
+      items: posCart,
+      remark: posRemark,
+      tableNumber: posTableNo,
+      createdAt: Date.now(),
+    };
+
+    setSavedBills(prev => [entry, ...prev]);
+    setPosCart([]);
+    setPosRemark('');
+    setPosTableNo('Counter');
+    setCounterMode('SAVED_BILL');
+    toast('Bill saved successfully.', 'success');
+  };
+
+  const loadSavedBill = (billId: string) => {
+    const selectedBill = savedBills.find(bill => bill.id === billId);
+    if (!selectedBill) return;
+
+    setPosCart(selectedBill.items);
+    setPosRemark(selectedBill.remark);
+    setPosTableNo(selectedBill.tableNumber);
+    setSavedBills(prev => prev.filter(bill => bill.id !== billId));
+    setCounterMode('COUNTER_ORDER');
+    toast('Saved bill loaded into counter.', 'success');
+  };
+
+  const deleteSavedBill = (billId: string) => {
+    setSavedBills(prev => prev.filter(bill => bill.id !== billId));
+  };
+
+  const saveSelectedQrOrderAsBill = () => {
+    if (!selectedQrOrderForPayment) {
+      toast('Select a QR order first.', 'warning');
+      return;
+    }
+
+    const entry: SavedBillEntry = {
+      id: `${Date.now()}`,
+      items: selectedQrOrderForPayment.items,
+      remark: selectedQrOrderForPayment.remark,
+      tableNumber: String(selectedQrOrderForPayment.tableNumber || 'Counter'),
+      createdAt: Date.now(),
+    };
+
+    setSavedBills(prev => [entry, ...prev]);
+    setSelectedQrOrderForPayment(null);
+    setCounterMode('SAVED_BILL');
+    toast('QR order saved as bill.', 'success');
+  };
+
   const handleCheckout = async () => {
     if (posCart.length === 0 || isCompletingPayment) return;
 
@@ -914,11 +1011,11 @@ const PosOnlyView: React.FC<Props> = ({
       items: posCart,
       remark: posRemark,
       tableNumber: posTableNo,
-      total: cartTotal,
+      total: cartGrandTotal,
     });
     
-    setSelectedCashAmount(cartTotal);
-    setCashAmountInput(cartTotal.toFixed(2));
+    setSelectedCashAmount(cartGrandTotal);
+    setCashAmountInput(cartGrandTotal.toFixed(2));
     setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
     setIsQrPaymentMode(false);
     setShowPaymentModal(true);
@@ -930,10 +1027,10 @@ const PosOnlyView: React.FC<Props> = ({
       items: selectedQrOrderForPayment.items,
       remark: selectedQrOrderForPayment.remark,
       tableNumber: selectedQrOrderForPayment.tableNumber,
-      total: selectedQrOrderForPayment.total,
+      total: selectedQrGrandTotal,
     });
-    setSelectedCashAmount(selectedQrOrderForPayment.total);
-    setCashAmountInput(selectedQrOrderForPayment.total.toFixed(2));
+    setSelectedCashAmount(selectedQrGrandTotal);
+    setCashAmountInput(selectedQrGrandTotal.toFixed(2));
     setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
     setIsQrPaymentMode(true);
     setShowPaymentModal(true);
@@ -1426,6 +1523,10 @@ const PosOnlyView: React.FC<Props> = ({
   useEffect(() => {
     localStorage.setItem(`taxes_${restaurant.id}`, JSON.stringify(taxEntries));
   }, [taxEntries, restaurant.id]);
+
+  useEffect(() => {
+    localStorage.setItem(`saved_bills_${restaurant.id}`, JSON.stringify(savedBills));
+  }, [savedBills, restaurant.id]);
 
   // User Experience: persist font choice and apply to page
   useEffect(() => {
@@ -3709,8 +3810,60 @@ const PosOnlyView: React.FC<Props> = ({
           {/* Counter Tab - Same as PosView */}
           {activeTab === 'COUNTER' && (
             <>
-              {/* QR Order selection panel */}
-              {showQrFeature && counterMode === 'QR_ORDER' ? (
+              {/* Saved Bill selection panel */}
+              {counterMode === 'SAVED_BILL' ? (
+                <div className="flex-1 overflow-y-auto p-4">
+                  {savedBills.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
+                      <Receipt size={48} className="mb-4" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">No saved bills</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {savedBills.map((bill) => {
+                        const billSubtotal = bill.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                        const billTaxTotal = activeTaxEntries.reduce((sum, tax) => sum + ((billSubtotal * tax.percentage) / 100), 0);
+                        const billTotal = billSubtotal + billTaxTotal;
+
+                        return (
+                          <div key={bill.id} className="w-full p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <Receipt size={14} className="text-orange-500" />
+                                <span className="text-xs font-black dark:text-white uppercase">{bill.tableNumber || 'Counter'}</span>
+                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">#{bill.id}</span>
+                              </div>
+                              <span className="text-xs font-black text-orange-500">{currencySymbol}{billTotal.toFixed(2)}</span>
+                            </div>
+                            <div className="space-y-0.5 mb-3">
+                              {bill.items.slice(0, 3).map((item, idx) => (
+                                <p key={`${bill.id}-${idx}`} className="text-[10px] text-gray-500 dark:text-gray-400">x{item.quantity} {item.name}</p>
+                              ))}
+                              {bill.items.length > 3 && (
+                                <p className="text-[10px] text-gray-400">+{bill.items.length - 3} more items</p>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => loadSavedBill(bill.id)}
+                                className="flex-[2] py-2 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
+                              >
+                                Load Bill
+                              </button>
+                              <button
+                                onClick={() => deleteSavedBill(bill.id)}
+                                className="flex-1 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : showQrFeature && counterMode === 'QR_ORDER' ? (
                 <div className="flex-1 overflow-y-auto p-4">
                   {(() => {
                     const servedOrders = orders.filter(o => o.status === OrderStatus.SERVED);
@@ -5467,29 +5620,37 @@ const PosOnlyView: React.FC<Props> = ({
           `}>
             {/* Sidebar header */}
             <div className="p-4 border-b dark:border-gray-700">
-              {showQrFeature && (
-                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 mb-3">
-                  <button
-                    onClick={() => { setCounterMode('COUNTER_ORDER'); setSelectedQrOrderForPayment(null); }}
-                    className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
-                      counterMode === 'COUNTER_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
-                    }`}
-                  >Counter</button>
+              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 mb-3">
+                <button
+                  onClick={() => { setCounterMode('SAVED_BILL'); setSelectedQrOrderForPayment(null); }}
+                  className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                    counterMode === 'SAVED_BILL' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
+                  }`}
+                >Saved Bill</button>
+                <button
+                  onClick={() => { setCounterMode('COUNTER_ORDER'); setSelectedQrOrderForPayment(null); }}
+                  className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                    counterMode === 'COUNTER_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
+                  }`}
+                >Counter</button>
+                {showQrFeature && (
                   <button
                     onClick={() => { setCounterMode('QR_ORDER'); setSelectedQrOrderForPayment(null); }}
                     className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
                       counterMode === 'QR_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
                     }`}
                   >QR Order</button>
-                </div>
-              )}
+                )}
+              </div>
               <div className="flex items-center justify-between">
                 <h3 className="font-black dark:text-white uppercase tracking-tighter text-sm">
-                  {showQrFeature && counterMode === 'QR_ORDER'
+                  {counterMode === 'SAVED_BILL'
+                    ? 'Saved Bills'
+                    : showQrFeature && counterMode === 'QR_ORDER'
                     ? (selectedQrOrderForPayment ? `Order #${selectedQrOrderForPayment.id}` : 'QR Order')
                     : 'Current Order'}
                 </h3>
-                {(counterMode === 'COUNTER_ORDER' || !showQrFeature) && (
+                {(counterMode === 'COUNTER_ORDER' || (!showQrFeature && counterMode !== 'SAVED_BILL')) && (
                   <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors">
                     <Trash2 size={18} />
                   </button>
@@ -5502,8 +5663,15 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
             </div>
 
-            {/* QR ORDER mode — show selected QR order items */}
-            {showQrFeature && counterMode === 'QR_ORDER' ? (
+            {/* Sidebar content by mode */}
+            {counterMode === 'SAVED_BILL' ? (
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
+                  <Receipt size={48} className="mb-4" />
+                  <p className="text-[10px] font-black uppercase tracking-widest">Select a saved bill from the left panel</p>
+                </div>
+              </div>
+            ) : showQrFeature && counterMode === 'QR_ORDER' ? (
               <>
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
                   {!selectedQrOrderForPayment ? (
@@ -5544,11 +5712,17 @@ const PosOnlyView: React.FC<Props> = ({
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                       <span>Subtotal</span>
-                      <span>{currencySymbol}{(selectedQrOrderForPayment?.total ?? 0).toFixed(2)}</span>
+                      <span>{currencySymbol}{selectedQrOrderSubtotal.toFixed(2)}</span>
                     </div>
+                    {selectedQrTaxLines.map(tax => (
+                      <div key={`qr-tax-${tax.id}`} className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
+                        <span>{tax.name} ({tax.percentage.toFixed(2)}%)</span>
+                        <span>{currencySymbol}{tax.amount.toFixed(2)}</span>
+                      </div>
+                    ))}
                     <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
                       <span className="uppercase">Total</span>
-                      <span className="text-orange-500">{currencySymbol}{(selectedQrOrderForPayment?.total ?? 0).toFixed(2)}</span>
+                      <span className="text-orange-500">{currencySymbol}{selectedQrGrandTotal.toFixed(2)}</span>
                     </div>
                   </div>
 
@@ -5575,13 +5749,22 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                     </div>
 
-                    <button
-                      onClick={handleQrOrderCheckout}
-                      disabled={!selectedQrOrderForPayment || isCompletingPayment}
-                      className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
-                    >
-                      <CreditCard size={16} /> Complete Payment
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={saveSelectedQrOrderAsBill}
+                        disabled={!selectedQrOrderForPayment || isCompletingPayment}
+                        className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-2xl font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                      >
+                        Saved Bill
+                      </button>
+                      <button
+                        onClick={handleQrOrderCheckout}
+                        disabled={!selectedQrOrderForPayment || isCompletingPayment}
+                        className="flex-[2] py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                      >
+                        <CreditCard size={16} /> Complete Payment
+                      </button>
+                    </div>
                   </div>
                 </div>
               </>
@@ -5643,9 +5826,15 @@ const PosOnlyView: React.FC<Props> = ({
                   <span>Subtotal</span>
                   <span>{currencySymbol}{cartTotal.toFixed(2)}</span>
                 </div>
+                {cartTaxLines.map(tax => (
+                  <div key={`cart-tax-${tax.id}`} className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
+                    <span>{tax.name} ({tax.percentage.toFixed(2)}%)</span>
+                    <span>{currencySymbol}{tax.amount.toFixed(2)}</span>
+                  </div>
+                ))}
                 <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
                   <span className="uppercase">Total</span>
-                  <span className="text-orange-500">{currencySymbol}{cartTotal.toFixed(2)}</span>
+                  <span className="text-orange-500">{currencySymbol}{cartGrandTotal.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -5661,9 +5850,22 @@ const PosOnlyView: React.FC<Props> = ({
                   </div>
                 </div>
 
-                <button onClick={handleCheckout} disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2">
-                  <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : 'Complete Order'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={saveCurrentBill}
+                    disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
+                    className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-2xl font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                  >
+                    Saved Bill
+                  </button>
+                  <button
+                    onClick={handleCheckout}
+                    disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
+                    className="flex-[2] py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                  >
+                    <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : 'Complete Payment'}
+                  </button>
+                </div>
               </div>
             </div>
               </>
@@ -5758,7 +5960,7 @@ const PosOnlyView: React.FC<Props> = ({
 
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black dark:text-white uppercase tracking-widest">Total</span>
-                <span className="text-xl font-black text-orange-500">{currencySymbol}{cartTotal.toFixed(2)}</span>
+                <span className="text-xl font-black text-orange-500">{currencySymbol}{cartGrandTotal.toFixed(2)}</span>
               </div>
 
               <div className="flex gap-2">
@@ -5771,7 +5973,7 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
 
               <button onClick={() => { setShowMobileCart(false); handleCheckout(); }} disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2">
-                <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : `Pay ${currencySymbol}${cartTotal.toFixed(2)}`}
+                <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : `Pay ${currencySymbol}${cartGrandTotal.toFixed(2)}`}
               </button>
             </div>
           </div>
