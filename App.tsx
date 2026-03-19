@@ -418,9 +418,10 @@ const App: React.FC = () => {
         kitchenDivisions: normalizeKitchenDepartments(res.kitchen_divisions),
         kitchenEnabled: res.kitchen_enabled === true,
         settings: (() => {
-          const localSettings = localStorage.getItem(`qs_settings_${res.id}`);
           const dbSettings = res.settings ? (typeof res.settings === 'string' ? JSON.parse(res.settings) : res.settings) : null;
-          return localSettings ? JSON.parse(localSettings) : dbSettings;
+          const localSettings = localStorage.getItem(`qs_settings_${res.id}`);
+          // DB is authoritative (cross-device); localStorage is only a fallback when DB has nothing.
+          return dbSettings || (localSettings ? JSON.parse(localSettings) : null);
         })(),
         categories: res.categories || [],
         modifiers: res.modifiers || [],
