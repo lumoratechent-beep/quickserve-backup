@@ -4718,19 +4718,18 @@ const PosOnlyView: React.FC<Props> = ({
                 )}
 
                 {/* ===== MOBILE: Accordion Layout ===== */}
-                <div className="lg:hidden space-y-3">
-                  {/* Features Section Label */}
-                  {!isKitchenUser && (
-                  <div className="flex items-center gap-2 pt-1">
-                    <Layers size={12} className="text-emerald-500" />
-                    <p className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em]">Features</p>
-                    <div className="flex-1 h-px bg-emerald-200 dark:bg-emerald-800" />
-                  </div>
-                  )}
-
-                  {/* Built-in Features Accordion */}
+                <div className="lg:hidden space-y-4">
+                  {/* Features Container */}
                   {!isKitchenUser && (
                   <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                    <div className="flex items-center gap-2.5 px-4 py-3 bg-emerald-50/50 dark:bg-emerald-900/10 border-b dark:border-gray-700">
+                      <Layers size={14} className="text-emerald-500" />
+                      <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Features</p>
+                    </div>
+                    <div className="divide-y dark:divide-gray-700">
+
+                  {/* Built-in Features Accordion */}
+                  <div>
                     <button
                       onClick={() => setSettingsPanel(settingsPanel === 'builtin' ? 'printer' : 'builtin')}
                       className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
@@ -4752,11 +4751,9 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                     )}
                   </div>
-                  )}
 
                   {/* Save Bill & Table Management Accordion */}
-                  {!isKitchenUser && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                  <div>
                     <button
                       onClick={() => setSettingsPanel(settingsPanel === 'table' ? 'builtin' : 'table')}
                       className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
@@ -4778,11 +4775,9 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                     )}
                   </div>
-                  )}
 
                   {/* Kitchen Display System Accordion */}
-                  {!isKitchenUser && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                  <div>
                     <button
                       onClick={() => setSettingsPanel(settingsPanel === 'kitchen' ? 'builtin' : 'kitchen')}
                       className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
@@ -4811,11 +4806,9 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                     )}
                   </div>
-                  )}
 
                   {/* QR Ordering Accordion */}
-                  {!isKitchenUser && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                  <div>
                     <button
                       onClick={() => setSettingsPanel(settingsPanel === 'qr' ? 'builtin' : 'qr')}
                       className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
@@ -4860,17 +4853,21 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                     )}
                   </div>
+
+                    </div>
+                  </div>
                   )}
 
-                  {/* Settings Section Label */}
-                  <div className="flex items-center gap-2 pt-1">
-                    <Settings size={12} className="text-gray-400" />
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Settings</p>
-                    <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
-                  </div>
+                  {/* Settings Container */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                    <div className="flex items-center gap-2.5 px-4 py-3 bg-gray-50 dark:bg-gray-700/20 border-b dark:border-gray-700">
+                      <Settings size={14} className="text-gray-400" />
+                      <p className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">Settings</p>
+                    </div>
+                    <div className="divide-y dark:divide-gray-700">
 
                   {/* Printer Accordion */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                  <div>
                     <button
                       onClick={() => { setSettingsPanel(settingsPanel === 'printer' ? 'builtin' : 'printer'); setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }}
                       className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
@@ -4894,7 +4891,7 @@ const PosOnlyView: React.FC<Props> = ({
                   </div>
 
                   {/* Receipt Accordion */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                  <div>
                     <button
                       onClick={() => setSettingsPanel(settingsPanel === 'receipt' ? 'builtin' : 'receipt')}
                       className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
@@ -4918,7 +4915,7 @@ const PosOnlyView: React.FC<Props> = ({
                   </div>
 
                   {/* Payment Type & Taxes Accordion */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                  <div>
                     <button
                       onClick={() => setSettingsPanel(settingsPanel === 'payment' ? 'builtin' : 'payment')}
                       className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
@@ -4942,7 +4939,7 @@ const PosOnlyView: React.FC<Props> = ({
                   </div>
 
                   {/* Staff Accordion */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                  <div>
                     <button
                       onClick={() => setSettingsPanel(settingsPanel === 'staff' ? 'builtin' : 'staff')}
                       className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
@@ -4966,7 +4963,7 @@ const PosOnlyView: React.FC<Props> = ({
                   </div>
 
                   {/* User Experience Accordion */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                  <div>
                     <button
                       onClick={() => setSettingsPanel(settingsPanel === 'ux' ? 'builtin' : 'ux')}
                       className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
@@ -4989,13 +4986,21 @@ const PosOnlyView: React.FC<Props> = ({
                     )}
                   </div>
 
+                    </div>
+                  </div>
+
                 </div>
                 <div className="hidden lg:flex gap-6 min-h-[500px]">
                   {/* Left Sidebar */}
-                  <div className="flex-1">
+                  <div className="flex-1 space-y-4">
+                    {/* Features Card */}
+                    {!isKitchenUser && (
                     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                      <div className="flex items-center gap-2.5 px-4 py-3 bg-emerald-50/50 dark:bg-emerald-900/10 border-b dark:border-gray-700">
+                        <Layers size={14} className="text-emerald-500" />
+                        <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Features</p>
+                      </div>
                       {/* Built-in Features Nav */}
-                      {!isKitchenUser && (
                       <button
                         onClick={() => setSettingsPanel('builtin')}
                         className={`w-full flex items-center gap-3 p-4 transition-all ${
@@ -5014,10 +5019,8 @@ const PosOnlyView: React.FC<Props> = ({
                           <p className="text-[10px] text-gray-400">Auto-print, drawer, dining</p>
                         </div>
                       </button>
-                      )}
 
                       {/* Save Bill & Table Management Nav */}
-                      {!isKitchenUser && (
                       <button
                         onClick={() => setSettingsPanel('table')}
                         className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
@@ -5036,10 +5039,8 @@ const PosOnlyView: React.FC<Props> = ({
                           <p className="text-[10px] text-gray-400">Saved bill and table layout settings</p>
                         </div>
                       </button>
-                      )}
 
                       {/* Kitchen Display System Nav */}
-                      {!isKitchenUser && (
                       <button
                         onClick={() => setSettingsPanel('kitchen')}
                         className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
@@ -5058,10 +5059,8 @@ const PosOnlyView: React.FC<Props> = ({
                           {canUseKitchen ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plus Plan</p>}
                         </div>
                       </button>
-                      )}
 
                       {/* QR Ordering Nav */}
-                      {!isKitchenUser && (
                       <button
                         onClick={() => setSettingsPanel('qr')}
                         className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
@@ -5080,21 +5079,20 @@ const PosOnlyView: React.FC<Props> = ({
                           {canUseQr ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plan</p>}
                         </div>
                       </button>
-                      )}
+                    </div>
+                    )}
 
-                      {/* Settings Section Divider */}
-                      <div className="px-4 py-2 border-t dark:border-gray-700">
-                        <div className="flex items-center gap-2">
-                          <Settings size={10} className="text-gray-400" />
-                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-[0.2em]">Settings</p>
-                          <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
-                        </div>
+                    {/* Settings Card */}
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                      <div className="flex items-center gap-2.5 px-4 py-3 bg-gray-50 dark:bg-gray-700/20 border-b dark:border-gray-700">
+                        <Settings size={14} className="text-gray-400" />
+                        <p className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">Settings</p>
                       </div>
 
                       {/* Printer Nav Item */}
                       <button
                         onClick={() => { setSettingsPanel('printer'); setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }}
-                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                        className={`w-full flex items-center gap-3 p-4 transition-all ${
                           settingsPanel === 'printer'
                             ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
                             : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
