@@ -341,7 +341,7 @@ const PosOnlyView: React.FC<Props> = ({
 
   // Settings panel navigation
   const [settingsPanel, setSettingsPanel] = useState<SettingsPanel>('printer');
-  const [paymentTaxAccordion, setPaymentTaxAccordion] = useState({ paymentTypes: true, taxes: true });
+  const [paymentTaxAccordion, setPaymentTaxAccordion] = useState({ paymentTypes: false, taxes: false });
   const [featuresPanel, setFeaturesPanel] = useState<FeaturesPanel>('builtin');
 
   // Feature settings
