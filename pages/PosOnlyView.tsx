@@ -197,8 +197,7 @@ interface SavedBillEntry {
   createdAt: number;
 }
 
-type SettingsPanel = null | 'printer' | 'receipt' | 'payment' | 'staff' | 'ux';
-type FeaturesPanel = 'builtin' | 'table' | 'kitchen' | 'qr';
+type SettingsPanel = 'builtin' | 'table' | 'kitchen' | 'qr' | 'printer' | 'receipt' | 'payment' | 'staff' | 'ux';
 
 const PosOnlyView: React.FC<Props> = ({
   restaurant,
@@ -228,7 +227,7 @@ const PosOnlyView: React.FC<Props> = ({
     return local.toISOString().split('T')[0];
   };
 
-  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'FEATURES' | 'BILLING'>(userRole === 'KITCHEN' ? 'KITCHEN' : 'COUNTER');
+  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING'>(userRole === 'KITCHEN' ? 'KITCHEN' : 'COUNTER');
   const [counterMode, setCounterMode] = useState<'SAVED_BILL' | 'COUNTER_ORDER' | 'QR_ORDER'>('COUNTER_ORDER');
   const [selectedQrOrderForPayment, setSelectedQrOrderForPayment] = useState<Order | null>(null);
   const [qrOrderFilter, setQrOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
@@ -394,9 +393,8 @@ const PosOnlyView: React.FC<Props> = ({
   const currencySymbol = CURRENCY_OPTIONS.find(c => c.code === userCurrency)?.symbol || 'RM';
 
   // Settings panel navigation
-  const [settingsPanel, setSettingsPanel] = useState<SettingsPanel>('printer');
+  const [settingsPanel, setSettingsPanel] = useState<SettingsPanel>('builtin');
   const [paymentTaxAccordion, setPaymentTaxAccordion] = useState({ paymentTypes: false, taxes: false });
-  const [featuresPanel, setFeaturesPanel] = useState<FeaturesPanel>('builtin');
   const [builtInFeatureSections, setBuiltInFeatureSections] = useState({ cashier: true, dining: false });
 
   // Feature settings
@@ -2178,7 +2176,7 @@ const PosOnlyView: React.FC<Props> = ({
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
   const paginatedReports = reportData?.orders || [];
 
-  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'FEATURES' | 'BILLING') => {
+  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING') => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
   };
@@ -3915,20 +3913,6 @@ const PosOnlyView: React.FC<Props> = ({
 
           {!isKitchenUser && (
           <button 
-            onClick={() => handleTabSelection('FEATURES')}
-            title="Features"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
-              activeTab === 'FEATURES' 
-                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-            }`}
-          >
-            <Tag size={20} /> {!isSidebarCollapsed && 'Features'}
-          </button>
-          )}
-
-          {!isKitchenUser && (
-          <button 
             onClick={() => handleTabSelection('BILLING')}
             title="Billing"
             className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
@@ -4024,7 +4008,6 @@ const PosOnlyView: React.FC<Props> = ({
                  activeTab === 'REPORTS' ? 'Sales Report' : 
                  activeTab === 'QR_ORDERS' ? 'QR Orders' :
                  activeTab === 'KITCHEN' ? 'Incoming Orders' :
-                 activeTab === 'FEATURES' ? 'Features' :
                  activeTab === 'BILLING' ? 'Billing' :
                  'Settings'}
               </h1>
@@ -4695,296 +4678,12 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
           )}
 
-          {/* Features Tab */}
-          {activeTab === 'FEATURES' && (
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
-                <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Features</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Configure built-in and add-on features for your restaurant.</p>
-
-                {/* ===== MOBILE: Accordion Layout ===== */}
-                <div className="lg:hidden space-y-3">
-                  {/* Built-in Features Accordion */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
-                    <button
-                      onClick={() => setFeaturesPanel(featuresPanel === 'builtin' ? 'builtin' : 'builtin')}
-                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center">
-                        <Layers size={18} className="text-emerald-500" />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Built-in Features</p>
-                        <p className="text-[10px] text-gray-400">Auto-print, drawer, dining</p>
-                      </div>
-                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${featuresPanel === 'builtin' ? 'rotate-180' : ''}`} />
-                    </button>
-                    {featuresPanel === 'builtin' && (
-                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        <div className="max-w-lg">
-                          {renderFeaturesContent()}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
-                    <button
-                      onClick={() => setFeaturesPanel(featuresPanel === 'table' ? 'builtin' : 'table')}
-                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-sky-50 dark:bg-sky-900/20 flex items-center justify-center">
-                        <LayoutGrid size={18} className="text-sky-500" />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Save Bill & Table Management</p>
-                        <p className="text-[10px] text-gray-400">Saved bill and table layout settings</p>
-                      </div>
-                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${featuresPanel === 'table' ? 'rotate-180' : ''}`} />
-                    </button>
-                    {featuresPanel === 'table' && (
-                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        <div className="max-w-lg space-y-4">
-                          {renderTableManagementContent()}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Kitchen Display System Accordion */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
-                    <button
-                      onClick={() => setFeaturesPanel(featuresPanel === 'kitchen' ? 'builtin' : 'kitchen')}
-                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center">
-                        <Coffee size={18} className="text-orange-500" />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Kitchen Display System</p>
-                        {canUseKitchen ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plus Plan</p>}
-                      </div>
-                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${featuresPanel === 'kitchen' ? 'rotate-180' : ''}`} />
-                    </button>
-                    {featuresPanel === 'kitchen' && (
-                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        <div className="max-w-lg space-y-4">
-                          {canUseKitchen ? renderKitchenSettingsContent() : (
-                            <div className="text-center py-6">
-                              <Coffee size={32} className="mx-auto text-gray-300 mb-3" />
-                              <p className="text-xs font-black dark:text-white mb-1">Upgrade to Pro Plus</p>
-                              <p className="text-[9px] text-gray-400 mb-4">Kitchen Display System requires the Pro Plus plan</p>
-                              <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* QR Ordering Accordion */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
-                    <button
-                      onClick={() => setFeaturesPanel(featuresPanel === 'qr' ? 'builtin' : 'qr')}
-                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
-                        <QrCode size={18} className="text-violet-500" />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">QR Ordering</p>
-                        {canUseQr ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plan</p>}
-                      </div>
-                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${featuresPanel === 'qr' ? 'rotate-180' : ''}`} />
-                    </button>
-                    {featuresPanel === 'qr' && (
-                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        <div className="max-w-lg space-y-4">
-                          {canUseQr ? (
-                            <>
-                              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                                <div>
-                                  <p className="text-xs font-black dark:text-white">QR Ordering</p>
-                                  <p className="text-[9px] text-gray-400 mt-0.5">Let customers scan QR codes to order from their table</p>
-                                </div>
-                                <button
-                                  onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
-                                  className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                                >
-                                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
-                                </button>
-                              </div>
-                              {featureSettings.qrEnabled && renderQrGeneratorContent()}
-                            </>
-                          ) : (
-                            <div className="text-center py-6">
-                              <QrCode size={32} className="mx-auto text-gray-300 mb-3" />
-                              <p className="text-xs font-black dark:text-white mb-1">Upgrade to Pro</p>
-                              <p className="text-[9px] text-gray-400 mb-4">QR Ordering requires the Pro plan or higher</p>
-                              <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* ===== DESKTOP: Left Nav + Right Content ===== */}
-                <div className="hidden lg:flex gap-6 min-h-[500px]">
-                  {/* Left Sidebar */}
-                  <div className="flex-1">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
-                      {/* Built-in Features Nav */}
-                      <button
-                        onClick={() => setFeaturesPanel('builtin')}
-                        className={`w-full flex items-center gap-3 p-4 transition-all ${
-                          featuresPanel === 'builtin'
-                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                        }`}
-                      >
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                          featuresPanel === 'builtin' ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-gray-100 dark:bg-gray-700'
-                        }`}>
-                          <Layers size={16} className={featuresPanel === 'builtin' ? 'text-emerald-500' : 'text-gray-400'} />
-                        </div>
-                        <div className="flex-1 text-left">
-                          <p className={`text-xs font-black uppercase tracking-wide ${featuresPanel === 'builtin' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Built-in Features</p>
-                          <p className="text-[10px] text-gray-400">Auto-print, drawer, dining</p>
-                        </div>
-                      </button>
-
-                      {/* Kitchen Display System Nav */}
-                      <button
-                        onClick={() => setFeaturesPanel('table')}
-                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
-                          featuresPanel === 'table'
-                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                        }`}
-                      >
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                          featuresPanel === 'table' ? 'bg-sky-100 dark:bg-sky-900/30' : 'bg-gray-100 dark:bg-gray-700'
-                        }`}>
-                          <LayoutGrid size={16} className={featuresPanel === 'table' ? 'text-sky-500' : 'text-gray-400'} />
-                        </div>
-                        <div className="flex-1 text-left">
-                          <p className={`text-xs font-black uppercase tracking-wide ${featuresPanel === 'table' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Save Bill & Table Management</p>
-                          <p className="text-[10px] text-gray-400">Saved bill and table layout settings</p>
-                        </div>
-                      </button>
-
-                      {/* Kitchen Display System Nav */}
-                      <button
-                        onClick={() => setFeaturesPanel('kitchen')}
-                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
-                          featuresPanel === 'kitchen'
-                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                        }`}
-                      >
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                          featuresPanel === 'kitchen' ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-gray-100 dark:bg-gray-700'
-                        }`}>
-                          <Coffee size={16} className={featuresPanel === 'kitchen' ? 'text-orange-500' : 'text-gray-400'} />
-                        </div>
-                        <div className="flex-1 text-left">
-                          <p className={`text-xs font-black uppercase tracking-wide ${featuresPanel === 'kitchen' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Kitchen Display System</p>
-                          {canUseKitchen ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plus Plan</p>}
-                        </div>
-                      </button>
-
-                      {/* QR Ordering Nav */}
-                      <button
-                        onClick={() => setFeaturesPanel('qr')}
-                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
-                          featuresPanel === 'qr'
-                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                        }`}
-                      >
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                          featuresPanel === 'qr' ? 'bg-violet-100 dark:bg-violet-900/30' : 'bg-gray-100 dark:bg-gray-700'
-                        }`}>
-                          <QrCode size={16} className={featuresPanel === 'qr' ? 'text-violet-500' : 'text-gray-400'} />
-                        </div>
-                        <div className="flex-1 text-left">
-                          <p className={`text-xs font-black uppercase tracking-wide ${featuresPanel === 'qr' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>QR Ordering</p>
-                          {canUseQr ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plan</p>}
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Right Content Panel */}
-                  <div className="w-[560px] shrink-0 min-h-0 overflow-y-auto">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
-                      <div className="max-w-lg">
-                        {featuresPanel === 'builtin' && renderFeaturesContent()}
-
-                        {featuresPanel === 'table' && (
-                          <div className="space-y-4">
-                            {renderTableManagementContent()}
-                          </div>
-                        )}
-
-                        {featuresPanel === 'kitchen' && (
-                          <div className="space-y-0">
-                            {canUseKitchen ? renderKitchenSettingsContent() : (
-                              <div className="text-center py-8">
-                                <Coffee size={36} className="mx-auto text-gray-300 mb-3" />
-                                <p className="text-sm font-black dark:text-white mb-1">Upgrade to Pro Plus</p>
-                                <p className="text-[10px] text-gray-400 mb-4">Kitchen Display System requires the Pro Plus plan</p>
-                                <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {featuresPanel === 'qr' && (
-                          <div className="space-y-4">
-                            {canUseQr ? (
-                              <>
-                                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                                  <div>
-                                    <p className="text-xs font-black dark:text-white">QR Ordering</p>
-                                    <p className="text-[9px] text-gray-400 mt-0.5">Let customers scan QR codes to order from their table</p>
-                                  </div>
-                                  <button
-                                    onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
-                                    className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                                  >
-                                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
-                                  </button>
-                                </div>
-                                {featureSettings.qrEnabled && renderQrGeneratorContent()}
-                              </>
-                            ) : (
-                              <div className="text-center py-8">
-                                <QrCode size={36} className="mx-auto text-gray-300 mb-3" />
-                                <p className="text-sm font-black dark:text-white mb-1">Upgrade to Pro</p>
-                                <p className="text-[10px] text-gray-400 mb-4">QR Ordering requires the Pro plan or higher</p>
-                                <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-          )}
-
           {/* Settings Tab */}
           {activeTab === 'SETTINGS' && (
             <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
                 <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Settings</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Printer, receipt, payment, tax, and staff configuration.</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Features, printer, receipt, payment, tax, and staff configuration.</p>
 
                 {isKitchenUser && (
                   <div className="mb-6 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 space-y-3">
@@ -5020,10 +4719,144 @@ const PosOnlyView: React.FC<Props> = ({
 
                 {/* ===== MOBILE: Accordion Layout ===== */}
                 <div className="lg:hidden space-y-3">
+                  {/* Built-in Features Accordion */}
+                  {!isKitchenUser && (
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                    <button
+                      onClick={() => setSettingsPanel(settingsPanel === 'builtin' ? 'printer' : 'builtin')}
+                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center">
+                        <Layers size={18} className="text-emerald-500" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Built-in Features</p>
+                        <p className="text-[10px] text-gray-400">Auto-print, drawer, dining</p>
+                      </div>
+                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'builtin' ? 'rotate-180' : ''}`} />
+                    </button>
+                    {settingsPanel === 'builtin' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg">
+                          {renderFeaturesContent()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  )}
+
+                  {/* Save Bill & Table Management Accordion */}
+                  {!isKitchenUser && (
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                    <button
+                      onClick={() => setSettingsPanel(settingsPanel === 'table' ? 'builtin' : 'table')}
+                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-sky-50 dark:bg-sky-900/20 flex items-center justify-center">
+                        <LayoutGrid size={18} className="text-sky-500" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Save Bill & Table Management</p>
+                        <p className="text-[10px] text-gray-400">Saved bill and table layout settings</p>
+                      </div>
+                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'table' ? 'rotate-180' : ''}`} />
+                    </button>
+                    {settingsPanel === 'table' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg space-y-4">
+                          {renderTableManagementContent()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  )}
+
+                  {/* Kitchen Display System Accordion */}
+                  {!isKitchenUser && (
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                    <button
+                      onClick={() => setSettingsPanel(settingsPanel === 'kitchen' ? 'builtin' : 'kitchen')}
+                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center">
+                        <Coffee size={18} className="text-orange-500" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Kitchen Display System</p>
+                        {canUseKitchen ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plus Plan</p>}
+                      </div>
+                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'kitchen' ? 'rotate-180' : ''}`} />
+                    </button>
+                    {settingsPanel === 'kitchen' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg space-y-0">
+                          {canUseKitchen ? renderKitchenSettingsContent() : (
+                            <div className="text-center py-6">
+                              <Coffee size={32} className="mx-auto text-gray-300 mb-3" />
+                              <p className="text-xs font-black dark:text-white mb-1">Upgrade to Pro Plus</p>
+                              <p className="text-[9px] text-gray-400 mb-4">Kitchen Display System requires the Pro Plus plan</p>
+                              <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  )}
+
+                  {/* QR Ordering Accordion */}
+                  {!isKitchenUser && (
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                    <button
+                      onClick={() => setSettingsPanel(settingsPanel === 'qr' ? 'builtin' : 'qr')}
+                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
+                        <QrCode size={18} className="text-violet-500" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">QR Ordering</p>
+                        {canUseQr ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plan</p>}
+                      </div>
+                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'qr' ? 'rotate-180' : ''}`} />
+                    </button>
+                    {settingsPanel === 'qr' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg space-y-4">
+                          {canUseQr ? (
+                            <>
+                              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                                <div>
+                                  <p className="text-xs font-black dark:text-white">QR Ordering</p>
+                                  <p className="text-[9px] text-gray-400 mt-0.5">Let customers scan QR codes to order from their table</p>
+                                </div>
+                                <button
+                                  onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
+                                  className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                >
+                                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
+                                </button>
+                              </div>
+                              {featureSettings.qrEnabled && renderQrGeneratorContent()}
+                            </>
+                          ) : (
+                            <div className="text-center py-6">
+                              <QrCode size={32} className="mx-auto text-gray-300 mb-3" />
+                              <p className="text-xs font-black dark:text-white mb-1">Upgrade to Pro</p>
+                              <p className="text-[9px] text-gray-400 mb-4">QR Ordering requires the Pro plan or higher</p>
+                              <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  )}
+
                   {/* Printer Accordion */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
                     <button
-                      onClick={() => { setSettingsPanel(settingsPanel === 'printer' ? null : 'printer'); setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }}
+                      onClick={() => { setSettingsPanel(settingsPanel === 'printer' ? 'builtin' : 'printer'); setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }}
                       className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
                     >
                       <div className="w-10 h-10 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center">
@@ -5047,7 +4880,7 @@ const PosOnlyView: React.FC<Props> = ({
                   {/* Receipt Accordion */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
                     <button
-                      onClick={() => setSettingsPanel(settingsPanel === 'receipt' ? null : 'receipt')}
+                      onClick={() => setSettingsPanel(settingsPanel === 'receipt' ? 'builtin' : 'receipt')}
                       className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
                     >
                       <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
@@ -5071,7 +4904,7 @@ const PosOnlyView: React.FC<Props> = ({
                   {/* Payment Type & Taxes Accordion */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
                     <button
-                      onClick={() => setSettingsPanel(settingsPanel === 'payment' ? null : 'payment')}
+                      onClick={() => setSettingsPanel(settingsPanel === 'payment' ? 'builtin' : 'payment')}
                       className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
                     >
                       <div className="w-10 h-10 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
@@ -5095,7 +4928,7 @@ const PosOnlyView: React.FC<Props> = ({
                   {/* Staff Accordion */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
                     <button
-                      onClick={() => setSettingsPanel(settingsPanel === 'staff' ? null : 'staff')}
+                      onClick={() => setSettingsPanel(settingsPanel === 'staff' ? 'builtin' : 'staff')}
                       className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
                     >
                       <div className="w-10 h-10 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
@@ -5119,7 +4952,7 @@ const PosOnlyView: React.FC<Props> = ({
                   {/* User Experience Accordion */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
                     <button
-                      onClick={() => setSettingsPanel(settingsPanel === 'ux' ? null : 'ux')}
+                      onClick={() => setSettingsPanel(settingsPanel === 'ux' ? 'builtin' : 'ux')}
                       className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
                     >
                       <div className="w-10 h-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
@@ -5145,10 +4978,98 @@ const PosOnlyView: React.FC<Props> = ({
                   {/* Left Sidebar */}
                   <div className="flex-1">
                     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                      {/* Built-in Features Nav */}
+                      {!isKitchenUser && (
+                      <button
+                        onClick={() => setSettingsPanel('builtin')}
+                        className={`w-full flex items-center gap-3 p-4 transition-all ${
+                          settingsPanel === 'builtin'
+                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          settingsPanel === 'builtin' ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <Layers size={16} className={settingsPanel === 'builtin' ? 'text-emerald-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'builtin' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Built-in Features</p>
+                          <p className="text-[10px] text-gray-400">Auto-print, drawer, dining</p>
+                        </div>
+                      </button>
+                      )}
+
+                      {/* Save Bill & Table Management Nav */}
+                      {!isKitchenUser && (
+                      <button
+                        onClick={() => setSettingsPanel('table')}
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                          settingsPanel === 'table'
+                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          settingsPanel === 'table' ? 'bg-sky-100 dark:bg-sky-900/30' : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <LayoutGrid size={16} className={settingsPanel === 'table' ? 'text-sky-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'table' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Save Bill & Table Management</p>
+                          <p className="text-[10px] text-gray-400">Saved bill and table layout settings</p>
+                        </div>
+                      </button>
+                      )}
+
+                      {/* Kitchen Display System Nav */}
+                      {!isKitchenUser && (
+                      <button
+                        onClick={() => setSettingsPanel('kitchen')}
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                          settingsPanel === 'kitchen'
+                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          settingsPanel === 'kitchen' ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <Coffee size={16} className={settingsPanel === 'kitchen' ? 'text-orange-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'kitchen' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Kitchen Display System</p>
+                          {canUseKitchen ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plus Plan</p>}
+                        </div>
+                      </button>
+                      )}
+
+                      {/* QR Ordering Nav */}
+                      {!isKitchenUser && (
+                      <button
+                        onClick={() => setSettingsPanel('qr')}
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                          settingsPanel === 'qr'
+                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          settingsPanel === 'qr' ? 'bg-violet-100 dark:bg-violet-900/30' : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <QrCode size={16} className={settingsPanel === 'qr' ? 'text-violet-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'qr' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>QR Ordering</p>
+                          {canUseQr ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plan</p>}
+                        </div>
+                      </button>
+                      )}
+
                       {/* Printer Nav Item */}
                       <button
                         onClick={() => { setSettingsPanel('printer'); setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }}
-                        className={`w-full flex items-center gap-3 p-4 transition-all ${
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
                           settingsPanel === 'printer'
                             ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
                             : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
@@ -5272,6 +5193,56 @@ const PosOnlyView: React.FC<Props> = ({
                   <div className="w-[560px] shrink-0 min-h-0 overflow-y-auto">
                     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
                       <div className="max-w-lg">
+                        {settingsPanel === 'builtin' && renderFeaturesContent()}
+
+                        {settingsPanel === 'table' && (
+                          <div className="space-y-4">
+                            {renderTableManagementContent()}
+                          </div>
+                        )}
+
+                        {settingsPanel === 'kitchen' && (
+                          <div className="space-y-0">
+                            {canUseKitchen ? renderKitchenSettingsContent() : (
+                              <div className="text-center py-8">
+                                <Coffee size={36} className="mx-auto text-gray-300 mb-3" />
+                                <p className="text-sm font-black dark:text-white mb-1">Upgrade to Pro Plus</p>
+                                <p className="text-[10px] text-gray-400 mb-4">Kitchen Display System requires the Pro Plus plan</p>
+                                <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {settingsPanel === 'qr' && (
+                          <div className="space-y-4">
+                            {canUseQr ? (
+                              <>
+                                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                                  <div>
+                                    <p className="text-xs font-black dark:text-white">QR Ordering</p>
+                                    <p className="text-[9px] text-gray-400 mt-0.5">Let customers scan QR codes to order from their table</p>
+                                  </div>
+                                  <button
+                                    onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
+                                    className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                  >
+                                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
+                                  </button>
+                                </div>
+                                {featureSettings.qrEnabled && renderQrGeneratorContent()}
+                              </>
+                            ) : (
+                              <div className="text-center py-8">
+                                <QrCode size={36} className="mx-auto text-gray-300 mb-3" />
+                                <p className="text-sm font-black dark:text-white mb-1">Upgrade to Pro</p>
+                                <p className="text-[10px] text-gray-400 mb-4">QR Ordering requires the Pro plan or higher</p>
+                                <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {settingsPanel === 'printer' && renderPrinterContent()}
                         {settingsPanel === 'receipt' && renderReceiptContent()}
                         {settingsPanel === 'payment' && renderPaymentAndTaxesContent()}
