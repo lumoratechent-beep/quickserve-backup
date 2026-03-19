@@ -4738,7 +4738,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <Layers size={18} className="text-emerald-500" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'builtin' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Built-in Features</p>
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'builtin' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Built-in Features</p>
                         <p className="text-[10px] text-gray-400">Auto-print, drawer, dining</p>
                       </div>
                       <ChevronDown size={16} className={`transition-all ${settingsPanel === 'builtin' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
@@ -4786,7 +4786,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <QrCode size={18} className="text-violet-500" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'qr' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>QR Ordering</p>
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'qr' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>QR Ordering</p>
                         {canUseQr ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plan</p>}
                       </div>
                       <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'qr' ? 'rotate-180 text-orange-500' : ''}`} />
@@ -4833,7 +4833,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <Coffee size={18} className="text-orange-500" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'kitchen' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Kitchen Display System</p>
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'kitchen' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Kitchen Display System</p>
                         {canUseKitchen ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plus Plan</p>}
                       </div>
                       <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'kitchen' ? 'rotate-180 text-orange-500' : ''}`} />
@@ -4876,7 +4876,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <Printer size={18} className="text-orange-500" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'printer' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Printer Setup</p>
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'printer' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Printer Setup</p>
                         <p className="text-[10px] text-gray-400">{savedPrinters.length > 0 ? savedPrinters[0].model : 'No printer configured'}</p>
                       </div>
                       <ChevronDown size={16} className={`transition-all ${settingsPanel === 'printer' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
@@ -4900,7 +4900,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <Receipt size={18} className="text-blue-500" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'receipt' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Receipt</p>
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'receipt' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Receipt</p>
                         <p className="text-[10px] text-gray-400">Configure receipt layout</p>
                       </div>
                       <ChevronDown size={16} className={`transition-all ${settingsPanel === 'receipt' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
@@ -4924,7 +4924,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <CreditCard size={18} className="text-green-500" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'payment' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Payment Type &amp; Taxes</p>
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'payment' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Payment Type &amp; Taxes</p>
                         <p className="text-[10px] text-gray-400">{paymentTypes.length} types · {taxEntries.length} configured</p>
                       </div>
                       <ChevronDown size={16} className={`transition-all ${settingsPanel === 'payment' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
@@ -4948,7 +4948,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <Users size={18} className="text-violet-500" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'staff' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Staff Management</p>
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'staff' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Staff Management</p>
                         <p className="text-[10px] text-gray-400">{staffList.length} member{staffList.length !== 1 ? 's' : ''}</p>
                       </div>
                       <ChevronDown size={16} className={`transition-all ${settingsPanel === 'staff' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
@@ -4972,7 +4972,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <Type size={18} className="text-indigo-500" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'ux' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>User Experience</p>
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'ux' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>User Experience</p>
                         <p className="text-[10px] text-gray-400">{userFont} · {CURRENCY_OPTIONS.find(c => c.code === userCurrency)?.label}</p>
                       </div>
                       <ChevronDown size={16} className={`transition-all ${settingsPanel === 'ux' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
@@ -5015,7 +5015,7 @@ const PosOnlyView: React.FC<Props> = ({
                           <Layers size={16} className={settingsPanel === 'builtin' ? 'text-emerald-500' : 'text-gray-400'} />
                         </div>
                         <div className="flex-1 text-left">
-                          <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'builtin' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Built-in Features</p>
+                          <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'builtin' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Built-in Features</p>
                           <p className="text-[10px] text-gray-400">Auto-print, drawer, dining</p>
                         </div>
                       </button>
@@ -5023,7 +5023,7 @@ const PosOnlyView: React.FC<Props> = ({
                       {/* Save Bill & Table Management Nav */}
                       <button
                         onClick={() => setSettingsPanel('table')}
-                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-t-gray-700 ${
                           settingsPanel === 'table'
                             ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
                             : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
@@ -5035,7 +5035,7 @@ const PosOnlyView: React.FC<Props> = ({
                           <LayoutGrid size={16} className={settingsPanel === 'table' ? 'text-sky-500' : 'text-gray-400'} />
                         </div>
                         <div className="flex-1 text-left">
-                          <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'table' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Save Bill & Table Management</p>
+                          <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'table' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Save Bill & Table Management</p>
                           <p className="text-[10px] text-gray-400">Saved bill and table layout settings</p>
                         </div>
                       </button>
@@ -5043,7 +5043,7 @@ const PosOnlyView: React.FC<Props> = ({
                       {/* QR Ordering Nav */}
                       <button
                         onClick={() => setSettingsPanel('qr')}
-                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-t-gray-700 ${
                           settingsPanel === 'qr'
                             ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
                             : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
@@ -5055,7 +5055,7 @@ const PosOnlyView: React.FC<Props> = ({
                           <QrCode size={16} className={settingsPanel === 'qr' ? 'text-violet-500' : 'text-gray-400'} />
                         </div>
                         <div className="flex-1 text-left">
-                          <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'qr' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>QR Ordering</p>
+                          <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'qr' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>QR Ordering</p>
                           {canUseQr ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plan</p>}
                         </div>
                       </button>
@@ -5063,7 +5063,7 @@ const PosOnlyView: React.FC<Props> = ({
                       {/* Kitchen Display System Nav */}
                       <button
                         onClick={() => setSettingsPanel('kitchen')}
-                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-t-gray-700 ${
                           settingsPanel === 'kitchen'
                             ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
                             : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
@@ -5075,7 +5075,7 @@ const PosOnlyView: React.FC<Props> = ({
                           <Coffee size={16} className={settingsPanel === 'kitchen' ? 'text-orange-500' : 'text-gray-400'} />
                         </div>
                         <div className="flex-1 text-left">
-                          <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'kitchen' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Kitchen Display System</p>
+                          <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'kitchen' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Kitchen Display System</p>
                           {canUseKitchen ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plus Plan</p>}
                         </div>
                       </button>
@@ -5107,7 +5107,7 @@ const PosOnlyView: React.FC<Props> = ({
                         </div>
                         <div className="flex-1 text-left">
                           <p className={`text-xs font-black uppercase tracking-wide ${
-                            settingsPanel === 'printer' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'
+                            settingsPanel === 'printer' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'
                           }`}>Printer Setup</p>
                           <p className="text-[10px] text-gray-400">{savedPrinters.length > 0 ? savedPrinters[0].model : 'No printer configured'}</p>
                         </div>
@@ -5116,7 +5116,7 @@ const PosOnlyView: React.FC<Props> = ({
                       {/* Receipt Nav Item */}
                       <button
                         onClick={() => setSettingsPanel('receipt')}
-                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-t-gray-700 ${
                           settingsPanel === 'receipt'
                             ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
                             : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
@@ -5131,7 +5131,7 @@ const PosOnlyView: React.FC<Props> = ({
                         </div>
                         <div className="flex-1 text-left">
                           <p className={`text-xs font-black uppercase tracking-wide ${
-                            settingsPanel === 'receipt' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'
+                            settingsPanel === 'receipt' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'
                           }`}>Receipt</p>
                           <p className="text-[10px] text-gray-400">Configure receipt layout</p>
                         </div>
@@ -5140,7 +5140,7 @@ const PosOnlyView: React.FC<Props> = ({
                       {/* Payment Type & Taxes Nav Item */}
                       <button
                         onClick={() => setSettingsPanel('payment')}
-                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-t-gray-700 ${
                           settingsPanel === 'payment'
                             ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
                             : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
@@ -5155,7 +5155,7 @@ const PosOnlyView: React.FC<Props> = ({
                         </div>
                         <div className="flex-1 text-left">
                           <p className={`text-xs font-black uppercase tracking-wide ${
-                            settingsPanel === 'payment' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'
+                            settingsPanel === 'payment' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'
                           }`}>Payment Type &amp; Taxes</p>
                           <p className="text-[10px] text-gray-400">{paymentTypes.length} types · {taxEntries.length} configured</p>
                         </div>
@@ -5164,7 +5164,7 @@ const PosOnlyView: React.FC<Props> = ({
                       {/* Staff Nav Item */}
                       <button
                         onClick={() => setSettingsPanel('staff')}
-                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-t-gray-700 ${
                           settingsPanel === 'staff'
                             ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
                             : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
@@ -5179,7 +5179,7 @@ const PosOnlyView: React.FC<Props> = ({
                         </div>
                         <div className="flex-1 text-left">
                           <p className={`text-xs font-black uppercase tracking-wide ${
-                            settingsPanel === 'staff' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'
+                            settingsPanel === 'staff' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'
                           }`}>Staff Management</p>
                           <p className="text-[10px] text-gray-400">{staffList.length} member{staffList.length !== 1 ? 's' : ''}</p>
                         </div>
@@ -5188,7 +5188,7 @@ const PosOnlyView: React.FC<Props> = ({
                       {/* User Experience Nav Item */}
                       <button
                         onClick={() => setSettingsPanel('ux')}
-                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-t-gray-700 ${
                           settingsPanel === 'ux'
                             ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
                             : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
@@ -5203,7 +5203,7 @@ const PosOnlyView: React.FC<Props> = ({
                         </div>
                         <div className="flex-1 text-left">
                           <p className={`text-xs font-black uppercase tracking-wide ${
-                            settingsPanel === 'ux' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'
+                            settingsPanel === 'ux' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'
                           }`}>User Experience</p>
                           <p className="text-[10px] text-gray-400">{userFont} · {CURRENCY_OPTIONS.find(c => c.code === userCurrency)?.label}</p>
                         </div>
