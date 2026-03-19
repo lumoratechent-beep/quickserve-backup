@@ -156,7 +156,7 @@ interface TaxEntry {
   applyToItems: boolean;
 }
 
-type SettingsPanel = null | 'printer' | 'receipt' | 'payment' | 'taxes' | 'staff' | 'ux';
+type SettingsPanel = null | 'printer' | 'receipt' | 'payment' | 'staff' | 'ux';
 type FeaturesPanel = 'builtin' | 'kitchen' | 'qr';
 
 const PosOnlyView: React.FC<Props> = ({
@@ -2857,6 +2857,20 @@ const PosOnlyView: React.FC<Props> = ({
     </div>
   );
 
+  const renderPaymentAndTaxesContent = () => (
+    <div className="space-y-5">
+      <div className="space-y-3">
+        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Payment Types</p>
+        {renderPaymentTypesContent()}
+      </div>
+
+      <div className="border-t dark:border-gray-700 pt-4 space-y-3">
+        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Taxes</p>
+        {renderTaxesContent()}
+      </div>
+    </div>
+  );
+
   const renderQrGeneratorContent = () => {
     const baseUrl = typeof window !== 'undefined'
       ? `${window.location.protocol}//${window.location.host}`
@@ -4178,7 +4192,7 @@ const PosOnlyView: React.FC<Props> = ({
                     )}
                   </div>
 
-                  {/* Payment Types Accordion */}
+                  {/* Payment Type & Taxes Accordion */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
                     <button
                       onClick={() => setSettingsPanel(settingsPanel === 'payment' ? null : 'payment')}
@@ -4188,39 +4202,15 @@ const PosOnlyView: React.FC<Props> = ({
                         <CreditCard size={18} className="text-green-500" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Payment Types</p>
-                        <p className="text-[10px] text-gray-400">{paymentTypes.length} types</p>
+                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Payment Type &amp; Taxes</p>
+                        <p className="text-[10px] text-gray-400">{paymentTypes.length} types · {taxEntries.length} configured</p>
                       </div>
                       <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'payment' ? 'rotate-180' : ''}`} />
                     </button>
                     {settingsPanel === 'payment' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
                         <div className="max-w-lg">
-                          {renderPaymentTypesContent()}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Taxes Accordion */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
-                    <button
-                      onClick={() => setSettingsPanel(settingsPanel === 'taxes' ? null : 'taxes')}
-                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
-                        <Tag size={18} className="text-amber-500" />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Taxes</p>
-                        <p className="text-[10px] text-gray-400">{taxEntries.length} configured</p>
-                      </div>
-                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'taxes' ? 'rotate-180' : ''}`} />
-                    </button>
-                    {settingsPanel === 'taxes' && (
-                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        <div className="max-w-lg">
-                          {renderTaxesContent()}
+                          {renderPaymentAndTaxesContent()}
                         </div>
                       </div>
                     )}
@@ -4327,7 +4317,7 @@ const PosOnlyView: React.FC<Props> = ({
                         </div>
                       </button>
 
-                      {/* Payment Types Nav Item */}
+                      {/* Payment Type & Taxes Nav Item */}
                       <button
                         onClick={() => setSettingsPanel('payment')}
                         className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
@@ -4346,32 +4336,8 @@ const PosOnlyView: React.FC<Props> = ({
                         <div className="flex-1 text-left">
                           <p className={`text-xs font-black uppercase tracking-wide ${
                             settingsPanel === 'payment' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'
-                          }`}>Payment Types</p>
-                          <p className="text-[10px] text-gray-400">{paymentTypes.length} types</p>
-                        </div>
-                      </button>
-
-                      {/* Taxes Nav Item */}
-                      <button
-                        onClick={() => setSettingsPanel('taxes')}
-                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
-                          settingsPanel === 'taxes'
-                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                        }`}
-                      >
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                          settingsPanel === 'taxes'
-                            ? 'bg-amber-100 dark:bg-amber-900/30'
-                            : 'bg-gray-100 dark:bg-gray-700'
-                        }`}>
-                          <Tag size={16} className={settingsPanel === 'taxes' ? 'text-amber-500' : 'text-gray-400'} />
-                        </div>
-                        <div className="flex-1 text-left">
-                          <p className={`text-xs font-black uppercase tracking-wide ${
-                            settingsPanel === 'taxes' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'
-                          }`}>Taxes</p>
-                          <p className="text-[10px] text-gray-400">{taxEntries.length} configured</p>
+                          }`}>Payment Type &amp; Taxes</p>
+                          <p className="text-[10px] text-gray-400">{paymentTypes.length} types · {taxEntries.length} configured</p>
                         </div>
                       </button>
 
@@ -4432,8 +4398,7 @@ const PosOnlyView: React.FC<Props> = ({
                       <div className="max-w-lg">
                         {settingsPanel === 'printer' && renderPrinterContent()}
                         {settingsPanel === 'receipt' && renderReceiptContent()}
-                        {settingsPanel === 'payment' && renderPaymentTypesContent()}
-                        {settingsPanel === 'taxes' && renderTaxesContent()}
+                        {settingsPanel === 'payment' && renderPaymentAndTaxesContent()}
                         {settingsPanel === 'staff' && renderStaffContent()}
                         {settingsPanel === 'ux' && renderUXContent()}
                       </div>
