@@ -962,7 +962,7 @@ const PosOnlyView: React.FC<Props> = ({
 
   const effectiveTableCount = Math.max(1, Number(featureSettings.tableCount) || 1);
   const effectiveTableRows = Math.max(1, Number(featureSettings.tableRows) || 1);
-  const effectiveTableCols = Math.max(1, Number(featureSettings.tableColumns) || 1);
+  const effectiveTableCols = Math.min(20, Math.max(1, Number(featureSettings.tableColumns) || 1));
 
   const tableLabels = useMemo(() => {
     return Array.from({ length: effectiveTableCount }, (_, idx) => `Table ${idx + 1}`);
@@ -3177,8 +3177,9 @@ const PosOnlyView: React.FC<Props> = ({
               <input
                 type="number"
                 min={1}
+                max={20}
                 value={featureSettings.tableColumns}
-                onChange={e => updateFeatureSetting('tableColumns', Math.max(1, Number(e.target.value) || 1))}
+                onChange={e => updateFeatureSetting('tableColumns', Math.min(20, Math.max(1, Number(e.target.value) || 1)))}
                 className="w-full px-2 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
               />
             </div>
@@ -3995,15 +3996,20 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                       <div className="space-y-2">
                         {tableRowsForSelection.map((row, rowIdx) => (
-                          <div key={`saved-row-${rowIdx}`} className="grid gap-2" style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }}>
-                            {row.map((table) => {
+                          <div key={`saved-row-${rowIdx}`} className="saved-table-scroll">
+                            <div className="saved-table-row" style={{ ['--total-cols' as any]: effectiveTableCols } as React.CSSProperties}>
+                            {Array.from({ length: effectiveTableCols }, (_, colIdx) => {
+                              const table = row[colIdx] || null;
+                              if (!table) {
+                                return <div key={`saved-empty-${rowIdx}-${colIdx}`} className="saved-table-cell saved-table-cell-empty" aria-hidden="true" />;
+                              }
                               const tableBill = savedBillsByTable.get(table);
                               const hasPending = !!tableBill;
                               const isActiveTable = activeSavedBillTable === table;
                               return (
                                 <div
                                   key={table}
-                                  className={`rounded-xl border p-3 transition-all ${
+                                  className={`saved-table-cell rounded-xl border p-3 transition-all ${
                                     isActiveTable
                                       ? 'border-orange-600 bg-orange-100 dark:bg-orange-900/30 shadow-[0_0_0_1px_rgba(234,88,12,0.5),0_0_20px_rgba(234,88,12,0.35)]'
                                       :
@@ -4044,6 +4050,7 @@ const PosOnlyView: React.FC<Props> = ({
                                 </div>
                               );
                             })}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -6755,6 +6762,35 @@ const PosOnlyView: React.FC<Props> = ({
         .no-scrollbar {
           -ms-overflow-style: none;
           scrollbar-width: none;
+        }
+        .saved-table-scroll {
+          overflow-x: auto;
+          padding-bottom: 2px;
+        }
+        .saved-table-row {
+          --visible-cols: 3;
+          display: grid;
+          gap: 0.5rem;
+          width: calc((var(--total-cols) / var(--visible-cols)) * 100%);
+          grid-template-columns: repeat(var(--total-cols), minmax(0, 1fr));
+        }
+        .saved-table-cell {
+          min-width: 0;
+        }
+        .saved-table-cell-empty {
+          border: 1px dashed transparent;
+          background: transparent;
+          pointer-events: none;
+        }
+        @media (min-width: 768px) {
+          .saved-table-row {
+            --visible-cols: 4;
+          }
+        }
+        @media (min-width: 1024px) {
+          .saved-table-row {
+            --visible-cols: 5;
+          }
         }
         @keyframes slideLeft {
           from { transform: translateX(100%); }
