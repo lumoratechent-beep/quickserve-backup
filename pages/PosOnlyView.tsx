@@ -341,6 +341,7 @@ const PosOnlyView: React.FC<Props> = ({
 
   // Settings panel navigation
   const [settingsPanel, setSettingsPanel] = useState<SettingsPanel>('printer');
+  const [paymentTaxAccordion, setPaymentTaxAccordion] = useState({ paymentTypes: true, taxes: true });
   const [featuresPanel, setFeaturesPanel] = useState<FeaturesPanel>('builtin');
 
   // Feature settings
@@ -2859,14 +2860,40 @@ const PosOnlyView: React.FC<Props> = ({
 
   const renderPaymentAndTaxesContent = () => (
     <div className="space-y-5">
-      <div className="space-y-3">
-        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Payment Types</p>
-        {renderPaymentTypesContent()}
+      <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl overflow-hidden">
+        <button
+          onClick={() => setPaymentTaxAccordion(prev => ({ ...prev, paymentTypes: !prev.paymentTypes }))}
+          className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-600/30 transition-all"
+        >
+          <div className="text-left">
+            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Payment Type</p>
+            <p className="text-[10px] text-gray-400 mt-1">{paymentTypes.length} types</p>
+          </div>
+          <ChevronDown size={14} className={`text-gray-400 transition-transform ${paymentTaxAccordion.paymentTypes ? 'rotate-180' : ''}`} />
+        </button>
+        {paymentTaxAccordion.paymentTypes && (
+          <div className="px-4 pb-4 border-t dark:border-gray-600 pt-3">
+            {renderPaymentTypesContent()}
+          </div>
+        )}
       </div>
 
-      <div className="border-t dark:border-gray-700 pt-4 space-y-3">
-        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Taxes</p>
-        {renderTaxesContent()}
+      <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl overflow-hidden">
+        <button
+          onClick={() => setPaymentTaxAccordion(prev => ({ ...prev, taxes: !prev.taxes }))}
+          className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-600/30 transition-all"
+        >
+          <div className="text-left">
+            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Taxes</p>
+            <p className="text-[10px] text-gray-400 mt-1">{taxEntries.length} configured</p>
+          </div>
+          <ChevronDown size={14} className={`text-gray-400 transition-transform ${paymentTaxAccordion.taxes ? 'rotate-180' : ''}`} />
+        </button>
+        {paymentTaxAccordion.taxes && (
+          <div className="px-4 pb-4 border-t dark:border-gray-600 pt-3">
+            {renderTaxesContent()}
+          </div>
+        )}
       </div>
     </div>
   );
