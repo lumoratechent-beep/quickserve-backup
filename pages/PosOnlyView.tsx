@@ -371,6 +371,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [settingsPanel, setSettingsPanel] = useState<SettingsPanel>('printer');
   const [paymentTaxAccordion, setPaymentTaxAccordion] = useState({ paymentTypes: false, taxes: false });
   const [featuresPanel, setFeaturesPanel] = useState<FeaturesPanel>('builtin');
+  const [builtInFeatureSections, setBuiltInFeatureSections] = useState({ cashier: true, dining: false });
 
   // Feature settings
   const [featureSettings, setFeatureSettings] = useState<FeatureSettings>(() => {
@@ -2168,7 +2169,14 @@ const PosOnlyView: React.FC<Props> = ({
 
   const handleAddDivision = () => {
     const name = newDivisionName.trim();
-    if (!name || kitchenDivisions.some(dep => dep.name.toLowerCase() === name.toLowerCase())) return;
+    if (!name) {
+      toast('Please enter a department name.', 'warning');
+      return;
+    }
+    if (kitchenDivisions.some(dep => dep.name.toLowerCase() === name.toLowerCase())) {
+      toast('Department already exists.', 'warning');
+      return;
+    }
     const updated = [...kitchenDivisions, { name, categories: [] }];
     setKitchenDivisions(updated);
     setNewDivisionName('');
@@ -2807,83 +2815,106 @@ const PosOnlyView: React.FC<Props> = ({
 
   const renderFeaturesContent = () => (
     <div className="space-y-4">
-      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-        <div>
-          <p className="text-xs font-black dark:text-white">Auto-Print Receipt</p>
-          <p className="text-[9px] text-gray-400 mt-0.5">Print automatically after checkout</p>
-        </div>
+      <div className="rounded-xl border dark:border-gray-700 overflow-hidden">
         <button
-          onClick={() => updateFeatureSetting('autoPrintReceipt', !featureSettings.autoPrintReceipt)}
-          className={`w-11 h-6 rounded-full transition-all relative ${
-            featureSettings.autoPrintReceipt ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-          }`}
+          onClick={() => setBuiltInFeatureSections(prev => ({ ...prev, cashier: !prev.cashier }))}
+          className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all"
         >
-          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-            featureSettings.autoPrintReceipt ? 'left-6' : 'left-1'
-          }`} />
+          <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Cashier Option</p>
+          <ChevronDown size={14} className={`text-gray-400 transition-all ${builtInFeatureSections.cashier ? 'rotate-180' : ''}`} />
         </button>
-      </div>
-
-      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-        <div>
-          <p className="text-xs font-black dark:text-white">Auto Open Drawer</p>
-          <p className="text-[9px] text-gray-400 mt-0.5">Open cash drawer after checkout</p>
-        </div>
-        <button
-          onClick={() => updateFeatureSetting('autoOpenDrawer', !featureSettings.autoOpenDrawer)}
-          className={`w-11 h-6 rounded-full transition-all relative ${
-            featureSettings.autoOpenDrawer ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-          }`}
-        >
-          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-            featureSettings.autoOpenDrawer ? 'left-6' : 'left-1'
-          }`} />
-        </button>
-      </div>
-
-      <div className="border-t dark:border-gray-700 pt-4">
-        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Dining Options</p>
-        <div className="space-y-2">
-          {([
-            { key: 'dineInEnabled' as const, label: 'Dine-in', desc: 'Allow dine-in orders' },
-            { key: 'takeawayEnabled' as const, label: 'Takeaway', desc: 'Allow takeaway orders' },
-            { key: 'deliveryEnabled' as const, label: 'Delivery', desc: 'Allow delivery orders' },
-          ]).map(item => (
-            <div key={item.key} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+        {builtInFeatureSections.cashier && (
+          <div className="space-y-2 p-3 bg-white dark:bg-gray-800">
+            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
               <div>
-                <p className="text-xs font-black dark:text-white">{item.label}</p>
-                <p className="text-[9px] text-gray-400 mt-0.5">{item.desc}</p>
+                <p className="text-xs font-black dark:text-white">Auto-Print Receipt</p>
+                <p className="text-[9px] text-gray-400 mt-0.5">Print automatically after checkout</p>
               </div>
               <button
-                onClick={() => updateFeatureSetting(item.key, !featureSettings[item.key])}
+                onClick={() => updateFeatureSetting('autoPrintReceipt', !featureSettings.autoPrintReceipt)}
                 className={`w-11 h-6 rounded-full transition-all relative ${
-                  featureSettings[item.key] ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                  featureSettings.autoPrintReceipt ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
                 }`}
               >
                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                  featureSettings[item.key] ? 'left-6' : 'left-1'
+                  featureSettings.autoPrintReceipt ? 'left-6' : 'left-1'
                 }`} />
               </button>
             </div>
-          ))}
-        </div>
+
+            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+              <div>
+                <p className="text-xs font-black dark:text-white">Auto Open Drawer</p>
+                <p className="text-[9px] text-gray-400 mt-0.5">Open cash drawer after checkout</p>
+              </div>
+              <button
+                onClick={() => updateFeatureSetting('autoOpenDrawer', !featureSettings.autoOpenDrawer)}
+                className={`w-11 h-6 rounded-full transition-all relative ${
+                  featureSettings.autoOpenDrawer ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                  featureSettings.autoOpenDrawer ? 'left-6' : 'left-1'
+                }`} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-        <div>
-          <p className="text-xs font-black dark:text-white">Customer Display</p>
-          <p className="text-[9px] text-gray-400 mt-0.5">Enable external customer-facing display</p>
-        </div>
+      <div className="rounded-xl border dark:border-gray-700 overflow-hidden">
         <button
-          onClick={() => updateFeatureSetting('customerDisplayEnabled', !featureSettings.customerDisplayEnabled)}
-          className={`w-11 h-6 rounded-full transition-all relative ${
-            featureSettings.customerDisplayEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-          }`}
+          onClick={() => setBuiltInFeatureSections(prev => ({ ...prev, dining: !prev.dining }))}
+          className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all"
         >
-          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-            featureSettings.customerDisplayEnabled ? 'left-6' : 'left-1'
-          }`} />
+          <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Dining Option</p>
+          <ChevronDown size={14} className={`text-gray-400 transition-all ${builtInFeatureSections.dining ? 'rotate-180' : ''}`} />
         </button>
+        {builtInFeatureSections.dining && (
+          <div className="space-y-2 p-3 bg-white dark:bg-gray-800">
+            {([
+              { key: 'dineInEnabled' as const, label: 'Dine-in', desc: 'Allow dine-in orders' },
+              { key: 'takeawayEnabled' as const, label: 'Takeaway', desc: 'Allow takeaway orders' },
+              { key: 'deliveryEnabled' as const, label: 'Delivery', desc: 'Allow delivery orders' },
+            ]).map(item => (
+              <div key={item.key} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                <div>
+                  <p className="text-xs font-black dark:text-white">{item.label}</p>
+                  <p className="text-[9px] text-gray-400 mt-0.5">{item.desc}</p>
+                </div>
+                <button
+                  onClick={() => updateFeatureSetting(item.key, !featureSettings[item.key])}
+                  className={`w-11 h-6 rounded-full transition-all relative ${
+                    featureSettings[item.key] ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                  }`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                    featureSettings[item.key] ? 'left-6' : 'left-1'
+                  }`} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="border-t dark:border-gray-700 pt-4">
+        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+          <div>
+            <p className="text-xs font-black dark:text-white">Customer Display</p>
+            <p className="text-[9px] text-gray-400 mt-0.5">Enable external customer-facing display</p>
+          </div>
+          <button
+            onClick={() => updateFeatureSetting('customerDisplayEnabled', !featureSettings.customerDisplayEnabled)}
+            className={`w-11 h-6 rounded-full transition-all relative ${
+              featureSettings.customerDisplayEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+            }`}
+          >
+            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+              featureSettings.customerDisplayEnabled ? 'left-6' : 'left-1'
+            }`} />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -2916,7 +2947,7 @@ const PosOnlyView: React.FC<Props> = ({
                 <div className="space-y-3 mb-3">
                   {kitchenDivisions.map(dep => (
                     <div key={dep.name} className="p-2.5 bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-700">
-                      <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center justify-between gap-2 mb-0">
                         {renamingDepartment === dep.name ? (
                           <div className="flex items-center gap-2 flex-1">
                             <input
@@ -2955,7 +2986,7 @@ const PosOnlyView: React.FC<Props> = ({
                         )}
                       </div>
 
-                      <p className="text-[9px] text-gray-400 mb-1">Categories handled by this department:</p>
+                      <p className="text-[9px] text-gray-400 mt-0 mb-0 leading-tight">Categories handled by this department:</p>
                       <div className="flex flex-wrap gap-1.5">
                         {allFoodCategories.length === 0 ? (
                           <span className="text-[9px] text-gray-400">No categories yet.</span>
@@ -2991,8 +3022,7 @@ const PosOnlyView: React.FC<Props> = ({
                 />
                 <button
                   onClick={handleAddDivision}
-                  disabled={!newDivisionName.trim()}
-                  className="px-4 py-2 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50"
+                  className="px-4 py-2 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
                 >
                   <Plus size={14} />
                 </button>
