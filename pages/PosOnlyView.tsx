@@ -3811,7 +3811,7 @@ const PosOnlyView: React.FC<Props> = ({
           )}
         </div>
 
-        <nav className={`flex-1 space-y-2 ${isSidebarCollapsed ? 'p-2' : 'p-4'}`}>
+        <nav className={`flex-1 overflow-y-auto ${isSidebarCollapsed ? 'p-2 space-y-2' : 'p-4 space-y-1'}`}>
           {isKitchenUser && (
             <button
               onClick={() => handleTabSelection('KITCHEN')}
@@ -3826,7 +3826,11 @@ const PosOnlyView: React.FC<Props> = ({
             </button>
           )}
 
-          {!isKitchenUser && (
+          {!isKitchenUser && (<>
+          {/* Operations Group */}
+          {!isSidebarCollapsed && (
+            <p className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-4 pt-2 pb-1">Operations</p>
+          )}
           <button 
             onClick={() => handleTabSelection('COUNTER')}
             title="Counter"
@@ -3838,11 +3842,8 @@ const PosOnlyView: React.FC<Props> = ({
           >
             <ShoppingBag size={20} /> {!isSidebarCollapsed && 'Counter'}
           </button>
-          )}
 
-
-
-          {showQrFeature && !isKitchenUser && (
+          {showQrFeature && (
             <button
               onClick={() => handleTabSelection('QR_ORDERS')}
               title="QR Orders"
@@ -3870,8 +3871,12 @@ const PosOnlyView: React.FC<Props> = ({
               })()}
             </button>
           )}
-          
-          {!isKitchenUser && (
+
+          {/* Management Group */}
+          {!isSidebarCollapsed && (
+            <p className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-4 pt-4 pb-1">Management</p>
+          )}
+          {isSidebarCollapsed && <div className="border-t dark:border-gray-700 my-1" />}
           <button 
             onClick={() => handleTabSelection('MENU_EDITOR')}
             title="Menu Editor"
@@ -3883,22 +3888,7 @@ const PosOnlyView: React.FC<Props> = ({
           >
             <BookOpen size={20} /> {!isSidebarCollapsed && 'Menu Editor'}
           </button>
-          )}
-          
-          {!isKitchenUser && (
-          <button 
-            onClick={handleReportsClick}
-            title="Report"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
-              activeTab === 'REPORTS' 
-                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-            }`}
-          >
-            <BarChart3 size={20} /> {!isSidebarCollapsed && 'Report'}
-          </button>
-          )}
-          
+
           <button 
             onClick={() => handleTabSelection('SETTINGS')}
             title="Settings"
@@ -3911,7 +3901,23 @@ const PosOnlyView: React.FC<Props> = ({
             <Settings size={20} /> {!isSidebarCollapsed && 'Settings'}
           </button>
 
-          {!isKitchenUser && (
+          <button 
+            onClick={handleReportsClick}
+            title="Report"
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
+              activeTab === 'REPORTS' 
+                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }`}
+          >
+            <BarChart3 size={20} /> {!isSidebarCollapsed && 'Report'}
+          </button>
+
+          {/* Account Group */}
+          {!isSidebarCollapsed && (
+            <p className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-4 pt-4 pb-1">Account</p>
+          )}
+          {isSidebarCollapsed && <div className="border-t dark:border-gray-700 my-1" />}
           <button 
             onClick={() => handleTabSelection('BILLING')}
             title="Billing"
@@ -3923,7 +3929,7 @@ const PosOnlyView: React.FC<Props> = ({
           >
             <CreditCard size={20} /> {!isSidebarCollapsed && 'Billing'}
           </button>
-          )}
+          </>)}
         </nav>
 
         {/* Sidebar Collapse Toggle */}
