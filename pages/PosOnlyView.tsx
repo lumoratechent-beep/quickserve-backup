@@ -267,6 +267,7 @@ const PosOnlyView: React.FC<Props> = ({
     const saved = localStorage.getItem(`saved_bills_${restaurant.id}`);
     return saved ? JSON.parse(saved) : [];
   });
+  const [activeSavedBillTable, setActiveSavedBillTable] = useState<string | null>(null);
   const [showSaveBillTableModal, setShowSaveBillTableModal] = useState(false);
   const [pendingSaveBillSource, setPendingSaveBillSource] = useState<'COUNTER' | 'QR' | null>(null);
   const [selectedSaveTableNumber, setSelectedSaveTableNumber] = useState<string>('');
@@ -1012,6 +1013,10 @@ const PosOnlyView: React.FC<Props> = ({
     setPendingSaveBillSource(null);
   };
 
+  const clearSavedBillByTable = (tableNumber: string) => {
+    setSavedBills(prev => prev.filter(bill => bill.tableNumber !== tableNumber));
+  };
+
   const confirmSaveBillToTable = () => {
     if (!pendingSaveBillSource) return;
 
@@ -1042,6 +1047,7 @@ const PosOnlyView: React.FC<Props> = ({
       const withoutSameTable = prev.filter(bill => bill.tableNumber !== targetTable);
       return [entry, ...withoutSameTable];
     });
+    setActiveSavedBillTable(targetTable);
 
     if (pendingSaveBillSource === 'COUNTER') {
       setPosCart([]);
@@ -1067,13 +1073,16 @@ const PosOnlyView: React.FC<Props> = ({
     setPosCart(selectedBill.items);
     setPosRemark(selectedBill.remark);
     setPosTableNo(selectedBill.tableNumber);
-    setSavedBills(prev => prev.filter(bill => bill.tableNumber !== tableNumber));
+    setActiveSavedBillTable(tableNumber);
     setCounterMode('COUNTER_ORDER');
     toast(`${tableNumber} bill loaded into counter.`, 'success');
   };
 
   const deleteSavedBill = (tableNumber: string) => {
-    setSavedBills(prev => prev.filter(bill => bill.tableNumber !== tableNumber));
+    clearSavedBillByTable(tableNumber);
+    if (activeSavedBillTable === tableNumber) {
+      setActiveSavedBillTable(null);
+    }
   };
 
   const saveSelectedQrOrderAsBill = () => {
@@ -1231,6 +1240,7 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const finalizePaymentFlow = () => {
+    const completedTable = pendingOrderData?.tableNumber ? String(pendingOrderData.tableNumber) : '';
     setShowPaymentResult(false);
     setShowPaymentModal(false);
     setPendingOrderData(null);
@@ -1238,6 +1248,12 @@ const PosOnlyView: React.FC<Props> = ({
       setSelectedQrOrderForPayment(null);
       setIsQrPaymentMode(false);
     } else {
+      if (completedTable) {
+        clearSavedBillByTable(completedTable);
+        if (activeSavedBillTable === completedTable) {
+          setActiveSavedBillTable(null);
+        }
+      }
       setPosCart([]);
       setPosRemark('');
       setPosTableNo('Counter');
@@ -3971,24 +3987,23 @@ const PosOnlyView: React.FC<Props> = ({
                       <Receipt size={48} className="mb-4" />
                       <p className="text-[10px] font-black uppercase tracking-widest">Saved bill feature is disabled</p>
                     </div>
-                  ) : savedBills.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
-                      <Receipt size={48} className="mb-4" />
-                      <p className="text-[10px] font-black uppercase tracking-widest">No saved bills</p>
-                    </div>
                   ) : (
                     <div className="space-y-3">
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pending Bills by Table</p>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Table Arrangement</p>
                       <div className="space-y-2">
                         {tableRowsForSelection.map((row, rowIdx) => (
                           <div key={`saved-row-${rowIdx}`} className="grid gap-2" style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }}>
                             {row.map((table) => {
                               const tableBill = savedBillsByTable.get(table);
                               const hasPending = !!tableBill;
+                              const isActiveTable = activeSavedBillTable === table;
                               return (
                                 <div
                                   key={table}
                                   className={`rounded-xl border p-3 transition-all ${
+                                    isActiveTable
+                                      ? 'border-orange-600 bg-orange-100 dark:bg-orange-900/30 shadow-[0_0_0_1px_rgba(234,88,12,0.5),0_0_20px_rgba(234,88,12,0.35)]'
+                                      :
                                     hasPending
                                       ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 shadow-[0_0_0_1px_rgba(249,115,22,0.35),0_0_16px_rgba(249,115,22,0.3)]'
                                       : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 opacity-70'
@@ -5974,7 +5989,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <button
                           onClick={saveSelectedQrOrderAsBill}
                           disabled={!selectedQrOrderForPayment || isCompletingPayment}
-                          className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-2xl font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                          className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
                         >
                           Saved Bill
                         </button>
@@ -5982,7 +5997,7 @@ const PosOnlyView: React.FC<Props> = ({
                       <button
                         onClick={handleQrOrderCheckout}
                         disabled={!selectedQrOrderForPayment || isCompletingPayment}
-                        className={`${showSavedBillFeature ? 'flex-[2]' : 'flex-1'} py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2`}
+                        className={`${showSavedBillFeature ? 'flex-[2]' : 'flex-1'} py-4 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2`}
                       >
                         <CreditCard size={16} /> Complete Payment
                       </button>
@@ -6077,7 +6092,7 @@ const PosOnlyView: React.FC<Props> = ({
                     <button
                       onClick={saveCurrentBill}
                       disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
-                      className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-2xl font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                      className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
                     >
                       Saved Bill
                     </button>
@@ -6085,7 +6100,7 @@ const PosOnlyView: React.FC<Props> = ({
                   <button
                     onClick={handleCheckout}
                     disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
-                    className={`${showSavedBillFeature ? 'flex-[2]' : 'flex-1'} py-4 bg-orange-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2`}
+                    className={`${showSavedBillFeature ? 'flex-[2]' : 'flex-1'} py-4 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2`}
                   >
                     <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : 'Complete Payment'}
                   </button>
@@ -6371,20 +6386,20 @@ const PosOnlyView: React.FC<Props> = ({
 
       {showSaveBillTableModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={closeSaveBillTableModal}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-[95vw] max-w-6xl overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b dark:border-gray-700 flex items-center justify-between">
               <div>
-                <h3 className="font-black dark:text-white uppercase tracking-tighter text-base">Select Table For Saved Bill</h3>
-                <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">Tap one table based on your custom arrangement</p>
+                <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Select Table For Saved Bill</h3>
+                <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">Tap one table based on your custom arrangement</p>
               </div>
               <button onClick={closeSaveBillTableModal} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all">
                 <X size={18} className="text-gray-400" />
               </button>
             </div>
 
-            <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
+            <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
               {tableRowsForSelection.map((row, rowIdx) => (
-                <div key={`select-row-${rowIdx}`} className="grid gap-2" style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }}>
+                <div key={`select-row-${rowIdx}`} className="grid gap-3" style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }}>
                   {row.map((table) => {
                     const hasPending = savedBillsByTable.has(table);
                     const selected = selectedSaveTableNumber === table;
@@ -6392,7 +6407,7 @@ const PosOnlyView: React.FC<Props> = ({
                       <button
                         key={table}
                         onClick={() => setSelectedSaveTableNumber(table)}
-                        className={`p-3 rounded-xl border-2 text-left transition-all ${
+                        className={`p-4 rounded-lg border-2 text-left transition-all ${
                           selected
                             ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
                             : hasPending
@@ -6400,8 +6415,8 @@ const PosOnlyView: React.FC<Props> = ({
                               : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-orange-300'
                         }`}
                       >
-                        <p className="text-[10px] font-black uppercase tracking-widest dark:text-white">{table}</p>
-                        <p className={`text-[9px] mt-1 ${hasPending ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-400'}`}>
+                        <p className="text-xs font-black uppercase tracking-widest dark:text-white">{table}</p>
+                        <p className={`text-[10px] mt-1 ${hasPending ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-400'}`}>
                           {hasPending ? 'Has pending bill (will replace)' : 'Available'}
                         </p>
                       </button>
