@@ -2517,9 +2517,16 @@ const PosOnlyView: React.FC<Props> = ({
   }, [kitchenOrderSettings, restaurant.id]);
 
   // ── Cross-device settings sync ──────────────────────────────────────────────
-  // Debounced: bundle all settings into one DB write so devices stay in sync.
+  // Only writes to DB when a setting *changes* after initial load.
+  // Skips the first render so login/refresh doesn't trigger a redundant write.
   const settingsSyncTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const settingsInitializedRef = useRef(false);
   useEffect(() => {
+    // Skip on first render — values were just loaded from DB, no write needed.
+    if (!settingsInitializedRef.current) {
+      settingsInitializedRef.current = true;
+      return;
+    }
     if (settingsSyncTimerRef.current) clearTimeout(settingsSyncTimerRef.current);
     settingsSyncTimerRef.current = setTimeout(() => {
       const bundle: Record<string, any> = {
