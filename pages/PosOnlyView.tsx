@@ -992,7 +992,7 @@ const PosOnlyView: React.FC<Props> = ({
     const entry: SavedBillEntry = {
       id: `${Date.now()}`,
       items: selectedQrOrderForPayment.items,
-      remark: selectedQrOrderForPayment.remark,
+      remark: selectedQrOrderForPayment.remark ?? '',
       tableNumber: String(selectedQrOrderForPayment.tableNumber || 'Counter'),
       createdAt: Date.now(),
     };
