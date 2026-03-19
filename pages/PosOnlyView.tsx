@@ -5989,30 +5989,32 @@ const PosOnlyView: React.FC<Props> = ({
           `}>
             {/* Sidebar header */}
             <div className="p-4 border-b dark:border-gray-700">
-              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 mb-3">
-                {showSavedBillFeature && (
+              {(showSavedBillFeature || showQrFeature) && (
+                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 mb-3">
+                  {showSavedBillFeature && (
+                    <button
+                      onClick={() => { setCounterMode('SAVED_BILL'); setSelectedQrOrderForPayment(null); }}
+                      className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                        counterMode === 'SAVED_BILL' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
+                      }`}
+                    >Saved Bill</button>
+                  )}
                   <button
-                    onClick={() => { setCounterMode('SAVED_BILL'); setSelectedQrOrderForPayment(null); }}
+                    onClick={() => { setCounterMode('COUNTER_ORDER'); setSelectedQrOrderForPayment(null); }}
                     className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
-                      counterMode === 'SAVED_BILL' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
+                      counterMode === 'COUNTER_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
                     }`}
-                  >Saved Bill</button>
-                )}
-                <button
-                  onClick={() => { setCounterMode('COUNTER_ORDER'); setSelectedQrOrderForPayment(null); }}
-                  className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
-                    counterMode === 'COUNTER_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
-                  }`}
-                >Counter</button>
-                {showQrFeature && (
-                  <button
-                    onClick={() => { setCounterMode('QR_ORDER'); setSelectedQrOrderForPayment(null); }}
-                    className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
-                      counterMode === 'QR_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
-                    }`}
-                  >QR Order</button>
-                )}
-              </div>
+                  >Counter</button>
+                  {showQrFeature && (
+                    <button
+                      onClick={() => { setCounterMode('QR_ORDER'); setSelectedQrOrderForPayment(null); }}
+                      className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                        counterMode === 'QR_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
+                      }`}
+                    >QR Order</button>
+                  )}
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <h3 className="font-black dark:text-white uppercase tracking-tighter text-sm">
                   {showSavedBillFeature && counterMode === 'SAVED_BILL'
