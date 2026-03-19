@@ -416,6 +416,9 @@ const PosOnlyView: React.FC<Props> = ({
     if (restaurant.kitchenEnabled) defaults.kitchenEnabled = true;
     return defaults;
   });
+  const [tableCountDraft, setTableCountDraft] = useState<string>('12');
+  const [tableRowsDraft, setTableRowsDraft] = useState<string>('3');
+  const [tableColumnsDraft, setTableColumnsDraft] = useState<string>('4');
 
   // Payment types
   const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>(() => {
@@ -2043,6 +2046,52 @@ const PosOnlyView: React.FC<Props> = ({
     }
   };
 
+  useEffect(() => {
+    setTableCountDraft(String(featureSettings.tableCount));
+    setTableRowsDraft(String(featureSettings.tableRows));
+    setTableColumnsDraft(String(featureSettings.tableColumns));
+  }, [featureSettings.tableCount, featureSettings.tableRows, featureSettings.tableColumns]);
+
+  const resetTableManagementDraft = () => {
+    setTableCountDraft(String(featureSettings.tableCount));
+    setTableRowsDraft(String(featureSettings.tableRows));
+    setTableColumnsDraft(String(featureSettings.tableColumns));
+  };
+
+  const parsePositiveIntegerDraft = (value: string): number | null => {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    if (!Number.isInteger(parsed) || parsed < 1) return null;
+    return parsed;
+  };
+
+  const handleSaveTableManagementChanges = () => {
+    const nextTableCount = parsePositiveIntegerDraft(tableCountDraft);
+    const nextTableRows = parsePositiveIntegerDraft(tableRowsDraft);
+    const nextTableColumns = parsePositiveIntegerDraft(tableColumnsDraft);
+
+    if (!nextTableCount || !nextTableRows || !nextTableColumns) {
+      toast('Table count, rows, and columns cannot be empty.', 'error');
+      resetTableManagementDraft();
+      return;
+    }
+
+    if (nextTableColumns > 20) {
+      toast('Columns must be between 1 and 20.', 'error');
+      resetTableManagementDraft();
+      return;
+    }
+
+    setFeatureSettings(prev => ({
+      ...prev,
+      tableCount: nextTableCount,
+      tableRows: nextTableRows,
+      tableColumns: nextTableColumns,
+    }));
+    toast('Table management settings saved.', 'success');
+  };
+
   const handleAddPaymentType = () => {
     if (!newPaymentTypeName.trim()) return;
     const newType: PaymentType = {
@@ -3125,68 +3174,91 @@ const PosOnlyView: React.FC<Props> = ({
     <div className="space-y-4">
       <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
         <div>
-          <p className="text-xs font-black dark:text-white">Saved Bill</p>
+          <p className="text-xs font-black dark:text-white">Saved Bill & Table Management</p>
           <p className="text-[9px] text-gray-400 mt-0.5">Allow counter to save pending bills by table</p>
         </div>
         <button
-          onClick={() => updateFeatureSetting('savedBillEnabled', !featureSettings.savedBillEnabled)}
+          onClick={() => {
+            setFeatureSettings(prev => {
+              const nextEnabled = !prev.savedBillEnabled;
+              return {
+                ...prev,
+                savedBillEnabled: nextEnabled,
+                tableManagementEnabled: nextEnabled,
+              };
+            });
+          }}
           className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.savedBillEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
         >
           <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.savedBillEnabled ? 'left-6' : 'left-1'}`} />
         </button>
       </div>
 
-      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+      <div className={`space-y-3 p-4 rounded-xl border transition-all ${
+        featureSettings.savedBillEnabled
+          ? 'bg-gray-50 dark:bg-gray-700/30 border-gray-200 dark:border-gray-700'
+          : 'bg-gray-200 dark:bg-gray-900/40 border-gray-300 dark:border-gray-800 opacity-80'
+      }`}>
         <div>
-          <p className="text-xs font-black dark:text-white">Table Management</p>
-          <p className="text-[9px] text-gray-400 mt-0.5">Configure table count and custom row/column arrangement</p>
+          <p className="text-xs font-black dark:text-white">Table Layout</p>
+          <p className="text-[9px] text-gray-400 mt-0.5">Configure table count and row/column arrangement</p>
         </div>
-        <button
-          onClick={() => updateFeatureSetting('tableManagementEnabled', !featureSettings.tableManagementEnabled)}
-          className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.tableManagementEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-        >
-          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.tableManagementEnabled ? 'left-6' : 'left-1'}`} />
-        </button>
-      </div>
 
-      {featureSettings.tableManagementEnabled && (
-        <div className="space-y-3 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-700">
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Tables</label>
-              <input
-                type="number"
-                min={1}
-                value={featureSettings.tableCount}
-                onChange={e => updateFeatureSetting('tableCount', Math.max(1, Number(e.target.value) || 1))}
-                className="w-full px-2 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Rows</label>
-              <input
-                type="number"
-                min={1}
-                value={featureSettings.tableRows}
-                onChange={e => updateFeatureSetting('tableRows', Math.max(1, Number(e.target.value) || 1))}
-                className="w-full px-2 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Columns</label>
-              <input
-                type="number"
-                min={1}
-                max={20}
-                value={featureSettings.tableColumns}
-                onChange={e => updateFeatureSetting('tableColumns', Math.min(20, Math.max(1, Number(e.target.value) || 1)))}
-                className="w-full px-2 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-              />
-            </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div>
+            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Tables</label>
+            <input
+              type="number"
+              min={1}
+              value={tableCountDraft}
+              disabled={!featureSettings.savedBillEnabled}
+              onChange={e => setTableCountDraft(e.target.value)}
+              className="w-full px-2 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white disabled:bg-gray-300 disabled:dark:bg-gray-800/70 disabled:text-gray-500 disabled:cursor-not-allowed"
+            />
           </div>
-          <p className="text-[9px] text-gray-400">Table selection popup follows this arrangement. Extra cells are hidden automatically when table count is reached.</p>
+          <div>
+            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Rows</label>
+            <input
+              type="number"
+              min={1}
+              value={tableRowsDraft}
+              disabled={!featureSettings.savedBillEnabled}
+              onChange={e => setTableRowsDraft(e.target.value)}
+              className="w-full px-2 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white disabled:bg-gray-300 disabled:dark:bg-gray-800/70 disabled:text-gray-500 disabled:cursor-not-allowed"
+            />
+          </div>
+          <div>
+            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Columns</label>
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={tableColumnsDraft}
+              disabled={!featureSettings.savedBillEnabled}
+              onChange={e => setTableColumnsDraft(e.target.value)}
+              className="w-full px-2 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white disabled:bg-gray-300 disabled:dark:bg-gray-800/70 disabled:text-gray-500 disabled:cursor-not-allowed"
+            />
+          </div>
         </div>
-      )}
+
+        <div className="flex items-center justify-end gap-2 pt-1">
+          <button
+            onClick={resetTableManagementDraft}
+            disabled={!featureSettings.savedBillEnabled}
+            className="px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSaveTableManagementChanges}
+            disabled={!featureSettings.savedBillEnabled}
+            className="px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest bg-green-500 text-white hover:bg-green-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Save Changes
+          </button>
+        </div>
+        <p className="text-[9px] text-gray-400">Table selection popup follows this arrangement. Extra cells are hidden automatically when table count is reached.</p>
+      </div>
     </div>
   );
 
@@ -4665,7 +4737,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <LayoutGrid size={18} className="text-sky-500" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Table Management</p>
+                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Save Bill & Table Management</p>
                         <p className="text-[10px] text-gray-400">Saved bill and table layout settings</p>
                       </div>
                       <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${featuresPanel === 'table' ? 'rotate-180' : ''}`} />
@@ -4798,7 +4870,7 @@ const PosOnlyView: React.FC<Props> = ({
                           <LayoutGrid size={16} className={featuresPanel === 'table' ? 'text-sky-500' : 'text-gray-400'} />
                         </div>
                         <div className="flex-1 text-left">
-                          <p className={`text-xs font-black uppercase tracking-wide ${featuresPanel === 'table' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Table Management</p>
+                          <p className={`text-xs font-black uppercase tracking-wide ${featuresPanel === 'table' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Save Bill & Table Management</p>
                           <p className="text-[10px] text-gray-400">Saved bill and table layout settings</p>
                         </div>
                       </button>
