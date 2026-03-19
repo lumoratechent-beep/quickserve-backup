@@ -80,6 +80,15 @@ export interface Restaurant {
     showSalesReport?: boolean;
     showQrGenerator?: boolean;
     orderCode?: string; // 2-5 char prefix for order IDs, unique per restaurant
+    // Cross-device persisted settings
+    receipt?: Record<string, any>;
+    features?: Record<string, any>;
+    paymentTypes?: Array<{ id: string; name: string }>;
+    taxes?: Array<{ id: string; name: string; percentage: number; applyToItems: boolean }>;
+    font?: string;
+    currency?: string;
+    printers?: Array<Record<string, any>>;
+    kitchenSettings?: { autoAccept: boolean; autoPrint: boolean };
   };
   categories?: CategoryData[];
   modifiers?: ModifierData[];

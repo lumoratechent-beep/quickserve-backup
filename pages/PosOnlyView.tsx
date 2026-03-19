@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters, CategoryData, ModifierData, ModifierOption, QS_DEFAULT_HUB, Subscription, PlanId, KitchenDepartment } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { uploadImage } from '../lib/storage';
+import { saveAllSettingsToDb } from '../lib/sharedSettings';
 import * as counterOrdersCache from '../lib/counterOrdersCache';
 import printerService, { PrinterDevice, ReceiptPrintOptions } from '../services/printerService';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
@@ -241,6 +242,8 @@ const PosOnlyView: React.FC<Props> = ({
   const [kitchenRejectionReason, setKitchenRejectionReason] = useState('Item out of stock');
   const [kitchenRejectionNote, setKitchenRejectionNote] = useState('');
   const [kitchenOrderSettings, setKitchenOrderSettings] = useState<{ autoAccept: boolean; autoPrint: boolean }>(() => {
+    const dbSaved = restaurant.settings?.kitchenSettings;
+    if (dbSaved && typeof dbSaved === 'object') return { ...{ autoAccept: false, autoPrint: false }, ...dbSaved };
     const saved = localStorage.getItem(`kitchen_settings_${restaurant.id}`);
     return saved ? JSON.parse(saved) : { autoAccept: false, autoPrint: false };
   });
@@ -369,7 +372,9 @@ const PosOnlyView: React.FC<Props> = ({
 
   // User Experience settings
   const FONT_OPTIONS = ['Inter', 'Roboto', 'Poppins', 'Open Sans', 'Lato', 'Nunito', 'Montserrat', 'Raleway'];
-  const [userFont, setUserFont] = useState<string>(() => localStorage.getItem(`ux_font_${restaurant.id}`) || 'Inter');
+  const [userFont, setUserFont] = useState<string>(() =>
+    restaurant.settings?.font || localStorage.getItem(`ux_font_${restaurant.id}`) || 'Inter'
+  );
 
   const CURRENCY_OPTIONS = [
     { code: 'MYR', symbol: 'RM', label: 'Ringgit Malaysia (RM)' },
@@ -389,7 +394,9 @@ const PosOnlyView: React.FC<Props> = ({
     { code: 'TWD', symbol: 'NT$', label: 'Taiwan Dollar (NT$)' },
     { code: 'BND', symbol: 'B$', label: 'Brunei Dollar (B$)' },
   ];
-  const [userCurrency, setUserCurrency] = useState<string>(() => localStorage.getItem(`ux_currency_${restaurant.id}`) || 'MYR');
+  const [userCurrency, setUserCurrency] = useState<string>(() =>
+    restaurant.settings?.currency || localStorage.getItem(`ux_currency_${restaurant.id}`) || 'MYR'
+  );
   const currencySymbol = CURRENCY_OPTIONS.find(c => c.code === userCurrency)?.symbol || 'RM';
 
   // Settings panel navigation
@@ -400,17 +407,23 @@ const PosOnlyView: React.FC<Props> = ({
   // Feature settings
   const [featureSettings, setFeatureSettings] = useState<FeatureSettings>(() => {
     const defaults = getDefaultFeatureSettings();
-    const saved = localStorage.getItem(`features_${restaurant.id}`);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      const merged = { ...defaults, ...parsed };
-      // Sync kitchenEnabled from DB if it was enabled there but not in localStorage
-      if (restaurant.kitchenEnabled && !merged.kitchenEnabled) {
-        merged.kitchenEnabled = true;
-      }
+    // Priority 1: DB settings (cross-device)
+    const dbSaved = restaurant.settings?.features;
+    if (dbSaved && typeof dbSaved === 'object') {
+      const merged = { ...defaults, ...dbSaved };
+      if (restaurant.kitchenEnabled && !merged.kitchenEnabled) merged.kitchenEnabled = true;
       return merged;
     }
-    // Initialize from restaurant DB value
+    // Priority 2: localStorage (same-device offline cache)
+    const saved = localStorage.getItem(`features_${restaurant.id}`);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        const merged = { ...defaults, ...parsed };
+        if (restaurant.kitchenEnabled && !merged.kitchenEnabled) merged.kitchenEnabled = true;
+        return merged;
+      } catch {}
+    }
     if (restaurant.kitchenEnabled) defaults.kitchenEnabled = true;
     return defaults;
   });
@@ -420,6 +433,8 @@ const PosOnlyView: React.FC<Props> = ({
 
   // Payment types
   const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>(() => {
+    const dbSaved = restaurant.settings?.paymentTypes;
+    if (Array.isArray(dbSaved) && dbSaved.length > 0) return dbSaved;
     const saved = localStorage.getItem(`payment_types_${restaurant.id}`);
     return saved ? JSON.parse(saved) : getDefaultPaymentTypes();
   });
@@ -427,6 +442,8 @@ const PosOnlyView: React.FC<Props> = ({
 
   // Tax entries
   const [taxEntries, setTaxEntries] = useState<TaxEntry[]>(() => {
+    const dbSaved = restaurant.settings?.taxes;
+    if (Array.isArray(dbSaved)) return dbSaved;
     const saved = localStorage.getItem(`taxes_${restaurant.id}`);
     return saved ? JSON.parse(saved) : [];
   });
@@ -443,6 +460,8 @@ const PosOnlyView: React.FC<Props> = ({
 
   // Saved printers list
   const [savedPrinters, setSavedPrinters] = useState<SavedPrinter[]>(() => {
+    const dbSaved = restaurant.settings?.printers;
+    if (Array.isArray(dbSaved) && dbSaved.length > 0) return dbSaved as SavedPrinter[];
     const saved = localStorage.getItem(`printers_${restaurant.id}`);
     return saved ? JSON.parse(saved) : [];
   });
@@ -1575,9 +1594,16 @@ const PosOnlyView: React.FC<Props> = ({
 
   useEffect(() => {
     const defaults = getDefaultReceiptSettings(restaurant.name);
+    const dbSaved = restaurant.settings?.receipt;
     const localSaved = localStorage.getItem(`receipt_settings_${restaurant.id}`);
-    const dbSaved = (restaurant as any)?.settings?.receipt;
 
+    // Priority 1: DB (cross-device authoritative)
+    if (dbSaved && typeof dbSaved === 'object') {
+      setReceiptSettings({ ...defaults, ...dbSaved });
+      return;
+    }
+
+    // Priority 2: localStorage (same-device offline cache)
     if (localSaved) {
       try {
         const parsed = JSON.parse(localSaved);
@@ -1588,13 +1614,8 @@ const PosOnlyView: React.FC<Props> = ({
       }
     }
 
-    if (dbSaved && typeof dbSaved === 'object') {
-      setReceiptSettings({ ...defaults, ...dbSaved });
-      return;
-    }
-
     setReceiptSettings(defaults);
-  }, [restaurant.id, restaurant.name, (restaurant as any)?.settings]);
+  }, [restaurant.id, restaurant.name, restaurant.settings]);
 
   // Load order code from restaurant settings
   useEffect(() => {
@@ -2494,6 +2515,32 @@ const PosOnlyView: React.FC<Props> = ({
   useEffect(() => {
     localStorage.setItem(`kitchen_settings_${restaurant.id}`, JSON.stringify(kitchenOrderSettings));
   }, [kitchenOrderSettings, restaurant.id]);
+
+  // ── Cross-device settings sync ──────────────────────────────────────────────
+  // Debounced: bundle all settings into one DB write so devices stay in sync.
+  const settingsSyncTimerRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (settingsSyncTimerRef.current) clearTimeout(settingsSyncTimerRef.current);
+    settingsSyncTimerRef.current = setTimeout(() => {
+      const bundle: Record<string, any> = {
+        // Preserve existing DB keys not managed here (orderCode, flags, etc.)
+        ...(restaurant.settings || {}),
+        receipt: receiptSettings,
+        features: featureSettings,
+        paymentTypes,
+        taxes: taxEntries,
+        font: userFont,
+        currency: userCurrency,
+        printers: savedPrinters,
+        kitchenSettings: kitchenOrderSettings,
+      };
+      saveAllSettingsToDb(restaurant.id, bundle);
+    }, 1500);
+    return () => {
+      if (settingsSyncTimerRef.current) clearTimeout(settingsSyncTimerRef.current);
+    };
+  }, [receiptSettings, featureSettings, paymentTypes, taxEntries, userFont, userCurrency, savedPrinters, kitchenOrderSettings, restaurant.id]);
+  // ────────────────────────────────────────────────────────────────────────────
 
   const renderPrinterContent = () => (
     <div className="space-y-4">

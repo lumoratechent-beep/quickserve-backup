@@ -41,6 +41,34 @@ export async function saveSettingsToDb(
 }
 
 /**
+ * Save the complete settings bundle for a restaurant to the DB and localStorage cache.
+ * Use this when multiple settings change at once to avoid partial overwrites.
+ */
+export async function saveAllSettingsToDb(
+  restaurantId: string,
+  settings: Record<string, any>
+): Promise<boolean> {
+  // Always persist to localStorage for offline access
+  localStorage.setItem(`qs_settings_${restaurantId}`, JSON.stringify(settings));
+
+  try {
+    const { error } = await supabase
+      .from('restaurants')
+      .update({ settings })
+      .eq('id', restaurantId);
+
+    if (error) {
+      console.warn('Cloud save failed for settings bundle:', error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn('Cloud save failed for settings bundle:', e);
+    return false;
+  }
+}
+
+/**
  * Load a settings sub-key. Priority: DB (restaurant.settings) > localStorage > defaults.
  * Since restaurant data is already fetched and passed as a prop, this is zero-cost.
  */
