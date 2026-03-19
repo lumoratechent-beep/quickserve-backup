@@ -4719,6 +4719,15 @@ const PosOnlyView: React.FC<Props> = ({
 
                 {/* ===== MOBILE: Accordion Layout ===== */}
                 <div className="lg:hidden space-y-3">
+                  {/* Features Section Label */}
+                  {!isKitchenUser && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <Layers size={12} className="text-emerald-500" />
+                    <p className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em]">Features</p>
+                    <div className="flex-1 h-px bg-emerald-200 dark:bg-emerald-800" />
+                  </div>
+                  )}
+
                   {/* Built-in Features Accordion */}
                   {!isKitchenUser && (
                   <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
@@ -4852,6 +4861,13 @@ const PosOnlyView: React.FC<Props> = ({
                     )}
                   </div>
                   )}
+
+                  {/* Settings Section Label */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <Settings size={12} className="text-gray-400" />
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Settings</p>
+                    <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                  </div>
 
                   {/* Printer Accordion */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
@@ -5065,6 +5081,15 @@ const PosOnlyView: React.FC<Props> = ({
                         </div>
                       </button>
                       )}
+
+                      {/* Settings Section Divider */}
+                      <div className="px-4 py-2 border-t dark:border-gray-700">
+                        <div className="flex items-center gap-2">
+                          <Settings size={10} className="text-gray-400" />
+                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-[0.2em]">Settings</p>
+                          <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                        </div>
+                      </div>
 
                       {/* Printer Nav Item */}
                       <button
