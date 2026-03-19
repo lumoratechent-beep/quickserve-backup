@@ -3989,7 +3989,10 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Table Arrangement</p>
+                      <div>
+                        <p className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">Table Arrangement</p>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Choose a table with pending bill to continue editing, or view empty tables ready for new saved bills.</p>
+                      </div>
                       <div className="space-y-2">
                         {tableRowsForSelection.map((row, rowIdx) => (
                           <div key={`saved-row-${rowIdx}`} className="grid gap-2" style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }}>
@@ -4652,11 +4655,11 @@ const PosOnlyView: React.FC<Props> = ({
                       className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
                     >
                       <div className="w-10 h-10 rounded-lg bg-sky-50 dark:bg-sky-900/20 flex items-center justify-center">
-                        <Hash size={18} className="text-sky-500" />
+                        <LayoutGrid size={18} className="text-sky-500" />
                       </div>
                       <div className="flex-1 text-left">
                         <p className="text-xs font-black dark:text-white uppercase tracking-wide">Table Management</p>
-                        <p className="text-[10px] text-green-500 font-black">Available on Basic Plan</p>
+                        <p className="text-[10px] text-gray-400">Saved bill and table layout settings</p>
                       </div>
                       <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${featuresPanel === 'table' ? 'rotate-180' : ''}`} />
                     </button>
@@ -4785,11 +4788,11 @@ const PosOnlyView: React.FC<Props> = ({
                         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
                           featuresPanel === 'table' ? 'bg-sky-100 dark:bg-sky-900/30' : 'bg-gray-100 dark:bg-gray-700'
                         }`}>
-                          <Hash size={16} className={featuresPanel === 'table' ? 'text-sky-500' : 'text-gray-400'} />
+                          <LayoutGrid size={16} className={featuresPanel === 'table' ? 'text-sky-500' : 'text-gray-400'} />
                         </div>
                         <div className="flex-1 text-left">
                           <p className={`text-xs font-black uppercase tracking-wide ${featuresPanel === 'table' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Table Management</p>
-                          <p className="text-[10px] text-green-500 font-black">Basic Plan</p>
+                          <p className="text-[10px] text-gray-400">Saved bill and table layout settings</p>
                         </div>
                       </button>
 
@@ -6386,7 +6389,7 @@ const PosOnlyView: React.FC<Props> = ({
 
       {showSaveBillTableModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={closeSaveBillTableModal}>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-[95vw] max-w-6xl overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-[86vw] max-w-3xl h-[88vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b dark:border-gray-700 flex items-center justify-between">
               <div>
                 <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Select Table For Saved Bill</h3>
@@ -6397,7 +6400,7 @@ const PosOnlyView: React.FC<Props> = ({
               </button>
             </div>
 
-            <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+            <div className="p-6 space-y-4 flex-1 overflow-y-auto">
               {tableRowsForSelection.map((row, rowIdx) => (
                 <div key={`select-row-${rowIdx}`} className="grid gap-3" style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }}>
                   {row.map((table) => {
