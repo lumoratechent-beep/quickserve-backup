@@ -4732,16 +4732,16 @@ const PosOnlyView: React.FC<Props> = ({
                   <div>
                     <button
                       onClick={() => setSettingsPanel(settingsPanel === 'builtin' ? 'printer' : 'builtin')}
-                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'builtin' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
                     >
                       <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center">
                         <Layers size={18} className="text-emerald-500" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Built-in Features</p>
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'builtin' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Built-in Features</p>
                         <p className="text-[10px] text-gray-400">Auto-print, drawer, dining</p>
                       </div>
-                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'builtin' ? 'rotate-180' : ''}`} />
+                      <ChevronDown size={16} className={`transition-all ${settingsPanel === 'builtin' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
                     </button>
                     {settingsPanel === 'builtin' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
@@ -4756,7 +4756,7 @@ const PosOnlyView: React.FC<Props> = ({
                   <div>
                     <button
                       onClick={() => setSettingsPanel(settingsPanel === 'table' ? 'builtin' : 'table')}
-                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'table' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
                     >
                       <div className="w-10 h-10 rounded-lg bg-sky-50 dark:bg-sky-900/20 flex items-center justify-center">
                         <LayoutGrid size={18} className="text-sky-500" />
@@ -4776,51 +4776,20 @@ const PosOnlyView: React.FC<Props> = ({
                     )}
                   </div>
 
-                  {/* Kitchen Display System Accordion */}
-                  <div>
-                    <button
-                      onClick={() => setSettingsPanel(settingsPanel === 'kitchen' ? 'builtin' : 'kitchen')}
-                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center">
-                        <Coffee size={18} className="text-orange-500" />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Kitchen Display System</p>
-                        {canUseKitchen ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plus Plan</p>}
-                      </div>
-                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'kitchen' ? 'rotate-180' : ''}`} />
-                    </button>
-                    {settingsPanel === 'kitchen' && (
-                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        <div className="max-w-lg space-y-0">
-                          {canUseKitchen ? renderKitchenSettingsContent() : (
-                            <div className="text-center py-6">
-                              <Coffee size={32} className="mx-auto text-gray-300 mb-3" />
-                              <p className="text-xs font-black dark:text-white mb-1">Upgrade to Pro Plus</p>
-                              <p className="text-[9px] text-gray-400 mb-4">Kitchen Display System requires the Pro Plus plan</p>
-                              <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
                   {/* QR Ordering Accordion */}
                   <div>
                     <button
                       onClick={() => setSettingsPanel(settingsPanel === 'qr' ? 'builtin' : 'qr')}
-                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'qr' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
                     >
                       <div className="w-10 h-10 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
                         <QrCode size={18} className="text-violet-500" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">QR Ordering</p>
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'qr' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>QR Ordering</p>
                         {canUseQr ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plan</p>}
                       </div>
-                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'qr' ? 'rotate-180' : ''}`} />
+                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'qr' ? 'rotate-180 text-orange-500' : ''}`} />
                     </button>
                     {settingsPanel === 'qr' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
@@ -4854,15 +4823,46 @@ const PosOnlyView: React.FC<Props> = ({
                     )}
                   </div>
 
+                  {/* Kitchen Display System Accordion */}
+                  <div>
+                    <button
+                      onClick={() => setSettingsPanel(settingsPanel === 'kitchen' ? 'builtin' : 'kitchen')}
+                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'kitchen' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center">
+                        <Coffee size={18} className="text-orange-500" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'kitchen' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Kitchen Display System</p>
+                        {canUseKitchen ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plus Plan</p>}
+                      </div>
+                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'kitchen' ? 'rotate-180 text-orange-500' : ''}`} />
+                    </button>
+                    {settingsPanel === 'kitchen' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg space-y-0">
+                          {canUseKitchen ? renderKitchenSettingsContent() : (
+                            <div className="text-center py-6">
+                              <Coffee size={32} className="mx-auto text-gray-300 mb-3" />
+                              <p className="text-xs font-black dark:text-white mb-1">Upgrade to Pro Plus</p>
+                              <p className="text-[9px] text-gray-400 mb-4">Kitchen Display System requires the Pro Plus plan</p>
+                              <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                     </div>
                   </div>
                   )}
 
                   {/* Settings Container */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
-                    <div className="flex items-center gap-2.5 px-4 py-3 bg-gray-50 dark:bg-gray-700/20 border-b dark:border-gray-700">
-                      <Settings size={14} className="text-gray-400" />
-                      <p className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">Settings</p>
+                    <div className="flex items-center gap-2.5 px-4 py-3 bg-emerald-50/50 dark:bg-emerald-900/10 border-b dark:border-gray-700">
+                      <Settings size={14} className="text-emerald-500" />
+                      <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Settings</p>
                     </div>
                     <div className="divide-y dark:divide-gray-700">
 
@@ -4870,16 +4870,16 @@ const PosOnlyView: React.FC<Props> = ({
                   <div>
                     <button
                       onClick={() => { setSettingsPanel(settingsPanel === 'printer' ? 'builtin' : 'printer'); setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }}
-                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'printer' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
                     >
                       <div className="w-10 h-10 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center">
                         <Printer size={18} className="text-orange-500" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Printer Setup</p>
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'printer' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Printer Setup</p>
                         <p className="text-[10px] text-gray-400">{savedPrinters.length > 0 ? savedPrinters[0].model : 'No printer configured'}</p>
                       </div>
-                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'printer' ? 'rotate-180' : ''}`} />
+                      <ChevronDown size={16} className={`transition-all ${settingsPanel === 'printer' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
                     </button>
                     {settingsPanel === 'printer' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
@@ -4894,16 +4894,16 @@ const PosOnlyView: React.FC<Props> = ({
                   <div>
                     <button
                       onClick={() => setSettingsPanel(settingsPanel === 'receipt' ? 'builtin' : 'receipt')}
-                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'receipt' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
                     >
                       <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
                         <Receipt size={18} className="text-blue-500" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Receipt</p>
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'receipt' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Receipt</p>
                         <p className="text-[10px] text-gray-400">Configure receipt layout</p>
                       </div>
-                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'receipt' ? 'rotate-180' : ''}`} />
+                      <ChevronDown size={16} className={`transition-all ${settingsPanel === 'receipt' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
                     </button>
                     {settingsPanel === 'receipt' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
@@ -4918,16 +4918,16 @@ const PosOnlyView: React.FC<Props> = ({
                   <div>
                     <button
                       onClick={() => setSettingsPanel(settingsPanel === 'payment' ? 'builtin' : 'payment')}
-                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'payment' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
                     >
                       <div className="w-10 h-10 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
                         <CreditCard size={18} className="text-green-500" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Payment Type &amp; Taxes</p>
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'payment' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Payment Type &amp; Taxes</p>
                         <p className="text-[10px] text-gray-400">{paymentTypes.length} types · {taxEntries.length} configured</p>
                       </div>
-                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'payment' ? 'rotate-180' : ''}`} />
+                      <ChevronDown size={16} className={`transition-all ${settingsPanel === 'payment' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
                     </button>
                     {settingsPanel === 'payment' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
@@ -4942,16 +4942,16 @@ const PosOnlyView: React.FC<Props> = ({
                   <div>
                     <button
                       onClick={() => setSettingsPanel(settingsPanel === 'staff' ? 'builtin' : 'staff')}
-                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'staff' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
                     >
                       <div className="w-10 h-10 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
                         <Users size={18} className="text-violet-500" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">Staff Management</p>
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'staff' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Staff Management</p>
                         <p className="text-[10px] text-gray-400">{staffList.length} member{staffList.length !== 1 ? 's' : ''}</p>
                       </div>
-                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'staff' ? 'rotate-180' : ''}`} />
+                      <ChevronDown size={16} className={`transition-all ${settingsPanel === 'staff' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
                     </button>
                     {settingsPanel === 'staff' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
@@ -4966,16 +4966,16 @@ const PosOnlyView: React.FC<Props> = ({
                   <div>
                     <button
                       onClick={() => setSettingsPanel(settingsPanel === 'ux' ? 'builtin' : 'ux')}
-                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all group"
+                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'ux' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
                     >
                       <div className="w-10 h-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
                         <Type size={18} className="text-indigo-500" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className="text-xs font-black dark:text-white uppercase tracking-wide">User Experience</p>
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'ux' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>User Experience</p>
                         <p className="text-[10px] text-gray-400">{userFont} · {CURRENCY_OPTIONS.find(c => c.code === userCurrency)?.label}</p>
                       </div>
-                      <ChevronDown size={16} className={`text-gray-300 group-hover:text-orange-500 transition-all ${settingsPanel === 'ux' ? 'rotate-180' : ''}`} />
+                      <ChevronDown size={16} className={`transition-all ${settingsPanel === 'ux' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
                     </button>
                     {settingsPanel === 'ux' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
@@ -5005,8 +5005,8 @@ const PosOnlyView: React.FC<Props> = ({
                         onClick={() => setSettingsPanel('builtin')}
                         className={`w-full flex items-center gap-3 p-4 transition-all ${
                           settingsPanel === 'builtin'
-                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
                         }`}
                       >
                         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
@@ -5025,8 +5025,8 @@ const PosOnlyView: React.FC<Props> = ({
                         onClick={() => setSettingsPanel('table')}
                         className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
                           settingsPanel === 'table'
-                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
                         }`}
                       >
                         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
@@ -5040,33 +5040,13 @@ const PosOnlyView: React.FC<Props> = ({
                         </div>
                       </button>
 
-                      {/* Kitchen Display System Nav */}
-                      <button
-                        onClick={() => setSettingsPanel('kitchen')}
-                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
-                          settingsPanel === 'kitchen'
-                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                        }`}
-                      >
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                          settingsPanel === 'kitchen' ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-gray-100 dark:bg-gray-700'
-                        }`}>
-                          <Coffee size={16} className={settingsPanel === 'kitchen' ? 'text-orange-500' : 'text-gray-400'} />
-                        </div>
-                        <div className="flex-1 text-left">
-                          <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'kitchen' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Kitchen Display System</p>
-                          {canUseKitchen ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plus Plan</p>}
-                        </div>
-                      </button>
-
                       {/* QR Ordering Nav */}
                       <button
                         onClick={() => setSettingsPanel('qr')}
                         className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
                           settingsPanel === 'qr'
-                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
                         }`}
                       >
                         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
@@ -5079,14 +5059,34 @@ const PosOnlyView: React.FC<Props> = ({
                           {canUseQr ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plan</p>}
                         </div>
                       </button>
+
+                      {/* Kitchen Display System Nav */}
+                      <button
+                        onClick={() => setSettingsPanel('kitchen')}
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
+                          settingsPanel === 'kitchen'
+                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          settingsPanel === 'kitchen' ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <Coffee size={16} className={settingsPanel === 'kitchen' ? 'text-orange-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'kitchen' ? 'text-orange-600 dark:text-orange-400' : 'dark:text-white'}`}>Kitchen Display System</p>
+                          {canUseKitchen ? <p className="text-[10px] text-green-500 font-black">Available</p> : <p className="text-[10px] text-orange-500 font-black">Pro Plus Plan</p>}
+                        </div>
+                      </button>
                     </div>
                     )}
 
                     {/* Settings Card */}
                     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
-                      <div className="flex items-center gap-2.5 px-4 py-3 bg-gray-50 dark:bg-gray-700/20 border-b dark:border-gray-700">
-                        <Settings size={14} className="text-gray-400" />
-                        <p className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">Settings</p>
+                      <div className="flex items-center gap-2.5 px-4 py-3 bg-emerald-50/50 dark:bg-emerald-900/10 border-b dark:border-gray-700">
+                        <Settings size={14} className="text-emerald-500" />
+                        <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Settings</p>
                       </div>
 
                       {/* Printer Nav Item */}
@@ -5094,8 +5094,8 @@ const PosOnlyView: React.FC<Props> = ({
                         onClick={() => { setSettingsPanel('printer'); setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }}
                         className={`w-full flex items-center gap-3 p-4 transition-all ${
                           settingsPanel === 'printer'
-                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
                         }`}
                       >
                         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
@@ -5118,8 +5118,8 @@ const PosOnlyView: React.FC<Props> = ({
                         onClick={() => setSettingsPanel('receipt')}
                         className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
                           settingsPanel === 'receipt'
-                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
                         }`}
                       >
                         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
@@ -5142,8 +5142,8 @@ const PosOnlyView: React.FC<Props> = ({
                         onClick={() => setSettingsPanel('payment')}
                         className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
                           settingsPanel === 'payment'
-                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
                         }`}
                       >
                         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
@@ -5166,8 +5166,8 @@ const PosOnlyView: React.FC<Props> = ({
                         onClick={() => setSettingsPanel('staff')}
                         className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
                           settingsPanel === 'staff'
-                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
                         }`}
                       >
                         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
@@ -5190,8 +5190,8 @@ const PosOnlyView: React.FC<Props> = ({
                         onClick={() => setSettingsPanel('ux')}
                         className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-gray-700 ${
                           settingsPanel === 'ux'
-                            ? 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
                         }`}
                       >
                         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
