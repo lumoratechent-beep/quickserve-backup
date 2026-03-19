@@ -3890,6 +3890,18 @@ const PosOnlyView: React.FC<Props> = ({
           </button>
 
           <button 
+            onClick={handleReportsClick}
+            title="Bill and Report"
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
+              activeTab === 'REPORTS' 
+                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }`}
+          >
+            <BarChart3 size={20} /> {!isSidebarCollapsed && 'Bill and Report'}
+          </button>
+
+          <button 
             onClick={() => handleTabSelection('SETTINGS')}
             title="Settings"
             className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
@@ -3899,18 +3911,6 @@ const PosOnlyView: React.FC<Props> = ({
             }`}
           >
             <Settings size={20} /> {!isSidebarCollapsed && 'Settings'}
-          </button>
-
-          <button 
-            onClick={handleReportsClick}
-            title="Report"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
-              activeTab === 'REPORTS' 
-                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-            }`}
-          >
-            <BarChart3 size={20} /> {!isSidebarCollapsed && 'Report'}
           </button>
 
           {/* Account Group */}
@@ -4011,7 +4011,7 @@ const PosOnlyView: React.FC<Props> = ({
               <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm landscape:text-xs truncate">
                 {activeTab === 'COUNTER' ? 'POS Counter' : 
                  activeTab === 'MENU_EDITOR' ? 'Menu Editor' : 
-                 activeTab === 'REPORTS' ? 'Sales Report' : 
+                 activeTab === 'REPORTS' ? 'Bill and Report' : 
                  activeTab === 'QR_ORDERS' ? 'QR Orders' :
                  activeTab === 'KITCHEN' ? 'Incoming Orders' :
                  activeTab === 'BILLING' ? 'Billing' :
