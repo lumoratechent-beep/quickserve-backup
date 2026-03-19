@@ -3283,11 +3283,11 @@ const PosOnlyView: React.FC<Props> = ({
         {featureSettings.kitchenEnabled && (
           <>
             {/* Departments / Divisions */}
-            <div className="border-t dark:border-gray-700 pt-4">
-              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Departments</p>
-              <p className="text-[9px] text-gray-400 mb-3">Create kitchen departments to route specific categories to specific screens.</p>
+            <div className="border-t dark:border-gray-700 pt-3">
+              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Departments</p>
+              <p className="text-[9px] text-gray-400 mb-2">Create kitchen departments to route specific categories to specific screens.</p>
               {kitchenDivisions.length > 0 && (
-                <div className="space-y-3 mb-3">
+                <div className="space-y-2 mb-2">
                   {kitchenDivisions.map(dep => (
                     <div key={dep.name} className="p-2.5 bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-700">
                       <div className="flex items-center justify-between gap-2 mb-0">
@@ -3329,23 +3329,23 @@ const PosOnlyView: React.FC<Props> = ({
                         )}
                       </div>
 
-                      <p className="text-[9px] text-gray-400 mt-0 mb-0 leading-tight">Categories handled by this department:</p>
-                      <div className="flex flex-wrap gap-1.5">
+                      <p className="text-[8px] text-gray-400 mt-1 mb-1 leading-tight uppercase tracking-wider font-bold">Categories:</p>
+                      <div className="flex flex-wrap gap-1">
                         {allFoodCategories.length === 0 ? (
-                          <span className="text-[9px] text-gray-400">No categories yet.</span>
+                          <span className="text-[9px] text-gray-400 italic">No categories yet.</span>
                         ) : allFoodCategories.map(categoryName => {
                           const selected = dep.categories.includes(categoryName);
                           return (
                             <button
                               key={`${dep.name}-${categoryName}`}
                               onClick={() => handleToggleDivisionCategory(dep.name, categoryName)}
-                              className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all ${
+                              className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wide transition-all ${
                                 selected
-                                  ? 'bg-orange-500 text-white border-orange-500'
-                                  : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-orange-400'
+                                  ? 'bg-orange-500 text-white shadow-sm'
+                                  : 'bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 hover:bg-orange-100 dark:hover:bg-orange-900/30 hover:text-orange-600'
                               }`}
                             >
-                              {categoryName}
+                              {selected && <span className="mr-0.5">✓</span>}{categoryName}
                             </button>
                           );
                         })}
@@ -3373,9 +3373,9 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
 
             {/* Kitchen Staff */}
-            <div className="border-t dark:border-gray-700 pt-4">
-              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Kitchen Staff</p>
-              <p className="text-[9px] text-gray-400 mb-3">Staff assigned to kitchen role can access the Kitchen Display.</p>
+            <div className="border-t dark:border-gray-700 pt-3 mt-3">
+              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Kitchen Staff</p>
+              <p className="text-[9px] text-gray-400 mb-2">Staff assigned to kitchen role can access the Kitchen Display.</p>
               {kitchenStaff.length > 0 ? (
                 <div className="space-y-2 mb-3">
                   {kitchenStaff.map((staff: any, idx: number) => (
@@ -4930,7 +4930,7 @@ const PosOnlyView: React.FC<Props> = ({
                         )}
 
                         {featuresPanel === 'kitchen' && (
-                          <div className="space-y-4">
+                          <div className="space-y-0">
                             {canUseKitchen ? renderKitchenSettingsContent() : (
                               <div className="text-center py-8">
                                 <Coffee size={36} className="mx-auto text-gray-300 mb-3" />
