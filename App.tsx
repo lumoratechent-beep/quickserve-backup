@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, PlatformAccess, QS_DEFAULT_HUB, Subscription } from './src/types';
+import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, PlatformAccess, QS_DEFAULT_HUB, Subscription, KitchenDepartment } from './src/types';
 import CustomerView from './pages/CustomerView';
 import AdminView from './pages/AdminView';
 import PosOnlyView from './pages/PosOnlyView';
@@ -49,6 +49,27 @@ const resolveOrderCode = (restaurant: Restaurant | undefined, areas: Area[]): st
   // Hub restaurants use the area code
   const area = areas.find(l => l.name === restaurant.location);
   return area?.code || 'QS';
+};
+
+const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((entry: any) => {
+      if (typeof entry === 'string') {
+        const trimmed = entry.trim();
+        return trimmed ? { name: trimmed, categories: [] } : null;
+      }
+      if (!entry || typeof entry !== 'object') return null;
+      const name = String(entry.name || '').trim();
+      if (!name) return null;
+      const categories = Array.isArray(entry.categories)
+        ? entry.categories
+            .map((c: any) => String(c || '').trim())
+            .filter(Boolean)
+        : [];
+      return { name, categories: Array.from(new Set(categories)).sort((a, b) => a.localeCompare(b)) };
+    })
+    .filter(Boolean) as KitchenDepartment[];
 };
 
 const App: React.FC = () => {
@@ -394,7 +415,7 @@ const App: React.FC = () => {
         isOnline: res.is_online === true || res.is_online === null,
         platformAccess: (res.platform_access as PlatformAccess) || 'pos_and_kitchen',
         slug: res.slug || '',
-        kitchenDivisions: res.kitchen_divisions || [],
+        kitchenDivisions: normalizeKitchenDepartments(res.kitchen_divisions),
         kitchenEnabled: res.kitchen_enabled === true,
         settings: (() => {
           const localSettings = localStorage.getItem(`qs_settings_${res.id}`);
@@ -1712,7 +1733,7 @@ const App: React.FC = () => {
     setRestaurants(prev => prev.map(r => r.id === restaurantId ? { ...r, settings } : r));
   };
 
-  const saveKitchenDivisions = async (restaurantId: string, divisions: string[]) => {
+  const saveKitchenDivisions = async (restaurantId: string, divisions: KitchenDepartment[]) => {
     const { error } = await supabase
       .from('restaurants')
       .update({ kitchen_divisions: divisions })
@@ -1900,6 +1921,7 @@ const App: React.FC = () => {
                 onKitchenUpdateOrder={updateOrderStatus}
                 lastSyncTime={lastSyncTime}
                 userRole="KITCHEN"
+                userKitchenCategories={currentUser?.kitchenCategories}
                 subscription={vendorSubscriptions[activeVendorRes.id] || null}
                 onSubscriptionUpdated={() => { fetchSubscriptions(); fetchRestaurants(); }}
               />

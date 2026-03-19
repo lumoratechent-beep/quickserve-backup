@@ -1,7 +1,7 @@
 // pages/PosOnlyView.tsx
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters, CategoryData, ModifierData, ModifierOption, QS_DEFAULT_HUB, Subscription, PlanId } from '../src/types';
+import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters, CategoryData, ModifierData, ModifierOption, QS_DEFAULT_HUB, Subscription, PlanId, KitchenDepartment } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { uploadImage } from '../lib/storage';
 import * as counterOrdersCache from '../lib/counterOrdersCache';
@@ -40,10 +40,33 @@ interface Props {
   onToggleOnline?: () => void;
   lastSyncTime?: Date;
   userRole?: string;
-  onSaveKitchenDivisions?: (divisions: string[]) => void;
+  userKitchenCategories?: string[];
+  onSaveKitchenDivisions?: (divisions: KitchenDepartment[]) => void;
   subscription?: Subscription | null;
   onSubscriptionUpdated?: () => void;
 }
+
+const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((entry: any) => {
+      if (typeof entry === 'string') {
+        const name = entry.trim();
+        return name ? { name, categories: [] } : null;
+      }
+      if (!entry || typeof entry !== 'object') return null;
+      const name = String(entry.name || '').trim();
+      if (!name) return null;
+      const categories = Array.isArray(entry.categories)
+        ? entry.categories.map((c: any) => String(c || '').trim()).filter(Boolean)
+        : [];
+      return {
+        name,
+        categories: Array.from(new Set(categories)).sort((a, b) => a.localeCompare(b)),
+      };
+    })
+    .filter(Boolean) as KitchenDepartment[];
+};
 
 interface ReceiptSettings {
   businessName: string;
@@ -177,6 +200,7 @@ const PosOnlyView: React.FC<Props> = ({
   onToggleOnline,
   lastSyncTime,
   userRole = 'VENDOR',
+  userKitchenCategories,
   onSaveKitchenDivisions,
   subscription = null,
   onSubscriptionUpdated,
@@ -205,8 +229,10 @@ const PosOnlyView: React.FC<Props> = ({
   });
   const [showNewOrderAlert, setShowNewOrderAlert] = useState(false);
   const [kitchenPrintingOrderId, setKitchenPrintingOrderId] = useState<string | null>(null);
-  const [kitchenDivisions, setKitchenDivisions] = useState<string[]>(restaurant.kitchenDivisions || []);
+  const [kitchenDivisions, setKitchenDivisions] = useState<KitchenDepartment[]>(() => normalizeKitchenDepartments(restaurant.kitchenDivisions));
   const [newDivisionName, setNewDivisionName] = useState('');
+  const [renamingDepartment, setRenamingDepartment] = useState<string | null>(null);
+  const [renameDepartmentValue, setRenameDepartmentValue] = useState('');
   const [newStaffRole, setNewStaffRole] = useState<'CASHIER' | 'KITCHEN'>('CASHIER');
   const [newStaffKitchenCategories, setNewStaffKitchenCategories] = useState<string[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -608,6 +634,17 @@ const PosOnlyView: React.FC<Props> = ({
     return ['ALL', ...cats];
   }, [restaurant.menu]);
 
+  const allFoodCategories = useMemo(() => {
+    const base = new Set<string>();
+    restaurant.menu.forEach(item => {
+      if (item.category?.trim()) base.add(item.category.trim());
+    });
+    extraCategories.forEach(category => {
+      if (category.name?.trim()) base.add(category.name.trim());
+    });
+    return Array.from(base).sort((a, b) => a.localeCompare(b));
+  }, [restaurant.menu, extraCategories]);
+
   const menuEditorCategories = useMemo(() => {
     const base = new Set(restaurant.menu.map(item => item.category));
     extraCategories.forEach(category => base.add(category.name));
@@ -640,6 +677,10 @@ const PosOnlyView: React.FC<Props> = ({
     });
     return groups;
   }, [filteredMenu, selectedCategory, categories]);
+
+  useEffect(() => {
+    setKitchenDivisions(normalizeKitchenDepartments(restaurant.kitchenDivisions));
+  }, [restaurant.kitchenDivisions]);
 
   const areSameCartOptions = (first: CartItem, second: CartItem) => {
     const normalizeAddOns = (item: CartItem) => {
@@ -1920,27 +1961,130 @@ const PosOnlyView: React.FC<Props> = ({
     }));
   };
 
+  const kitchenScopeCategories = useMemo(() => {
+    const assigned = Array.isArray(userKitchenCategories)
+      ? userKitchenCategories.map(v => String(v || '').trim()).filter(Boolean)
+      : [];
+
+    if (assigned.length === 0) return [];
+
+    const departmentMap = new Map(kitchenDivisions.map(dep => [dep.name, dep.categories]));
+    const scoped = new Set<string>();
+
+    assigned.forEach(value => {
+      const mappedCategories = departmentMap.get(value);
+      if (mappedCategories) {
+        if (mappedCategories.length === 0) {
+          allFoodCategories.forEach(category => scoped.add(category));
+        } else {
+          mappedCategories.forEach(category => scoped.add(category));
+        }
+      } else {
+        // Backward compatibility: older users may be assigned categories directly.
+        scoped.add(value);
+      }
+    });
+
+    return Array.from(scoped).sort((a, b) => a.localeCompare(b));
+  }, [userKitchenCategories, kitchenDivisions, allFoodCategories]);
+
   const kitchenFilteredOrders = useMemo(() => {
     return orders.filter(o => {
-      if (kitchenOrderFilter === 'ALL') return true;
-      if (kitchenOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
-      return o.status === kitchenOrderFilter;
+      const matchesStatus = (() => {
+        if (kitchenOrderFilter === 'ALL') return true;
+        if (kitchenOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
+        return o.status === kitchenOrderFilter;
+      })();
+      if (!matchesStatus) return false;
+
+      if (userRole !== 'KITCHEN' || kitchenScopeCategories.length === 0) return true;
+      return o.items.some(item => kitchenScopeCategories.includes(item.category));
     });
-  }, [orders, kitchenOrderFilter]);
+  }, [orders, kitchenOrderFilter, userRole, kitchenScopeCategories]);
+
+  const getSortedOrderItems = (order: Order, scopedCategories: string[] = []) => {
+    const hasScope = scopedCategories.length > 0;
+    return order.items
+      .filter(item => !hasScope || scopedCategories.includes(item.category))
+      .sort((a, b) => {
+        const byCategory = (a.category || '').localeCompare(b.category || '');
+        if (byCategory !== 0) return byCategory;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+  };
+
+  const groupItemsByCategory = (items: CartItem[]) => {
+    return items.reduce<Record<string, CartItem[]>>((acc, item) => {
+      const category = item.category || 'Uncategorized';
+      if (!acc[category]) acc[category] = [];
+      acc[category].push(item);
+      return acc;
+    }, {});
+  };
+
+  const getKitchenStatusText = (status: OrderStatus) => {
+    if (status === OrderStatus.PENDING) return 'Pending';
+    if (status === OrderStatus.ONGOING) return 'Preparing';
+    if (status === OrderStatus.SERVED) return 'Served';
+    if (status === OrderStatus.COMPLETED) return 'Paid';
+    return 'Cancelled';
+  };
+
+  const getKitchenStatusClass = (status: OrderStatus) => {
+    if (status === OrderStatus.PENDING) return 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400';
+    if (status === OrderStatus.ONGOING) return 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400';
+    if (status === OrderStatus.SERVED) return 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400';
+    if (status === OrderStatus.COMPLETED) return 'bg-gray-50 text-gray-600 dark:bg-gray-900/20 dark:text-gray-400';
+    return 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400';
+  };
 
   const storeIsOnline = restaurant.isOnline !== false;
 
   const handleAddDivision = () => {
     const name = newDivisionName.trim();
-    if (!name || kitchenDivisions.includes(name)) return;
-    const updated = [...kitchenDivisions, name];
+    if (!name || kitchenDivisions.some(dep => dep.name.toLowerCase() === name.toLowerCase())) return;
+    const updated = [...kitchenDivisions, { name, categories: [] }];
     setKitchenDivisions(updated);
     setNewDivisionName('');
     onSaveKitchenDivisions?.(updated);
   };
 
+  const handleRenameDivision = (oldName: string, newName: string) => {
+    const normalized = newName.trim();
+    if (!normalized) return;
+    if (
+      kitchenDivisions.some(
+        dep => dep.name.toLowerCase() === normalized.toLowerCase() && dep.name.toLowerCase() !== oldName.toLowerCase(),
+      )
+    ) {
+      toast('Department already exists.', 'warning');
+      return;
+    }
+
+    const updated = kitchenDivisions.map(dep =>
+      dep.name === oldName ? { ...dep, name: normalized } : dep,
+    );
+    setKitchenDivisions(updated);
+    setRenamingDepartment(null);
+    setRenameDepartmentValue('');
+    onSaveKitchenDivisions?.(updated);
+  };
+
+  const handleToggleDivisionCategory = (departmentName: string, categoryName: string) => {
+    const updated = kitchenDivisions.map(dep => {
+      if (dep.name !== departmentName) return dep;
+      const hasCategory = dep.categories.includes(categoryName);
+      const categories = hasCategory
+        ? dep.categories.filter(c => c !== categoryName)
+        : [...dep.categories, categoryName];
+      return { ...dep, categories: categories.sort((a, b) => a.localeCompare(b)) };
+    });
+    setKitchenDivisions(updated);
+    onSaveKitchenDivisions?.(updated);
+  };
+
   const handleRemoveDivision = (name: string) => {
-    const updated = kitchenDivisions.filter(d => d !== name);
+    const updated = kitchenDivisions.filter(d => d.name !== name);
     setKitchenDivisions(updated);
     onSaveKitchenDivisions?.(updated);
   };
@@ -2473,7 +2617,7 @@ const PosOnlyView: React.FC<Props> = ({
                       : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
                   }`}>{staff.role === 'KITCHEN' ? 'Kitchen' : 'Cashier'}</span>
                   {staff.role === 'KITCHEN' && staff.kitchen_categories && staff.kitchen_categories.length > 0 && (
-                    <span className="text-[9px] text-gray-400">{staff.kitchen_categories.join(', ')}</span>
+                    <span className="text-[9px] text-gray-400">Departments: {staff.kitchen_categories.join(', ')}</span>
                   )}
                 </div>
               </div>
@@ -2664,11 +2808,69 @@ const PosOnlyView: React.FC<Props> = ({
               <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Departments</p>
               <p className="text-[9px] text-gray-400 mb-3">Create kitchen departments to route specific categories to specific screens.</p>
               {kitchenDivisions.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {kitchenDivisions.map(div => (
-                    <div key={div} className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg text-[10px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800">
-                      {div}
-                      <button onClick={() => handleRemoveDivision(div)} className="ml-1 text-orange-400 hover:text-red-500 transition-colors"><X size={12} /></button>
+                <div className="space-y-3 mb-3">
+                  {kitchenDivisions.map(dep => (
+                    <div key={dep.name} className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-700">
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        {renamingDepartment === dep.name ? (
+                          <div className="flex items-center gap-2 flex-1">
+                            <input
+                              autoFocus
+                              type="text"
+                              value={renameDepartmentValue}
+                              onChange={e => setRenameDepartmentValue(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') handleRenameDivision(dep.name, renameDepartmentValue);
+                                if (e.key === 'Escape') {
+                                  setRenamingDepartment(null);
+                                  setRenameDepartmentValue('');
+                                }
+                              }}
+                              className="flex-1 px-2 py-1 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-[10px] font-black dark:text-white uppercase tracking-widest"
+                            />
+                            <button onClick={() => handleRenameDivision(dep.name, renameDepartmentValue)} className="p-1.5 text-green-500 hover:bg-green-50 rounded-lg transition-colors"><CheckCircle2 size={14} /></button>
+                            <button onClick={() => { setRenamingDepartment(null); setRenameDepartmentValue(''); }} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><X size={14} /></button>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-[10px] font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">{dep.name}</p>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => {
+                                  setRenamingDepartment(dep.name);
+                                  setRenameDepartmentValue(dep.name);
+                                }}
+                                className="p-1.5 text-gray-400 hover:text-orange-500 transition-colors"
+                              >
+                                <Edit3 size={13} />
+                              </button>
+                              <button onClick={() => handleRemoveDivision(dep.name)} className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={13} /></button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      <p className="text-[9px] text-gray-400 mb-2">Categories handled by this department:</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {allFoodCategories.length === 0 ? (
+                          <span className="text-[9px] text-gray-400">No categories yet.</span>
+                        ) : allFoodCategories.map(categoryName => {
+                          const selected = dep.categories.includes(categoryName);
+                          return (
+                            <button
+                              key={`${dep.name}-${categoryName}`}
+                              onClick={() => handleToggleDivisionCategory(dep.name, categoryName)}
+                              className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all ${
+                                selected
+                                  ? 'bg-orange-500 text-white border-orange-500'
+                                  : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-orange-400'
+                              }`}
+                            >
+                              {categoryName}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -2705,7 +2907,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">Kitchen</span>
                           {staff.kitchen_categories && staff.kitchen_categories.length > 0 && (
-                            <span className="text-[9px] text-gray-400">{staff.kitchen_categories.join(', ')}</span>
+                            <span className="text-[9px] text-gray-400">Departments: {staff.kitchen_categories.join(', ')}</span>
                           )}
                         </div>
                       </div>
@@ -3134,6 +3336,20 @@ const PosOnlyView: React.FC<Props> = ({
         </div>
 
         <nav className={`flex-1 space-y-2 ${isSidebarCollapsed ? 'p-2' : 'p-4'}`}>
+          {isKitchenUser && (
+            <button
+              onClick={() => handleTabSelection('KITCHEN')}
+              title="Incoming Orders"
+              className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
+                activeTab === 'KITCHEN'
+                  ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+              }`}
+            >
+              <Coffee size={20} /> {!isSidebarCollapsed && 'Incoming Orders'}
+            </button>
+          )}
+
           {!isKitchenUser && (
           <button 
             onClick={() => handleTabSelection('COUNTER')}
@@ -3207,7 +3423,6 @@ const PosOnlyView: React.FC<Props> = ({
           </button>
           )}
           
-          {!isKitchenUser && (
           <button 
             onClick={() => handleTabSelection('SETTINGS')}
             title="Settings"
@@ -3219,7 +3434,6 @@ const PosOnlyView: React.FC<Props> = ({
           >
             <Settings size={20} /> {!isSidebarCollapsed && 'Settings'}
           </button>
-          )}
 
           {!isKitchenUser && (
           <button 
@@ -3331,7 +3545,7 @@ const PosOnlyView: React.FC<Props> = ({
                  activeTab === 'MENU_EDITOR' ? 'Menu Editor' : 
                  activeTab === 'REPORTS' ? 'Sales Report' : 
                  activeTab === 'QR_ORDERS' ? 'QR Orders' :
-                 activeTab === 'KITCHEN' ? 'Kitchen Orders' :
+                 activeTab === 'KITCHEN' ? 'Incoming Orders' :
                  activeTab === 'FEATURES' ? 'Features' :
                  activeTab === 'BILLING' ? 'Billing' :
                  'Settings'}
@@ -4169,6 +4383,38 @@ const PosOnlyView: React.FC<Props> = ({
                 <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Settings</h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Printer, receipt, payment, tax, and staff configuration.</p>
 
+                {isKitchenUser && (
+                  <div className="mb-6 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 space-y-3">
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Kitchen Order Settings</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                        <div>
+                          <p className="text-xs font-black dark:text-white">Auto-Accept</p>
+                          <p className="text-[9px] text-gray-400 mt-0.5">Automatically accept incoming orders</p>
+                        </div>
+                        <button
+                          onClick={() => toggleKitchenOrderSetting('autoAccept')}
+                          className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoAccept ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                        >
+                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${kitchenOrderSettings.autoAccept ? 'left-6' : 'left-1'}`} />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                        <div>
+                          <p className="text-xs font-black dark:text-white">Auto-Print</p>
+                          <p className="text-[9px] text-gray-400 mt-0.5">Automatically print accepted orders</p>
+                        </div>
+                        <button
+                          onClick={() => toggleKitchenOrderSetting('autoPrint')}
+                          className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoPrint ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                        >
+                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${kitchenOrderSettings.autoPrint ? 'left-6' : 'left-1'}`} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* ===== MOBILE: Accordion Layout ===== */}
                 <div className="lg:hidden space-y-3">
                   {/* Printer Accordion */}
@@ -4666,24 +4912,24 @@ const PosOnlyView: React.FC<Props> = ({
                 {/* Kitchen Category Assignment (only for Kitchen role + when divisions exist) */}
                 {newStaffRole === 'KITCHEN' && kitchenDivisions.length > 0 && (
                   <div>
-                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Kitchen Categories</label>
-                    <p className="text-[9px] text-gray-400 mb-2 ml-1">Select which food categories this user handles. Leave empty for all.</p>
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Kitchen Departments</label>
+                    <p className="text-[9px] text-gray-400 mb-2 ml-1">Select which departments this user handles. Leave empty for all.</p>
                     <div className="flex flex-wrap gap-2">
-                      {kitchenDivisions.map(div => (
+                      {kitchenDivisions.map(dep => (
                         <button
-                          key={div}
+                          key={dep.name}
                           onClick={() => {
                             setNewStaffKitchenCategories(prev => 
-                              prev.includes(div) ? prev.filter(c => c !== div) : [...prev, div]
+                              prev.includes(dep.name) ? prev.filter(c => c !== dep.name) : [...prev, dep.name]
                             );
                           }}
                           className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${
-                            newStaffKitchenCategories.includes(div)
+                            newStaffKitchenCategories.includes(dep.name)
                               ? 'bg-orange-500 text-white border-orange-500'
                               : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-orange-400'
                           }`}
                         >
-                          {div}
+                          {dep.name}
                         </button>
                       ))}
                     </div>
@@ -4839,17 +5085,29 @@ const PosOnlyView: React.FC<Props> = ({
                           </div>
 
                           <div className="space-y-3">
-                            {order.items.map((item, idx) => (
-                              <div key={idx} className="flex justify-between items-start text-sm border-l-2 border-gray-100 dark:border-gray-700 pl-3">
-                                <div>
-                                  <p className="font-bold text-gray-900 dark:text-white">x{item.quantity} {item.name}</p>
-                                  <div className="flex flex-wrap gap-2 mt-1">
-                                    {item.selectedSize && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">Size: {item.selectedSize}</span>}
-                                    {item.selectedTemp && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${item.selectedTemp === 'Hot' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>Temp: {item.selectedTemp}</span>}
-                                    {item.selectedOtherVariant && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">{item.selectedOtherVariant}</span>}
-                                  </div>
+                            {Object.entries(groupItemsByCategory(getSortedOrderItems(order))).map(([categoryName, groupedItems]) => (
+                              <div key={`${order.id}-${categoryName}`} className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="h-px flex-1 bg-gray-100 dark:bg-gray-700" />
+                                  <span className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">{categoryName}</span>
+                                  <div className="h-px flex-1 bg-gray-100 dark:bg-gray-700" />
                                 </div>
-                                <span className="text-gray-500 dark:text-gray-400 font-bold">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                                {groupedItems.map((item, idx) => (
+                                  <div key={`${order.id}-${categoryName}-${item.id}-${idx}`} className="flex justify-between items-start text-sm border-l-2 border-gray-100 dark:border-gray-700 pl-3">
+                                    <div>
+                                      <p className="font-bold text-gray-900 dark:text-white">x{item.quantity} {item.name}</p>
+                                      <div className="flex flex-wrap gap-2 mt-1">
+                                        {item.selectedSize && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">Size: {item.selectedSize}</span>}
+                                        {item.selectedTemp && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${item.selectedTemp === 'Hot' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>Temp: {item.selectedTemp}</span>}
+                                        {item.selectedOtherVariant && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">{item.selectedOtherVariant}</span>}
+                                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${getKitchenStatusClass(order.status)}`}>
+                                          Kitchen: {getKitchenStatusText(order.status)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <span className="text-gray-500 dark:text-gray-400 font-bold">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                                  </div>
+                                ))}
                               </div>
                             ))}
                           </div>
@@ -4943,7 +5201,7 @@ const PosOnlyView: React.FC<Props> = ({
               <div className="max-w-5xl mx-auto">
                 <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                   <div className="flex items-center gap-4">
-                    <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Kitchen Orders</h1>
+                    <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Incoming Orders</h1>
                     {lastSyncTime && (
                       <div className="flex items-center justify-center gap-2 text-[10px] font-black px-3 py-1.5 rounded-full border transition-all duration-300 min-w-[140px] shrink-0 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400">
                         <div className="w-1.5 h-1.5 rounded-full bg-gray-300"></div>
@@ -4987,20 +5245,39 @@ const PosOnlyView: React.FC<Props> = ({
                             </div>
                           </div>
                           <div className="space-y-3">
-                            {order.items.map((item, idx) => (
-                              <div key={idx} className="flex justify-between items-start text-sm border-l-2 border-gray-100 dark:border-gray-700 pl-3">
-                                <div>
-                                  <p className="font-bold text-gray-900 dark:text-white">x{item.quantity} {item.name}</p>
-                                  <div className="flex flex-wrap gap-2 mt-1">
-                                    {item.selectedSize && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">Size: {item.selectedSize}</span>}
-                                    {item.selectedTemp && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${item.selectedTemp === 'Hot' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>Temp: {item.selectedTemp}</span>}
-                                    {item.selectedOtherVariant && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">{item.selectedOtherVariant}</span>}
-                                  </div>
+                            {Object.entries(
+                              groupItemsByCategory(
+                                getSortedOrderItems(
+                                  order,
+                                  userRole === 'KITCHEN' ? kitchenScopeCategories : [],
+                                ),
+                              ),
+                            ).map(([categoryName, groupedItems]) => (
+                              <div key={`${order.id}-kitchen-${categoryName}`} className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="h-px flex-1 bg-gray-100 dark:bg-gray-700" />
+                                  <span className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">{categoryName}</span>
+                                  <div className="h-px flex-1 bg-gray-100 dark:bg-gray-700" />
                                 </div>
-                                <span className="text-gray-500 dark:text-gray-400 font-bold">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                                {groupedItems.map((item, idx) => (
+                                  <div key={`${order.id}-${categoryName}-${item.id}-${idx}`} className="flex justify-between items-start text-sm border-l-2 border-gray-100 dark:border-gray-700 pl-3">
+                                    <div>
+                                      <p className="font-bold text-gray-900 dark:text-white">x{item.quantity} {item.name}</p>
+                                      <div className="flex flex-wrap gap-2 mt-1">
+                                        {item.selectedSize && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">Size: {item.selectedSize}</span>}
+                                        {item.selectedTemp && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${item.selectedTemp === 'Hot' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>Temp: {item.selectedTemp}</span>}
+                                        {item.selectedOtherVariant && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">{item.selectedOtherVariant}</span>}
+                                      </div>
+                                    </div>
+                                    <span className="text-gray-500 dark:text-gray-400 font-bold">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                                  </div>
+                                ))}
                               </div>
                             ))}
                           </div>
+                          {userRole === 'KITCHEN' && kitchenScopeCategories.length > 0 && (
+                            <p className="mt-2 text-[9px] text-gray-400 uppercase tracking-wider">Showing only your assigned categories.</p>
+                          )}
                           {order.remark && (
                             <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-lg">
                               <div className="flex items-center gap-2 mb-1">

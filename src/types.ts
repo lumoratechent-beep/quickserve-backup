@@ -62,6 +62,11 @@ export interface Area {
   isActive?: boolean;
 }
 
+export interface KitchenDepartment {
+  name: string;
+  categories: string[];
+}
+
 export interface Restaurant {
   id: string;
   name: string;
@@ -80,7 +85,7 @@ export interface Restaurant {
   modifiers?: ModifierData[];
   platformAccess?: PlatformAccess; // Added for restaurant-based access control
   slug?: string; // Short URL identifier e.g. 'burger-palace'
-  kitchenDivisions?: string[];
+  kitchenDivisions?: KitchenDepartment[];
   kitchenEnabled?: boolean; // Whether the Kitchen Display System is enabled
 }
 
