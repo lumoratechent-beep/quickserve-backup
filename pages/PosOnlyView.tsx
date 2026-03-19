@@ -19,7 +19,7 @@ import {
   X, Edit3, Archive, RotateCcw, Upload, Eye,
   AlertCircle, Users, UserPlus, Bluetooth, BluetoothConnected, PrinterIcon,
   Filter, Tag, Layers, Coffee, ChevronDown, ChevronLeft, ChevronRight, RotateCw, Wifi, WifiOff,
-  Receipt, Network, Type, MessageSquare
+  Receipt, Network, Type, MessageSquare, Zap
 } from 'lucide-react';
 
 interface Props {
@@ -4734,8 +4734,8 @@ const PosOnlyView: React.FC<Props> = ({
                       onClick={() => setSettingsPanel(settingsPanel === 'builtin' ? 'printer' : 'builtin')}
                       className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'builtin' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
                     >
-                      <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center">
-                        <Layers size={18} className="text-emerald-500" />
+                      <div className="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
+                        <Zap size={18} className="text-amber-500" />
                       </div>
                       <div className="flex-1 text-left">
                         <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'builtin' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Built-in Features</p>
@@ -5010,9 +5010,9 @@ const PosOnlyView: React.FC<Props> = ({
                         }`}
                       >
                         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                          settingsPanel === 'builtin' ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-gray-100 dark:bg-gray-700'
+                          settingsPanel === 'builtin' ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-gray-100 dark:bg-gray-700'
                         }`}>
-                          <Layers size={16} className={settingsPanel === 'builtin' ? 'text-emerald-500' : 'text-gray-400'} />
+                          <Zap size={16} className={settingsPanel === 'builtin' ? 'text-orange-500' : 'text-gray-400'} />
                         </div>
                         <div className="flex-1 text-left">
                           <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'builtin' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Built-in Features</p>
@@ -5030,9 +5030,9 @@ const PosOnlyView: React.FC<Props> = ({
                         }`}
                       >
                         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                          settingsPanel === 'table' ? 'bg-sky-100 dark:bg-sky-900/30' : 'bg-gray-100 dark:bg-gray-700'
+                          settingsPanel === 'table' ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-gray-100 dark:bg-gray-700'
                         }`}>
-                          <LayoutGrid size={16} className={settingsPanel === 'table' ? 'text-sky-500' : 'text-gray-400'} />
+                          <LayoutGrid size={16} className={settingsPanel === 'table' ? 'text-orange-500' : 'text-gray-400'} />
                         </div>
                         <div className="flex-1 text-left">
                           <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'table' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Save Bill & Table Management</p>
@@ -5050,9 +5050,9 @@ const PosOnlyView: React.FC<Props> = ({
                         }`}
                       >
                         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                          settingsPanel === 'qr' ? 'bg-violet-100 dark:bg-violet-900/30' : 'bg-gray-100 dark:bg-gray-700'
+                          settingsPanel === 'qr' ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-gray-100 dark:bg-gray-700'
                         }`}>
-                          <QrCode size={16} className={settingsPanel === 'qr' ? 'text-violet-500' : 'text-gray-400'} />
+                          <QrCode size={16} className={settingsPanel === 'qr' ? 'text-orange-500' : 'text-gray-400'} />
                         </div>
                         <div className="flex-1 text-left">
                           <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'qr' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>QR Ordering</p>
@@ -5148,10 +5148,10 @@ const PosOnlyView: React.FC<Props> = ({
                       >
                         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
                           settingsPanel === 'payment'
-                            ? 'bg-green-100 dark:bg-green-900/30'
+                            ? 'bg-orange-100 dark:bg-orange-900/30'
                             : 'bg-gray-100 dark:bg-gray-700'
                         }`}>
-                          <CreditCard size={16} className={settingsPanel === 'payment' ? 'text-green-500' : 'text-gray-400'} />
+                          <CreditCard size={16} className={settingsPanel === 'payment' ? 'text-orange-500' : 'text-gray-400'} />
                         </div>
                         <div className="flex-1 text-left">
                           <p className={`text-xs font-black uppercase tracking-wide ${
@@ -5196,10 +5196,10 @@ const PosOnlyView: React.FC<Props> = ({
                       >
                         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
                           settingsPanel === 'ux'
-                            ? 'bg-indigo-100 dark:bg-indigo-900/30'
+                            ? 'bg-orange-100 dark:bg-orange-900/30'
                             : 'bg-gray-100 dark:bg-gray-700'
                         }`}>
-                          <Type size={16} className={settingsPanel === 'ux' ? 'text-indigo-500' : 'text-gray-400'} />
+                          <Type size={16} className={settingsPanel === 'ux' ? 'text-orange-500' : 'text-gray-400'} />
                         </div>
                         <div className="flex-1 text-left">
                           <p className={`text-xs font-black uppercase tracking-wide ${
