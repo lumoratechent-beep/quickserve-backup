@@ -19,7 +19,7 @@ import {
   X, Edit3, Archive, RotateCcw, Upload, Eye,
   AlertCircle, Users, UserPlus, Bluetooth, BluetoothConnected, PrinterIcon,
   Filter, Tag, Layers, Coffee, ChevronDown, ChevronLeft, ChevronRight, RotateCw, Wifi, WifiOff,
-  Receipt, Network, Type, MessageSquare, Puzzle
+  Receipt, Network, Type, MessageSquare
 } from 'lucide-react';
 
 interface Props {
@@ -339,6 +339,8 @@ const PosOnlyView: React.FC<Props> = ({
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [newStaffPhone, setNewStaffPhone] = useState('');
   const [isAddingStaff, setIsAddingStaff] = useState(false);
+  const [editingStaffIndex, setEditingStaffIndex] = useState<number | null>(null);
+  const isEditingStaff = editingStaffIndex !== null;
 
   // User Experience settings
   const FONT_OPTIONS = ['Inter', 'Roboto', 'Poppins', 'Open Sans', 'Lato', 'Nunito', 'Montserrat', 'Raleway'];
@@ -472,6 +474,130 @@ const PosOnlyView: React.FC<Props> = ({
       localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
     } catch (error: any) {
       toast('Error removing staff: ' + error.message, 'error');
+    }
+  };
+
+  const resetStaffForm = () => {
+    setNewStaffUsername('');
+    setNewStaffPassword('');
+    setNewStaffEmail('');
+    setNewStaffPhone('');
+    setNewStaffRole('CASHIER');
+    setNewStaffKitchenCategories([]);
+  };
+
+  const openAddStaffModal = (initialRole: 'CASHIER' | 'KITCHEN' = 'CASHIER') => {
+    setEditingStaffIndex(null);
+    resetStaffForm();
+    setNewStaffRole(initialRole);
+    setIsAddStaffModalOpen(true);
+  };
+
+  const handleEditStaff = (staff: any, index: number) => {
+    setEditingStaffIndex(index);
+    setNewStaffUsername(staff.username || '');
+    setNewStaffPassword('');
+    setNewStaffEmail(staff.email || '');
+    setNewStaffPhone(staff.phone || '');
+    const mappedRole: 'CASHIER' | 'KITCHEN' = staff.role === 'KITCHEN' ? 'KITCHEN' : 'CASHIER';
+    setNewStaffRole(mappedRole);
+    setNewStaffKitchenCategories(
+      mappedRole === 'KITCHEN' && Array.isArray(staff.kitchen_categories)
+        ? staff.kitchen_categories
+        : []
+    );
+    setIsAddStaffModalOpen(true);
+  };
+
+  const handleSaveStaff = async () => {
+    const username = newStaffUsername.trim();
+    const password = newStaffPassword.trim();
+    const email = newStaffEmail.trim();
+    const phone = newStaffPhone.trim();
+
+    if (!username || !email || !phone || (!isEditingStaff && !password)) {
+      toast(isEditingStaff ? 'Please fill in username, email and phone' : 'Please fill in all fields', 'warning');
+      return;
+    }
+
+    setIsAddingStaff(true);
+    try {
+      const basePayload: Record<string, any> = {
+        username,
+        email,
+        phone,
+        restaurant_id: restaurant.id,
+        role: newStaffRole,
+        is_active: true,
+        kitchen_categories: newStaffRole === 'KITCHEN' && newStaffKitchenCategories.length > 0 ? newStaffKitchenCategories : null,
+      };
+
+      if (isEditingStaff) {
+        const currentStaff = staffList[editingStaffIndex!];
+        const payload: Record<string, any> = { ...basePayload };
+        if (password) payload.password = password;
+
+        if (currentStaff?.id) {
+          const { data, error } = await supabase
+            .from('users')
+            .update(payload)
+            .eq('id', currentStaff.id)
+            .select()
+            .single();
+
+          if (error) {
+            toast('Error updating user: ' + error.message, 'error');
+            setIsAddingStaff(false);
+            return;
+          }
+
+          const updated = [...staffList];
+          updated[editingStaffIndex!] = data;
+          setStaffList(updated);
+          localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+        } else {
+          const updated = [...staffList];
+          updated[editingStaffIndex!] = {
+            ...updated[editingStaffIndex!],
+            ...payload,
+            kitchen_categories: payload.kitchen_categories,
+          };
+          setStaffList(updated);
+          localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+        }
+
+        toast('User updated successfully!', 'success');
+      } else {
+        const newStaff: Record<string, any> = {
+          ...basePayload,
+          password,
+        };
+
+        const { data, error } = await supabase
+          .from('users')
+          .insert([newStaff])
+          .select();
+
+        if (error) {
+          toast('Error saving to database: ' + error.message, 'error');
+          setIsAddingStaff(false);
+          return;
+        }
+
+        const staffFromDb = data && data.length > 0 ? data[0] : newStaff;
+        const updated = [...staffList, staffFromDb];
+        setStaffList(updated);
+        localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+        toast('Staff member added successfully!', 'success');
+      }
+
+      setIsAddStaffModalOpen(false);
+      setEditingStaffIndex(null);
+      resetStaffForm();
+      setIsAddingStaff(false);
+    } catch (error: any) {
+      toast('Error: ' + error.message, 'error');
+      setIsAddingStaff(false);
     }
   };
 
@@ -2622,6 +2748,12 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               </div>
               <button
+                onClick={() => handleEditStaff(staff, idx)}
+                className="p-2 text-gray-300 hover:text-orange-500 transition-colors"
+              >
+                <Edit3 size={14} />
+              </button>
+              <button
                 onClick={() => handleRemoveStaff(staff, idx)}
                 className="p-2 text-gray-300 hover:text-red-500 transition-colors"
               >
@@ -2633,7 +2765,7 @@ const PosOnlyView: React.FC<Props> = ({
       )}
 
       <button
-        onClick={() => setIsAddStaffModalOpen(true)}
+        onClick={() => openAddStaffModal()}
         className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
       >
         <UserPlus size={14} /> Add Staff Member
@@ -2772,37 +2904,6 @@ const PosOnlyView: React.FC<Props> = ({
 
         {featureSettings.kitchenEnabled && (
           <>
-            {/* Kitchen Order Settings */}
-            <div className="border-t dark:border-gray-700 pt-4">
-              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Order Settings</p>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                  <div>
-                    <p className="text-xs font-black dark:text-white">Auto-Accept Orders</p>
-                    <p className="text-[9px] text-gray-400 mt-0.5">Automatically accept incoming orders</p>
-                  </div>
-                  <button
-                    onClick={() => toggleKitchenOrderSetting('autoAccept')}
-                    className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoAccept ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${kitchenOrderSettings.autoAccept ? 'left-6' : 'left-1'}`} />
-                  </button>
-                </div>
-                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                  <div>
-                    <p className="text-xs font-black dark:text-white">Auto-Print Orders</p>
-                    <p className="text-[9px] text-gray-400 mt-0.5">Print order ticket when accepted</p>
-                  </div>
-                  <button
-                    onClick={() => toggleKitchenOrderSetting('autoPrint')}
-                    className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoPrint ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${kitchenOrderSettings.autoPrint ? 'left-6' : 'left-1'}`} />
-                  </button>
-                </div>
-              </div>
-            </div>
-
             {/* Departments / Divisions */}
             <div className="border-t dark:border-gray-700 pt-4">
               <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Departments</p>
@@ -2927,7 +3028,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               )}
               <button
-                onClick={() => { setNewStaffRole('KITCHEN'); setIsAddStaffModalOpen(true); }}
+                onClick={() => openAddStaffModal('KITCHEN')}
                 className="w-full py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
               >
                 <UserPlus size={14} /> Add Kitchen Staff
@@ -3445,7 +3546,7 @@ const PosOnlyView: React.FC<Props> = ({
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <Puzzle size={20} className="-rotate-90" /> {!isSidebarCollapsed && 'Features'}
+            <Tag size={20} /> {!isSidebarCollapsed && 'Features'}
           </button>
           )}
 
@@ -4841,8 +4942,19 @@ const PosOnlyView: React.FC<Props> = ({
         {isAddStaffModalOpen && (
           <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
             <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-2xl relative animate-in zoom-in fade-in duration-300 max-h-[90vh] overflow-y-auto">
-              <button onClick={() => setIsAddStaffModalOpen(false)} className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 transition-colors"><X size={18} /></button>
-              <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tighter">Add Staff Member</h2>
+              <button
+                onClick={() => {
+                  setIsAddStaffModalOpen(false);
+                  setEditingStaffIndex(null);
+                  resetStaffForm();
+                }}
+                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 transition-colors"
+              >
+                <X size={18} />
+              </button>
+              <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tighter">
+                {isEditingStaff ? 'Edit Staff Member' : 'Add Staff Member'}
+              </h2>
               <div className="space-y-4">
                 <div>
                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Username</label>
@@ -4856,11 +4968,13 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Password</label>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">
+                    {isEditingStaff ? 'Reset Password (Optional)' : 'Password'}
+                  </label>
                   <input 
                     type="password"
                     className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                    placeholder="Set password"
+                    placeholder={isEditingStaff ? 'Leave blank to keep current password' : 'Set password'}
                     value={newStaffPassword}
                     onChange={e => setNewStaffPassword(e.target.value)}
                   />
@@ -4940,72 +5054,19 @@ const PosOnlyView: React.FC<Props> = ({
                   <button 
                     onClick={() => {
                       setIsAddStaffModalOpen(false);
-                      setNewStaffUsername('');
-                      setNewStaffPassword('');
-                      setNewStaffEmail('');
-                      setNewStaffPhone('');
-                      setNewStaffRole('CASHIER');
-                      setNewStaffKitchenCategories([]);
+                      setEditingStaffIndex(null);
+                      resetStaffForm();
                     }}
                     className="flex-1 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500"
                   >
                     Cancel
                   </button>
                   <button 
-                    onClick={async () => {
-                      if (newStaffUsername.trim() && newStaffPassword.trim() && newStaffEmail.trim() && newStaffPhone.trim()) {
-                        setIsAddingStaff(true);
-                        try {
-                          const newStaff: Record<string, any> = {
-                            username: newStaffUsername,
-                            password: newStaffPassword,
-                            email: newStaffEmail,
-                            phone: newStaffPhone,
-                            restaurant_id: restaurant.id,
-                            role: newStaffRole,
-                            is_active: true,
-                          };
-                          if (newStaffRole === 'KITCHEN' && newStaffKitchenCategories.length > 0) {
-                            newStaff.kitchen_categories = newStaffKitchenCategories;
-                          }
-                          
-                          const { data, error } = await supabase
-                            .from('users')
-                            .insert([newStaff])
-                            .select();
-                          
-                          if (error) {
-                            toast('Error saving to database: ' + error.message, 'error');
-                            setIsAddingStaff(false);
-                            return;
-                          }
-                          
-                          const staffFromDb = data && data.length > 0 ? data[0] : newStaff;
-                          const updated = [...staffList, staffFromDb];
-                          setStaffList(updated);
-                          localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
-                          
-                          setIsAddStaffModalOpen(false);
-                          setNewStaffUsername('');
-                          setNewStaffPassword('');
-                          setNewStaffEmail('');
-                          setNewStaffPhone('');
-                          setNewStaffRole('CASHIER');
-                          setNewStaffKitchenCategories([]);
-                          setIsAddingStaff(false);
-                          toast('Staff member added successfully!', 'success');
-                        } catch (error: any) {
-                          toast('Error: ' + error.message, 'error');
-                          setIsAddingStaff(false);
-                        }
-                      } else {
-                        toast('Please fill in all fields', 'warning');
-                      }
-                    }}
+                    onClick={handleSaveStaff}
                     disabled={isAddingStaff}
                     className="flex-1 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow disabled:opacity-50"
                   >
-                    {isAddingStaff ? 'Adding...' : 'Add'}
+                    {isAddingStaff ? (isEditingStaff ? 'Saving...' : 'Adding...') : (isEditingStaff ? 'Save Changes' : 'Add')}
                   </button>
                 </div>
               </div>
