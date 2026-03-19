@@ -288,7 +288,9 @@ const StandardReport: React.FC<Props> = ({
                   </td>
                   <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">{report.paymentMethod || '-'}</td>
                   <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300">{report.cashierName || '-'}</td>
-                  <td className="px-4 py-2 text-right font-black dark:text-white text-xs">RM{report.total.toFixed(2)}</td>
+                  <td className="px-4 py-2 text-right font-black dark:text-white text-xs">
+                    {report.status === OrderStatus.CANCELLED ? 'RM0.00' : `RM${report.total.toFixed(2)}`}
+                  </td>
                 </tr>
               ))}
             </tbody>

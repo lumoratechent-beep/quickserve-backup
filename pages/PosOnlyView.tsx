@@ -6601,19 +6601,42 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               )}
 
-              <div className="border-t dark:border-gray-700 pt-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black dark:text-white uppercase tracking-widest">Total</span>
-                  <span className="text-lg font-black text-orange-500">{currencySymbol}{selectedReportOrder.total.toFixed(2)}</span>
+              <div className="border-t dark:border-gray-700 pt-3 space-y-1.5">
+                {(() => {
+                  const subtotal = selectedReportOrder.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+                  const taxLines = activeTaxEntries.map(tax => ({
+                    id: tax.id,
+                    name: tax.name,
+                    percentage: tax.percentage,
+                    amount: (subtotal * tax.percentage) / 100,
+                  }));
+                  return (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400 uppercase tracking-widest">Subtotal</span>
+                        <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{subtotal.toFixed(2)}</span>
+                      </div>
+                      {taxLines.map(tax => (
+                        <div key={tax.id} className="flex items-center justify-between">
+                          <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400">{tax.name} ({tax.percentage.toFixed(2)}%)</span>
+                          <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{tax.amount.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </>
+                  );
+                })()}
+                <div className="flex items-center justify-between pt-2 border-t dark:border-gray-700">
+                  <span className="text-sm font-black dark:text-white uppercase tracking-widest">Total</span>
+                  <span className="text-2xl font-black text-orange-500">{currencySymbol}{selectedReportOrder.total.toFixed(2)}</span>
                 </div>
                 {selectedReportOrder.amountReceived != null && (
                   <>
-                    <div className="flex items-center justify-between mt-1.5">
-                      <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400">Amount Received</span>
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400">Received Amount</span>
                       <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{selectedReportOrder.amountReceived.toFixed(2)}</span>
                     </div>
                     <div className="flex items-center justify-between mt-0.5">
-                      <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400">Change</span>
+                      <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400">Total Change</span>
                       <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{(selectedReportOrder.changeAmount ?? Math.max(0, selectedReportOrder.amountReceived - selectedReportOrder.total)).toFixed(2)}</span>
                     </div>
                   </>
