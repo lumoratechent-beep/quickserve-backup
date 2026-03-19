@@ -57,12 +57,12 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
       if (!entry || typeof entry !== 'object') return null;
       const name = String(entry.name || '').trim();
       if (!name) return null;
-      const categories = Array.isArray(entry.categories)
+      const categories: string[] = Array.isArray(entry.categories)
         ? entry.categories.map((c: any) => String(c || '').trim()).filter(Boolean)
         : [];
       return {
         name,
-        categories: Array.from(new Set(categories)).sort((a, b) => a.localeCompare(b)),
+        categories: Array.from(new Set<string>(categories)).sort((a, b) => a.localeCompare(b)),
       };
     })
     .filter(Boolean) as KitchenDepartment[];
