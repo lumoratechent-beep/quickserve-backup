@@ -2742,23 +2742,27 @@ const PosOnlyView: React.FC<Props> = ({
                       ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
                       : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
                   }`}>{staff.role === 'KITCHEN' ? 'Kitchen' : 'Cashier'}</span>
-                  {staff.role === 'KITCHEN' && staff.kitchen_categories && staff.kitchen_categories.length > 0 && (
-                    <span className="text-[9px] text-gray-400">Departments: {staff.kitchen_categories.join(', ')}</span>
+                  {staff.role === 'KITCHEN' && (
+                    <span className="text-[9px] text-gray-400">
+                      Departments: {staff.kitchen_categories && staff.kitchen_categories.length > 0 ? staff.kitchen_categories.join(', ') : 'General Kitchen'}
+                    </span>
                   )}
                 </div>
               </div>
-              <button
-                onClick={() => handleEditStaff(staff, idx)}
-                className="p-2 text-gray-300 hover:text-orange-500 transition-colors"
-              >
-                <Edit3 size={14} />
-              </button>
-              <button
-                onClick={() => handleRemoveStaff(staff, idx)}
-                className="p-2 text-gray-300 hover:text-red-500 transition-colors"
-              >
-                <Trash2 size={14} />
-              </button>
+              <div className="flex items-center gap-1.5 ml-3">
+                <button
+                  onClick={() => handleEditStaff(staff, idx)}
+                  className="p-2 text-gray-300 hover:text-orange-500 transition-colors"
+                >
+                  <Edit3 size={14} />
+                </button>
+                <button
+                  onClick={() => handleRemoveStaff(staff, idx)}
+                  className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -2911,8 +2915,8 @@ const PosOnlyView: React.FC<Props> = ({
               {kitchenDivisions.length > 0 && (
                 <div className="space-y-3 mb-3">
                   {kitchenDivisions.map(dep => (
-                    <div key={dep.name} className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-700">
-                      <div className="flex items-center justify-between gap-2 mb-2">
+                    <div key={dep.name} className="p-2.5 bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-700">
+                      <div className="flex items-center justify-between gap-2 mb-1">
                         {renamingDepartment === dep.name ? (
                           <div className="flex items-center gap-2 flex-1">
                             <input
@@ -2951,7 +2955,7 @@ const PosOnlyView: React.FC<Props> = ({
                         )}
                       </div>
 
-                      <p className="text-[9px] text-gray-400 mb-2">Categories handled by this department:</p>
+                      <p className="text-[9px] text-gray-400 mb-1">Categories handled by this department:</p>
                       <div className="flex flex-wrap gap-1.5">
                         {allFoodCategories.length === 0 ? (
                           <span className="text-[9px] text-gray-400">No categories yet.</span>
@@ -3007,9 +3011,9 @@ const PosOnlyView: React.FC<Props> = ({
                         <p className="text-xs font-black dark:text-white">{staff.username}</p>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">Kitchen</span>
-                          {staff.kitchen_categories && staff.kitchen_categories.length > 0 && (
-                            <span className="text-[9px] text-gray-400">Departments: {staff.kitchen_categories.join(', ')}</span>
-                          )}
+                          <span className="text-[9px] text-gray-400">
+                            Departments: {staff.kitchen_categories && staff.kitchen_categories.length > 0 ? staff.kitchen_categories.join(', ') : 'General Kitchen'}
+                          </span>
                         </div>
                       </div>
                       <button
