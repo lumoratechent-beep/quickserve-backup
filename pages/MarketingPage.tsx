@@ -215,22 +215,27 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
         <div className={`text-center mb-8 transition-all duration-700 ${statsRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
           <span className="text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">Trusted by restaurants across Malaysia</span>
         </div>
-        {partnerLogos.length > 0 && (
+        {partnerLogos.length > 0 && (() => {
+          // Repeat logos enough times to fill the carousel seamlessly (min ~20 items)
+          const repeatCount = Math.max(2, Math.ceil(20 / partnerLogos.length));
+          const repeatedLogos = Array.from({ length: repeatCount * 2 }, () => partnerLogos).flat();
+          return (
           <div className="max-w-[55%] mx-auto relative">
             {/* Fade edges */}
             <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-white dark:from-gray-950 to-transparent z-10 pointer-events-none" />
             <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-white dark:from-gray-950 to-transparent z-10 pointer-events-none" />
             <div className="overflow-hidden">
               <div className="partner-carousel-track flex items-center gap-12 w-max">
-                {[...partnerLogos, ...partnerLogos].map((p, i) => (
-                  <div key={i} className={`flex-shrink-0 flex items-center justify-center w-20 h-12 grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all duration-500 ${p.crop_shape === 'circle' ? 'rounded-full overflow-hidden' : ''}`}>
-                    <img src={p.url} alt={p.alt} className="max-h-full max-w-full object-contain dark:invert" />
-                  </div>
+                {repeatedLogos.map((p, i) => (
+                  <button key={i} className={`flex-shrink-0 flex items-center justify-center w-20 h-12 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 hover:scale-125 hover:border hover:border-orange-500/40 hover:shadow-lg hover:shadow-orange-500/10 rounded-xl transition-all duration-500 focus:grayscale-0 focus:opacity-100 focus:scale-125 focus:border focus:border-orange-500/40 focus:shadow-lg focus:shadow-orange-500/10 focus:outline-none ${p.crop_shape === 'circle' ? 'rounded-full overflow-hidden' : ''}`}>
+                    <img src={p.url} alt={p.alt} className="max-h-full max-w-full object-contain dark:invert pointer-events-none" />
+                  </button>
                 ))}
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
       </section>
 
       {/* ═══════════════════════ FEATURES BENTO GRID ═══════════════════════ */}
