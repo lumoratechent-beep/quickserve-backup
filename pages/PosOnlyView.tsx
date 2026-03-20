@@ -430,6 +430,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [tableCountDraft, setTableCountDraft] = useState<string>('12');
   const [tableRowsDraft, setTableRowsDraft] = useState<string>('3');
   const [tableColumnsDraft, setTableColumnsDraft] = useState<string>('4');
+  const [tableColPage, setTableColPage] = useState(0);
 
   // Payment types
   const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>(() => {
@@ -3253,7 +3254,7 @@ const PosOnlyView: React.FC<Props> = ({
       }`}>
         <div>
           <p className="text-xs font-black dark:text-white">Table Layout</p>
-          <p className="text-[9px] text-gray-400 mt-0.5">Configure table count and row/column arrangement</p>
+          <p className="text-[9px] text-gray-400 mt-0.5">Configure table count and row/column arrangement — you may type to edit</p>
         </div>
 
         <div className="grid grid-cols-3 gap-2">
@@ -3293,22 +3294,26 @@ const PosOnlyView: React.FC<Props> = ({
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 pt-1">
-          <button
-            onClick={resetTableManagementDraft}
-            disabled={!featureSettings.savedBillEnabled}
-            className="px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSaveTableManagementChanges}
-            disabled={!featureSettings.savedBillEnabled}
-            className="px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest bg-green-500 text-white hover:bg-green-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Save Changes
-          </button>
-        </div>
+        {(tableCountDraft !== String(featureSettings.tableCount) ||
+          tableRowsDraft !== String(featureSettings.tableRows) ||
+          tableColumnsDraft !== String(featureSettings.tableColumns)) && (
+          <div className="flex items-center justify-end gap-2 pt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+            <button
+              onClick={resetTableManagementDraft}
+              disabled={!featureSettings.savedBillEnabled}
+              className="px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveTableManagementChanges}
+              disabled={!featureSettings.savedBillEnabled}
+              className="px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest bg-green-500 text-white hover:bg-green-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Save Changes
+            </button>
+          </div>
+        )}
         <p className="text-[9px] text-gray-400">Table selection popup follows this arrangement. Extra cells are hidden automatically when table count is reached.</p>
       </div>
     </div>
@@ -4109,14 +4114,21 @@ const PosOnlyView: React.FC<Props> = ({
                         <p className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">Table Arrangement</p>
                         <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Choose a table with pending bill to continue editing, or view empty tables ready for new saved bills.</p>
                       </div>
+                      {(() => {
+                        const COLS_PER_PAGE = 3;
+                        const totalColPages = Math.ceil(effectiveTableCols / COLS_PER_PAGE);
+                        const safePage = Math.min(tableColPage, Math.max(0, totalColPages - 1));
+                        const colStart = safePage * COLS_PER_PAGE;
+                        return (
+                          <>
                       <div className="space-y-2">
                         {tableRowsForSelection.map((row, rowIdx) => (
-                          <div key={`saved-row-${rowIdx}`} className="saved-table-scroll">
-                            <div className="saved-table-row" style={{ ['--total-cols' as any]: effectiveTableCols } as React.CSSProperties}>
-                            {Array.from({ length: effectiveTableCols }, (_, colIdx) => {
-                              const table = row[colIdx] || null;
+                          <div key={`saved-row-${rowIdx}`} className="grid gap-2" style={{ gridTemplateColumns: `repeat(${COLS_PER_PAGE}, minmax(0, 1fr))` }}>
+                            {Array.from({ length: COLS_PER_PAGE }, (_, i) => {
+                              const colIdx = colStart + i;
+                              const table = colIdx < effectiveTableCols ? (row[colIdx] || null) : null;
                               if (!table) {
-                                return <div key={`saved-empty-${rowIdx}-${colIdx}`} className="saved-table-cell saved-table-cell-empty" aria-hidden="true" />;
+                                return <div key={`saved-empty-${rowIdx}-${i}`} className="saved-table-cell-empty" aria-hidden="true" />;
                               }
                               const tableBill = savedBillsByTable.get(table);
                               const hasPending = !!tableBill;
@@ -4165,10 +4177,26 @@ const PosOnlyView: React.FC<Props> = ({
                                 </div>
                               );
                             })}
-                            </div>
                           </div>
                         ))}
                       </div>
+                      {totalColPages > 1 && (
+                        <div className="flex justify-center items-center gap-1.5 pt-2">
+                          {Array.from({ length: totalColPages }, (_, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => setTableColPage(i)}
+                              className={`h-2 rounded-full transition-all duration-200 ${
+                                i === safePage ? 'bg-orange-500 w-5' : 'bg-gray-300 dark:bg-gray-600 w-2 hover:bg-gray-400'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
