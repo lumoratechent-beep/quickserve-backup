@@ -23,8 +23,6 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [img, setImg] = useState<HTMLImageElement | null>(null);
   const [shape, setShape] = useState<CropShape>('square');
-  const [cropW, setCropW] = useState(120);
-  const [cropH, setCropH] = useState(60);
 
   // Crop box state (relative to displayed image)
   const [crop, setCrop] = useState({ x: 0, y: 0, w: 0, h: 0 });
@@ -222,26 +220,49 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel }) => {
       return;
     }
 
-    // Resize
-    let nx = o.x, ny = o.y, nw = o.w, nh = o.h;
+    // Aspect-locked resize: use the dominant drag axis to scale both w and h proportionally
+    const aspect = o.w / o.h;
+    let nw = o.w, nh = o.h, nx = o.x, ny = o.y;
 
+    // Pick delta based on which axis moved more (or use the constrained axis for edge handles)
+    const useDx = (mode === 'e' || mode === 'w') || (mode !== 'n' && mode !== 's' && Math.abs(dx) >= Math.abs(dy));
+    let delta = useDx ? dx : dy;
+
+    // Invert delta for handles that shrink when dragged in positive direction
+    if (mode === 'nw' || mode === 'w' || mode === 'sw') delta = -delta;
+    if (!useDx && (mode === 'nw' || mode === 'n' || mode === 'ne')) delta = -delta;
+
+    nw = Math.max(MIN_SIZE, o.w + delta);
+    nh = nw / aspect;
+    if (nh < MIN_SIZE) { nh = MIN_SIZE; nw = nh * aspect; }
+
+    // Clamp to image bounds and anchor to the correct corner
     if (mode === 'se' || mode === 'e' || mode === 's') {
-      if (mode !== 's') nw = Math.max(MIN_SIZE, Math.min(dw - o.x, o.w + dx));
-      if (mode !== 'e') nh = Math.max(MIN_SIZE, Math.min(dh - o.y, o.h + dy));
+      nw = Math.min(nw, dw - o.x); nh = nw / aspect;
+      if (o.y + nh > dh) { nh = dh - o.y; nw = nh * aspect; }
+    } else if (mode === 'nw' || mode === 'w' || mode === 'n') {
+      nw = Math.min(nw, o.x + o.w); nh = nw / aspect;
+      nx = o.x + o.w - nw;
+      ny = o.y + o.h - nh;
+      if (nx < 0) { nx = 0; nw = o.x + o.w; nh = nw / aspect; ny = o.y + o.h - nh; }
+      if (ny < 0) { ny = 0; nh = o.y + o.h; nw = nh * aspect; nx = o.x + o.w - nw; }
+    } else if (mode === 'ne') {
+      nw = Math.min(nw, dw - o.x); nh = nw / aspect;
+      ny = o.y + o.h - nh;
+      if (ny < 0) { ny = 0; nh = o.y + o.h; nw = nh * aspect; }
+    } else if (mode === 'sw') {
+      nw = Math.min(nw, o.x + o.w); nh = nw / aspect;
+      nx = o.x + o.w - nw;
+      if (nx < 0) { nx = 0; nw = o.x + o.w; nh = nw / aspect; }
+      if (o.y + nh > dh) { nh = dh - o.y; nw = nh * aspect; nx = o.x + o.w - nw; }
     }
-    if (mode === 'nw' || mode === 'w' || mode === 'n') {
-      if (mode !== 'n') { nw = Math.max(MIN_SIZE, o.w - dx); nx = o.x + o.w - nw; if (nx < 0) { nw += nx; nx = 0; } }
-      if (mode !== 'w') { nh = Math.max(MIN_SIZE, o.h - dy); ny = o.y + o.h - nh; if (ny < 0) { nh += ny; ny = 0; } }
-    }
-    if (mode === 'ne') { nw = Math.max(MIN_SIZE, Math.min(dw - o.x, o.w + dx)); nh = Math.max(MIN_SIZE, o.h - dy); ny = o.y + o.h - nh; if (ny < 0) { nh += ny; ny = 0; } }
-    if (mode === 'sw') { nw = Math.max(MIN_SIZE, o.w - dx); nx = o.x + o.w - nw; if (nx < 0) { nw += nx; nx = 0; } nh = Math.max(MIN_SIZE, Math.min(dh - o.y, o.h + dy)); }
 
     setCrop({ x: nx, y: ny, w: nw, h: nh });
   };
 
   const handlePointerUp = () => { dragRef.current = null; };
 
-  // Apply crop
+  // Apply crop — output size matches the crop region in original image pixels
   const applyCrop = () => {
     if (!img) return;
     const { dw, dh } = getDisplayDims();
@@ -252,20 +273,23 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel }) => {
     const sw = crop.w * scaleX;
     const sh = crop.h * scaleY;
 
+    // Output at actual cropped pixel size
+    const outW = Math.round(sw);
+    const outH = Math.round(sh);
     const out = document.createElement('canvas');
-    out.width = cropW;
-    out.height = cropH;
+    out.width = outW;
+    out.height = outH;
     const octx = out.getContext('2d');
     if (!octx) return;
 
     if (shape === 'circle') {
       octx.beginPath();
-      octx.ellipse(cropW / 2, cropH / 2, cropW / 2, cropH / 2, 0, 0, Math.PI * 2);
+      octx.ellipse(outW / 2, outH / 2, outW / 2, outH / 2, 0, 0, Math.PI * 2);
       octx.clip();
     }
 
-    octx.drawImage(img, sx, sy, sw, sh, 0, 0, cropW, cropH);
-    out.toBlob(blob => { if (blob) onCrop(blob, shape, cropW, cropH); }, 'image/png');
+    octx.drawImage(img, sx, sy, sw, sh, 0, 0, outW, outH);
+    out.toBlob(blob => { if (blob) onCrop(blob, shape, outW, outH); }, 'image/png');
   };
 
   return (
@@ -310,16 +334,10 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel }) => {
             </div>
           </div>
 
-          {/* Size sliders */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Width: {cropW}px</label>
-              <input type="range" min={40} max={300} value={cropW} onChange={e => setCropW(Number(e.target.value))} className="w-full accent-orange-500" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Height: {cropH}px</label>
-              <input type="range" min={20} max={200} value={cropH} onChange={e => setCropH(Number(e.target.value))} className="w-full accent-orange-500" />
-            </div>
+          {/* Crop size indicator */}
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Crop size:</span>
+            <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{Math.round(crop.w)} × {Math.round(crop.h)} px</span>
           </div>
 
           {/* Actions */}
