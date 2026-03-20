@@ -214,6 +214,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
       <section ref={statsRef.ref} className="py-12 relative overflow-hidden bg-white dark:bg-gray-950">
         <div className={`text-center mb-8 transition-all duration-700 ${statsRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
           <span className="text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">Trusted by restaurants across Malaysia</span>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 font-medium max-w-md mx-auto">From local favourites to growing chains — QuickServe powers their daily operations.</p>
         </div>
         {partnerLogos.length > 0 && (() => {
           // Repeat logos enough times to fill the carousel seamlessly (min ~20 items)
