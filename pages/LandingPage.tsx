@@ -172,7 +172,7 @@ const LandingPage: React.FC<Props> = ({ onScan, onLoginClick, isDarkMode, onTogg
                   </div>
                 </div>
                 <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-2">Scan to Order</h1>
-                <p className="text-gray-500 dark:text-gray-400 max-w-xs mx-auto mb-8">Point your camera at a table QR code to start ordering</p>
+                <p className="text-gray-700 dark:text-gray-400 max-w-xs mx-auto mb-8">Point your camera at a table QR code to start ordering</p>
                 <div className="flex flex-col gap-3 w-full">
                   {existingSession && (
                     <div className="relative group/session">
@@ -243,11 +243,11 @@ const LandingPage: React.FC<Props> = ({ onScan, onLoginClick, isDarkMode, onTogg
             <div className="mb-8">
               <div className="w-14 h-14 bg-orange-500 text-white rounded-2xl flex items-center justify-center mb-4"><QrCode size={28} /></div>
               <h2 className="text-2xl font-black dark:text-white">Manual Selection</h2>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">Select your location to begin ordering without scanning.</p>
+              <p className="text-gray-700 dark:text-gray-400 text-sm">Select your location to begin ordering without scanning.</p>
             </div>
             <div className="space-y-6">
               <div>
-                <label className="block text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Physical Location</label>
+                <label className="block text-xs font-black text-gray-600 dark:text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Physical Location</label>
                 <div className="relative">
                   <MapPin size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                   <select className="w-full pl-11 pr-4 py-3.5 bg-gray-50 dark:bg-gray-700 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 dark:text-white font-bold outline-none appearance-none cursor-pointer" value={selectedLocation} onChange={(e) => setSelectedLocation(e.target.value)}>
@@ -256,7 +256,7 @@ const LandingPage: React.FC<Props> = ({ onScan, onLoginClick, isDarkMode, onTogg
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Table Number</label>
+                <label className="block text-xs font-black text-gray-600 dark:text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Table Number</label>
                 <div className="relative">
                   <Hash size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input type="text" placeholder="e.g. 12" className="w-full pl-11 pr-4 py-3.5 bg-gray-50 dark:bg-gray-700 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 dark:text-white font-bold outline-none" value={tableNo} onChange={(e) => setTableNo(e.target.value)} />
