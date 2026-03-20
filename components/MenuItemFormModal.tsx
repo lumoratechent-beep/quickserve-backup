@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MenuItem, AddOnItem, ModifierData } from '../src/types';
-import { X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle, Save } from 'lucide-react';
+import { X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle, Save, Pencil } from 'lucide-react';
 import { toast } from './Toast';
 
 export type MenuFormItem = Partial<MenuItem & { sizesEnabled?: boolean; variantOptionsEnabled?: boolean }>;
@@ -30,6 +30,7 @@ const MenuItemFormModal: React.FC<Props> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showNewModifierForm, setShowNewModifierForm] = useState(false);
+  const [collapsedAddOns, setCollapsedAddOns] = useState<Set<number>>(new Set());
   const [newModName, setNewModName] = useState('');
   const [newModOptions, setNewModOptions] = useState<{ name: string; price: number }[]>([]);
   const [newOptionName, setNewOptionName] = useState('');
@@ -205,6 +206,14 @@ const MenuItemFormModal: React.FC<Props> = ({
       ...prev,
       addOns: prev.addOns?.filter((_, i) => i !== index),
     }));
+    setCollapsedAddOns(prev => {
+      const reindexed = new Set<number>();
+      prev.forEach(i => {
+        if (i < index) reindexed.add(i);
+        else if (i > index) reindexed.add(i - 1);
+      });
+      return reindexed;
+    });
   };
 
   const handleAddOnChange = (index: number, field: keyof AddOnItem, value: string | number | boolean) => {
@@ -587,61 +596,90 @@ const MenuItemFormModal: React.FC<Props> = ({
       {formItem.addOns && formItem.addOns.length > 0 ? (
         <div className="space-y-3">
           {formItem.addOns.map((addon, idx) => (
-            <div key={idx} className={`${isLandscape ? 'p-3' : 'p-4'} bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-3`}>
-              <div className="flex items-center justify-between">
-                <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Add-On #{idx + 1}</span>
-                <button type="button" onClick={() => handleRemoveAddOn(idx)} className="p-1 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">
-                  <Trash2 size={14} />
-                </button>
+            collapsedAddOns.has(idx) ? (
+              <div key={idx} className="flex items-center justify-between px-3 py-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs font-bold dark:text-white truncate">{addon.name || `Add-On #${idx + 1}`}</span>
+                  {addon.price > 0 && <span className="shrink-0 text-[9px] text-gray-400">+RM{addon.price.toFixed(2)}</span>}
+                  {addon.required && <span className="shrink-0 text-[8px] bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 px-1.5 py-0.5 rounded font-black uppercase">Required</span>}
+                </div>
+                <div className="flex items-center gap-1 ml-2">
+                  <button
+                    type="button"
+                    onClick={() => setCollapsedAddOns(prev => { const n = new Set(prev); n.delete(idx); return n; })}
+                    className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <button type="button" onClick={() => handleRemoveAddOn(idx)} className="p-1.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">
+                    <Trash2 size={13} />
+                  </button>
+                </div>
               </div>
+            ) : (
+              <div key={idx} className={`${isLandscape ? 'p-3' : 'p-4'} bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-3`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Add-On #{idx + 1}</span>
+                  <button type="button" onClick={() => handleRemoveAddOn(idx)} className="p-1 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Name</label>
-                  <input
-                    type="text"
-                    value={addon.name}
-                    onChange={(e) => handleAddOnChange(idx, 'name', e.target.value)}
-                    placeholder="e.g. Extra Cheese"
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Name</label>
+                    <input
+                      type="text"
+                      value={addon.name}
+                      onChange={(e) => handleAddOnChange(idx, 'name', e.target.value)}
+                      placeholder="e.g. Extra Cheese"
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Price (RM)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={addon.price}
+                      onChange={(e) => handleAddOnChange(idx, 'price', parseFloat(e.target.value) || 0)}
+                      placeholder="2.00"
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Price (RM)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={addon.price}
-                    onChange={(e) => handleAddOnChange(idx, 'price', parseFloat(e.target.value) || 0)}
-                    placeholder="2.00"
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Max Quantity</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={addon.maxQuantity}
-                    onChange={(e) => handleAddOnChange(idx, 'maxQuantity', parseInt(e.target.value) || 1)}
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
-                  />
-                </div>
-                <div className="flex items-center gap-2 pt-5">
-                  <input
-                    type="checkbox"
-                    id={`required-${idx}`}
-                    checked={addon.required || false}
-                    onChange={(e) => handleAddOnChange(idx, 'required', e.target.checked)}
-                    className="w-4 h-4 text-orange-500 rounded border-gray-300 focus:ring-orange-500"
-                  />
-                  <label htmlFor={`required-${idx}`} className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Required</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Max Quantity</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={addon.maxQuantity}
+                      onChange={(e) => handleAddOnChange(idx, 'maxQuantity', parseInt(e.target.value) || 1)}
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pt-5">
+                    <input
+                      type="checkbox"
+                      id={`required-${idx}`}
+                      checked={addon.required || false}
+                      onChange={(e) => handleAddOnChange(idx, 'required', e.target.checked)}
+                      className="w-4 h-4 text-orange-500 rounded border-gray-300 focus:ring-orange-500"
+                    />
+                    <label htmlFor={`required-${idx}`} className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Required</label>
+                    <button
+                      type="button"
+                      onClick={() => setCollapsedAddOns(prev => new Set(prev).add(idx))}
+                      className="ml-auto px-2.5 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-[8px] font-black uppercase tracking-widest flex items-center gap-1 transition-colors"
+                    >
+                      <Save size={11} /> Save
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )
           ))}
         </div>
       ) : (
