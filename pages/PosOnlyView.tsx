@@ -3286,7 +3286,7 @@ const PosOnlyView: React.FC<Props> = ({
         </div>
 
         <p className="text-[9px] text-orange-400 font-bold">
-          Max 6 columns shown per page — if you set more than 6 columns, the table view will paginate and you can swipe or tap the dots to navigate.
+          Max 5 columns shown per page — if you set more than 5 columns, the table view will paginate and you can swipe or tap the dots to navigate.
         </p>
 
         {(tableCountDraft !== String(featureSettings.tableCount) ||
@@ -4109,10 +4109,11 @@ const PosOnlyView: React.FC<Props> = ({
                         <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Choose a table with pending bill to continue editing, or view empty tables ready for new saved bills.</p>
                       </div>
                       {(() => {
-                        const COLS_PER_PAGE = 6;
+                        const COLS_PER_PAGE = 5;
                         const totalColPages = Math.ceil(effectiveTableCols / COLS_PER_PAGE);
                         const safePage = Math.min(tableColPage, Math.max(0, totalColPages - 1));
                         const colStart = safePage * COLS_PER_PAGE;
+                        const colsThisPage = Math.min(COLS_PER_PAGE, effectiveTableCols - colStart);
                         return (
                           <>
                       <div
@@ -4128,8 +4129,8 @@ const PosOnlyView: React.FC<Props> = ({
                         }}
                       >
                         {tableRowsForSelection.map((row, rowIdx) => (
-                          <div key={`saved-row-${rowIdx}`} className="grid gap-2" style={{ gridTemplateColumns: `repeat(${COLS_PER_PAGE}, minmax(0, 1fr))` }}>
-                            {Array.from({ length: COLS_PER_PAGE }, (_, i) => {
+                          <div key={`saved-row-${rowIdx}`} className="grid gap-2" style={{ gridTemplateColumns: `repeat(${colsThisPage}, minmax(0, 1fr))` }}>
+                            {Array.from({ length: colsThisPage }, (_, i) => {
                               const colIdx = colStart + i;
                               const table = colIdx < effectiveTableCols ? (row[colIdx] || null) : null;
                               if (!table) {
