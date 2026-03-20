@@ -224,7 +224,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
               <div className="partner-carousel-track flex items-center gap-12 w-max">
                 {[...partnerLogos, ...partnerLogos].map((p, i) => (
                   <div key={i} className={`flex-shrink-0 flex items-center justify-center w-20 h-12 grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all duration-500 ${p.crop_shape === 'circle' ? 'rounded-full overflow-hidden' : ''}`}>
-                    <img src={p.url} alt={p.alt} className="max-h-full max-w-full object-contain" />
+                    <img src={p.url} alt={p.alt} className="max-h-full max-w-full object-contain dark:invert" />
                   </div>
                 ))}
               </div>
