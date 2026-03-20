@@ -15,6 +15,10 @@ const SHAPES: { id: CropShape; label: string; icon: React.ReactNode; aspect?: nu
   { id: 'rectangle', label: 'Wide', icon: <RectangleHorizontal size={16} />, aspect: 2 },
 ];
 
+const HANDLE_SIZE = 10;
+
+type DragMode = 'move' | 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w' | null;
+
 const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [img, setImg] = useState<HTMLImageElement | null>(null);
@@ -24,8 +28,9 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel }) => {
 
   // Crop box state (relative to displayed image)
   const [crop, setCrop] = useState({ x: 0, y: 0, w: 0, h: 0 });
-  const dragging = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const dragRef = useRef<{ mode: DragMode; startX: number; startY: number; origCrop: typeof crop } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const MIN_SIZE = 30;
 
   // Load image
   useEffect(() => {
@@ -41,7 +46,7 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel }) => {
 
   // Calculate displayed image dimensions
   const getDisplayDims = useCallback(() => {
-    if (!img || !containerRef.current) return { dw: 0, dh: 0, offsetX: 0, offsetY: 0 };
+    if (!img || !containerRef.current) return { dw: 0, dh: 0, offsetX: 0, offsetY: 0, scale: 1 };
     const maxW = containerRef.current.clientWidth;
     const maxH = containerRef.current.clientHeight;
     const scale = Math.min(maxW / img.width, maxH / img.height, 1);
@@ -60,6 +65,33 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel }) => {
     const boxH = boxW / aspect;
     setCrop({ x: (dw - boxW) / 2, y: (dh - boxH) / 2, w: boxW, h: boxH });
   }, [img, shape, getDisplayDims]);
+
+  // Detect which handle or region the mouse is over
+  const getHitZone = useCallback((mx: number, my: number): DragMode => {
+    const { offsetX, offsetY } = getDisplayDims();
+    const cx = offsetX + crop.x;
+    const cy = offsetY + crop.y;
+    const cr = cx + crop.w;
+    const cb = cy + crop.h;
+    const hs = HANDLE_SIZE;
+
+    // Corner handles (check first — they take priority)
+    if (Math.abs(mx - cx) <= hs && Math.abs(my - cy) <= hs) return 'nw';
+    if (Math.abs(mx - cr) <= hs && Math.abs(my - cy) <= hs) return 'ne';
+    if (Math.abs(mx - cx) <= hs && Math.abs(my - cb) <= hs) return 'sw';
+    if (Math.abs(mx - cr) <= hs && Math.abs(my - cb) <= hs) return 'se';
+
+    // Edge handles
+    if (Math.abs(my - cy) <= hs && mx > cx + hs && mx < cr - hs) return 'n';
+    if (Math.abs(my - cb) <= hs && mx > cx + hs && mx < cr - hs) return 's';
+    if (Math.abs(mx - cx) <= hs && my > cy + hs && my < cb - hs) return 'w';
+    if (Math.abs(mx - cr) <= hs && my > cy + hs && my < cb - hs) return 'e';
+
+    // Inside = move
+    if (mx >= cx && mx <= cr && my >= cy && my <= cb) return 'move';
+
+    return null;
+  }, [crop, getDisplayDims]);
 
   // Draw canvas
   useEffect(() => {
@@ -118,37 +150,96 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel }) => {
       ctx.closePath();
       ctx.stroke();
     }
+
+    // Draw resize handles
+    const handles = [
+      { x: cx, y: cy },                           // nw
+      { x: cx + crop.w, y: cy },                  // ne
+      { x: cx, y: cy + crop.h },                  // sw
+      { x: cx + crop.w, y: cy + crop.h },         // se
+      { x: cx + crop.w / 2, y: cy },              // n
+      { x: cx + crop.w / 2, y: cy + crop.h },     // s
+      { x: cx, y: cy + crop.h / 2 },              // w
+      { x: cx + crop.w, y: cy + crop.h / 2 },     // e
+    ];
+    handles.forEach(h => {
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#f97316';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(h.x, h.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    });
   }, [img, crop, shape, getDisplayDims]);
 
-  // Drag handlers
+  // Update cursor based on hover position
+  const updateCursor = useCallback((e: React.PointerEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas || dragRef.current) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const zone = getHitZone(mx, my);
+    const cursors: Record<string, string> = {
+      nw: 'nwse-resize', se: 'nwse-resize',
+      ne: 'nesw-resize', sw: 'nesw-resize',
+      n: 'ns-resize', s: 'ns-resize',
+      e: 'ew-resize', w: 'ew-resize',
+      move: 'move',
+    };
+    canvas.style.cursor = zone ? (cursors[zone] || 'default') : 'default';
+  }, [getHitZone]);
+
+  // Pointer handlers
   const handlePointerDown = (e: React.PointerEvent) => {
-    const { offsetX, offsetY } = getDisplayDims();
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
-    const cx = offsetX + crop.x;
-    const cy = offsetY + crop.y;
-    if (mx >= cx && mx <= cx + crop.w && my >= cy && my <= cy + crop.h) {
-      dragging.current = { startX: mx, startY: my, origX: crop.x, origY: crop.y };
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    }
+    const mode = getHitZone(mx, my);
+    if (!mode) return;
+    dragRef.current = { mode, startX: mx, startY: my, origCrop: { ...crop } };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!dragging.current || !canvasRef.current) return;
+    updateCursor(e);
+    if (!dragRef.current || !canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
-    const dx = mx - dragging.current.startX;
-    const dy = my - dragging.current.startY;
+    const dx = mx - dragRef.current.startX;
+    const dy = my - dragRef.current.startY;
     const { dw, dh } = getDisplayDims();
-    const nx = Math.max(0, Math.min(dw - crop.w, dragging.current.origX + dx));
-    const ny = Math.max(0, Math.min(dh - crop.h, dragging.current.origY + dy));
-    setCrop(prev => ({ ...prev, x: nx, y: ny }));
+    const o = dragRef.current.origCrop;
+    const mode = dragRef.current.mode;
+
+    if (mode === 'move') {
+      const nx = Math.max(0, Math.min(dw - o.w, o.x + dx));
+      const ny = Math.max(0, Math.min(dh - o.h, o.y + dy));
+      setCrop({ ...o, x: nx, y: ny });
+      return;
+    }
+
+    // Resize
+    let nx = o.x, ny = o.y, nw = o.w, nh = o.h;
+
+    if (mode === 'se' || mode === 'e' || mode === 's') {
+      if (mode !== 's') nw = Math.max(MIN_SIZE, Math.min(dw - o.x, o.w + dx));
+      if (mode !== 'e') nh = Math.max(MIN_SIZE, Math.min(dh - o.y, o.h + dy));
+    }
+    if (mode === 'nw' || mode === 'w' || mode === 'n') {
+      if (mode !== 'n') { nw = Math.max(MIN_SIZE, o.w - dx); nx = o.x + o.w - nw; if (nx < 0) { nw += nx; nx = 0; } }
+      if (mode !== 'w') { nh = Math.max(MIN_SIZE, o.h - dy); ny = o.y + o.h - nh; if (ny < 0) { nh += ny; ny = 0; } }
+    }
+    if (mode === 'ne') { nw = Math.max(MIN_SIZE, Math.min(dw - o.x, o.w + dx)); nh = Math.max(MIN_SIZE, o.h - dy); ny = o.y + o.h - nh; if (ny < 0) { nh += ny; ny = 0; } }
+    if (mode === 'sw') { nw = Math.max(MIN_SIZE, o.w - dx); nx = o.x + o.w - nw; if (nx < 0) { nw += nx; nx = 0; } nh = Math.max(MIN_SIZE, Math.min(dh - o.y, o.h + dy)); }
+
+    setCrop({ x: nx, y: ny, w: nw, h: nh });
   };
 
-  const handlePointerUp = () => { dragging.current = null; };
+  const handlePointerUp = () => { dragRef.current = null; };
 
   // Apply crop
   const applyCrop = () => {
