@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, PlatformAccess, Subscription, PlanId } from '../src/types';
 import { uploadImage } from '../lib/storage';
-import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu } from 'lucide-react';
+import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical } from 'lucide-react';
+import ImageCropModal from '../components/ImageCropModal';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
 import { PRICING_PLANS } from '../lib/pricingPlans';
@@ -537,6 +538,43 @@ const AdminView: React.FC<Props> = ({
   
   // Global QR Selection State
   const [isHubSelectionModalOpen, setIsHubSelectionModalOpen] = useState(false);
+
+  // Feature Images State
+  const [systemSubTab, setSystemSubTab] = useState<'STATUS' | 'FEATURE_IMAGES'>('STATUS');
+  const [featureImages, setFeatureImages] = useState<{ id: string; url: string; alt: string; crop_shape: string; display_width: number; display_height: number; sort_order: number }[]>([]);
+  const [isLoadingFeatureImages, setIsLoadingFeatureImages] = useState(false);
+  const [featureCropFile, setFeatureCropFile] = useState<File | null>(null);
+  const featureFileRef = useRef<HTMLInputElement>(null);
+
+  const fetchFeatureImages = async () => {
+    setIsLoadingFeatureImages(true);
+    const { data } = await supabase.from('feature_images').select('*').order('sort_order');
+    if (data) setFeatureImages(data);
+    setIsLoadingFeatureImages(false);
+  };
+
+  useEffect(() => { if (systemSubTab === 'FEATURE_IMAGES') fetchFeatureImages(); }, [systemSubTab]);
+
+  const handleFeatureImageCropped = async (blob: Blob, cropShape: string, width: number, height: number) => {
+    try {
+      const file = new File([blob], `feature-${Date.now()}.png`, { type: 'image/png' });
+      const url = await uploadImage(file, 'quickserve', 'feature-images');
+      const { error } = await supabase.from('feature_images').insert({ url, alt: '', crop_shape: cropShape, display_width: width, display_height: height, sort_order: featureImages.length });
+      if (error) throw error;
+      toast('Feature image added!', 'success');
+      fetchFeatureImages();
+    } catch (err: any) {
+      toast(err.message || 'Upload failed', 'error');
+    }
+    setFeatureCropFile(null);
+  };
+
+  const deleteFeatureImage = async (id: string) => {
+    const { error } = await supabase.from('feature_images').delete().eq('id', id);
+    if (error) { toast('Delete failed', 'error'); return; }
+    toast('Image removed', 'success');
+    fetchFeatureImages();
+  };
 
   // Reports State
   const [reportSearchQuery, setReportSearchQuery] = useState('');
@@ -1383,8 +1421,77 @@ const AdminView: React.FC<Props> = ({
 
         {activeTab === 'SYSTEM' && (
           <div className="p-4 md:p-8">
-            <SystemStatusDashboard />
+            {/* Sub-tab switcher */}
+            <div className="flex gap-2 mb-6">
+              {([{ id: 'STATUS', label: 'System Status', icon: <Activity size={16} /> }, { id: 'FEATURE_IMAGES', label: 'Feature Images', icon: <ImageIcon size={16} /> }] as const).map(t => (
+                <button key={t.id} onClick={() => setSystemSubTab(t.id)} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                  systemSubTab === t.id ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}>
+                  {t.icon} {t.label}
+                </button>
+              ))}
+            </div>
+
+            {systemSubTab === 'STATUS' && <SystemStatusDashboard />}
+
+            {systemSubTab === 'FEATURE_IMAGES' && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-black dark:text-white uppercase tracking-tight">Feature Images</h3>
+                    <p className="text-xs text-gray-400 mt-1">Logos shown in the partner carousel on the marketing page</p>
+                  </div>
+                  <button
+                    onClick={() => featureFileRef.current?.click()}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-orange-500 text-white rounded-xl font-bold text-sm hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/25"
+                  >
+                    <Upload size={16} /> Add Image
+                  </button>
+                  <input type="file" ref={featureFileRef} className="hidden" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) setFeatureCropFile(f); e.target.value = ''; }} />
+                </div>
+
+                {isLoadingFeatureImages ? (
+                  <div className="text-center py-12 text-gray-400"><RefreshCw size={24} className="mx-auto animate-spin mb-2" /> Loading…</div>
+                ) : featureImages.length === 0 ? (
+                  <div className="text-center py-16 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl">
+                    <ImageIcon size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                    <p className="text-sm font-bold text-gray-400">No feature images yet</p>
+                    <p className="text-xs text-gray-400 mt-1">Upload partner logos to display on the landing page</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {featureImages.map((fi) => (
+                      <div key={fi.id} className="group relative bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-4 flex flex-col items-center gap-3 hover:border-orange-500/50 transition-all">
+                        <div className={`flex items-center justify-center w-full h-20 ${
+                          fi.crop_shape === 'circle' ? 'rounded-full' : 'rounded-lg'
+                        } overflow-hidden bg-white dark:bg-gray-900`}>
+                          <img src={fi.url} alt={fi.alt} className="max-h-full max-w-full object-contain" />
+                        </div>
+                        <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">
+                          {fi.display_width}×{fi.display_height} · {fi.crop_shape}
+                        </div>
+                        <button
+                          onClick={() => deleteFeatureImage(fi.id)}
+                          className="absolute top-2 right-2 p-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100 dark:hover:bg-red-900/40"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
+        )}
+
+        {/* Feature Image Crop Modal */}
+        {featureCropFile && (
+          <ImageCropModal
+            imageFile={featureCropFile}
+            onCrop={handleFeatureImageCropped}
+            onCancel={() => setFeatureCropFile(null)}
+          />
         )}
 
         </div>

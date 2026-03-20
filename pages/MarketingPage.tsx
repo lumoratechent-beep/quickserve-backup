@@ -86,19 +86,17 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
   const laptopTilt = useTilt();
   const phoneTilt = useTilt();
 
-  const [partnerLogos, setPartnerLogos] = useState<{ name: string; logo: string }[]>([]);
+  const [partnerLogos, setPartnerLogos] = useState<{ url: string; alt: string; crop_shape: string; display_width: number; display_height: number }[]>([]);
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Fetch vendor logos for the partner carousel
+  // Fetch feature images for the partner carousel
   useEffect(() => {
     const fetchLogos = async () => {
       const { data } = await supabase
-        .from('restaurants')
-        .select('name, logo')
-        .eq('is_online', true)
-        .not('logo', 'is', null)
-        .neq('logo', '');
+        .from('feature_images')
+        .select('url, alt, crop_shape, display_width, display_height')
+        .order('sort_order');
       if (data) setPartnerLogos(data);
     };
     fetchLogos();
@@ -218,16 +216,18 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
           <span className="text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">Trusted by restaurants across Malaysia</span>
         </div>
         {partnerLogos.length > 0 && (
-          <div className="relative">
+          <div className="max-w-[55%] mx-auto relative">
             {/* Fade edges */}
-            <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-white dark:from-gray-950 to-transparent z-10 pointer-events-none" />
-            <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-white dark:from-gray-950 to-transparent z-10 pointer-events-none" />
-            <div className="partner-carousel-track flex items-center gap-16 w-max">
-              {[...partnerLogos, ...partnerLogos].map((p, i) => (
-                <div key={i} className="flex-shrink-0 flex items-center justify-center h-14 w-28 grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all duration-500">
-                  <img src={p.logo} alt={p.name} className="max-h-full max-w-full object-contain" />
-                </div>
-              ))}
+            <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-white dark:from-gray-950 to-transparent z-10 pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-white dark:from-gray-950 to-transparent z-10 pointer-events-none" />
+            <div className="overflow-hidden">
+              <div className="partner-carousel-track flex items-center gap-8 w-max">
+                {[...partnerLogos, ...partnerLogos].map((p, i) => (
+                  <div key={i} className={`flex-shrink-0 flex items-center justify-center grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all duration-500 ${p.crop_shape === 'circle' ? 'rounded-full overflow-hidden' : ''}`} style={{ width: p.display_width, height: p.display_height }}>
+                    <img src={p.url} alt={p.alt} className="max-h-full max-w-full object-contain" />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
