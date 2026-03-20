@@ -45,6 +45,18 @@ const MenuItemFormModal: React.FC<Props> = ({
     return () => mql.removeEventListener('change', handler as (e: MediaQueryListEvent) => void);
   }, []);
 
+  useEffect(() => {
+    if (isOpen) {
+      const count = formItem.addOns?.length ?? 0;
+      if (count > 0) {
+        setCollapsedAddOns(new Set(Array.from({ length: count }, (_, i) => i)));
+      } else {
+        setCollapsedAddOns(new Set());
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const linkedModifiers = formItem.linkedModifiers || [];
