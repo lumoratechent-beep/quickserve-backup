@@ -47,9 +47,10 @@ const useTilt = () => {
 
 interface Props {
   onGetStarted: () => void;
+  onLogin: () => void;
 }
 
-const MarketingPage: React.FC<Props> = ({ onGetStarted }) => {
+const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin }) => {
   const [mounted, setMounted] = useState(false);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const heroRef = useInView();
@@ -79,10 +80,10 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted }) => {
             <a href="#pricing" className="hover:text-orange-500 transition-colors">Pricing</a>
           </div>
           <button
-            onClick={onGetStarted}
+            onClick={onLogin}
             className="px-6 py-3 bg-black dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg hover:shadow-orange-500/25 hover:scale-105"
           >
-            Get Started
+            Login
           </button>
         </div>
       </nav>

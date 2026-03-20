@@ -1758,7 +1758,7 @@ const App: React.FC = () => {
   }
 
   if (view === 'MARKETING') {
-    return <MarketingPage onGetStarted={() => setView('REGISTER')} />;
+    return <MarketingPage onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} />;
   }
 
   if (view === 'REGISTER') {
