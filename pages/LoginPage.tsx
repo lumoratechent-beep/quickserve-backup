@@ -22,10 +22,10 @@ const LoginPage: React.FC<Props> = ({ onLogin, onBack, onRegister }) => {
     setIsResuming(true);
     setError('');
     try {
-      const response = await fetch('/api/stripe/resume-checkout', {
+      const response = await fetch('/api/stripe/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ restaurantId: pendingRestaurantId }),
+        body: JSON.stringify({ restaurantId: pendingRestaurantId, source: 'resume' }),
       });
       const data = await response.json();
       if (!response.ok) {

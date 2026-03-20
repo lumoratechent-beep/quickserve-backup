@@ -41,10 +41,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { restaurantId, planId, mode, source, billingInterval, renewFrom, changeType } = req.body || {};
+  let { restaurantId, planId, mode, source, billingInterval, renewFrom, changeType } = req.body || {};
   // mode: 'subscription' (recurring) or 'payment' (one-time month)
-  // source: 'upgrade' (from in-app upgrade/downgrade modal) or undefined (registration)
+  // source: 'upgrade' | 'resume' | 'renew' | undefined (registration)
   // billingInterval: 'monthly' | 'annual' (default: 'monthly')
+
+  // Resume flow: user with incomplete registration — look up plan from DB
+  if (source === 'resume') {
+    if (!restaurantId) {
+      return res.status(400).json({ error: 'restaurantId is required.' });
+    }
+    // Verify the user is still inactive
+    const { data: vendorUser, error: vendorErr } = await supabase
+      .from('users')
+      .select('id, is_active')
+      .eq('restaurant_id', restaurantId)
+      .eq('role', 'VENDOR')
+      .single();
+    if (vendorErr || !vendorUser) {
+      return res.status(404).json({ error: 'No registration found for this restaurant.' });
+    }
+    if (vendorUser.is_active) {
+      return res.status(409).json({ error: 'This account is already active.' });
+    }
+    // Look up the pending subscription plan
+    const { data: pendingSub } = await supabase
+      .from('subscriptions')
+      .select('plan_id')
+      .eq('restaurant_id', restaurantId)
+      .single();
+    if (!pendingSub?.plan_id) {
+      return res.status(404).json({ error: 'No subscription found. Please register again.' });
+    }
+    planId = pendingSub.plan_id;
+    mode = 'subscription';
+    billingInterval = billingInterval || 'monthly';
+  }
 
   if (!restaurantId || !planId) {
     return res.status(400).json({ error: 'restaurantId and planId are required.' });

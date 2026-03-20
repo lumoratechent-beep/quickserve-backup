@@ -298,8 +298,69 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
+      // GET/POST /api/stripe/billing?action=cleanup-stale
+      // Deletes incomplete registrations (pending_payment) older than 24 hours
+      case 'cleanup-stale': {
+        // Verify cron secret to prevent unauthorized calls
+        const authHeader = req.headers.authorization;
+        const cronSecret = process.env.CRON_SECRET;
+        if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+        const { data: staleSubs, error: fetchError } = await supabase
+          .from('subscriptions')
+          .select('restaurant_id, created_at')
+          .eq('status', 'pending_payment')
+          .lt('created_at', cutoff);
+
+        if (fetchError) {
+          console.error('Error fetching stale subscriptions:', fetchError);
+          return res.status(500).json({ error: 'Failed to fetch stale registrations.' });
+        }
+
+        if (!staleSubs || staleSubs.length === 0) {
+          return res.status(200).json({ message: 'No stale registrations found.', deleted: 0 });
+        }
+
+        const staleRestaurantIds = staleSubs.map(s => s.restaurant_id);
+        let deletedCount = 0;
+
+        for (const staleRestId of staleRestaurantIds) {
+          try {
+            const { data: staleUser } = await supabase
+              .from('users')
+              .select('id, is_active')
+              .eq('restaurant_id', staleRestId)
+              .eq('role', 'VENDOR')
+              .single();
+
+            if (staleUser && staleUser.is_active) continue;
+
+            await supabase.from('subscriptions').delete().eq('restaurant_id', staleRestId);
+            if (staleUser) {
+              await supabase.from('users').delete().eq('id', staleUser.id);
+            }
+            await supabase.from('restaurants').update({ vendor_id: null }).eq('id', staleRestId);
+            await supabase.from('restaurants').delete().eq('id', staleRestId);
+            deletedCount++;
+            console.log(`Cleaned up stale registration: restaurant ${staleRestId}`);
+          } catch (cleanupErr) {
+            console.error(`Failed to cleanup restaurant ${staleRestId}:`, cleanupErr);
+          }
+        }
+
+        return res.status(200).json({
+          message: `Cleaned up ${deletedCount} stale registration(s).`,
+          deleted: deletedCount,
+          total_found: staleRestaurantIds.length,
+        });
+      }
+
       default:
-        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, toggle-auto-renew, renew-direct' });
+        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, toggle-auto-renew, renew-direct, cleanup-stale' });
     }
   } catch (err: any) {
     console.error(`Stripe billing error (${action}):`, err);
