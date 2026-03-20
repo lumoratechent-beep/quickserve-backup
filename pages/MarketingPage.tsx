@@ -159,7 +159,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
       </nav>
 
       {/* ═══════════════════════ HERO SECTION ═══════════════════════ */}
-      <section ref={heroRef.ref} className="pt-36 pb-24 px-6 relative overflow-hidden">
+      <section ref={heroRef.ref} className="pt-36 pb-24 px-6 lg:pt-24 lg:pb-10 relative overflow-hidden">
         {/* Animated grid background */}
         <div className="absolute inset-0 marketing-grid-bg opacity-40 dark:opacity-20 pointer-events-none" />
         {/* Gradient orbs */}
@@ -168,7 +168,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
 
         <div className="max-w-7xl mx-auto text-center relative z-10">
           {/* Badge */}
-          <div className={`inline-flex items-center gap-2.5 px-5 py-2.5 bg-orange-500/10 dark:bg-orange-500/15 text-orange-600 dark:text-orange-400 rounded-full text-[10px] font-black uppercase tracking-[0.2em] mb-10 border border-orange-500/20 transition-all duration-700 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
+          <div className={`inline-flex items-center gap-2.5 px-5 py-2.5 bg-orange-500/10 dark:bg-orange-500/15 text-orange-600 dark:text-orange-400 rounded-full text-[10px] font-black uppercase tracking-[0.2em] mb-10 lg:mb-4 border border-orange-500/20 transition-all duration-700 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
@@ -177,7 +177,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
           </div>
 
           {/* Heading */}
-          <h1 className={`text-5xl sm:text-6xl md:text-[6.5rem] font-black text-gray-900 dark:text-white leading-[0.85] tracking-tighter mb-8 transition-all duration-700 delay-150 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          <h1 className={`text-5xl sm:text-6xl md:text-[4.5rem] xl:text-[5.5rem] font-black text-gray-900 dark:text-white leading-[0.85] tracking-tighter mb-8 lg:mb-4 transition-all duration-700 delay-150 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             THE COMPLETE <br />
             <span className="relative inline-block">
               <span className="text-orange-500 hero-text-glow">RESTAURANT</span>
@@ -187,7 +187,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
           </h1>
 
           {/* Desc */}
-          <p className={`text-base sm:text-lg md:text-xl text-gray-700 dark:text-gray-300 max-w-2xl mx-auto mb-12 font-medium leading-relaxed transition-all duration-700 delay-300 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          <p className={`text-base sm:text-lg md:text-xl lg:text-base text-gray-700 dark:text-gray-300 max-w-2xl mx-auto mb-12 lg:mb-7 font-medium leading-relaxed transition-all duration-700 delay-300 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             QR ordering, table management, kitchen display system, staff POS — everything your restaurant needs. No expensive hardware. No hidden fees. Live in 5 minutes.
           </p>
 
@@ -195,7 +195,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
           <div className={`flex flex-col sm:flex-row items-center justify-center gap-4 transition-all duration-700 delay-[450ms] ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             <button
               onClick={onGetStarted}
-              className="group w-full sm:w-auto px-10 py-5 bg-orange-500 text-white rounded-2xl font-black text-lg shadow-2xl shadow-orange-500/25 hover:bg-orange-600 hover:scale-105 hover:shadow-orange-500/40 transition-all flex items-center justify-center gap-3 shimmer-btn relative overflow-hidden"
+              className="group w-full sm:w-auto px-10 py-5 lg:py-3.5 bg-orange-500 text-white rounded-2xl font-black text-lg lg:text-base shadow-2xl shadow-orange-500/25 hover:bg-orange-600 hover:scale-105 hover:shadow-orange-500/40 transition-all flex items-center justify-center gap-3 shimmer-btn relative overflow-hidden"
             >
               Start Free Trial <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
             </button>
@@ -203,14 +203,14 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
               href="https://wa.me/601154036303?text=Hello%2C%20I%20am%20interested%20to%20know%20about%20the%20QuickServe%20QR%20system"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full sm:w-auto px-10 py-5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl font-black text-lg border border-gray-200 dark:border-gray-700 hover:border-orange-500 hover:scale-105 transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/5"
+              className="w-full sm:w-auto px-10 py-5 lg:py-3.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl font-black text-lg lg:text-base border border-gray-200 dark:border-gray-700 hover:border-orange-500 hover:scale-105 transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/5"
             >
               <MessageSquare size={18} /> Contact for Demo
             </a>
           </div>
 
           {/* Trust row */}
-          <div className={`flex flex-wrap items-center justify-center gap-6 mt-14 transition-all duration-700 delay-[600ms] ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <div className={`flex flex-wrap items-center justify-center gap-6 mt-14 lg:mt-6 transition-all duration-700 delay-[600ms] ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             {['No credit card required', 'Setup in 5 minutes', `${TRIAL_DAYS}-day free trial`].map((t, i) => (
               <span key={i} className="flex items-center gap-2 text-xs font-bold text-gray-600 dark:text-gray-500 uppercase tracking-wider">
                 <Check size={14} className="text-green-500" /> {t}
