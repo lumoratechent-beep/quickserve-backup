@@ -6917,6 +6917,11 @@ const PosOnlyView: React.FC<Props> = ({
         .saved-table-scroll {
           overflow-x: auto;
           padding-bottom: 2px;
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .saved-table-scroll::-webkit-scrollbar {
+          display: none;
         }
         .saved-table-row {
           --visible-cols: 3;
