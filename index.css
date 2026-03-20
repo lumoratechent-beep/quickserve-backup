@@ -156,3 +156,15 @@
 .hero-text-glow {
   text-shadow: 0 0 40px rgba(249,115,22,0.15);
 }
+
+/* Partner logo carousel infinite scroll */
+.partner-carousel-track {
+  animation: partnerScroll 30s linear infinite;
+}
+.partner-carousel-track:hover {
+  animation-play-state: paused;
+}
+@keyframes partnerScroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}

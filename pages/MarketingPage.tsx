@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Zap, DollarSign, MessageSquare, ArrowRight, ShieldCheck, Globe, Clock, Check, QrCode, Smartphone, Monitor, ChefHat, BarChart3, Headphones, ChevronDown, Star, Users, TrendingUp, Wifi, Sun, Moon, MapPin, UtensilsCrossed, PackageCheck, Receipt } from 'lucide-react';
 import { PRICING_PLANS, TRIAL_DAYS } from '../lib/pricingPlans';
+import { supabase } from '../lib/supabase';
 
 // Custom hook: triggers once when element enters viewport
 const useInView = (options?: IntersectionObserverInit) => {
@@ -45,27 +46,6 @@ const useTilt = () => {
   return { ref, transform, handleMouseMove, handleMouseLeave };
 };
 
-// Animated counter hook
-const useCounter = (end: number, duration: number, inView: boolean, suffix = '') => {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    if (!inView) return;
-    let start = 0;
-    const step = end / (duration / 16);
-    const timer = setInterval(() => {
-      start += step;
-      if (start >= end) {
-        setCount(end);
-        clearInterval(timer);
-      } else {
-        setCount(Math.floor(start));
-      }
-    }, 16);
-    return () => clearInterval(timer);
-  }, [end, duration, inView]);
-  return count + suffix;
-};
-
 // FAQ Accordion item
 const FaqItem: React.FC<{ q: string; a: string; isOpen: boolean; onClick: () => void; delay: string; inView: boolean }> = ({ q, a, isOpen, onClick, delay, inView }) => (
   <div
@@ -106,11 +86,23 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
   const laptopTilt = useTilt();
   const phoneTilt = useTilt();
 
-  const vendorCount = useCounter(500, 1400, statsRef.isInView, '+');
-  const orderCount = useCounter(50, 1400, statsRef.isInView, 'K+');
-  const uptimeCount = useCounter(99, 1200, statsRef.isInView, '.9%');
+  const [partnerLogos, setPartnerLogos] = useState<{ name: string; logo: string }[]>([]);
 
   useEffect(() => { setMounted(true); }, []);
+
+  // Fetch vendor logos for the partner carousel
+  useEffect(() => {
+    const fetchLogos = async () => {
+      const { data } = await supabase
+        .from('restaurants')
+        .select('name, logo')
+        .eq('is_online', true)
+        .not('logo', 'is', null)
+        .neq('logo', '');
+      if (data) setPartnerLogos(data);
+    };
+    fetchLogos();
+  }, []);
 
   const faqs = [
     { q: 'Do I need any special hardware?', a: 'No! QuickServe runs on any device with a web browser — your existing phone, tablet, or laptop. No POS terminal or printer required to get started.' },
@@ -187,7 +179,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
           </h1>
 
           {/* Desc */}
-          <p className={`text-base sm:text-lg md:text-xl lg:text-base text-gray-700 dark:text-gray-300 max-w-2xl mx-auto mb-12 lg:mb-7 font-medium leading-relaxed transition-all duration-700 delay-300 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          <p className={`text-base sm:text-lg md:text-xl lg:text-base text-gray-700 dark:text-gray-300 max-w-2xl mx-auto mb-16 lg:mb-12 font-medium leading-relaxed transition-all duration-700 delay-300 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             QR ordering, table management, kitchen display system, staff POS — everything your restaurant needs. No expensive hardware. No hidden fees. Live in 5 minutes.
           </p>
 
@@ -195,15 +187,15 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
           <div className={`flex flex-col sm:flex-row items-center justify-center gap-4 transition-all duration-700 delay-[450ms] ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             <button
               onClick={onGetStarted}
-              className="group w-full sm:w-auto px-10 py-5 lg:py-3.5 bg-orange-500 text-white rounded-2xl font-black text-lg lg:text-base shadow-2xl shadow-orange-500/25 hover:bg-orange-600 hover:scale-105 hover:shadow-orange-500/40 transition-all flex items-center justify-center gap-3 shimmer-btn relative overflow-hidden"
+              className="group w-full sm:w-auto px-12 py-5 bg-orange-500 text-white rounded-2xl font-black text-lg shadow-2xl shadow-orange-500/25 hover:bg-orange-600 hover:scale-105 hover:shadow-orange-500/40 transition-all flex items-center justify-center gap-3 shimmer-btn relative overflow-hidden"
             >
-              Start Free Trial <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+              Start Free Trial <ArrowRight size={22} className="group-hover:translate-x-1 transition-transform" />
             </button>
             <a
               href="https://wa.me/601154036303?text=Hello%2C%20I%20am%20interested%20to%20know%20about%20the%20QuickServe%20QR%20system"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full sm:w-auto px-10 py-5 lg:py-3.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl font-black text-lg lg:text-base border border-gray-200 dark:border-gray-700 hover:border-orange-500 hover:scale-105 transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/5"
+              className="w-full sm:w-auto px-12 py-5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl font-black text-lg border border-gray-200 dark:border-gray-700 hover:border-orange-500 hover:scale-105 transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/5"
             >
               <MessageSquare size={18} /> Contact for Demo
             </a>
@@ -220,20 +212,25 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
         </div>
       </section>
 
-      {/* ═══════════════════════ STATS MARQUEE ═══════════════════════ */}
-      <section ref={statsRef.ref} className="py-6 border-y border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
-        <div className="max-w-5xl mx-auto px-6 grid grid-cols-3 gap-4">
-          {[
-            { value: vendorCount, label: 'Active Vendors' },
-            { value: orderCount, label: 'Orders Processed' },
-            { value: uptimeCount, label: 'Uptime' },
-          ].map((s, i) => (
-            <div key={i} className={`text-center transition-all duration-700 ${statsRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: `${i * 100}ms` }}>
-              <div className="text-2xl sm:text-4xl font-black text-orange-500 tabular-nums">{s.value}</div>
-              <div className="text-[10px] sm:text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-widest mt-1">{s.label}</div>
-            </div>
-          ))}
+      {/* ═══════════════════════ TRUSTED BY / PARTNER LOGOS ═══════════════════════ */}
+      <section ref={statsRef.ref} className="py-12 relative overflow-hidden bg-white dark:bg-gray-950">
+        <div className={`text-center mb-8 transition-all duration-700 ${statsRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
+          <span className="text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">Trusted by restaurants across Malaysia</span>
         </div>
+        {partnerLogos.length > 0 && (
+          <div className="relative">
+            {/* Fade edges */}
+            <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-white dark:from-gray-950 to-transparent z-10 pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-white dark:from-gray-950 to-transparent z-10 pointer-events-none" />
+            <div className="partner-carousel-track flex items-center gap-16 w-max">
+              {[...partnerLogos, ...partnerLogos].map((p, i) => (
+                <div key={i} className="flex-shrink-0 flex items-center justify-center h-14 w-28 grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all duration-500">
+                  <img src={p.logo} alt={p.name} className="max-h-full max-w-full object-contain" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ═══════════════════════ FEATURES BENTO GRID ═══════════════════════ */}
