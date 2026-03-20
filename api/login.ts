@@ -35,7 +35,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (data.is_active === false) {
-      return res.status(403).json({ error: 'Your account is not yet active. Please complete card setup via the registration link, or contact support.' });
+      // Return restaurant_id so the frontend can offer "Continue Registration"
+      return res.status(403).json({
+        error: 'Your account is not yet active. Please complete card setup to activate your account.',
+        code: 'ACCOUNT_INACTIVE',
+        restaurantId: data.restaurant_id,
+      });
     }
 
     // Block KITCHEN users if the restaurant's Kitchen Display System is disabled

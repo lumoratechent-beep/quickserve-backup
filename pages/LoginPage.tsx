@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { User } from '../src/types';
-import { User as UserIcon, Lock, ChevronLeft, AlertCircle } from 'lucide-react';
+import { User as UserIcon, Lock, ChevronLeft, AlertCircle, ArrowRight } from 'lucide-react';
 
 interface Props {
   onLogin: (user: User) => void;
@@ -14,10 +14,38 @@ const LoginPage: React.FC<Props> = ({ onLogin, onBack, onRegister }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingRestaurantId, setPendingRestaurantId] = useState<string | null>(null);
+  const [isResuming, setIsResuming] = useState(false);
+
+  const handleResumeCheckout = async () => {
+    if (!pendingRestaurantId) return;
+    setIsResuming(true);
+    setError('');
+    try {
+      const response = await fetch('/api/stripe/resume-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ restaurantId: pendingRestaurantId }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.error || 'Failed to resume checkout. Please try again.');
+        return;
+      }
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch {
+      setError('Connection error. Please try again later.');
+    } finally {
+      setIsResuming(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setPendingRestaurantId(null);
     setIsSubmitting(true);
 
     try {
@@ -32,6 +60,9 @@ const LoginPage: React.FC<Props> = ({ onLogin, onBack, onRegister }) => {
       const data = await response.json();
 
       if (!response.ok) {
+        if (data.code === 'ACCOUNT_INACTIVE' && data.restaurantId) {
+          setPendingRestaurantId(data.restaurantId);
+        }
         setError(data.error || 'Invalid username or password. Please try again.');
         return;
       }
@@ -68,9 +99,26 @@ const LoginPage: React.FC<Props> = ({ onLogin, onBack, onRegister }) => {
         <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl shadow-gray-200 dark:shadow-none border border-gray-100 dark:border-gray-700 p-8 md:p-10">
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
-              <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-sm font-medium border border-red-100 dark:border-red-900/40">
-                <AlertCircle size={18} className="shrink-0 mt-0.5" />
-                <p>{error}</p>
+              <div className="flex flex-col gap-3 p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-sm font-medium border border-red-100 dark:border-red-900/40">
+                <div className="flex items-start gap-3">
+                  <AlertCircle size={18} className="shrink-0 mt-0.5" />
+                  <p>{error}</p>
+                </div>
+                {pendingRestaurantId && (
+                  <button
+                    type="button"
+                    onClick={handleResumeCheckout}
+                    disabled={isResuming}
+                    className="w-full py-3 bg-orange-500 text-white rounded-xl font-bold text-sm shadow-md hover:bg-orange-600 hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isResuming ? 'Redirecting to payment...' : (
+                      <>
+                        Complete Registration
+                        <ArrowRight size={16} />
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             )}
 
