@@ -221,9 +221,9 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
             <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-white dark:from-gray-950 to-transparent z-10 pointer-events-none" />
             <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-white dark:from-gray-950 to-transparent z-10 pointer-events-none" />
             <div className="overflow-hidden">
-              <div className="partner-carousel-track flex items-center gap-8 w-max">
+              <div className="partner-carousel-track flex items-center gap-12 w-max">
                 {[...partnerLogos, ...partnerLogos].map((p, i) => (
-                  <div key={i} className={`flex-shrink-0 flex items-center justify-center grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all duration-500 ${p.crop_shape === 'circle' ? 'rounded-full overflow-hidden' : ''}`} style={{ width: p.display_width, height: p.display_height }}>
+                  <div key={i} className={`flex-shrink-0 flex items-center justify-center w-20 h-12 grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all duration-500 ${p.crop_shape === 'circle' ? 'rounded-full overflow-hidden' : ''}`}>
                     <img src={p.url} alt={p.alt} className="max-h-full max-w-full object-contain" />
                   </div>
                 ))}
