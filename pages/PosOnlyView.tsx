@@ -431,6 +431,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [tableRowsDraft, setTableRowsDraft] = useState<string>('3');
   const [tableColumnsDraft, setTableColumnsDraft] = useState<string>('4');
   const [tableColPage, setTableColPage] = useState(0);
+  const tableSwipeStartX = useRef<number | null>(null);
 
   // Payment types
   const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>(() => {
@@ -982,8 +983,8 @@ const PosOnlyView: React.FC<Props> = ({
   const selectedQrGrandTotal = useMemo(() => selectedQrOrderSubtotal + selectedQrTaxTotal, [selectedQrOrderSubtotal, selectedQrTaxTotal]);
 
   const effectiveTableCount = Math.max(1, Number(featureSettings.tableCount) || 1);
-  const effectiveTableRows = Math.max(1, Number(featureSettings.tableRows) || 1);
   const effectiveTableCols = Math.min(20, Math.max(1, Number(featureSettings.tableColumns) || 1));
+  const effectiveTableRows = Math.ceil(effectiveTableCount / effectiveTableCols);
 
   const tableLabels = useMemo(() => {
     return Array.from({ length: effectiveTableCount }, (_, idx) => `Table ${idx + 1}`);
@@ -2088,11 +2089,10 @@ const PosOnlyView: React.FC<Props> = ({
 
   const handleSaveTableManagementChanges = () => {
     const nextTableCount = parsePositiveIntegerDraft(tableCountDraft);
-    const nextTableRows = parsePositiveIntegerDraft(tableRowsDraft);
     const nextTableColumns = parsePositiveIntegerDraft(tableColumnsDraft);
 
-    if (!nextTableCount || !nextTableRows || !nextTableColumns) {
-      toast('Table count, rows, and columns cannot be empty.', 'error');
+    if (!nextTableCount || !nextTableColumns) {
+      toast('Table count and columns cannot be empty.', 'error');
       resetTableManagementDraft();
       return;
     }
@@ -2103,13 +2103,15 @@ const PosOnlyView: React.FC<Props> = ({
       return;
     }
 
+    const autoRows = Math.ceil(nextTableCount / nextTableColumns);
     setFeatureSettings(prev => ({
       ...prev,
       tableCount: nextTableCount,
-      tableRows: nextTableRows,
+      tableRows: autoRows,
       tableColumns: nextTableColumns,
     }));
-    toast('Table management settings saved.', 'success');
+    setTableColPage(0);
+    toast('Table layout saved.', 'success');
   };
 
   const handleAddPaymentType = () => {
@@ -3254,10 +3256,10 @@ const PosOnlyView: React.FC<Props> = ({
       }`}>
         <div>
           <p className="text-xs font-black dark:text-white">Table Layout</p>
-          <p className="text-[9px] text-gray-400 mt-0.5">Configure table count and row/column arrangement — you may type to edit</p>
+          <p className="text-[9px] text-gray-400 mt-0.5">Set total tables and columns — rows are calculated automatically</p>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Tables</label>
             <input
@@ -3266,17 +3268,6 @@ const PosOnlyView: React.FC<Props> = ({
               value={tableCountDraft}
               disabled={!featureSettings.savedBillEnabled}
               onChange={e => setTableCountDraft(e.target.value)}
-              className="w-full px-2 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white disabled:bg-gray-300 disabled:dark:bg-gray-800/70 disabled:text-gray-500 disabled:cursor-not-allowed"
-            />
-          </div>
-          <div>
-            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Rows</label>
-            <input
-              type="number"
-              min={1}
-              value={tableRowsDraft}
-              disabled={!featureSettings.savedBillEnabled}
-              onChange={e => setTableRowsDraft(e.target.value)}
               className="w-full px-2 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white disabled:bg-gray-300 disabled:dark:bg-gray-800/70 disabled:text-gray-500 disabled:cursor-not-allowed"
             />
           </div>
@@ -3294,8 +3285,11 @@ const PosOnlyView: React.FC<Props> = ({
           </div>
         </div>
 
+        <p className="text-[9px] text-orange-400 font-bold">
+          Max 3 columns shown per page — if you set more than 3 columns, the table view will paginate and you can swipe or tap the dots to navigate.
+        </p>
+
         {(tableCountDraft !== String(featureSettings.tableCount) ||
-          tableRowsDraft !== String(featureSettings.tableRows) ||
           tableColumnsDraft !== String(featureSettings.tableColumns)) && (
           <div className="flex items-center justify-end gap-2 pt-1 animate-in fade-in slide-in-from-top-1 duration-200">
             <button
@@ -3314,7 +3308,7 @@ const PosOnlyView: React.FC<Props> = ({
             </button>
           </div>
         )}
-        <p className="text-[9px] text-gray-400">Table selection popup follows this arrangement. Extra cells are hidden automatically when table count is reached.</p>
+        <p className="text-[9px] text-gray-400">Rows are auto-calculated: {Math.ceil((parsePositiveIntegerDraft(tableCountDraft) ?? featureSettings.tableCount) / (parsePositiveIntegerDraft(tableColumnsDraft) ?? featureSettings.tableColumns))} row(s) based on current values.</p>
       </div>
     </div>
   );
@@ -4121,7 +4115,18 @@ const PosOnlyView: React.FC<Props> = ({
                         const colStart = safePage * COLS_PER_PAGE;
                         return (
                           <>
-                      <div className="space-y-2">
+                      <div
+                        className="space-y-2"
+                        onTouchStart={e => { tableSwipeStartX.current = e.touches[0].clientX; }}
+                        onTouchEnd={e => {
+                          if (tableSwipeStartX.current === null) return;
+                          const delta = e.changedTouches[0].clientX - tableSwipeStartX.current;
+                          tableSwipeStartX.current = null;
+                          if (Math.abs(delta) < 40) return;
+                          if (delta < 0) setTableColPage(p => Math.min(p + 1, totalColPages - 1));
+                          else setTableColPage(p => Math.max(p - 1, 0));
+                        }}
+                      >
                         {tableRowsForSelection.map((row, rowIdx) => (
                           <div key={`saved-row-${rowIdx}`} className="grid gap-2" style={{ gridTemplateColumns: `repeat(${COLS_PER_PAGE}, minmax(0, 1fr))` }}>
                             {Array.from({ length: COLS_PER_PAGE }, (_, i) => {
