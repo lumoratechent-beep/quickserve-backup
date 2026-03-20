@@ -224,11 +224,11 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
             {/* Fade edges */}
             <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-white dark:from-gray-950 to-transparent z-10 pointer-events-none" />
             <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-white dark:from-gray-950 to-transparent z-10 pointer-events-none" />
-            <div className="overflow-hidden">
+            <div className="overflow-hidden py-6 -my-6">
               <div className="partner-carousel-track flex items-center gap-12 w-max">
                 {repeatedLogos.map((p, i) => (
                   <button key={i} className={`flex-shrink-0 flex items-center justify-center w-20 h-12 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 hover:scale-125 hover:border hover:border-orange-500/40 hover:shadow-lg hover:shadow-orange-500/10 rounded-xl transition-all duration-500 focus:grayscale-0 focus:opacity-100 focus:scale-125 focus:border focus:border-orange-500/40 focus:shadow-lg focus:shadow-orange-500/10 focus:outline-none ${p.crop_shape === 'circle' ? 'rounded-full overflow-hidden' : ''}`}>
-                    <img src={p.url} alt={p.alt} className="max-h-full max-w-full object-contain dark:invert pointer-events-none" />
+                    <img src={p.url} alt={p.alt} className="max-h-full max-w-full object-contain pointer-events-none" />
                   </button>
                 ))}
               </div>
