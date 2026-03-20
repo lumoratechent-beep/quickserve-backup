@@ -1758,7 +1758,7 @@ const App: React.FC = () => {
   }
 
   if (view === 'MARKETING') {
-    return <MarketingPage onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} />;
+    return <MarketingPage onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
   }
 
   if (view === 'REGISTER') {

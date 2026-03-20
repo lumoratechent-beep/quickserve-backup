@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Zap, DollarSign, MessageSquare, ArrowRight, ShieldCheck, Globe, Clock, Check, QrCode, Smartphone, Monitor, ChefHat, BarChart3, Headphones, ChevronDown, Star, Users, TrendingUp, Wifi } from 'lucide-react';
+import { Zap, DollarSign, MessageSquare, ArrowRight, ShieldCheck, Globe, Clock, Check, QrCode, Smartphone, Monitor, ChefHat, BarChart3, Headphones, ChevronDown, Star, Users, TrendingUp, Wifi, Sun, Moon, MapPin, UtensilsCrossed, PackageCheck, Receipt } from 'lucide-react';
 import { PRICING_PLANS, TRIAL_DAYS } from '../lib/pricingPlans';
 
 // Custom hook: triggers once when element enters viewport
@@ -77,7 +77,7 @@ const FaqItem: React.FC<{ q: string; a: string; isOpen: boolean; onClick: () => 
       <ChevronDown size={20} className={`text-orange-500 shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
     </button>
     <div className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-48 pb-6 px-6' : 'max-h-0'}`}>
-      <p className="text-gray-500 dark:text-gray-400 font-medium text-sm leading-relaxed">{a}</p>
+      <p className="text-gray-700 dark:text-gray-400 font-medium text-sm leading-relaxed">{a}</p>
     </div>
   </div>
 );
@@ -85,9 +85,11 @@ const FaqItem: React.FC<{ q: string; a: string; isOpen: boolean; onClick: () => 
 interface Props {
   onGetStarted: () => void;
   onLogin: () => void;
+  isDarkMode?: boolean;
+  onToggleDark?: () => void;
 }
 
-const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin }) => {
+const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onToggleDark }) => {
   const [mounted, setMounted] = useState(false);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -112,9 +114,11 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin }) => {
 
   const faqs = [
     { q: 'Do I need any special hardware?', a: 'No! QuickServe runs on any device with a web browser — your existing phone, tablet, or laptop. No POS terminal or printer required to get started.' },
-    { q: 'How fast can I set up my restaurant?', a: 'Most vendors go live in under 5 minutes. Just register, upload your menu items, and print your QR codes. That\'s it.' },
+    { q: 'How fast can I set up my restaurant?', a: 'Most vendors go live in under 5 minutes. Just register, upload your menu items, set up your tables, and print your QR codes. That\'s it.' },
     { q: 'Is there a contract or lock-in?', a: `No contracts, no lock-in. Pay month-to-month and cancel anytime. Every plan starts with a ${TRIAL_DAYS}-day free trial.` },
-    { q: 'Can I use this for dine-in and takeaway?', a: 'Absolutely. QuickServe supports dine-in QR ordering, counter orders, and takeaway — all from one dashboard.' },
+    { q: 'Does it support a kitchen display system?', a: 'Yes. Orders placed via QR or by staff flow instantly to your kitchen display. You can configure separate kitchen departments and route items accordingly.' },
+    { q: 'Can staff place orders at the table or counter?', a: 'Absolutely. Staff can place dine-in table orders, counter orders, and takeaways — all from any device with a browser. No special hardware needed.' },
+    { q: 'Can I use this for multiple areas or branches?', a: 'Yes. QuickServe supports multiple areas and tables per venue. Multi-branch support is available on higher plans.' },
     { q: 'What happens after the free trial?', a: 'Your selected plan activates automatically. You can change or cancel your plan at any time from the billing page.' },
   ];
 
@@ -128,19 +132,28 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin }) => {
               <img src="/LOGO/9.png" alt="QuickServe" className="h-9 dark:hidden" />
               <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-9 hidden dark:block" />
             </div>
-            <div className="hidden md:flex items-center gap-8 text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-[0.15em]">
+            <div className="hidden md:flex items-center gap-8 text-[11px] font-bold text-gray-700 dark:text-gray-400 uppercase tracking-[0.15em]">
               <a href="#features" className="hover:text-orange-500 transition-colors">Features</a>
               <a href="#how-it-works" className="hover:text-orange-500 transition-colors">How It Works</a>
               <a href="#mockup" className="hover:text-orange-500 transition-colors">Preview</a>
               <a href="#pricing" className="hover:text-orange-500 transition-colors">Pricing</a>
               <a href="#faq" className="hover:text-orange-500 transition-colors">FAQ</a>
             </div>
-            <button
-              onClick={onLogin}
-              className="px-5 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all hover:scale-105"
-            >
-              Login
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={onToggleDark}
+                className="p-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-orange-50 dark:hover:bg-gray-700 hover:text-orange-500 transition-all"
+                title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+              </button>
+              <button
+                onClick={onLogin}
+                className="px-5 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all hover:scale-105"
+              >
+                Login
+              </button>
+            </div>
           </div>
         </div>
       </nav>
@@ -160,22 +173,22 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin }) => {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
             </span>
-            Malaysia's #1 Value Choice
+            Malaysia's #1 Restaurant Platform
           </div>
 
           {/* Heading */}
           <h1 className={`text-5xl sm:text-6xl md:text-[6.5rem] font-black text-gray-900 dark:text-white leading-[0.85] tracking-tighter mb-8 transition-all duration-700 delay-150 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            THE CHEAPEST <br />
+            THE COMPLETE <br />
             <span className="relative inline-block">
-              <span className="text-orange-500 hero-text-glow">QR ORDERING</span>
+              <span className="text-orange-500 hero-text-glow">RESTAURANT</span>
               <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 300 12" fill="none"><path d="M2 8 C50 2, 100 2, 150 6 S250 10, 298 4" stroke="rgb(249,115,22)" strokeWidth="3" strokeLinecap="round" className="marketing-underline-draw" /></svg>
             </span> <br />
-            IN MALAYSIA.
+            MANAGEMENT PLATFORM.
           </h1>
 
           {/* Desc */}
-          <p className={`text-base sm:text-lg md:text-xl text-gray-500 dark:text-gray-400 max-w-2xl mx-auto mb-12 font-medium leading-relaxed transition-all duration-700 delay-300 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            Modernize your restaurant in 5 minutes. No expensive hardware, no hidden fees. Just scan, order, and serve.
+          <p className={`text-base sm:text-lg md:text-xl text-gray-700 dark:text-gray-300 max-w-2xl mx-auto mb-12 font-medium leading-relaxed transition-all duration-700 delay-300 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+            QR ordering, table management, kitchen display system, staff POS — everything your restaurant needs. No expensive hardware. No hidden fees. Live in 5 minutes.
           </p>
 
           {/* CTA Buttons */}
@@ -199,7 +212,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin }) => {
           {/* Trust row */}
           <div className={`flex flex-wrap items-center justify-center gap-6 mt-14 transition-all duration-700 delay-[600ms] ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             {['No credit card required', 'Setup in 5 minutes', `${TRIAL_DAYS}-day free trial`].map((t, i) => (
-              <span key={i} className="flex items-center gap-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+              <span key={i} className="flex items-center gap-2 text-xs font-bold text-gray-600 dark:text-gray-500 uppercase tracking-wider">
                 <Check size={14} className="text-green-500" /> {t}
               </span>
             ))}
@@ -217,7 +230,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin }) => {
           ].map((s, i) => (
             <div key={i} className={`text-center transition-all duration-700 ${statsRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: `${i * 100}ms` }}>
               <div className="text-2xl sm:text-4xl font-black text-orange-500 tabular-nums">{s.value}</div>
-              <div className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">{s.label}</div>
+              <div className="text-[10px] sm:text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-widest mt-1">{s.label}</div>
             </div>
           ))}
         </div>
@@ -228,17 +241,17 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin }) => {
         <div className="max-w-7xl mx-auto">
           <div className={`text-center mb-16 transition-all duration-700 ${featuresRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Why QuickServe</span>
-            <h2 className="text-3xl md:text-5xl font-black dark:text-white uppercase tracking-tighter">Everything You Need</h2>
+            <h2 className="text-3xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Everything You Need</h2>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
-              { icon: <DollarSign size={24} />, title: 'Unbeatable Value', desc: 'Lowest subscription rates in Malaysia. Save up to 70% compared to traditional POS systems.', accent: 'from-orange-500 to-amber-500' },
-              { icon: <Zap size={24} />, title: '5-Min Setup', desc: "No hardware needed. Print QR codes and you're live. Works on any device with a browser.", accent: 'from-yellow-500 to-orange-500' },
-              { icon: <Clock size={24} />, title: 'Real-time Sync', desc: 'Orders hit your kitchen dashboard instantly. Zero missed orders, zero manual errors.', accent: 'from-orange-500 to-red-500' },
-              { icon: <QrCode size={24} />, title: 'QR Ordering', desc: 'Customers scan, browse the menu, and order — all from their phone. No app install needed.', accent: 'from-amber-500 to-orange-500' },
-              { icon: <BarChart3 size={24} />, title: 'Smart Reports', desc: 'Daily sales, item performance, and peak-hour analytics — all in one dashboard.', accent: 'from-orange-600 to-orange-400' },
-              { icon: <Headphones size={24} />, title: '24/7 Support', desc: 'WhatsApp support from real humans. We respond in minutes, not hours.', accent: 'from-orange-400 to-yellow-500' },
+              { icon: <QrCode size={24} />, title: 'QR Ordering', desc: 'Customers scan a table QR code, browse your menu, and order directly from their phone. No app install needed.', accent: 'from-orange-500 to-amber-500' },
+              { icon: <MapPin size={24} />, title: 'Table Management', desc: 'Multiple areas, multiple tables. Manage your floor layout, track table status, and organise dine-in flow effortlessly.', accent: 'from-yellow-500 to-orange-500' },
+              { icon: <ChefHat size={24} />, title: 'Kitchen Display System', desc: 'Orders hit the kitchen screen the moment they are placed. No tickets, no shouting — just a clear live queue by department.', accent: 'from-orange-500 to-red-500' },
+              { icon: <Users size={24} />, title: 'Staff POS & Ordering', desc: 'Waitstaff can place and manage orders from any device at the table. Counter orders and takeaways supported too.', accent: 'from-amber-500 to-orange-500' },
+              { icon: <BarChart3 size={24} />, title: 'Smart Analytics', desc: 'Daily sales, item performance, peak-hour insights, and full order reports — all in one back-office dashboard.', accent: 'from-orange-600 to-orange-400' },
+              { icon: <Zap size={24} />, title: '5-Min Setup', desc: 'No hardware needed. Register, upload your menu, print QR codes, and you\'re live. Works on any device with a browser.', accent: 'from-orange-400 to-yellow-500' },
             ].map((f, i) => (
               <div
                 key={i}
@@ -250,8 +263,8 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin }) => {
                 <div className="w-12 h-12 bg-orange-50 dark:bg-orange-500/10 text-orange-500 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
                   {f.icon}
                 </div>
-                <h3 className="text-lg font-black dark:text-white uppercase tracking-tight mb-2">{f.title}</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium leading-relaxed">{f.desc}</p>
+                <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight mb-2">{f.title}</h3>
+                <p className="text-sm text-gray-700 dark:text-gray-400 font-medium leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -263,18 +276,19 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin }) => {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-orange-500/5 rounded-full blur-[150px] pointer-events-none" />
         <div className="max-w-5xl mx-auto relative z-10">
           <div className={`text-center mb-20 transition-all duration-700 ${howRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-            <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">3 Simple Steps</span>
-            <h2 className="text-3xl md:text-5xl font-black dark:text-white uppercase tracking-tighter">Up & Running in Minutes</h2>
+            <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Simple Steps</span>
+            <h2 className="text-3xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Up & Running in Minutes</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 relative">
             {/* Connector line (desktop) */}
-            <div className="hidden md:block absolute top-16 left-[16.67%] right-[16.67%] h-[2px] bg-gradient-to-r from-orange-500/0 via-orange-500/40 to-orange-500/0" />
+            <div className="hidden md:block absolute top-16 left-[12.5%] right-[12.5%] h-[2px] bg-gradient-to-r from-orange-500/0 via-orange-500/40 to-orange-500/0" />
 
             {[
-              { step: '01', icon: <Monitor size={28} />, title: 'Register & Add Menu', desc: 'Create your account, upload your restaurant menu in minutes. Add images, prices, and categories.' },
-              { step: '02', icon: <QrCode size={28} />, title: 'Print Your QR Codes', desc: 'Generate unique QR codes for each table. Print them and place on tables — done!' },
-              { step: '03', icon: <Smartphone size={28} />, title: 'Start Receiving Orders', desc: 'Customers scan, order from their phones. Orders flow to your dashboard in real-time.' },
+              { step: '01', icon: <Monitor size={28} />, title: 'Register & Build Menu', desc: 'Create your account and upload your full menu with images, prices, categories, and options.' },
+              { step: '02', icon: <MapPin size={28} />, title: 'Set Up Tables & Areas', desc: 'Define your restaurant floor — areas, tables, and QR codes. Print and place in minutes.' },
+              { step: '03', icon: <ChefHat size={28} />, title: 'Configure Kitchen Display', desc: 'Assign menu categories to kitchen departments. Orders route to the right screen automatically.' },
+              { step: '04', icon: <Smartphone size={28} />, title: 'Go Live & Take Orders', desc: 'Customers scan, staff order, kitchen sees — everything in real-time from one unified platform.' },
             ].map((s, i) => (
               <div
                 key={i}
@@ -288,8 +302,8 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin }) => {
                   </div>
                   <span className="absolute -top-2 -right-2 w-8 h-8 bg-orange-500 text-white rounded-full text-[11px] font-black flex items-center justify-center shadow-lg">{s.step}</span>
                 </div>
-                <h3 className="text-lg font-black dark:text-white uppercase tracking-tight mb-3">{s.title}</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium leading-relaxed max-w-xs mx-auto">{s.desc}</p>
+                <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight mb-3">{s.title}</h3>
+                <p className="text-sm text-gray-700 dark:text-gray-400 font-medium leading-relaxed max-w-xs mx-auto">{s.desc}</p>
               </div>
             ))}
           </div>
@@ -301,8 +315,8 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin }) => {
         <div className="max-w-7xl mx-auto px-6">
           <div className={`text-center mb-16 transition-all duration-700 ${mockupRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">See It In Action</span>
-            <h2 className="text-3xl md:text-5xl font-black dark:text-white uppercase tracking-tighter mb-4">Powerful Simplicity</h2>
-            <p className="text-gray-500 dark:text-gray-400 font-medium">One system, two perfectly crafted experiences.</p>
+            <h2 className="text-3xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter mb-4">Powerful Simplicity</h2>
+            <p className="text-gray-700 dark:text-gray-400 font-medium">One platform, beautifully crafted for every role.</p>
           </div>
 
           <div className="relative flex flex-col lg:flex-row items-center justify-center gap-12 lg:gap-16">
@@ -364,7 +378,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin }) => {
         <div className="max-w-6xl mx-auto">
           <div className={`text-center mb-16 transition-all duration-700 ${testimonialsRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Loved By Vendors</span>
-            <h2 className="text-3xl md:text-5xl font-black dark:text-white uppercase tracking-tighter">What They Say</h2>
+            <h2 className="text-3xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">What They Say</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -381,14 +395,47 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin }) => {
                 <div className="flex gap-1 mb-4">
                   {[...Array(5)].map((_, j) => <Star key={j} size={14} className="fill-orange-400 text-orange-400" />)}
                 </div>
-                <p className="text-gray-600 dark:text-gray-300 font-medium text-sm leading-relaxed mb-6">"{t.text}"</p>
+                <p className="text-gray-700 dark:text-gray-300 font-medium text-sm leading-relaxed mb-6">"{t.text}"</p>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-orange-500 text-white rounded-full flex items-center justify-center font-black text-sm">{t.avatar}</div>
                   <div>
-                    <div className="font-bold text-sm dark:text-white">{t.name}</div>
-                    <div className="text-xs text-gray-400">{t.biz}</div>
+                    <div className="font-bold text-sm text-gray-900 dark:text-white">{t.name}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{t.biz}</div>
                   </div>
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════ COMING SOON — BACK OFFICE ═══════════════════════ */}
+      <section className="py-24 px-6 bg-white dark:bg-gray-950 relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[400px] bg-orange-500/5 dark:bg-orange-500/10 rounded-full blur-[150px] pointer-events-none" />
+        <div className="max-w-6xl mx-auto relative z-10">
+          <div className="text-center mb-14">
+            <span className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500/10 text-orange-600 dark:text-orange-400 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border border-orange-500/20 mb-6">
+              <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse inline-block" />
+              Coming to Back Office
+            </span>
+            <h2 className="text-3xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter mb-4">The Platform That Grows<br />With Your Business</h2>
+            <p className="text-gray-700 dark:text-gray-400 font-medium max-w-xl mx-auto">We are building a complete back-office suite — so you never need another tool.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {[
+              { icon: <PackageCheck size={22} />, title: 'Stock Management', desc: 'Track ingredient stock levels, get low-stock alerts, and tie usage directly to menu items.' },
+              { icon: <Receipt size={22} />, title: 'Billing & Invoicing', desc: 'Generate e-invoices, manage SST, and keep all your billing records in one place.' },
+              { icon: <TrendingUp size={22} />, title: 'P&L Analysis', desc: 'Visualise your revenue vs costs in real-time. Know exactly where your restaurant is profitable.' },
+              { icon: <BarChart3 size={22} />, title: 'Sales Management', desc: 'Deep dive into sales trends, compare periods, and make smarter menu and staffing decisions.' },
+            ].map((f, i) => (
+              <div key={i} className="group relative p-6 bg-gray-50 dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 hover:border-orange-500/40 transition-all duration-500 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-orange-500/5">
+                <div className="absolute top-4 right-4 px-2 py-0.5 bg-orange-500/10 text-orange-500 text-[9px] font-black uppercase tracking-widest rounded-full">Soon</div>
+                <div className="w-11 h-11 bg-orange-50 dark:bg-orange-500/10 text-orange-500 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                  {f.icon}
+                </div>
+                <h3 className="text-base font-black text-gray-900 dark:text-white uppercase tracking-tight mb-2">{f.title}</h3>
+                <p className="text-sm text-gray-700 dark:text-gray-400 font-medium leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -507,7 +554,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin }) => {
         <div className="max-w-2xl mx-auto">
           <div className={`text-center mb-14 transition-all duration-700 ${faqRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">FAQ</span>
-            <h2 className="text-3xl md:text-5xl font-black dark:text-white uppercase tracking-tighter">Got Questions?</h2>
+            <h2 className="text-3xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Got Questions?</h2>
           </div>
 
           <div className="space-y-3">
