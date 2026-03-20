@@ -159,7 +159,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
       </nav>
 
       {/* ═══════════════════════ HERO SECTION ═══════════════════════ */}
-      <section ref={heroRef.ref} className="pt-36 pb-24 px-6 lg:pt-24 lg:pb-10 relative overflow-hidden">
+      <section ref={heroRef.ref} className="min-h-screen flex flex-col items-center justify-center px-6 relative overflow-hidden">
         {/* Animated grid background */}
         <div className="absolute inset-0 marketing-grid-bg opacity-40 dark:opacity-20 pointer-events-none" />
         {/* Gradient orbs */}
