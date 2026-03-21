@@ -561,7 +561,7 @@ const AdminView: React.FC<Props> = ({
       setIncomeHasMore(data.hasMore);
       setIncomeLastId(data.lastId);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to load income');
+      toast(err.message || 'Failed to load income', 'error');
     } finally {
       setIncomeLoading(false);
     }
