@@ -445,6 +445,9 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
         </div>
       </section>
 
+      {/* ── Gradient transition: white → dark ── */}
+      <div className="h-32 bg-gradient-to-b from-white dark:from-gray-950 to-gray-950 pointer-events-none" />
+
       {/* ═══════════════════════ PRICING ═══════════════════════ */}
       <section id="pricing" ref={trustRef.ref} className="py-24 bg-gray-950 text-white overflow-hidden relative">
         {/* Subtle grid */}
@@ -552,6 +555,9 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
         </div>
       </section>
 
+      {/* ── Gradient transition: dark → white ── */}
+      <div className="h-32 bg-gradient-to-b from-gray-950 to-white dark:to-gray-950 pointer-events-none" />
+
       {/* ═══════════════════════ FAQ ═══════════════════════ */}
       <section id="faq" ref={faqRef.ref} className="py-24 px-6">
         <div className="max-w-2xl mx-auto">
@@ -576,65 +582,59 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
         </div>
       </section>
 
-      {/* ═══════════════════════ FINAL CTA ═══════════════════════ */}
-      <section ref={ctaRef.ref} className="py-24 px-6 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-orange-500 to-orange-600" />
-        <div className="absolute inset-0 marketing-grid-bg opacity-10 pointer-events-none" />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-[100px] pointer-events-none" />
+      {/* ── Gradient transition: white → orange ── */}
+      <div className="h-24 bg-gradient-to-b from-white dark:from-gray-950 to-orange-500 pointer-events-none" />
 
-        <div className={`max-w-3xl mx-auto text-center relative z-10 transition-all duration-700 ${ctaRef.isInView ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'}`}>
-          <h2 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tighter mb-6 leading-tight">
-            Ready to Modernize<br />Your Restaurant?
+      {/* ═══════════════════════ FINAL CTA (compact bar) ═══════════════════════ */}
+      <section ref={ctaRef.ref} className="py-5 px-6 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-orange-600" />
+
+        <div className={`max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 transition-all duration-700 ${ctaRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+          <h2 className="text-lg md:text-xl font-black text-white uppercase tracking-tight">
+            Ready to Modernize Your Restaurant? Start your free {TRIAL_DAYS}-day trial.
           </h2>
-          <p className="text-white/80 font-medium text-lg mb-10 max-w-lg mx-auto">
-            Join hundreds of Malaysian restaurants already using QuickServe. Start your free {TRIAL_DAYS}-day trial today.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={onGetStarted}
-              className="group w-full sm:w-auto px-10 py-5 bg-white text-orange-600 rounded-2xl font-black text-lg shadow-2xl shadow-black/20 hover:bg-gray-50 hover:scale-105 transition-all flex items-center justify-center gap-3"
+              className="group px-6 py-2.5 bg-white text-orange-600 rounded-xl font-black text-sm shadow-lg hover:bg-gray-50 hover:scale-105 transition-all flex items-center gap-2"
             >
-              Start Free Trial <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+              Start Free Trial <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
             </button>
             <a
               href="https://wa.me/601154036303?text=Hello%2C%20I%20am%20interested%20to%20know%20about%20the%20QuickServe%20QR%20system"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full sm:w-auto px-10 py-5 bg-white/20 text-white rounded-2xl font-black text-lg hover:bg-white/30 hover:scale-105 transition-all flex items-center justify-center gap-2 backdrop-blur-sm border border-white/20"
+              className="px-6 py-2.5 bg-white/20 text-white rounded-xl font-black text-sm hover:bg-white/30 hover:scale-105 transition-all flex items-center gap-2 backdrop-blur-sm border border-white/20"
             >
-              <MessageSquare size={18} /> WhatsApp Us
+              <MessageSquare size={14} /> WhatsApp
             </a>
           </div>
         </div>
       </section>
 
-      {/* ═══════════════════════ FOOTER ═══════════════════════ */}
-      <footer ref={footerRef.ref} className="py-16 px-6 bg-gray-950 text-white border-t border-gray-800">
-        <div className={`max-w-7xl mx-auto transition-all duration-700 ${footerRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="flex flex-col md:flex-row items-center justify-between gap-8 mb-12">
-            <div className="flex items-center gap-3">
-              <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-10" />
-            </div>
-            <div className="flex flex-col sm:flex-row items-center gap-6">
-              <a
-                href="https://wa.me/601154036303?text=Hello%2C%20I%20am%20interested%20to%20know%20about%20the%20QuickServe%20QR%20system"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-white/50 hover:text-orange-500 transition-colors text-sm font-bold"
-              >
-                <MessageSquare size={16} className="text-orange-500" />
-                +60 11-5403 6303
-              </a>
-              <div className="w-1 h-1 bg-white/20 rounded-full hidden sm:block" />
-              <div className="flex items-center gap-2 text-white/50 text-sm font-bold">
-                <ShieldCheck size={16} className="text-orange-500" />
-                hello@quickserve.my
-              </div>
-            </div>
+      {/* ── Gradient transition: orange → dark ── */}
+      <div className="h-16 bg-gradient-to-b from-orange-500 to-gray-950 pointer-events-none" />
+
+      {/* ═══════════════════════ FOOTER (compact bar) ═══════════════════════ */}
+      <footer ref={footerRef.ref} className="py-3 px-6 bg-gray-950 text-white">
+        <div className={`max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 transition-all duration-700 ${footerRef.isInView ? 'opacity-100' : 'opacity-0'}`}>
+          <div className="flex items-center gap-4">
+            <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-6" />
+            <a
+              href="https://wa.me/601154036303?text=Hello%2C%20I%20am%20interested%20to%20know%20about%20the%20QuickServe%20QR%20system"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-white/40 hover:text-orange-500 transition-colors text-xs font-bold"
+            >
+              <MessageSquare size={12} className="text-orange-500" />
+              +60 11-5403 6303
+            </a>
+            <span className="flex items-center gap-1.5 text-white/40 text-xs font-bold">
+              <ShieldCheck size={12} className="text-orange-500" />
+              hello@quickserve.my
+            </span>
           </div>
-          <div className="border-t border-white/10 pt-8 text-center">
-            <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em]">&copy; 2026 QuickServe Malaysia. All Rights Reserved.</p>
-          </div>
+          <p className="text-[9px] font-black text-white/25 uppercase tracking-[0.2em]">&copy; 2026 QuickServe Malaysia. All Rights Reserved.</p>
         </div>
       </footer>
     </div>
