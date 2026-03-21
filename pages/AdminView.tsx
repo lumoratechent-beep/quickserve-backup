@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, PlatformAccess, Subscription, PlanId } from '../src/types';
 import { uploadImage } from '../lib/storage';
-import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical } from 'lucide-react';
+import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText } from 'lucide-react';
 import ImageCropModal from '../components/ImageCropModal';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
@@ -465,7 +465,18 @@ const AdminView: React.FC<Props> = ({
   onFetchAllFilteredOrders,
   onFetchStats
 }) => {
-  const [activeTab, setActiveTab] = useState<'VENDORS' | 'LOCATIONS' | 'REPORTS' | 'SYSTEM'>('VENDORS');
+  const [activeTab, setActiveTab] = useState<'VENDORS' | 'LOCATIONS' | 'REPORTS' | 'INCOME' | 'SYSTEM'>('VENDORS');
+
+  // Income tab state
+  const [incomeTransactions, setIncomeTransactions] = useState<any[]>([]);
+  const [incomeSummary, setIncomeSummary] = useState<{ totalGross: number; totalFees: number; totalNet: number; count: number } | null>(null);
+  const [incomeLoading, setIncomeLoading] = useState(false);
+  const [incomeStartDate, setIncomeStartDate] = useState(() => {
+    const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0];
+  });
+  const [incomeEndDate, setIncomeEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [incomeHasMore, setIncomeHasMore] = useState(false);
+  const [incomeLastId, setIncomeLastId] = useState<string | null>(null);
 
   const generateSlug = (name: string): string => {
     const base = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -528,6 +539,37 @@ const AdminView: React.FC<Props> = ({
   const [viewingHubVendors, setViewingHubVendors] = useState<Area | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Fetch income data
+  const fetchIncome = async (loadMore = false) => {
+    setIncomeLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (incomeStartDate) params.set('startDate', incomeStartDate);
+      if (incomeEndDate) params.set('endDate', incomeEndDate);
+      params.set('limit', '50');
+      if (loadMore && incomeLastId) params.set('startingAfter', incomeLastId);
+      const resp = await fetch(`/api/stripe/income?${params.toString()}`);
+      if (!resp.ok) throw new Error('Failed to fetch income data');
+      const data = await resp.json();
+      if (loadMore) {
+        setIncomeTransactions(prev => [...prev, ...data.transactions]);
+      } else {
+        setIncomeTransactions(data.transactions);
+        setIncomeSummary(data.summary);
+      }
+      setIncomeHasMore(data.hasMore);
+      setIncomeLastId(data.lastId);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to load income');
+    } finally {
+      setIncomeLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'INCOME') fetchIncome();
+  }, [activeTab]);
 
   // QR Modal State
   const [generatingQrHub, setGeneratingQrHub] = useState<Area | null>(null);
@@ -926,8 +968,9 @@ const AdminView: React.FC<Props> = ({
             { id: 'VENDORS', label: 'Vendors', icon: Store },
             { id: 'LOCATIONS', label: 'Hubs', icon: MapPin },
             { id: 'REPORTS', label: 'Reports', icon: TrendingUp },
+            { id: 'INCOME', label: 'Income', icon: DollarSign },
             { id: 'SYSTEM', label: 'System', icon: Database },
-          ] as { id: 'VENDORS' | 'LOCATIONS' | 'REPORTS' | 'SYSTEM'; label: string; icon: React.ElementType }[]).map(item => (
+          ] as { id: 'VENDORS' | 'LOCATIONS' | 'REPORTS' | 'INCOME' | 'SYSTEM'; label: string; icon: React.ElementType }[]).map(item => (
             <button
               key={item.id}
               onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
@@ -976,6 +1019,7 @@ const AdminView: React.FC<Props> = ({
               {activeTab === 'VENDORS' ? 'Vendors' :
                activeTab === 'LOCATIONS' ? 'Hubs' :
                activeTab === 'REPORTS' ? 'Reports' :
+               activeTab === 'INCOME' ? 'Income' :
                'System'}
             </h1>
           </div>
@@ -1412,6 +1456,119 @@ const AdminView: React.FC<Props> = ({
                     className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"
                   >
                     <ChevronLast size={16} />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'INCOME' && (
+          <div className="p-4 md:p-8">
+            <div className="mb-6">
+              <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Stripe Income</h3>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">All subscription payments collected via Stripe</p>
+            </div>
+
+            {/* Summary Cards */}
+            {incomeSummary && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 p-5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-8 h-8 bg-green-50 dark:bg-green-900/20 rounded-lg flex items-center justify-center"><ArrowUpRight size={16} className="text-green-500" /></div>
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Gross Income</span>
+                  </div>
+                  <p className="text-2xl font-black dark:text-white">RM {incomeSummary.totalGross.toFixed(2)}</p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 p-5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-8 h-8 bg-red-50 dark:bg-red-900/20 rounded-lg flex items-center justify-center"><ArrowDownRight size={16} className="text-red-500" /></div>
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Stripe Fees</span>
+                  </div>
+                  <p className="text-2xl font-black dark:text-white">RM {incomeSummary.totalFees.toFixed(2)}</p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 p-5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-8 h-8 bg-orange-50 dark:bg-orange-900/20 rounded-lg flex items-center justify-center"><DollarSign size={16} className="text-orange-500" /></div>
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Net Income</span>
+                  </div>
+                  <p className="text-2xl font-black text-orange-500">RM {incomeSummary.totalNet.toFixed(2)}</p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 p-5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-8 h-8 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-center"><Receipt size={16} className="text-blue-500" /></div>
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Transactions</span>
+                  </div>
+                  <p className="text-2xl font-black dark:text-white">{incomeSummary.count}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Date Filters */}
+            <div className="flex flex-col sm:flex-row items-end gap-3 mb-6">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">From</label>
+                <input type="date" className="px-4 py-2.5 bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-sm outline-none font-bold dark:text-white" value={incomeStartDate} onChange={e => setIncomeStartDate(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">To</label>
+                <input type="date" className="px-4 py-2.5 bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-sm outline-none font-bold dark:text-white" value={incomeEndDate} onChange={e => setIncomeEndDate(e.target.value)} />
+              </div>
+              <button onClick={() => fetchIncome()} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg transition-all active:scale-95 flex items-center gap-2">
+                <Search size={14} /> Filter
+              </button>
+            </div>
+
+            {/* Transactions Table */}
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm bg-white dark:bg-gray-800">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-900/50">
+                      <th className="px-6 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</th>
+                      <th className="px-6 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Description</th>
+                      <th className="px-6 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Gross</th>
+                      <th className="px-6 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Fee</th>
+                      <th className="px-6 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Net</th>
+                      <th className="px-6 py-3 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {incomeLoading && incomeTransactions.length === 0 ? (
+                      <tr><td colSpan={6} className="text-center py-12 text-gray-400"><RefreshCw size={24} className="mx-auto animate-spin mb-2" /> Loading transactions…</td></tr>
+                    ) : incomeTransactions.length === 0 ? (
+                      <tr><td colSpan={6} className="text-center py-12">
+                        <FileText size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                        <p className="text-sm font-bold text-gray-400">No transactions found</p>
+                        <p className="text-xs text-gray-400 mt-1">Try adjusting the date range</p>
+                      </td></tr>
+                    ) : incomeTransactions.map(txn => (
+                      <tr key={txn.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                        <td className="px-6 py-4 text-sm font-bold dark:text-gray-300 whitespace-nowrap">
+                          {new Date(txn.date).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </td>
+                        <td className="px-6 py-4 text-sm dark:text-gray-300 max-w-xs truncate">{txn.description}</td>
+                        <td className="px-6 py-4 text-sm font-bold dark:text-gray-300 text-right whitespace-nowrap">{txn.currency} {txn.amount.toFixed(2)}</td>
+                        <td className="px-6 py-4 text-sm text-red-400 text-right whitespace-nowrap">-{txn.currency} {txn.fee.toFixed(2)}</td>
+                        <td className="px-6 py-4 text-sm font-black text-orange-500 text-right whitespace-nowrap">{txn.currency} {txn.net.toFixed(2)}</td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                            txn.status === 'available' ? 'bg-green-50 dark:bg-green-900/20 text-green-600' : 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600'
+                          }`}>
+                            <CheckCircle2 size={12} /> {txn.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Load More */}
+              {incomeHasMore && (
+                <div className="p-4 border-t dark:border-gray-700 text-center">
+                  <button onClick={() => fetchIncome(true)} disabled={incomeLoading} className="px-6 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-bold text-sm hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 flex items-center gap-2 mx-auto">
+                    {incomeLoading ? <><RefreshCw size={14} className="animate-spin" /> Loading…</> : 'Load More Transactions'}
                   </button>
                 </div>
               )}
