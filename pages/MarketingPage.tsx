@@ -413,7 +413,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
       </section>
 
       {/* ═══════════════════════ COMING SOON — BACK OFFICE ═══════════════════════ */}
-      <section className="pb-0 pt-24 px-6 bg-white dark:bg-gray-950 relative overflow-hidden">
+      <section className="py-24 px-6 bg-white dark:bg-gray-950 relative overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[400px] bg-orange-500/5 dark:bg-orange-500/10 rounded-full blur-[150px] pointer-events-none" />
         <div className="max-w-6xl mx-auto relative z-10">
           <div className="text-center mb-14">
@@ -443,8 +443,6 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
             ))}
           </div>
         </div>
-        {/* Colour transition into Pricing */}
-        <div className="mt-16 h-40" style={{ background: `linear-gradient(to bottom, ${isDarkMode ? '#030712' : '#ffffff'}, #030712)` }} />
       </section>
 
       {/* ═══════════════════════ PRICING ═══════════════════════ */}
@@ -552,8 +550,6 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
             ))}
           </div>
         </div>
-        {/* Colour transition into FAQ */}
-        <div className="absolute bottom-0 left-0 right-0 h-40 pointer-events-none" style={{ background: `linear-gradient(to bottom, transparent, ${isDarkMode ? '#030712' : '#ffffff'})` }} />
       </section>
 
       {/* ═══════════════════════ FAQ ═══════════════════════ */}
@@ -578,59 +574,67 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
             ))}
           </div>
         </div>
-        {/* Colour transition into CTA */}
-        <div className="mt-8 h-32" style={{ background: `linear-gradient(to bottom, ${isDarkMode ? '#030712' : '#ffffff'}, #f97316)` }} />
       </section>
 
-      {/* ═══════════════════════ FINAL CTA (compact bar) ═══════════════════════ */}
-      <section ref={ctaRef.ref} className="py-5 px-6 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-orange-600" />
-        {/* Colour transition into Footer */}
-        <div className="absolute bottom-0 left-0 right-0 h-2" style={{ background: 'linear-gradient(to bottom, transparent, #030712)' }} />
+      {/* ═══════════════════════ FINAL CTA ═══════════════════════ */}
+      <section ref={ctaRef.ref} className="py-24 px-6 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-orange-500 to-orange-600" />
+        <div className="absolute inset-0 marketing-grid-bg opacity-10 pointer-events-none" />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-[100px] pointer-events-none" />
 
-        <div className={`max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 transition-all duration-700 ${ctaRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-          <h2 className="text-lg md:text-xl font-black text-white uppercase tracking-tight">
-            Ready to Modernize Your Restaurant? Start your free {TRIAL_DAYS}-day trial.
+        <div className={`max-w-3xl mx-auto text-center relative z-10 transition-all duration-700 ${ctaRef.isInView ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'}`}>
+          <h2 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tighter mb-6 leading-tight">
+            Ready to Modernize<br />Your Restaurant?
           </h2>
-          <div className="flex items-center gap-3 shrink-0">
+          <p className="text-white/80 font-medium text-lg mb-10 max-w-lg mx-auto">
+            Join hundreds of Malaysian restaurants already using QuickServe. Start your free {TRIAL_DAYS}-day trial today.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
               onClick={onGetStarted}
-              className="group px-6 py-2.5 bg-white text-orange-600 rounded-xl font-black text-sm shadow-lg hover:bg-gray-50 hover:scale-105 transition-all flex items-center gap-2"
+              className="group w-full sm:w-auto px-10 py-5 bg-white text-orange-600 rounded-2xl font-black text-lg shadow-2xl shadow-black/20 hover:bg-gray-50 hover:scale-105 transition-all flex items-center justify-center gap-3"
             >
-              Start Free Trial <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+              Start Free Trial <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
             </button>
             <a
               href="https://wa.me/601154036303?text=Hello%2C%20I%20am%20interested%20to%20know%20about%20the%20QuickServe%20QR%20system"
               target="_blank"
               rel="noopener noreferrer"
-              className="px-6 py-2.5 bg-white/20 text-white rounded-xl font-black text-sm hover:bg-white/30 hover:scale-105 transition-all flex items-center gap-2 backdrop-blur-sm border border-white/20"
+              className="w-full sm:w-auto px-10 py-5 bg-white/20 text-white rounded-2xl font-black text-lg hover:bg-white/30 hover:scale-105 transition-all flex items-center justify-center gap-2 backdrop-blur-sm border border-white/20"
             >
-              <MessageSquare size={14} /> WhatsApp
+              <MessageSquare size={18} /> WhatsApp Us
             </a>
           </div>
         </div>
       </section>
 
-      {/* ═══════════════════════ FOOTER (compact bar) ═══════════════════════ */}
-      <footer ref={footerRef.ref} className="py-3 px-6 bg-gray-950 text-white">
-        <div className={`max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 transition-all duration-700 ${footerRef.isInView ? 'opacity-100' : 'opacity-0'}`}>
-          <div className="flex items-center gap-4">
-            <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-6" />
-            <a
-              href="https://wa.me/601154036303?text=Hello%2C%20I%20am%20interested%20to%20know%20about%20the%20QuickServe%20QR%20system"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-white/40 hover:text-orange-500 transition-colors text-xs font-bold"
-            >
-              <MessageSquare size={12} className="text-orange-500" />
-              +60 11-5403 6303
-            </a>
-            <span className="flex items-center gap-1.5 text-white/40 text-xs font-bold">
-              <ShieldCheck size={12} className="text-orange-500" />
-              hello@quickserve.my
-            </span>
+      {/* ═══════════════════════ FOOTER ═══════════════════════ */}
+      <footer ref={footerRef.ref} className="py-16 px-6 bg-gray-950 text-white border-t border-gray-800">
+        <div className={`max-w-7xl mx-auto transition-all duration-700 ${footerRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <div className="flex flex-col md:flex-row items-center justify-between gap-8 mb-12">
+            <div className="flex items-center gap-3">
+              <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-10" />
+            </div>
+            <div className="flex flex-col sm:flex-row items-center gap-6">
+              <a
+                href="https://wa.me/601154036303?text=Hello%2C%20I%20am%20interested%20to%20know%20about%20the%20QuickServe%20QR%20system"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-white/50 hover:text-orange-500 transition-colors text-sm font-bold"
+              >
+                <MessageSquare size={16} className="text-orange-500" />
+                +60 11-5403 6303
+              </a>
+              <div className="w-1 h-1 bg-white/20 rounded-full hidden sm:block" />
+              <div className="flex items-center gap-2 text-white/50 text-sm font-bold">
+                <ShieldCheck size={16} className="text-orange-500" />
+                hello@quickserve.my
+              </div>
+            </div>
           </div>
-          <p className="text-[9px] font-black text-white/25 uppercase tracking-[0.2em]">&copy; 2026 QuickServe Malaysia. All Rights Reserved.</p>
+          <div className="border-t border-white/10 pt-8 text-center">
+            <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em]">&copy; 2026 QuickServe Malaysia. All Rights Reserved.</p>
+          </div>
         </div>
       </footer>
     </div>
