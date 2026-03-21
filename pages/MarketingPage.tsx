@@ -413,7 +413,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
       </section>
 
       {/* ═══════════════════════ COMING SOON — BACK OFFICE ═══════════════════════ */}
-      <section className="py-24 px-6 bg-white dark:bg-gray-950 relative overflow-hidden">
+      <section className="pb-0 pt-24 px-6 bg-white dark:bg-gray-950 relative overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[400px] bg-orange-500/5 dark:bg-orange-500/10 rounded-full blur-[150px] pointer-events-none" />
         <div className="max-w-6xl mx-auto relative z-10">
           <div className="text-center mb-14">
@@ -443,10 +443,9 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
             ))}
           </div>
         </div>
+        {/* Colour transition into Pricing */}
+        <div className="mt-16 h-40" style={{ background: `linear-gradient(to bottom, ${isDarkMode ? '#030712' : '#ffffff'}, #030712)` }} />
       </section>
-
-      {/* ── Gradient transition: white → dark ── */}
-      <div className="h-32 bg-gradient-to-b from-white dark:from-gray-950 to-gray-950 pointer-events-none" />
 
       {/* ═══════════════════════ PRICING ═══════════════════════ */}
       <section id="pricing" ref={trustRef.ref} className="py-24 bg-gray-950 text-white overflow-hidden relative">
@@ -553,10 +552,9 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
             ))}
           </div>
         </div>
+        {/* Colour transition into FAQ */}
+        <div className="absolute bottom-0 left-0 right-0 h-40 pointer-events-none" style={{ background: `linear-gradient(to bottom, transparent, ${isDarkMode ? '#030712' : '#ffffff'})` }} />
       </section>
-
-      {/* ── Gradient transition: dark → white ── */}
-      <div className="h-32 bg-gradient-to-b from-gray-950 to-white dark:to-gray-950 pointer-events-none" />
 
       {/* ═══════════════════════ FAQ ═══════════════════════ */}
       <section id="faq" ref={faqRef.ref} className="py-24 px-6">
@@ -580,14 +578,15 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
             ))}
           </div>
         </div>
+        {/* Colour transition into CTA */}
+        <div className="mt-8 h-32" style={{ background: `linear-gradient(to bottom, ${isDarkMode ? '#030712' : '#ffffff'}, #f97316)` }} />
       </section>
-
-      {/* ── Gradient transition: white → orange ── */}
-      <div className="h-24 bg-gradient-to-b from-white dark:from-gray-950 to-orange-500 pointer-events-none" />
 
       {/* ═══════════════════════ FINAL CTA (compact bar) ═══════════════════════ */}
       <section ref={ctaRef.ref} className="py-5 px-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-orange-600" />
+        {/* Colour transition into Footer */}
+        <div className="absolute bottom-0 left-0 right-0 h-2" style={{ background: 'linear-gradient(to bottom, transparent, #030712)' }} />
 
         <div className={`max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 transition-all duration-700 ${ctaRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           <h2 className="text-lg md:text-xl font-black text-white uppercase tracking-tight">
@@ -611,9 +610,6 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
           </div>
         </div>
       </section>
-
-      {/* ── Gradient transition: orange → dark ── */}
-      <div className="h-16 bg-gradient-to-b from-orange-500 to-gray-950 pointer-events-none" />
 
       {/* ═══════════════════════ FOOTER (compact bar) ═══════════════════════ */}
       <footer ref={footerRef.ref} className="py-3 px-6 bg-gray-950 text-white">
