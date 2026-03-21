@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, PlatformAccess, Subscription, PlanId } from '../src/types';
 import { uploadImage } from '../lib/storage';
-import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText } from 'lucide-react';
+import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage } from 'lucide-react';
 import ImageCropModal from '../components/ImageCropModal';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
@@ -119,6 +119,82 @@ const SystemStatusDashboard: React.FC = () => {
       setStatus(prev => ({
         ...prev,
         orders: { status: 'ERROR', message: `Connection failed: ${error.message}`, lastChecked: timestamp }
+      }));
+    }
+
+    // Subscriptions table
+    try {
+      const { error: subsError } = await supabase.from('subscriptions').select('count', { count: 'exact', head: true });
+      setStatus(prev => ({
+        ...prev,
+        subscriptions: {
+          status: !subsError ? 'OK' : 'ERROR',
+          message: !subsError ? 'Subscriptions table accessible' : `Error: ${subsError.message}`,
+          lastChecked: timestamp
+        }
+      }));
+    } catch (error: any) {
+      setStatus(prev => ({
+        ...prev,
+        subscriptions: { status: 'ERROR', message: `Connection failed: ${error.message}`, lastChecked: timestamp }
+      }));
+    }
+
+    // Feature Images table
+    try {
+      const { error: imgError } = await supabase.from('feature_images').select('count', { count: 'exact', head: true });
+      setStatus(prev => ({
+        ...prev,
+        featureImages: {
+          status: !imgError ? 'OK' : 'ERROR',
+          message: !imgError ? 'Feature images table accessible' : `Error: ${imgError.message}`,
+          lastChecked: timestamp
+        }
+      }));
+    } catch (error: any) {
+      setStatus(prev => ({
+        ...prev,
+        featureImages: { status: 'ERROR', message: `Connection failed: ${error.message}`, lastChecked: timestamp }
+      }));
+    }
+
+    // Stripe API
+    try {
+      const stripeRes = await fetch('/api/stripe/billing?action=history&limit=1');
+      setStatus(prev => ({
+        ...prev,
+        stripe: {
+          status: stripeRes.ok || stripeRes.status === 400 ? 'OK' : 'ERROR',
+          message: stripeRes.ok || stripeRes.status === 400 ? 'Stripe API reachable' : `Stripe returned ${stripeRes.status}`,
+          lastChecked: timestamp
+        }
+      }));
+    } catch (error: any) {
+      setStatus(prev => ({
+        ...prev,
+        stripe: { status: 'ERROR', message: `Stripe unreachable: ${error.message}`, lastChecked: timestamp }
+      }));
+    }
+
+    // Realtime WebSocket
+    try {
+      const channel = supabase.channel('health-check');
+      const sub = channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => {});
+      await sub.subscribe((status) => {
+        setStatus(prev => ({
+          ...prev,
+          realtime: {
+            status: status === 'SUBSCRIBED' ? 'OK' : 'ERROR',
+            message: status === 'SUBSCRIBED' ? 'Realtime connected' : `Realtime status: ${status}`,
+            lastChecked: timestamp
+          }
+        }));
+        supabase.removeChannel(channel);
+      });
+    } catch (error: any) {
+      setStatus(prev => ({
+        ...prev,
+        realtime: { status: 'ERROR', message: `Realtime failed: ${error.message}`, lastChecked: timestamp }
       }));
     }
 
@@ -387,6 +463,86 @@ const SystemStatusDashboard: React.FC = () => {
             {status.login?.status === 'ERROR' && <AlertCircle size={16} className="text-red-500" />}
           </div>
           <p className="text-[10px] font-medium text-gray-600 dark:text-gray-300 truncate">{status.login?.message || 'Not checked yet'}</p>
+        </div>
+
+        {/* Subscriptions */}
+        <div className={`p-3 rounded-xl border transition-all ${
+          status.subscriptions?.status === 'OK' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/20' :
+          status.subscriptions?.status === 'ERROR' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/20' :
+          'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+        }`}>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <Receipt size={16} className={status.subscriptions?.status === 'OK' ? 'text-green-500' : status.subscriptions?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
+              <div>
+                <h4 className="font-black dark:text-white text-xs leading-tight">Subscriptions</h4>
+                <p className="text-[9px] font-bold text-gray-500 dark:text-gray-400">Plans</p>
+              </div>
+            </div>
+            {status.subscriptions?.status === 'OK' && <CheckCircle2 size={16} className="text-green-500" />}
+            {status.subscriptions?.status === 'ERROR' && <AlertCircle size={16} className="text-red-500" />}
+          </div>
+          <p className="text-[10px] font-medium text-gray-600 dark:text-gray-300 truncate">{status.subscriptions?.message || 'Not checked yet'}</p>
+        </div>
+
+        {/* Feature Images */}
+        <div className={`p-3 rounded-xl border transition-all ${
+          status.featureImages?.status === 'OK' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/20' :
+          status.featureImages?.status === 'ERROR' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/20' :
+          'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+        }`}>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <FileImage size={16} className={status.featureImages?.status === 'OK' ? 'text-green-500' : status.featureImages?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
+              <div>
+                <h4 className="font-black dark:text-white text-xs leading-tight">Feature Imgs</h4>
+                <p className="text-[9px] font-bold text-gray-500 dark:text-gray-400">Marketing</p>
+              </div>
+            </div>
+            {status.featureImages?.status === 'OK' && <CheckCircle2 size={16} className="text-green-500" />}
+            {status.featureImages?.status === 'ERROR' && <AlertCircle size={16} className="text-red-500" />}
+          </div>
+          <p className="text-[10px] font-medium text-gray-600 dark:text-gray-300 truncate">{status.featureImages?.message || 'Not checked yet'}</p>
+        </div>
+
+        {/* Stripe API */}
+        <div className={`p-3 rounded-xl border transition-all ${
+          status.stripe?.status === 'OK' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/20' :
+          status.stripe?.status === 'ERROR' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/20' :
+          'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+        }`}>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <CreditCard size={16} className={status.stripe?.status === 'OK' ? 'text-green-500' : status.stripe?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
+              <div>
+                <h4 className="font-black dark:text-white text-xs leading-tight">Stripe</h4>
+                <p className="text-[9px] font-bold text-gray-500 dark:text-gray-400">Payments</p>
+              </div>
+            </div>
+            {status.stripe?.status === 'OK' && <CheckCircle2 size={16} className="text-green-500" />}
+            {status.stripe?.status === 'ERROR' && <AlertCircle size={16} className="text-red-500" />}
+          </div>
+          <p className="text-[10px] font-medium text-gray-600 dark:text-gray-300 truncate">{status.stripe?.message || 'Not checked yet'}</p>
+        </div>
+
+        {/* Realtime */}
+        <div className={`p-3 rounded-xl border transition-all ${
+          status.realtime?.status === 'OK' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/20' :
+          status.realtime?.status === 'ERROR' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/20' :
+          'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+        }`}>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <Radio size={16} className={status.realtime?.status === 'OK' ? 'text-green-500' : status.realtime?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
+              <div>
+                <h4 className="font-black dark:text-white text-xs leading-tight">Realtime</h4>
+                <p className="text-[9px] font-bold text-gray-500 dark:text-gray-400">WebSocket</p>
+              </div>
+            </div>
+            {status.realtime?.status === 'OK' && <CheckCircle2 size={16} className="text-green-500" />}
+            {status.realtime?.status === 'ERROR' && <AlertCircle size={16} className="text-red-500" />}
+          </div>
+          <p className="text-[10px] font-medium text-gray-600 dark:text-gray-300 truncate">{status.realtime?.message || 'Not checked yet'}</p>
         </div>
       </div>
 
