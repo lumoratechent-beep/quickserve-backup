@@ -178,18 +178,18 @@ const SystemStatusDashboard: React.FC = () => {
 
     // Realtime WebSocket
     try {
-      const channel = supabase.channel('health-check');
-      const sub = channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => {});
-      await sub.subscribe((status) => {
+      const channel = supabase.channel('health-check-' + Date.now());
+      channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => {});
+      channel.subscribe((subStatus) => {
         setStatus(prev => ({
           ...prev,
           realtime: {
-            status: status === 'SUBSCRIBED' ? 'OK' : 'ERROR',
-            message: status === 'SUBSCRIBED' ? 'Realtime connected' : `Realtime status: ${status}`,
+            status: subStatus === 'SUBSCRIBED' ? 'OK' : 'ERROR',
+            message: subStatus === 'SUBSCRIBED' ? 'Realtime connected' : `Realtime status: ${subStatus}`,
             lastChecked: timestamp
           }
         }));
-        supabase.removeChannel(channel);
+        setTimeout(() => supabase.removeChannel(channel), 0);
       });
     } catch (error: any) {
       setStatus(prev => ({
