@@ -226,160 +226,192 @@ const SystemStatusDashboard: React.FC = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {/* Database Connection */}
-        <div className={`p-2 rounded-xl border transition-all ${
+        <div className={`p-3 rounded-xl border transition-all ${
           status.database?.status === 'OK' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/20' :
           status.database?.status === 'ERROR' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/20' :
           'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
         }`}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <Database size={14} className={status.database?.status === 'OK' ? 'text-green-500' : status.database?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
-              <h4 className="font-black dark:text-white text-[10px]">Database</h4>
+              <Database size={16} className={status.database?.status === 'OK' ? 'text-green-500' : status.database?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
+              <div>
+                <h4 className="font-black dark:text-white text-xs leading-tight">Database</h4>
+                <p className="text-[9px] font-bold text-gray-500 dark:text-gray-400">Supabase</p>
+              </div>
             </div>
             {status.database?.status === 'CHECKING' && <div className="w-3 h-3 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />}
-            {status.database?.status === 'OK' && <CheckCircle2 size={14} className="text-green-500" />}
-            {status.database?.status === 'ERROR' && <AlertCircle size={14} className="text-red-500" />}
+            {status.database?.status === 'OK' && <CheckCircle2 size={16} className="text-green-500" />}
+            {status.database?.status === 'ERROR' && <AlertCircle size={16} className="text-red-500" />}
           </div>
+          <p className="text-[10px] font-medium text-gray-600 dark:text-gray-300 truncate">{status.database?.message || 'Not checked yet'}</p>
         </div>
 
         {/* Upload System */}
-        <div className={`p-2 rounded-xl border transition-all ${
+        <div className={`p-3 rounded-xl border transition-all ${
           status.upload?.status === 'OK' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/20' :
           status.upload?.status === 'ERROR' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/20' :
           'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
         }`}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <Upload size={14} className={status.upload?.status === 'OK' ? 'text-green-500' : status.upload?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
-              <h4 className="font-black dark:text-white text-[10px]">Upload</h4>
+              <Upload size={16} className={status.upload?.status === 'OK' ? 'text-green-500' : status.upload?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
+              <div>
+                <h4 className="font-black dark:text-white text-xs leading-tight">Upload</h4>
+                <p className="text-[9px] font-bold text-gray-500 dark:text-gray-400">Blob Storage</p>
+              </div>
             </div>
             {status.upload?.status === 'CHECKING' && <div className="w-3 h-3 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />}
-            {status.upload?.status === 'OK' && <CheckCircle2 size={14} className="text-green-500" />}
-            {status.upload?.status === 'ERROR' && <AlertCircle size={14} className="text-red-500" />}
+            {status.upload?.status === 'OK' && <CheckCircle2 size={16} className="text-green-500" />}
+            {status.upload?.status === 'ERROR' && <AlertCircle size={16} className="text-red-500" />}
           </div>
+          <p className="text-[10px] font-medium text-gray-600 dark:text-gray-300 truncate">{status.upload?.message || 'Not checked yet'}</p>
         </div>
 
         {/* Hubs/Locations */}
-        <div className={`p-2 rounded-xl border transition-all ${
+        <div className={`p-3 rounded-xl border transition-all ${
           status.hubs?.status === 'OK' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/20' :
           status.hubs?.status === 'ERROR' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/20' :
           'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
         }`}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <MapPin size={14} className={status.hubs?.status === 'OK' ? 'text-green-500' : status.hubs?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
-              <h4 className="font-black dark:text-white text-[10px]">Hubs</h4>
+              <MapPin size={16} className={status.hubs?.status === 'OK' ? 'text-green-500' : status.hubs?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
+              <div>
+                <h4 className="font-black dark:text-white text-xs leading-tight">Hubs</h4>
+                <p className="text-[9px] font-bold text-gray-500 dark:text-gray-400">Locations</p>
+              </div>
             </div>
-            {status.hubs?.status === 'OK' && <CheckCircle2 size={14} className="text-green-500" />}
-            {status.hubs?.status === 'ERROR' && <AlertCircle size={14} className="text-red-500" />}
+            {status.hubs?.status === 'OK' && <CheckCircle2 size={16} className="text-green-500" />}
+            {status.hubs?.status === 'ERROR' && <AlertCircle size={16} className="text-red-500" />}
           </div>
+          <p className="text-[10px] font-medium text-gray-600 dark:text-gray-300 truncate">{status.hubs?.message || 'Not checked yet'}</p>
         </div>
 
         {/* Vendors */}
-        <div className={`p-2 rounded-xl border transition-all ${
+        <div className={`p-3 rounded-xl border transition-all ${
           status.vendors?.status === 'OK' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/20' :
           status.vendors?.status === 'ERROR' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/20' :
           'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
         }`}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <Store size={14} className={status.vendors?.status === 'OK' ? 'text-green-500' : status.vendors?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
-              <h4 className="font-black dark:text-white text-[10px]">Vendors</h4>
+              <Store size={16} className={status.vendors?.status === 'OK' ? 'text-green-500' : status.vendors?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
+              <div>
+                <h4 className="font-black dark:text-white text-xs leading-tight">Vendors</h4>
+                <p className="text-[9px] font-bold text-gray-500 dark:text-gray-400">Users</p>
+              </div>
             </div>
-            {status.vendors?.status === 'OK' && <CheckCircle2 size={14} className="text-green-500" />}
-            {status.vendors?.status === 'ERROR' && <AlertCircle size={14} className="text-red-500" />}
+            {status.vendors?.status === 'OK' && <CheckCircle2 size={16} className="text-green-500" />}
+            {status.vendors?.status === 'ERROR' && <AlertCircle size={16} className="text-red-500" />}
           </div>
+          <p className="text-[10px] font-medium text-gray-600 dark:text-gray-300 truncate">{status.vendors?.message || 'Not checked yet'}</p>
         </div>
 
         {/* Restaurants */}
-        <div className={`p-2 rounded-xl border transition-all ${
+        <div className={`p-3 rounded-xl border transition-all ${
           status.restaurants?.status === 'OK' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/20' :
           status.restaurants?.status === 'ERROR' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/20' :
           'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
         }`}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <ShoppingBag size={14} className={status.restaurants?.status === 'OK' ? 'text-green-500' : status.restaurants?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
-              <h4 className="font-black dark:text-white text-[10px]">Restaurants</h4>
+              <ShoppingBag size={16} className={status.restaurants?.status === 'OK' ? 'text-green-500' : status.restaurants?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
+              <div>
+                <h4 className="font-black dark:text-white text-xs leading-tight">Restaurants</h4>
+                <p className="text-[9px] font-bold text-gray-500 dark:text-gray-400">Stores</p>
+              </div>
             </div>
-            {status.restaurants?.status === 'OK' && <CheckCircle2 size={14} className="text-green-500" />}
-            {status.restaurants?.status === 'ERROR' && <AlertCircle size={14} className="text-red-500" />}
+            {status.restaurants?.status === 'OK' && <CheckCircle2 size={16} className="text-green-500" />}
+            {status.restaurants?.status === 'ERROR' && <AlertCircle size={16} className="text-red-500" />}
           </div>
+          <p className="text-[10px] font-medium text-gray-600 dark:text-gray-300 truncate">{status.restaurants?.message || 'Not checked yet'}</p>
         </div>
 
         {/* Menu Items */}
-        <div className={`p-2 rounded-xl border transition-all ${
+        <div className={`p-3 rounded-xl border transition-all ${
           status.menu?.status === 'OK' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/20' :
           status.menu?.status === 'ERROR' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/20' :
           'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
         }`}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <ImageIcon size={14} className={status.menu?.status === 'OK' ? 'text-green-500' : status.menu?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
-              <h4 className="font-black dark:text-white text-[10px]">Menu</h4>
+              <ImageIcon size={16} className={status.menu?.status === 'OK' ? 'text-green-500' : status.menu?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
+              <div>
+                <h4 className="font-black dark:text-white text-xs leading-tight">Menu Items</h4>
+                <p className="text-[9px] font-bold text-gray-500 dark:text-gray-400">Products</p>
+              </div>
             </div>
-            {status.menu?.status === 'OK' && <CheckCircle2 size={14} className="text-green-500" />}
-            {status.menu?.status === 'ERROR' && <AlertCircle size={14} className="text-red-500" />}
+            {status.menu?.status === 'OK' && <CheckCircle2 size={16} className="text-green-500" />}
+            {status.menu?.status === 'ERROR' && <AlertCircle size={16} className="text-red-500" />}
           </div>
+          <p className="text-[10px] font-medium text-gray-600 dark:text-gray-300 truncate">{status.menu?.message || 'Not checked yet'}</p>
         </div>
 
         {/* Orders System */}
-        <div className={`p-2 rounded-xl border transition-all ${
+        <div className={`p-3 rounded-xl border transition-all ${
           status.orders?.status === 'OK' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/20' :
           status.orders?.status === 'ERROR' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/20' :
           'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
         }`}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <Activity size={14} className={status.orders?.status === 'OK' ? 'text-green-500' : status.orders?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
-              <h4 className="font-black dark:text-white text-[10px]">Orders</h4>
+              <Activity size={16} className={status.orders?.status === 'OK' ? 'text-green-500' : status.orders?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
+              <div>
+                <h4 className="font-black dark:text-white text-xs leading-tight">Orders</h4>
+                <p className="text-[9px] font-bold text-gray-500 dark:text-gray-400">Real-time</p>
+              </div>
             </div>
-            {status.orders?.status === 'OK' && <CheckCircle2 size={14} className="text-green-500" />}
-            {status.orders?.status === 'ERROR' && <AlertCircle size={14} className="text-red-500" />}
+            {status.orders?.status === 'OK' && <CheckCircle2 size={16} className="text-green-500" />}
+            {status.orders?.status === 'ERROR' && <AlertCircle size={16} className="text-red-500" />}
           </div>
+          <p className="text-[10px] font-medium text-gray-600 dark:text-gray-300 truncate">{status.orders?.message || 'Not checked yet'}</p>
         </div>
 
         {/* Login System */}
-        <div className={`p-2 rounded-xl border transition-all ${
+        <div className={`p-3 rounded-xl border transition-all ${
           status.login?.status === 'OK' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/20' :
           status.login?.status === 'ERROR' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/20' :
           'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
         }`}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <LogIn size={14} className={status.login?.status === 'OK' ? 'text-green-500' : status.login?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
-              <h4 className="font-black dark:text-white text-[10px]">Auth</h4>
+              <LogIn size={16} className={status.login?.status === 'OK' ? 'text-green-500' : status.login?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
+              <div>
+                <h4 className="font-black dark:text-white text-xs leading-tight">Auth</h4>
+                <p className="text-[9px] font-bold text-gray-500 dark:text-gray-400">Login System</p>
+              </div>
             </div>
-            {status.login?.status === 'OK' && <CheckCircle2 size={14} className="text-green-500" />}
-            {status.login?.status === 'ERROR' && <AlertCircle size={14} className="text-red-500" />}
+            {status.login?.status === 'OK' && <CheckCircle2 size={16} className="text-green-500" />}
+            {status.login?.status === 'ERROR' && <AlertCircle size={16} className="text-red-500" />}
           </div>
+          <p className="text-[10px] font-medium text-gray-600 dark:text-gray-300 truncate">{status.login?.message || 'Not checked yet'}</p>
         </div>
       </div>
 
       {/* System Summary */}
-      <div className="p-3 bg-gray-900 dark:bg-gray-800 rounded-xl text-white">
+      <div className="p-4 bg-gray-900 dark:bg-gray-800 rounded-xl text-white">
         <div className="flex items-center gap-2 mb-2">
-          <Cpu size={14} className="text-orange-500" />
-          <h4 className="font-black uppercase tracking-tighter text-xs">Summary</h4>
+          <Cpu size={16} className="text-orange-500" />
+          <h4 className="font-black uppercase tracking-tighter text-sm">System Summary</h4>
         </div>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-3">
           <div>
-            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Checks</p>
-            <p className="text-sm font-black">{Object.keys(status).length}</p>
+            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Total Checks</p>
+            <p className="text-lg font-black">{Object.keys(status).length}</p>
           </div>
           <div>
-            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">OK</p>
-            <p className="text-sm font-black text-green-400">{Object.values(status).filter(s => s.status === 'OK').length}</p>
+            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Operational</p>
+            <p className="text-lg font-black text-green-400">{Object.values(status).filter(s => s.status === 'OK').length}</p>
           </div>
           <div>
-            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Issues</p>
-            <p className="text-sm font-black text-red-400">{Object.values(status).filter(s => s.status === 'ERROR').length}</p>
+            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Issues</p>
+            <p className="text-lg font-black text-red-400">{Object.values(status).filter(s => s.status === 'ERROR').length}</p>
           </div>
           <div>
-            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Scan Date</p>
-            <p className="text-[10px] font-black">{new Date().toLocaleDateString()}</p>
+            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Last Scan</p>
+            <p className="text-xs font-black">{new Date().toLocaleDateString()}</p>
           </div>
         </div>
       </div>
