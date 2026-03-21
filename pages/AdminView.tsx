@@ -1526,6 +1526,8 @@ const AdminView: React.FC<Props> = ({
                   <thead>
                     <tr className="bg-gray-50 dark:bg-gray-900/50">
                       <th className="px-6 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</th>
+                      <th className="px-6 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Restaurant</th>
+                      <th className="px-6 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Plan</th>
                       <th className="px-6 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Description</th>
                       <th className="px-6 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Gross</th>
                       <th className="px-6 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Fee</th>
@@ -1535,9 +1537,9 @@ const AdminView: React.FC<Props> = ({
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                     {incomeLoading && incomeTransactions.length === 0 ? (
-                      <tr><td colSpan={6} className="text-center py-12 text-gray-400"><RefreshCw size={24} className="mx-auto animate-spin mb-2" /> Loading transactions…</td></tr>
+                      <tr><td colSpan={8} className="text-center py-12 text-gray-400"><RefreshCw size={24} className="mx-auto animate-spin mb-2" /> Loading transactions…</td></tr>
                     ) : incomeTransactions.length === 0 ? (
-                      <tr><td colSpan={6} className="text-center py-12">
+                      <tr><td colSpan={8} className="text-center py-12">
                         <FileText size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
                         <p className="text-sm font-bold text-gray-400">No transactions found</p>
                         <p className="text-xs text-gray-400 mt-1">Try adjusting the date range</p>
@@ -1546,6 +1548,16 @@ const AdminView: React.FC<Props> = ({
                       <tr key={txn.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                         <td className="px-6 py-4 text-sm font-bold dark:text-gray-300 whitespace-nowrap">
                           {new Date(txn.date).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </td>
+                        <td className="px-6 py-4 text-sm font-bold dark:text-gray-300 whitespace-nowrap">{txn.restaurantName}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {txn.planName !== '—' ? (
+                            <span className={`inline-flex px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                              txn.planId === 'pro_plus' ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600' :
+                              txn.planId === 'pro' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' :
+                              'bg-gray-100 dark:bg-gray-700 text-gray-500'
+                            }`}>{txn.planName}</span>
+                          ) : <span className="text-sm text-gray-400">—</span>}
                         </td>
                         <td className="px-6 py-4 text-sm dark:text-gray-300 max-w-xs truncate">{txn.description}</td>
                         <td className="px-6 py-4 text-sm font-bold dark:text-gray-300 text-right whitespace-nowrap">{txn.currency} {txn.amount.toFixed(2)}</td>
