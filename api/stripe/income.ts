@@ -46,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Collect unique restaurant IDs from charge metadata to batch-lookup names
     const restaurantIds = new Set<string>();
-    const chargeDataMap = new Map<string, { restaurantId?: string; planId?: string; customerName?: string }>();
+    const chargeDataMap = new Map<string, { restaurantId?: string; planId?: string; customerName?: string; chargeStatus?: string }>();
 
     for (const txn of balanceTransactions.data) {
       const source = txn.source;
@@ -59,6 +59,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           restaurantId: restaurantId || undefined,
           planId: planId || undefined,
           customerName: charge.billing_details?.name || undefined,
+          chargeStatus: charge.status || undefined,
         });
       } else if (source && typeof source === 'string' && source.startsWith('ch_')) {
         // Source not expanded — fetch the charge individually
@@ -71,6 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             restaurantId: restaurantId || undefined,
             planId: planId || undefined,
             customerName: charge.billing_details?.name || undefined,
+            chargeStatus: charge.status || undefined,
           });
         } catch { /* skip */ }
       }
@@ -100,7 +102,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         net: txn.net / 100,
         currency: txn.currency.toUpperCase(),
         description: txn.description || 'Payment',
-        status: txn.status,
+        status: meta?.chargeStatus || (txn.status === 'available' ? 'succeeded' : txn.status),
         source: typeof txn.source === 'string' ? txn.source : (txn.source as any)?.id || null,
         restaurantName: meta?.restaurantId ? (restaurantNames[meta.restaurantId] || meta.customerName || 'Unknown') : (meta?.customerName || '—'),
         planId: meta?.planId || null,

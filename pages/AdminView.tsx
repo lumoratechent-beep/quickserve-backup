@@ -1521,60 +1521,60 @@ const AdminView: React.FC<Props> = ({
 
             {/* Transactions Table */}
             <div className="rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm bg-white dark:bg-gray-800">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-gray-50 dark:bg-gray-900/50">
-                      <th className="px-6 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</th>
-                      <th className="px-6 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Restaurant</th>
-                      <th className="px-6 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Plan</th>
-                      <th className="px-6 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Description</th>
-                      <th className="px-6 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Gross</th>
-                      <th className="px-6 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Fee</th>
-                      <th className="px-6 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Net</th>
-                      <th className="px-6 py-3 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+              <table className="w-full table-fixed">
+                <thead>
+                  <tr className="bg-gray-50 dark:bg-gray-900/50">
+                    <th className="w-[11%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Date</th>
+                    <th className="w-[16%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Restaurant</th>
+                    <th className="w-[9%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Plan</th>
+                    <th className="w-[22%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest hidden lg:table-cell">Description</th>
+                    <th className="w-[11%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Gross</th>
+                    <th className="w-[10%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest hidden md:table-cell">Fee</th>
+                    <th className="w-[11%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Net</th>
+                    <th className="w-[10%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {incomeLoading && incomeTransactions.length === 0 ? (
+                    <tr><td colSpan={8} className="text-center py-12 text-gray-400"><RefreshCw size={24} className="mx-auto animate-spin mb-2" /> Loading transactions…</td></tr>
+                  ) : incomeTransactions.length === 0 ? (
+                    <tr><td colSpan={8} className="text-center py-12">
+                      <FileText size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                      <p className="text-sm font-bold text-gray-400">No transactions found</p>
+                      <p className="text-xs text-gray-400 mt-1">Try adjusting the date range</p>
+                    </td></tr>
+                  ) : incomeTransactions.map(txn => (
+                    <tr key={txn.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                      <td className="px-3 py-2 text-xs font-bold dark:text-gray-300 truncate">
+                        {new Date(txn.date).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: '2-digit' })}
+                      </td>
+                      <td className="px-3 py-2 text-xs font-bold dark:text-gray-300 truncate">{txn.restaurantName}</td>
+                      <td className="px-3 py-2">
+                        {txn.planName !== '—' ? (
+                          <span className={`inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                            txn.planId === 'pro_plus' ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600' :
+                            txn.planId === 'pro' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' :
+                            'bg-gray-100 dark:bg-gray-700 text-gray-500'
+                          }`}>{txn.planName}</span>
+                        ) : <span className="text-xs text-gray-400">—</span>}
+                      </td>
+                      <td className="px-3 py-2 text-xs dark:text-gray-300 truncate hidden lg:table-cell">{txn.description}</td>
+                      <td className="px-3 py-2 text-xs font-bold dark:text-gray-300 text-right">{txn.amount.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-xs text-red-400 text-right hidden md:table-cell">-{txn.fee.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-xs font-black text-orange-500 text-right">{txn.net.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-center">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                          txn.status === 'succeeded' ? 'bg-green-50 dark:bg-green-900/20 text-green-600' :
+                          txn.status === 'failed' ? 'bg-red-50 dark:bg-red-900/20 text-red-600' :
+                          'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600'
+                        }`}>
+                          <CheckCircle2 size={10} /> {txn.status === 'succeeded' ? 'Success' : txn.status}
+                        </span>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {incomeLoading && incomeTransactions.length === 0 ? (
-                      <tr><td colSpan={8} className="text-center py-12 text-gray-400"><RefreshCw size={24} className="mx-auto animate-spin mb-2" /> Loading transactions…</td></tr>
-                    ) : incomeTransactions.length === 0 ? (
-                      <tr><td colSpan={8} className="text-center py-12">
-                        <FileText size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
-                        <p className="text-sm font-bold text-gray-400">No transactions found</p>
-                        <p className="text-xs text-gray-400 mt-1">Try adjusting the date range</p>
-                      </td></tr>
-                    ) : incomeTransactions.map(txn => (
-                      <tr key={txn.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                        <td className="px-6 py-4 text-sm font-bold dark:text-gray-300 whitespace-nowrap">
-                          {new Date(txn.date).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        </td>
-                        <td className="px-6 py-4 text-sm font-bold dark:text-gray-300 whitespace-nowrap">{txn.restaurantName}</td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {txn.planName !== '—' ? (
-                            <span className={`inline-flex px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
-                              txn.planId === 'pro_plus' ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600' :
-                              txn.planId === 'pro' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' :
-                              'bg-gray-100 dark:bg-gray-700 text-gray-500'
-                            }`}>{txn.planName}</span>
-                          ) : <span className="text-sm text-gray-400">—</span>}
-                        </td>
-                        <td className="px-6 py-4 text-sm dark:text-gray-300 max-w-xs truncate">{txn.description}</td>
-                        <td className="px-6 py-4 text-sm font-bold dark:text-gray-300 text-right whitespace-nowrap">{txn.currency} {txn.amount.toFixed(2)}</td>
-                        <td className="px-6 py-4 text-sm text-red-400 text-right whitespace-nowrap">-{txn.currency} {txn.fee.toFixed(2)}</td>
-                        <td className="px-6 py-4 text-sm font-black text-orange-500 text-right whitespace-nowrap">{txn.currency} {txn.net.toFixed(2)}</td>
-                        <td className="px-6 py-4 text-center">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
-                            txn.status === 'available' ? 'bg-green-50 dark:bg-green-900/20 text-green-600' : 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600'
-                          }`}>
-                            <CheckCircle2 size={12} /> {txn.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
 
               {/* Load More */}
               {incomeHasMore && (
