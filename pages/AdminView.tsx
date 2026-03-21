@@ -181,15 +181,27 @@ const SystemStatusDashboard: React.FC = () => {
       const channel = supabase.channel('health-check-' + Date.now());
       channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => {});
       channel.subscribe((subStatus) => {
-        setStatus(prev => ({
-          ...prev,
-          realtime: {
-            status: subStatus === 'SUBSCRIBED' ? 'OK' : 'ERROR',
-            message: subStatus === 'SUBSCRIBED' ? 'Realtime connected' : `Realtime status: ${subStatus}`,
-            lastChecked: timestamp
-          }
-        }));
-        setTimeout(() => supabase.removeChannel(channel), 0);
+        if (subStatus === 'SUBSCRIBED') {
+          setStatus(prev => ({
+            ...prev,
+            realtime: {
+              status: 'OK',
+              message: 'Realtime connected',
+              lastChecked: timestamp
+            }
+          }));
+          setTimeout(() => supabase.removeChannel(channel), 0);
+        } else if (subStatus === 'CHANNEL_ERROR' || subStatus === 'TIMED_OUT') {
+          setStatus(prev => ({
+            ...prev,
+            realtime: {
+              status: 'ERROR',
+              message: `Realtime status: ${subStatus}`,
+              lastChecked: timestamp
+            }
+          }));
+          setTimeout(() => supabase.removeChannel(channel), 0);
+        }
       });
     } catch (error: any) {
       setStatus(prev => ({
