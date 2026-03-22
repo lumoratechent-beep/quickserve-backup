@@ -76,7 +76,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
   const testimonialScrollRef = useRef<HTMLDivElement>(null);
   const pricingScrollRef = useRef<HTMLDivElement>(null);
   const [testimonialIdx, setTestimonialIdx] = useState(0);
-  const [pricingIdx, setPricingIdx] = useState(0);
+  const [pricingIdx, setPricingIdx] = useState(1);
   const heroRef = useInView();
   const statsRef = useInView({ threshold: 0.2 });
   const mockupRef = useInView({ threshold: 0.1 });
@@ -93,6 +93,17 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
   const [partnerLogos, setPartnerLogos] = useState<{ url: string; alt: string; crop_shape: string; display_width: number; display_height: number }[]>([]);
 
   useEffect(() => { setMounted(true); }, []);
+
+  // Scroll pricing carousel to Pro plan (index 1) on mount
+  useEffect(() => {
+    const el = pricingScrollRef.current;
+    if (!el) return;
+    const timer = setTimeout(() => {
+      const count = PRICING_PLANS.length;
+      el.scrollTo({ left: (el.scrollWidth / count) * 1, behavior: 'auto' });
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Fetch feature images for the partner carousel
   useEffect(() => {
@@ -153,7 +164,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
       </nav>
 
       {/* ═══════════════════════ HERO SECTION ═══════════════════════ */}
-      <section ref={heroRef.ref} className="min-h-screen flex flex-col items-center justify-center px-6 pt-28 sm:pt-6 relative overflow-hidden">
+      <section ref={heroRef.ref} className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 pt-28 sm:pt-6 relative">
         {/* Animated grid background */}
         <div className="absolute inset-0 marketing-grid-bg opacity-40 dark:opacity-20 pointer-events-none" />
         {/* Gradient orbs */}
@@ -171,7 +182,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
           </div>
 
           {/* Heading */}
-          <h1 className={`text-5xl sm:text-6xl md:text-[4.5rem] xl:text-[5.5rem] font-black text-gray-900 dark:text-white leading-[0.85] tracking-tighter mb-8 lg:mb-4 transition-all duration-700 delay-150 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          <h1 className={`text-[2.5rem] sm:text-6xl md:text-[4.5rem] xl:text-[5.5rem] font-black text-gray-900 dark:text-white leading-[0.85] tracking-tighter mb-8 lg:mb-4 transition-all duration-700 delay-150 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             THE COMPLETE <br />
             <span className="relative inline-block">
               <span className="text-orange-500 hero-text-glow">RESTAURANT</span>
@@ -186,20 +197,20 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
           </p>
 
           {/* CTA Buttons */}
-          <div className={`flex flex-row items-center justify-center gap-3 sm:gap-4 transition-all duration-700 delay-[450ms] ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          <div className={`flex flex-row items-center justify-center gap-3 sm:gap-4 max-w-md sm:max-w-none mx-auto transition-all duration-700 delay-[450ms] ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             <button
               onClick={onGetStarted}
-              className="group flex-1 sm:flex-initial px-6 sm:px-12 py-4 sm:py-5 bg-orange-500 text-white rounded-2xl font-black text-sm sm:text-lg shadow-2xl shadow-orange-500/25 hover:bg-orange-600 hover:scale-105 hover:shadow-orange-500/40 transition-all flex items-center justify-center gap-2 sm:gap-3 shimmer-btn relative overflow-hidden"
+              className="group flex-1 sm:flex-initial min-w-0 px-4 sm:px-12 py-3.5 sm:py-5 bg-orange-500 text-white rounded-2xl font-black text-xs sm:text-lg shadow-2xl shadow-orange-500/25 hover:bg-orange-600 hover:scale-105 hover:shadow-orange-500/40 transition-all flex items-center justify-center gap-1.5 sm:gap-3 shimmer-btn relative overflow-hidden"
             >
-              Start Free Trial <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform sm:hidden" /><ArrowRight size={22} className="group-hover:translate-x-1 transition-transform hidden sm:block" />
+              Start Free Trial <ArrowRight size={16} className="shrink-0 group-hover:translate-x-1 transition-transform sm:hidden" /><ArrowRight size={22} className="shrink-0 group-hover:translate-x-1 transition-transform hidden sm:block" />
             </button>
             <a
               href="https://wa.me/601154036303?text=Hello%2C%20I%20am%20interested%20to%20know%20about%20the%20QuickServe%20QR%20system"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 sm:flex-initial px-6 sm:px-12 py-4 sm:py-5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl font-black text-sm sm:text-lg border border-gray-200 dark:border-gray-700 hover:border-orange-500 hover:scale-105 transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/5"
+              className="flex-1 sm:flex-initial min-w-0 px-4 sm:px-12 py-3.5 sm:py-5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl font-black text-xs sm:text-lg border border-gray-200 dark:border-gray-700 hover:border-orange-500 hover:scale-105 transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-black/5"
             >
-              <MessageSquare size={16} className="sm:hidden" /><MessageSquare size={18} className="hidden sm:block" /> <span className="hidden sm:inline">Contact for Demo</span><span className="sm:hidden">Demo</span>
+              <MessageSquare size={14} className="shrink-0 sm:hidden" /><MessageSquare size={18} className="shrink-0 hidden sm:block" /> <span className="hidden sm:inline">Contact for Demo</span><span className="sm:hidden">Demo</span>
             </a>
           </div>
 
@@ -587,10 +598,10 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
           </div>
 
           {/* Mobile pricing carousel */}
-          <div className="md:hidden">
+          <div className="md:hidden overflow-visible">
             <div
               ref={pricingScrollRef}
-              className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-4 -mx-6 px-6"
+              className="flex gap-4 overflow-x-auto overflow-y-visible snap-x snap-mandatory scrollbar-hide pt-6 pb-4 -mx-6 px-6"
               onScroll={(e) => {
                 const el = e.currentTarget;
                 const count = PRICING_PLANS.length;
