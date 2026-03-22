@@ -145,6 +145,8 @@ interface FeatureSettings {
   tableCount: number;
   tableRows: number;
   tableColumns: number;
+  floorEnabled: boolean;
+  floorCount: number;
   customerDisplayEnabled: boolean;
   kitchenEnabled: boolean;
   qrEnabled: boolean;
@@ -161,6 +163,8 @@ const getDefaultFeatureSettings = (): FeatureSettings => ({
   tableCount: 12,
   tableRows: 3,
   tableColumns: 4,
+  floorEnabled: false,
+  floorCount: 1,
   customerDisplayEnabled: false,
   kitchenEnabled: false,
   qrEnabled: false,
@@ -430,7 +434,10 @@ const PosOnlyView: React.FC<Props> = ({
   const [tableCountDraft, setTableCountDraft] = useState<string>('12');
   const [tableRowsDraft, setTableRowsDraft] = useState<string>('3');
   const [tableColumnsDraft, setTableColumnsDraft] = useState<string>('4');
+  const [floorCountDraft, setFloorCountDraft] = useState<string>(String(featureSettings.floorCount || 1));
   const [tableColPage, setTableColPage] = useState(0);
+  const [selectedFloor, setSelectedFloor] = useState(1);
+  const [modalSelectedFloor, setModalSelectedFloor] = useState(1);
   const tableSwipeStartX = useRef<number | null>(null);
 
   // Payment types
@@ -986,19 +993,62 @@ const PosOnlyView: React.FC<Props> = ({
   const effectiveTableCols = Math.min(20, Math.max(1, Number(featureSettings.tableColumns) || 1));
   const effectiveTableRows = Math.ceil(effectiveTableCount / effectiveTableCols);
 
+  const effectiveFloorCount = featureSettings.floorEnabled ? Math.min(5, Math.max(1, Number(featureSettings.floorCount) || 1)) : 1;
+
   const tableLabels = useMemo(() => {
+    if (featureSettings.floorEnabled && effectiveFloorCount > 1) {
+      // Returns ALL labels across all floors; floor tabs will filter by prefix
+      const labels: string[] = [];
+      for (let f = 1; f <= effectiveFloorCount; f++) {
+        for (let t = 1; t <= effectiveTableCount; t++) {
+          labels.push(`F${f}-${t}`);
+        }
+      }
+      return labels;
+    }
     return Array.from({ length: effectiveTableCount }, (_, idx) => `Table ${idx + 1}`);
-  }, [effectiveTableCount]);
+  }, [effectiveTableCount, featureSettings.floorEnabled, effectiveFloorCount]);
+
+  // Labels for a single floor (used by grid rendering)
+  const tableLabelsForFloor = useMemo(() => {
+    if (featureSettings.floorEnabled && effectiveFloorCount > 1) {
+      const prefix = `F${selectedFloor}-`;
+      return tableLabels.filter(l => l.startsWith(prefix));
+    }
+    return tableLabels;
+  }, [tableLabels, featureSettings.floorEnabled, effectiveFloorCount, selectedFloor]);
+
+  const tableLabelsForModalFloor = useMemo(() => {
+    if (featureSettings.floorEnabled && effectiveFloorCount > 1) {
+      const prefix = `F${modalSelectedFloor}-`;
+      return tableLabels.filter(l => l.startsWith(prefix));
+    }
+    return tableLabels;
+  }, [tableLabels, featureSettings.floorEnabled, effectiveFloorCount, modalSelectedFloor]);
 
   const tableRowsForSelection = useMemo(() => {
+    const labelsToUse = tableLabelsForFloor;
+    const rowCount = Math.ceil(labelsToUse.length / effectiveTableCols);
     const rows: string[][] = [];
-    for (let r = 0; r < effectiveTableRows; r++) {
+    for (let r = 0; r < rowCount; r++) {
       const start = r * effectiveTableCols;
-      const row = tableLabels.slice(start, start + effectiveTableCols);
+      const row = labelsToUse.slice(start, start + effectiveTableCols);
       if (row.length > 0) rows.push(row);
     }
     return rows;
-  }, [effectiveTableRows, effectiveTableCols, tableLabels]);
+  }, [tableLabelsForFloor, effectiveTableCols]);
+
+  const tableRowsForModal = useMemo(() => {
+    const labelsToUse = tableLabelsForModalFloor;
+    const rowCount = Math.ceil(labelsToUse.length / effectiveTableCols);
+    const rows: string[][] = [];
+    for (let r = 0; r < rowCount; r++) {
+      const start = r * effectiveTableCols;
+      const row = labelsToUse.slice(start, start + effectiveTableCols);
+      if (row.length > 0) rows.push(row);
+    }
+    return rows;
+  }, [tableLabelsForModalFloor, effectiveTableCols]);
 
   const savedBillsByTable = useMemo(() => {
     const map = new Map<string, SavedBillEntry>();
@@ -1027,6 +1077,7 @@ const PosOnlyView: React.FC<Props> = ({
 
     setPendingSaveBillSource(source);
     setSelectedSaveTableNumber(defaultTable);
+    setModalSelectedFloor(1);
     setShowSaveBillTableModal(true);
   };
 
@@ -2071,12 +2122,14 @@ const PosOnlyView: React.FC<Props> = ({
     setTableCountDraft(String(featureSettings.tableCount));
     setTableRowsDraft(String(featureSettings.tableRows));
     setTableColumnsDraft(String(featureSettings.tableColumns));
-  }, [featureSettings.tableCount, featureSettings.tableRows, featureSettings.tableColumns]);
+    setFloorCountDraft(String(featureSettings.floorCount || 1));
+  }, [featureSettings.tableCount, featureSettings.tableRows, featureSettings.tableColumns, featureSettings.floorCount]);
 
   const resetTableManagementDraft = () => {
     setTableCountDraft(String(featureSettings.tableCount));
     setTableRowsDraft(String(featureSettings.tableRows));
     setTableColumnsDraft(String(featureSettings.tableColumns));
+    setFloorCountDraft(String(featureSettings.floorCount || 1));
   };
 
   const parsePositiveIntegerDraft = (value: string): number | null => {
@@ -2090,6 +2143,7 @@ const PosOnlyView: React.FC<Props> = ({
   const handleSaveTableManagementChanges = () => {
     const nextTableCount = parsePositiveIntegerDraft(tableCountDraft);
     const nextTableColumns = parsePositiveIntegerDraft(tableColumnsDraft);
+    const nextFloorCount = parsePositiveIntegerDraft(floorCountDraft);
 
     if (!nextTableCount || !nextTableColumns) {
       toast('Table count and columns cannot be empty.', 'error');
@@ -2103,14 +2157,23 @@ const PosOnlyView: React.FC<Props> = ({
       return;
     }
 
+    if (featureSettings.floorEnabled && (!nextFloorCount || nextFloorCount > 5)) {
+      toast('Floor count must be between 1 and 5.', 'error');
+      resetTableManagementDraft();
+      return;
+    }
+
     const autoRows = Math.ceil(nextTableCount / nextTableColumns);
     setFeatureSettings(prev => ({
       ...prev,
       tableCount: nextTableCount,
       tableRows: autoRows,
       tableColumns: nextTableColumns,
+      floorCount: featureSettings.floorEnabled ? (nextFloorCount || 1) : prev.floorCount,
     }));
     setTableColPage(0);
+    setSelectedFloor(1);
+    setModalSelectedFloor(1);
     toast('Table layout saved.', 'success');
   };
 
@@ -3290,7 +3353,8 @@ const PosOnlyView: React.FC<Props> = ({
         </p>
 
         {(tableCountDraft !== String(featureSettings.tableCount) ||
-          tableColumnsDraft !== String(featureSettings.tableColumns)) && (
+          tableColumnsDraft !== String(featureSettings.tableColumns) ||
+          (featureSettings.floorEnabled && floorCountDraft !== String(featureSettings.floorCount || 1))) && (
           <div className="flex items-center justify-end gap-2 pt-1 animate-in fade-in slide-in-from-top-1 duration-200">
             <button
               onClick={resetTableManagementDraft}
@@ -3310,6 +3374,50 @@ const PosOnlyView: React.FC<Props> = ({
         )}
         <p className="text-[9px] text-gray-400">Rows are auto-calculated: {Math.ceil((parsePositiveIntegerDraft(tableCountDraft) ?? featureSettings.tableCount) / (parsePositiveIntegerDraft(tableColumnsDraft) ?? featureSettings.tableColumns))} row(s) based on current values.</p>
       </div>
+
+      {/* Floor Management */}
+      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+        <div>
+          <p className="text-xs font-black dark:text-white">Enable Floors</p>
+          <p className="text-[9px] text-gray-400 mt-0.5">Organize tables by floor level (max 5 floors)</p>
+        </div>
+        <button
+          onClick={() => {
+            setFeatureSettings(prev => ({
+              ...prev,
+              floorEnabled: !prev.floorEnabled,
+              floorCount: !prev.floorEnabled ? (prev.floorCount || 1) : prev.floorCount,
+            }));
+            setSelectedFloor(1);
+            setModalSelectedFloor(1);
+          }}
+          disabled={!featureSettings.savedBillEnabled}
+          className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.floorEnabled && featureSettings.savedBillEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'} ${!featureSettings.savedBillEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.floorEnabled && featureSettings.savedBillEnabled ? 'left-6' : 'left-1'}`} />
+        </button>
+      </div>
+
+      {featureSettings.floorEnabled && featureSettings.savedBillEnabled && (
+        <div className={`space-y-3 p-4 rounded-xl border transition-all bg-gray-50 dark:bg-gray-700/30 border-gray-200 dark:border-gray-700`}>
+          <div>
+            <p className="text-xs font-black dark:text-white">Number of Floors</p>
+            <p className="text-[9px] text-gray-400 mt-0.5">Each floor will have the same table layout ({featureSettings.tableCount} tables per floor)</p>
+          </div>
+          <div className="w-32">
+            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Floors (1-5)</label>
+            <input
+              type="number"
+              min={1}
+              max={5}
+              value={floorCountDraft}
+              onChange={e => setFloorCountDraft(e.target.value)}
+              className="w-full px-2 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+            />
+          </div>
+          <p className="text-[9px] text-gray-400">Tables will be labeled as <span className="font-black text-orange-500">F1-1</span>, <span className="font-black text-orange-500">F1-2</span>, <span className="font-black text-orange-500">F2-1</span>, etc.</p>
+        </div>
+      )}
     </div>
   );
 
@@ -4108,6 +4216,24 @@ const PosOnlyView: React.FC<Props> = ({
                         <p className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">Table Arrangement</p>
                         <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Choose a table with pending bill to continue editing, or view empty tables ready for new saved bills.</p>
                       </div>
+                      {/* Floor tabs */}
+                      {featureSettings.floorEnabled && effectiveFloorCount > 1 && (
+                        <div className="flex items-center gap-1.5 mb-3 overflow-x-auto">
+                          {Array.from({ length: effectiveFloorCount }, (_, i) => i + 1).map(f => (
+                            <button
+                              key={f}
+                              onClick={() => { setSelectedFloor(f); setTableColPage(0); }}
+                              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shrink-0 ${
+                                selectedFloor === f
+                                  ? 'bg-orange-500 text-white shadow-sm'
+                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                              }`}
+                            >
+                              Floor {f}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                       {(() => {
                         const COLS_PER_PAGE = 4;
                         const totalColPages = Math.ceil(effectiveTableCols / COLS_PER_PAGE);
@@ -6572,7 +6698,25 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
 
             <div className="p-6 space-y-4 flex-1 overflow-y-auto">
-              {tableRowsForSelection.map((row, rowIdx) => (
+              {/* Floor tabs in modal */}
+              {featureSettings.floorEnabled && effectiveFloorCount > 1 && (
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                  {Array.from({ length: effectiveFloorCount }, (_, i) => i + 1).map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setModalSelectedFloor(f)}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shrink-0 ${
+                        modalSelectedFloor === f
+                          ? 'bg-orange-500 text-white shadow-sm'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      Floor {f}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {tableRowsForModal.map((row, rowIdx) => (
                 <div key={`select-row-${rowIdx}`} className="grid gap-3" style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }}>
                   {row.map((table) => {
                     const hasPending = savedBillsByTable.has(table);
