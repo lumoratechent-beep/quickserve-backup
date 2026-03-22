@@ -73,6 +73,10 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
   const [mounted, setMounted] = useState(false);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const testimonialScrollRef = useRef<HTMLDivElement>(null);
+  const pricingScrollRef = useRef<HTMLDivElement>(null);
+  const [testimonialIdx, setTestimonialIdx] = useState(0);
+  const [pricingIdx, setPricingIdx] = useState(0);
   const heroRef = useInView();
   const statsRef = useInView({ threshold: 0.2 });
   const mockupRef = useInView({ threshold: 0.1 });
@@ -149,7 +153,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
       </nav>
 
       {/* ═══════════════════════ HERO SECTION ═══════════════════════ */}
-      <section ref={heroRef.ref} className="min-h-screen flex flex-col items-center justify-center px-6 relative overflow-hidden">
+      <section ref={heroRef.ref} className="min-h-screen flex flex-col items-center justify-center px-6 pt-28 sm:pt-6 relative overflow-hidden">
         {/* Animated grid background */}
         <div className="absolute inset-0 marketing-grid-bg opacity-40 dark:opacity-20 pointer-events-none" />
         {/* Gradient orbs */}
@@ -182,28 +186,28 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
           </p>
 
           {/* CTA Buttons */}
-          <div className={`flex flex-col sm:flex-row items-center justify-center gap-4 transition-all duration-700 delay-[450ms] ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          <div className={`flex flex-row items-center justify-center gap-3 sm:gap-4 transition-all duration-700 delay-[450ms] ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             <button
               onClick={onGetStarted}
-              className="group w-full sm:w-auto px-12 py-5 bg-orange-500 text-white rounded-2xl font-black text-lg shadow-2xl shadow-orange-500/25 hover:bg-orange-600 hover:scale-105 hover:shadow-orange-500/40 transition-all flex items-center justify-center gap-3 shimmer-btn relative overflow-hidden"
+              className="group flex-1 sm:flex-initial px-6 sm:px-12 py-4 sm:py-5 bg-orange-500 text-white rounded-2xl font-black text-sm sm:text-lg shadow-2xl shadow-orange-500/25 hover:bg-orange-600 hover:scale-105 hover:shadow-orange-500/40 transition-all flex items-center justify-center gap-2 sm:gap-3 shimmer-btn relative overflow-hidden"
             >
-              Start Free Trial <ArrowRight size={22} className="group-hover:translate-x-1 transition-transform" />
+              Start Free Trial <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform sm:hidden" /><ArrowRight size={22} className="group-hover:translate-x-1 transition-transform hidden sm:block" />
             </button>
             <a
               href="https://wa.me/601154036303?text=Hello%2C%20I%20am%20interested%20to%20know%20about%20the%20QuickServe%20QR%20system"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full sm:w-auto px-12 py-5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl font-black text-lg border border-gray-200 dark:border-gray-700 hover:border-orange-500 hover:scale-105 transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/5"
+              className="flex-1 sm:flex-initial px-6 sm:px-12 py-4 sm:py-5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl font-black text-sm sm:text-lg border border-gray-200 dark:border-gray-700 hover:border-orange-500 hover:scale-105 transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/5"
             >
-              <MessageSquare size={18} /> Contact for Demo
+              <MessageSquare size={16} className="sm:hidden" /><MessageSquare size={18} className="hidden sm:block" /> <span className="hidden sm:inline">Contact for Demo</span><span className="sm:hidden">Demo</span>
             </a>
           </div>
 
           {/* Trust row */}
-          <div className={`flex flex-wrap items-center justify-center gap-6 mt-14 lg:mt-6 transition-all duration-700 delay-[600ms] ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <div className={`flex flex-nowrap items-center justify-center gap-3 sm:gap-6 mt-14 lg:mt-6 transition-all duration-700 delay-[600ms] ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             {['No credit card required', 'Setup in 5 minutes', `${TRIAL_DAYS}-day free trial`].map((t, i) => (
-              <span key={i} className="flex items-center gap-2 text-xs font-bold text-gray-600 dark:text-gray-500 uppercase tracking-wider">
-                <Check size={14} className="text-green-500" /> {t}
+              <span key={i} className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-bold text-gray-600 dark:text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                <Check size={12} className="text-green-500 sm:w-3.5 sm:h-3.5" /> {t}
               </span>
             ))}
           </div>
@@ -247,7 +251,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
             <h2 className="text-3xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Everything You Need</h2>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
             {[
               { icon: <QrCode size={24} />, title: 'QR Ordering', desc: 'Customers scan a table QR code, browse your menu, and order directly from their phone. No app install needed.', accent: 'from-orange-500 to-amber-500' },
               { icon: <MapPin size={24} />, title: 'Table Management', desc: 'Multiple areas, multiple tables. Manage your floor layout, track table status, and organise dine-in flow effortlessly.', accent: 'from-yellow-500 to-orange-500' },
@@ -258,16 +262,16 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
             ].map((f, i) => (
               <div
                 key={i}
-                className={`group relative p-7 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 hover:border-orange-500/50 transition-all duration-500 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-orange-500/5 ${featuresRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+                className={`group relative p-4 sm:p-7 bg-white dark:bg-gray-900 rounded-2xl sm:rounded-3xl border border-gray-100 dark:border-gray-800 hover:border-orange-500/50 transition-all duration-500 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-orange-500/5 ${featuresRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
                 style={{ transitionDelay: featuresRef.isInView ? `${i * 80}ms` : '0ms' }}
               >
                 {/* Gradient line on top */}
-                <div className={`absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r ${f.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-full`} />
-                <div className="w-12 h-12 bg-orange-50 dark:bg-orange-500/10 text-orange-500 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                <div className={`absolute top-0 left-4 right-4 sm:left-8 sm:right-8 h-[2px] bg-gradient-to-r ${f.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-full`} />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-50 dark:bg-orange-500/10 text-orange-500 rounded-xl sm:rounded-2xl flex items-center justify-center mb-3 sm:mb-5 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
                   {f.icon}
                 </div>
-                <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight mb-2">{f.title}</h3>
-                <p className="text-sm text-gray-700 dark:text-gray-400 font-medium leading-relaxed">{f.desc}</p>
+                <h3 className="text-sm sm:text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight mb-1 sm:mb-2">{f.title}</h3>
+                <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-400 font-medium leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -384,7 +388,8 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
             <h2 className="text-3xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">What They Say</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Desktop grid */}
+          <div className="hidden md:grid md:grid-cols-3 gap-6">
             {[
               { name: 'Ahmad R.', biz: 'Nasi Lemak Corner, KL', text: "Setup took me 3 minutes. The next day I already had customers ordering from their phones. Incredible value for the price.", avatar: 'A' },
               { name: 'Mei Ling T.', biz: 'Bubble Tea House, PJ', text: "We cut our wait times by half. Customers love scanning QR and ordering without waiting. Our staff is happier too.", avatar: 'M' },
@@ -409,6 +414,49 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
               </div>
             ))}
           </div>
+          {/* Mobile carousel */}
+          <div className="md:hidden">
+            <div
+              ref={testimonialScrollRef}
+              className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-4 -mx-6 px-6"
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                const idx = Math.round(el.scrollLeft / (el.scrollWidth / 3));
+                setTestimonialIdx(Math.min(idx, 2));
+              }}
+            >
+              {[
+                { name: 'Ahmad R.', biz: 'Nasi Lemak Corner, KL', text: "Setup took me 3 minutes. The next day I already had customers ordering from their phones. Incredible value for the price.", avatar: 'A' },
+                { name: 'Mei Ling T.', biz: 'Bubble Tea House, PJ', text: "We cut our wait times by half. Customers love scanning QR and ordering without waiting. Our staff is happier too.", avatar: 'M' },
+                { name: 'Raj K.', biz: 'Mamak Express, Penang', text: "I tried 3 other POS systems before QuickServe. This is the only one that's actually affordable for a small restaurant.", avatar: 'R' },
+              ].map((t, i) => (
+                <div
+                  key={i}
+                  className="flex-shrink-0 w-[85vw] snap-center p-6 bg-white dark:bg-gray-800/50 rounded-3xl border border-gray-100 dark:border-gray-800"
+                >
+                  <div className="flex gap-1 mb-4">
+                    {[...Array(5)].map((_, j) => <Star key={j} size={14} className="fill-orange-400 text-orange-400" />)}
+                  </div>
+                  <p className="text-gray-700 dark:text-gray-300 font-medium text-sm leading-relaxed mb-6">"{t.text}"</p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-orange-500 text-white rounded-full flex items-center justify-center font-black text-sm">{t.avatar}</div>
+                    <div>
+                      <div className="font-bold text-sm text-gray-900 dark:text-white">{t.name}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{t.biz}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Dots */}
+            <div className="flex justify-center gap-2 mt-4">
+              {[0, 1, 2].map(i => (
+                <button key={i} className={`w-2 h-2 rounded-full transition-all ${testimonialIdx === i ? 'bg-orange-500 w-6' : 'bg-gray-300 dark:bg-gray-600'}`} onClick={() => {
+                  testimonialScrollRef.current?.scrollTo({ left: (testimonialScrollRef.current.scrollWidth / 3) * i, behavior: 'smooth' });
+                }} />
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
@@ -425,20 +473,20 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
             <p className="text-gray-700 dark:text-gray-400 font-medium max-w-xl mx-auto">We are building a complete back-office suite — so you never need another tool.</p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
             {[
               { icon: <PackageCheck size={22} />, title: 'Stock Management', desc: 'Track ingredient stock levels, get low-stock alerts, and tie usage directly to menu items.' },
               { icon: <Receipt size={22} />, title: 'Billing & Invoicing', desc: 'Generate e-invoices, manage SST, and keep all your billing records in one place.' },
               { icon: <TrendingUp size={22} />, title: 'P&L Analysis', desc: 'Visualise your revenue vs costs in real-time. Know exactly where your restaurant is profitable.' },
               { icon: <BarChart3 size={22} />, title: 'Sales Management', desc: 'Deep dive into sales trends, compare periods, and make smarter menu and staffing decisions.' },
             ].map((f, i) => (
-              <div key={i} className="group relative p-6 bg-gray-50 dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 hover:border-orange-500/40 transition-all duration-500 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-orange-500/5">
-                <div className="absolute top-4 right-4 px-2 py-0.5 bg-orange-500/10 text-orange-500 text-[9px] font-black uppercase tracking-widest rounded-full">Soon</div>
-                <div className="w-11 h-11 bg-orange-50 dark:bg-orange-500/10 text-orange-500 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+              <div key={i} className="group relative p-4 sm:p-6 bg-gray-50 dark:bg-gray-900 rounded-2xl sm:rounded-3xl border border-gray-200 dark:border-gray-800 hover:border-orange-500/40 transition-all duration-500 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-orange-500/5">
+                <div className="absolute top-3 right-3 sm:top-4 sm:right-4 px-2 py-0.5 bg-orange-500/10 text-orange-500 text-[8px] sm:text-[9px] font-black uppercase tracking-widest rounded-full">Soon</div>
+                <div className="w-9 h-9 sm:w-11 sm:h-11 bg-orange-50 dark:bg-orange-500/10 text-orange-500 rounded-xl sm:rounded-2xl flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
                   {f.icon}
                 </div>
-                <h3 className="text-base font-black text-gray-900 dark:text-white uppercase tracking-tight mb-2">{f.title}</h3>
-                <p className="text-sm text-gray-700 dark:text-gray-400 font-medium leading-relaxed">{f.desc}</p>
+                <h3 className="text-xs sm:text-base font-black text-gray-900 dark:text-white uppercase tracking-tight mb-1 sm:mb-2">{f.title}</h3>
+                <p className="text-[11px] sm:text-sm text-gray-700 dark:text-gray-400 font-medium leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -482,7 +530,8 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
             })()}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          {/* Desktop pricing grid */}
+          <div className="hidden md:grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {PRICING_PLANS.map((plan, i) => {
               const displayPrice = billingCycle === 'annual' ? plan.annualPrice : plan.price;
               return (
@@ -535,6 +584,76 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
                 </div>
               );
             })}
+          </div>
+
+          {/* Mobile pricing carousel */}
+          <div className="md:hidden">
+            <div
+              ref={pricingScrollRef}
+              className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-4 -mx-6 px-6"
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                const count = PRICING_PLANS.length;
+                const idx = Math.round(el.scrollLeft / (el.scrollWidth / count));
+                setPricingIdx(Math.min(idx, count - 1));
+              }}
+            >
+              {PRICING_PLANS.map((plan, i) => {
+                const displayPrice = billingCycle === 'annual' ? plan.annualPrice : plan.price;
+                return (
+                  <div
+                    key={plan.id}
+                    className={`flex-shrink-0 w-[80vw] snap-center relative p-6 rounded-3xl border flex flex-col backdrop-blur-sm ${
+                      plan.highlight
+                        ? 'bg-white/10 border-orange-500 shadow-2xl shadow-orange-500/20'
+                        : 'bg-white/[0.03] border-white/10'
+                    }`}
+                  >
+                    {plan.highlight && (
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-5 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-orange-500/30">
+                        Most Popular
+                      </div>
+                    )}
+                    <h3 className="text-xl font-black uppercase tracking-tight mb-1">{plan.name}</h3>
+                    <p className="text-xs text-white/40 font-medium mb-5">{plan.description}</p>
+                    <div className="mb-6">
+                      <div className="flex items-baseline gap-1.5 flex-wrap">
+                        <span className="text-lg text-white/30 font-bold line-through">MYR {plan.price}</span>
+                        <span className="text-4xl font-black text-orange-500">MYR 0</span>
+                        <span className="text-white/40 font-bold text-sm">/mo</span>
+                      </div>
+                      <p className="text-xs text-white/40 font-medium mt-1">For 1 month, MYR {displayPrice}/mo after</p>
+                    </div>
+                    <ul className="space-y-3 mb-8 flex-1">
+                      {plan.features.map((feature, j) => (
+                        <li key={j} className="flex items-start gap-3 text-sm text-white/70 font-medium">
+                          <Check size={16} className="text-orange-500 shrink-0 mt-0.5" />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      onClick={onGetStarted}
+                      className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2 mt-auto ${
+                        plan.highlight
+                          ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white'
+                          : 'bg-white/10 text-white'
+                      }`}
+                    >
+                      Start Free Trial <ArrowRight size={16} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Dots */}
+            <div className="flex justify-center gap-2 mt-4">
+              {PRICING_PLANS.map((_, i) => (
+                <button key={i} className={`w-2 h-2 rounded-full transition-all ${pricingIdx === i ? 'bg-orange-500 w-6' : 'bg-white/20'}`} onClick={() => {
+                  pricingScrollRef.current?.scrollTo({ left: (pricingScrollRef.current.scrollWidth / PRICING_PLANS.length) * i, behavior: 'smooth' });
+                }} />
+              ))}
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-8 mt-16">
