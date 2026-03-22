@@ -2177,6 +2177,23 @@ const PosOnlyView: React.FC<Props> = ({
     toast('Table layout saved.', 'success');
   };
 
+  const handleSaveFloorChanges = () => {
+    const nextFloorCount = parsePositiveIntegerDraft(floorCountDraft);
+    if (!nextFloorCount || nextFloorCount < 1 || nextFloorCount > 5) {
+      toast('Floor count must be between 1 and 5.', 'error');
+      setFloorCountDraft(String(featureSettings.floorCount || 1));
+      return;
+    }
+    setFeatureSettings(prev => ({
+      ...prev,
+      floorCount: nextFloorCount,
+    }));
+    setSelectedFloor(1);
+    setModalSelectedFloor(1);
+    setTableColPage(0);
+    toast('Floor settings saved.', 'success');
+  };
+
   const handleAddPaymentType = () => {
     if (!newPaymentTypeName.trim()) return;
     const newType: PaymentType = {
@@ -3416,6 +3433,23 @@ const PosOnlyView: React.FC<Props> = ({
             />
           </div>
           <p className="text-[9px] text-gray-400">Tables will be labeled as <span className="font-black text-orange-500">F1-1</span>, <span className="font-black text-orange-500">F1-2</span>, <span className="font-black text-orange-500">F2-1</span>, etc.</p>
+
+          {floorCountDraft !== String(featureSettings.floorCount || 1) && (
+            <div className="flex items-center justify-end gap-2 pt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+              <button
+                onClick={() => setFloorCountDraft(String(featureSettings.floorCount || 1))}
+                className="px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveFloorChanges}
+                className="px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest bg-green-500 text-white hover:bg-green-600 transition-all"
+              >
+                Save Changes
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
