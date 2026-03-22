@@ -131,8 +131,8 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
     <div className="min-h-screen bg-white dark:bg-gray-950 font-sans selection:bg-orange-100 selection:text-orange-900 overflow-x-hidden">
       {/* Navigation */}
       <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${mounted ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="mt-4 flex items-center justify-between h-16 px-6 bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg shadow-black/5">
+        <div className="mx-auto max-w-7xl px-3 sm:px-6">
+          <div className="mt-4 flex items-center justify-between h-14 sm:h-16 px-3 sm:px-6 bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg shadow-black/5">
             <div className="flex items-center gap-2">
               <img src="/LOGO/9.png" alt="QuickServe" className="h-9 dark:hidden" />
               <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-9 hidden dark:block" />
@@ -154,7 +154,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
               </button>
               <button
                 onClick={onLogin}
-                className="px-5 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all hover:scale-105"
+                className="px-3 sm:px-5 py-2 sm:py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] sm:text-[11px] uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all hover:scale-105"
               >
                 Login
               </button>
@@ -164,16 +164,16 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
       </nav>
 
       {/* ═══════════════════════ HERO SECTION ═══════════════════════ */}
-      <section ref={heroRef.ref} className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 pt-28 sm:pt-6 relative">
+      <section ref={heroRef.ref} className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 pt-24 sm:pt-6 relative overflow-hidden">
         {/* Animated grid background */}
         <div className="absolute inset-0 marketing-grid-bg opacity-40 dark:opacity-20 pointer-events-none" />
         {/* Gradient orbs */}
         <div className="absolute top-20 -left-32 w-96 h-96 bg-orange-400/20 rounded-full blur-[120px] pointer-events-none animate-float-slow" />
         <div className="absolute bottom-0 -right-32 w-96 h-96 bg-orange-600/10 rounded-full blur-[120px] pointer-events-none animate-float-slow" style={{ animationDelay: '2s' }} />
 
-        <div className="max-w-7xl mx-auto text-center relative z-10">
+        <div className="max-w-7xl w-full mx-auto text-center relative z-10">
           {/* Badge */}
-          <div className={`inline-flex items-center gap-2.5 px-5 py-2.5 bg-orange-500/10 dark:bg-orange-500/15 text-orange-600 dark:text-orange-400 rounded-full text-[10px] font-black uppercase tracking-[0.2em] mb-10 lg:mb-4 border border-orange-500/20 transition-all duration-700 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
+          <div className={`inline-flex items-center gap-2 sm:gap-2.5 px-3 sm:px-5 py-2 sm:py-2.5 bg-orange-500/10 dark:bg-orange-500/15 text-orange-600 dark:text-orange-400 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] mb-8 sm:mb-10 lg:mb-4 border border-orange-500/20 transition-all duration-700 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
@@ -182,7 +182,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
           </div>
 
           {/* Heading */}
-          <h1 className={`text-[2.5rem] sm:text-6xl md:text-[4.5rem] xl:text-[5.5rem] font-black text-gray-900 dark:text-white leading-[0.85] tracking-tighter mb-8 lg:mb-4 transition-all duration-700 delay-150 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          <h1 className={`text-3xl sm:text-5xl md:text-[4.5rem] xl:text-[5.5rem] font-black text-gray-900 dark:text-white leading-[0.9] sm:leading-[0.85] tracking-tighter mb-6 sm:mb-8 lg:mb-4 transition-all duration-700 delay-150 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             THE COMPLETE <br />
             <span className="relative inline-block">
               <span className="text-orange-500 hero-text-glow">RESTAURANT</span>
@@ -192,33 +192,33 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
           </h1>
 
           {/* Desc */}
-          <p className={`text-base sm:text-lg md:text-xl lg:text-base text-gray-700 dark:text-gray-300 max-w-2xl mx-auto mb-16 lg:mb-12 font-medium leading-relaxed transition-all duration-700 delay-300 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          <p className={`text-sm sm:text-lg md:text-xl lg:text-base text-gray-700 dark:text-gray-300 max-w-2xl mx-auto mb-10 sm:mb-16 lg:mb-12 font-medium leading-relaxed transition-all duration-700 delay-300 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             QR ordering, table management, kitchen display system, staff POS — everything your restaurant needs. No expensive hardware. No hidden fees. Live in 5 minutes.
           </p>
 
           {/* CTA Buttons */}
-          <div className={`flex flex-row items-center justify-center gap-3 sm:gap-4 max-w-md sm:max-w-none mx-auto transition-all duration-700 delay-[450ms] ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          <div className={`flex flex-row items-center justify-center gap-2.5 sm:gap-4 w-full max-w-sm sm:max-w-none mx-auto transition-all duration-700 delay-[450ms] ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             <button
               onClick={onGetStarted}
-              className="group flex-1 sm:flex-initial min-w-0 px-4 sm:px-12 py-3.5 sm:py-5 bg-orange-500 text-white rounded-2xl font-black text-xs sm:text-lg shadow-2xl shadow-orange-500/25 hover:bg-orange-600 hover:scale-105 hover:shadow-orange-500/40 transition-all flex items-center justify-center gap-1.5 sm:gap-3 shimmer-btn relative overflow-hidden"
+              className="group flex-1 sm:flex-initial min-w-0 px-3 sm:px-12 py-3 sm:py-5 bg-orange-500 text-white rounded-xl sm:rounded-2xl font-black text-[11px] sm:text-lg shadow-2xl shadow-orange-500/25 hover:bg-orange-600 hover:scale-105 hover:shadow-orange-500/40 transition-all flex items-center justify-center gap-1 sm:gap-3 shimmer-btn relative overflow-hidden whitespace-nowrap"
             >
-              Start Free Trial <ArrowRight size={16} className="shrink-0 group-hover:translate-x-1 transition-transform sm:hidden" /><ArrowRight size={22} className="shrink-0 group-hover:translate-x-1 transition-transform hidden sm:block" />
+              Start Free Trial <ArrowRight size={14} className="shrink-0 group-hover:translate-x-1 transition-transform sm:hidden" /><ArrowRight size={22} className="shrink-0 group-hover:translate-x-1 transition-transform hidden sm:block" />
             </button>
             <a
               href="https://wa.me/601154036303?text=Hello%2C%20I%20am%20interested%20to%20know%20about%20the%20QuickServe%20QR%20system"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 sm:flex-initial min-w-0 px-4 sm:px-12 py-3.5 sm:py-5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl font-black text-xs sm:text-lg border border-gray-200 dark:border-gray-700 hover:border-orange-500 hover:scale-105 transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-black/5"
+              className="flex-1 sm:flex-initial min-w-0 px-3 sm:px-12 py-3 sm:py-5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl sm:rounded-2xl font-black text-[11px] sm:text-lg border border-gray-200 dark:border-gray-700 hover:border-orange-500 hover:scale-105 transition-all flex items-center justify-center gap-1 shadow-lg shadow-black/5 whitespace-nowrap"
             >
-              <MessageSquare size={14} className="shrink-0 sm:hidden" /><MessageSquare size={18} className="shrink-0 hidden sm:block" /> <span className="hidden sm:inline">Contact for Demo</span><span className="sm:hidden">Demo</span>
+              <MessageSquare size={13} className="shrink-0 sm:hidden" /><MessageSquare size={18} className="shrink-0 hidden sm:block" /> <span className="hidden sm:inline">Contact for Demo</span><span className="sm:hidden">Demo</span>
             </a>
           </div>
 
           {/* Trust row */}
-          <div className={`flex flex-nowrap items-center justify-center gap-3 sm:gap-6 mt-14 lg:mt-6 transition-all duration-700 delay-[600ms] ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <div className={`flex flex-wrap items-center justify-center gap-2 sm:gap-6 mt-8 sm:mt-14 lg:mt-6 transition-all duration-700 delay-[600ms] ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             {['No credit card required', 'Setup in 5 minutes', `${TRIAL_DAYS}-day free trial`].map((t, i) => (
-              <span key={i} className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-bold text-gray-600 dark:text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                <Check size={12} className="text-green-500 sm:w-3.5 sm:h-3.5" /> {t}
+              <span key={i} className="flex items-center gap-1 sm:gap-2 text-[9px] sm:text-xs font-bold text-gray-600 dark:text-gray-500 uppercase tracking-wide sm:tracking-wider whitespace-nowrap">
+                <Check size={11} className="shrink-0 text-green-500" /> {t}
               </span>
             ))}
           </div>
