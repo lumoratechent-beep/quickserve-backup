@@ -164,7 +164,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
       </nav>
 
       {/* ═══════════════════════ HERO SECTION ═══════════════════════ */}
-      <section ref={heroRef.ref} className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 pt-16 sm:pt-6 relative overflow-hidden">
+      <section ref={heroRef.ref} className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 relative overflow-hidden">
         {/* Animated grid background */}
         <div className="absolute inset-0 marketing-grid-bg opacity-40 dark:opacity-20 pointer-events-none" />
         {/* Gradient orbs */}
@@ -185,7 +185,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
           <h1 className={`font-black text-gray-900 dark:text-white tracking-tighter mb-6 sm:mb-8 lg:mb-4 transition-all duration-700 delay-150 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             {/* Mobile: 4 rows with larger text */}
             <span className="block sm:hidden text-4xl leading-[1.1]">
-              THE<br />COMPLETE<br />
+              THE COMPLETE<br />
               <span className="relative inline-block">
                 <span className="text-orange-500 hero-text-glow">RESTAURANT</span>
                 <svg className="absolute -bottom-1 left-0 w-full" viewBox="0 0 300 12" fill="none"><path d="M2 8 C50 2, 100 2, 150 6 S250 10, 298 4" stroke="rgb(249,115,22)" strokeWidth="3" strokeLinecap="round" className="marketing-underline-draw" /></svg>
