@@ -7,13 +7,14 @@ import {
   LineChart, Line, AreaChart, Area,
 } from 'recharts';
 import {
-  TrendingUp, TrendingDown, DollarSign, ShoppingBag, Users, Receipt, ChevronRight, Filter,
+  TrendingUp, TrendingDown, DollarSign, ShoppingBag, Users, Receipt, ChevronRight, ChevronLeft, Filter,
   BarChart3, Package, UserPlus, UserMinus, Edit3, Trash2, Plus, Minus, Search, AlertCircle,
   ArrowUpRight, ArrowDownRight, Clock, CheckCircle, XCircle, Eye, Archive, RotateCcw,
-  Briefcase, Box, Tag, Layers, Activity, ArrowLeft, Warehouse, FileBarChart,
+  Briefcase, Box, Tag, Layers, Activity, ArrowLeft, Warehouse, FileBarChart, Contact,
 } from 'lucide-react';
 import InventoryManagement from '../components/InventoryManagement';
 import ReportsView from '../components/ReportsView';
+import ContactsManagement from '../components/ContactsManagement';
 
 interface Props {
   restaurant: Restaurant;
@@ -23,7 +24,7 @@ interface Props {
   onBack?: () => void;
 }
 
-type BackOfficeTab = 'SALES' | 'PERFORMANCE' | 'STAFF' | 'STOCK' | 'INVENTORY' | 'REPORTS';
+type BackOfficeTab = 'DASHBOARD' | 'STAFF' | 'STOCK' | 'INVENTORY' | 'REPORTS' | 'CONTACTS';
 type DateRange = '7d' | '30d' | '90d' | 'custom';
 
 const COLORS = ['#D97706', '#F59E0B', '#92400E', '#B45309', '#78350F', '#FBBF24', '#FCD34D', '#3B82F6', '#8B5CF6', '#22C55E'];
@@ -58,7 +59,9 @@ interface StockItem {
 }
 
 const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, onFetchAllFilteredOrders, onBack }) => {
-  const [activeTab, setActiveTab] = useState<BackOfficeTab>('SALES');
+  const [activeTab, setActiveTab] = useState<BackOfficeTab>('DASHBOARD');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [reportSubTab, setReportSubTab] = useState<string | undefined>(undefined);
   const today = new Date();
   const [dateRange, setDateRange] = useState<DateRange>('30d');
   const [customStart, setCustomStart] = useState(() => {
@@ -419,13 +422,18 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
   // ─── Tab buttons ───
   const tabs: { key: BackOfficeTab; label: string; icon: React.ReactNode }[] = [
-    { key: 'SALES', label: 'Sales Analytics', icon: <BarChart3 size={18} /> },
-    { key: 'PERFORMANCE', label: 'Performance', icon: <Activity size={18} /> },
+    { key: 'DASHBOARD', label: 'Dashboard', icon: <BarChart3 size={18} /> },
     { key: 'STAFF', label: 'Staff Management', icon: <Users size={18} /> },
     { key: 'STOCK', label: 'Stock Management', icon: <Package size={18} /> },
     { key: 'INVENTORY', label: 'Inventory', icon: <Warehouse size={18} /> },
+    { key: 'CONTACTS', label: 'Contacts', icon: <Contact size={18} /> },
     { key: 'REPORTS', label: 'Reports', icon: <FileBarChart size={18} /> },
   ];
+
+  const handleSeeDetails = (reportTab: string) => {
+    setReportSubTab(reportTab);
+    setActiveTab('REPORTS');
+  };
 
   // ─── Date Range Picker ───
   const DateRangePicker = () => (
@@ -458,44 +466,68 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   return (
     <div className="h-screen flex bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
       {/* Sidebar */}
-      <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0 hidden md:flex">
+      <aside className={`${isSidebarCollapsed ? 'lg:w-16' : 'w-64'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0 hidden md:flex transition-all duration-300 ease-in-out`}>
         {/* Logo / Header */}
-        <div className="px-4 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-600/20 flex items-center justify-center">
-            <Briefcase size={20} className="text-amber-500" />
+        <div className={`border-b border-gray-200 dark:border-gray-700 flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
+          <div className={`${isSidebarCollapsed ? 'w-8 h-8' : 'w-10 h-10'} rounded-xl bg-amber-600/20 flex items-center justify-center`}>
+            <Briefcase size={isSidebarCollapsed ? 16 : 20} className="text-amber-500" />
           </div>
+          {!isSidebarCollapsed && (
           <div>
             <h2 className="font-black text-sm uppercase tracking-tight leading-tight">Back Office</h2>
             <p className="text-[9px] font-bold text-gray-400 dark:text-gray-500 truncate">{restaurant.name}</p>
           </div>
+          )}
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className={`flex-1 ${isSidebarCollapsed ? 'p-2 space-y-1' : 'px-3 py-4 space-y-1'}`}>
           {tabs.map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              title={tab.label}
+              className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeTab === tab.key
                   ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400'
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
               }`}
             >
-              {tab.icon} {tab.label}
+              {tab.icon} {!isSidebarCollapsed && tab.label}
             </button>
           ))}
         </nav>
 
+        {/* Sidebar Collapse Toggle */}
+        <div className={`hidden lg:flex ${isSidebarCollapsed ? 'justify-center p-2' : 'justify-end px-4'} pt-1`}>
+          <button
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-all"
+          >
+            {isSidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          </button>
+        </div>
+
         {/* Back to POS button */}
         {onBack && (
           <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-3">
+            {isSidebarCollapsed ? (
+              <button
+                onClick={onBack}
+                title="Back to POS"
+                className="w-full flex items-center justify-center py-3 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+              >
+                <ArrowLeft size={16} />
+              </button>
+            ) : (
             <button
               onClick={onBack}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-bold uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
             >
               <ArrowLeft size={16} /> Back to POS
             </button>
+            )}
           </div>
         )}
       </aside>
@@ -536,21 +568,19 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
         {/* Desktop Header */}
         <div className="hidden md:block sticky top-0 z-20 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-          <div className="max-w-[1600px] mx-auto px-6 py-4">
-            <h1 className="text-xl font-black tracking-tight flex items-center gap-3">
-              <Briefcase size={24} className="text-amber-500" />
+          <div className="max-w-[1600px] mx-auto px-6 py-3">
+            <h1 className="text-lg font-black tracking-tight flex items-center gap-3">
               {tabs.find(t => t.key === activeTab)?.label || 'Back Office'}
             </h1>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{restaurant.name} — Business Management</p>
           </div>
         </div>
 
       <div className="max-w-[1600px] mx-auto p-4 md:p-6">
 
         {/* ════════════════════════════════════ */}
-        {/* SALES ANALYTICS TAB                 */}
+        {/* DASHBOARD TAB                       */}
         {/* ════════════════════════════════════ */}
-        {activeTab === 'SALES' && (
+        {activeTab === 'DASHBOARD' && (
           <div>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
               <h2 className="text-lg font-black">Sales Overview</h2>
@@ -583,7 +613,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
               {/* Daily Sales */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-                <h3 className="text-sm font-bold text-amber-400 mb-4">Daily Sales</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-amber-400">Daily Sales</h3>
+                  <button onClick={() => handleSeeDetails('sales_summary')} className="text-[10px] font-bold text-amber-500 hover:text-amber-400 flex items-center gap-1 transition-all">See Details <ChevronRight size={12} /></button>
+                </div>
                 {dailySales.length > 0 ? (
                   <ResponsiveContainer width="100%" height={280}>
                     <AreaChart data={dailySales}>
@@ -605,7 +638,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
               {/* Payment Methods */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-                <h3 className="text-sm font-bold text-amber-400 mb-4">Payment Methods</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-amber-400">Payment Methods</h3>
+                  <button onClick={() => handleSeeDetails('sales_by_payment')} className="text-[10px] font-bold text-amber-500 hover:text-amber-400 flex items-center gap-1 transition-all">See Details <ChevronRight size={12} /></button>
+                </div>
                 {paymentData.length > 0 ? (
                   <>
                     <div className="flex justify-center">
@@ -640,7 +676,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
               {/* Hourly Sales */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-                <h3 className="text-sm font-bold text-amber-400 mb-4">Sales by Hour</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-amber-400">Sales by Hour</h3>
+                  <button onClick={() => handleSeeDetails('sales_by_employee')} className="text-[10px] font-bold text-amber-500 hover:text-amber-400 flex items-center gap-1 transition-all">See Details <ChevronRight size={12} /></button>
+                </div>
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={hourlySales.filter(h => h.orders > 0)}>
                     <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#333" />
@@ -654,7 +693,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
               {/* Top Selling Items */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-                <h3 className="text-sm font-bold text-amber-400 mb-4">Top Selling Items</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-amber-400">Top Selling Items</h3>
+                  <button onClick={() => handleSeeDetails('sales_by_item')} className="text-[10px] font-bold text-amber-500 hover:text-amber-400 flex items-center gap-1 transition-all">See Details <ChevronRight size={12} /></button>
+                </div>
                 {topItems.length > 0 ? (
                   <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
                     {topItems.map((item, i) => (
@@ -678,7 +720,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Category Sales */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-                <h3 className="text-sm font-bold text-amber-400 mb-4">Sales by Category</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-amber-400">Sales by Category</h3>
+                  <button onClick={() => handleSeeDetails('sales_by_category')} className="text-[10px] font-bold text-amber-500 hover:text-amber-400 flex items-center gap-1 transition-all">See Details <ChevronRight size={12} /></button>
+                </div>
                 {categoryBreakdown.length > 0 ? (
                   <div className="space-y-3">
                     {categoryBreakdown.map(cat => {
@@ -702,7 +747,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
               {/* Order Status */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-                <h3 className="text-sm font-bold text-amber-400 mb-4">Order Status Breakdown</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-amber-400">Order Status Breakdown</h3>
+                  <button onClick={() => handleSeeDetails('sales_summary')} className="text-[10px] font-bold text-amber-500 hover:text-amber-400 flex items-center gap-1 transition-all">See Details <ChevronRight size={12} /></button>
+                </div>
                 {statusData.length > 0 ? (
                   <div className="space-y-3">
                     {statusData.map(s => {
@@ -723,142 +771,6 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                   </div>
                 ) : <div className="h-32 flex items-center justify-center text-gray-400 dark:text-gray-600 text-sm">No data</div>}
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* ════════════════════════════════════ */}
-        {/* PERFORMANCE TAB                     */}
-        {/* ════════════════════════════════════ */}
-        {activeTab === 'PERFORMANCE' && (
-          <div>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              <h2 className="text-lg font-black">Performance Overview</h2>
-              <DateRangePicker />
-            </div>
-
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center"><Users size={20} className="text-blue-400" /></div>
-                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Total Staff</span>
-                </div>
-                <p className="text-2xl font-black dark:text-white">{staffList.length}</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{staffList.filter(s => s.isActive !== false).length} active</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-green-600/20 flex items-center justify-center"><TrendingUp size={20} className="text-green-400" /></div>
-                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Best Seller</span>
-                </div>
-                <p className="text-lg font-black truncate dark:text-white">{topItems[0]?.name || 'N/A'}</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{topItems[0]?.qty || 0} units sold</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-600/20 flex items-center justify-center"><Clock size={20} className="text-purple-400" /></div>
-                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Peak Hour</span>
-                </div>
-                <p className="text-2xl font-black dark:text-white">{peakHours[0]?.label || 'N/A'}</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{peakHours[0]?.orders || 0} orders</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-600/20 flex items-center justify-center"><DollarSign size={20} className="text-amber-500" /></div>
-                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Revenue/Day</span>
-                </div>
-                <p className="text-2xl font-black dark:text-white">{currencySymbol}{dailySales.length > 0 ? (kpis.totalSales / dailySales.length).toFixed(2) : '0.00'}</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">avg over period</p>
-              </div>
-            </div>
-
-            {/* Cashier Leaderboard + Peak Hours */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-                <h3 className="text-sm font-bold text-amber-400 mb-4">Cashier Leaderboard</h3>
-                {cashierStats.length > 0 ? (
-                  <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
-                    {cashierStats.map((c, i) => (
-                      <div key={c.name} className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-xl hover:bg-gray-200 dark:bg-gray-600 transition-all">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm ${
-                          i === 0 ? 'bg-amber-600 text-white' : i === 1 ? 'bg-gray-500 text-white' : i === 2 ? 'bg-orange-800 text-white' : 'bg-gray-700 text-gray-300'
-                        }`}>{i + 1}</div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold truncate">{c.name}</p>
-                          <p className="text-[10px] text-gray-400 dark:text-gray-500">{c.orders} orders | {c.cancelled} cancelled</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-bold text-amber-400">{currencySymbol}{c.revenue.toFixed(2)}</p>
-                          <p className="text-[10px] text-gray-400 dark:text-gray-500">avg {currencySymbol}{c.avgOrder.toFixed(2)}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : <div className="h-48 flex items-center justify-center text-gray-400 dark:text-gray-600 text-sm">No data</div>}
-              </div>
-
-              {/* Peak Hours Chart */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-                <h3 className="text-sm font-bold text-amber-400 mb-4">Orders by Hour</h3>
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={hourlySales}>
-                    <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#333" />
-                    <XAxis dataKey="label" tick={{ fontSize: 8, fill: '#9CA3AF' }} axisLine={false} tickLine={false} interval={1} />
-                    <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="orders" fill="#8B5CF6" radius={[4, 4, 0, 0]} maxBarSize={20} name="orders" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Recent Orders Table */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold text-amber-400">Recent Transactions</h3>
-                <span className="text-xs text-gray-400 dark:text-gray-500">Latest 15</span>
-              </div>
-              {recentOrders.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="border-b border-gray-200 dark:border-gray-700">
-                        <th className="pb-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">#</th>
-                        <th className="pb-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Order</th>
-                        <th className="pb-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Cashier</th>
-                        <th className="pb-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Items</th>
-                        <th className="pb-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Date</th>
-                        <th className="pb-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="pb-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Payment</th>
-                        <th className="pb-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentOrders.map((order, idx) => (
-                        <tr key={order.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-100 dark:bg-gray-700 transition-colors">
-                          <td className="py-3 text-xs text-gray-500 dark:text-gray-400">{idx + 1}</td>
-                          <td className="py-3 text-xs font-bold text-gray-300">#{order.id.slice(-6)}</td>
-                          <td className="py-3 text-xs text-gray-300">{order.cashierName || '-'}</td>
-                          <td className="py-3 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell truncate max-w-[150px]">{order.items.map(i => i.name).join(', ')}</td>
-                          <td className="py-3 text-xs text-gray-500 dark:text-gray-400 hidden sm:table-cell">{new Date(order.timestamp).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}</td>
-                          <td className="py-3">
-                            <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
-                              order.status === OrderStatus.COMPLETED ? 'bg-green-500/20 text-green-400' :
-                              order.status === OrderStatus.SERVED ? 'bg-blue-500/20 text-blue-400' :
-                              order.status === OrderStatus.PENDING ? 'bg-amber-500/20 text-amber-400' :
-                              order.status === OrderStatus.ONGOING ? 'bg-purple-500/20 text-purple-400' :
-                              'bg-red-500/20 text-red-400'
-                            }`}>{order.status}</span>
-                          </td>
-                          <td className="py-3 text-xs text-gray-300">{order.paymentMethod || '-'}</td>
-                          <td className="py-3 text-xs font-bold text-amber-400 text-right">{currencySymbol}{order.total.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : <div className="h-32 flex items-center justify-center text-gray-400 dark:text-gray-600 text-sm">No orders in this period</div>}
             </div>
           </div>
         )}
@@ -1202,7 +1114,14 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
         {/* REPORTS TAB                         */}
         {/* ════════════════════════════════════ */}
         {activeTab === 'REPORTS' && (
-          <ReportsView orders={orders} currencySymbol={currencySymbol} taxes={restaurant.settings?.taxes} />
+          <ReportsView orders={orders} currencySymbol={currencySymbol} taxes={restaurant.settings?.taxes} initialSubTab={reportSubTab as any} />
+        )}
+
+        {/* ════════════════════════════════════ */}
+        {/* CONTACTS TAB                        */}
+        {/* ════════════════════════════════════ */}
+        {activeTab === 'CONTACTS' && (
+          <ContactsManagement restaurant={restaurant} currencySymbol={currencySymbol} />
         )}
       </div>
       </div>

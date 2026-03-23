@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Restaurant, MenuItem } from '../src/types';
 import {
-  Package, Truck, ArrowUpDown, ClipboardList, Factory, Users as UsersIcon,
+  Package, Truck, ArrowUpDown, ClipboardList, Factory,
   History, DollarSign, Plus, Search, Edit3, Trash2, Check, X, ChevronRight,
   ArrowLeft, Eye, Send, Download, Upload, AlertCircle, CheckCircle, XCircle,
   Clock, FileText, BarChart3,
@@ -105,7 +105,6 @@ type InventorySubTab =
   | 'stock_adjustments'
   | 'inventory_counts'
   | 'productions'
-  | 'suppliers'
   | 'inventory_history'
   | 'inventory_valuation';
 
@@ -141,10 +140,6 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   // ─── Modal/Form States ───
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Supplier form
-  const [supplierForm, setSupplierForm] = useState<Supplier>({ id: '', name: '', email: '', phone: '', address: '', notes: '' });
-  const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null);
 
   // Purchase order form
   const [poForm, setPoForm] = useState<{ supplierId: string; expectedDate: string; notes: string; items: PurchaseOrderItem[] }>({
@@ -196,31 +191,6 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     const stockItems = getStockItems();
     const item = stockItems.find((s: any) => s.menuItemId === menuItemId);
     return item?.currentStock ?? 0;
-  };
-
-  // ════════════════════════════════════════
-  // SUPPLIER HANDLERS
-  // ════════════════════════════════════════
-  const handleSaveSupplier = () => {
-    if (!supplierForm.name.trim()) return;
-    let updated: Supplier[];
-    if (editingSupplierId) {
-      updated = suppliers.map(s => s.id === editingSupplierId ? { ...supplierForm, id: editingSupplierId } : s);
-    } else {
-      updated = [...suppliers, { ...supplierForm, id: crypto.randomUUID() }];
-    }
-    setSuppliers(updated);
-    saveState('suppliers', updated);
-    setSupplierForm({ id: '', name: '', email: '', phone: '', address: '', notes: '' });
-    setEditingSupplierId(null);
-    setShowForm(false);
-  };
-
-  const handleDeleteSupplier = (id: string) => {
-    if (!confirm('Delete this supplier?')) return;
-    const updated = suppliers.filter(s => s.id !== id);
-    setSuppliers(updated);
-    saveState('suppliers', updated);
   };
 
   // ════════════════════════════════════════
@@ -387,6 +357,13 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     saveState('counts', updated);
   };
 
+  const handleDeleteCount = (countId: string) => {
+    if (!confirm('Delete this inventory count record?')) return;
+    const updated = inventoryCounts.filter(c => c.id !== countId);
+    setInventoryCounts(updated);
+    saveState('counts', updated);
+  };
+
   // ════════════════════════════════════════
   // PRODUCTION HANDLERS
   // ════════════════════════════════════════
@@ -440,7 +417,6 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     { key: 'stock_adjustments', label: 'Stock Adjustments', icon: <ArrowUpDown size={16} /> },
     { key: 'inventory_counts', label: 'Inventory Counts', icon: <ClipboardList size={16} /> },
     { key: 'productions', label: 'Productions', icon: <Factory size={16} /> },
-    { key: 'suppliers', label: 'Suppliers', icon: <UsersIcon size={16} /> },
     { key: 'inventory_history', label: 'History', icon: <History size={16} /> },
     { key: 'inventory_valuation', label: 'Valuation', icon: <DollarSign size={16} /> },
   ];
@@ -836,11 +812,16 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                       <span className="text-sm font-bold text-gray-900 dark:text-white capitalize">{count.type} Count</span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(count.startedAt)}</span>
                     </div>
-                    {count.status === 'in_progress' && (
-                      <button onClick={() => handleCompleteCount(count.id)} className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-[10px] font-bold uppercase tracking-wider hover:bg-green-700 transition-all flex items-center gap-1">
-                        <Check size={12} /> Complete Count
+                    <div className="flex items-center gap-2">
+                      {count.status === 'in_progress' && (
+                        <button onClick={() => handleCompleteCount(count.id)} className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-[10px] font-bold uppercase tracking-wider hover:bg-green-700 transition-all flex items-center gap-1">
+                          <Check size={12} /> Complete Count
+                        </button>
+                      )}
+                      <button onClick={() => handleDeleteCount(count.id)} className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-[10px] font-bold uppercase tracking-wider hover:bg-red-500/30 transition-all flex items-center gap-1">
+                        <Trash2 size={12} /> Delete
                       </button>
-                    )}
+                    </div>
                   </div>
                   {count.status === 'in_progress' && (
                     <div className="overflow-x-auto">
@@ -1000,92 +981,6 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                 <Factory size={40} className="mb-3 opacity-30" />
                 <p className="text-sm font-bold">No productions recorded</p>
                 <p className="text-xs text-gray-500 mt-1">Track items produced from ingredients</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ═══════════════════════════════════════ */}
-      {/* SUPPLIERS                              */}
-      {/* ═══════════════════════════════════════ */}
-      {subTab === 'suppliers' && (
-        <div>
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-            <div>
-              <h2 className="text-lg font-black">Suppliers</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Add suppliers to create purchase orders and get quick access to contacts</p>
-            </div>
-            <button onClick={() => { setShowForm(!showForm); setEditingSupplierId(null); setSupplierForm({ id: '', name: '', email: '', phone: '', address: '', notes: '' }); }} className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20">
-              <Plus size={14} /> Add Supplier
-            </button>
-          </div>
-
-          {showForm && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 mb-6">
-              <h3 className="text-sm font-black mb-4">{editingSupplierId ? 'Edit' : 'Add'} Supplier</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Name *</label>
-                  <input type="text" value={supplierForm.name} onChange={e => setSupplierForm(f => ({ ...f, name: e.target.value }))} placeholder="Supplier name" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Email</label>
-                  <input type="email" value={supplierForm.email} onChange={e => setSupplierForm(f => ({ ...f, email: e.target.value }))} placeholder="supplier@email.com" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Phone</label>
-                  <input type="tel" value={supplierForm.phone} onChange={e => setSupplierForm(f => ({ ...f, phone: e.target.value }))} placeholder="Phone number" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Address</label>
-                  <input type="text" value={supplierForm.address} onChange={e => setSupplierForm(f => ({ ...f, address: e.target.value }))} placeholder="Address" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
-                </div>
-              </div>
-              <div className="mb-4">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Notes</label>
-                <input type="text" value={supplierForm.notes} onChange={e => setSupplierForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional notes" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
-              </div>
-              <div className="flex gap-3">
-                <button onClick={() => { setShowForm(false); setEditingSupplierId(null); }} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
-                <button onClick={handleSaveSupplier} className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20">{editingSupplierId ? 'Update' : 'Add'} Supplier</button>
-              </div>
-            </div>
-          )}
-
-          {/* Suppliers List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {suppliers.length > 0 ? suppliers.map(supplier => (
-              <div key={supplier.id} className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-600/20 flex items-center justify-center text-amber-400 font-black text-sm">
-                      {supplier.name.charAt(0).toUpperCase()}
-                    </div>
-                    <h4 className="text-sm font-black text-gray-900 dark:text-white">{supplier.name}</h4>
-                  </div>
-                  <div className="flex gap-1">
-                    <button onClick={() => { setSupplierForm(supplier); setEditingSupplierId(supplier.id); setShowForm(true); }} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-amber-400 transition-all"><Edit3 size={14} /></button>
-                    <button onClick={() => handleDeleteSupplier(supplier.id)} className="p-2 rounded-lg text-gray-400 hover:bg-red-500/20 hover:text-red-400 transition-all"><Trash2 size={14} /></button>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  {supplier.email && <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">📧 {supplier.email}</p>}
-                  {supplier.phone && <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">📞 {supplier.phone}</p>}
-                  {supplier.address && <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">📍 {supplier.address}</p>}
-                  {supplier.notes && <p className="text-xs text-gray-400 dark:text-gray-500 italic mt-2">{supplier.notes}</p>}
-                </div>
-                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                    {purchaseOrders.filter(po => po.supplierId === supplier.id).length} purchase orders
-                  </p>
-                </div>
-              </div>
-            )) : (
-              <div className="col-span-full bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 h-48 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
-                <UsersIcon size={40} className="mb-3 opacity-30" />
-                <p className="text-sm font-bold">No suppliers yet</p>
-                <p className="text-xs text-gray-500 mt-1">Add suppliers to create purchase orders</p>
               </div>
             )}
           </div>

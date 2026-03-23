@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Order, OrderStatus } from '../src/types';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -13,6 +13,7 @@ interface Props {
   orders: Order[];
   currencySymbol: string;
   taxes?: Array<{ id: string; name: string; percentage: number; applyToItems: boolean }>;
+  initialSubTab?: ReportSubTab;
 }
 
 type ReportSubTab = 'sales_summary' | 'sales_by_item' | 'sales_by_category' | 'sales_by_employee' | 'sales_by_payment' | 'sales_by_modifier' | 'discounts' | 'taxes';
@@ -20,8 +21,12 @@ type DateRange = '7d' | '30d' | '90d' | 'custom';
 
 const COLORS = ['#D97706', '#F59E0B', '#92400E', '#B45309', '#78350F', '#FBBF24', '#FCD34D', '#3B82F6', '#8B5CF6', '#22C55E', '#EF4444', '#EC4899'];
 
-const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes }) => {
-  const [subTab, setSubTab] = useState<ReportSubTab>('sales_summary');
+const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSubTab }) => {
+  const [subTab, setSubTab] = useState<ReportSubTab>(initialSubTab || 'sales_summary');
+
+  useEffect(() => {
+    if (initialSubTab) setSubTab(initialSubTab);
+  }, [initialSubTab]);
   const today = new Date();
   const [dateRange, setDateRange] = useState<DateRange>('30d');
   const [customStart, setCustomStart] = useState(() => {
