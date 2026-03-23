@@ -10,8 +10,10 @@ import {
   TrendingUp, TrendingDown, DollarSign, ShoppingBag, Users, Receipt, ChevronRight, Filter,
   BarChart3, Package, UserPlus, UserMinus, Edit3, Trash2, Plus, Minus, Search, AlertCircle,
   ArrowUpRight, ArrowDownRight, Clock, CheckCircle, XCircle, Eye, Archive, RotateCcw,
-  Briefcase, Box, Tag, Layers, Activity, ArrowLeft,
+  Briefcase, Box, Tag, Layers, Activity, ArrowLeft, Warehouse, FileBarChart,
 } from 'lucide-react';
+import InventoryManagement from '../components/InventoryManagement';
+import ReportsView from '../components/ReportsView';
 
 interface Props {
   restaurant: Restaurant;
@@ -21,7 +23,7 @@ interface Props {
   onBack?: () => void;
 }
 
-type BackOfficeTab = 'SALES' | 'PERFORMANCE' | 'STAFF' | 'STOCK';
+type BackOfficeTab = 'SALES' | 'PERFORMANCE' | 'STAFF' | 'STOCK' | 'INVENTORY' | 'REPORTS';
 type DateRange = '7d' | '30d' | '90d' | 'custom';
 
 const COLORS = ['#D97706', '#F59E0B', '#92400E', '#B45309', '#78350F', '#FBBF24', '#FCD34D', '#3B82F6', '#8B5CF6', '#22C55E'];
@@ -421,6 +423,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     { key: 'PERFORMANCE', label: 'Performance', icon: <Activity size={18} /> },
     { key: 'STAFF', label: 'Staff Management', icon: <Users size={18} /> },
     { key: 'STOCK', label: 'Stock Management', icon: <Package size={18} /> },
+    { key: 'INVENTORY', label: 'Inventory', icon: <Warehouse size={18} /> },
+    { key: 'REPORTS', label: 'Reports', icon: <FileBarChart size={18} /> },
   ];
 
   // ─── Date Range Picker ───
@@ -1186,6 +1190,19 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               )}
             </div>
           </div>
+        )}
+        {/* ════════════════════════════════════ */}
+        {/* INVENTORY MANAGEMENT TAB            */}
+        {/* ════════════════════════════════════ */}
+        {activeTab === 'INVENTORY' && (
+          <InventoryManagement restaurant={restaurant} currencySymbol={currencySymbol} />
+        )}
+
+        {/* ════════════════════════════════════ */}
+        {/* REPORTS TAB                         */}
+        {/* ════════════════════════════════════ */}
+        {activeTab === 'REPORTS' && (
+          <ReportsView orders={orders} currencySymbol={currencySymbol} taxes={restaurant.settings?.taxes} />
         )}
       </div>
       </div>
