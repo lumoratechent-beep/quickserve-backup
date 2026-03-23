@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Zap, DollarSign, MessageSquare, ArrowRight, ShieldCheck, Globe, Clock, Check, QrCode, Smartphone, Monitor, ChefHat, BarChart3, Headphones, ChevronDown, Star, Users, TrendingUp, Wifi, Sun, Moon, MapPin, UtensilsCrossed, PackageCheck, Receipt } from 'lucide-react';
+import { Zap, DollarSign, MessageSquare, ArrowRight, ShieldCheck, Globe, Clock, Check, QrCode, Smartphone, Monitor, ChefHat, BarChart3, Headphones, ChevronDown, Star, Users, TrendingUp, Wifi, Sun, Moon, MapPin, UtensilsCrossed, PackageCheck, Receipt, Menu, X } from 'lucide-react';
 import { PRICING_PLANS, TRIAL_DAYS } from '../lib/pricingPlans';
 import { supabase } from '../lib/supabase';
 
@@ -73,6 +73,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
   const [mounted, setMounted] = useState(false);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const testimonialScrollRef = useRef<HTMLDivElement>(null);
   const pricingScrollRef = useRef<HTMLDivElement>(null);
   const [testimonialIdx, setTestimonialIdx] = useState(0);
@@ -132,22 +133,32 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
       {/* Navigation */}
       <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${mounted ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
         <div className="mx-auto max-w-7xl px-3 sm:px-6">
-          <div className="mt-4 flex items-center justify-between h-14 sm:h-16 px-3 sm:px-6 bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg shadow-black/5">
+          <div className="mt-4 flex items-center h-14 sm:h-16 px-3 sm:px-6 bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg shadow-black/5">
+            {/* Mobile: Hamburger + Logo */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-orange-50 dark:hover:bg-gray-700 hover:text-orange-500 transition-all mr-2"
+            >
+              {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
             <div className="flex items-center gap-2">
-              <img src="/LOGO/9.png" alt="QuickServe" className="h-9 dark:hidden" />
-              <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-9 hidden dark:block" />
+              <img src="/LOGO/9.png" alt="QuickServe" className="h-8 sm:h-9 dark:hidden" />
+              <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-8 sm:h-9 hidden dark:block" />
             </div>
-            <div className="hidden md:flex items-center gap-8 text-[11px] font-bold text-gray-700 dark:text-gray-400 uppercase tracking-[0.15em]">
+            {/* Desktop nav links */}
+            <div className="hidden md:flex items-center gap-8 text-[11px] font-bold text-gray-700 dark:text-gray-400 uppercase tracking-[0.15em] mx-auto">
               <a href="#features" className="hover:text-orange-500 transition-colors">Features</a>
               <a href="#how-it-works" className="hover:text-orange-500 transition-colors">How It Works</a>
               <a href="#mockup" className="hover:text-orange-500 transition-colors">Preview</a>
               <a href="#pricing" className="hover:text-orange-500 transition-colors">Pricing</a>
               <a href="#faq" className="hover:text-orange-500 transition-colors">FAQ</a>
             </div>
-            <div className="flex items-center gap-3">
+            {/* Spacer for mobile */}
+            <div className="flex-1 md:hidden" />
+            <div className="flex items-center gap-2 sm:gap-3">
               <button
                 onClick={onToggleDark}
-                className="p-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-orange-50 dark:hover:bg-gray-700 hover:text-orange-500 transition-all"
+                className="p-2 sm:p-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-orange-50 dark:hover:bg-gray-700 hover:text-orange-500 transition-all"
                 title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
               >
                 {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
@@ -158,6 +169,27 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
               >
                 Login
               </button>
+            </div>
+          </div>
+          {/* Mobile dropdown menu */}
+          <div className={`md:hidden overflow-hidden transition-all duration-300 ${mobileMenuOpen ? 'max-h-64 mt-2' : 'max-h-0'}`}>
+            <div className="flex flex-col gap-1 px-3 py-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg shadow-black/5">
+              {[
+                { href: '#features', label: 'Features' },
+                { href: '#how-it-works', label: 'How It Works' },
+                { href: '#mockup', label: 'Preview' },
+                { href: '#pricing', label: 'Pricing' },
+                { href: '#faq', label: 'FAQ' },
+              ].map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-4 py-2.5 text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-[0.15em] hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-800 rounded-xl transition-all"
+                >
+                  {link.label}
+                </a>
+              ))}
             </div>
           </div>
         </div>
