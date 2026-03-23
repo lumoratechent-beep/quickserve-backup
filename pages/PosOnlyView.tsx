@@ -4129,18 +4129,8 @@ const PosOnlyView: React.FC<Props> = ({
           </>)}
         </nav>
 
-        {/* Sidebar Collapse Toggle + Back Office */}
-        <div className={`hidden lg:flex items-center ${isSidebarCollapsed ? 'flex-col gap-1 p-2' : 'justify-between px-3 py-1'}`}>
-          {isVendorUser && onNavigateBackOffice && (
-            <button
-              onClick={onNavigateBackOffice}
-              title="Back Office"
-              className={`flex items-center gap-2 ${isSidebarCollapsed ? 'p-2' : 'px-2 py-1.5'} rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:text-orange-600 dark:hover:text-orange-400 transition-all`}
-            >
-              <Briefcase size={18} />
-              {!isSidebarCollapsed && <span>Back Office</span>}
-            </button>
-          )}
+        {/* Sidebar Collapse Toggle */}
+        <div className={`hidden lg:flex ${isSidebarCollapsed ? 'justify-center p-2' : 'justify-end px-4'} pt-1`}>
           <button
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -4156,7 +4146,7 @@ const PosOnlyView: React.FC<Props> = ({
           <button
             onClick={handlePrinterButtonClick}
             disabled={isAutoReconnecting}
-            className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg ${
+            className={`w-full py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg ${
               isAutoReconnecting
                 ? 'bg-blue-500 text-white cursor-wait'
                 : realPrinterConnected
@@ -4198,6 +4188,16 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
               {isAutoReconnecting && <RotateCw size={10} className="animate-spin text-blue-500" />}
             </div>
+          )}
+          {isVendorUser && onNavigateBackOffice && (
+            <button
+              onClick={onNavigateBackOffice}
+              title="Back Office"
+              className={`w-full py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg bg-gray-700 dark:bg-gray-600 text-white hover:bg-gray-800 dark:hover:bg-gray-500`}
+            >
+              <Briefcase size={18} />
+              {!isSidebarCollapsed && 'Back Office'}
+            </button>
           )}
         </div>
       </aside>
