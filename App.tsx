@@ -3,6 +3,7 @@ import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, R
 import CustomerView from './pages/CustomerView';
 import AdminView from './pages/AdminView';
 import PosOnlyView from './pages/PosOnlyView';
+import BackOfficePage from './pages/BackOfficePage';
 import LoginPage from './pages/LoginPage';
 import MarketingPage from './pages/MarketingPage';
 import RegisterPage from './pages/RegisterPage';
@@ -225,7 +226,7 @@ const App: React.FC = () => {
   });
   const [stripeRedirect] = useState(() => stripeRedirectRef.current());
 
-  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS'>(() => {
+  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS' | 'BACK_OFFICE'>(() => {
     const savedView = localStorage.getItem('qs_view') as any;
     
     // Handle Stripe payment redirect
@@ -1761,6 +1762,21 @@ const App: React.FC = () => {
     return <MarketingPage onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
   }
 
+  if (view === 'BACK_OFFICE' && currentRole === 'VENDOR' && activeVendorRes) {
+    const CURRENCY_MAP: Record<string, string> = { MYR: 'RM', USD: '$', EUR: '€', GBP: '£', SGD: 'S$', JPY: '¥', KRW: '₩', INR: '₹', AUD: 'A$', CNY: '¥', TWD: 'NT$', BND: 'B$' };
+    const currCode = activeVendorRes.settings?.currency || localStorage.getItem(`ux_currency_${activeVendorRes.id}`) || 'MYR';
+    const currSymbol = CURRENCY_MAP[currCode] || 'RM';
+    return (
+      <BackOfficePage
+        restaurant={activeVendorRes}
+        orders={orders.filter(o => o.restaurantId === currentUser?.restaurantId)}
+        currencySymbol={currSymbol}
+        onFetchAllFilteredOrders={onFetchAllFilteredOrders}
+        onBack={() => setView('APP')}
+      />
+    );
+  }
+
   if (view === 'REGISTER') {
     return <RegisterPage onBack={() => setView('MARKETING')} onLoginClick={() => setView('LOGIN')} onRegisterSuccess={() => {
       toast('Registration successful! You can now log in.', 'success');
@@ -1894,6 +1910,7 @@ const App: React.FC = () => {
                 onSaveKitchenDivisions={(divisions) => saveKitchenDivisions(activeVendorRes.id, divisions)}
                 subscription={vendorSubscriptions[activeVendorRes.id] || null}
                 onSubscriptionUpdated={() => { fetchSubscriptions(); fetchRestaurants(); }}
+                onNavigateBackOffice={() => setView('BACK_OFFICE')}
               />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">

@@ -13,7 +13,6 @@ import { toast } from '../components/Toast';
 import StandardReport from '../components/StandardReport';
 import UpgradePlanModal from '../components/UpgradePlanModal';
 import BillingPage from './BillingPage';
-import BackOfficePage from './BackOfficePage';
 import {
   ShoppingBag, Search, Download, Calendar,
   Printer, QrCode, CreditCard, Trash2, Plus, Minus, LayoutGrid,
@@ -46,6 +45,7 @@ interface Props {
   onSaveKitchenDivisions?: (divisions: KitchenDepartment[]) => void;
   subscription?: Subscription | null;
   onSubscriptionUpdated?: () => void;
+  onNavigateBackOffice?: () => void;
 }
 
 const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
@@ -227,13 +227,14 @@ const PosOnlyView: React.FC<Props> = ({
   onSaveKitchenDivisions,
   subscription = null,
   onSubscriptionUpdated,
+  onNavigateBackOffice,
 }) => {
   const toLocalDateInputValue = (date: Date) => {
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
     return local.toISOString().split('T')[0];
   };
 
-  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING' | 'BACK_OFFICE'>(userRole === 'KITCHEN' ? 'KITCHEN' : 'COUNTER');
+  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING'>(userRole === 'KITCHEN' ? 'KITCHEN' : 'COUNTER');
   const [counterMode, setCounterMode] = useState<'SAVED_BILL' | 'COUNTER_ORDER' | 'QR_ORDER'>('COUNTER_ORDER');
   const [selectedQrOrderForPayment, setSelectedQrOrderForPayment] = useState<Order | null>(null);
   const [qrOrderFilter, setQrOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
@@ -2281,7 +2282,7 @@ const PosOnlyView: React.FC<Props> = ({
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
   const paginatedReports = reportData?.orders || [];
 
-  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING' | 'BACK_OFFICE') => {
+  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING') => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
   };
@@ -4110,15 +4111,11 @@ const PosOnlyView: React.FC<Props> = ({
           </button>
 
           {/* Back Office - VENDOR Only */}
-          {isVendorUser && (
+          {isVendorUser && onNavigateBackOffice && (
           <button 
-            onClick={() => handleTabSelection('BACK_OFFICE')}
+            onClick={onNavigateBackOffice}
             title="Back Office"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
-              activeTab === 'BACK_OFFICE' 
-                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-            }`}
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50`}
           >
             <Briefcase size={20} /> {!isSidebarCollapsed && 'Back Office'}
           </button>
@@ -4226,7 +4223,6 @@ const PosOnlyView: React.FC<Props> = ({
                  activeTab === 'QR_ORDERS' ? 'QR Orders' :
                  activeTab === 'KITCHEN' ? 'Incoming Orders' :
                  activeTab === 'BILLING' ? 'Billing' :
-                 activeTab === 'BACK_OFFICE' ? 'Back Office' :
                  'Settings'}
               </h1>
             </div>
@@ -5842,16 +5838,6 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
           </div>
         )}
-
-          {/* Back Office Tab */}
-          {activeTab === 'BACK_OFFICE' && isVendorUser && (
-            <BackOfficePage
-              restaurant={restaurant}
-              orders={orders}
-              currencySymbol={currencySymbol}
-              onFetchAllFilteredOrders={onFetchAllFilteredOrders}
-            />
-          )}
 
           {/* Billing Tab */}
           {activeTab === 'BILLING' && (

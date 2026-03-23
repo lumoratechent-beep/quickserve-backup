@@ -10,7 +10,7 @@ import {
   TrendingUp, TrendingDown, DollarSign, ShoppingBag, Users, Receipt, ChevronRight, Filter,
   BarChart3, Package, UserPlus, UserMinus, Edit3, Trash2, Plus, Minus, Search, AlertCircle,
   ArrowUpRight, ArrowDownRight, Clock, CheckCircle, XCircle, Eye, Archive, RotateCcw,
-  Briefcase, Box, Tag, Layers, Activity,
+  Briefcase, Box, Tag, Layers, Activity, ArrowLeft,
 } from 'lucide-react';
 
 interface Props {
@@ -18,6 +18,7 @@ interface Props {
   orders: Order[];
   currencySymbol: string;
   onFetchAllFilteredOrders?: (filters: any) => Promise<Order[]>;
+  onBack?: () => void;
 }
 
 type BackOfficeTab = 'SALES' | 'PERFORMANCE' | 'STAFF' | 'STOCK';
@@ -54,7 +55,7 @@ interface StockItem {
   lastRestocked?: number;
 }
 
-const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, onFetchAllFilteredOrders }) => {
+const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, onFetchAllFilteredOrders, onBack }) => {
   const [activeTab, setActiveTab] = useState<BackOfficeTab>('SALES');
   const today = new Date();
   const [dateRange, setDateRange] = useState<DateRange>('30d');
@@ -451,29 +452,76 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white overflow-y-auto">
-      {/* Header with tabs */}
-      <div className="sticky top-0 z-20 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-[1600px] mx-auto px-4 md:px-6 pt-4 pb-0">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
-            <div>
-              <h1 className="text-xl md:text-2xl font-black tracking-tight flex items-center gap-3">
-                <Briefcase size={24} className="text-amber-500" />
+    <div className="h-screen flex bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0 hidden md:flex">
+        {/* Logo / Header */}
+        <div className="px-4 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-600/20 flex items-center justify-center">
+            <Briefcase size={20} className="text-amber-500" />
+          </div>
+          <div>
+            <h2 className="font-black text-sm uppercase tracking-tight leading-tight">Back Office</h2>
+            <p className="text-[9px] font-bold text-gray-400 dark:text-gray-500 truncate">{restaurant.name}</p>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 px-3 py-4 space-y-1">
+          {tabs.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeTab === tab.key
+                  ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+              }`}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          ))}
+        </nav>
+
+        {/* Back to POS button */}
+        {onBack && (
+          <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-3">
+            <button
+              onClick={onBack}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-bold uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+            >
+              <ArrowLeft size={16} /> Back to POS
+            </button>
+          </div>
+        )}
+      </aside>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-y-auto">
+        {/* Mobile header with tab selector */}
+        <div className="md:hidden sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              {onBack && (
+                <button onClick={onBack} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-all">
+                  <ArrowLeft size={20} />
+                </button>
+              )}
+              <h1 className="text-lg font-black flex items-center gap-2">
+                <Briefcase size={20} className="text-amber-500" />
                 Back Office
               </h1>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{restaurant.name} — Business Management</p>
             </div>
           </div>
-          {/* Tab bar */}
-          <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-0">
+          <div className="flex gap-1 overflow-x-auto hide-scrollbar">
             {tabs.map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all ${
+                className={`flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-wider whitespace-nowrap rounded-lg transition-all ${
                   activeTab === tab.key
-                    ? 'border-amber-500 text-amber-500 dark:text-amber-400'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                    ? 'bg-amber-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
                 }`}
               >
                 {tab.icon} {tab.label}
@@ -481,7 +529,17 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             ))}
           </div>
         </div>
-      </div>
+
+        {/* Desktop Header */}
+        <div className="hidden md:block sticky top-0 z-20 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+          <div className="max-w-[1600px] mx-auto px-6 py-4">
+            <h1 className="text-xl font-black tracking-tight flex items-center gap-3">
+              <Briefcase size={24} className="text-amber-500" />
+              {tabs.find(t => t.key === activeTab)?.label || 'Back Office'}
+            </h1>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{restaurant.name} — Business Management</p>
+          </div>
+        </div>
 
       <div className="max-w-[1600px] mx-auto p-4 md:p-6">
 
@@ -1129,6 +1187,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
