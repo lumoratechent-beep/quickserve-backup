@@ -269,7 +269,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     return (
-      <div className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 shadow-xl">
+      <div className="bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 shadow-xl">
         <p className="text-xs font-bold text-white mb-1">{label}</p>
         {payload.map((p: any, i: number) => (
           <p key={i} className="text-xs text-gray-300">
@@ -430,7 +430,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           key={range}
           onClick={() => setDateRange(range)}
           className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
-            dateRange === range ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-[#2a2a2a] text-gray-400 hover:bg-[#333] hover:text-white'
+            dateRange === range ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600 hover:text-gray-700 dark:hover:text-white'
           }`}
         >
           {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
@@ -438,22 +438,22 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       ))}
       <button
         onClick={() => setDateRange('custom')}
-        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${dateRange === 'custom' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-[#2a2a2a] text-gray-400 hover:bg-[#333] hover:text-white'}`}
+        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${dateRange === 'custom' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600 hover:text-gray-700 dark:hover:text-white'}`}
       >Custom</button>
       {dateRange === 'custom' && (
         <div className="flex items-center gap-2">
-          <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="bg-[#2a2a2a] border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+          <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
           <span className="text-gray-500 text-xs">to</span>
-          <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="bg-[#2a2a2a] border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+          <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
         </div>
       )}
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#1a1a1a] text-white overflow-y-auto">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white overflow-y-auto">
       {/* Header with tabs */}
-      <div className="sticky top-0 z-20 bg-[#1a1a1a] border-b border-gray-800">
+      <div className="sticky top-0 z-20 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-[1600px] mx-auto px-4 md:px-6 pt-4 pb-0">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
             <div>
@@ -461,7 +461,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 <Briefcase size={24} className="text-amber-500" />
                 Back Office
               </h1>
-              <p className="text-xs text-gray-500 mt-1">{restaurant.name} — Business Management</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{restaurant.name} — Business Management</p>
             </div>
           </div>
           {/* Tab bar */}
@@ -472,8 +472,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all ${
                   activeTab === tab.key
-                    ? 'border-amber-500 text-amber-400'
-                    : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'
+                    ? 'border-amber-500 text-amber-500 dark:text-amber-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
               >
                 {tab.icon} {tab.label}
@@ -503,14 +503,14 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 { label: 'Avg. Order', value: `${currencySymbol}${kpis.avgOrder.toFixed(2)}`, change: kpis.avgChange, icon: <Receipt size={20} className="text-green-400" />, bg: 'bg-green-600/20' },
                 { label: 'Cancelled', value: kpis.cancelled.toString(), change: kpis.cancelledChange, icon: <XCircle size={20} className="text-red-400" />, bg: 'bg-red-600/20' },
               ].map(kpi => (
-                <div key={kpi.label} className="bg-[#232323] rounded-2xl p-5 border border-gray-800 hover:border-gray-700 transition-all">
+                <div key={kpi.label} className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all">
                   <div className="flex items-center gap-3 mb-3">
                     <div className={`w-10 h-10 rounded-xl ${kpi.bg} flex items-center justify-center`}>{kpi.icon}</div>
-                    <span className="text-sm font-bold text-gray-400">{kpi.label}</span>
+                    <span className="text-sm font-bold text-gray-500 dark:text-gray-400">{kpi.label}</span>
                   </div>
-                  <p className="text-2xl font-black">{kpi.value}</p>
+                  <p className="text-2xl font-black dark:text-white">{kpi.value}</p>
                   <div className="flex items-center gap-2 mt-2">
-                    <span className="text-xs text-gray-500">vs prev</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">vs prev</span>
                     <ChangeIndicator value={kpi.change} />
                   </div>
                 </div>
@@ -520,7 +520,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
               {/* Daily Sales */}
-              <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
                 <h3 className="text-sm font-bold text-amber-400 mb-4">Daily Sales</h3>
                 {dailySales.length > 0 ? (
                   <ResponsiveContainer width="100%" height={280}>
@@ -538,11 +538,11 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                       <Area type="monotone" dataKey="sales" stroke="#D97706" fill="url(#salesGradient)" strokeWidth={2} />
                     </AreaChart>
                   </ResponsiveContainer>
-                ) : <div className="h-64 flex items-center justify-center text-gray-600 text-sm">No data</div>}
+                ) : <div className="h-64 flex items-center justify-center text-gray-400 dark:text-gray-600 text-sm">No data</div>}
               </div>
 
               {/* Payment Methods */}
-              <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
                 <h3 className="text-sm font-bold text-amber-400 mb-4">Payment Methods</h3>
                 {paymentData.length > 0 ? (
                   <>
@@ -555,7 +555,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                           <Tooltip content={({ active, payload }) => {
                             if (!active || !payload?.length) return null;
                             const d = payload[0].payload;
-                            return <div className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 shadow-xl"><p className="text-xs font-bold text-white">{d.name}</p><p className="text-xs text-gray-300">{d.value} orders ({d.pct}%)</p></div>;
+                            return <div className="bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 shadow-xl"><p className="text-xs font-bold dark:text-white">{d.name}</p><p className="text-xs text-gray-300">{d.value} orders ({d.pct}%)</p></div>;
                           }} />
                         </PieChart>
                       </ResponsiveContainer>
@@ -564,20 +564,20 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                       {paymentData.map((d, i) => (
                         <div key={d.name} className="flex items-center gap-2">
                           <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                          <span className="text-xs text-gray-400 truncate">{d.name}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{d.name}</span>
                           <span className="text-xs font-bold text-white ml-auto">{d.pct}%</span>
                         </div>
                       ))}
                     </div>
                   </>
-                ) : <div className="h-64 flex items-center justify-center text-gray-600 text-sm">No data</div>}
+                ) : <div className="h-64 flex items-center justify-center text-gray-400 dark:text-gray-600 text-sm">No data</div>}
               </div>
             </div>
 
             {/* Hourly Sales + Top Items */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
               {/* Hourly Sales */}
-              <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
                 <h3 className="text-sm font-bold text-amber-400 mb-4">Sales by Hour</h3>
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={hourlySales.filter(h => h.orders > 0)}>
@@ -591,31 +591,31 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               </div>
 
               {/* Top Selling Items */}
-              <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
                 <h3 className="text-sm font-bold text-amber-400 mb-4">Top Selling Items</h3>
                 {topItems.length > 0 ? (
                   <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
                     {topItems.map((item, i) => (
-                      <div key={item.name} className="flex items-center gap-3 p-3 bg-[#2a2a2a] rounded-xl hover:bg-[#333] transition-all">
+                      <div key={item.name} className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-xl hover:bg-gray-200 dark:bg-gray-600 transition-all">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs ${
                           i === 0 ? 'bg-amber-600 text-white' : i === 1 ? 'bg-gray-500 text-white' : i === 2 ? 'bg-orange-800 text-white' : 'bg-gray-700 text-gray-300'
                         }`}>{i + 1}</div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold truncate">{item.name}</p>
-                          <p className="text-[10px] text-gray-500">{item.qty} sold</p>
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500">{item.qty} sold</p>
                         </div>
                         <p className="text-sm font-bold text-amber-400">{currencySymbol}{item.revenue.toFixed(2)}</p>
                       </div>
                     ))}
                   </div>
-                ) : <div className="h-64 flex items-center justify-center text-gray-600 text-sm">No data</div>}
+                ) : <div className="h-64 flex items-center justify-center text-gray-400 dark:text-gray-600 text-sm">No data</div>}
               </div>
             </div>
 
             {/* Category Breakdown + Order Status */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Category Sales */}
-              <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
                 <h3 className="text-sm font-bold text-amber-400 mb-4">Sales by Category</h3>
                 {categoryBreakdown.length > 0 ? (
                   <div className="space-y-3">
@@ -628,18 +628,18 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                             <span className="text-xs font-bold">{cat.name}</span>
                             <span className="text-xs text-gray-400">{currencySymbol}{cat.revenue.toFixed(2)} ({cat.orders} items)</span>
                           </div>
-                          <div className="h-2 bg-[#333] rounded-full overflow-hidden">
+                          <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                             <div className="h-full bg-amber-600 rounded-full transition-all" style={{ width: `${pct}%` }} />
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                ) : <div className="h-32 flex items-center justify-center text-gray-600 text-sm">No data</div>}
+                ) : <div className="h-32 flex items-center justify-center text-gray-400 dark:text-gray-600 text-sm">No data</div>}
               </div>
 
               {/* Order Status */}
-              <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
                 <h3 className="text-sm font-bold text-amber-400 mb-4">Order Status Breakdown</h3>
                 {statusData.length > 0 ? (
                   <div className="space-y-3">
@@ -652,14 +652,14 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                             <span className="text-xs font-bold capitalize">{s.name.toLowerCase()}</span>
                             <span className="text-xs text-gray-400">{s.value} ({pct.toFixed(0)}%)</span>
                           </div>
-                          <div className="h-2 bg-[#333] rounded-full overflow-hidden">
+                          <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                             <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: STATUS_COLORS[s.name] || '#6B7280' }} />
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                ) : <div className="h-32 flex items-center justify-center text-gray-600 text-sm">No data</div>}
+                ) : <div className="h-32 flex items-center justify-center text-gray-400 dark:text-gray-600 text-sm">No data</div>}
               </div>
             </div>
           </div>
@@ -677,67 +677,67 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center"><Users size={20} className="text-blue-400" /></div>
-                  <span className="text-sm font-bold text-gray-400">Total Staff</span>
+                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Total Staff</span>
                 </div>
-                <p className="text-2xl font-black">{staffList.length}</p>
-                <p className="text-xs text-gray-500 mt-1">{staffList.filter(s => s.isActive !== false).length} active</p>
+                <p className="text-2xl font-black dark:text-white">{staffList.length}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{staffList.filter(s => s.isActive !== false).length} active</p>
               </div>
-              <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 rounded-xl bg-green-600/20 flex items-center justify-center"><TrendingUp size={20} className="text-green-400" /></div>
-                  <span className="text-sm font-bold text-gray-400">Best Seller</span>
+                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Best Seller</span>
                 </div>
-                <p className="text-lg font-black truncate">{topItems[0]?.name || 'N/A'}</p>
-                <p className="text-xs text-gray-500 mt-1">{topItems[0]?.qty || 0} units sold</p>
+                <p className="text-lg font-black truncate dark:text-white">{topItems[0]?.name || 'N/A'}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{topItems[0]?.qty || 0} units sold</p>
               </div>
-              <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 rounded-xl bg-purple-600/20 flex items-center justify-center"><Clock size={20} className="text-purple-400" /></div>
-                  <span className="text-sm font-bold text-gray-400">Peak Hour</span>
+                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Peak Hour</span>
                 </div>
-                <p className="text-2xl font-black">{peakHours[0]?.label || 'N/A'}</p>
-                <p className="text-xs text-gray-500 mt-1">{peakHours[0]?.orders || 0} orders</p>
+                <p className="text-2xl font-black dark:text-white">{peakHours[0]?.label || 'N/A'}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{peakHours[0]?.orders || 0} orders</p>
               </div>
-              <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 rounded-xl bg-amber-600/20 flex items-center justify-center"><DollarSign size={20} className="text-amber-500" /></div>
-                  <span className="text-sm font-bold text-gray-400">Revenue/Day</span>
+                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Revenue/Day</span>
                 </div>
-                <p className="text-2xl font-black">{currencySymbol}{dailySales.length > 0 ? (kpis.totalSales / dailySales.length).toFixed(2) : '0.00'}</p>
-                <p className="text-xs text-gray-500 mt-1">avg over period</p>
+                <p className="text-2xl font-black dark:text-white">{currencySymbol}{dailySales.length > 0 ? (kpis.totalSales / dailySales.length).toFixed(2) : '0.00'}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">avg over period</p>
               </div>
             </div>
 
             {/* Cashier Leaderboard + Peak Hours */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-              <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
                 <h3 className="text-sm font-bold text-amber-400 mb-4">Cashier Leaderboard</h3>
                 {cashierStats.length > 0 ? (
                   <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
                     {cashierStats.map((c, i) => (
-                      <div key={c.name} className="flex items-center gap-3 p-3 bg-[#2a2a2a] rounded-xl hover:bg-[#333] transition-all">
+                      <div key={c.name} className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-xl hover:bg-gray-200 dark:bg-gray-600 transition-all">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm ${
                           i === 0 ? 'bg-amber-600 text-white' : i === 1 ? 'bg-gray-500 text-white' : i === 2 ? 'bg-orange-800 text-white' : 'bg-gray-700 text-gray-300'
                         }`}>{i + 1}</div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold truncate">{c.name}</p>
-                          <p className="text-[10px] text-gray-500">{c.orders} orders | {c.cancelled} cancelled</p>
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500">{c.orders} orders | {c.cancelled} cancelled</p>
                         </div>
                         <div className="text-right shrink-0">
                           <p className="text-sm font-bold text-amber-400">{currencySymbol}{c.revenue.toFixed(2)}</p>
-                          <p className="text-[10px] text-gray-500">avg {currencySymbol}{c.avgOrder.toFixed(2)}</p>
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500">avg {currencySymbol}{c.avgOrder.toFixed(2)}</p>
                         </div>
                       </div>
                     ))}
                   </div>
-                ) : <div className="h-48 flex items-center justify-center text-gray-600 text-sm">No data</div>}
+                ) : <div className="h-48 flex items-center justify-center text-gray-400 dark:text-gray-600 text-sm">No data</div>}
               </div>
 
               {/* Peak Hours Chart */}
-              <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
                 <h3 className="text-sm font-bold text-amber-400 mb-4">Orders by Hour</h3>
                 <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={hourlySales}>
@@ -752,16 +752,16 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             </div>
 
             {/* Recent Orders Table */}
-            <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-bold text-amber-400">Recent Transactions</h3>
-                <span className="text-xs text-gray-500">Latest 15</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">Latest 15</span>
               </div>
               {recentOrders.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
-                      <tr className="border-b border-gray-700">
+                      <tr className="border-b border-gray-200 dark:border-gray-700">
                         <th className="pb-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">#</th>
                         <th className="pb-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Order</th>
                         <th className="pb-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Cashier</th>
@@ -774,12 +774,12 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                     </thead>
                     <tbody>
                       {recentOrders.map((order, idx) => (
-                        <tr key={order.id} className="border-b border-gray-800/50 hover:bg-[#2a2a2a] transition-colors">
-                          <td className="py-3 text-xs text-gray-400">{idx + 1}</td>
+                        <tr key={order.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-100 dark:bg-gray-700 transition-colors">
+                          <td className="py-3 text-xs text-gray-500 dark:text-gray-400">{idx + 1}</td>
                           <td className="py-3 text-xs font-bold text-gray-300">#{order.id.slice(-6)}</td>
                           <td className="py-3 text-xs text-gray-300">{order.cashierName || '-'}</td>
-                          <td className="py-3 text-xs text-gray-400 hidden md:table-cell truncate max-w-[150px]">{order.items.map(i => i.name).join(', ')}</td>
-                          <td className="py-3 text-xs text-gray-400 hidden sm:table-cell">{new Date(order.timestamp).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}</td>
+                          <td className="py-3 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell truncate max-w-[150px]">{order.items.map(i => i.name).join(', ')}</td>
+                          <td className="py-3 text-xs text-gray-500 dark:text-gray-400 hidden sm:table-cell">{new Date(order.timestamp).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}</td>
                           <td className="py-3">
                             <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
                               order.status === OrderStatus.COMPLETED ? 'bg-green-500/20 text-green-400' :
@@ -796,7 +796,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                     </tbody>
                   </table>
                 </div>
-              ) : <div className="h-32 flex items-center justify-center text-gray-600 text-sm">No orders in this period</div>}
+              ) : <div className="h-32 flex items-center justify-center text-gray-400 dark:text-gray-600 text-sm">No orders in this period</div>}
             </div>
           </div>
         )}
@@ -816,10 +816,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                     placeholder="Search staff..."
                     value={staffSearch}
                     onChange={e => setStaffSearch(e.target.value)}
-                    className="bg-[#2a2a2a] border border-gray-700 rounded-xl pl-9 pr-4 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none w-48"
+                    className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-4 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none w-48"
                   />
                 </div>
-                <button onClick={refreshStaffList} className="px-4 py-2 rounded-xl bg-[#2a2a2a] text-gray-400 hover:text-white text-xs font-bold uppercase tracking-wider border border-gray-700 hover:border-gray-600 transition-all">
+                <button onClick={refreshStaffList} className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-xs font-bold uppercase tracking-wider border border-gray-200 dark:border-gray-700 hover:border-gray-600 transition-all">
                   <RotateCcw size={14} />
                 </button>
                 <button
@@ -833,36 +833,36 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
             {/* Summary cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-              <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center"><Users size={20} className="text-blue-400" /></div>
-                  <span className="text-sm font-bold text-gray-400">Total Staff</span>
+                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Total Staff</span>
                 </div>
-                <p className="text-3xl font-black">{staffList.length}</p>
+                <p className="text-3xl font-black dark:text-white">{staffList.length}</p>
               </div>
-              <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-xl bg-green-600/20 flex items-center justify-center"><CheckCircle size={20} className="text-green-400" /></div>
-                  <span className="text-sm font-bold text-gray-400">Active</span>
+                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Active</span>
                 </div>
                 <p className="text-3xl font-black text-green-400">{staffList.filter(s => s.isActive !== false).length}</p>
               </div>
-              <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-xl bg-red-600/20 flex items-center justify-center"><XCircle size={20} className="text-red-400" /></div>
-                  <span className="text-sm font-bold text-gray-400">Inactive</span>
+                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Inactive</span>
                 </div>
                 <p className="text-3xl font-black text-red-400">{staffList.filter(s => s.isActive === false).length}</p>
               </div>
             </div>
 
             {/* Staff List */}
-            <div className="bg-[#232323] rounded-2xl border border-gray-800 overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
               {filteredStaff.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
-                      <tr className="border-b border-gray-700 bg-[#1f1f1f]">
+                      <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                         <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Name</th>
                         <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Role</th>
                         <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Email</th>
@@ -873,13 +873,13 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                     </thead>
                     <tbody>
                       {filteredStaff.map(staff => (
-                        <tr key={staff.id} className="border-b border-gray-800/50 hover:bg-[#2a2a2a] transition-colors">
+                        <tr key={staff.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-100 dark:bg-gray-700 transition-colors">
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-3">
                               <div className="w-8 h-8 rounded-full bg-amber-600/20 flex items-center justify-center text-amber-400 font-black text-sm">
                                 {staff.username.charAt(0).toUpperCase()}
                               </div>
-                              <span className="text-sm font-bold text-white">{staff.username}</span>
+                              <span className="text-sm font-bold dark:text-white">{staff.username}</span>
                             </div>
                           </td>
                           <td className="px-5 py-4">
@@ -887,8 +887,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                               staff.role === 'CASHIER' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'
                             }`}>{staff.role}</span>
                           </td>
-                          <td className="px-5 py-4 text-xs text-gray-400 hidden md:table-cell">{staff.email || '-'}</td>
-                          <td className="px-5 py-4 text-xs text-gray-400 hidden sm:table-cell">{staff.phone || '-'}</td>
+                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell">{staff.email || '-'}</td>
+                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden sm:table-cell">{staff.phone || '-'}</td>
                           <td className="px-5 py-4">
                             <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
                               staff.isActive !== false ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
@@ -920,46 +920,46 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                   </table>
                 </div>
               ) : (
-                <div className="h-48 flex flex-col items-center justify-center text-gray-600">
+                <div className="h-48 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
                   <Users size={40} className="mb-3 opacity-30" />
                   <p className="text-sm font-bold">No staff members found</p>
-                  <p className="text-xs text-gray-500 mt-1">Add cashiers or kitchen staff to get started</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Add cashiers or kitchen staff to get started</p>
                 </div>
               )}
             </div>
 
             {/* Add Staff Modal */}
             {isAddStaffOpen && (
-              <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setIsAddStaffOpen(false)}>
-                <div className="bg-[#232323] rounded-2xl border border-gray-700 w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
-                  <h3 className="text-lg font-black mb-6 flex items-center gap-2"><UserPlus size={20} className="text-amber-500" /> Add New Staff</h3>
+              <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setIsAddStaffOpen(false)}>
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+                  <h3 className="text-lg font-black dark:text-white mb-6 flex items-center gap-2"><UserPlus size={20} className="text-amber-500" /> Add New Staff</h3>
                   <div className="space-y-4">
                     <div>
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Role</label>
                       <div className="flex gap-2">
-                        <button onClick={() => setStaffForm(f => ({ ...f, role: 'CASHIER' }))} className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${staffForm.role === 'CASHIER' ? 'bg-blue-600 text-white' : 'bg-[#2a2a2a] text-gray-400'}`}>Cashier</button>
-                        <button onClick={() => setStaffForm(f => ({ ...f, role: 'KITCHEN' }))} className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${staffForm.role === 'KITCHEN' ? 'bg-purple-600 text-white' : 'bg-[#2a2a2a] text-gray-400'}`}>Kitchen</button>
+                        <button onClick={() => setStaffForm(f => ({ ...f, role: 'CASHIER' }))} className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${staffForm.role === 'CASHIER' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>Cashier</button>
+                        <button onClick={() => setStaffForm(f => ({ ...f, role: 'KITCHEN' }))} className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${staffForm.role === 'KITCHEN' ? 'bg-purple-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>Kitchen</button>
                       </div>
                     </div>
                     <div>
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Username *</label>
-                      <input type="text" value={staffForm.username} onChange={e => setStaffForm(f => ({ ...f, username: e.target.value }))} className="w-full bg-[#1a1a1a] border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Enter username" />
+                      <input type="text" value={staffForm.username} onChange={e => setStaffForm(f => ({ ...f, username: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Enter username" />
                     </div>
                     <div>
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Password *</label>
-                      <input type="password" value={staffForm.password} onChange={e => setStaffForm(f => ({ ...f, password: e.target.value }))} className="w-full bg-[#1a1a1a] border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Enter password" />
+                      <input type="password" value={staffForm.password} onChange={e => setStaffForm(f => ({ ...f, password: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Enter password" />
                     </div>
                     <div>
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Email</label>
-                      <input type="email" value={staffForm.email} onChange={e => setStaffForm(f => ({ ...f, email: e.target.value }))} className="w-full bg-[#1a1a1a] border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Optional" />
+                      <input type="email" value={staffForm.email} onChange={e => setStaffForm(f => ({ ...f, email: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Optional" />
                     </div>
                     <div>
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Phone</label>
-                      <input type="tel" value={staffForm.phone} onChange={e => setStaffForm(f => ({ ...f, phone: e.target.value }))} className="w-full bg-[#1a1a1a] border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Optional" />
+                      <input type="tel" value={staffForm.phone} onChange={e => setStaffForm(f => ({ ...f, phone: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Optional" />
                     </div>
                   </div>
                   <div className="flex gap-3 mt-6">
-                    <button onClick={() => setIsAddStaffOpen(false)} className="flex-1 py-3 rounded-xl bg-[#2a2a2a] text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-[#333] transition-all">Cancel</button>
+                    <button onClick={() => setIsAddStaffOpen(false)} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
                     <button onClick={handleAddStaff} disabled={isSubmittingStaff} className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all disabled:opacity-50 shadow-lg shadow-amber-600/20">
                       {isSubmittingStaff ? 'Adding...' : 'Add Staff'}
                     </button>
@@ -985,16 +985,16 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                     placeholder="Search items..."
                     value={stockSearch}
                     onChange={e => setStockSearch(e.target.value)}
-                    className="bg-[#2a2a2a] border border-gray-700 rounded-xl pl-9 pr-4 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none w-48"
+                    className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-4 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none w-48"
                   />
                 </div>
-                <div className="flex bg-[#2a2a2a] rounded-xl border border-gray-700 p-0.5">
+                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-700 p-0.5">
                   {([['all', 'All'], ['low', 'Low Stock'], ['out', 'Out of Stock']] as const).map(([key, label]) => (
                     <button
                       key={key}
                       onClick={() => setStockFilter(key)}
                       className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
-                        stockFilter === key ? 'bg-amber-600 text-white' : 'text-gray-400 hover:text-white'
+                        stockFilter === key ? 'bg-amber-600 text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                       }`}
                     >{label}</button>
                   ))}
@@ -1004,43 +1004,43 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
             {/* Stock Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center"><Package size={20} className="text-blue-400" /></div>
-                  <span className="text-sm font-bold text-gray-400">Total Items</span>
+                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Total Items</span>
                 </div>
-                <p className="text-3xl font-black">{stockSummary.total}</p>
+                <p className="text-3xl font-black dark:text-white">{stockSummary.total}</p>
               </div>
-              <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-xl bg-green-600/20 flex items-center justify-center"><CheckCircle size={20} className="text-green-400" /></div>
-                  <span className="text-sm font-bold text-gray-400">In Stock</span>
+                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">In Stock</span>
                 </div>
                 <p className="text-3xl font-black text-green-400">{stockSummary.healthy}</p>
               </div>
-              <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-xl bg-amber-600/20 flex items-center justify-center"><AlertCircle size={20} className="text-amber-400" /></div>
-                  <span className="text-sm font-bold text-gray-400">Low Stock</span>
+                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Low Stock</span>
                 </div>
                 <p className="text-3xl font-black text-amber-400">{stockSummary.low}</p>
               </div>
-              <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-xl bg-red-600/20 flex items-center justify-center"><XCircle size={20} className="text-red-400" /></div>
-                  <span className="text-sm font-bold text-gray-400">Out of Stock</span>
+                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Out of Stock</span>
                 </div>
                 <p className="text-3xl font-black text-red-400">{stockSummary.out}</p>
               </div>
             </div>
 
             {/* Stock Table */}
-            <div className="bg-[#232323] rounded-2xl border border-gray-800 overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
               {filteredStock.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
-                      <tr className="border-b border-gray-700 bg-[#1f1f1f]">
+                      <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                         <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Item</th>
                         <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Category</th>
                         <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Stock</th>
@@ -1054,20 +1054,20 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                       {filteredStock.map(item => {
                         const status = item.currentStock === 0 ? 'out' : item.currentStock <= item.lowStockThreshold ? 'low' : 'ok';
                         return (
-                          <tr key={item.menuItemId} className="border-b border-gray-800/50 hover:bg-[#2a2a2a] transition-colors">
+                          <tr key={item.menuItemId} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-100 dark:bg-gray-700 transition-colors">
                             <td className="px-5 py-4">
-                              <span className="text-sm font-bold text-white">{item.name}</span>
+                              <span className="text-sm font-bold dark:text-white">{item.name}</span>
                             </td>
                             <td className="px-5 py-4">
-                              <span className="text-xs text-gray-400 bg-[#2a2a2a] px-2 py-1 rounded-md">{item.category}</span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md">{item.category}</span>
                             </td>
                             <td className="px-5 py-4">
                               <div className="flex items-center gap-2">
-                                <button onClick={() => handleSetStock(item.menuItemId, item.currentStock - 1)} className="w-6 h-6 rounded bg-[#333] text-gray-400 hover:text-white flex items-center justify-center"><Minus size={12} /></button>
+                                <button onClick={() => handleSetStock(item.menuItemId, item.currentStock - 1)} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 text-gray-400 hover:text-white flex items-center justify-center"><Minus size={12} /></button>
                                 <span className={`text-sm font-black min-w-[40px] text-center ${
                                   status === 'out' ? 'text-red-400' : status === 'low' ? 'text-amber-400' : 'text-white'
                                 }`}>{item.currentStock}</span>
-                                <button onClick={() => handleSetStock(item.menuItemId, item.currentStock + 1)} className="w-6 h-6 rounded bg-[#333] text-gray-400 hover:text-white flex items-center justify-center"><Plus size={12} /></button>
+                                <button onClick={() => handleSetStock(item.menuItemId, item.currentStock + 1)} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 text-gray-400 hover:text-white flex items-center justify-center"><Plus size={12} /></button>
                               </div>
                             </td>
                             <td className="px-5 py-4 hidden md:table-cell">
@@ -1075,7 +1075,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                                 type="number"
                                 value={item.lowStockThreshold}
                                 onChange={e => handleUpdateStockThreshold(item.menuItemId, parseInt(e.target.value) || 0)}
-                                className="w-16 bg-[#1a1a1a] border border-gray-700 rounded-lg px-2 py-1 text-xs text-white text-center focus:ring-2 focus:ring-amber-500 outline-none"
+                                className="w-16 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 text-xs text-white text-center focus:ring-2 focus:ring-amber-500 outline-none"
                               />
                             </td>
                             <td className="px-5 py-4">
@@ -1087,7 +1087,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                                 {status === 'out' ? 'Out of Stock' : status === 'low' ? 'Low Stock' : 'In Stock'}
                               </span>
                             </td>
-                            <td className="px-5 py-4 text-xs text-gray-400 hidden sm:table-cell">
+                            <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden sm:table-cell">
                               {item.lastRestocked ? new Date(item.lastRestocked).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) : '-'}
                             </td>
                             <td className="px-5 py-4 text-right">
@@ -1098,11 +1098,11 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                                     value={restockAmount}
                                     onChange={e => setRestockAmount(e.target.value)}
                                     placeholder="Qty"
-                                    className="w-20 bg-[#1a1a1a] border border-gray-700 rounded-lg px-2 py-1 text-xs text-white text-center focus:ring-2 focus:ring-amber-500 outline-none"
+                                    className="w-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 text-xs text-white text-center focus:ring-2 focus:ring-amber-500 outline-none"
                                     autoFocus
                                   />
                                   <button onClick={() => handleRestockItem(item.menuItemId)} className="px-3 py-1 rounded-lg bg-green-600 text-white text-[10px] font-bold">Add</button>
-                                  <button onClick={() => { setEditingStockId(null); setRestockAmount(''); }} className="px-3 py-1 rounded-lg bg-[#333] text-gray-400 text-[10px] font-bold">Cancel</button>
+                                  <button onClick={() => { setEditingStockId(null); setRestockAmount(''); }} className="px-3 py-1 rounded-lg bg-gray-200 dark:bg-gray-600 text-gray-400 text-[10px] font-bold">Cancel</button>
                                 </div>
                               ) : (
                                 <button
@@ -1120,10 +1120,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                   </table>
                 </div>
               ) : (
-                <div className="h-48 flex flex-col items-center justify-center text-gray-600">
+                <div className="h-48 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
                   <Package size={40} className="mb-3 opacity-30" />
                   <p className="text-sm font-bold">No items found</p>
-                  <p className="text-xs text-gray-500 mt-1">{stockFilter !== 'all' ? 'Try changing the filter' : 'Add menu items to track stock'}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{stockFilter !== 'all' ? 'Try changing the filter' : 'Add menu items to track stock'}</p>
                 </div>
               )}
             </div>
