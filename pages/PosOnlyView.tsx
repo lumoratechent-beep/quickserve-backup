@@ -3996,7 +3996,7 @@ const PosOnlyView: React.FC<Props> = ({
         fixed lg:relative inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 border-r dark:border-gray-700 
         flex flex-col transition-all duration-300 ease-in-out no-print
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        ${isSidebarCollapsed ? 'lg:w-16' : 'w-64'}
+        ${isSidebarCollapsed ? 'lg:w-16' : 'w-56'}
       `}>
         <div className={`border-b dark:border-gray-700 flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'p-6 gap-3'}`}>
           <img src={restaurant.logo} className={`rounded-lg shadow-sm ${isSidebarCollapsed ? 'w-8 h-8' : 'w-10 h-10'}`} />
