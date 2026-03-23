@@ -56,6 +56,7 @@ interface StockItem {
   lowStockThreshold: number;
   unit: string;
   lastRestocked?: number;
+  stockEnabled: boolean;
 }
 
 const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, onFetchAllFilteredOrders, onBack }) => {
@@ -113,7 +114,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   // ─── Stock State ───
   const [stockItems, setStockItems] = useState<StockItem[]>(() => {
     const saved = localStorage.getItem(`stock_${restaurant.id}`);
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return parsed.map((s: any) => ({ ...s, stockEnabled: s.stockEnabled ?? true }));
+    }
     // Initialize from menu
     return restaurant.menu.filter(m => !m.isArchived).map(m => ({
       menuItemId: m.id,
@@ -123,12 +127,12 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       lowStockThreshold: 10,
       unit: 'pcs',
       lastRestocked: Date.now(),
+      stockEnabled: true,
     }));
   });
   const [stockSearch, setStockSearch] = useState('');
   const [stockFilter, setStockFilter] = useState<'all' | 'low' | 'out'>('all');
-  const [editingStockId, setEditingStockId] = useState<string | null>(null);
-  const [restockAmount, setRestockAmount] = useState('');
+  const [selectedStockIds, setSelectedStockIds] = useState<Set<string>>(new Set());
 
   const saveStock = (items: StockItem[]) => {
     setStockItems(items);
@@ -369,16 +373,46 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   };
 
   // ─── Stock handlers ───
-  const handleRestockItem = (itemId: string) => {
-    const amount = parseInt(restockAmount);
-    if (isNaN(amount) || amount <= 0) { toast('Enter a valid restock amount', 'error'); return; }
+  const handleToggleStockEnabled = (itemId: string) => {
     const updated = stockItems.map(s =>
-      s.menuItemId === itemId ? { ...s, currentStock: s.currentStock + amount, lastRestocked: Date.now() } : s
+      s.menuItemId === itemId ? { ...s, stockEnabled: !s.stockEnabled } : s
     );
     saveStock(updated);
-    setRestockAmount('');
-    setEditingStockId(null);
-    toast('Stock updated', 'success');
+  };
+
+  const handleMasterStockToggle = (enable: boolean) => {
+    const updated = stockItems.map(s => ({ ...s, stockEnabled: enable }));
+    saveStock(updated);
+  };
+
+  const handleToggleSelectedStock = (enable: boolean) => {
+    if (selectedStockIds.size === 0) return;
+    const updated = stockItems.map(s =>
+      selectedStockIds.has(s.menuItemId) ? { ...s, stockEnabled: enable } : s
+    );
+    saveStock(updated);
+    setSelectedStockIds(new Set());
+  };
+
+  const handleSelectStockItem = (itemId: string) => {
+    setSelectedStockIds(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  };
+
+  const handleSelectAllStock = () => {
+    if (selectedStockIds.size === filteredStock.length) {
+      setSelectedStockIds(new Set());
+    } else {
+      setSelectedStockIds(new Set(filteredStock.map(s => s.menuItemId)));
+    }
+  };
+
+  const handleGoToRestock = () => {
+    setActiveTab('INVENTORY');
   };
 
   const handleUpdateStockThreshold = (itemId: string, threshold: number) => {
@@ -407,9 +441,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   }, [stockItems, stockSearch, stockFilter]);
 
   const stockSummary = useMemo(() => {
-    const total = stockItems.length;
-    const low = stockItems.filter(s => s.currentStock > 0 && s.currentStock <= s.lowStockThreshold).length;
-    const out = stockItems.filter(s => s.currentStock === 0).length;
+    const enabled = stockItems.filter(s => s.stockEnabled);
+    const total = enabled.length;
+    const low = enabled.filter(s => s.currentStock > 0 && s.currentStock <= s.lowStockThreshold).length;
+    const out = enabled.filter(s => s.currentStock === 0).length;
     const healthy = total - low - out;
     return { total, low, out, healthy };
   }, [stockItems]);
@@ -534,21 +569,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        {/* Mobile header with tab selector */}
-        <div className="md:hidden sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              {onBack && (
-                <button onClick={onBack} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-all">
-                  <ArrowLeft size={20} />
-                </button>
-              )}
-              <h1 className="text-lg font-black flex items-center gap-2">
-                <Briefcase size={20} className="text-amber-500" />
-                Back Office
-              </h1>
-            </div>
-          </div>
+        {/* Mobile tab selector */}
+        <div className="md:hidden sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2">
           <div className="flex gap-1 overflow-x-auto hide-scrollbar">
             {tabs.map(tab => (
               <button
@@ -566,16 +588,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           </div>
         </div>
 
-        {/* Desktop Header */}
-        <div className="hidden md:block sticky top-0 z-20 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-          <div className="max-w-[1600px] mx-auto px-6 py-3">
-            <h1 className="text-lg font-black tracking-tight flex items-center gap-3">
-              {tabs.find(t => t.key === activeTab)?.label || 'Back Office'}
-            </h1>
-          </div>
-        </div>
-
-      <div className="max-w-[1600px] mx-auto p-4 md:p-6">
+      <div className="p-4 md:p-6">
 
         {/* ════════════════════════════════════ */}
         {/* DASHBOARD TAB                       */}
@@ -973,7 +986,29 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                     >{label}</button>
                   ))}
                 </div>
+                <button
+                  onClick={handleGoToRestock}
+                  className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20"
+                >
+                  <Plus size={14} /> Purchase Order
+                </button>
               </div>
+            </div>
+
+            {/* Master Controls */}
+            <div className="flex items-center justify-between mb-4 bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Master Stock Control:</span>
+                <button onClick={() => handleMasterStockToggle(true)} className="px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 text-[10px] font-bold uppercase tracking-wider hover:bg-green-500/30 transition-all">Enable All</button>
+                <button onClick={() => handleMasterStockToggle(false)} className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-[10px] font-bold uppercase tracking-wider hover:bg-red-500/30 transition-all">Disable All</button>
+              </div>
+              {selectedStockIds.size > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-gray-400">{selectedStockIds.size} selected</span>
+                  <button onClick={() => handleToggleSelectedStock(true)} className="px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 text-[10px] font-bold hover:bg-green-500/30 transition-all">Enable Selected</button>
+                  <button onClick={() => handleToggleSelectedStock(false)} className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-[10px] font-bold hover:bg-red-500/30 transition-all">Disable Selected</button>
+                </div>
+              )}
             </div>
 
             {/* Stock Summary Cards */}
@@ -1015,27 +1050,34 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                   <table className="w-full text-left">
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Item</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Category</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Stock</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Threshold</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Last Restocked</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                        <th className="px-3 py-4 w-8">
+                          <input type="checkbox" checked={selectedStockIds.size === filteredStock.length && filteredStock.length > 0} onChange={handleSelectAllStock} className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
+                        </th>
+                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Item</th>
+                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Category</th>
+                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Stock</th>
+                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Threshold</th>
+                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Last Restocked</th>
+                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Track Stock</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredStock.map(item => {
-                        const status = item.currentStock === 0 ? 'out' : item.currentStock <= item.lowStockThreshold ? 'low' : 'ok';
+                        const status = !item.stockEnabled ? 'disabled' : item.currentStock === 0 ? 'out' : item.currentStock <= item.lowStockThreshold ? 'low' : 'ok';
                         return (
-                          <tr key={item.menuItemId} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-100 dark:bg-gray-700 transition-colors">
-                            <td className="px-5 py-4">
+                          <tr key={item.menuItemId} className={`border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${!item.stockEnabled ? 'opacity-50' : ''}`}>
+                            <td className="px-3 py-4">
+                              <input type="checkbox" checked={selectedStockIds.has(item.menuItemId)} onChange={() => handleSelectStockItem(item.menuItemId)} className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
+                            </td>
+                            <td className="px-3 py-4">
                               <span className="text-sm font-bold dark:text-white">{item.name}</span>
                             </td>
-                            <td className="px-5 py-4">
+                            <td className="px-3 py-4">
                               <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md">{item.category}</span>
                             </td>
-                            <td className="px-5 py-4">
+                            <td className="px-3 py-4">
+                              {item.stockEnabled ? (
                               <div className="flex items-center gap-2">
                                 <button onClick={() => handleSetStock(item.menuItemId, item.currentStock - 1)} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 text-gray-400 hover:text-white flex items-center justify-center"><Minus size={12} /></button>
                                 <span className={`text-sm font-black min-w-[40px] text-center ${
@@ -1043,49 +1085,38 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                                 }`}>{item.currentStock}</span>
                                 <button onClick={() => handleSetStock(item.menuItemId, item.currentStock + 1)} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 text-gray-400 hover:text-white flex items-center justify-center"><Plus size={12} /></button>
                               </div>
+                              ) : <span className="text-xs text-gray-400">—</span>}
                             </td>
-                            <td className="px-5 py-4 hidden md:table-cell">
+                            <td className="px-3 py-4 hidden md:table-cell">
+                              {item.stockEnabled ? (
                               <input
                                 type="number"
                                 value={item.lowStockThreshold}
                                 onChange={e => handleUpdateStockThreshold(item.menuItemId, parseInt(e.target.value) || 0)}
-                                className="w-16 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 text-xs text-white text-center focus:ring-2 focus:ring-amber-500 outline-none"
+                                className="w-16 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none"
                               />
+                              ) : <span className="text-xs text-gray-400">—</span>}
                             </td>
-                            <td className="px-5 py-4">
+                            <td className="px-3 py-4">
                               <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
+                                status === 'disabled' ? 'bg-gray-500/20 text-gray-400' :
                                 status === 'out' ? 'bg-red-500/20 text-red-400' :
                                 status === 'low' ? 'bg-amber-500/20 text-amber-400' :
                                 'bg-green-500/20 text-green-400'
                               }`}>
-                                {status === 'out' ? 'Out of Stock' : status === 'low' ? 'Low Stock' : 'In Stock'}
+                                {status === 'disabled' ? 'Disabled' : status === 'out' ? 'Out of Stock' : status === 'low' ? 'Low Stock' : 'In Stock'}
                               </span>
                             </td>
-                            <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden sm:table-cell">
+                            <td className="px-3 py-4 text-xs text-gray-500 dark:text-gray-400 hidden sm:table-cell">
                               {item.lastRestocked ? new Date(item.lastRestocked).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) : '-'}
                             </td>
-                            <td className="px-5 py-4 text-right">
-                              {editingStockId === item.menuItemId ? (
-                                <div className="flex items-center justify-end gap-2">
-                                  <input
-                                    type="number"
-                                    value={restockAmount}
-                                    onChange={e => setRestockAmount(e.target.value)}
-                                    placeholder="Qty"
-                                    className="w-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 text-xs text-white text-center focus:ring-2 focus:ring-amber-500 outline-none"
-                                    autoFocus
-                                  />
-                                  <button onClick={() => handleRestockItem(item.menuItemId)} className="px-3 py-1 rounded-lg bg-green-600 text-white text-[10px] font-bold">Add</button>
-                                  <button onClick={() => { setEditingStockId(null); setRestockAmount(''); }} className="px-3 py-1 rounded-lg bg-gray-200 dark:bg-gray-600 text-gray-400 text-[10px] font-bold">Cancel</button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => { setEditingStockId(item.menuItemId); setRestockAmount(''); }}
-                                  className="px-3 py-1.5 rounded-lg bg-amber-600/20 text-amber-400 text-[10px] font-bold uppercase tracking-wider hover:bg-amber-600/30 transition-all"
-                                >
-                                  Restock
-                                </button>
-                              )}
+                            <td className="px-3 py-4 text-center">
+                              <button
+                                onClick={() => handleToggleStockEnabled(item.menuItemId)}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${item.stockEnabled ? 'bg-green-500' : 'bg-gray-400 dark:bg-gray-600'}`}
+                              >
+                                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${item.stockEnabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                              </button>
                             </td>
                           </tr>
                         );

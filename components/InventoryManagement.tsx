@@ -410,6 +410,15 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     return valuationData.reduce((sum: number, item: any) => sum + item.retailValue, 0);
   }, [valuationData]);
 
+  const getIncomingQuantity = (menuItemId: string): number => {
+    return purchaseOrders
+      .filter(po => po.status === 'draft' || po.status === 'sent' || po.status === 'partial')
+      .reduce((total, po) => {
+        const item = po.items.find(i => i.menuItemId === menuItemId);
+        return total + (item ? item.quantity - item.receivedQuantity : 0);
+      }, 0);
+  };
+
   // ─── Sub-tab navigation ───
   const subTabs: { key: InventorySubTab; label: string; icon: React.ReactNode }[] = [
     { key: 'purchase_orders', label: 'Purchase Orders', icon: <FileText size={16} /> },
@@ -497,6 +506,16 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               </div>
 
               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 block">Items *</label>
+              {poForm.items.length > 0 && (
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <span className="flex-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Product</span>
+                  <span className="w-16 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">In Stock</span>
+                  <span className="w-16 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">Incoming</span>
+                  <span className="w-20 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">Qty</span>
+                  <span className="w-24 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">Cost/Unit</span>
+                  <span className="w-8"></span>
+                </div>
+              )}
               {poForm.items.map((item, i) => (
                 <div key={i} className="flex items-center gap-2 mb-2">
                   <select value={item.menuItemId} onChange={e => {
@@ -508,6 +527,12 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                     <option value="">Select item</option>
                     {activeMenuItems.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
+                  <span className={`w-16 text-center text-xs font-bold ${item.menuItemId ? (getStockLevel(item.menuItemId) === 0 ? 'text-red-400' : getStockLevel(item.menuItemId) <= 10 ? 'text-amber-400' : 'text-green-400') : 'text-gray-500'}`}>
+                    {item.menuItemId ? getStockLevel(item.menuItemId) : '-'}
+                  </span>
+                  <span className={`w-16 text-center text-xs font-bold ${item.menuItemId && getIncomingQuantity(item.menuItemId) > 0 ? 'text-blue-400' : 'text-gray-500'}`}>
+                    {item.menuItemId ? getIncomingQuantity(item.menuItemId) : '-'}
+                  </span>
                   <input type="number" value={item.quantity || ''} onChange={e => { const items = [...poForm.items]; items[i] = { ...items[i], quantity: parseInt(e.target.value) || 0 }; setPoForm(f => ({ ...f, items })); }} placeholder="Qty" className="w-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none" />
                   <input type="number" step="0.01" value={item.costPerUnit || ''} onChange={e => { const items = [...poForm.items]; items[i] = { ...items[i], costPerUnit: parseFloat(e.target.value) || 0 }; setPoForm(f => ({ ...f, items })); }} placeholder="Cost/Unit" className="w-24 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none" />
                   <button onClick={() => { const items = poForm.items.filter((_, idx) => idx !== i); setPoForm(f => ({ ...f, items })); }} className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg"><X size={14} /></button>
