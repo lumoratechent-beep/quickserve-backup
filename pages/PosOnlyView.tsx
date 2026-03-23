@@ -4013,7 +4013,7 @@ const PosOnlyView: React.FC<Props> = ({
             <button
               onClick={() => handleTabSelection('KITCHEN')}
               title="Incoming Orders"
-              className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-3 rounded-xl text-sm font-medium transition-all ${
+              className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
                 activeTab === 'KITCHEN'
                   ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -4031,7 +4031,7 @@ const PosOnlyView: React.FC<Props> = ({
           <button 
             onClick={() => handleTabSelection('COUNTER')}
             title="Counter"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-3 rounded-xl text-sm font-medium transition-all ${
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
               activeTab === 'COUNTER' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -4044,7 +4044,7 @@ const PosOnlyView: React.FC<Props> = ({
             <button
               onClick={() => handleTabSelection('QR_ORDERS')}
               title="QR Orders"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-3'} py-3 rounded-xl text-sm font-medium transition-all ${
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4'} py-3 rounded-xl font-medium transition-all ${
                 activeTab === 'QR_ORDERS'
                   ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -4077,7 +4077,7 @@ const PosOnlyView: React.FC<Props> = ({
           <button 
             onClick={() => handleTabSelection('MENU_EDITOR')}
             title="Menu Editor"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-3 rounded-xl text-sm font-medium transition-all ${
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
               activeTab === 'MENU_EDITOR' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -4089,7 +4089,7 @@ const PosOnlyView: React.FC<Props> = ({
           <button 
             onClick={handleReportsClick}
             title="Bill and Report"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-3 rounded-xl text-sm font-medium transition-all ${
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
               activeTab === 'REPORTS' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -4101,7 +4101,7 @@ const PosOnlyView: React.FC<Props> = ({
           <button 
             onClick={() => handleTabSelection('SETTINGS')}
             title="Settings"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-3 rounded-xl text-sm font-medium transition-all ${
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
               activeTab === 'SETTINGS' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -4118,7 +4118,7 @@ const PosOnlyView: React.FC<Props> = ({
           <button 
             onClick={() => handleTabSelection('BILLING')}
             title="Billing"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-3 rounded-xl text-sm font-medium transition-all ${
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
               activeTab === 'BILLING' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
