@@ -457,19 +457,22 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   return (
     <div>
       {/* Sub-tab navigation */}
-      <div className="flex gap-1.5 overflow-x-auto hide-scrollbar mb-6 pb-1">
+      <div className="flex bg-red-800 rounded-t-lg overflow-x-auto hide-scrollbar mb-0">
         {subTabs.map(tab => (
           <button
             key={tab.key}
             onClick={() => { setSubTab(tab.key); setShowForm(false); setSearchQuery(''); }}
-            className={`flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-wider whitespace-nowrap rounded-xl transition-all ${
-              subTab === tab.key ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+            className={`flex items-center gap-2 px-4 py-2.5 text-[10px] md:text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all border-b-2 ${
+              subTab === tab.key
+                ? 'bg-white dark:bg-gray-900 text-red-800 dark:text-red-400 border-red-800 dark:border-red-400'
+                : 'text-white hover:bg-red-700 border-transparent'
             }`}
           >
             {tab.icon} <span className="hidden sm:inline">{tab.label}</span>
           </button>
         ))}
       </div>
+      <div className="border-b-2 border-red-800 mb-6" />
 
       {/* ═══════════════════════════════════════ */}
       {/* PURCHASE ORDERS                        */}

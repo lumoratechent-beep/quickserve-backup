@@ -334,19 +334,22 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
   return (
     <div>
       {/* Sub-tab navigation */}
-      <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm mb-4 overflow-x-auto hide-scrollbar">
+      <div className="flex bg-red-800 rounded-t-lg overflow-x-auto hide-scrollbar mb-0">
         {subTabs.map(tab => (
           <button
             key={tab.key}
             onClick={() => { setSubTab(tab.key); setSearchQuery(''); }}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all ${
-              subTab === tab.key ? 'bg-amber-600 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+            className={`flex items-center gap-2 px-4 py-2.5 text-[10px] md:text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all border-b-2 ${
+              subTab === tab.key
+                ? 'bg-white dark:bg-gray-900 text-red-800 dark:text-red-400 border-red-800 dark:border-red-400'
+                : 'text-white hover:bg-red-700 border-transparent'
             }`}
           >
             {tab.icon} <span className="hidden sm:inline">{tab.label}</span>
           </button>
         ))}
       </div>
+      <div className="border-b-2 border-red-800 mb-4" />
 
       {/* Date Range - same as PosOnlyView > Report */}
       <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm flex flex-col md:flex-row items-center gap-4 mb-6">
