@@ -332,23 +332,25 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
   const totalTaxCollected = useMemo(() => taxesReport.reduce((s, t) => s + t.taxCollected, 0), [taxesReport]);
 
   return (
-    <div>
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
       {/* Sub-tab navigation */}
-      <div className="flex overflow-x-auto hide-scrollbar border-b border-gray-200 dark:border-gray-700 mb-4">
+      <div className="flex overflow-x-auto hide-scrollbar bg-gray-100 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
         {subTabs.map(tab => (
           <button
             key={tab.key}
             onClick={() => { setSubTab(tab.key); setSearchQuery(''); }}
-            className={`flex items-center gap-2 px-4 py-2.5 text-[10px] md:text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all rounded-t-lg ${
+            className={`flex items-center gap-2 px-4 py-3 text-[10px] md:text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all ${
               subTab === tab.key
-                ? 'bg-amber-600 text-white'
-                : 'bg-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200'
+                ? 'bg-white dark:bg-gray-800 text-amber-600 dark:text-amber-400 border-b-2 border-amber-600 dark:border-amber-400'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-800'
             }`}
           >
             {tab.icon} <span className="hidden sm:inline">{tab.label}</span>
           </button>
         ))}
       </div>
+
+      <div className="p-4 md:p-6">
 
       {/* Date Range - same as PosOnlyView > Report */}
       <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm flex flex-col md:flex-row items-center gap-4 mb-6">
@@ -932,6 +934,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 };
