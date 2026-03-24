@@ -630,8 +630,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                     </>
                   )}
                 </button>
-                {!isSidebarCollapsed && isExpanded && (
-                  <div className="ml-6 mt-1 space-y-0.5 border-l-2 border-gray-200 dark:border-gray-700 pl-3">
+                {!isSidebarCollapsed && (
+                  <div className={`ml-6 space-y-0.5 border-l-2 border-gray-200 dark:border-gray-700 pl-3 overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-96 opacity-100 mt-1' : 'max-h-0 opacity-0 mt-0'}`}>
                     {tab.subItems.map(sub => (
                       <button
                         key={sub.key}
