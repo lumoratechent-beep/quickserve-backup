@@ -508,9 +508,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
   const toggleExpanded = (key: string) => {
     setExpandedMenus(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      const next = new Set<string>();
+      if (!prev.has(key)) next.add(key);
       return next;
     });
   };
@@ -585,7 +584,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           {simpleTabs.map(tab => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => { setActiveTab(tab.key); setExpandedMenus(new Set()); }}
               title={tab.label}
               className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeTab === tab.key
@@ -640,13 +639,13 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                           setActiveTab(tab.key);
                           setActiveSubTab(tab.key, sub.key);
                         }}
-                        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        className={`w-full flex items-center px-2 py-1.5 rounded-lg text-sm font-medium transition-all ${
                           isActive && currentSub === sub.key
                             ? 'text-amber-600 dark:text-amber-400 font-bold bg-amber-50/50 dark:bg-amber-900/10'
                             : 'text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                         }`}
                       >
-                        {sub.icon} {sub.label}
+                        {sub.label}
                       </button>
                     ))}
                   </div>
