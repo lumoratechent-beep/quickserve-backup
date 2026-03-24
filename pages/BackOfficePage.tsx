@@ -7,10 +7,11 @@ import {
   LineChart, Line, AreaChart, Area,
 } from 'recharts';
 import {
-  TrendingUp, TrendingDown, DollarSign, ShoppingBag, Users, Receipt, ChevronRight, ChevronLeft, Filter,
+  TrendingUp, TrendingDown, DollarSign, ShoppingBag, Users, Receipt, ChevronRight, ChevronLeft, ChevronDown, Filter,
   BarChart3, Package, UserPlus, UserMinus, Edit3, Trash2, Plus, Minus, Search, AlertCircle,
   ArrowUpRight, ArrowDownRight, Clock, CheckCircle, XCircle, Eye, Archive, RotateCcw,
   Briefcase, Box, Tag, Layers, Activity, ArrowLeft, Warehouse, FileBarChart, Contact,
+  CreditCard, Percent, FileText, Truck, ArrowUpDown, ClipboardList, Factory, History, Building2,
 } from 'lucide-react';
 import InventoryManagement from '../components/InventoryManagement';
 import ReportsView from '../components/ReportsView';
@@ -63,6 +64,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [activeTab, setActiveTab] = useState<BackOfficeTab>('DASHBOARD');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [reportSubTab, setReportSubTab] = useState<string | undefined>(undefined);
+  const [inventorySubTab, setInventorySubTab] = useState<string | undefined>(undefined);
+  const [contactSubTab, setContactSubTab] = useState<string | undefined>(undefined);
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
   const today = new Date();
   const [dateRange, setDateRange] = useState<DateRange>('30d');
   const [customStart, setCustomStart] = useState(() => {
@@ -456,18 +460,78 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   }, [staffList, staffSearch]);
 
   // ─── Tab buttons ───
-  const tabs: { key: BackOfficeTab; label: string; icon: React.ReactNode }[] = [
+  const simpleTabs: { key: BackOfficeTab; label: string; icon: React.ReactNode }[] = [
     { key: 'DASHBOARD', label: 'Dashboard', icon: <BarChart3 size={18} /> },
     { key: 'STAFF', label: 'Staff Management', icon: <Users size={18} /> },
     { key: 'STOCK', label: 'Stock Management', icon: <Package size={18} /> },
-    { key: 'INVENTORY', label: 'Inventory', icon: <Warehouse size={18} /> },
-    { key: 'CONTACTS', label: 'Contacts', icon: <Contact size={18} /> },
-    { key: 'REPORTS', label: 'Reports', icon: <FileBarChart size={18} /> },
   ];
+
+  const expandableTabs: {
+    key: BackOfficeTab;
+    label: string;
+    icon: React.ReactNode;
+    subItems: { key: string; label: string; icon: React.ReactNode }[];
+  }[] = [
+    {
+      key: 'INVENTORY', label: 'Inventory', icon: <Warehouse size={18} />,
+      subItems: [
+        { key: 'purchase_orders', label: 'Purchase Orders', icon: <FileText size={14} /> },
+        { key: 'transfer_orders', label: 'Transfer Orders', icon: <Truck size={14} /> },
+        { key: 'stock_adjustments', label: 'Stock Adjustments', icon: <ArrowUpDown size={14} /> },
+        { key: 'inventory_counts', label: 'Inventory Counts', icon: <ClipboardList size={14} /> },
+        { key: 'productions', label: 'Productions', icon: <Factory size={14} /> },
+        { key: 'inventory_history', label: 'History', icon: <History size={14} /> },
+        { key: 'inventory_valuation', label: 'Valuation', icon: <DollarSign size={14} /> },
+      ],
+    },
+    {
+      key: 'CONTACTS', label: 'Contacts', icon: <Contact size={18} />,
+      subItems: [
+        { key: 'suppliers', label: 'Suppliers', icon: <Building2 size={14} /> },
+        { key: 'customers', label: 'Customers', icon: <UserPlus size={14} /> },
+      ],
+    },
+    {
+      key: 'REPORTS', label: 'Reports', icon: <FileBarChart size={18} />,
+      subItems: [
+        { key: 'sales_summary', label: 'Sales Summary', icon: <DollarSign size={14} /> },
+        { key: 'sales_by_item', label: 'By Item', icon: <ShoppingBag size={14} /> },
+        { key: 'sales_by_category', label: 'By Category', icon: <Tag size={14} /> },
+        { key: 'sales_by_employee', label: 'By Employee', icon: <Users size={14} /> },
+        { key: 'sales_by_payment', label: 'By Payment', icon: <CreditCard size={14} /> },
+        { key: 'sales_by_modifier', label: 'By Modifier', icon: <Layers size={14} /> },
+        { key: 'discounts', label: 'Discounts', icon: <Percent size={14} /> },
+        { key: 'taxes', label: 'Taxes', icon: <Receipt size={14} /> },
+      ],
+    },
+  ];
+
+  const toggleExpanded = (key: string) => {
+    setExpandedMenus(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const getActiveSubTab = (tabKey: BackOfficeTab) => {
+    if (tabKey === 'REPORTS') return reportSubTab;
+    if (tabKey === 'INVENTORY') return inventorySubTab;
+    if (tabKey === 'CONTACTS') return contactSubTab;
+    return undefined;
+  };
+
+  const setActiveSubTab = (tabKey: BackOfficeTab, subKey: string) => {
+    if (tabKey === 'REPORTS') setReportSubTab(subKey);
+    else if (tabKey === 'INVENTORY') setInventorySubTab(subKey);
+    else if (tabKey === 'CONTACTS') setContactSubTab(subKey);
+  };
 
   const handleSeeDetails = (reportTab: string) => {
     setReportSubTab(reportTab);
     setActiveTab('REPORTS');
+    setExpandedMenus(prev => new Set(prev).add('REPORTS'));
   };
 
   // ─── Date Range Picker ───
@@ -516,8 +580,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
         </div>
 
         {/* Navigation */}
-        <nav className={`flex-1 ${isSidebarCollapsed ? 'p-2 space-y-1' : 'px-3 py-4 space-y-1'}`}>
-          {tabs.map(tab => (
+        <nav className={`flex-1 overflow-y-auto ${isSidebarCollapsed ? 'p-2 space-y-1' : 'px-3 py-4 space-y-1'}`}>
+          {/* Simple tabs */}
+          {simpleTabs.map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
@@ -531,6 +596,64 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               {tab.icon} {!isSidebarCollapsed && tab.label}
             </button>
           ))}
+
+          {/* Expandable tabs */}
+          {expandableTabs.map(tab => {
+            const isExpanded = expandedMenus.has(tab.key);
+            const isActive = activeTab === tab.key;
+            const currentSub = getActiveSubTab(tab.key);
+            return (
+              <div key={tab.key}>
+                <button
+                  onClick={() => {
+                    if (isSidebarCollapsed) {
+                      setActiveTab(tab.key);
+                    } else {
+                      toggleExpanded(tab.key);
+                      if (!isActive) {
+                        setActiveTab(tab.key);
+                        if (!currentSub) setActiveSubTab(tab.key, tab.subItems[0].key);
+                      }
+                    }
+                  }}
+                  title={tab.label}
+                  className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    isActive
+                      ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400'
+                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                  }`}
+                >
+                  {tab.icon}
+                  {!isSidebarCollapsed && (
+                    <>
+                      <span className="flex-1 text-left">{tab.label}</span>
+                      <ChevronDown size={14} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                    </>
+                  )}
+                </button>
+                {!isSidebarCollapsed && isExpanded && (
+                  <div className="ml-6 mt-1 space-y-0.5 border-l-2 border-gray-200 dark:border-gray-700 pl-3">
+                    {tab.subItems.map(sub => (
+                      <button
+                        key={sub.key}
+                        onClick={() => {
+                          setActiveTab(tab.key);
+                          setActiveSubTab(tab.key, sub.key);
+                        }}
+                        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          isActive && currentSub === sub.key
+                            ? 'text-amber-600 dark:text-amber-400 font-bold bg-amber-50/50 dark:bg-amber-900/10'
+                            : 'text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                        }`}
+                      >
+                        {sub.icon} {sub.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
 
         {/* Sidebar Collapse Toggle */}
@@ -1138,7 +1261,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
         {/* INVENTORY MANAGEMENT TAB            */}
         {/* ════════════════════════════════════ */}
         {activeTab === 'INVENTORY' && (
-          <InventoryManagement restaurant={restaurant} currencySymbol={currencySymbol} />
+          <InventoryManagement restaurant={restaurant} currencySymbol={currencySymbol} initialSubTab={inventorySubTab as any} />
         )}
 
         {/* ════════════════════════════════════ */}
@@ -1152,7 +1275,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
         {/* CONTACTS TAB                        */}
         {/* ════════════════════════════════════ */}
         {activeTab === 'CONTACTS' && (
-          <ContactsManagement restaurant={restaurant} currencySymbol={currencySymbol} />
+          <ContactsManagement restaurant={restaurant} currencySymbol={currencySymbol} initialSubTab={contactSubTab as any} />
         )}
       </div>
       </div>
