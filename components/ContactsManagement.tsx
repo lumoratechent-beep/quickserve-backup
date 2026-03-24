@@ -135,15 +135,15 @@ const ContactsManagement: React.FC<Props> = ({ restaurant, currencySymbol }) => 
   return (
     <div>
       {/* Sub-tab navigation */}
-      <div className="flex gap-2 mb-6 overflow-x-auto hide-scrollbar">
+      <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm mb-6 overflow-x-auto hide-scrollbar">
         {subTabs.map(tab => (
           <button
             key={tab.key}
             onClick={() => { setSubTab(tab.key); setShowForm(false); setSearchQuery(''); }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all ${
               subTab === tab.key
-                ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20'
-                : 'bg-gray-200 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600 hover:text-gray-700 dark:hover:text-white'
+                ? 'bg-amber-600 text-white shadow-md'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
           >
             {tab.icon} {tab.label}

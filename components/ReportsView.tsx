@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import {
   DollarSign, ShoppingBag, Tag, Users, CreditCard, Layers, Percent, Receipt,
-  TrendingUp, TrendingDown, Search,
+  TrendingUp, TrendingDown, Search, Download, Calendar,
 } from 'lucide-react';
 
 interface Props {
@@ -17,7 +17,7 @@ interface Props {
 }
 
 type ReportSubTab = 'sales_summary' | 'sales_by_item' | 'sales_by_category' | 'sales_by_employee' | 'sales_by_payment' | 'sales_by_modifier' | 'discounts' | 'taxes';
-type DateRange = '7d' | '30d' | '90d' | 'custom';
+type DateRange = 'today' | 'week' | 'month';
 
 const COLORS = ['#D97706', '#F59E0B', '#92400E', '#B45309', '#78350F', '#FBBF24', '#FCD34D', '#3B82F6', '#8B5CF6', '#22C55E', '#EF4444', '#EC4899'];
 
@@ -28,23 +28,36 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
     if (initialSubTab) setSubTab(initialSubTab);
   }, [initialSubTab]);
   const today = new Date();
-  const [dateRange, setDateRange] = useState<DateRange>('30d');
+  const [dateRange, setDateRange] = useState<DateRange>('month');
   const [customStart, setCustomStart] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() - 30);
-    return d.toISOString().split('T')[0];
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
   });
   const [customEnd, setCustomEnd] = useState(() => today.toISOString().split('T')[0]);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const { startDate, endDate } = useMemo(() => {
-    if (dateRange === 'custom') {
-      return { startDate: new Date(customStart), endDate: new Date(customEnd + 'T23:59:59') };
+  useEffect(() => {
+    const now = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const toLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const todayStr = toLocal(now);
+    if (dateRange === 'today') {
+      setCustomStart(todayStr);
+      setCustomEnd(todayStr);
+    } else if (dateRange === 'week') {
+      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+      setCustomStart(toLocal(startOfWeek));
+      setCustomEnd(todayStr);
+    } else {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      setCustomStart(toLocal(startOfMonth));
+      setCustomEnd(todayStr);
     }
-    const days = dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : 90;
-    const start = new Date(); start.setDate(start.getDate() - days);
-    start.setHours(0, 0, 0, 0);
-    return { startDate: start, endDate: new Date() };
-  }, [dateRange, customStart, customEnd]);
+  }, [dateRange]);
+
+  const { startDate, endDate } = useMemo(() => {
+    return { startDate: new Date(customStart), endDate: new Date(customEnd + 'T23:59:59') };
+  }, [customStart, customEnd]);
 
   const filteredOrders = useMemo(
     () => orders.filter(o => {
@@ -108,23 +121,26 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
     );
   };
 
-  const DateRangePicker = () => (
-    <div className="flex items-center gap-2 flex-wrap">
-      {(['7d', '30d', '90d'] as DateRange[]).map(range => (
-        <button key={range} onClick={() => setDateRange(range)} className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${dateRange === range ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'}`}>
-          {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
-        </button>
-      ))}
-      <button onClick={() => setDateRange('custom')} className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${dateRange === 'custom' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'}`}>Custom</button>
-      {dateRange === 'custom' && (
-        <div className="flex items-center gap-2">
-          <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
-          <span className="text-gray-500 text-xs">to</span>
-          <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
-        </div>
-      )}
-    </div>
-  );
+  const handleExportCSV = () => {
+    const headers = ['Date', 'Order ID', 'Items', 'Status', 'Payment Method', 'Cashier', 'Total'];
+    const rows = completedOrders.map(o => [
+      new Date(o.timestamp).toLocaleDateString(),
+      o.id,
+      o.items.map(i => `${i.name} x${i.quantity}`).join('; '),
+      o.status,
+      o.paymentMethod || '-',
+      o.cashierName || '-',
+      o.total.toFixed(2),
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `report_${customStart}_${customEnd}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // ════════════════════════════════════════
   // COMPUTED REPORT DATA
@@ -318,13 +334,13 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
   return (
     <div>
       {/* Sub-tab navigation */}
-      <div className="flex gap-1.5 overflow-x-auto hide-scrollbar mb-4 pb-1">
+      <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm mb-4 overflow-x-auto hide-scrollbar">
         {subTabs.map(tab => (
           <button
             key={tab.key}
             onClick={() => { setSubTab(tab.key); setSearchQuery(''); }}
-            className={`flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-wider whitespace-nowrap rounded-xl transition-all ${
-              subTab === tab.key ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+              subTab === tab.key ? 'bg-amber-600 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
           >
             {tab.icon} <span className="hidden sm:inline">{tab.label}</span>
@@ -332,9 +348,38 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
         ))}
       </div>
 
-      {/* Date Range */}
-      <div className="mb-6">
-        <DateRangePicker />
+      {/* Date Range - same as PosOnlyView > Report */}
+      <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm flex flex-col md:flex-row items-center gap-4 mb-6">
+        <div className="flex-1 flex flex-col sm:flex-row gap-4 w-full">
+          <div>
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Period Selection</label>
+            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+              {(['today', 'week', 'month'] as const).map(range => (
+                <button
+                  key={range}
+                  onClick={() => setDateRange(range)}
+                  className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                    dateRange === range
+                      ? 'bg-amber-600 text-white shadow-sm'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                  }`}
+                >
+                  {range === 'today' ? 'Today' : range === 'week' ? 'This Week' : 'This Month'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex-1">
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Custom Range</label>
+            <div className="flex items-center gap-2">
+              <Calendar size={14} className="text-amber-500 shrink-0" />
+              <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
+              <span className="text-gray-400 font-black">to</span>
+              <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
+            </div>
+          </div>
+        </div>
+        <button onClick={handleExportCSV} className="w-full md:w-auto px-6 py-2 bg-black text-white dark:bg-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-amber-600 transition-all"><Download size={16} /> Export CSV</button>
       </div>
 
       {/* ═══════════════════════════════════════ */}
