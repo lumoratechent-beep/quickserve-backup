@@ -11,7 +11,7 @@ import {
   BarChart3, Package, UserPlus, UserMinus, Edit3, Trash2, Plus, Minus, Search, AlertCircle,
   ArrowUpRight, ArrowDownRight, Clock, CheckCircle, XCircle, Eye, Archive, RotateCcw,
   Briefcase, Box, Tag, Layers, Activity, ArrowLeft, Warehouse, FileBarChart, Contact,
-  CreditCard, Percent, FileText, Truck, ArrowUpDown, ClipboardList, Factory, History, Building2,
+  CreditCard, Percent, FileText, Truck, ArrowUpDown, ClipboardList, Factory, History, Building2, MoreVertical,
 } from 'lucide-react';
 import InventoryManagement from '../components/InventoryManagement';
 import ReportsView from '../components/ReportsView';
@@ -120,7 +120,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     const saved = localStorage.getItem(`stock_${restaurant.id}`);
     if (saved) {
       const parsed = JSON.parse(saved);
-      return parsed.map((s: any) => ({ ...s, stockEnabled: s.stockEnabled ?? true }));
+      return parsed.map((s: any) => ({ ...s, stockEnabled: s.stockEnabled ?? false }));
     }
     // Initialize from menu
     return restaurant.menu.filter(m => !m.isArchived).map(m => ({
@@ -131,9 +131,11 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       lowStockThreshold: 10,
       unit: 'pcs',
       lastRestocked: Date.now(),
-      stockEnabled: true,
+      stockEnabled: false,
     }));
   });
+  const [stockMenuOpen, setStockMenuOpen] = useState(false);
+  const [stockSelectionMode, setStockSelectionMode] = useState(false);
   const [stockSearch, setStockSearch] = useState('');
   const [stockFilter, setStockFilter] = useState<'all' | 'low' | 'out'>('all');
   const [selectedStockIds, setSelectedStockIds] = useState<Set<string>>(new Set());
@@ -396,6 +398,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     );
     saveStock(updated);
     setSelectedStockIds(new Set());
+    setStockSelectionMode(false);
   };
 
   const handleSelectStockItem = (itemId: string) => {
@@ -1117,21 +1120,17 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               </div>
             </div>
 
-            {/* Master Controls */}
-            <div className="flex items-center justify-between mb-4 bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Master Stock Control:</span>
-                <button onClick={() => handleMasterStockToggle(true)} className="px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 text-[10px] font-bold uppercase tracking-wider hover:bg-green-500/30 transition-all">Enable All</button>
-                <button onClick={() => handleMasterStockToggle(false)} className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-[10px] font-bold uppercase tracking-wider hover:bg-red-500/30 transition-all">Disable All</button>
-              </div>
-              {selectedStockIds.size > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-gray-400">{selectedStockIds.size} selected</span>
-                  <button onClick={() => handleToggleSelectedStock(true)} className="px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 text-[10px] font-bold hover:bg-green-500/30 transition-all">Enable Selected</button>
-                  <button onClick={() => handleToggleSelectedStock(false)} className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-[10px] font-bold hover:bg-red-500/30 transition-all">Disable Selected</button>
+            {/* Selection Action Bar */}
+            {stockSelectionMode && (
+              <div className="flex items-center justify-between mb-4 bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-gray-500 dark:text-gray-400">{selectedStockIds.size} selected</span>
+                  <button onClick={() => handleToggleSelectedStock(true)} className="px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 text-[10px] font-bold uppercase tracking-wider hover:bg-green-500/30 transition-all">Enable Track</button>
+                  <button onClick={() => handleToggleSelectedStock(false)} className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-[10px] font-bold uppercase tracking-wider hover:bg-red-500/30 transition-all">Disable Track</button>
                 </div>
-              )}
-            </div>
+                <button onClick={() => { setStockSelectionMode(false); setSelectedStockIds(new Set()); }} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 font-bold">Cancel</button>
+              </div>
+            )}
 
             {/* Stock Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -1173,7 +1172,23 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                         <th className="px-3 py-4 w-8">
-                          <input type="checkbox" checked={selectedStockIds.size === filteredStock.length && filteredStock.length > 0} onChange={handleSelectAllStock} className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
+                          <div className="relative">
+                            <button onClick={() => setStockMenuOpen(!stockMenuOpen)} className="p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                              <MoreVertical size={16} className="text-gray-500" />
+                            </button>
+                            {stockMenuOpen && (
+                              <div className="absolute left-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 min-w-[140px] py-1">
+                                <button
+                                  onClick={() => { setStockSelectionMode(true); setStockMenuOpen(false); }}
+                                  className="w-full text-left px-4 py-2.5 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                >Select</button>
+                                <button
+                                  onClick={() => { setStockSelectionMode(true); setSelectedStockIds(new Set(filteredStock.map(s => s.menuItemId))); setStockMenuOpen(false); }}
+                                  className="w-full text-left px-4 py-2.5 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                >Select All</button>
+                              </div>
+                            )}
+                          </div>
                         </th>
                         <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Item</th>
                         <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Category</th>
@@ -1190,7 +1205,11 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                         return (
                           <tr key={item.menuItemId} className={`border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${!item.stockEnabled ? 'opacity-50' : ''}`}>
                             <td className="px-3 py-4">
-                              <input type="checkbox" checked={selectedStockIds.has(item.menuItemId)} onChange={() => handleSelectStockItem(item.menuItemId)} className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
+                              {stockSelectionMode ? (
+                                <input type="checkbox" checked={selectedStockIds.has(item.menuItemId)} onChange={() => handleSelectStockItem(item.menuItemId)} className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
+                              ) : (
+                                <span className="w-4 h-4" />
+                              )}
                             </td>
                             <td className="px-3 py-4">
                               <span className="text-sm font-bold dark:text-white">{item.name}</span>
