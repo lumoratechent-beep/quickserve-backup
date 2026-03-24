@@ -695,7 +695,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
         {/* Mobile tab selector */}
         <div className="md:hidden sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2">
           <div className="flex gap-1 overflow-x-auto hide-scrollbar">
-            {tabs.map(tab => (
+            {[...simpleTabs, ...expandableTabs.map(t => ({ key: t.key, label: t.label, icon: t.icon }))].map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
