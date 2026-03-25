@@ -729,7 +729,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               {[
                 { label: 'Total Sales', value: `${currencySymbol}${kpis.totalSales.toFixed(2)}`, change: kpis.salesChange, icon: <DollarSign size={20} className="text-amber-500" />, bg: 'bg-amber-600/20' },
-                { label: 'Total Orders', value: kpis.totalOrders.toLocaleString(), change: kpis.ordersChange, icon: <ShoppingBag size={20} className="text-blue-400" />, bg: 'bg-blue-600/20' },
+                { label: 'Total Orders', value: kpis.totalOrders.toLocaleString(), change: kpis.ordersChange, icon: restaurant.logo ? <img src={restaurant.logo} alt="logo" className="w-5 h-5 object-contain rounded" /> : <ShoppingBag size={20} className="text-blue-400" />, bg: 'bg-blue-600/20' },
                 { label: 'Avg. Order', value: `${currencySymbol}${kpis.avgOrder.toFixed(2)}`, change: kpis.avgChange, icon: <Receipt size={20} className="text-green-400" />, bg: 'bg-green-600/20' },
                 { label: 'Cancelled', value: kpis.cancelled.toString(), change: kpis.cancelledChange, icon: <XCircle size={20} className="text-red-400" />, bg: 'bg-red-600/20' },
               ].map(kpi => (
