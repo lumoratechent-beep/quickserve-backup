@@ -136,6 +136,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         : '?payment=success&checkout_session_id={CHECKOUT_SESSION_ID}';
     const cancelParams = (source === 'upgrade' || source === 'renew') ? '?payment=cancelled&source=upgrade' : '?payment=cancelled';
 
+    const planLabel = planId.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    const intervalLabel = isAnnual ? 'Annual' : 'Monthly';
+
     if (mode === 'payment') {
       // One-time payment for renewal/upgrade/downgrade.
       // Stripe Checkout `mode: payment` cannot use recurring prices directly,
@@ -169,6 +172,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         success_url: `${baseUrl}${successParams}`,
         cancel_url: `${baseUrl}${cancelParams}`,
         payment_intent_data: {
+          description: `QuickServe ${planLabel} Plan – ${intervalLabel} (${changeType || source || 'payment'})`,
           metadata: {
             restaurant_id: restaurantId,
             plan_id: planId,
@@ -198,6 +202,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       success_url: `${baseUrl}${successParams}`,
       cancel_url: `${baseUrl}${cancelParams}`,
       subscription_data: {
+        description: `QuickServe ${planLabel} Plan – ${intervalLabel}`,
         metadata: { restaurant_id: restaurantId, plan_id: planId },
       },
       ...(couponId ? { discounts: [{ coupon: couponId }] } : {}),
