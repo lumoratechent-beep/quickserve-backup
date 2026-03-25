@@ -128,43 +128,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (changeType === 'downgrade' && isFutureRenew) {
         shouldUpdateFeaturesNow = false;
       }
-      let periodStart: Date;
-      if (renewFrom) {
-        periodStart = renewDate && renewDate > new Date() ? renewDate : new Date();
-      } else {
-        periodStart = new Date();
-      }
-      const periodEnd = new Date(periodStart);
-      periodEnd.setDate(periodEnd.getDate() + durationDays);
 
       const isScheduledDowngrade = changeType === 'downgrade' && isFutureRenew;
-      const subscriptionUpdate: Record<string, any> = {
-        status: 'active',
-        stripe_customer_id: typeof session.customer === 'string' ? session.customer : session.customer?.id,
-        current_period_start: periodStart.toISOString(),
-        current_period_end: periodEnd.toISOString(),
-        updated_at: new Date().toISOString(),
-      };
 
       if (isScheduledDowngrade) {
-        subscriptionUpdate.pending_plan_id = planId || null;
-        subscriptionUpdate.pending_billing_interval = billingInterval;
-        subscriptionUpdate.pending_change_effective_at = periodStart.toISOString();
+        // Scheduled downgrade: only set pending fields, don't touch current plan or period
+        await supabase
+          .from('subscriptions')
+          .update({
+            pending_plan_id: planId || null,
+            pending_billing_interval: billingInterval,
+            pending_change_effective_at: (renewDate || new Date()).toISOString(),
+            stripe_customer_id: typeof session.customer === 'string' ? session.customer : session.customer?.id,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('restaurant_id', restaurantId);
       } else {
-        if (planId) subscriptionUpdate.plan_id = planId;
-        subscriptionUpdate.billing_interval = billingInterval;
-        subscriptionUpdate.pending_plan_id = null;
-        subscriptionUpdate.pending_billing_interval = null;
-        subscriptionUpdate.pending_change_effective_at = null;
-      }
+        // Immediate change (upgrade, renew, or expired downgrade)
+        let periodStart: Date;
+        if (renewFrom) {
+          periodStart = renewDate && renewDate > new Date() ? renewDate : new Date();
+        } else {
+          periodStart = new Date();
+        }
+        const periodEnd = new Date(periodStart);
+        periodEnd.setDate(periodEnd.getDate() + durationDays);
 
-      subscriptionUpdate.restaurant_id = restaurantId;
-      if (planId && !isScheduledDowngrade) {
-        subscriptionUpdate.plan_id = subscriptionUpdate.plan_id || planId;
+        const subscriptionUpdate: Record<string, any> = {
+          status: 'active',
+          stripe_customer_id: typeof session.customer === 'string' ? session.customer : session.customer?.id,
+          current_period_start: periodStart.toISOString(),
+          current_period_end: periodEnd.toISOString(),
+          updated_at: new Date().toISOString(),
+          billing_interval: billingInterval,
+          pending_plan_id: null,
+          pending_billing_interval: null,
+          pending_change_effective_at: null,
+        };
+        if (planId) subscriptionUpdate.plan_id = planId;
+
+        subscriptionUpdate.restaurant_id = restaurantId;
+        await supabase
+          .from('subscriptions')
+          .upsert(subscriptionUpdate, { onConflict: 'restaurant_id' });
       }
-      await supabase
-        .from('subscriptions')
-        .upsert(subscriptionUpdate, { onConflict: 'restaurant_id' });
     }
 
     if (shouldUpdateFeaturesNow && planId && PLAN_PLATFORM_MAP[planId]) {

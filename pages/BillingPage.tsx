@@ -53,12 +53,15 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     new Date(subscription.pending_change_effective_at) > new Date()
   );
 
-  // Always show the ACTIVE plan as current (plan_id), not the pending downgrade target
-  const currentPlanId = subscription?.plan_id || 'basic';
-  const currentPlanInterval = subscription?.billing_interval;
-  const pendingDowngradePlanId = hasPendingDowngrade ? subscription?.pending_plan_id : null;
-  const pendingDowngradeInterval = hasPendingDowngrade ? (subscription?.pending_billing_interval || subscription?.billing_interval) : null;
-  const pendingDowngradeDate = hasPendingDowngrade ? subscription?.pending_change_effective_at : null;
+  // After a downgrade, show the NEW plan as the selected/current plan
+  // The old plan (plan_id) stays active until the effective date
+  const currentPlanId = (hasPendingDowngrade ? subscription?.pending_plan_id : subscription?.plan_id) || 'basic';
+  const currentPlanInterval = hasPendingDowngrade
+    ? (subscription?.pending_billing_interval || subscription?.billing_interval)
+    : subscription?.billing_interval;
+  // The plan the user still has access to (before downgrade takes effect)
+  const activePlanId = hasPendingDowngrade ? subscription?.plan_id : null;
+  const activePlanEndDate = hasPendingDowngrade ? subscription?.pending_change_effective_at : null;
   const isActive = subscription ? isSubscriptionActive(subscription) : false;
   const isTrial = subscription ? isTrialActive(subscription) : false;
   const daysLeft = subscription ? daysLeftInTrial(subscription) : 0;
@@ -258,13 +261,17 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   const paginatedHistory = billingHistory.slice((historyPage - 1) * historyPageSize, historyPage * historyPageSize);
   const showHistoryPagination = billingHistory.length > 10;
 
-  const pendingDowngradePlanName = pendingDowngradePlanId
-    ? (PRICING_PLANS.find(p => p.id === pendingDowngradePlanId)?.name || pendingDowngradePlanId)
+  const activePlanName = activePlanId
+    ? (PRICING_PLANS.find(p => p.id === activePlanId)?.name || activePlanId)
     : '';
 
-  const pendingDowngradeDateFormatted = pendingDowngradeDate
-    ? new Date(pendingDowngradeDate).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })
+  const activePlanEndFormatted = activePlanEndDate
+    ? new Date(activePlanEndDate).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })
     : '';
+
+  const activePlanDaysLeft = activePlanEndDate
+    ? Math.max(0, Math.ceil((new Date(activePlanEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 0;
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
@@ -283,7 +290,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
             {PRICING_PLANS.map(plan => {
               const isCurrent = plan.id === currentPlanId;
-              const isPendingDowngradeTarget = plan.id === pendingDowngradePlanId;
+              const isActivePlanCard = hasPendingDowngrade && plan.id === activePlanId;
               const isUpgrade = PRICING_PLANS.indexOf(plan) > PRICING_PLANS.findIndex(p => p.id === currentPlanId);
               const isDowngrade = PRICING_PLANS.indexOf(plan) < PRICING_PLANS.findIndex(p => p.id === currentPlanId);
               return (
@@ -292,7 +299,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   className={`relative rounded-xl border-2 p-5 transition-all h-full flex flex-col overflow-hidden ${
                     isCurrent
                       ? 'border-orange-400 bg-white dark:bg-gray-800 lg:col-span-2'
-                      : isPendingDowngradeTarget
+                      : isActivePlanCard
                         ? 'border-amber-400 bg-amber-50/50 dark:bg-amber-900/10 lg:col-span-1'
                         : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 lg:col-span-1'
                   }`}
@@ -307,28 +314,46 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   {/* Name + price stacked */}
                   <h4 className="text-base font-bold text-gray-900 dark:text-white">
                     {plan.name}
-                    {isCurrent && (
+                    {isCurrent && !hasPendingDowngrade && (
                       <span className="ml-1.5 text-xs text-orange-500 font-semibold">
                         — Current Plan ({currentPlanInterval === 'annual' ? 'Annually' : 'Monthly'})
                       </span>
                     )}
-                    {isPendingDowngradeTarget && (
+                    {isCurrent && hasPendingDowngrade && (
+                      <span className="ml-1.5 text-xs text-orange-500 font-semibold">
+                        — New Plan ({currentPlanInterval === 'annual' ? 'Annually' : 'Monthly'})
+                      </span>
+                    )}
+                    {isActivePlanCard && (
                       <span className="ml-1.5 text-xs text-amber-600 dark:text-amber-400 font-semibold">
-                        — Downgrading to this
+                        — Active until {activePlanEndFormatted}
                       </span>
                     )}
                   </h4>
                   <p className="text-sm text-gray-500 dark:text-gray-400 font-semibold mb-0.5">RM{plan.price}<span className="text-xs font-medium text-gray-400">/month</span></p>
 
-                  {/* Pending downgrade target info */}
-                  {isPendingDowngradeTarget && pendingDowngradeDate && (
+                  {/* Active plan card: show remaining days */}
+                  {isActivePlanCard && activePlanEndDate && (
                     <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 mb-0.5">
-                      Effective from: {pendingDowngradeDateFormatted} ({pendingDowngradeInterval === 'annual' ? 'Annual' : 'Monthly'})
+                      {activePlanName} access for {activePlanDaysLeft} more days
                     </p>
                   )}
 
                   {/* Expiry date for current plan */}
                   {isCurrent && (() => {
+                    if (hasPendingDowngrade) {
+                      // Show when the new plan starts
+                      return (
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold text-orange-500">
+                            Starts on: {activePlanEndFormatted}
+                          </p>
+                          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                            {activePlanName} Plan till: {activePlanEndFormatted} ({activePlanDaysLeft} days remaining)
+                          </p>
+                        </div>
+                      );
+                    }
                     const expiryDate = subscription?.current_period_end || subscription?.trial_end;
                     if (!expiryDate) return null;
                     const d = new Date(expiryDate);
@@ -342,11 +367,6 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                         }`}>
                           {plan.name} Plan till: {formatted} ({currentPlanDaysLeft} days remaining)
                         </p>
-                        {hasPendingDowngrade && pendingDowngradePlanName && pendingDowngradeDate && (
-                          <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">
-                            Downgrading to {pendingDowngradePlanName} on {pendingDowngradeDateFormatted}
-                          </p>
-                        )}
                       </div>
                     );
                   })()}
