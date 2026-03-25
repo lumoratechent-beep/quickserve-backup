@@ -1132,7 +1132,7 @@ const App: React.FC = () => {
   };
 
   // --- VENDOR & HUB HANDLERS (UPDATED with platformAccess) ---
-  const handleAddVendor = async (user: User, restaurant: Restaurant) => {
+  const handleAddVendor = async (user: User, restaurant: Restaurant): Promise<string | null> => {
     const userId = crypto.randomUUID();
     const resId = crypto.randomUUID();
     
@@ -1154,7 +1154,7 @@ const App: React.FC = () => {
       if (resError) { 
         toast("Error adding restaurant: " + resError.message, 'error');
         console.error("Restaurant error:", resError);
-        return; 
+        return null; 
       }
       
       console.log("2. Restaurant inserted successfully");
@@ -1177,7 +1177,7 @@ const App: React.FC = () => {
         
         // Rollback: delete the restaurant we just created
         await supabase.from('restaurants').delete().eq('id', resId);
-        return; 
+        return null; 
       }
       
       console.log("3. User inserted successfully");
@@ -1198,10 +1198,13 @@ const App: React.FC = () => {
       
       fetchUsers(); 
       fetchRestaurants();
+
+      return resId;
       
     } catch (error) {
       console.error("Unexpected error:", error);
       toast("An unexpected error occurred", 'error');
+      return null;
     }
   };
 

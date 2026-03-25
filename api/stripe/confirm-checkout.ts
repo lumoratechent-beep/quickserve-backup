@@ -97,16 +97,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           : null;
       }
 
+      subUpdate.restaurant_id = restaurantId;
       await supabase
         .from('subscriptions')
-        .update(subUpdate)
-        .eq('restaurant_id', restaurantId);
+        .upsert(subUpdate, { onConflict: 'restaurant_id' });
 
       await supabase
         .from('users')
         .update({ is_active: true })
         .eq('restaurant_id', restaurantId)
         .eq('role', 'VENDOR');
+
+      // Update Stripe customer metadata for income tracking
+      const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id;
+      if (customerId) {
+        await stripe.customers.update(customerId, {
+          metadata: {
+            restaurant_id: restaurantId,
+            plan_id: planId || '',
+            billing_interval: billingInterval,
+          },
+        });
+      }
     } else if (session.mode === 'payment') {
       const renewFrom = session.metadata?.renew_from;
       const changeType = session.metadata?.change_type || 'renew';
@@ -146,10 +158,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         subscriptionUpdate.pending_change_effective_at = null;
       }
 
+      subscriptionUpdate.restaurant_id = restaurantId;
+      if (planId && !isScheduledDowngrade) {
+        subscriptionUpdate.plan_id = subscriptionUpdate.plan_id || planId;
+      }
       await supabase
         .from('subscriptions')
-        .update(subscriptionUpdate)
-        .eq('restaurant_id', restaurantId);
+        .upsert(subscriptionUpdate, { onConflict: 'restaurant_id' });
     }
 
     if (shouldUpdateFeaturesNow && planId && PLAN_PLATFORM_MAP[planId]) {

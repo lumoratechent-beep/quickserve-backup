@@ -12,7 +12,7 @@ interface Props {
   restaurants: Restaurant[];
   orders: Order[];
   locations: Area[];
-  onAddVendor: (user: User, restaurant: Restaurant) => void | Promise<void>;
+  onAddVendor: (user: User, restaurant: Restaurant) => Promise<string | null>;
   onUpdateVendor: (user: User, restaurant: Restaurant) => void | Promise<void>;
   onImpersonateVendor: (user: User) => void;
   onAddLocation: (area: Area) => void | Promise<void>;
@@ -996,7 +996,10 @@ const AdminView: React.FC<Props> = ({
       if (editingVendor) {
         await onUpdateVendor(userPayload, resPayload);
       } else {
-        await onAddVendor(userPayload, resPayload);
+        const newResId = await onAddVendor(userPayload, resPayload);
+        if (newResId) {
+          resPayload.id = newResId;
+        }
       }
 
       // Upsert subscription with selected plan

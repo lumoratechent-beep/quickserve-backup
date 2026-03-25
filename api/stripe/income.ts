@@ -48,32 +48,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const restaurantIds = new Set<string>();
     const chargeDataMap = new Map<string, { restaurantId?: string; planId?: string; customerName?: string; chargeStatus?: string }>();
 
+    // Helper to extract charge metadata, falling back to Stripe customer metadata
+    const extractChargeData = async (charge: Stripe.Charge) => {
+      let restaurantId: string | undefined = charge.metadata?.restaurant_id;
+      let planId: string | undefined = charge.metadata?.plan_id;
+
+      // Fallback: look up restaurant_id from Stripe customer metadata (for subscription-mode charges)
+      if (!restaurantId && charge.customer) {
+        const customerId = typeof charge.customer === 'string' ? charge.customer : charge.customer.id;
+        try {
+          const customer = await stripe.customers.retrieve(customerId);
+          if (customer && !customer.deleted) {
+            restaurantId = customer.metadata?.restaurant_id || undefined;
+            planId = planId || customer.metadata?.plan_id || undefined;
+          }
+        } catch { /* skip */ }
+
+        // If still no restaurant_id, look up from subscriptions table via stripe_customer_id
+        if (!restaurantId) {
+          const { data: subRow } = await supabase
+            .from('subscriptions')
+            .select('restaurant_id, plan_id')
+            .eq('stripe_customer_id', customerId)
+            .single();
+          if (subRow) {
+            restaurantId = subRow.restaurant_id;
+            planId = planId || subRow.plan_id;
+          }
+        }
+      }
+
+      if (restaurantId) restaurantIds.add(restaurantId);
+      return {
+        restaurantId: restaurantId || undefined,
+        planId: planId || undefined,
+        customerName: charge.billing_details?.name || undefined,
+        chargeStatus: charge.status || undefined,
+      };
+    };
+
     for (const txn of balanceTransactions.data) {
       const source = txn.source;
       if (source && typeof source === 'object' && 'metadata' in source) {
         const charge = source as Stripe.Charge;
-        const restaurantId = charge.metadata?.restaurant_id;
-        const planId = charge.metadata?.plan_id;
-        if (restaurantId) restaurantIds.add(restaurantId);
-        chargeDataMap.set(txn.id, {
-          restaurantId: restaurantId || undefined,
-          planId: planId || undefined,
-          customerName: charge.billing_details?.name || undefined,
-          chargeStatus: charge.status || undefined,
-        });
+        chargeDataMap.set(txn.id, await extractChargeData(charge));
       } else if (source && typeof source === 'string' && source.startsWith('ch_')) {
         // Source not expanded — fetch the charge individually
         try {
           const charge = await stripe.charges.retrieve(source);
-          const restaurantId = charge.metadata?.restaurant_id;
-          const planId = charge.metadata?.plan_id;
-          if (restaurantId) restaurantIds.add(restaurantId);
-          chargeDataMap.set(txn.id, {
-            restaurantId: restaurantId || undefined,
-            planId: planId || undefined,
-            customerName: charge.billing_details?.name || undefined,
-            chargeStatus: charge.status || undefined,
-          });
+          chargeDataMap.set(txn.id, await extractChargeData(charge));
         } catch { /* skip */ }
       }
     }

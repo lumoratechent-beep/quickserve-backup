@@ -100,13 +100,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             subUpdate.trial_end = trialEnd;
           }
 
+          subUpdate.restaurant_id = restaurantId;
           const { error: subError } = await supabase
             .from('subscriptions')
-            .update(subUpdate)
-            .eq('restaurant_id', restaurantId);
+            .upsert(subUpdate, { onConflict: 'restaurant_id' });
 
           if (subError) {
-            console.error('Webhook: Failed to update subscription for', restaurantId, subError);
+            console.error('Webhook: Failed to upsert subscription for', restaurantId, subError);
           }
 
           // Activate the vendor user now that card is saved
@@ -115,6 +115,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .update({ is_active: true })
             .eq('restaurant_id', restaurantId)
             .eq('role', 'VENDOR');
+
+          // Update Stripe customer metadata for income tracking
+          if (session.customer && typeof session.customer === 'string') {
+            await stripe.customers.update(session.customer, {
+              metadata: {
+                restaurant_id: restaurantId,
+                plan_id: planId || '',
+                billing_interval: billingInterval,
+              },
+            });
+          }
         } else if (session.mode === 'payment') {
           // Single payment renewal/change
           // If renew_from is set, extend from that date (not from today)
@@ -160,10 +171,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             subscriptionUpdate.pending_change_effective_at = null;
           }
 
+          subscriptionUpdate.restaurant_id = restaurantId;
+          if (planId && !isScheduledDowngrade) {
+            subscriptionUpdate.plan_id = subscriptionUpdate.plan_id || planId;
+          }
           await supabase
             .from('subscriptions')
-            .update(subscriptionUpdate)
-            .eq('restaurant_id', restaurantId);
+            .upsert(subscriptionUpdate, { onConflict: 'restaurant_id' });
 
           // Keep metadata in Stripe for easier support/debugging in dashboard.
           if (session.customer && typeof session.customer === 'string') {
