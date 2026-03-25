@@ -219,10 +219,15 @@ const App: React.FC = () => {
     const payment = params.get('payment');
     const source = params.get('source');
     const checkoutSessionId = params.get('checkout_session_id');
-    if (payment) {
+    const setup = params.get('setup');
+    if (payment || setup) {
       window.history.replaceState({}, '', window.location.pathname);
     }
-    return { payment, source, checkoutSessionId };
+    // Flag PosOnlyView to open on BILLING tab after redirect
+    if ((payment && source === 'upgrade') || setup) {
+      localStorage.setItem('qs_return_tab', 'BILLING');
+    }
+    return { payment, source, checkoutSessionId, setup };
   });
   const [stripeRedirect] = useState(() => stripeRedirectRef.current());
 
@@ -241,6 +246,10 @@ const App: React.FC = () => {
         return savedView || 'APP';
       }
       return 'LOGIN';
+    }
+    // Handle Stripe card setup redirect — stay on current view
+    if (stripeRedirect.setup) {
+      return savedView || 'APP';
     }
 
     // If no session and no params, show marketing page as the first impression
@@ -299,6 +308,11 @@ const App: React.FC = () => {
         toast('Card setup was cancelled. You can try again by registering.', 'error');
         setView('LOGIN');
       }
+    } else if (stripeRedirect.setup === 'success') {
+      toast('Card added successfully!', 'success');
+      refreshPlanState();
+    } else if (stripeRedirect.setup === 'cancelled') {
+      toast('Card setup was cancelled. You can try again from the Billing page.', 'warning');
     }
   }, []);
   

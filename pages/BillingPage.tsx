@@ -76,10 +76,8 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
 
   // Re-check for stripe_customer_id after returning from setup session
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('setup') === 'success') {
-      onSubscriptionUpdated?.();
-    }
+    onSubscriptionUpdated?.();
+    fetchPaymentMethods();
   }, []);
 
   useEffect(() => {
@@ -152,8 +150,12 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
       if (res.ok) {
         const data = await res.json();
         if (data.url) window.location.href = data.url;
+      } else {
+        toast('Failed to start card setup. Please try again.', 'error');
       }
-    } catch { /* silent */ } finally {
+    } catch {
+      toast('Connection error. Please check your internet and try again.', 'error');
+    } finally {
       setIsAddingCard(false);
     }
   };
@@ -168,8 +170,14 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
       });
       if (res.ok) {
         setPaymentMethods(prev => prev.filter(m => m.id !== methodId));
+        setConfirmingDeleteId(null);
+        toast('Card removed successfully.', 'success');
+      } else {
+        toast('Failed to remove card. Please try again.', 'error');
       }
-    } catch { /* silent */ } finally {
+    } catch {
+      toast('Connection error. Please check your internet and try again.', 'error');
+    } finally {
       setIsDeletingCard(null);
     }
   };
