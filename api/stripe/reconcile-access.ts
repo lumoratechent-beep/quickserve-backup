@@ -50,11 +50,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ updated: false, reason: 'before_effective_start' });
       }
 
+      // Calculate the new period for the downgraded plan
+      const pendingInterval = sub.pending_billing_interval || sub.billing_interval;
+      const pendingDurationDays = pendingInterval === 'annual' ? 365 : 30;
+      const newPeriodStart = effectiveAt || now;
+      const newPeriodEnd = new Date(newPeriodStart);
+      newPeriodEnd.setDate(newPeriodEnd.getDate() + pendingDurationDays);
+
       const { error: promoteErr } = await supabase
         .from('subscriptions')
         .update({
           plan_id: sub.pending_plan_id,
-          billing_interval: sub.pending_billing_interval || sub.billing_interval,
+          billing_interval: pendingInterval,
+          current_period_start: newPeriodStart.toISOString(),
+          current_period_end: newPeriodEnd.toISOString(),
           pending_plan_id: null,
           pending_billing_interval: null,
           pending_change_effective_at: null,
