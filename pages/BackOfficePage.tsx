@@ -570,17 +570,15 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       <aside className={`${isSidebarCollapsed ? 'lg:w-16' : 'w-64'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0 hidden md:flex transition-all duration-300 ease-in-out`}>
         {/* Logo / Header */}
         <div className={`border-b border-gray-200 dark:border-gray-700 flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
-          <div className={`${isSidebarCollapsed ? 'w-8 h-8' : 'w-10 h-10'} rounded-xl bg-amber-600/20 flex items-center justify-center`}>
-            {restaurant.logo ? (
-              <img
-                src={restaurant.logo}
-                alt={`${restaurant.name} logo`}
-                className={`${isSidebarCollapsed ? 'w-6 h-6' : 'w-7 h-7'} object-contain rounded`}
-              />
-            ) : (
-              <Briefcase size={isSidebarCollapsed ? 16 : 20} className="text-amber-500" />
-            )}
-          </div>
+          {restaurant.logo ? (
+            <img
+              src={restaurant.logo}
+              alt={`${restaurant.name} logo`}
+              className={`rounded-lg shadow-sm ${isSidebarCollapsed ? 'w-8 h-8' : 'w-10 h-10'} object-cover`}
+            />
+          ) : (
+            <Briefcase size={isSidebarCollapsed ? 16 : 20} className="text-amber-500" />
+          )}
           {!isSidebarCollapsed && (
           <div>
             <h2 className="font-black text-sm uppercase tracking-tight leading-tight">Back Office</h2>
