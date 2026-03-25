@@ -70,27 +70,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const invoiceId = req.query.invoiceId as string;
         if (!invoiceId) return res.status(400).json({ error: 'invoiceId is required.' });
 
-        let pdfUrl: string | null = null;
+        // For charges, receipt_url is an HTML page — return the URL for the client to open
+        if (invoiceId.startsWith('ch_')) {
+          const charge = await stripe.charges.retrieve(invoiceId);
+          const receiptUrl = charge.receipt_url || null;
+          if (!receiptUrl) return res.status(404).json({ error: 'No receipt found.' });
+          return res.status(200).json({ redirect: receiptUrl });
+        }
+
+        // For invoices, fetch the actual PDF from Stripe
         if (invoiceId.startsWith('in_')) {
           const invoice = await stripe.invoices.retrieve(invoiceId);
-          pdfUrl = invoice.invoice_pdf || null;
-        } else if (invoiceId.startsWith('ch_')) {
-          const charge = await stripe.charges.retrieve(invoiceId);
-          pdfUrl = charge.receipt_url || null;
+          const pdfUrl = invoice.invoice_pdf || null;
+          if (!pdfUrl) return res.status(404).json({ error: 'No invoice PDF found.' });
+
+          const pdfResp = await fetch(pdfUrl, {
+            headers: { 'User-Agent': 'QuickServe/1.0' },
+            redirect: 'follow',
+          });
+          if (!pdfResp.ok) return res.status(502).json({ error: 'Failed to fetch PDF from Stripe.' });
+
+          const arrayBuf = await pdfResp.arrayBuffer();
+          const buffer = Buffer.from(arrayBuf);
+
+          // Verify it's actually a PDF (starts with %PDF)
+          if (buffer.length < 5 || buffer.toString('ascii', 0, 4) !== '%PDF') {
+            // Not a real PDF — fall back to redirect
+            return res.status(200).json({ redirect: invoice.hosted_invoice_url || pdfUrl });
+          }
+
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoiceId}.pdf"`);
+          res.setHeader('Content-Length', buffer.length.toString());
+          return res.send(buffer);
         }
-        if (!pdfUrl) return res.status(404).json({ error: 'No downloadable document found.' });
 
-        const pdfResp = await fetch(pdfUrl);
-        if (!pdfResp.ok) return res.status(502).json({ error: 'Failed to fetch document from Stripe.' });
-
-        const contentType = pdfResp.headers.get('content-type') || 'application/pdf';
-        const buffer = Buffer.from(await pdfResp.arrayBuffer());
-        const filename = invoiceId.startsWith('in_') ? `invoice-${invoiceId}.pdf` : `receipt-${invoiceId}.pdf`;
-
-        res.setHeader('Content-Type', contentType);
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        res.setHeader('Content-Length', buffer.length.toString());
-        return res.send(buffer);
+        return res.status(400).json({ error: 'Invalid document ID.' });
       }
 
       // GET /api/stripe/billing?action=payment-methods&customerId=...

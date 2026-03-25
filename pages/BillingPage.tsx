@@ -592,11 +592,25 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                                 try {
                                   const resp = await fetch(`/api/stripe/billing?action=download-invoice&invoiceId=${encodeURIComponent(inv.id)}`);
                                   if (!resp.ok) throw new Error('Download failed');
+
+                                  const contentType = resp.headers.get('content-type') || '';
+
+                                  // If server returned a redirect URL (for charge receipts or fallback)
+                                  if (contentType.includes('application/json')) {
+                                    const data = await resp.json();
+                                    if (data.redirect) {
+                                      window.open(data.redirect, '_blank', 'noopener,noreferrer');
+                                      return;
+                                    }
+                                    throw new Error('No document available');
+                                  }
+
+                                  // It's a real PDF — trigger download
                                   const blob = await resp.blob();
                                   const url = URL.createObjectURL(blob);
                                   const a = document.createElement('a');
                                   a.href = url;
-                                  a.download = inv.id.startsWith('in_') ? `invoice-${inv.id}.pdf` : `receipt-${inv.id}.pdf`;
+                                  a.download = `invoice-${inv.id}.pdf`;
                                   document.body.appendChild(a);
                                   a.click();
                                   document.body.removeChild(a);
