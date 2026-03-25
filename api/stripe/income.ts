@@ -36,7 +36,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       listParams.created = { ...(listParams.created as Record<string, number> || {}), gte: Math.floor(new Date(startDate).getTime() / 1000) };
     }
     if (endDate) {
-      listParams.created = { ...(listParams.created as Record<string, number> || {}), lte: Math.floor(new Date(endDate).getTime() / 1000) };
+      const endOfDay = new Date(endDate);
+      endOfDay.setUTCHours(23, 59, 59, 999);
+      listParams.created = { ...(listParams.created as Record<string, number> || {}), lte: Math.floor(endOfDay.getTime() / 1000) };
     }
     if (startingAfter) {
       listParams.starting_after = startingAfter;

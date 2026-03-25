@@ -709,7 +709,7 @@ const AdminView: React.FC<Props> = ({
 
   useEffect(() => {
     if (activeTab === 'INCOME') fetchIncome();
-  }, [activeTab]);
+  }, [activeTab, incomeStartDate, incomeEndDate]);
 
   // QR Modal State
   const [generatingQrHub, setGeneratingQrHub] = useState<Area | null>(null);

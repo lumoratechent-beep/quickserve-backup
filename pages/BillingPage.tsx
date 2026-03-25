@@ -587,14 +587,28 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                         <td className="py-4 pr-6 text-sm font-semibold text-gray-900 dark:text-white text-right whitespace-nowrap">RM{inv.amount.toFixed(2)}</td>
                         <td className="py-4 text-right">
                           {inv.invoiceUrl ? (
-                            <a
-                              href={inv.invoiceUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const resp = await fetch(`/api/stripe/billing?action=download-invoice&invoiceId=${encodeURIComponent(inv.id)}`);
+                                  if (!resp.ok) throw new Error('Download failed');
+                                  const blob = await resp.blob();
+                                  const url = URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.href = url;
+                                  a.download = inv.id.startsWith('in_') ? `invoice-${inv.id}.pdf` : `receipt-${inv.id}.pdf`;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  document.body.removeChild(a);
+                                  URL.revokeObjectURL(url);
+                                } catch {
+                                  window.open(inv.invoiceUrl, '_blank', 'noopener,noreferrer');
+                                }
+                              }}
                               className="text-sm text-orange-500 hover:text-orange-600 font-medium transition-colors"
                             >
                               {formatInvoiceLabel(inv.date)}
-                            </a>
+                            </button>
                           ) : (
                             <span className="text-sm text-gray-400">—</span>
                           )}

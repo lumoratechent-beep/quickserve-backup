@@ -64,6 +64,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ invoices: result });
       }
 
+      // GET /api/stripe/billing?action=download-invoice&invoiceId=...
+      case 'download-invoice': {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const invoiceId = req.query.invoiceId as string;
+        if (!invoiceId) return res.status(400).json({ error: 'invoiceId is required.' });
+
+        let pdfUrl: string | null = null;
+        if (invoiceId.startsWith('in_')) {
+          const invoice = await stripe.invoices.retrieve(invoiceId);
+          pdfUrl = invoice.invoice_pdf || null;
+        } else if (invoiceId.startsWith('ch_')) {
+          const charge = await stripe.charges.retrieve(invoiceId);
+          pdfUrl = charge.receipt_url || null;
+        }
+        if (!pdfUrl) return res.status(404).json({ error: 'No downloadable document found.' });
+
+        const pdfResp = await fetch(pdfUrl);
+        if (!pdfResp.ok) return res.status(502).json({ error: 'Failed to fetch document from Stripe.' });
+
+        const contentType = pdfResp.headers.get('content-type') || 'application/pdf';
+        const buffer = Buffer.from(await pdfResp.arrayBuffer());
+        const filename = invoiceId.startsWith('in_') ? `invoice-${invoiceId}.pdf` : `receipt-${invoiceId}.pdf`;
+
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Length', buffer.length.toString());
+        return res.send(buffer);
+      }
+
       // GET /api/stripe/billing?action=payment-methods&customerId=...
       case 'payment-methods': {
         if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
