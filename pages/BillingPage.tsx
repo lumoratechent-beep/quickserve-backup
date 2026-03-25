@@ -53,12 +53,12 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     new Date(subscription.pending_change_effective_at) > new Date()
   );
 
-  const currentPlanId = (hasPendingDowngrade ? subscription?.pending_plan_id : subscription?.plan_id) || 'basic';
-  const currentPlanInterval = hasPendingDowngrade
-    ? (subscription?.pending_billing_interval || subscription?.billing_interval)
-    : subscription?.billing_interval;
-  const previousAccessPlanId = hasPendingDowngrade ? subscription?.plan_id : null;
-  const previousAccessEndDate = hasPendingDowngrade ? subscription?.pending_change_effective_at : null;
+  // Always show the ACTIVE plan as current (plan_id), not the pending downgrade target
+  const currentPlanId = subscription?.plan_id || 'basic';
+  const currentPlanInterval = subscription?.billing_interval;
+  const pendingDowngradePlanId = hasPendingDowngrade ? subscription?.pending_plan_id : null;
+  const pendingDowngradeInterval = hasPendingDowngrade ? (subscription?.pending_billing_interval || subscription?.billing_interval) : null;
+  const pendingDowngradeDate = hasPendingDowngrade ? subscription?.pending_change_effective_at : null;
   const isActive = subscription ? isSubscriptionActive(subscription) : false;
   const isTrial = subscription ? isTrialActive(subscription) : false;
   const daysLeft = subscription ? daysLeftInTrial(subscription) : 0;
@@ -258,12 +258,12 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   const paginatedHistory = billingHistory.slice((historyPage - 1) * historyPageSize, historyPage * historyPageSize);
   const showHistoryPagination = billingHistory.length > 10;
 
-  const previousPlanDaysLeft = previousAccessEndDate
-    ? Math.max(0, Math.ceil((new Date(previousAccessEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-    : 0;
+  const pendingDowngradePlanName = pendingDowngradePlanId
+    ? (PRICING_PLANS.find(p => p.id === pendingDowngradePlanId)?.name || pendingDowngradePlanId)
+    : '';
 
-  const previousPlanName = previousAccessPlanId
-    ? (PRICING_PLANS.find(p => p.id === previousAccessPlanId)?.name || previousAccessPlanId)
+  const pendingDowngradeDateFormatted = pendingDowngradeDate
+    ? new Date(pendingDowngradeDate).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })
     : '';
 
   return (
@@ -283,6 +283,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
             {PRICING_PLANS.map(plan => {
               const isCurrent = plan.id === currentPlanId;
+              const isPendingDowngradeTarget = plan.id === pendingDowngradePlanId;
               const isUpgrade = PRICING_PLANS.indexOf(plan) > PRICING_PLANS.findIndex(p => p.id === currentPlanId);
               const isDowngrade = PRICING_PLANS.indexOf(plan) < PRICING_PLANS.findIndex(p => p.id === currentPlanId);
               return (
@@ -291,7 +292,9 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   className={`relative rounded-xl border-2 p-5 transition-all h-full flex flex-col overflow-hidden ${
                     isCurrent
                       ? 'border-orange-400 bg-white dark:bg-gray-800 lg:col-span-2'
-                      : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 lg:col-span-1'
+                      : isPendingDowngradeTarget
+                        ? 'border-amber-400 bg-amber-50/50 dark:bg-amber-900/10 lg:col-span-1'
+                        : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 lg:col-span-1'
                   }`}
                 >
                   {/* Checkmark badge */}
@@ -309,8 +312,20 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                         — Current Plan ({currentPlanInterval === 'annual' ? 'Annually' : 'Monthly'})
                       </span>
                     )}
+                    {isPendingDowngradeTarget && (
+                      <span className="ml-1.5 text-xs text-amber-600 dark:text-amber-400 font-semibold">
+                        — Downgrading to this
+                      </span>
+                    )}
                   </h4>
                   <p className="text-sm text-gray-500 dark:text-gray-400 font-semibold mb-0.5">RM{plan.price}<span className="text-xs font-medium text-gray-400">/month</span></p>
+
+                  {/* Pending downgrade target info */}
+                  {isPendingDowngradeTarget && pendingDowngradeDate && (
+                    <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 mb-0.5">
+                      Effective from: {pendingDowngradeDateFormatted} ({pendingDowngradeInterval === 'annual' ? 'Annual' : 'Monthly'})
+                    </p>
+                  )}
 
                   {/* Expiry date for current plan */}
                   {isCurrent && (() => {
@@ -325,14 +340,12 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                         <p className={`text-xs font-semibold ${
                           isExpired ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'
                         }`}>
-                          Current Plan Expires: {formatted} ({currentPlanDaysLeft} days remaining)
+                          {plan.name} Plan till: {formatted} ({currentPlanDaysLeft} days remaining)
                         </p>
-                        {hasPendingDowngrade && previousPlanName && previousAccessEndDate && (
-                          <>
-                            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                              {previousPlanName} Plan End on : {new Date(previousAccessEndDate).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })} ({previousPlanDaysLeft} days remaining)
-                            </p>
-                          </>
+                        {hasPendingDowngrade && pendingDowngradePlanName && pendingDowngradeDate && (
+                          <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+                            Downgrading to {pendingDowngradePlanName} on {pendingDowngradeDateFormatted}
+                          </p>
                         )}
                       </div>
                     );
