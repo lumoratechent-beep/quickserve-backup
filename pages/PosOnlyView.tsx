@@ -510,6 +510,12 @@ const PosOnlyView: React.FC<Props> = ({
   const [showPaymentResult, setShowPaymentResult] = useState(false);
   const [showRefundConfirm, setShowRefundConfirm] = useState(false);
   const [isQrPaymentMode, setIsQrPaymentMode] = useState(false);
+  const [showCollectPaymentSidebar, setShowCollectPaymentSidebar] = useState(false);
+  const [collectPaymentProcessing, setCollectPaymentProcessing] = useState(false);
+  const [collectPaymentSuccess, setCollectPaymentSuccess] = useState(false);
+  const [collectCashAmountInput, setCollectCashAmountInput] = useState<string>('');
+  const [collectCashAmount, setCollectCashAmount] = useState<number | null>(null);
+  const [collectPaymentType, setCollectPaymentType] = useState<string>('');
 
   const CASH_DENOMINATIONS = [10, 20, 50, 100];
 
@@ -6960,12 +6966,27 @@ const PosOnlyView: React.FC<Props> = ({
                   >
                     <Printer size={14} /> Reprint Receipt
                   </button>
-                  <button
-                    onClick={() => setShowRefundConfirm(true)}
-                    className="flex-1 py-3 bg-red-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all flex items-center justify-center gap-2"
-                  >
-                    <RotateCcw size={14} /> Refund
-                  </button>
+                  {selectedReportOrder.status === OrderStatus.SERVED ? (
+                    <button
+                      onClick={() => {
+                        setCollectCashAmount(selectedReportOrder.total);
+                        setCollectCashAmountInput(selectedReportOrder.total.toFixed(2));
+                        setCollectPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
+                        setCollectPaymentSuccess(false);
+                        setShowCollectPaymentSidebar(true);
+                      }}
+                      className="flex-1 py-3 bg-green-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2"
+                    >
+                      <CreditCard size={14} /> Collect Payment
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setShowRefundConfirm(true)}
+                      className="flex-1 py-3 bg-red-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all flex items-center justify-center gap-2"
+                    >
+                      <RotateCcw size={14} /> Refund
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -7003,6 +7024,201 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Collect Payment Sidebar (slides from right) */}
+      {showCollectPaymentSidebar && selectedReportOrder && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[55] flex justify-end"
+          onClick={() => { if (!collectPaymentProcessing) { setShowCollectPaymentSidebar(false); setCollectPaymentSuccess(false); } }}
+        >
+          <div
+            className="bg-white dark:bg-gray-800 w-full max-w-md h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-300"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-5 py-4 border-b dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+              <div>
+                <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Collect Payment</h3>
+                <p className="text-[9px] text-gray-400 uppercase tracking-widest mt-0.5">Order #{selectedReportOrder.id}</p>
+              </div>
+              <button
+                onClick={() => { if (!collectPaymentProcessing) { setShowCollectPaymentSidebar(false); setCollectPaymentSuccess(false); } }}
+                disabled={collectPaymentProcessing}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all disabled:opacity-50"
+              >
+                <X size={20} className="text-gray-400" />
+              </button>
+            </div>
+
+            {!collectPaymentSuccess ? (
+              <>
+                {/* Body */}
+                <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
+                  {/* Total due */}
+                  <div className="text-center">
+                    <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Total Amount Due</p>
+                    <p className="text-5xl font-black text-orange-500 tracking-tighter">{currencySymbol}{selectedReportOrder.total.toFixed(2)}</p>
+                  </div>
+
+                  {/* Amount received */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest">Amount Received</label>
+                    <div className="flex items-center border-b-2 dark:border-gray-600 border-gray-300 focus-within:border-orange-500 dark:focus-within:border-orange-500">
+                      <span className="text-xl font-black text-gray-600 dark:text-gray-400 pb-3">{currencySymbol}</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={collectCashAmountInput}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9.]/g, '');
+                          setCollectCashAmountInput(val);
+                          if (val === '' || val === '.') { setCollectCashAmount(null); return; }
+                          const parsed = parseFloat(val);
+                          if (!isNaN(parsed)) setCollectCashAmount(parsed);
+                        }}
+                        onBlur={() => {
+                          if (collectCashAmount !== null) {
+                            const rounded = parseFloat(collectCashAmount.toFixed(2));
+                            setCollectCashAmount(rounded);
+                            setCollectCashAmountInput(rounded.toFixed(2));
+                          }
+                        }}
+                        placeholder="0.00"
+                        className="flex-1 p-3 bg-transparent text-xl font-black dark:text-white text-center focus:outline-none border-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Quick select denominations */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest">Quick Select</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {CASH_DENOMINATIONS.map((amount) => (
+                        <button
+                          key={amount}
+                          onClick={() => { setCollectCashAmount(amount); setCollectCashAmountInput(amount.toFixed(2)); }}
+                          className={`p-3 rounded-xl font-black text-base uppercase tracking-widest transition-all border-2 ${
+                            collectCashAmount === amount
+                              ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
+                          }`}
+                        >
+                          {currencySymbol} {amount.toFixed(2)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Payment method */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
+                    <select
+                      value={collectPaymentType}
+                      onChange={(e) => setCollectPaymentType(e.target.value)}
+                      className="w-full p-3 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-base font-black dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
+                    >
+                      {paymentTypes.map((type) => (
+                        <option key={type.id} value={type.id}>{type.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-5 py-4 border-t dark:border-gray-700 flex gap-3 flex-shrink-0">
+                  <button
+                    onClick={() => { setShowCollectPaymentSidebar(false); setCollectPaymentSuccess(false); }}
+                    disabled={collectPaymentProcessing}
+                    className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!collectCashAmount || collectCashAmount < selectedReportOrder.total) {
+                        toast('Amount received cannot be less than the total.', 'error');
+                        return;
+                      }
+                      if (!collectPaymentType) return;
+                      setCollectPaymentProcessing(true);
+                      const paymentName = paymentTypes.find(p => p.id === collectPaymentType)?.name || collectPaymentType;
+                      const changeAmt = Math.max(0, collectCashAmount - selectedReportOrder.total);
+                      try {
+                        onUpdateOrder(selectedReportOrder.id, OrderStatus.COMPLETED, {
+                          paymentMethod: paymentName,
+                          cashierName: cashierName || '',
+                          amountReceived: collectCashAmount,
+                          changeAmount: changeAmt,
+                        });
+                        counterOrdersCache.mergeReportOrdersCache(restaurant.id, [{
+                          id: selectedReportOrder.id,
+                          items: selectedReportOrder.items,
+                          total: selectedReportOrder.total,
+                          status: OrderStatus.COMPLETED,
+                          timestamp: selectedReportOrder.timestamp,
+                          restaurantId: restaurant.id,
+                          tableNumber: selectedReportOrder.tableNumber,
+                          remark: selectedReportOrder.remark || '',
+                          customerId: '',
+                          paymentMethod: paymentName,
+                          cashierName: cashierName || '',
+                          amountReceived: collectCashAmount,
+                          changeAmount: changeAmt,
+                        }]);
+                        setCollectPaymentSuccess(true);
+                      } catch (err: any) {
+                        toast(`Payment failed: ${err?.message || 'Unknown error'}`, 'error');
+                      } finally {
+                        setCollectPaymentProcessing(false);
+                      }
+                    }}
+                    disabled={collectPaymentProcessing || !collectPaymentType || !collectCashAmount}
+                    className="flex-1 py-3 bg-green-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-green-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {collectPaymentProcessing ? (
+                      <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Processing...</>
+                    ) : (
+                      <><CreditCard size={14} /> Confirm Payment</>
+                    )}
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* Success state */
+              <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-6">
+                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                  <CheckCircle2 size={36} className="text-green-500" />
+                </div>
+                <div className="text-center">
+                  <h3 className="text-xl font-black dark:text-white uppercase tracking-tighter mb-1">Payment Complete</h3>
+                  <p className="text-xs text-gray-400 uppercase tracking-widest">Order #{selectedReportOrder.id} marked as paid</p>
+                </div>
+                <div className="w-full grid grid-cols-2 gap-4 text-center">
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                    <p className="text-2xl font-black text-green-500">{currencySymbol}{(collectCashAmount || 0).toFixed(2)}</p>
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1">Received</p>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                    <p className="text-2xl font-black text-blue-500">{currencySymbol}{Math.max(0, (collectCashAmount || 0) - selectedReportOrder.total).toFixed(2)}</p>
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1">Change</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowCollectPaymentSidebar(false);
+                    setCollectPaymentSuccess(false);
+                    setSelectedReportOrder(null);
+                    toast('Payment collected successfully.', 'success');
+                  }}
+                  className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
+                >
+                  Done
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -68,7 +68,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
   );
 
   const completedOrders = useMemo(
-    () => filteredOrders.filter(o => o.status !== OrderStatus.CANCELLED),
+    () => filteredOrders.filter(o => o.status === OrderStatus.COMPLETED),
     [filteredOrders],
   );
 
@@ -79,7 +79,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
     return orders.filter(o => {
       const t = new Date(o.timestamp);
       return t >= prevStart && t <= prevEnd;
-    }).filter(o => o.status !== OrderStatus.CANCELLED);
+    }).filter(o => o.status === OrderStatus.COMPLETED);
   }, [orders, startDate, endDate]);
 
   // ─── Sub tabs ───

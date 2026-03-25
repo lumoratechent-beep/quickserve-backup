@@ -62,8 +62,8 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
 
   // KPI calculations
   const kpis = useMemo(() => {
-    const completed = filteredOrders.filter(o => o.status !== OrderStatus.CANCELLED);
-    const prevCompleted = prevPeriodOrders.filter(o => o.status !== OrderStatus.CANCELLED);
+    const completed = filteredOrders.filter(o => o.status === OrderStatus.COMPLETED);
+    const prevCompleted = prevPeriodOrders.filter(o => o.status === OrderStatus.COMPLETED);
 
     const totalSales = completed.reduce((s, o) => s + o.total, 0);
     const prevTotalSales = prevCompleted.reduce((s, o) => s + o.total, 0);
@@ -91,7 +91,7 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
   // Payment method breakdown (transaction types)
   const paymentData = useMemo(() => {
     const map: Record<string, number> = {};
-    filteredOrders.filter(o => o.status !== OrderStatus.CANCELLED).forEach(o => {
+    filteredOrders.filter(o => o.status === OrderStatus.COMPLETED).forEach(o => {
       const method = o.paymentMethod || 'Cash';
       map[method] = (map[method] || 0) + 1;
     });
@@ -106,7 +106,7 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
   // Daily sales for bar chart
   const dailySales = useMemo(() => {
     const map: Record<string, { date: string; sales: number; orders: number }> = {};
-    filteredOrders.filter(o => o.status !== OrderStatus.CANCELLED).forEach(o => {
+    filteredOrders.filter(o => o.status === OrderStatus.COMPLETED).forEach(o => {
       const d = new Date(o.timestamp);
       const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       if (!map[key]) map[key] = { date: key, sales: 0, orders: 0 };
@@ -123,7 +123,7 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
   // Cashier performance
   const cashierStats = useMemo(() => {
     const map: Record<string, { name: string; orders: number; revenue: number; avgOrder: number }> = {};
-    filteredOrders.filter(o => o.status !== OrderStatus.CANCELLED).forEach(o => {
+    filteredOrders.filter(o => o.status === OrderStatus.COMPLETED).forEach(o => {
       const name = o.cashierName || 'Unknown';
       if (!map[name]) map[name] = { name, orders: 0, revenue: 0, avgOrder: 0 };
       map[name].orders += 1;
@@ -243,7 +243,7 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
                 <div className="w-10 h-10 rounded-xl bg-amber-600/20 flex items-center justify-center">
                   <DollarSign size={20} className="text-amber-500" />
                 </div>
-                <span className="text-sm font-bold text-gray-400">Total Sales</span>
+                <span className="text-sm font-bold text-gray-400">Total Net Sales</span>
               </div>
               <ChevronRight size={16} className="text-gray-600" />
             </div>
