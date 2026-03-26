@@ -85,9 +85,10 @@ interface InventoryCount {
 
 interface Production {
   id: string;
+  producedItemId: string;
   producedItemName: string;
   quantityProduced: number;
-  ingredients: { name: string; quantityUsed: number; unit: string }[];
+  ingredients: { menuItemId: string; name: string; quantityUsed: number; unit: string }[];
   timestamp: number;
   notes: string;
 }
@@ -172,9 +173,17 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   });
 
   // Production form
-  const [prodForm, setProdForm] = useState<{ producedItemName: string; quantityProduced: string; notes: string; ingredients: { name: string; quantityUsed: string; unit: string }[] }>({
-    producedItemName: '', quantityProduced: '', notes: '', ingredients: [{ name: '', quantityUsed: '', unit: 'pcs' }],
+  const [prodForm, setProdForm] = useState<{ producedItemId: string; producedItemName: string; quantityProduced: string; notes: string; ingredients: { menuItemId: string; name: string; quantityUsed: string; unit: string }[] }>({
+    producedItemId: '', producedItemName: '', quantityProduced: '', notes: '', ingredients: [{ menuItemId: '', name: '', quantityUsed: '', unit: 'pcs' }],
   });
+
+  // Partial count category filter
+  const [showPartialCountModal, setShowPartialCountModal] = useState(false);
+  const [selectedCountCategories, setSelectedCountCategories] = useState<string[]>([]);
+
+  // PO Receive modal
+  const [receivingPOId, setReceivingPOId] = useState<string | null>(null);
+  const [receiveQuantities, setReceiveQuantities] = useState<Record<string, number>>({});
 
   const activeMenuItems = useMemo(() => restaurant.menu.filter(m => !m.isArchived), [restaurant.menu]);
 
@@ -250,15 +259,51 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       const updatedPO = { ...po, status: newStatus };
       if (newStatus === 'received') {
         updatedPO.receivedDate = new Date().toISOString().split('T')[0];
+        updatedPO.items = po.items.map(item => ({ ...item, receivedQuantity: item.quantity }));
         po.items.forEach(item => {
-          updateStockItem(item.menuItemId, item.quantity);
-          addHistory({ action: 'Stock received (PO)', itemName: item.name, quantity: item.quantity, type: 'in', reference: poId });
+          const remaining = item.quantity - item.receivedQuantity;
+          if (remaining > 0) {
+            updateStockItem(item.menuItemId, remaining);
+            addHistory({ action: 'Stock received (PO)', itemName: item.name, quantity: remaining, type: 'in', reference: poId });
+          }
         });
       }
       return updatedPO;
     });
     setPurchaseOrders(updated);
     saveState('purchase_orders', updated);
+  };
+
+  const handleOpenReceiveModal = (poId: string) => {
+    const po = purchaseOrders.find(p => p.id === poId);
+    if (!po) return;
+    const quantities: Record<string, number> = {};
+    po.items.forEach(item => { quantities[item.menuItemId] = 0; });
+    setReceiveQuantities(quantities);
+    setReceivingPOId(poId);
+  };
+
+  const handleConfirmPartialReceive = () => {
+    if (!receivingPOId) return;
+    const updated = purchaseOrders.map(po => {
+      if (po.id !== receivingPOId) return po;
+      const updatedItems = po.items.map(item => {
+        const receiving = receiveQuantities[item.menuItemId] || 0;
+        if (receiving > 0) {
+          updateStockItem(item.menuItemId, receiving);
+          addHistory({ action: 'Stock received (PO)', itemName: item.name, quantity: receiving, type: 'in', reference: receivingPOId });
+        }
+        return { ...item, receivedQuantity: item.receivedQuantity + receiving };
+      });
+      const allReceived = updatedItems.every(item => item.receivedQuantity >= item.quantity);
+      const anyReceived = updatedItems.some(item => item.receivedQuantity > 0);
+      const newStatus: PurchaseOrder['status'] = allReceived ? 'received' : anyReceived ? 'partial' : po.status;
+      return { ...po, items: updatedItems, status: newStatus, ...(allReceived ? { receivedDate: new Date().toISOString().split('T')[0] } : {}) };
+    });
+    setPurchaseOrders(updated);
+    saveState('purchase_orders', updated);
+    setReceivingPOId(null);
+    setReceiveQuantities({});
   };
 
   // ════════════════════════════════════════
@@ -294,6 +339,12 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
         });
       }
       if (newStatus === 'completed') updatedTO.completedAt = Date.now();
+      if (newStatus === 'cancelled' && to.status === 'in_transit') {
+        to.items.forEach(item => {
+          updateStockItem(item.menuItemId, item.quantity);
+          addHistory({ action: 'Stock restored (transfer cancelled)', itemName: item.name, quantity: item.quantity, type: 'in', reference: toId });
+        });
+      }
       return updatedTO;
     });
     setTransferOrders(updated);
@@ -334,8 +385,11 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   // ════════════════════════════════════════
   // INVENTORY COUNT HANDLERS
   // ════════════════════════════════════════
-  const handleStartCount = (type: 'full' | 'partial') => {
-    const items: InventoryCountItem[] = activeMenuItems.map(m => ({
+  const handleStartCount = (type: 'full' | 'partial', categories?: string[]) => {
+    const filteredItems = type === 'partial' && categories && categories.length > 0
+      ? activeMenuItems.filter(m => categories.includes(m.category))
+      : activeMenuItems;
+    const items: InventoryCountItem[] = filteredItems.map(m => ({
       menuItemId: m.id,
       name: m.name,
       category: m.category,
@@ -356,6 +410,8 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     saveState('counts', updated);
     setShowForm(false);
   };
+
+  const allCategories = useMemo(() => [...new Set(activeMenuItems.map(m => m.category).filter(Boolean))], [activeMenuItems]);
 
   const handleUpdateCountItem = (countId: string, menuItemId: string, counted: number) => {
     const updated = inventoryCounts.map(c => {
@@ -396,38 +452,63 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   // ════════════════════════════════════════
   const handleSaveProduction = () => {
     const qty = parseInt(prodForm.quantityProduced);
-    if (!prodForm.producedItemName.trim() || isNaN(qty) || qty <= 0) return;
+    if (!prodForm.producedItemId || isNaN(qty) || qty <= 0) return;
+    const producedMenuItem = activeMenuItems.find(m => m.id === prodForm.producedItemId);
+    if (!producedMenuItem) return;
+    const validIngredients = prodForm.ingredients.filter(i => i.menuItemId).map(i => ({ menuItemId: i.menuItemId, name: i.name, quantityUsed: parseFloat(i.quantityUsed) || 0, unit: i.unit }));
     const prod: Production = {
       id: crypto.randomUUID(),
-      producedItemName: prodForm.producedItemName,
+      producedItemId: prodForm.producedItemId,
+      producedItemName: producedMenuItem.name,
       quantityProduced: qty,
-      ingredients: prodForm.ingredients.filter(i => i.name.trim()).map(i => ({ name: i.name, quantityUsed: parseFloat(i.quantityUsed) || 0, unit: i.unit })),
+      ingredients: validIngredients,
       timestamp: Date.now(),
       notes: prodForm.notes,
     };
+    // Credit stock to produced item
+    updateStockItem(prodForm.producedItemId, qty);
+    addHistory({ action: 'Production output', itemName: producedMenuItem.name, quantity: qty, type: 'in', reference: prod.id });
+    // Deduct stock from each ingredient
+    validIngredients.forEach(ing => {
+      if (ing.quantityUsed > 0) {
+        updateStockItem(ing.menuItemId, -ing.quantityUsed);
+        addHistory({ action: 'Production ingredient used', itemName: ing.name, quantity: ing.quantityUsed, type: 'out', reference: prod.id });
+      }
+    });
     const updated = [prod, ...productions];
     setProductions(updated);
     saveState('productions', updated);
-    addHistory({ action: 'Production recorded', itemName: prod.producedItemName, quantity: qty, type: 'in', reference: prod.id });
-    setProdForm({ producedItemName: '', quantityProduced: '', notes: '', ingredients: [{ name: '', quantityUsed: '', unit: 'pcs' }] });
+    setProdForm({ producedItemId: '', producedItemName: '', quantityProduced: '', notes: '', ingredients: [{ menuItemId: '', name: '', quantityUsed: '', unit: 'pcs' }] });
     setShowForm(false);
   };
 
   // ─── Inventory Valuation ───
+  const getLatestCostFromPOs = (menuItemId: string): number => {
+    for (const po of purchaseOrders) {
+      if (po.status === 'received' || po.status === 'partial') {
+        const item = po.items.find(i => i.menuItemId === menuItemId);
+        if (item && item.costPerUnit > 0) return item.costPerUnit;
+      }
+    }
+    return 0;
+  };
+
   const valuationData = useMemo(() => {
     const stockItems = getStockItems();
     return stockItems.map((s: any) => {
       const menuItem = restaurant.menu.find(m => m.id === s.menuItemId);
-      const unitCost = menuItem?.price ? menuItem.price * 0.4 : 0; // Estimated cost ~40% of price
+      const poCost = getLatestCostFromPOs(s.menuItemId);
+      const unitCost = poCost > 0 ? poCost : (menuItem?.price ? menuItem.price * 0.4 : 0);
       return {
         ...s,
         price: menuItem?.price || 0,
         estimatedCost: unitCost,
+        hasPOCost: poCost > 0,
         totalValue: s.currentStock * unitCost,
         retailValue: s.currentStock * (menuItem?.price || 0),
       };
     });
-  }, [restaurant.menu]);
+  }, [restaurant.menu, purchaseOrders]);
 
   const totalValuation = useMemo(() => {
     return valuationData.reduce((sum: number, item: any) => sum + item.totalValue, 0);
@@ -599,7 +680,10 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                               <button onClick={() => handleUpdatePOStatus(po.id, 'sent')} className="px-2 py-1 rounded-lg bg-blue-500/20 text-blue-400 text-[10px] font-bold hover:bg-blue-500/30" title="Mark as Sent"><Send size={12} /></button>
                             )}
                             {(po.status === 'sent' || po.status === 'partial') && (
-                              <button onClick={() => handleUpdatePOStatus(po.id, 'received')} className="px-2 py-1 rounded-lg bg-green-500/20 text-green-400 text-[10px] font-bold hover:bg-green-500/30" title="Mark as Received"><Check size={12} /></button>
+                              <>
+                                <button onClick={() => handleOpenReceiveModal(po.id)} className="px-2 py-1 rounded-lg bg-amber-500/20 text-amber-400 text-[10px] font-bold hover:bg-amber-500/30" title="Receive Items"><Download size={12} /></button>
+                                <button onClick={() => handleUpdatePOStatus(po.id, 'received')} className="px-2 py-1 rounded-lg bg-green-500/20 text-green-400 text-[10px] font-bold hover:bg-green-500/30" title="Receive All"><Check size={12} /></button>
+                              </>
                             )}
                             {po.status !== 'received' && po.status !== 'cancelled' && (
                               <button onClick={() => handleUpdatePOStatus(po.id, 'cancelled')} className="px-2 py-1 rounded-lg bg-red-500/20 text-red-400 text-[10px] font-bold hover:bg-red-500/30" title="Cancel"><X size={12} /></button>
@@ -842,7 +926,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               <button onClick={() => handleStartCount('full')} className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20">
                 <ClipboardList size={14} /> Full Count
               </button>
-              <button onClick={() => handleStartCount('partial')} className="px-4 py-2 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all flex items-center gap-2">
+              <button onClick={() => { setSelectedCountCategories([]); setShowPartialCountModal(true); }} className="px-4 py-2 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all flex items-center gap-2">
                 <ClipboardList size={14} /> Partial Count
               </button>
             </div>
@@ -958,7 +1042,10 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Produced Item *</label>
-                  <input type="text" value={prodForm.producedItemName} onChange={e => setProdForm(f => ({ ...f, producedItemName: e.target.value }))} placeholder="e.g. Chicken Burger" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                  <select value={prodForm.producedItemId} onChange={e => { const mi = activeMenuItems.find(m => m.id === e.target.value); setProdForm(f => ({ ...f, producedItemId: e.target.value, producedItemName: mi?.name || '' })); }} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                    <option value="">Select item to produce</option>
+                    {activeMenuItems.map(m => <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)})</option>)}
+                  </select>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Quantity Produced *</label>
@@ -972,7 +1059,10 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 block">Ingredients Used</label>
               {prodForm.ingredients.map((ing, i) => (
                 <div key={i} className="flex items-center gap-2 mb-2">
-                  <input type="text" value={ing.name} onChange={e => { const ingredients = [...prodForm.ingredients]; ingredients[i] = { ...ingredients[i], name: e.target.value }; setProdForm(f => ({ ...f, ingredients })); }} placeholder="Ingredient name" className="flex-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                  <select value={ing.menuItemId} onChange={e => { const mi = activeMenuItems.find(m => m.id === e.target.value); const ingredients = [...prodForm.ingredients]; ingredients[i] = { ...ingredients[i], menuItemId: e.target.value, name: mi?.name || '' }; setProdForm(f => ({ ...f, ingredients })); }} className="flex-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                    <option value="">Select ingredient</option>
+                    {activeMenuItems.map(m => <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)})</option>)}
+                  </select>
                   <input type="number" value={ing.quantityUsed} onChange={e => { const ingredients = [...prodForm.ingredients]; ingredients[i] = { ...ingredients[i], quantityUsed: e.target.value }; setProdForm(f => ({ ...f, ingredients })); }} placeholder="Qty" className="w-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none" />
                   <select value={ing.unit} onChange={e => { const ingredients = [...prodForm.ingredients]; ingredients[i] = { ...ingredients[i], unit: e.target.value }; setProdForm(f => ({ ...f, ingredients })); }} className="w-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-2 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
                     <option value="pcs">pcs</option>
@@ -984,7 +1074,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                   <button onClick={() => { const ingredients = prodForm.ingredients.filter((_, idx) => idx !== i); setProdForm(f => ({ ...f, ingredients })); }} className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg"><X size={14} /></button>
                 </div>
               ))}
-              <button onClick={() => setProdForm(f => ({ ...f, ingredients: [...f.ingredients, { name: '', quantityUsed: '', unit: 'pcs' }] }))} className="text-xs text-amber-400 font-bold flex items-center gap-1 mt-2 hover:text-amber-300"><Plus size={12} /> Add Ingredient</button>
+              <button onClick={() => setProdForm(f => ({ ...f, ingredients: [...f.ingredients, { menuItemId: '', name: '', quantityUsed: '', unit: 'pcs' }] }))} className="text-xs text-amber-400 font-bold flex items-center gap-1 mt-2 hover:text-amber-300"><Plus size={12} /> Add Ingredient</button>
 
               <div className="flex gap-3 mt-6">
                 <button onClick={() => setShowForm(false)} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
@@ -1115,7 +1205,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                 <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Cost Value</span>
               </div>
               <p className="text-2xl font-black text-amber-400">{currencySymbol}{totalValuation.toFixed(2)}</p>
-              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Estimated at 40% of retail</p>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Based on PO costs (or 40% estimate)</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-3 mb-2">
@@ -1215,6 +1305,97 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
           </div>
         </div>
       )}
+
+      {/* ─── Partial Count Category Modal ─── */}
+      {showPartialCountModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowPartialCountModal(false)} />
+          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base font-black text-gray-900 dark:text-white">Select Categories to Count</h3>
+              <button onClick={() => setShowPartialCountModal(false)} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-white transition-all">
+                <X size={16} />
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Choose which categories to include in the partial count.</p>
+            <div className="space-y-2 max-h-60 overflow-y-auto mb-6">
+              {allCategories.map(cat => (
+                <label key={cat} className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={selectedCountCategories.includes(cat)}
+                    onChange={e => {
+                      setSelectedCountCategories(prev =>
+                        e.target.checked ? [...prev, cat] : prev.filter(c => c !== cat)
+                      );
+                    }}
+                    className="rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                  />
+                  <span className="text-sm text-gray-900 dark:text-white">{cat}</span>
+                  <span className="text-[10px] text-gray-400 ml-auto">{activeMenuItems.filter(m => m.category === cat).length} items</span>
+                </label>
+              ))}
+              {allCategories.length === 0 && (
+                <p className="text-xs text-gray-500 text-center py-4">No categories found in menu items</p>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setShowPartialCountModal(false)} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
+              <button
+                onClick={() => { handleStartCount('partial', selectedCountCategories); setShowPartialCountModal(false); }}
+                disabled={selectedCountCategories.length === 0}
+                className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20 disabled:opacity-40 disabled:cursor-not-allowed"
+              >Start Count ({selectedCountCategories.length} categories)</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── PO Receive Items Modal ─── */}
+      {receivingPOId && (() => {
+        const po = purchaseOrders.find(p => p.id === receivingPOId);
+        if (!po) return null;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setReceivingPOId(null)} />
+            <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-6">
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-base font-black text-gray-900 dark:text-white">Receive Items — PO-{po.id.slice(-6)}</h3>
+                <button onClick={() => setReceivingPOId(null)} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-white transition-all">
+                  <X size={16} />
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Enter the quantity received for each item.</p>
+              <div className="space-y-3 max-h-60 overflow-y-auto mb-6">
+                {po.items.map(item => {
+                  const remaining = item.quantity - item.receivedQuantity;
+                  return (
+                    <div key={item.menuItemId} className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-700/50">
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">{item.name}</p>
+                        <p className="text-[10px] text-gray-400">Ordered: {item.quantity} | Received: {item.receivedQuantity} | Remaining: {remaining}</p>
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        max={remaining}
+                        value={receiveQuantities[item.menuItemId] || ''}
+                        onChange={e => setReceiveQuantities(prev => ({ ...prev, [item.menuItemId]: Math.min(parseInt(e.target.value) || 0, remaining) }))}
+                        placeholder="0"
+                        className="w-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setReceivingPOId(null)} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
+                <button onClick={handleConfirmPartialReceive} className="flex-1 py-3 rounded-xl bg-green-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-green-700 transition-all shadow-lg shadow-green-600/20">Confirm Receive</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 };
