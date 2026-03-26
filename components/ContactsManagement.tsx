@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Restaurant } from '../src/types';
+import { loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
 import {
   Users as UsersIcon, UserPlus, Plus, Search, Edit3, Trash2, Check, X,
   Phone, Mail, MapPin, FileText, Building2,
@@ -51,15 +52,13 @@ const ContactsManagement: React.FC<Props> = ({ restaurant, currencySymbol, initi
   const contactKey = (key: string) => `contact_${restaurant.id}_${key}`;
 
   const loadState = <T,>(key: string, fallback: T, prefix: 'inv' | 'contact' = 'inv'): T => {
-    try {
-      const k = prefix === 'inv' ? storeKey(key) : contactKey(key);
-      const saved = localStorage.getItem(k);
-      return saved ? JSON.parse(saved) : fallback;
-    } catch { return fallback; }
+    const k = prefix === 'inv' ? storeKey(key) : contactKey(key);
+    return loadBackofficeData<T>(k, restaurant.settings, key, fallback);
   };
   const saveState = <T,>(key: string, data: T, prefix: 'inv' | 'contact' = 'inv') => {
     const k = prefix === 'inv' ? storeKey(key) : contactKey(key);
     localStorage.setItem(k, JSON.stringify(data));
+    syncBackofficeToDb(restaurant.id);
   };
 
   // ─── State ───

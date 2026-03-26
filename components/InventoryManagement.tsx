@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Restaurant, MenuItem } from '../src/types';
+import { loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
 import {
   Package, Truck, ArrowUpDown, ClipboardList, Factory,
   History, DollarSign, Plus, Search, Edit3, Trash2, Check, X, ChevronRight,
@@ -127,14 +128,11 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const storeKey = (key: string) => `inv_${restaurant.id}_${key}`;
 
   // ─── Persistent state helpers ───
-  const loadState = <T,>(key: string, fallback: T): T => {
-    try {
-      const saved = localStorage.getItem(storeKey(key));
-      return saved ? JSON.parse(saved) : fallback;
-    } catch { return fallback; }
-  };
+  const loadState = <T,>(key: string, fallback: T): T =>
+    loadBackofficeData<T>(storeKey(key), restaurant.settings, key, fallback);
   const saveState = <T,>(key: string, data: T) => {
     localStorage.setItem(storeKey(key), JSON.stringify(data));
+    syncBackofficeToDb(restaurant.id);
   };
 
   // ─── State ───

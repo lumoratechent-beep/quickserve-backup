@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Order, OrderStatus, MenuItem, Restaurant } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
+import { loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid,
   LineChart, Line, AreaChart, Area,
@@ -117,10 +118,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   }, [orders, startDate, endDate]);
 
   // ─── Staff State ───
-  const [staffList, setStaffList] = useState<StaffMember[]>(() => {
-    const saved = localStorage.getItem(`staff_${restaurant.id}`);
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [staffList, setStaffList] = useState<StaffMember[]>(() =>
+    loadBackofficeData<StaffMember[]>(`staff_${restaurant.id}`, restaurant.settings, 'staff', [])
+  );
   const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
   const [staffForm, setStaffForm] = useState({ username: '', password: '', email: '', phone: '', role: 'CASHIER' as 'CASHIER' | 'KITCHEN' });
   const [isSubmittingStaff, setIsSubmittingStaff] = useState(false);
@@ -129,10 +129,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
   // ─── Stock State ───
   const [stockItems, setStockItems] = useState<StockItem[]>(() => {
-    const saved = localStorage.getItem(`stock_${restaurant.id}`);
+    const saved = loadBackofficeData<StockItem[] | null>(`stock_${restaurant.id}`, restaurant.settings, 'stock', null);
     if (saved) {
-      const parsed = JSON.parse(saved);
-      return parsed.map((s: any) => ({ ...s, stockEnabled: s.stockEnabled ?? false }));
+      return saved.map((s: any) => ({ ...s, stockEnabled: s.stockEnabled ?? false }));
     }
     // Initialize from menu
     return restaurant.menu.filter(m => !m.isArchived).map(m => ({
@@ -155,6 +154,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const saveStock = (items: StockItem[]) => {
     setStockItems(items);
     localStorage.setItem(`stock_${restaurant.id}`, JSON.stringify(items));
+    syncBackofficeToDb(restaurant.id);
   };
 
   // ─────────────────────────────────────
@@ -342,6 +342,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       const updated = [...staffList, newStaff];
       setStaffList(updated);
       localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+      syncBackofficeToDb(restaurant.id);
       setStaffForm({ username: '', password: '', email: '', phone: '', role: 'CASHIER' });
       setIsAddStaffOpen(false);
       toast(`${staffForm.role === 'CASHIER' ? 'Cashier' : 'Kitchen staff'} added`, 'success');
@@ -359,6 +360,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     const updated = staffList.map(s => s.id === staff.id ? { ...s, isActive: newActive } : s);
     setStaffList(updated);
     localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+    syncBackofficeToDb(restaurant.id);
     toast(`${staff.username} ${newActive ? 'activated' : 'deactivated'}`, 'success');
   };
 
@@ -369,6 +371,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     const updated = staffList.filter(s => s.id !== staff.id);
     setStaffList(updated);
     localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+    syncBackofficeToDb(restaurant.id);
     toast(`${staff.username} removed`, 'success');
   };
 
@@ -386,6 +389,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       }));
       setStaffList(mapped);
       localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(mapped));
+      syncBackofficeToDb(restaurant.id);
       toast('Staff list refreshed', 'success');
     }
   };

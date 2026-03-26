@@ -89,6 +89,7 @@ export interface Restaurant {
     currency?: string;
     printers?: Array<Record<string, any>>;
     kitchenSettings?: { autoAccept: boolean; autoPrint: boolean };
+    backoffice?: Record<string, any>;
   };
   categories?: CategoryData[];
   modifiers?: ModifierData[];

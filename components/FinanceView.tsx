@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Restaurant, Order, OrderStatus } from '../src/types';
+import { loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   LineChart, Line, CartesianGrid, Legend,
@@ -68,13 +69,12 @@ function getCategoryType(categoryName: string): 'COGS' | 'OPEX' {
 const FinanceView: React.FC<Props> = ({ restaurant, orders, currencySymbol, initialSubTab }) => {
   const storeKey = (k: string) => `finance_${restaurant.id}_${k}`;
 
-  const load = <T,>(key: string, fallback: T): T => {
-    try {
-      const s = localStorage.getItem(storeKey(key));
-      return s ? JSON.parse(s) : fallback;
-    } catch { return fallback; }
+  const load = <T,>(key: string, fallback: T): T =>
+    loadBackofficeData<T>(storeKey(key), restaurant.settings, key, fallback);
+  const save = <T,>(key: string, data: T) => {
+    localStorage.setItem(storeKey(key), JSON.stringify(data));
+    syncBackofficeToDb(restaurant.id);
   };
-  const save = <T,>(key: string, data: T) => localStorage.setItem(storeKey(key), JSON.stringify(data));
 
   // ─── Dark mode ───
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
