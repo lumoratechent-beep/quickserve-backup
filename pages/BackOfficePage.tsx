@@ -16,6 +16,7 @@ import {
 import InventoryManagement from '../components/InventoryManagement';
 import ReportsView from '../components/ReportsView';
 import ContactsManagement from '../components/ContactsManagement';
+import FinanceView from '../components/FinanceView';
 
 interface Props {
   restaurant: Restaurant;
@@ -25,7 +26,7 @@ interface Props {
   onBack?: () => void;
 }
 
-type BackOfficeTab = 'DASHBOARD' | 'STAFF' | 'STOCK' | 'INVENTORY' | 'REPORTS' | 'CONTACTS';
+type BackOfficeTab = 'DASHBOARD' | 'STAFF' | 'STOCK' | 'INVENTORY' | 'REPORTS' | 'CONTACTS' | 'FINANCE';
 type DateRange = '7d' | '30d' | '90d' | 'custom';
 
 const COLORS = ['#D97706', '#F59E0B', '#92400E', '#B45309', '#78350F', '#FBBF24', '#FCD34D', '#3B82F6', '#8B5CF6', '#22C55E'];
@@ -66,6 +67,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [reportSubTab, setReportSubTab] = useState<string | undefined>(undefined);
   const [inventorySubTab, setInventorySubTab] = useState<string | undefined>(undefined);
   const [contactSubTab, setContactSubTab] = useState<string | undefined>(undefined);
+  const [financeSubTab, setFinanceSubTab] = useState<string | undefined>(undefined);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
 
   // Detect dark mode for Recharts inline color props
@@ -505,6 +507,14 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       ],
     },
     {
+      key: 'FINANCE', label: 'Finance', icon: <DollarSign size={18} />,
+      subItems: [
+        { key: 'overview', label: 'Overview', icon: <BarChart3 size={14} /> },
+        { key: 'expenses', label: 'Expenses', icon: <Receipt size={14} /> },
+        { key: 'reports', label: 'Reports', icon: <FileBarChart size={14} /> },
+      ],
+    },
+    {
       key: 'REPORTS', label: 'Reports', icon: <FileBarChart size={18} />,
       subItems: [
         { key: 'sales_summary', label: 'Sales Summary', icon: <DollarSign size={14} /> },
@@ -531,6 +541,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     if (tabKey === 'REPORTS') return reportSubTab;
     if (tabKey === 'INVENTORY') return inventorySubTab;
     if (tabKey === 'CONTACTS') return contactSubTab;
+    if (tabKey === 'FINANCE') return financeSubTab;
     return undefined;
   };
 
@@ -538,6 +549,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     if (tabKey === 'REPORTS') setReportSubTab(subKey);
     else if (tabKey === 'INVENTORY') setInventorySubTab(subKey);
     else if (tabKey === 'CONTACTS') setContactSubTab(subKey);
+    else if (tabKey === 'FINANCE') setFinanceSubTab(subKey);
   };
 
   const handleSeeDetails = (reportTab: string) => {
@@ -1310,6 +1322,13 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
         {/* ════════════════════════════════════ */}
         {activeTab === 'CONTACTS' && (
           <ContactsManagement restaurant={restaurant} currencySymbol={currencySymbol} initialSubTab={contactSubTab as any} />
+        )}
+
+        {/* ════════════════════════════════════ */}
+        {/* FINANCE TAB                         */}
+        {/* ════════════════════════════════════ */}
+        {activeTab === 'FINANCE' && (
+          <FinanceView restaurant={restaurant} orders={orders} currencySymbol={currencySymbol} initialSubTab={financeSubTab} />
         )}
       </div>
       </div>
