@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MenuItem, AddOnItem, ModifierData } from '../src/types';
-import { X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle, Save, Pencil, Package, ScanBarcode, DollarSign, Tag, Layers, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle, Save, Pencil, ScanBarcode, DollarSign, Tag, Layers, ChevronDown } from 'lucide-react';
 import { toast } from './Toast';
 import ImageCropModal from './ImageCropModal';
 
@@ -41,8 +41,6 @@ const MenuItemFormModal: React.FC<Props> = ({
   const [newCategoryName, setNewCategoryName] = useState('');
   const [localCategories, setLocalCategories] = useState<string[]>(categories);
   const [cropFile, setCropFile] = useState<File | null>(null);
-  const [leftPage, setLeftPage] = useState(0);
-  const [rightPage, setRightPage] = useState(0);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -83,8 +81,6 @@ const MenuItemFormModal: React.FC<Props> = ({
       } else {
         setCollapsedAddOns(new Set());
       }
-      setLeftPage(0);
-      setRightPage(0);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -478,29 +474,6 @@ const MenuItemFormModal: React.FC<Props> = ({
             onChange={e => setFormItem(prev => ({ ...prev, barcode: e.target.value }))}
             placeholder="Scan or type barcode"
           />
-        </div>
-      </div>
-    </div>
-  );
-
-  // ─── Inventory (Loyverse section 4) ───
-  const inventorySection = (
-    <div className="space-y-4 border-t dark:border-gray-700 pt-4">
-      <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><Package size={16} className="text-amber-500" /> Inventory</h3>
-      <div className="flex items-center gap-3">
-        <input
-          type="checkbox"
-          id="trackStock"
-          checked={formItem.trackStock || false}
-          onChange={e => setFormItem(prev => ({ ...prev, trackStock: e.target.checked }))}
-          className="w-4 h-4 text-amber-500 rounded border-gray-300 focus:ring-amber-500"
-        />
-        <label htmlFor="trackStock" className="text-xs font-bold text-gray-600 dark:text-gray-300">Track stock</label>
-        <div className="relative group">
-          <Info size={14} className="text-gray-400 cursor-help" />
-          <div className="hidden group-hover:block absolute bottom-full left-0 mb-1 w-48 p-2 bg-gray-800 text-white text-[10px] rounded-lg shadow-lg z-10">
-            Enable to track inventory levels for this item in Stock Management.
-          </div>
         </div>
       </div>
     </div>
@@ -903,29 +876,11 @@ const MenuItemFormModal: React.FC<Props> = ({
         <form onSubmit={onSubmit}>
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-0">
             {/* Left column — Details & Selling */}
-            <div className="flex flex-col lg:max-h-[calc(95vh-10rem)]">
-              <div className="flex-1 overflow-y-auto scrollbar-hide space-y-4 lg:pr-4">
-                {leftPage === 0 && <>{visualAssetSection}{itemDetailsSection}{sellingInfoSection}</>}
-                {leftPage === 1 && <>{costIdSection}{inventorySection}</>}
-              </div>
-              {/* Left column dot nav */}
-              <div className="flex items-center justify-between pt-3 mt-2 border-t dark:border-gray-700">
-                <button type="button" onClick={() => setLeftPage(p => Math.max(0, p - 1))} disabled={leftPage === 0} className="p-1 text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-colors">
-                  <ChevronLeft size={14} />
-                </button>
-                <div className="flex items-center gap-2">
-                  {(['Item', 'Costs'] as const).map((label, i) => (
-                    <button key={i} type="button" onClick={() => setLeftPage(i)} title={label}
-                      className={`rounded-full transition-all duration-200 ${
-                        leftPage === i ? 'w-5 h-2 bg-amber-500' : 'w-2 h-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400'
-                      }`}
-                    />
-                  ))}
-                </div>
-                <button type="button" onClick={() => setLeftPage(p => Math.min(1, p + 1))} disabled={leftPage === 1} className="p-1 text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-colors">
-                  <ChevronRight size={14} />
-                </button>
-              </div>
+            <div className="space-y-4 overflow-y-auto lg:max-h-[calc(95vh-10rem)] lg:pr-4">
+              {visualAssetSection}
+              {itemDetailsSection}
+              {sellingInfoSection}
+              {costIdSection}
             </div>
 
             {/* Divider */}
@@ -933,29 +888,13 @@ const MenuItemFormModal: React.FC<Props> = ({
             <hr className="lg:hidden border-gray-200 dark:border-gray-700 my-2" />
 
             {/* Right column — Variants & Modifiers */}
-            <div className="flex flex-col lg:max-h-[calc(95vh-10rem)]">
-              <div className="flex-1 overflow-y-auto scrollbar-hide space-y-4 lg:pl-4">
-                {rightPage === 0 && <>{variantsModifiersHeader}{sizesSection}{thermalSection}{variantSection}</>}
-                {rightPage === 1 && <>{modifiersSection}{addOnsSection}</>}
-              </div>
-              {/* Right column dot nav */}
-              <div className="flex items-center justify-between pt-3 mt-2 border-t dark:border-gray-700">
-                <button type="button" onClick={() => setRightPage(p => Math.max(0, p - 1))} disabled={rightPage === 0} className="p-1 text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-colors">
-                  <ChevronLeft size={14} />
-                </button>
-                <div className="flex items-center gap-2">
-                  {(['Options', 'Modifiers'] as const).map((label, i) => (
-                    <button key={i} type="button" onClick={() => setRightPage(i)} title={label}
-                      className={`rounded-full transition-all duration-200 ${
-                        rightPage === i ? 'w-5 h-2 bg-amber-500' : 'w-2 h-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400'
-                      }`}
-                    />
-                  ))}
-                </div>
-                <button type="button" onClick={() => setRightPage(p => Math.min(1, p + 1))} disabled={rightPage === 1} className="p-1 text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-colors">
-                  <ChevronRight size={14} />
-                </button>
-              </div>
+            <div className="space-y-4 overflow-y-auto lg:max-h-[calc(95vh-10rem)] lg:pl-4">
+              {variantsModifiersHeader}
+              {sizesSection}
+              {modifiersSection}
+              {thermalSection}
+              {variantSection}
+              {addOnsSection}
             </div>
           </div>
           {saveButton}
