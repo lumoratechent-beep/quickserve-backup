@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MenuItem, AddOnItem, ModifierData } from '../src/types';
-import { X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle, Save, Pencil } from 'lucide-react';
+import { X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle, Save, Pencil, Package, ScanBarcode, DollarSign, Tag, Layers, ChevronDown } from 'lucide-react';
 import { toast } from './Toast';
 
 export type MenuFormItem = Partial<MenuItem & { sizesEnabled?: boolean; variantOptionsEnabled?: boolean }>;
@@ -238,7 +238,7 @@ const MenuItemFormModal: React.FC<Props> = ({
 
   const visualAssetSection = (
     <div className={`${isLandscape ? '' : 'border-b dark:border-gray-700'} pb-4`}>
-      <h3 className="text-sm font-black dark:text-white mb-3">Visual Asset</h3>
+      <h3 className="text-sm font-black dark:text-white mb-3">Image</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className={isLandscape ? 'flex flex-col' : ''}>
           <div
@@ -265,96 +265,202 @@ const MenuItemFormModal: React.FC<Props> = ({
             onChange={e => setFormItem(prev => ({ ...prev, image: e.target.value }))}
             placeholder="Paste link here..."
           />
+        </div>
+      </div>
+    </div>
+  );
 
-          <div className="flex items-center justify-between mt-3">
-            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Portion Size</span>
-            <button
-              type="button"
-              onClick={() => setFormItem(prev => ({ ...prev, sizesEnabled: !prev.sizesEnabled }))}
-              className={`px-3 py-1 rounded text-[8px] font-black uppercase tracking-widest transition-all ${formItem.sizesEnabled ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}
-            >
-              {formItem.sizesEnabled ? 'Activated' : 'Disabled'}
-            </button>
+  // ─── Item Details (Loyverse section 1) ───
+  const itemDetailsSection = (
+    <div className="space-y-4">
+      <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><Tag size={16} className="text-amber-500" /> Item Details</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Name *</label>
+          <input
+            required
+            type="text"
+            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
+            value={formItem.name}
+            onChange={e => setFormItem(prev => ({ ...prev, name: e.target.value }))}
+            placeholder="e.g. Signature Beef Burger"
+          />
+        </div>
+        <div>
+          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Category *</label>
+          <select
+            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
+            value={formItem.category || ''}
+            onChange={e => setFormItem(prev => ({ ...prev, category: e.target.value }))}
+          >
+            {!formItem.category && <option value="">-- Select Category --</option>}
+            {categories.filter(c => c !== 'All').map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Description</label>
+        <textarea
+          className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm resize-none"
+          rows={2}
+          value={formItem.description}
+          onChange={e => setFormItem(prev => ({ ...prev, description: e.target.value }))}
+          placeholder="Describe the ingredients and preparation..."
+        />
+      </div>
+      <div className="flex items-center gap-3">
+        <input
+          type="checkbox"
+          id="availableForSale"
+          checked={!formItem.isArchived}
+          onChange={e => setFormItem(prev => ({ ...prev, isArchived: !e.target.checked }))}
+          className="w-4 h-4 text-amber-500 rounded border-gray-300 focus:ring-amber-500"
+        />
+        <label htmlFor="availableForSale" className="text-xs font-bold text-gray-600 dark:text-gray-300">The item is available for sale</label>
+      </div>
+    </div>
+  );
+
+  // ─── Selling Information (Loyverse section 2) ───
+  const sellingInfoSection = (
+    <div className="space-y-4 border-t dark:border-gray-700 pt-4">
+      <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><DollarSign size={16} className="text-amber-500" /> Selling Information</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Sold By</label>
+          <div className="flex gap-2">
+            {(['each', 'weight'] as const).map(opt => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => setFormItem(prev => ({ ...prev, soldBy: opt }))}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider border transition-all ${
+                  (formItem.soldBy || 'each') === opt
+                    ? 'bg-amber-500 text-white border-amber-500'
+                    : 'bg-gray-50 dark:bg-gray-700 text-gray-500 border-gray-200 dark:border-gray-600'
+                }`}
+              >
+                {opt === 'each' ? 'Each' : 'Weight / Volume'}
+              </button>
+            ))}
           </div>
+        </div>
+        <div>
+          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Price *</label>
+          <input
+            required
+            type="number"
+            step="0.01"
+            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
+            value={formItem.price === 0 ? '' : formItem.price}
+            onChange={e => setFormItem(prev => ({ ...prev, price: e.target.value === '' ? 0 : Number(e.target.value) }))}
+            placeholder="0.00"
+          />
+        </div>
+      </div>
+    </div>
+  );
 
-          <div className="flex items-center justify-between mt-2">
-            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Thermal Options</span>
-            <button
-              type="button"
-              onClick={() => setFormItem(prev => ({ ...prev, tempOptions: { ...(prev.tempOptions || { hot: 0, cold: 0, enabled: false, options: [] }), enabled: !prev.tempOptions?.enabled } }))}
-              className={`px-3 py-1 rounded text-[8px] font-black uppercase tracking-widest transition-all ${formItem.tempOptions?.enabled ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}
-            >
-              {formItem.tempOptions?.enabled ? 'Activated' : 'Disabled'}
-            </button>
-          </div>
+  // ─── Cost & Identification (Loyverse section 3) ───
+  const costIdSection = (
+    <div className="space-y-4 border-t dark:border-gray-700 pt-4">
+      <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><ScanBarcode size={16} className="text-amber-500" /> Cost & Identification</h3>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Cost</label>
+          <input
+            type="number"
+            step="0.01"
+            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
+            value={formItem.cost === 0 || formItem.cost === undefined ? '' : formItem.cost}
+            onChange={e => setFormItem(prev => ({ ...prev, cost: e.target.value === '' ? 0 : Number(e.target.value) }))}
+            placeholder="0.00"
+          />
+        </div>
+        <div>
+          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">SKU</label>
+          <input
+            type="text"
+            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
+            value={formItem.sku || ''}
+            onChange={e => setFormItem(prev => ({ ...prev, sku: e.target.value }))}
+            placeholder="e.g. ITEM-001"
+          />
+        </div>
+        <div>
+          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Barcode</label>
+          <input
+            type="text"
+            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
+            value={formItem.barcode || ''}
+            onChange={e => setFormItem(prev => ({ ...prev, barcode: e.target.value }))}
+            placeholder="Scan or type barcode"
+          />
+        </div>
+      </div>
+    </div>
+  );
 
-          <div className="flex items-center justify-between mt-2">
-            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Variant Options</span>
-            <button
-              type="button"
-              onClick={() => setFormItem(prev => ({ ...prev, variantOptions: { ...(prev.variantOptions || { enabled: false, options: [] }), enabled: !prev.variantOptions?.enabled } }))}
-              className={`px-3 py-1 rounded text-[8px] font-black uppercase tracking-widest transition-all ${formItem.variantOptions?.enabled ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}
-            >
-              {formItem.variantOptions?.enabled ? 'Activated' : 'Disabled'}
-            </button>
+  // ─── Inventory (Loyverse section 4) ───
+  const inventorySection = (
+    <div className="space-y-4 border-t dark:border-gray-700 pt-4">
+      <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><Package size={16} className="text-amber-500" /> Inventory</h3>
+      <div className="flex items-center gap-3">
+        <input
+          type="checkbox"
+          id="trackStock"
+          checked={formItem.trackStock || false}
+          onChange={e => setFormItem(prev => ({ ...prev, trackStock: e.target.checked }))}
+          className="w-4 h-4 text-amber-500 rounded border-gray-300 focus:ring-amber-500"
+        />
+        <label htmlFor="trackStock" className="text-xs font-bold text-gray-600 dark:text-gray-300">Track stock</label>
+        <div className="relative group">
+          <Info size={14} className="text-gray-400 cursor-help" />
+          <div className="hidden group-hover:block absolute bottom-full left-0 mb-1 w-48 p-2 bg-gray-800 text-white text-[10px] rounded-lg shadow-lg z-10">
+            Enable to track inventory levels for this item in Stock Management.
           </div>
         </div>
       </div>
     </div>
   );
 
-  const nameDescSection = (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div>
-        <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Menu Name</label>
-        <input
-          required
-          type="text"
-          className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
-          value={formItem.name}
-          onChange={e => setFormItem(prev => ({ ...prev, name: e.target.value }))}
-          placeholder="e.g. Signature Beef Burger"
-        />
-      </div>
-      <div>
-        <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Description</label>
-        <textarea
-          className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm resize-none"
-          rows={isLandscape ? 1 : 2}
-          value={formItem.description}
-          onChange={e => setFormItem(prev => ({ ...prev, description: e.target.value }))}
-          placeholder="Describe the ingredients and preparation..."
-        />
-      </div>
-    </div>
-  );
-
-  const priceCategorySection = (
-    <div className="grid grid-cols-2 gap-4">
-      <div>
-        <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Base Cost</label>
-        <input
-          required
-          type="number"
-          step="0.01"
-          className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
-          value={formItem.price === 0 ? '' : formItem.price}
-          onChange={e => setFormItem(prev => ({ ...prev, price: e.target.value === '' ? 0 : Number(e.target.value) }))}
-          placeholder="0.00"
-        />
-      </div>
-      <div>
-        <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Category</label>
-        <select
-          className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
-          value={formItem.category || ''}
-          onChange={e => setFormItem(prev => ({ ...prev, category: e.target.value }))}
-        >
-          {!formItem.category && <option value="">-- Select Category --</option>}
-          {categories.filter(c => c !== 'All').map(cat => (
-            <option key={cat} value={cat}>{cat}</option>
-          ))}
-        </select>
+  // ─── Variants & Modifiers header (Loyverse section 5) ───
+  const variantsModifiersHeader = (
+    <div className="space-y-3 border-t dark:border-gray-700 pt-4">
+      <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><Layers size={16} className="text-amber-500" /> Variants & Modifiers</h3>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Portion Size</span>
+          <button
+            type="button"
+            onClick={() => setFormItem(prev => ({ ...prev, sizesEnabled: !prev.sizesEnabled }))}
+            className={`px-3 py-1 rounded text-[8px] font-black uppercase tracking-widest transition-all ${formItem.sizesEnabled ? 'bg-amber-500 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-400'}`}
+          >
+            {formItem.sizesEnabled ? 'On' : 'Off'}
+          </button>
+        </div>
+        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Thermal</span>
+          <button
+            type="button"
+            onClick={() => setFormItem(prev => ({ ...prev, tempOptions: { ...(prev.tempOptions || { hot: 0, cold: 0, enabled: false, options: [] }), enabled: !prev.tempOptions?.enabled } }))}
+            className={`px-3 py-1 rounded text-[8px] font-black uppercase tracking-widest transition-all ${formItem.tempOptions?.enabled ? 'bg-amber-500 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-400'}`}
+          >
+            {formItem.tempOptions?.enabled ? 'On' : 'Off'}
+          </button>
+        </div>
+        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Variant Options</span>
+          <button
+            type="button"
+            onClick={() => setFormItem(prev => ({ ...prev, variantOptions: { ...(prev.variantOptions || { enabled: false, options: [] }), enabled: !prev.variantOptions?.enabled } }))}
+            className={`px-3 py-1 rounded text-[8px] font-black uppercase tracking-widest transition-all ${formItem.variantOptions?.enabled ? 'bg-amber-500 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-400'}`}
+          >
+            {formItem.variantOptions?.enabled ? 'On' : 'Off'}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -705,50 +811,45 @@ const MenuItemFormModal: React.FC<Props> = ({
   );
 
   const saveButton = (
-    <div className={`pt-4 mt-4 border-t dark:border-gray-700 ${isLandscape ? 'col-span-3' : ''}`}>
-      <button type="submit" className="w-full py-3 bg-orange-500 text-white rounded-lg font-black uppercase tracking-[0.15em] text-xs shadow hover:bg-orange-600 transition-all active:scale-95">
+    <div className="pt-4 mt-4 border-t dark:border-gray-700">
+      <button type="submit" className="w-full py-3 bg-amber-500 text-white rounded-lg font-black uppercase tracking-[0.15em] text-xs shadow hover:bg-amber-600 transition-all active:scale-95">
         Save Changes
       </button>
     </div>
   );
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-      <div className={`bg-white dark:bg-gray-800 rounded-xl ${isLandscape ? 'max-w-5xl max-h-[95vh]' : 'max-w-2xl max-h-[85vh]'} w-full p-6 shadow-2xl relative animate-in zoom-in fade-in duration-300 overflow-y-auto`}>
+    <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-2 md:p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full max-h-[95vh] p-4 md:p-6 shadow-2xl relative animate-in zoom-in fade-in duration-300 overflow-y-auto">
         <button onClick={onClose} className="absolute top-4 right-4 z-10 p-2 text-gray-400 hover:text-red-500 transition-colors"><X size={20} /></button>
-        <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tighter">Menu Editor - Add Or Edit Menu</h2>
+        <h2 className="text-lg font-black mb-4 dark:text-white uppercase tracking-tighter">{formItem.id ? 'Edit Item' : 'Add Item'}</h2>
 
         <form onSubmit={onSubmit}>
-          {isLandscape ? (
-            <div className="grid grid-cols-[1fr_auto_1fr] gap-x-0">
-              <div className="space-y-3 overflow-y-auto max-h-[calc(95vh-8rem)] pr-4">
-                {visualAssetSection}
-                {nameDescSection}
-                {priceCategorySection}
-              </div>
-              <div className="w-px bg-gray-200 dark:bg-gray-700 mx-3" />
-              <div className="space-y-3 overflow-y-auto max-h-[calc(95vh-8rem)] pl-4">
-                {sizesSection}
-                {modifiersSection}
-                {thermalSection}
-                {variantSection}
-                {addOnsSection}
-              </div>
-              {saveButton}
-            </div>
-          ) : (
-            <div className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-0">
+            {/* Left column — Details & Selling */}
+            <div className="space-y-4 overflow-y-auto lg:max-h-[calc(95vh-10rem)] lg:pr-4">
               {visualAssetSection}
-              {nameDescSection}
-              {priceCategorySection}
+              {itemDetailsSection}
+              {sellingInfoSection}
+              {costIdSection}
+              {inventorySection}
+            </div>
+
+            {/* Divider */}
+            <div className="hidden lg:block w-px bg-gray-200 dark:bg-gray-700 mx-3" />
+            <hr className="lg:hidden border-gray-200 dark:border-gray-700 my-2" />
+
+            {/* Right column — Variants & Modifiers */}
+            <div className="space-y-4 overflow-y-auto lg:max-h-[calc(95vh-10rem)] lg:pl-4">
+              {variantsModifiersHeader}
               {sizesSection}
               {modifiersSection}
               {thermalSection}
               {variantSection}
               {addOnsSection}
-              {saveButton}
             </div>
-          )}
+          </div>
+          {saveButton}
         </form>
       </div>
     </div>

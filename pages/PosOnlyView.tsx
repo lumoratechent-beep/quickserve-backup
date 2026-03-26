@@ -785,6 +785,11 @@ const PosOnlyView: React.FC<Props> = ({
       otherVariantsEnabled: linked.length > 0,
       linkedModifiers: linked,
       addOns: formItem.addOns || [],
+      cost: Number(formItem.cost || 0),
+      sku: (formItem.sku || '').trim(),
+      barcode: (formItem.barcode || '').trim(),
+      soldBy: formItem.soldBy || 'each',
+      trackStock: formItem.trackStock || false,
     };
 
     setIsSavingMenuItem(true);

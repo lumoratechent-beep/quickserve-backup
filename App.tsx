@@ -466,7 +466,12 @@ const App: React.FC = () => {
             otherVariants: others.options || [],
             otherVariantsEnabled: others.enabled ?? false,
             linkedModifiers: others.linkedModifiers || (others.enabled && others.name ? [others.name] : []),
-            addOns: addOns
+            addOns: addOns,
+            cost: others.cost ?? 0,
+            sku: others.sku ?? '',
+            barcode: others.barcode ?? '',
+            soldBy: others.soldBy ?? 'each',
+            trackStock: others.trackStock ?? false,
           };
         })
       }));
@@ -1097,7 +1102,12 @@ const App: React.FC = () => {
         options: item.otherVariants,
         enabled: item.otherVariantsEnabled,
         linkedModifiers: item.linkedModifiers || [],
-        variantOptions: item.variantOptions || { enabled: false, options: [] }
+        variantOptions: item.variantOptions || { enabled: false, options: [] },
+        cost: item.cost ?? 0,
+        sku: item.sku ?? '',
+        barcode: item.barcode ?? '',
+        soldBy: item.soldBy ?? 'each',
+        trackStock: item.trackStock ?? false,
       },
       add_ons: item.addOns || []
     }).eq('id', item.id);
@@ -1127,7 +1137,12 @@ const App: React.FC = () => {
         options: item.otherVariants,
         enabled: item.otherVariantsEnabled,
         linkedModifiers: item.linkedModifiers || [],
-        variantOptions: item.variantOptions || { enabled: false, options: [] }
+        variantOptions: item.variantOptions || { enabled: false, options: [] },
+        cost: item.cost ?? 0,
+        sku: item.sku ?? '',
+        barcode: item.barcode ?? '',
+        soldBy: item.soldBy ?? 'each',
+        trackStock: item.trackStock ?? false,
       },
       add_ons: item.addOns || []
     });
@@ -1790,6 +1805,9 @@ const App: React.FC = () => {
         currencySymbol={currSymbol}
         onFetchAllFilteredOrders={onFetchAllFilteredOrders}
         onBack={() => setView('APP')}
+        onAddMenuItem={handleAddMenuItem}
+        onUpdateMenu={handleUpdateMenuItem}
+        onPermanentDeleteMenuItem={handleDeleteMenuItem}
       />
     );
   }

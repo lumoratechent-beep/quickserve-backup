@@ -18,6 +18,7 @@ import InventoryManagement from '../components/InventoryManagement';
 import ReportsView from '../components/ReportsView';
 import ContactsManagement from '../components/ContactsManagement';
 import FinanceView from '../components/FinanceView';
+import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
 
 interface Props {
   restaurant: Restaurant;
@@ -25,9 +26,13 @@ interface Props {
   currencySymbol: string;
   onFetchAllFilteredOrders?: (filters: any) => Promise<Order[]>;
   onBack?: () => void;
+  onAddMenuItem?: (restaurantId: string, item: MenuItem) => Promise<void>;
+  onUpdateMenu?: (restaurantId: string, item: MenuItem) => Promise<void>;
+  onPermanentDeleteMenuItem?: (restaurantId: string, itemId: string) => Promise<void>;
+  onImageUpload?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
-type BackOfficeTab = 'DASHBOARD' | 'STAFF' | 'STOCK' | 'INVENTORY' | 'REPORTS' | 'CONTACTS' | 'FINANCE';
+type BackOfficeTab = 'DASHBOARD' | 'ITEMS' | 'STAFF' | 'STOCK' | 'INVENTORY' | 'REPORTS' | 'CONTACTS' | 'FINANCE';
 type DateRange = '7d' | '30d' | '90d' | 'custom';
 
 const COLORS = ['#D97706', '#F59E0B', '#92400E', '#B45309', '#78350F', '#FBBF24', '#FCD34D', '#3B82F6', '#8B5CF6', '#22C55E'];
@@ -62,7 +67,7 @@ interface StockItem {
   stockEnabled: boolean;
 }
 
-const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, onFetchAllFilteredOrders, onBack }) => {
+const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, onFetchAllFilteredOrders, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload }) => {
   const [activeTab, setActiveTab] = useState<BackOfficeTab>('DASHBOARD');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [reportSubTab, setReportSubTab] = useState<string | undefined>(undefined);
@@ -70,6 +75,15 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [contactSubTab, setContactSubTab] = useState<string | undefined>(undefined);
   const [financeSubTab, setFinanceSubTab] = useState<string | undefined>(undefined);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
+
+  // ─── Items tab state ───
+  const [itemSearch, setItemSearch] = useState('');
+  const [itemCategoryFilter, setItemCategoryFilter] = useState('ALL');
+  const [itemShowArchived, setItemShowArchived] = useState(false);
+  const [isItemFormOpen, setIsItemFormOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [formItem, setFormItem] = useState<MenuFormItem>({});
+  const [isSavingItem, setIsSavingItem] = useState(false);
 
   // Detect dark mode for Recharts inline color props
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
@@ -478,9 +492,108 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     return staffList.filter(s => s.username.toLowerCase().includes(q) || s.role.toLowerCase().includes(q));
   }, [staffList, staffSearch]);
 
+  // ─── Items tab helpers ───
+  const itemCategories = useMemo(() => {
+    const cats = Array.from(new Set(restaurant.menu.map(m => m.category))).sort();
+    return ['ALL', ...cats];
+  }, [restaurant.menu]);
+
+  const filteredItems = useMemo(() => {
+    return restaurant.menu.filter(item => {
+      if (!itemShowArchived && item.isArchived) return false;
+      if (itemShowArchived && !item.isArchived) return false;
+      if (itemCategoryFilter !== 'ALL' && item.category !== itemCategoryFilter) return false;
+      if (itemSearch) {
+        const q = itemSearch.toLowerCase();
+        if (!item.name.toLowerCase().includes(q) && !item.category.toLowerCase().includes(q) && !(item.sku || '').toLowerCase().includes(q) && !(item.barcode || '').toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+  }, [restaurant.menu, itemSearch, itemCategoryFilter, itemShowArchived]);
+
+  const openAddItem = () => {
+    setEditingItem(null);
+    setFormItem({ name: '', description: '', price: 0, image: '', category: '', soldBy: 'each', cost: 0, sku: '', barcode: '', trackStock: false, isArchived: false, sizes: [], addOns: [], linkedModifiers: [], sizesEnabled: false });
+    setIsItemFormOpen(true);
+  };
+
+  const openEditItem = (item: MenuItem) => {
+    setEditingItem(item);
+    setFormItem({
+      ...item,
+      sizesEnabled: (item.sizes?.length ?? 0) > 0,
+      variantOptions: item.variantOptions || { enabled: false, options: [] },
+    });
+    setIsItemFormOpen(true);
+  };
+
+  const handleItemFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formItem.name?.trim() || !formItem.category?.trim()) {
+      toast('Name and category are required', 'warning');
+      return;
+    }
+    const linked = formItem.linkedModifiers || [];
+    const payload: MenuItem = {
+      id: editingItem?.id || crypto.randomUUID(),
+      name: formItem.name.trim(),
+      description: (formItem.description || '').trim(),
+      price: Number(formItem.price || 0),
+      image: (formItem.image || '').trim() || `https://picsum.photos/seed/${encodeURIComponent(formItem.name.trim())}/300/300`,
+      category: formItem.category.trim(),
+      isArchived: formItem.isArchived || false,
+      sizes: formItem.sizesEnabled ? formItem.sizes : [],
+      tempOptions: formItem.tempOptions?.enabled ? formItem.tempOptions : undefined,
+      variantOptions: formItem.variantOptions?.enabled ? formItem.variantOptions : undefined,
+      otherVariantName: linked[0] || '',
+      otherVariants: [],
+      otherVariantsEnabled: linked.length > 0,
+      linkedModifiers: linked,
+      addOns: formItem.addOns || [],
+      cost: Number(formItem.cost || 0),
+      sku: (formItem.sku || '').trim(),
+      barcode: (formItem.barcode || '').trim(),
+      soldBy: formItem.soldBy || 'each',
+      trackStock: formItem.trackStock || false,
+    };
+
+    setIsSavingItem(true);
+    try {
+      if (editingItem) {
+        await onUpdateMenu?.(restaurant.id, payload);
+      } else {
+        await onAddMenuItem?.(restaurant.id, payload);
+      }
+      setIsItemFormOpen(false);
+      setEditingItem(null);
+      toast(editingItem ? 'Item updated' : 'Item added', 'success');
+    } catch (err: any) {
+      toast(err.message || 'Failed to save item', 'error');
+    } finally {
+      setIsSavingItem(false);
+    }
+  };
+
+  const handleArchiveItem = async (item: MenuItem) => {
+    await onUpdateMenu?.(restaurant.id, { ...item, isArchived: true });
+    toast(`${item.name} archived`, 'success');
+  };
+
+  const handleRestoreItem = async (item: MenuItem) => {
+    await onUpdateMenu?.(restaurant.id, { ...item, isArchived: false });
+    toast(`${item.name} restored`, 'success');
+  };
+
+  const handleDeleteItem = async (item: MenuItem) => {
+    if (!confirm(`Permanently delete "${item.name}"? This cannot be undone.`)) return;
+    await onPermanentDeleteMenuItem?.(restaurant.id, item.id);
+    toast(`${item.name} deleted`, 'success');
+  };
+
   // ─── Tab buttons ───
   const simpleTabs: { key: BackOfficeTab; label: string; icon: React.ReactNode }[] = [
     { key: 'DASHBOARD', label: 'Dashboard', icon: <BarChart3 size={18} /> },
+    { key: 'ITEMS', label: 'Item List', icon: <ShoppingBag size={18} /> },
     { key: 'STAFF', label: 'Staff Management', icon: <Users size={18} /> },
     { key: 'STOCK', label: 'Stock Management', icon: <Package size={18} /> },
   ];
@@ -945,6 +1058,154 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 ) : <div className="h-32 flex items-center justify-center text-gray-500 dark:text-gray-600 text-sm">No data</div>}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ════════════════════════════════════ */}
+        {/* ITEMS TAB (Loyverse-style)          */}
+        {/* ════════════════════════════════════ */}
+        {activeTab === 'ITEMS' && (
+          <div>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+              <h2 className="text-lg font-black">Item List</h2>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                  <input
+                    type="text"
+                    placeholder="Search name, SKU, barcode..."
+                    value={itemSearch}
+                    onChange={e => setItemSearch(e.target.value)}
+                    className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-4 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none w-56"
+                  />
+                </div>
+                <select
+                  value={itemCategoryFilter}
+                  onChange={e => setItemCategoryFilter(e.target.value)}
+                  className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                >
+                  {itemCategories.map(c => <option key={c} value={c}>{c === 'ALL' ? 'All Categories' : c}</option>)}
+                </select>
+                <button
+                  onClick={() => setItemShowArchived(!itemShowArchived)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${itemShowArchived ? 'bg-red-50 dark:bg-red-900/20 text-red-600 border-red-200 dark:border-red-800' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 border-gray-200 dark:border-gray-700'}`}
+                >
+                  {itemShowArchived ? 'Archived' : 'Active'}
+                </button>
+                <button
+                  onClick={openAddItem}
+                  className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20"
+                >
+                  <Plus size={14} /> Add Item
+                </button>
+              </div>
+            </div>
+
+            {/* Summary */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Items</p>
+                <p className="text-2xl font-black dark:text-white">{restaurant.menu.filter(m => !m.isArchived).length}</p>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Categories</p>
+                <p className="text-2xl font-black dark:text-white">{itemCategories.length - 1}</p>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tracked</p>
+                <p className="text-2xl font-black text-green-500">{restaurant.menu.filter(m => !m.isArchived && m.trackStock).length}</p>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Archived</p>
+                <p className="text-2xl font-black text-red-400">{restaurant.menu.filter(m => m.isArchived).length}</p>
+              </div>
+            </div>
+
+            {/* Item Table */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                      <th className="text-left px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider">Item</th>
+                      <th className="text-left px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider hidden md:table-cell">Category</th>
+                      <th className="text-right px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider">Price</th>
+                      <th className="text-right px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider hidden lg:table-cell">Cost</th>
+                      <th className="text-left px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider hidden lg:table-cell">SKU</th>
+                      <th className="text-center px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider hidden md:table-cell">Stock</th>
+                      <th className="text-right px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredItems.length === 0 ? (
+                      <tr><td colSpan={7} className="text-center py-12 text-gray-400 text-sm">No items found</td></tr>
+                    ) : filteredItems.map(item => (
+                      <tr key={item.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <img src={item.image} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100 dark:bg-gray-700 shrink-0" />
+                            <div className="min-w-0">
+                              <p className="font-bold text-sm dark:text-white truncate">{item.name}</p>
+                              {item.description && <p className="text-[10px] text-gray-400 truncate max-w-[200px]">{item.description}</p>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 hidden md:table-cell">
+                          <span className="px-2 py-1 text-[10px] font-bold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg">{item.category}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold dark:text-white">{currencySymbol}{item.price.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-right text-gray-500 hidden lg:table-cell">{item.cost ? `${currencySymbol}${item.cost.toFixed(2)}` : '–'}</td>
+                        <td className="px-4 py-3 text-gray-500 hidden lg:table-cell font-mono text-xs">{item.sku || '–'}</td>
+                        <td className="px-4 py-3 text-center hidden md:table-cell">
+                          {item.trackStock ? (
+                            <span className="px-2 py-0.5 text-[9px] font-bold bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full">Tracked</span>
+                          ) : (
+                            <span className="text-gray-300 dark:text-gray-600 text-xs">–</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => openEditItem(item)}
+                              className="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-all"
+                              title="Edit"
+                            >
+                              <Edit3 size={14} />
+                            </button>
+                            {item.isArchived ? (
+                              <>
+                                <button onClick={() => handleRestoreItem(item)} className="p-1.5 text-gray-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-all" title="Restore">
+                                  <RotateCcw size={14} />
+                                </button>
+                                <button onClick={() => handleDeleteItem(item)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all" title="Delete permanently">
+                                  <Trash2 size={14} />
+                                </button>
+                              </>
+                            ) : (
+                              <button onClick={() => handleArchiveItem(item)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all" title="Archive">
+                                <Archive size={14} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Item Form Modal */}
+            <MenuItemFormModal
+              isOpen={isItemFormOpen}
+              formItem={formItem}
+              setFormItem={setFormItem}
+              categories={itemCategories.filter(c => c !== 'ALL')}
+              availableModifiers={restaurant.modifiers || []}
+              onClose={() => { setIsItemFormOpen(false); setEditingItem(null); }}
+              onSubmit={handleItemFormSubmit}
+              onImageUpload={onImageUpload}
+            />
           </div>
         )}
 

@@ -35,6 +35,13 @@ export interface MenuItem {
   image: string;
   category: string;
   isArchived?: boolean;
+  // Loyverse-style fields
+  cost?: number;           // COGS / cost price
+  sku?: string;            // Stock Keeping Unit
+  barcode?: string;        // Barcode / EAN / UPC
+  soldBy?: 'each' | 'weight'; // Sold by each or weight/volume
+  trackStock?: boolean;    // Enable inventory tracking for this item
+  // Variant systems
   sizes?: MenuItemVariant[];
   otherVariantName?: string;
   otherVariants?: MenuItemVariant[];
