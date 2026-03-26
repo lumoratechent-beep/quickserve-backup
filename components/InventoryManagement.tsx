@@ -13,7 +13,10 @@ interface Supplier {
   name: string;
   email: string;
   phone: string;
-  address: string;
+  addressLine1: string;
+  postcode: string;
+  state: string;
+  country: string;
   notes: string;
 }
 
@@ -146,6 +149,13 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // ─── Quick Add Supplier Modal ───
+  const blankSupplierForm = (): Omit<Supplier, 'id'> => ({
+    name: '', email: '', phone: '', addressLine1: '', postcode: '', state: '', country: '', notes: '',
+  });
+  const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
+  const [newSupplierForm, setNewSupplierForm] = useState<Omit<Supplier, 'id'>>(blankSupplierForm());
+
   // Purchase order form
   const [poForm, setPoForm] = useState<{ supplierId: string; expectedDate: string; notes: string; items: PurchaseOrderItem[] }>({
     supplierId: '', expectedDate: '', notes: '', items: [],
@@ -220,6 +230,18 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     addHistory({ action: 'Purchase order created', itemName: `PO-${newPO.id.slice(-6)}`, quantity: poForm.items.reduce((s, i) => s + i.quantity, 0), type: 'in', reference: newPO.id });
     setPoForm({ supplierId: '', expectedDate: '', notes: '', items: [] });
     setShowForm(false);
+  };
+
+  // ─── Quick Add Supplier (from PO form) ───
+  const handleQuickAddSupplier = () => {
+    if (!newSupplierForm.name.trim()) return;
+    const newSupplier: Supplier = { ...newSupplierForm, id: crypto.randomUUID() };
+    const updated = [...suppliers, newSupplier];
+    setSuppliers(updated);
+    saveState('suppliers', updated);
+    setPoForm(f => ({ ...f, supplierId: newSupplier.id }));
+    setNewSupplierForm(blankSupplierForm());
+    setShowAddSupplierModal(false);
   };
 
   const handleUpdatePOStatus = (poId: string, newStatus: PurchaseOrder['status']) => {
@@ -460,6 +482,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const formatDate = (ts: number) => new Date(ts).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
+    <>
     <div>
       <div>
 
@@ -481,11 +504,17 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Supplier *</label>
-                  <select value={poForm.supplierId} onChange={e => setPoForm(f => ({ ...f, supplierId: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                  <select value={poForm.supplierId} onChange={e => {
+                    if (e.target.value === '__add_new__') {
+                      setShowAddSupplierModal(true);
+                    } else {
+                      setPoForm(f => ({ ...f, supplierId: e.target.value }));
+                    }
+                  }} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
                     <option value="">Select supplier</option>
                     {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    <option value="__add_new__">+ Add new Supplier</option>
                   </select>
-                  {suppliers.length === 0 && <p className="text-[10px] text-amber-400 mt-1">Add suppliers first in the Suppliers tab</p>}
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Expected Delivery</label>
@@ -1133,6 +1162,60 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
       )}
     </div>
     </div>
+
+      {/* ─── Quick Add Supplier Modal ─── */}
+      {showAddSupplierModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAddSupplierModal(false)} />
+          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base font-black text-gray-900 dark:text-white">Add New Supplier</h3>
+              <button onClick={() => setShowAddSupplierModal(false)} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-white transition-all">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="md:col-span-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Name *</label>
+                <input type="text" value={newSupplierForm.name} onChange={e => setNewSupplierForm(f => ({ ...f, name: e.target.value }))} placeholder="Supplier name" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Email</label>
+                <input type="email" value={newSupplierForm.email} onChange={e => setNewSupplierForm(f => ({ ...f, email: e.target.value }))} placeholder="supplier@email.com" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Phone</label>
+                <input type="tel" value={newSupplierForm.phone} onChange={e => setNewSupplierForm(f => ({ ...f, phone: e.target.value }))} placeholder="Phone number" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Street / Address Line</label>
+                <input type="text" value={newSupplierForm.addressLine1} onChange={e => setNewSupplierForm(f => ({ ...f, addressLine1: e.target.value }))} placeholder="Street address" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Postcode</label>
+                <input type="text" value={newSupplierForm.postcode} onChange={e => setNewSupplierForm(f => ({ ...f, postcode: e.target.value }))} placeholder="Postcode" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">State</label>
+                <input type="text" value={newSupplierForm.state} onChange={e => setNewSupplierForm(f => ({ ...f, state: e.target.value }))} placeholder="State / Province" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Country</label>
+                <input type="text" value={newSupplierForm.country} onChange={e => setNewSupplierForm(f => ({ ...f, country: e.target.value }))} placeholder="Country" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Notes</label>
+                <input type="text" value={newSupplierForm.notes} onChange={e => setNewSupplierForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional notes" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => { setShowAddSupplierModal(false); setNewSupplierForm(blankSupplierForm()); }} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
+              <button onClick={handleQuickAddSupplier} className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20">Add Supplier</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

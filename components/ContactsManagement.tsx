@@ -11,7 +11,10 @@ interface Supplier {
   name: string;
   email: string;
   phone: string;
-  address: string;
+  addressLine1: string;
+  postcode: string;
+  state: string;
+  country: string;
   notes: string;
 }
 
@@ -20,7 +23,10 @@ interface Customer {
   name: string;
   email: string;
   phone: string;
-  address: string;
+  addressLine1: string;
+  postcode: string;
+  state: string;
+  country: string;
   notes: string;
   totalOrders: number;
   totalSpent: number;
@@ -64,11 +70,11 @@ const ContactsManagement: React.FC<Props> = ({ restaurant, currencySymbol, initi
   const [searchQuery, setSearchQuery] = useState('');
 
   // Supplier form
-  const [supplierForm, setSupplierForm] = useState<Supplier>({ id: '', name: '', email: '', phone: '', address: '', notes: '' });
+  const [supplierForm, setSupplierForm] = useState<Supplier>({ id: '', name: '', email: '', phone: '', addressLine1: '', postcode: '', state: '', country: '', notes: '' });
   const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null);
 
   // Customer form
-  const [customerForm, setCustomerForm] = useState<Customer>({ id: '', name: '', email: '', phone: '', address: '', notes: '', totalOrders: 0, totalSpent: 0, createdAt: 0 });
+  const [customerForm, setCustomerForm] = useState<Customer>({ id: '', name: '', email: '', phone: '', addressLine1: '', postcode: '', state: '', country: '', notes: '', totalOrders: 0, totalSpent: 0, createdAt: 0 });
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
 
   // ─── Supplier Handlers ───
@@ -82,7 +88,7 @@ const ContactsManagement: React.FC<Props> = ({ restaurant, currencySymbol, initi
     }
     setSuppliers(updated);
     saveState('suppliers', updated);
-    setSupplierForm({ id: '', name: '', email: '', phone: '', address: '', notes: '' });
+    setSupplierForm({ id: '', name: '', email: '', phone: '', addressLine1: '', postcode: '', state: '', country: '', notes: '' });
     setEditingSupplierId(null);
     setShowForm(false);
   };
@@ -105,7 +111,7 @@ const ContactsManagement: React.FC<Props> = ({ restaurant, currencySymbol, initi
     }
     setCustomers(updated);
     saveState('customers', updated, 'contact');
-    setCustomerForm({ id: '', name: '', email: '', phone: '', address: '', notes: '', totalOrders: 0, totalSpent: 0, createdAt: 0 });
+    setCustomerForm({ id: '', name: '', email: '', phone: '', addressLine1: '', postcode: '', state: '', country: '', notes: '', totalOrders: 0, totalSpent: 0, createdAt: 0 });
     setEditingCustomerId(null);
     setShowForm(false);
   };
@@ -156,7 +162,7 @@ const ContactsManagement: React.FC<Props> = ({ restaurant, currencySymbol, initi
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                 <input type="text" placeholder="Search suppliers..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-4 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none w-48" />
               </div>
-              <button onClick={() => { setShowForm(!showForm); setEditingSupplierId(null); setSupplierForm({ id: '', name: '', email: '', phone: '', address: '', notes: '' }); }} className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20">
+              <button onClick={() => { setShowForm(!showForm); setEditingSupplierId(null); setSupplierForm({ id: '', name: '', email: '', phone: '', addressLine1: '', postcode: '', state: '', country: '', notes: '' }); }} className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20">
                 <Plus size={14} /> Add Supplier
               </button>
             </div>
@@ -166,7 +172,7 @@ const ContactsManagement: React.FC<Props> = ({ restaurant, currencySymbol, initi
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 mb-6">
               <h3 className="text-sm font-black mb-4">{editingSupplierId ? 'Edit' : 'Add'} Supplier</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
+                <div className="md:col-span-2">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Name *</label>
                   <input type="text" value={supplierForm.name} onChange={e => setSupplierForm(f => ({ ...f, name: e.target.value }))} placeholder="Supplier name" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
                 </div>
@@ -178,9 +184,21 @@ const ContactsManagement: React.FC<Props> = ({ restaurant, currencySymbol, initi
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Phone</label>
                   <input type="tel" value={supplierForm.phone} onChange={e => setSupplierForm(f => ({ ...f, phone: e.target.value }))} placeholder="Phone number" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
                 </div>
+                <div className="md:col-span-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Street / Address Line</label>
+                  <input type="text" value={supplierForm.addressLine1} onChange={e => setSupplierForm(f => ({ ...f, addressLine1: e.target.value }))} placeholder="Street address" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                </div>
                 <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Address</label>
-                  <input type="text" value={supplierForm.address} onChange={e => setSupplierForm(f => ({ ...f, address: e.target.value }))} placeholder="Address" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Postcode</label>
+                  <input type="text" value={supplierForm.postcode} onChange={e => setSupplierForm(f => ({ ...f, postcode: e.target.value }))} placeholder="Postcode" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">State</label>
+                  <input type="text" value={supplierForm.state} onChange={e => setSupplierForm(f => ({ ...f, state: e.target.value }))} placeholder="State / Province" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Country</label>
+                  <input type="text" value={supplierForm.country} onChange={e => setSupplierForm(f => ({ ...f, country: e.target.value }))} placeholder="Country" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
                 </div>
               </div>
               <div className="mb-4">
@@ -213,7 +231,9 @@ const ContactsManagement: React.FC<Props> = ({ restaurant, currencySymbol, initi
                 <div className="space-y-1.5">
                   {supplier.email && <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2"><Mail size={12} /> {supplier.email}</p>}
                   {supplier.phone && <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2"><Phone size={12} /> {supplier.phone}</p>}
-                  {supplier.address && <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2"><MapPin size={12} /> {supplier.address}</p>}
+                  {(supplier.addressLine1 || supplier.postcode || supplier.state || supplier.country) && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2"><MapPin size={12} className="mt-0.5 shrink-0" /><span>{[supplier.addressLine1, supplier.postcode, supplier.state, supplier.country].filter(Boolean).join(', ')}</span></p>
+                  )}
                   {supplier.notes && <p className="text-xs text-gray-400 dark:text-gray-500 italic mt-2">{supplier.notes}</p>}
                 </div>
               </div>
@@ -243,7 +263,7 @@ const ContactsManagement: React.FC<Props> = ({ restaurant, currencySymbol, initi
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                 <input type="text" placeholder="Search customers..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-4 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none w-48" />
               </div>
-              <button onClick={() => { setShowForm(!showForm); setEditingCustomerId(null); setCustomerForm({ id: '', name: '', email: '', phone: '', address: '', notes: '', totalOrders: 0, totalSpent: 0, createdAt: 0 }); }} className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20">
+              <button onClick={() => { setShowForm(!showForm); setEditingCustomerId(null); setCustomerForm({ id: '', name: '', email: '', phone: '', addressLine1: '', postcode: '', state: '', country: '', notes: '', totalOrders: 0, totalSpent: 0, createdAt: 0 }); }} className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20">
                 <Plus size={14} /> Add Customer
               </button>
             </div>
@@ -253,7 +273,7 @@ const ContactsManagement: React.FC<Props> = ({ restaurant, currencySymbol, initi
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 mb-6">
               <h3 className="text-sm font-black mb-4">{editingCustomerId ? 'Edit' : 'Add'} Customer</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
+                <div className="md:col-span-2">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Name *</label>
                   <input type="text" value={customerForm.name} onChange={e => setCustomerForm(f => ({ ...f, name: e.target.value }))} placeholder="Customer name" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
                 </div>
@@ -265,9 +285,21 @@ const ContactsManagement: React.FC<Props> = ({ restaurant, currencySymbol, initi
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Phone</label>
                   <input type="tel" value={customerForm.phone} onChange={e => setCustomerForm(f => ({ ...f, phone: e.target.value }))} placeholder="Phone number" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
                 </div>
+                <div className="md:col-span-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Street / Address Line</label>
+                  <input type="text" value={customerForm.addressLine1} onChange={e => setCustomerForm(f => ({ ...f, addressLine1: e.target.value }))} placeholder="Street address" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                </div>
                 <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Address</label>
-                  <input type="text" value={customerForm.address} onChange={e => setCustomerForm(f => ({ ...f, address: e.target.value }))} placeholder="Address" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Postcode</label>
+                  <input type="text" value={customerForm.postcode} onChange={e => setCustomerForm(f => ({ ...f, postcode: e.target.value }))} placeholder="Postcode" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">State</label>
+                  <input type="text" value={customerForm.state} onChange={e => setCustomerForm(f => ({ ...f, state: e.target.value }))} placeholder="State / Province" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Country</label>
+                  <input type="text" value={customerForm.country} onChange={e => setCustomerForm(f => ({ ...f, country: e.target.value }))} placeholder="Country" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
                 </div>
               </div>
               <div className="mb-4">
@@ -303,7 +335,9 @@ const ContactsManagement: React.FC<Props> = ({ restaurant, currencySymbol, initi
                 <div className="space-y-1.5">
                   {customer.email && <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2"><Mail size={12} /> {customer.email}</p>}
                   {customer.phone && <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2"><Phone size={12} /> {customer.phone}</p>}
-                  {customer.address && <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2"><MapPin size={12} /> {customer.address}</p>}
+                  {(customer.addressLine1 || customer.postcode || customer.state || customer.country) && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2"><MapPin size={12} className="mt-0.5 shrink-0" /><span>{[customer.addressLine1, customer.postcode, customer.state, customer.country].filter(Boolean).join(', ')}</span></p>
+                  )}
                   {customer.notes && <p className="text-xs text-gray-400 dark:text-gray-500 italic mt-2">{customer.notes}</p>}
                 </div>
                 <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex justify-between">

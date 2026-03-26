@@ -507,15 +507,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       ],
     },
     {
-      key: 'FINANCE', label: 'Finance', icon: <DollarSign size={18} />,
-      subItems: [
-        { key: 'overview', label: 'Overview', icon: <BarChart3 size={14} /> },
-        { key: 'expenses', label: 'Expenses', icon: <Receipt size={14} /> },
-        { key: 'reports', label: 'Reports', icon: <FileBarChart size={14} /> },
-      ],
-    },
-    {
-      key: 'REPORTS', label: 'Reports', icon: <FileBarChart size={18} />,
+      key: 'REPORTS', label: 'Sales Report', icon: <FileBarChart size={18} />,
       subItems: [
         { key: 'sales_summary', label: 'Sales Summary', icon: <DollarSign size={14} /> },
         { key: 'sales_by_item', label: 'By Item', icon: <ShoppingBag size={14} /> },
@@ -526,6 +518,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
         { key: 'discounts', label: 'Discounts', icon: <Percent size={14} /> },
         { key: 'taxes', label: 'Taxes', icon: <Receipt size={14} /> },
       ],
+    },
+    {
+      key: 'FINANCE', label: 'Finance', icon: <DollarSign size={18} />,
+      subItems: [],
     },
   ];
 
@@ -639,10 +635,15 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                     if (isSidebarCollapsed) {
                       setActiveTab(tab.key);
                     } else {
-                      toggleExpanded(tab.key);
-                      if (!isActive) {
+                      if (tab.subItems.length === 0) {
                         setActiveTab(tab.key);
-                        if (!currentSub) setActiveSubTab(tab.key, tab.subItems[0].key);
+                        setExpandedMenus(new Set());
+                      } else {
+                        toggleExpanded(tab.key);
+                        if (!isActive) {
+                          setActiveTab(tab.key);
+                          if (!currentSub) setActiveSubTab(tab.key, tab.subItems[0].key);
+                        }
                       }
                     }
                   }}
@@ -657,11 +658,13 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                   {!isSidebarCollapsed && (
                     <>
                       <span className="flex-1 text-left">{tab.label}</span>
-                      <ChevronDown size={14} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                      {tab.subItems.length > 0 && (
+                        <ChevronDown size={14} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                      )}
                     </>
                   )}
                 </button>
-                {!isSidebarCollapsed && (
+                {!isSidebarCollapsed && tab.subItems.length > 0 && (
                   <div className={`ml-6 space-y-0.5 border-l-2 border-gray-200 dark:border-gray-700 pl-3 overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-96 opacity-100 mt-1' : 'max-h-0 opacity-0 mt-0'}`}>
                     {tab.subItems.map(sub => (
                       <button
