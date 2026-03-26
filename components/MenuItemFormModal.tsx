@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { MenuItem, AddOnItem, ModifierData } from '../src/types';
 import { X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle, Save, Pencil, Package, ScanBarcode, DollarSign, Tag, Layers, ChevronDown } from 'lucide-react';
 import { toast } from './Toast';
+import ImageCropModal from './ImageCropModal';
 
 export type MenuFormItem = Partial<MenuItem & { sizesEnabled?: boolean; variantOptionsEnabled?: boolean }>;
 
@@ -39,6 +40,23 @@ const MenuItemFormModal: React.FC<Props> = ({
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [localCategories, setLocalCategories] = useState<string[]>(categories);
+  const [cropFile, setCropFile] = useState<File | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) setCropFile(file);
+    // Reset so same file can be re-selected
+    e.target.value = '';
+  };
+
+  const handleCropApply = (blob: Blob) => {
+    const croppedFile = new File([blob], cropFile?.name ?? 'image.png', { type: 'image/png' });
+    const dt = new DataTransfer();
+    dt.items.add(croppedFile);
+    const syntheticEvent = { target: { files: dt.files } } as React.ChangeEvent<HTMLInputElement>;
+    setCropFile(null);
+    onImageUpload?.(syntheticEvent);
+  };
 
   useEffect(() => {
     const mql = window.matchMedia('(orientation: landscape)');
@@ -263,7 +281,7 @@ const MenuItemFormModal: React.FC<Props> = ({
                 <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Upload Frame</span>
               </div>
             )}
-            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={onImageUpload} />
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
           </div>
         </div>
         <div className="space-y-2">
@@ -298,12 +316,29 @@ const MenuItemFormModal: React.FC<Props> = ({
         </div>
         <div>
           <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Category *</label>
-          {isAddingCategory ? (
-            <div className="flex gap-2">
+          <select
+            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
+            value={isAddingCategory ? '__add_new__' : (formItem.category || 'No Category')}
+            onChange={e => {
+              if (e.target.value === '__add_new__') {
+                setIsAddingCategory(true);
+              } else {
+                setFormItem(prev => ({ ...prev, category: e.target.value }));
+              }
+            }}
+          >
+            <option value="No Category">No Category</option>
+            {localCategories.filter(c => c !== 'All' && c !== 'No Category').map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+            <option value="__add_new__">＋ Add new category...</option>
+          </select>
+          {isAddingCategory && (
+            <div className="flex gap-2 mt-2">
               <input
                 autoFocus
                 type="text"
-                className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm focus:ring-2 focus:ring-amber-500"
+                className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-amber-400 dark:border-amber-500 rounded-lg outline-none font-bold dark:text-white text-sm focus:ring-2 focus:ring-amber-500"
                 placeholder="New category name"
                 value={newCategoryName}
                 onChange={e => setNewCategoryName(e.target.value)}
@@ -318,6 +353,7 @@ const MenuItemFormModal: React.FC<Props> = ({
                   } else if (e.key === 'Escape') {
                     setIsAddingCategory(false);
                     setNewCategoryName('');
+                    setFormItem(prev => ({ ...prev, category: prev.category || 'No Category' }));
                   }
                 }}
               />
@@ -328,38 +364,14 @@ const MenuItemFormModal: React.FC<Props> = ({
                   if (name) {
                     if (!localCategories.includes(name)) setLocalCategories(prev => [...prev, name]);
                     setFormItem(prev => ({ ...prev, category: name }));
+                  } else {
+                    setFormItem(prev => ({ ...prev, category: prev.category || 'No Category' }));
                   }
                   setIsAddingCategory(false);
                   setNewCategoryName('');
                 }}
                 className="px-3 py-2 bg-amber-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all"
               >Add</button>
-              <button
-                type="button"
-                onClick={() => { setIsAddingCategory(false); setNewCategoryName(''); }}
-                className="px-3 py-2 bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-lg text-xs font-bold hover:bg-gray-300 dark:hover:bg-gray-500 transition-all"
-              ><X size={14} /></button>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <select
-                className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
-                value={formItem.category || 'No Category'}
-                onChange={e => setFormItem(prev => ({ ...prev, category: e.target.value }))}
-              >
-                <option value="No Category">No Category</option>
-                {localCategories.filter(c => c !== 'All' && c !== 'No Category').map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => setIsAddingCategory(true)}
-                className="px-3 py-2 bg-gray-100 dark:bg-gray-600 text-gray-500 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-500 transition-all flex items-center gap-1"
-                title="Create new category"
-              >
-                <Plus size={14} />
-              </button>
             </div>
           )}
         </div>
@@ -494,37 +506,19 @@ const MenuItemFormModal: React.FC<Props> = ({
   const variantsModifiersHeader = (
     <div className="space-y-3 border-t dark:border-gray-700 pt-4">
       <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><Layers size={16} className="text-amber-500" /> Variants & Modifiers</h3>
-      <div className="flex flex-wrap gap-3">
-        <div className="flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">Portion Size</span>
-          <button
-            type="button"
-            onClick={() => setFormItem(prev => ({ ...prev, sizesEnabled: !prev.sizesEnabled }))}
-            className={`px-3 py-1 rounded text-[8px] font-black uppercase tracking-widest transition-all ${formItem.sizesEnabled ? 'bg-amber-500 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-400'}`}
-          >
-            {formItem.sizesEnabled ? 'On' : 'Off'}
+      <div className="flex flex-wrap gap-4">
+        {([
+          { label: 'Portion Sizes', enabled: !!formItem.sizesEnabled, toggle: () => setFormItem(prev => ({ ...prev, sizesEnabled: !prev.sizesEnabled })) },
+          { label: 'Thermal', enabled: !!formItem.tempOptions?.enabled, toggle: () => setFormItem(prev => ({ ...prev, tempOptions: { ...(prev.tempOptions || { hot: 0, cold: 0, enabled: false, options: [] }), enabled: !prev.tempOptions?.enabled } })) },
+          { label: 'Variants', enabled: !!formItem.variantOptions?.enabled, toggle: () => setFormItem(prev => ({ ...prev, variantOptions: { ...(prev.variantOptions || { enabled: false, options: [] }), enabled: !prev.variantOptions?.enabled } })) },
+        ] as { label: string; enabled: boolean; toggle: () => void }[]).map(({ label, enabled, toggle }) => (
+          <button key={label} type="button" onClick={toggle} className="flex items-center gap-2 group">
+            <div className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 ${enabled ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+              <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform duration-200 ${enabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+            </div>
+            <span className={`text-[9px] font-black uppercase tracking-widest ${enabled ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'}`}>{label}</span>
           </button>
-        </div>
-        <div className="flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">Thermal</span>
-          <button
-            type="button"
-            onClick={() => setFormItem(prev => ({ ...prev, tempOptions: { ...(prev.tempOptions || { hot: 0, cold: 0, enabled: false, options: [] }), enabled: !prev.tempOptions?.enabled } }))}
-            className={`px-3 py-1 rounded text-[8px] font-black uppercase tracking-widest transition-all ${formItem.tempOptions?.enabled ? 'bg-amber-500 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-400'}`}
-          >
-            {formItem.tempOptions?.enabled ? 'On' : 'Off'}
-          </button>
-        </div>
-        <div className="flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">Variant Options</span>
-          <button
-            type="button"
-            onClick={() => setFormItem(prev => ({ ...prev, variantOptions: { ...(prev.variantOptions || { enabled: false, options: [] }), enabled: !prev.variantOptions?.enabled } }))}
-            className={`px-3 py-1 rounded text-[8px] font-black uppercase tracking-widest transition-all ${formItem.variantOptions?.enabled ? 'bg-amber-500 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-400'}`}
-          >
-            {formItem.variantOptions?.enabled ? 'On' : 'Off'}
-          </button>
-        </div>
+        ))}
       </div>
     </div>
   );
@@ -883,6 +877,14 @@ const MenuItemFormModal: React.FC<Props> = ({
   );
 
   return (
+    <>
+    {cropFile && (
+      <ImageCropModal
+        imageFile={cropFile}
+        onCrop={handleCropApply}
+        onCancel={() => setCropFile(null)}
+      />
+    )}
     <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-2 md:p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl max-w-6xl w-full max-h-[95vh] p-4 md:p-6 shadow-2xl relative animate-in zoom-in fade-in duration-300 overflow-y-auto">
         <button onClick={onClose} className="absolute top-4 right-4 z-10 p-2 text-gray-400 hover:text-red-500 transition-colors"><X size={20} /></button>
@@ -917,6 +919,7 @@ const MenuItemFormModal: React.FC<Props> = ({
         </form>
       </div>
     </div>
+    </>
   );
 };
 
