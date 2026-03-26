@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Order, OrderStatus, MenuItem, Restaurant } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
@@ -67,6 +67,16 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [inventorySubTab, setInventorySubTab] = useState<string | undefined>(undefined);
   const [contactSubTab, setContactSubTab] = useState<string | undefined>(undefined);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
+
+  // Detect dark mode for Recharts inline color props
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
+  useEffect(() => {
+    const observer = new MutationObserver(() => setIsDark(document.documentElement.classList.contains('dark')));
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+  const gridStroke = isDark ? '#374151' : '#E5E7EB';
+  const tickFill = isDark ? '#9CA3AF' : '#6B7280';
   const today = new Date();
   const [dateRange, setDateRange] = useState<DateRange>('30d');
   const [customStart, setCustomStart] = useState(() => {
@@ -275,7 +285,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const ChangeIndicator = ({ value }: { value: number }) => {
     const isPositive = value >= 0;
     return (
-      <span className={`inline-flex items-center gap-1 text-xs font-bold rounded-full px-2 py-0.5 ${isPositive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+      <span className={`inline-flex items-center gap-1 text-xs font-bold rounded-full px-2 py-0.5 ${isPositive ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400' : 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400'}`}>
         {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
         {isPositive ? '+' : ''}{value.toFixed(1)}%
       </span>
@@ -285,11 +295,11 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     return (
-      <div className="bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 shadow-xl">
-        <p className="text-xs font-bold text-white mb-1">{label}</p>
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 shadow-xl">
+        <p className="text-xs font-bold text-gray-900 dark:text-white mb-1">{label}</p>
         {payload.map((p: any, i: number) => (
-          <p key={i} className="text-xs text-gray-300">
-            {p.name}: <span className="text-amber-400 font-bold">{typeof p.value === 'number' && p.name !== 'orders' ? `${currencySymbol}${p.value.toFixed(2)}` : p.value}</span>
+          <p key={i} className="text-xs text-gray-600 dark:text-gray-300">
+            {p.name}: <span className="text-amber-600 dark:text-amber-400 font-bold">{typeof p.value === 'number' && p.name !== 'orders' ? `${currencySymbol}${p.value.toFixed(2)}` : p.value}</span>
           </p>
         ))}
       </div>
@@ -734,15 +744,15 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             {/* KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               {[
-                { label: 'Total Sales', value: `${currencySymbol}${kpis.totalSales.toFixed(2)}`, change: kpis.salesChange, icon: <DollarSign size={20} className="text-amber-500" />, bg: 'bg-amber-600/20' },
-                { label: 'Total Orders', value: kpis.totalOrders.toLocaleString(), change: kpis.ordersChange, icon: <ShoppingBag size={20} className="text-blue-400" />, bg: 'bg-blue-600/20' },
-                { label: 'Avg. Order', value: `${currencySymbol}${kpis.avgOrder.toFixed(2)}`, change: kpis.avgChange, icon: <Receipt size={20} className="text-green-400" />, bg: 'bg-green-600/20' },
-                { label: 'Cancelled', value: kpis.cancelled.toString(), change: kpis.cancelledChange, icon: <XCircle size={20} className="text-red-400" />, bg: 'bg-red-600/20' },
+                { label: 'Total Sales', value: `${currencySymbol}${kpis.totalSales.toFixed(2)}`, change: kpis.salesChange, icon: <DollarSign size={20} className="text-amber-600 dark:text-amber-500" />, bg: 'bg-amber-100 dark:bg-amber-600/20' },
+                { label: 'Total Orders', value: kpis.totalOrders.toLocaleString(), change: kpis.ordersChange, icon: <ShoppingBag size={20} className="text-blue-600 dark:text-blue-400" />, bg: 'bg-blue-100 dark:bg-blue-600/20' },
+                { label: 'Avg. Order', value: `${currencySymbol}${kpis.avgOrder.toFixed(2)}`, change: kpis.avgChange, icon: <Receipt size={20} className="text-green-600 dark:text-green-400" />, bg: 'bg-green-100 dark:bg-green-600/20' },
+                { label: 'Cancelled', value: kpis.cancelled.toString(), change: kpis.cancelledChange, icon: <XCircle size={20} className="text-red-600 dark:text-red-400" />, bg: 'bg-red-100 dark:bg-red-600/20' },
               ].map(kpi => (
-                <div key={kpi.label} className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all">
+                <div key={kpi.label} className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none hover:shadow-md dark:hover:border-gray-600 transition-all">
                   <div className="flex items-center gap-3 mb-3">
                     <div className={`w-10 h-10 rounded-xl ${kpi.bg} flex items-center justify-center`}>{kpi.icon}</div>
-                    <span className="text-sm font-bold text-gray-500 dark:text-gray-400">{kpi.label}</span>
+                    <span className="text-sm font-bold text-gray-600 dark:text-gray-400">{kpi.label}</span>
                   </div>
                   <p className="text-2xl font-black dark:text-white">{kpi.value}</p>
                   <div className="flex items-center gap-2 mt-2">
@@ -756,10 +766,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
               {/* Daily Sales */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-bold text-amber-400">Daily Sales</h3>
-                  <button onClick={() => handleSeeDetails('sales_summary')} className="text-[10px] font-bold text-amber-500 hover:text-amber-400 flex items-center gap-1 transition-all">See Details <ChevronRight size={12} /></button>
+                  <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400">Daily Sales</h3>
+                  <button onClick={() => handleSeeDetails('sales_summary')} className="text-[10px] font-bold text-amber-600 hover:text-amber-700 dark:text-amber-500 dark:hover:text-amber-400 flex items-center gap-1 transition-all">See Details <ChevronRight size={12} /></button>
                 </div>
                 {dailySales.length > 0 ? (
                   <ResponsiveContainer width="100%" height={280}>
@@ -770,9 +780,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                           <stop offset="100%" stopColor="#D97706" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#333" />
-                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${v}`} />
+                      <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={gridStroke} />
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: tickFill }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 10, fill: tickFill }} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${v}`} />
                       <Tooltip content={<CustomTooltip />} />
                       <Area type="monotone" dataKey="sales" stroke="#D97706" fill="url(#salesGradient)" strokeWidth={2} />
                     </AreaChart>
@@ -781,10 +791,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               </div>
 
               {/* Payment Methods */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-bold text-amber-400">Payment Methods</h3>
-                  <button onClick={() => handleSeeDetails('sales_by_payment')} className="text-[10px] font-bold text-amber-500 hover:text-amber-400 flex items-center gap-1 transition-all">See Details <ChevronRight size={12} /></button>
+                  <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400">Payment Methods</h3>
+                  <button onClick={() => handleSeeDetails('sales_by_payment')} className="text-[10px] font-bold text-amber-600 hover:text-amber-700 dark:text-amber-500 dark:hover:text-amber-400 flex items-center gap-1 transition-all">See Details <ChevronRight size={12} /></button>
                 </div>
                 {paymentData.length > 0 ? (
                   <>
@@ -797,7 +807,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                           <Tooltip content={({ active, payload }) => {
                             if (!active || !payload?.length) return null;
                             const d = payload[0].payload;
-                            return <div className="bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 shadow-xl"><p className="text-xs font-bold dark:text-white">{d.name}</p><p className="text-xs text-gray-300">{d.value} orders ({d.pct}%)</p></div>;
+                            return <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 shadow-xl"><p className="text-xs font-bold text-gray-900 dark:text-white">{d.name}</p><p className="text-xs text-gray-600 dark:text-gray-300">{d.value} orders ({d.pct}%)</p></div>;
                           }} />
                         </PieChart>
                       </ResponsiveContainer>
@@ -807,7 +817,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                         <div key={d.name} className="flex items-center gap-2">
                           <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
                           <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{d.name}</span>
-                          <span className="text-xs font-bold text-white ml-auto">{d.pct}%</span>
+                          <span className="text-xs font-bold text-gray-900 dark:text-white ml-auto">{d.pct}%</span>
                         </div>
                       ))}
                     </div>
@@ -819,16 +829,16 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             {/* Hourly Sales + Top Items */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
               {/* Hourly Sales */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-bold text-amber-400">Sales by Hour</h3>
-                  <button onClick={() => handleSeeDetails('sales_by_employee')} className="text-[10px] font-bold text-amber-500 hover:text-amber-400 flex items-center gap-1 transition-all">See Details <ChevronRight size={12} /></button>
+                  <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400">Sales by Hour</h3>
+                  <button onClick={() => handleSeeDetails('sales_by_employee')} className="text-[10px] font-bold text-amber-600 hover:text-amber-700 dark:text-amber-500 dark:hover:text-amber-400 flex items-center gap-1 transition-all">See Details <ChevronRight size={12} /></button>
                 </div>
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={hourlySales.filter(h => h.orders > 0)}>
-                    <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#333" />
-                    <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={gridStroke} />
+                    <XAxis dataKey="label" tick={{ fontSize: 9, fill: tickFill }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: tickFill }} axisLine={false} tickLine={false} />
                     <Tooltip content={<CustomTooltip />} />
                     <Bar dataKey="orders" fill="#3B82F6" radius={[4, 4, 0, 0]} maxBarSize={24} name="orders" />
                   </BarChart>
@@ -836,37 +846,37 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               </div>
 
               {/* Top Selling Items */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-bold text-amber-400">Top Selling Items</h3>
-                  <button onClick={() => handleSeeDetails('sales_by_item')} className="text-[10px] font-bold text-amber-500 hover:text-amber-400 flex items-center gap-1 transition-all">See Details <ChevronRight size={12} /></button>
+                  <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400">Top Selling Items</h3>
+                  <button onClick={() => handleSeeDetails('sales_by_item')} className="text-[10px] font-bold text-amber-600 hover:text-amber-700 dark:text-amber-500 dark:hover:text-amber-400 flex items-center gap-1 transition-all">See Details <ChevronRight size={12} /></button>
                 </div>
                 {topItems.length > 0 ? (
                   <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
                     {topItems.map((item, i) => (
-                      <div key={item.name} className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-xl hover:bg-gray-200 dark:bg-gray-600 transition-all">
+                      <div key={item.name} className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs ${
-                          i === 0 ? 'bg-amber-600 text-white' : i === 1 ? 'bg-gray-500 text-white' : i === 2 ? 'bg-orange-800 text-white' : 'bg-gray-700 text-gray-300'
+                          i === 0 ? 'bg-amber-600 text-white' : i === 1 ? 'bg-gray-500 text-white' : i === 2 ? 'bg-orange-800 text-white' : 'bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                         }`}>{i + 1}</div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold truncate">{item.name}</p>
-                          <p className="text-[10px] text-gray-400 dark:text-gray-500">{item.qty} sold</p>
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400">{item.qty} sold</p>
                         </div>
-                        <p className="text-sm font-bold text-amber-400">{currencySymbol}{item.revenue.toFixed(2)}</p>
+                        <p className="text-sm font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{item.revenue.toFixed(2)}</p>
                       </div>
                     ))}
                   </div>
-                ) : <div className="h-64 flex items-center justify-center text-gray-400 dark:text-gray-600 text-sm">No data</div>}
+                ) : <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-600 text-sm">No data</div>}
               </div>
             </div>
 
             {/* Category Breakdown + Order Status */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Category Sales */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-bold text-amber-400">Sales by Category</h3>
-                  <button onClick={() => handleSeeDetails('sales_by_category')} className="text-[10px] font-bold text-amber-500 hover:text-amber-400 flex items-center gap-1 transition-all">See Details <ChevronRight size={12} /></button>
+                  <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400">Sales by Category</h3>
+                  <button onClick={() => handleSeeDetails('sales_by_category')} className="text-[10px] font-bold text-amber-600 hover:text-amber-700 dark:text-amber-500 dark:hover:text-amber-400 flex items-center gap-1 transition-all">See Details <ChevronRight size={12} /></button>
                 </div>
                 {categoryBreakdown.length > 0 ? (
                   <div className="space-y-3">
@@ -877,7 +887,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                         <div key={cat.name}>
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-xs font-bold">{cat.name}</span>
-                            <span className="text-xs text-gray-400">{currencySymbol}{cat.revenue.toFixed(2)} ({cat.orders} items)</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">{currencySymbol}{cat.revenue.toFixed(2)} ({cat.orders} items)</span>
                           </div>
                           <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                             <div className="h-full bg-amber-600 rounded-full transition-all" style={{ width: `${pct}%` }} />
@@ -886,14 +896,14 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                       );
                     })}
                   </div>
-                ) : <div className="h-32 flex items-center justify-center text-gray-400 dark:text-gray-600 text-sm">No data</div>}
+                ) : <div className="h-32 flex items-center justify-center text-gray-500 dark:text-gray-600 text-sm">No data</div>}
               </div>
 
               {/* Order Status */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-bold text-amber-400">Order Status Breakdown</h3>
-                  <button onClick={() => handleSeeDetails('sales_summary')} className="text-[10px] font-bold text-amber-500 hover:text-amber-400 flex items-center gap-1 transition-all">See Details <ChevronRight size={12} /></button>
+                  <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400">Order Status Breakdown</h3>
+                  <button onClick={() => handleSeeDetails('sales_summary')} className="text-[10px] font-bold text-amber-600 hover:text-amber-700 dark:text-amber-500 dark:hover:text-amber-400 flex items-center gap-1 transition-all">See Details <ChevronRight size={12} /></button>
                 </div>
                 {statusData.length > 0 ? (
                   <div className="space-y-3">
@@ -904,7 +914,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                         <div key={s.name}>
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-xs font-bold capitalize">{s.name.toLowerCase()}</span>
-                            <span className="text-xs text-gray-400">{s.value} ({pct.toFixed(0)}%)</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">{s.value} ({pct.toFixed(0)}%)</span>
                           </div>
                           <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                             <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: STATUS_COLORS[s.name] || '#6B7280' }} />
@@ -913,7 +923,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                       );
                     })}
                   </div>
-                ) : <div className="h-32 flex items-center justify-center text-gray-400 dark:text-gray-600 text-sm">No data</div>}
+                ) : <div className="h-32 flex items-center justify-center text-gray-500 dark:text-gray-600 text-sm">No data</div>}
               </div>
             </div>
           </div>
@@ -991,10 +1001,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                     </thead>
                     <tbody>
                       {filteredStaff.map(staff => (
-                        <tr key={staff.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-100 dark:bg-gray-700 transition-colors">
+                        <tr key={staff.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-amber-600/20 flex items-center justify-center text-amber-400 font-black text-sm">
+                              <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-600/20 flex items-center justify-center text-amber-600 dark:text-amber-400 font-black text-sm">
                                 {staff.username.charAt(0).toUpperCase()}
                               </div>
                               <span className="text-sm font-bold dark:text-white">{staff.username}</span>
@@ -1002,7 +1012,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                           </td>
                           <td className="px-5 py-4">
                             <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
-                              staff.role === 'CASHIER' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'
+                              staff.role === 'CASHIER' ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400'
                             }`}>{staff.role}</span>
                           </td>
                           <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell">{staff.email || '-'}</td>
@@ -1147,26 +1157,26 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 </div>
                 <p className="text-3xl font-black dark:text-white">{stockSummary.total}</p>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl bg-green-600/20 flex items-center justify-center"><CheckCircle size={20} className="text-green-400" /></div>
-                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">In Stock</span>
+                  <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-600/20 flex items-center justify-center"><CheckCircle size={20} className="text-green-600 dark:text-green-400" /></div>
+                  <span className="text-sm font-bold text-gray-600 dark:text-gray-400">In Stock</span>
                 </div>
-                <p className="text-3xl font-black text-green-400">{stockSummary.healthy}</p>
+                <p className="text-3xl font-black text-green-600 dark:text-green-400">{stockSummary.healthy}</p>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl bg-amber-600/20 flex items-center justify-center"><AlertCircle size={20} className="text-amber-400" /></div>
-                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Low Stock</span>
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-600/20 flex items-center justify-center"><AlertCircle size={20} className="text-amber-600 dark:text-amber-400" /></div>
+                  <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Low Stock</span>
                 </div>
-                <p className="text-3xl font-black text-amber-400">{stockSummary.low}</p>
+                <p className="text-3xl font-black text-amber-600 dark:text-amber-400">{stockSummary.low}</p>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl bg-red-600/20 flex items-center justify-center"><XCircle size={20} className="text-red-400" /></div>
-                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Out of Stock</span>
+                  <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-600/20 flex items-center justify-center"><XCircle size={20} className="text-red-600 dark:text-red-400" /></div>
+                  <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Out of Stock</span>
                 </div>
-                <p className="text-3xl font-black text-red-400">{stockSummary.out}</p>
+                <p className="text-3xl font-black text-red-600 dark:text-red-400">{stockSummary.out}</p>
               </div>
             </div>
 
@@ -1228,7 +1238,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                               <div className="flex items-center gap-2">
                                 <button onClick={() => handleSetStock(item.menuItemId, item.currentStock - 1)} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 text-gray-400 hover:text-white flex items-center justify-center"><Minus size={12} /></button>
                                 <span className={`text-sm font-black min-w-[40px] text-center ${
-                                  status === 'out' ? 'text-red-400' : status === 'low' ? 'text-amber-400' : 'text-white'
+                                  status === 'out' ? 'text-red-600 dark:text-red-400' : status === 'low' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white'
                                 }`}>{item.currentStock}</span>
                                 <button onClick={() => handleSetStock(item.menuItemId, item.currentStock + 1)} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 text-gray-400 hover:text-white flex items-center justify-center"><Plus size={12} /></button>
                               </div>
@@ -1247,9 +1257,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                             <td className="px-3 py-4">
                               <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
                                 status === 'disabled' ? 'bg-gray-500/20 text-gray-400' :
-                                status === 'out' ? 'bg-red-500/20 text-red-400' :
-                                status === 'low' ? 'bg-amber-500/20 text-amber-400' :
-                                'bg-green-500/20 text-green-400'
+                                status === 'out' ? 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400' :
+                                status === 'low' ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400' :
+                                'bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400'
                               }`}>
                                 {status === 'disabled' ? 'Disabled' : status === 'out' ? 'Out of Stock' : status === 'low' ? 'Low Stock' : 'In Stock'}
                               </span>

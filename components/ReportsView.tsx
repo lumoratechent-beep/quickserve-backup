@@ -24,6 +24,16 @@ const COLORS = ['#D97706', '#F59E0B', '#92400E', '#B45309', '#78350F', '#FBBF24'
 const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSubTab }) => {
   const [subTab, setSubTab] = useState<ReportSubTab>(initialSubTab || 'sales_summary');
 
+  // Detect dark mode for Recharts inline color props
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
+  useEffect(() => {
+    const observer = new MutationObserver(() => setIsDark(document.documentElement.classList.contains('dark')));
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+  const gridStroke = isDark ? '#374151' : '#E5E7EB';
+  const tickFill = isDark ? '#9CA3AF' : '#6B7280';
+
   useEffect(() => {
     if (initialSubTab) setSubTab(initialSubTab);
   }, [initialSubTab]);
@@ -101,7 +111,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
   const ChangeIndicator = ({ value }: { value: number }) => {
     const isPositive = value >= 0;
     return (
-      <span className={`inline-flex items-center gap-1 text-xs font-bold rounded-full px-2 py-0.5 ${isPositive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+      <span className={`inline-flex items-center gap-1 text-xs font-bold rounded-full px-2 py-0.5 ${isPositive ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400' : 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400'}`}>
         {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
         {isPositive ? '+' : ''}{value.toFixed(1)}%
       </span>
@@ -351,7 +361,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
       <div>
 
       {/* Date Range - same as PosOnlyView > Report */}
-      <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm flex flex-col md:flex-row items-center gap-4 mb-6">
+      <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col md:flex-row items-center gap-4 mb-6">
         <div className="flex-1 flex flex-col sm:flex-row gap-4 w-full">
           <div>
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Period Selection</label>
@@ -392,15 +402,15 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
           {/* KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {[
-              { label: 'Gross Sales', value: `${currencySymbol}${salesSummary.totalRevenue.toFixed(2)}`, change: salesSummary.revenueChange, icon: <DollarSign size={20} className="text-amber-500" />, bg: 'bg-amber-600/20' },
-              { label: 'Net Sales', value: `${currencySymbol}${salesSummary.netSales.toFixed(2)}`, change: salesSummary.revenueChange, icon: <TrendingUp size={20} className="text-green-400" />, bg: 'bg-green-600/20' },
-              { label: 'Orders', value: salesSummary.totalOrders.toLocaleString(), change: salesSummary.ordersChange, icon: <ShoppingBag size={20} className="text-blue-400" />, bg: 'bg-blue-600/20' },
-              { label: 'Avg. Order Value', value: `${currencySymbol}${salesSummary.avgOrder.toFixed(2)}`, change: salesSummary.avgChange, icon: <Receipt size={20} className="text-purple-400" />, bg: 'bg-purple-600/20' },
+              { label: 'Gross Sales', value: `${currencySymbol}${salesSummary.totalRevenue.toFixed(2)}`, change: salesSummary.revenueChange, icon: <DollarSign size={20} className="text-amber-600 dark:text-amber-500" />, bg: 'bg-amber-100 dark:bg-amber-600/20' },
+              { label: 'Net Sales', value: `${currencySymbol}${salesSummary.netSales.toFixed(2)}`, change: salesSummary.revenueChange, icon: <TrendingUp size={20} className="text-green-600 dark:text-green-400" />, bg: 'bg-green-100 dark:bg-green-600/20' },
+              { label: 'Orders', value: salesSummary.totalOrders.toLocaleString(), change: salesSummary.ordersChange, icon: <ShoppingBag size={20} className="text-blue-600 dark:text-blue-400" />, bg: 'bg-blue-100 dark:bg-blue-600/20' },
+              { label: 'Avg. Order Value', value: `${currencySymbol}${salesSummary.avgOrder.toFixed(2)}`, change: salesSummary.avgChange, icon: <Receipt size={20} className="text-purple-600 dark:text-purple-400" />, bg: 'bg-purple-100 dark:bg-purple-600/20' },
             ].map(kpi => (
-              <div key={kpi.label} className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
+              <div key={kpi.label} className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
                 <div className="flex items-center gap-3 mb-3">
                   <div className={`w-10 h-10 rounded-xl ${kpi.bg} flex items-center justify-center`}>{kpi.icon}</div>
-                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">{kpi.label}</span>
+                  <span className="text-sm font-bold text-gray-600 dark:text-gray-400">{kpi.label}</span>
                 </div>
                 <p className="text-2xl font-black text-gray-900 dark:text-white">{kpi.value}</p>
                 <div className="flex items-center gap-2 mt-2">
@@ -413,27 +423,27 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
 
           {/* Refunds card */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-2">Refunds / Cancelled</h3>
-              <p className="text-xl font-black text-red-400">{currencySymbol}{salesSummary.refunds.toFixed(2)}</p>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
+              <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Refunds / Cancelled</h3>
+              <p className="text-xl font-black text-red-600 dark:text-red-400">{currencySymbol}{salesSummary.refunds.toFixed(2)}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{filteredOrders.filter(o => o.status === OrderStatus.CANCELLED).length} cancelled orders</p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-2">Total Tax Collected</h3>
-              <p className="text-xl font-black text-amber-400">{currencySymbol}{totalTaxCollected.toFixed(2)}</p>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
+              <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Total Tax Collected</h3>
+              <p className="text-xl font-black text-amber-600 dark:text-amber-400">{currencySymbol}{totalTaxCollected.toFixed(2)}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{taxesReport.length} tax{taxesReport.length !== 1 ? 'es' : ''} configured</p>
             </div>
           </div>
 
           {/* Daily Sales Chart */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-            <h3 className="text-sm font-bold text-amber-400 mb-4">Daily Sales Trend</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
+            <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400 mb-4">Daily Sales Trend</h3>
             {salesSummary.dailyData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={salesSummary.dailyData}>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#333" />
-                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${v}`} />
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={gridStroke} />
+                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: tickFill }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: tickFill }} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${v}`} />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
                   <Bar dataKey="grossSales" fill="#D97706" radius={[4, 4, 0, 0]} maxBarSize={32} name="Gross Sales" />
                 </BarChart>
@@ -458,29 +468,29 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
 
           {/* Summary cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-              <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-1">Unique Items Sold</p>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
+              <p className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">Unique Items Sold</p>
               <p className="text-2xl font-black text-gray-900 dark:text-white">{salesByItem.length}</p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-              <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-1">Total Units Sold</p>
-              <p className="text-2xl font-black text-blue-400">{salesByItem.reduce((s, i) => s + i.quantity, 0).toLocaleString()}</p>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
+              <p className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">Total Units Sold</p>
+              <p className="text-2xl font-black text-blue-600 dark:text-blue-400">{salesByItem.reduce((s, i) => s + i.quantity, 0).toLocaleString()}</p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-              <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-1">Total Item Revenue</p>
-              <p className="text-2xl font-black text-amber-400">{currencySymbol}{salesByItem.reduce((s, i) => s + i.revenue, 0).toFixed(2)}</p>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
+              <p className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">Total Item Revenue</p>
+              <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{currencySymbol}{salesByItem.reduce((s, i) => s + i.revenue, 0).toFixed(2)}</p>
             </div>
           </div>
 
           {/* Top Items chart */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 mb-6">
-            <h3 className="text-sm font-bold text-amber-400 mb-4">Top 10 Items by Revenue</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none mb-6">
+            <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400 mb-4">Top 10 Items by Revenue</h3>
             {salesByItem.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={salesByItem.slice(0, 10)} layout="vertical">
-                  <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#333" />
-                  <XAxis type="number" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${v}`} />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} width={120} />
+                  <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke={gridStroke} />
+                  <XAxis type="number" tick={{ fontSize: 10, fill: tickFill }} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${v}`} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: tickFill }} axisLine={false} tickLine={false} width={120} />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
                   <Bar dataKey="revenue" fill="#D97706" radius={[0, 4, 4, 0]} maxBarSize={24} name="Revenue" />
                 </BarChart>
@@ -513,7 +523,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                           <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400 underline decoration-dotted underline-offset-2">{item.name}</td>
                           <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{item.quantity}</td>
                           <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{currencySymbol}{item.avgPrice.toFixed(2)}</td>
-                          <td className="px-5 py-4 text-xs font-bold text-amber-400">{currencySymbol}{item.revenue.toFixed(2)}</td>
+                          <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{item.revenue.toFixed(2)}</td>
                           <td className="px-5 py-4 text-xs text-gray-500 hidden md:table-cell">{totalRev > 0 ? ((item.revenue / totalRev) * 100).toFixed(1) : '0'}%</td>
                         </tr>
                       );
@@ -614,24 +624,24 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
 
           {/* Summary */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-              <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-1">Categories</p>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
+              <p className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">Categories</p>
               <p className="text-2xl font-black text-gray-900 dark:text-white">{salesByCategory.length}</p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-              <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-1">Top Category</p>
-              <p className="text-lg font-black text-amber-400 truncate">{salesByCategory[0]?.name || 'N/A'}</p>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
+              <p className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">Top Category</p>
+              <p className="text-lg font-black text-amber-600 dark:text-amber-400 truncate">{salesByCategory[0]?.name || 'N/A'}</p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-              <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-1">Top Category Revenue</p>
-              <p className="text-2xl font-black text-green-400">{currencySymbol}{(salesByCategory[0]?.revenue || 0).toFixed(2)}</p>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
+              <p className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">Top Category Revenue</p>
+              <p className="text-2xl font-black text-green-600 dark:text-green-400">{currencySymbol}{(salesByCategory[0]?.revenue || 0).toFixed(2)}</p>
             </div>
           </div>
 
           {/* Pie Chart + Breakdown */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-sm font-bold text-amber-400 mb-4">Revenue Distribution</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
+              <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400 mb-4">Revenue Distribution</h3>
               {salesByCategory.length > 0 ? (
                 <div className="flex justify-center">
                   <ResponsiveContainer width={280} height={280}>
@@ -651,8 +661,8 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
             </div>
 
             {/* Category bars */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-sm font-bold text-amber-400 mb-4">Category Breakdown</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
+              <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400 mb-4">Category Breakdown</h3>
               <div className="space-y-3">
                 {salesByCategory.map((cat, i) => {
                   const maxRev = salesByCategory[0]?.revenue || 1;
@@ -697,7 +707,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                         <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{cat.name}</td>
                         <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{cat.itemsSold}</td>
                         <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{cat.orderCount}</td>
-                        <td className="px-5 py-4 text-xs font-bold text-amber-400">{currencySymbol}{cat.revenue.toFixed(2)}</td>
+                        <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{cat.revenue.toFixed(2)}</td>
                         <td className="px-5 py-4 text-xs text-gray-500 hidden md:table-cell">{totalRev > 0 ? ((cat.revenue / totalRev) * 100).toFixed(1) : '0'}%</td>
                       </tr>
                     );
@@ -717,14 +727,14 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
           <h2 className="text-lg font-black mb-6">Sales by Employee</h2>
 
           {/* Chart */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 mb-6">
-            <h3 className="text-sm font-bold text-amber-400 mb-4">Revenue by Employee</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none mb-6">
+            <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400 mb-4">Revenue by Employee</h3>
             {salesByEmployee.length > 0 ? (
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={salesByEmployee}>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#333" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${v}`} />
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={gridStroke} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: tickFill }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: tickFill }} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${v}`} />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
                   <Bar dataKey="revenue" fill="#8B5CF6" radius={[4, 4, 0, 0]} maxBarSize={48} name="Revenue" />
                 </BarChart>
@@ -752,9 +762,9 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                       <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{emp.name}</td>
                       <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{emp.orders}</td>
                       <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{emp.itemsSold}</td>
-                      <td className="px-5 py-4 text-xs font-bold text-amber-400">{currencySymbol}{emp.revenue.toFixed(2)}</td>
+                      <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{emp.revenue.toFixed(2)}</td>
                       <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{currencySymbol}{emp.avgOrder.toFixed(2)}</td>
-                      <td className="px-5 py-4 text-xs text-red-400 hidden md:table-cell">{emp.cancelled}</td>
+                      <td className="px-5 py-4 text-xs text-red-600 dark:text-red-400 hidden md:table-cell">{emp.cancelled}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -773,8 +783,8 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
             {/* Pie Chart */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-sm font-bold text-amber-400 mb-4">Payment Distribution</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
+              <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400 mb-4">Payment Distribution</h3>
               {salesByPayment.length > 0 ? (
                 <>
                   <div className="flex justify-center">
@@ -807,7 +817,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
             {/* Cards */}
             <div className="space-y-4">
               {salesByPayment.map((pm, i) => (
-                <div key={pm.name} className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 flex items-center gap-4">
+                <div key={pm.name} className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${COLORS[i % COLORS.length]}30` }}>
                     <CreditCard size={20} style={{ color: COLORS[i % COLORS.length] }} />
                   </div>
@@ -816,7 +826,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                     <p className="text-xs text-gray-500 dark:text-gray-400">{pm.transactions} transactions</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-black text-amber-400">{currencySymbol}{pm.revenue.toFixed(2)}</p>
+                    <p className="text-sm font-black text-amber-600 dark:text-amber-400">{currencySymbol}{pm.revenue.toFixed(2)}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{pm.percentage.toFixed(1)}%</p>
                   </div>
                 </div>
@@ -843,13 +853,13 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-              <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-1">Total Modifiers Used</p>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
+              <p className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">Total Modifiers Used</p>
               <p className="text-2xl font-black text-gray-900 dark:text-white">{salesByModifier.length}</p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-              <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-1">Add-on Revenue</p>
-              <p className="text-2xl font-black text-amber-400">{currencySymbol}{salesByModifier.reduce((s, m) => s + m.revenue, 0).toFixed(2)}</p>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
+              <p className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">Add-on Revenue</p>
+              <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{currencySymbol}{salesByModifier.reduce((s, m) => s + m.revenue, 0).toFixed(2)}</p>
             </div>
           </div>
 
@@ -872,7 +882,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                         <tr key={mod.name} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                           <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{mod.name}</td>
                           <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{mod.timesUsed}</td>
-                          <td className="px-5 py-4 text-xs font-bold text-amber-400">{mod.revenue > 0 ? `${currencySymbol}${mod.revenue.toFixed(2)}` : '-'}</td>
+                          <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400">{mod.revenue > 0 ? `${currencySymbol}${mod.revenue.toFixed(2)}` : '-'}</td>
                           <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell truncate max-w-[200px]">{mod.items.join(', ')}</td>
                         </tr>
                       ))}
@@ -898,36 +908,36 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
           <h2 className="text-lg font-black mb-6">Discounts</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-600/20 flex items-center justify-center"><Percent size={20} className="text-amber-500" /></div>
-                <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Total Discounts</span>
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-600/20 flex items-center justify-center"><Percent size={20} className="text-amber-600 dark:text-amber-500" /></div>
+                <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Total Discounts</span>
               </div>
-              <p className="text-2xl font-black text-amber-400">{currencySymbol}{discountsReport.totalDiscountValue.toFixed(2)}</p>
+              <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{currencySymbol}{discountsReport.totalDiscountValue.toFixed(2)}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">No discount codes configured</p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-red-600/20 flex items-center justify-center"><Receipt size={20} className="text-red-400" /></div>
-                <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Cancelled Value</span>
+                <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-600/20 flex items-center justify-center"><Receipt size={20} className="text-red-600 dark:text-red-400" /></div>
+                <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Cancelled Value</span>
               </div>
-              <p className="text-2xl font-black text-red-400">{currencySymbol}{discountsReport.totalCancelledValue.toFixed(2)}</p>
+              <p className="text-2xl font-black text-red-600 dark:text-red-400">{currencySymbol}{discountsReport.totalCancelledValue.toFixed(2)}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{discountsReport.cancelledCount} cancelled orders</p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center"><ShoppingBag size={20} className="text-blue-400" /></div>
-                <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Total Orders</span>
+                <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-600/20 flex items-center justify-center"><ShoppingBag size={20} className="text-blue-600 dark:text-blue-400" /></div>
+                <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Total Orders</span>
               </div>
               <p className="text-2xl font-black text-gray-900 dark:text-white">{discountsReport.totalOrders}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">In selected period</p>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
             <div className="flex items-center gap-3 mb-4">
-              <Percent size={20} className="text-amber-400" />
-              <h3 className="text-sm font-bold text-amber-400">Discount Tracking</h3>
+              <Percent size={20} className="text-amber-600 dark:text-amber-400" />
+              <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400">Discount Tracking</h3>
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               Discount tracking will display here when discount codes are applied to orders.
@@ -951,17 +961,17 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
 
           {/* Summary */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-600/20 flex items-center justify-center"><Receipt size={20} className="text-amber-500" /></div>
-                <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Total Tax Collected</span>
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-600/20 flex items-center justify-center"><Receipt size={20} className="text-amber-600 dark:text-amber-500" /></div>
+                <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Total Tax Collected</span>
               </div>
-              <p className="text-2xl font-black text-amber-400">{currencySymbol}{totalTaxCollected.toFixed(2)}</p>
+              <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{currencySymbol}{totalTaxCollected.toFixed(2)}</p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center"><DollarSign size={20} className="text-blue-400" /></div>
-                <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Taxable Revenue</span>
+                <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-600/20 flex items-center justify-center"><DollarSign size={20} className="text-blue-600 dark:text-blue-400" /></div>
+                <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Taxable Revenue</span>
               </div>
               <p className="text-2xl font-black text-gray-900 dark:text-white">{currencySymbol}{completedOrders.reduce((s, o) => s + o.total, 0).toFixed(2)}</p>
             </div>
@@ -987,7 +997,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                         <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{tax.name}</td>
                         <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{tax.percentage}%</td>
                         <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{currencySymbol}{tax.taxableAmount.toFixed(2)}</td>
-                        <td className="px-5 py-4 text-xs font-bold text-amber-400">{currencySymbol}{tax.taxCollected.toFixed(2)}</td>
+                        <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{tax.taxCollected.toFixed(2)}</td>
                         <td className="px-5 py-4 text-xs text-gray-500 hidden md:table-cell">{tax.orderCount}</td>
                       </tr>
                     ))}
@@ -996,7 +1006,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                       <td className="px-5 py-4 text-xs text-gray-900 dark:text-white">Total</td>
                       <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">-</td>
                       <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">-</td>
-                      <td className="px-5 py-4 text-xs font-bold text-amber-400">{currencySymbol}{totalTaxCollected.toFixed(2)}</td>
+                      <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{totalTaxCollected.toFixed(2)}</td>
                       <td className="px-5 py-4 hidden md:table-cell"></td>
                     </tr>
                   </tbody>

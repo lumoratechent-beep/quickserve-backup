@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Order, OrderStatus } from '../src/types';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid,
@@ -30,6 +30,15 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
     return d.toISOString().split('T')[0];
   });
   const [customEnd, setCustomEnd] = useState(() => today.toISOString().split('T')[0]);
+
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
+  useEffect(() => {
+    const observer = new MutationObserver(() => setIsDark(document.documentElement.classList.contains('dark')));
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+  const gridStroke = isDark ? '#374151' : '#E5E7EB';
+  const tickFill = isDark ? '#9CA3AF' : '#6B7280';
 
   const { startDate, endDate } = useMemo(() => {
     if (dateRange === 'custom') {
@@ -155,7 +164,7 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
     const isPositive = value >= 0;
     return (
       <span className={`inline-flex items-center gap-1 text-xs font-bold rounded-full px-2 py-0.5 ${
-        isPositive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+        isPositive ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400' : 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400'
       }`}>
         {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
         {isPositive ? '+' : ''}{value.toFixed(1)}%
@@ -166,11 +175,11 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     return (
-      <div className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 shadow-xl">
-        <p className="text-xs font-bold text-white mb-1">{label}</p>
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 shadow-xl">
+        <p className="text-xs font-bold text-gray-900 dark:text-white mb-1">{label}</p>
         {payload.map((p: any, i: number) => (
-          <p key={i} className="text-xs text-gray-300">
-            {p.name}: <span className="text-amber-400 font-bold">{p.name === 'sales' ? `${currencySymbol}${p.value.toFixed(2)}` : p.value}</span>
+          <p key={i} className="text-xs text-gray-600 dark:text-gray-300">
+            {p.name}: <span className="text-amber-600 dark:text-amber-400 font-bold">{p.name === 'sales' ? `${currencySymbol}${p.value.toFixed(2)}` : p.value}</span>
           </p>
         ))}
       </div>
@@ -178,7 +187,7 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
   };
 
   return (
-    <div className="min-h-screen bg-[#1a1a1a] text-white p-4 md:p-6 overflow-y-auto">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#1a1a1a] text-gray-900 dark:text-white p-4 md:p-6 overflow-y-auto">
       <div className="max-w-[1400px] mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -186,7 +195,7 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
             <h1 className="text-2xl font-black tracking-tight">
               Welcome{cashierName ? `, ${cashierName}` : ''}
             </h1>
-            <p className="text-sm text-gray-400 mt-1">Good to see you again</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Good to see you again</p>
           </div>
 
           {/* Date Range Selector */}
@@ -198,7 +207,7 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
                 className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
                   dateRange === range
                     ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20'
-                    : 'bg-[#2a2a2a] text-gray-400 hover:bg-[#333] hover:text-white'
+                    : 'bg-gray-100 dark:bg-[#2a2a2a] text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#333] hover:text-gray-900 dark:hover:text-white'
                 }`}
               >
                 {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
@@ -209,7 +218,7 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
               className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
                 dateRange === 'custom'
                   ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20'
-                  : 'bg-[#2a2a2a] text-gray-400 hover:bg-[#333] hover:text-white'
+                  : 'bg-gray-100 dark:bg-[#2a2a2a] text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#333] hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               Custom
@@ -220,14 +229,14 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
                   type="date"
                   value={customStart}
                   onChange={e => setCustomStart(e.target.value)}
-                  className="bg-[#2a2a2a] border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  className="bg-white dark:bg-[#2a2a2a] border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                 />
-                <span className="text-gray-500 text-xs">to</span>
+                <span className="text-gray-400 dark:text-gray-500 text-xs">to</span>
                 <input
                   type="date"
                   value={customEnd}
                   onChange={e => setCustomEnd(e.target.value)}
-                  className="bg-[#2a2a2a] border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  className="bg-white dark:bg-[#2a2a2a] border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                 />
               </div>
             )}
@@ -237,15 +246,15 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
         {/* KPI Cards Row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {/* Total Sales */}
-          <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800 hover:border-gray-700 transition-all">
+          <div className="bg-white dark:bg-[#232323] rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm dark:shadow-none hover:shadow-md dark:hover:border-gray-700 transition-all">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-600/20 flex items-center justify-center">
-                  <DollarSign size={20} className="text-amber-500" />
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-600/20 flex items-center justify-center">
+                  <DollarSign size={20} className="text-amber-600 dark:text-amber-500" />
                 </div>
-                <span className="text-sm font-bold text-gray-400">Total Net Sales</span>
+                <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Total Net Sales</span>
               </div>
-              <ChevronRight size={16} className="text-gray-600" />
+              <ChevronRight size={16} className="text-gray-400 dark:text-gray-600" />
             </div>
             <p className="text-2xl font-black">{currencySymbol}{kpis.totalSales.toFixed(2)}</p>
             <div className="flex items-center gap-2 mt-2">
@@ -255,15 +264,15 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
           </div>
 
           {/* Total Orders */}
-          <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800 hover:border-gray-700 transition-all">
+          <div className="bg-white dark:bg-[#232323] rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm dark:shadow-none hover:shadow-md dark:hover:border-gray-700 transition-all">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center">
-                  <ShoppingBag size={20} className="text-blue-400" />
+                <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-600/20 flex items-center justify-center">
+                  <ShoppingBag size={20} className="text-blue-600 dark:text-blue-400" />
                 </div>
-                <span className="text-sm font-bold text-gray-400">Total Orders</span>
+                <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Total Orders</span>
               </div>
-              <ChevronRight size={16} className="text-gray-600" />
+              <ChevronRight size={16} className="text-gray-400 dark:text-gray-600" />
             </div>
             <p className="text-2xl font-black">{kpis.totalOrders.toLocaleString()}</p>
             <div className="flex items-center gap-2 mt-2">
@@ -273,15 +282,15 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
           </div>
 
           {/* Average Order */}
-          <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800 hover:border-gray-700 transition-all">
+          <div className="bg-white dark:bg-[#232323] rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm dark:shadow-none hover:shadow-md dark:hover:border-gray-700 transition-all">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-green-600/20 flex items-center justify-center">
-                  <Receipt size={20} className="text-green-400" />
+                <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-600/20 flex items-center justify-center">
+                  <Receipt size={20} className="text-green-600 dark:text-green-400" />
                 </div>
-                <span className="text-sm font-bold text-gray-400">Avg. Order</span>
+                <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Avg. Order</span>
               </div>
-              <ChevronRight size={16} className="text-gray-600" />
+              <ChevronRight size={16} className="text-gray-400 dark:text-gray-600" />
             </div>
             <p className="text-2xl font-black">{currencySymbol}{kpis.avgOrder.toFixed(2)}</p>
             <div className="flex items-center gap-2 mt-2">
@@ -291,15 +300,15 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
           </div>
 
           {/* Cancelled */}
-          <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800 hover:border-gray-700 transition-all">
+          <div className="bg-white dark:bg-[#232323] rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm dark:shadow-none hover:shadow-md dark:hover:border-gray-700 transition-all">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-red-600/20 flex items-center justify-center">
-                  <TrendingDown size={20} className="text-red-400" />
+                <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-600/20 flex items-center justify-center">
+                  <TrendingDown size={20} className="text-red-600 dark:text-red-400" />
                 </div>
-                <span className="text-sm font-bold text-gray-400">Cancelled</span>
+                <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Cancelled</span>
               </div>
-              <ChevronRight size={16} className="text-gray-600" />
+              <ChevronRight size={16} className="text-gray-400 dark:text-gray-600" />
             </div>
             <p className="text-2xl font-black">{kpis.cancelled}</p>
             <div className="flex items-center gap-2 mt-2">
@@ -312,9 +321,9 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
         {/* Middle Row: Payment Pie + Sales Bar + Cashier List */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
           {/* Payment Method Breakdown (Donut) */}
-          <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+          <div className="bg-white dark:bg-[#232323] rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm dark:shadow-none">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-amber-400">Transaction Types</h3>
+              <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400">Transaction Types</h3>
             </div>
             {paymentData.length > 0 ? (
               <>
@@ -339,9 +348,9 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
                         if (!active || !payload?.length) return null;
                         const d = payload[0].payload;
                         return (
-                          <div className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 shadow-xl">
-                            <p className="text-xs font-bold text-white">{d.name}</p>
-                            <p className="text-xs text-gray-300">{d.value} orders ({d.pct}%)</p>
+                          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 shadow-xl">
+                            <p className="text-xs font-bold text-gray-900 dark:text-white">{d.name}</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-300">{d.value} orders ({d.pct}%)</p>
                           </div>
                         );
                       }} />
@@ -352,64 +361,64 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
                   {paymentData.map((d, i) => (
                     <div key={d.name} className="flex items-center gap-2">
                       <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                      <span className="text-xs text-gray-400 truncate">{d.name}</span>
-                      <span className="text-xs font-bold text-white ml-auto">{d.pct}%</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{d.name}</span>
+                      <span className="text-xs font-bold text-gray-900 dark:text-white ml-auto">{d.pct}%</span>
                     </div>
                   ))}
                 </div>
               </>
             ) : (
-              <div className="h-48 flex items-center justify-center text-gray-600 text-sm">No data</div>
+              <div className="h-48 flex items-center justify-center text-gray-500 dark:text-gray-600 text-sm">No data</div>
             )}
           </div>
 
           {/* Daily Sales Bar Chart */}
-          <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+          <div className="bg-white dark:bg-[#232323] rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm dark:shadow-none">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-amber-400">Sales Overview</h3>
+              <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400">Sales Overview</h3>
             </div>
             {dailySales.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={dailySales} barCategoryGap="20%">
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#333" />
-                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${v}`} />
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={gridStroke} />
+                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: tickFill }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: tickFill }} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${v}`} />
                   <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="sales" fill="#D97706" radius={[6, 6, 0, 0]} maxBarSize={32} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-64 flex items-center justify-center text-gray-600 text-sm">No data</div>
+              <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-600 text-sm">No data</div>
             )}
           </div>
 
           {/* Cashier Performance */}
-          <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
+          <div className="bg-white dark:bg-[#232323] rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm dark:shadow-none">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-amber-400">Cashier Performance</h3>
+              <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400">Cashier Performance</h3>
             </div>
             {cashierStats.length > 0 ? (
               <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
                 {cashierStats.map((c, i) => (
-                  <div key={c.name} className="flex items-center gap-3 p-3 bg-[#2a2a2a] rounded-xl hover:bg-[#333] transition-all">
+                  <div key={c.name} className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-[#2a2a2a] rounded-xl hover:bg-gray-200 dark:hover:bg-[#333] transition-all">
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-sm ${
-                      i === 0 ? 'bg-amber-600 text-white' : i === 1 ? 'bg-gray-500 text-white' : 'bg-gray-700 text-gray-300'
+                      i === 0 ? 'bg-amber-600 text-white' : i === 1 ? 'bg-gray-500 text-white' : 'bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                     }`}>
                       {c.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold truncate">{c.name}</p>
-                      <p className="text-[10px] text-gray-500">{c.orders} orders</p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-500">{c.orders} orders</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-sm font-bold text-amber-400">{currencySymbol}{c.revenue.toFixed(2)}</p>
-                      <p className="text-[10px] text-gray-500">avg {currencySymbol}{c.avgOrder.toFixed(2)}</p>
+                      <p className="text-sm font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{c.revenue.toFixed(2)}</p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-500">avg {currencySymbol}{c.avgOrder.toFixed(2)}</p>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="h-64 flex items-center justify-center text-gray-600 text-sm">No data</div>
+              <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-600 text-sm">No data</div>
             )}
           </div>
         </div>
@@ -417,8 +426,8 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
         {/* Bottom Row: Status Breakdown + Recent Orders */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Order Status Breakdown */}
-          <div className="bg-[#232323] rounded-2xl p-5 border border-gray-800">
-            <h3 className="text-sm font-bold text-amber-400 mb-4">Order Status</h3>
+          <div className="bg-white dark:bg-[#232323] rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm dark:shadow-none">
+            <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400 mb-4">Order Status</h3>
             {statusData.length > 0 ? (
               <div className="space-y-3">
                 {statusData.map(s => {
@@ -428,9 +437,9 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
                     <div key={s.name}>
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-bold capitalize">{s.name.toLowerCase()}</span>
-                        <span className="text-xs text-gray-400">{s.value} ({pct.toFixed(0)}%)</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{s.value} ({pct.toFixed(0)}%)</span>
                       </div>
-                      <div className="h-2 bg-[#333] rounded-full overflow-hidden">
+                      <div className="h-2 bg-gray-200 dark:bg-[#333] rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-500"
                           style={{
@@ -444,14 +453,14 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
                 })}
               </div>
             ) : (
-              <div className="h-32 flex items-center justify-center text-gray-600 text-sm">No data</div>
+              <div className="h-32 flex items-center justify-center text-gray-500 dark:text-gray-600 text-sm">No data</div>
             )}
           </div>
 
           {/* Recent Orders Table */}
-          <div className="lg:col-span-2 bg-[#232323] rounded-2xl p-5 border border-gray-800">
+          <div className="lg:col-span-2 bg-white dark:bg-[#232323] rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm dark:shadow-none">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-amber-400">Recent Orders</h3>
+              <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400">Recent Orders</h3>
               <div className="flex items-center gap-1 text-xs text-gray-500">
                 <Filter size={12} /> Latest 10
               </div>
@@ -460,7 +469,7 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="border-b border-gray-700">
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
                       <th className="pb-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">No</th>
                       <th className="pb-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Order ID</th>
                       <th className="pb-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Cashier</th>
@@ -473,36 +482,36 @@ const DashboardReport: React.FC<Props> = ({ orders, currencySymbol, cashierName 
                   </thead>
                   <tbody>
                     {recentOrders.map((order, idx) => (
-                      <tr key={order.id} className="border-b border-gray-800/50 hover:bg-[#2a2a2a] transition-colors">
-                        <td className="py-3 text-xs text-gray-400">{idx + 1}</td>
-                        <td className="py-3 text-xs font-bold text-gray-300">#{order.id.slice(-6)}</td>
-                        <td className="py-3 text-xs text-gray-300">{order.cashierName || '-'}</td>
-                        <td className="py-3 text-xs text-gray-400 hidden md:table-cell truncate max-w-[150px]">
+                      <tr key={order.id} className="border-b border-gray-100 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors">
+                        <td className="py-3 text-xs text-gray-500 dark:text-gray-400">{idx + 1}</td>
+                        <td className="py-3 text-xs font-bold text-gray-700 dark:text-gray-300">#{order.id.slice(-6)}</td>
+                        <td className="py-3 text-xs text-gray-600 dark:text-gray-300">{order.cashierName || '-'}</td>
+                        <td className="py-3 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell truncate max-w-[150px]">
                           {order.items.map(i => i.name).join(', ')}
                         </td>
-                        <td className="py-3 text-xs text-gray-400 hidden sm:table-cell">
+                        <td className="py-3 text-xs text-gray-500 dark:text-gray-400 hidden sm:table-cell">
                           {new Date(order.timestamp).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </td>
                         <td className="py-3">
                           <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
-                            order.status === OrderStatus.COMPLETED ? 'bg-green-500/20 text-green-400' :
-                            order.status === OrderStatus.SERVED ? 'bg-blue-500/20 text-blue-400' :
-                            order.status === OrderStatus.PENDING ? 'bg-amber-500/20 text-amber-400' :
-                            order.status === OrderStatus.ONGOING ? 'bg-purple-500/20 text-purple-400' :
-                            'bg-red-500/20 text-red-400'
+                            order.status === OrderStatus.COMPLETED ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400' :
+                            order.status === OrderStatus.SERVED ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400' :
+                            order.status === OrderStatus.PENDING ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400' :
+                            order.status === OrderStatus.ONGOING ? 'bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400' :
+                            'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400'
                           }`}>
                             {order.status}
                           </span>
                         </td>
-                        <td className="py-3 text-xs text-gray-300">{order.paymentMethod || '-'}</td>
-                        <td className="py-3 text-xs font-bold text-amber-400 text-right">{currencySymbol}{order.total.toFixed(2)}</td>
+                        <td className="py-3 text-xs text-gray-600 dark:text-gray-300">{order.paymentMethod || '-'}</td>
+                        <td className="py-3 text-xs font-bold text-amber-600 dark:text-amber-400 text-right">{currencySymbol}{order.total.toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             ) : (
-              <div className="h-32 flex items-center justify-center text-gray-600 text-sm">No orders in this period</div>
+              <div className="h-32 flex items-center justify-center text-gray-500 dark:text-gray-600 text-sm">No orders in this period</div>
             )}
           </div>
         </div>
