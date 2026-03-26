@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MenuItem, AddOnItem, ModifierData } from '../src/types';
-import { X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle, Save, Pencil, Package, ScanBarcode, DollarSign, Tag, Layers, ChevronDown } from 'lucide-react';
+import { X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle, Save, Pencil, Package, ScanBarcode, DollarSign, Tag, Layers, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from './Toast';
 import ImageCropModal from './ImageCropModal';
 
@@ -41,6 +41,8 @@ const MenuItemFormModal: React.FC<Props> = ({
   const [newCategoryName, setNewCategoryName] = useState('');
   const [localCategories, setLocalCategories] = useState<string[]>(categories);
   const [cropFile, setCropFile] = useState<File | null>(null);
+  const [leftPage, setLeftPage] = useState(0);
+  const [rightPage, setRightPage] = useState(0);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -81,6 +83,8 @@ const MenuItemFormModal: React.FC<Props> = ({
       } else {
         setCollapsedAddOns(new Set());
       }
+      setLeftPage(0);
+      setRightPage(0);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -506,18 +510,24 @@ const MenuItemFormModal: React.FC<Props> = ({
   const variantsModifiersHeader = (
     <div className="space-y-3 border-t dark:border-gray-700 pt-4">
       <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><Layers size={16} className="text-amber-500" /> Variants & Modifiers</h3>
-      <div className="flex flex-wrap gap-4">
+      <div className="grid grid-cols-3 gap-2">
         {([
           { label: 'Portion Sizes', enabled: !!formItem.sizesEnabled, toggle: () => setFormItem(prev => ({ ...prev, sizesEnabled: !prev.sizesEnabled })) },
           { label: 'Thermal', enabled: !!formItem.tempOptions?.enabled, toggle: () => setFormItem(prev => ({ ...prev, tempOptions: { ...(prev.tempOptions || { hot: 0, cold: 0, enabled: false, options: [] }), enabled: !prev.tempOptions?.enabled } })) },
           { label: 'Variants', enabled: !!formItem.variantOptions?.enabled, toggle: () => setFormItem(prev => ({ ...prev, variantOptions: { ...(prev.variantOptions || { enabled: false, options: [] }), enabled: !prev.variantOptions?.enabled } })) },
         ] as { label: string; enabled: boolean; toggle: () => void }[]).map(({ label, enabled, toggle }) => (
-          <button key={label} type="button" onClick={toggle} className="flex items-center gap-2 group">
-            <div className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 ${enabled ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
-              <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform duration-200 ${enabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
-            </div>
-            <span className={`text-[9px] font-black uppercase tracking-widest ${enabled ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'}`}>{label}</span>
-          </button>
+          <div key={label} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 flex flex-col items-center gap-2">
+            <span className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest text-center leading-tight">{label}</span>
+            <button
+              type="button"
+              onClick={toggle}
+              className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
+                enabled ? 'bg-amber-500 text-white shadow-sm' : 'bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
+              }`}
+            >
+              {enabled ? 'On' : 'Off'}
+            </button>
+          </div>
         ))}
       </div>
     </div>
@@ -893,12 +903,29 @@ const MenuItemFormModal: React.FC<Props> = ({
         <form onSubmit={onSubmit}>
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-0">
             {/* Left column — Details & Selling */}
-            <div className="space-y-4 overflow-y-auto lg:max-h-[calc(95vh-10rem)] lg:pr-4">
-              {visualAssetSection}
-              {itemDetailsSection}
-              {sellingInfoSection}
-              {costIdSection}
-              {inventorySection}
+            <div className="flex flex-col lg:max-h-[calc(95vh-10rem)]">
+              <div className="flex-1 overflow-y-auto scrollbar-hide space-y-4 lg:pr-4">
+                {leftPage === 0 && <>{visualAssetSection}{itemDetailsSection}{sellingInfoSection}</>}
+                {leftPage === 1 && <>{costIdSection}{inventorySection}</>}
+              </div>
+              {/* Left column dot nav */}
+              <div className="flex items-center justify-between pt-3 mt-2 border-t dark:border-gray-700">
+                <button type="button" onClick={() => setLeftPage(p => Math.max(0, p - 1))} disabled={leftPage === 0} className="p-1 text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-colors">
+                  <ChevronLeft size={14} />
+                </button>
+                <div className="flex items-center gap-2">
+                  {(['Item', 'Costs'] as const).map((label, i) => (
+                    <button key={i} type="button" onClick={() => setLeftPage(i)} title={label}
+                      className={`rounded-full transition-all duration-200 ${
+                        leftPage === i ? 'w-5 h-2 bg-amber-500' : 'w-2 h-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <button type="button" onClick={() => setLeftPage(p => Math.min(1, p + 1))} disabled={leftPage === 1} className="p-1 text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-colors">
+                  <ChevronRight size={14} />
+                </button>
+              </div>
             </div>
 
             {/* Divider */}
@@ -906,13 +933,29 @@ const MenuItemFormModal: React.FC<Props> = ({
             <hr className="lg:hidden border-gray-200 dark:border-gray-700 my-2" />
 
             {/* Right column — Variants & Modifiers */}
-            <div className="space-y-4 overflow-y-auto lg:max-h-[calc(95vh-10rem)] lg:pl-4">
-              {variantsModifiersHeader}
-              {sizesSection}
-              {modifiersSection}
-              {thermalSection}
-              {variantSection}
-              {addOnsSection}
+            <div className="flex flex-col lg:max-h-[calc(95vh-10rem)]">
+              <div className="flex-1 overflow-y-auto scrollbar-hide space-y-4 lg:pl-4">
+                {rightPage === 0 && <>{variantsModifiersHeader}{sizesSection}{thermalSection}{variantSection}</>}
+                {rightPage === 1 && <>{modifiersSection}{addOnsSection}</>}
+              </div>
+              {/* Right column dot nav */}
+              <div className="flex items-center justify-between pt-3 mt-2 border-t dark:border-gray-700">
+                <button type="button" onClick={() => setRightPage(p => Math.max(0, p - 1))} disabled={rightPage === 0} className="p-1 text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-colors">
+                  <ChevronLeft size={14} />
+                </button>
+                <div className="flex items-center gap-2">
+                  {(['Options', 'Modifiers'] as const).map((label, i) => (
+                    <button key={i} type="button" onClick={() => setRightPage(i)} title={label}
+                      className={`rounded-full transition-all duration-200 ${
+                        rightPage === i ? 'w-5 h-2 bg-amber-500' : 'w-2 h-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <button type="button" onClick={() => setRightPage(p => Math.min(1, p + 1))} disabled={rightPage === 1} className="p-1 text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-colors">
+                  <ChevronRight size={14} />
+                </button>
+              </div>
             </div>
           </div>
           {saveButton}
