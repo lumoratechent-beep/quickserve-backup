@@ -36,6 +36,9 @@ const MenuItemFormModal: React.FC<Props> = ({
   const [newOptionName, setNewOptionName] = useState('');
   const [newOptionPrice, setNewOptionPrice] = useState<number>(0);
   const [isLandscape, setIsLandscape] = useState(false);
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [localCategories, setLocalCategories] = useState<string[]>(categories);
 
   useEffect(() => {
     const mql = window.matchMedia('(orientation: landscape)');
@@ -47,6 +50,13 @@ const MenuItemFormModal: React.FC<Props> = ({
 
   useEffect(() => {
     if (isOpen) {
+      setLocalCategories(categories);
+      setIsAddingCategory(false);
+      setNewCategoryName('');
+      // Default to "No Category" if no category set
+      if (!formItem.category) {
+        setFormItem(prev => ({ ...prev, category: 'No Category' }));
+      }
       const count = formItem.addOns?.length ?? 0;
       if (count > 0) {
         setCollapsedAddOns(new Set(Array.from({ length: count }, (_, i) => i)));
@@ -288,16 +298,70 @@ const MenuItemFormModal: React.FC<Props> = ({
         </div>
         <div>
           <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Category *</label>
-          <select
-            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
-            value={formItem.category || ''}
-            onChange={e => setFormItem(prev => ({ ...prev, category: e.target.value }))}
-          >
-            {!formItem.category && <option value="">-- Select Category --</option>}
-            {categories.filter(c => c !== 'All').map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
+          {isAddingCategory ? (
+            <div className="flex gap-2">
+              <input
+                autoFocus
+                type="text"
+                className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm focus:ring-2 focus:ring-amber-500"
+                placeholder="New category name"
+                value={newCategoryName}
+                onChange={e => setNewCategoryName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && newCategoryName.trim()) {
+                    e.preventDefault();
+                    const name = newCategoryName.trim();
+                    if (!localCategories.includes(name)) setLocalCategories(prev => [...prev, name]);
+                    setFormItem(prev => ({ ...prev, category: name }));
+                    setIsAddingCategory(false);
+                    setNewCategoryName('');
+                  } else if (e.key === 'Escape') {
+                    setIsAddingCategory(false);
+                    setNewCategoryName('');
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const name = newCategoryName.trim();
+                  if (name) {
+                    if (!localCategories.includes(name)) setLocalCategories(prev => [...prev, name]);
+                    setFormItem(prev => ({ ...prev, category: name }));
+                  }
+                  setIsAddingCategory(false);
+                  setNewCategoryName('');
+                }}
+                className="px-3 py-2 bg-amber-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all"
+              >Add</button>
+              <button
+                type="button"
+                onClick={() => { setIsAddingCategory(false); setNewCategoryName(''); }}
+                className="px-3 py-2 bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-lg text-xs font-bold hover:bg-gray-300 dark:hover:bg-gray-500 transition-all"
+              ><X size={14} /></button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <select
+                className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
+                value={formItem.category || 'No Category'}
+                onChange={e => setFormItem(prev => ({ ...prev, category: e.target.value }))}
+              >
+                <option value="No Category">No Category</option>
+                {localCategories.filter(c => c !== 'All' && c !== 'No Category').map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setIsAddingCategory(true)}
+                className="px-3 py-2 bg-gray-100 dark:bg-gray-600 text-gray-500 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-500 transition-all flex items-center gap-1"
+                title="Create new category"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
       <div>
@@ -812,7 +876,7 @@ const MenuItemFormModal: React.FC<Props> = ({
 
   const saveButton = (
     <div className="pt-4 mt-4 border-t dark:border-gray-700">
-      <button type="submit" className="w-full py-3 bg-amber-500 text-white rounded-lg font-black uppercase tracking-[0.15em] text-xs shadow hover:bg-amber-600 transition-all active:scale-95">
+      <button type="submit" className="w-full py-3 bg-orange-500 text-white rounded-lg font-black uppercase tracking-[0.15em] text-xs shadow hover:bg-orange-600 transition-all active:scale-95">
         Save Changes
       </button>
     </div>

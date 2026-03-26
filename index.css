@@ -11,6 +11,25 @@
     @apply transition-colors duration-300;
     letter-spacing: 0.03em;
   }
+  /* Soften light-mode grey tones */
+  :root:not(.dark) {
+    --tw-bg-opacity: 1;
+  }
+  :root:not(.dark) .bg-gray-50 {
+    background-color: #FAFAF9;
+  }
+  :root:not(.dark) .bg-gray-100 {
+    background-color: #F5F5F4;
+  }
+  :root:not(.dark) .bg-gray-200 {
+    background-color: #E7E5E4;
+  }
+  :root:not(.dark) .border-gray-200 {
+    border-color: #E7E5E4;
+  }
+  :root:not(.dark) .border-gray-100 {
+    border-color: #F5F5F4;
+  }
 }
 
 .hide-scrollbar::-webkit-scrollbar,

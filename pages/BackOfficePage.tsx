@@ -9,7 +9,7 @@ import {
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, DollarSign, ShoppingBag, Users, Receipt, ChevronRight, ChevronLeft, ChevronDown, Filter,
-  BarChart3, Package, UserPlus, UserMinus, Edit3, Trash2, Plus, Minus, Search, AlertCircle,
+  BarChart3, Package, UserPlus, UserMinus, Edit3, Trash2, Plus, Minus, Search, AlertCircle, Info,
   ArrowUpRight, ArrowDownRight, Clock, CheckCircle, XCircle, Eye, Archive, RotateCcw,
   Briefcase, Box, Tag, Layers, Activity, ArrowLeft, Warehouse, FileBarChart, Contact,
   CreditCard, Percent, FileText, Truck, ArrowUpDown, ClipboardList, Factory, History, Building2, MoreVertical,
@@ -84,6 +84,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [formItem, setFormItem] = useState<MenuFormItem>({});
   const [isSavingItem, setIsSavingItem] = useState(false);
+  const [itemSubTab, setItemSubTab] = useState<'list' | 'stock'>('list');
 
   // Detect dark mode for Recharts inline color props
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
@@ -593,9 +594,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   // ─── Tab buttons ───
   const simpleTabs: { key: BackOfficeTab; label: string; icon: React.ReactNode }[] = [
     { key: 'DASHBOARD', label: 'Dashboard', icon: <BarChart3 size={18} /> },
-    { key: 'ITEMS', label: 'Item List', icon: <ShoppingBag size={18} /> },
+    { key: 'ITEMS', label: 'Items & Stock', icon: <ShoppingBag size={18} /> },
     { key: 'STAFF', label: 'Staff Management', icon: <Users size={18} /> },
-    { key: 'STOCK', label: 'Stock Management', icon: <Package size={18} /> },
   ];
 
   const expandableTabs: {
@@ -915,7 +915,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                       <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={gridStroke} />
                       <XAxis dataKey="date" tick={{ fontSize: 10, fill: tickFill }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fontSize: 10, fill: tickFill }} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${v}`} />
-                      <Tooltip content={<CustomTooltip />} />
+                      <Tooltip content={<CustomTooltip />} cursor={false} />
                       <Area type="monotone" dataKey="sales" stroke="#D97706" fill="url(#salesGradient)" strokeWidth={2} />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -936,7 +936,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                           <Pie data={paymentData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={3} dataKey="value" stroke="none">
                             {paymentData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                           </Pie>
-                          <Tooltip content={({ active, payload }) => {
+                          <Tooltip cursor={false} content={({ active, payload }) => {
                             if (!active || !payload?.length) return null;
                             const d = payload[0].payload;
                             return <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 shadow-xl"><p className="text-xs font-bold text-gray-900 dark:text-white">{d.name}</p><p className="text-xs text-gray-600 dark:text-gray-300">{d.value} orders ({d.pct}%)</p></div>;
@@ -971,7 +971,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                     <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={gridStroke} />
                     <XAxis dataKey="label" tick={{ fontSize: 9, fill: tickFill }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 10, fill: tickFill }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip content={<CustomTooltip />} cursor={false} />
                     <Bar dataKey="orders" fill="#3B82F6" radius={[4, 4, 0, 0]} maxBarSize={24} name="orders" />
                   </BarChart>
                 </ResponsiveContainer>
@@ -1066,6 +1066,22 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
         {/* ════════════════════════════════════ */}
         {activeTab === 'ITEMS' && (
           <div>
+            {/* Sub-tab toggle */}
+            <div className="flex items-center gap-1 mb-6 bg-gray-100 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-700 p-0.5 w-fit">
+              {([['list', 'Item List'], ['stock', 'Stock Management']] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setItemSubTab(key)}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                    itemSubTab === key ? 'bg-amber-600 text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >{label}</button>
+              ))}
+            </div>
+
+            {/* ── Item List sub-tab ── */}
+            {itemSubTab === 'list' && (
+            <>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
               <h2 className="text-lg font-black">Item List</h2>
               <div className="flex items-center gap-3 flex-wrap">
@@ -1206,6 +1222,207 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               onSubmit={handleItemFormSubmit}
               onImageUpload={onImageUpload}
             />
+            </>
+            )}
+
+            {/* ── Stock Management sub-tab ── */}
+            {itemSubTab === 'stock' && (
+            <>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+              <h2 className="text-lg font-black">Stock Management</h2>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                  <input
+                    type="text"
+                    placeholder="Search items..."
+                    value={stockSearch}
+                    onChange={e => setStockSearch(e.target.value)}
+                    className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-4 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none w-48"
+                  />
+                </div>
+                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-700 p-0.5">
+                  {([['all', 'All'], ['low', 'Low Stock'], ['out', 'Out of Stock']] as const).map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => setStockFilter(key)}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
+                        stockFilter === key ? 'bg-amber-600 text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                      }`}
+                    >{label}</button>
+                  ))}
+                </div>
+                <button
+                  onClick={handleGoToRestock}
+                  className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20"
+                >
+                  <Plus size={14} /> Purchase Order
+                </button>
+              </div>
+            </div>
+
+            {/* Selection Action Bar */}
+            {stockSelectionMode && (
+              <div className="flex items-center justify-between mb-4 bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-gray-500 dark:text-gray-400">{selectedStockIds.size} selected</span>
+                  <button onClick={() => handleToggleSelectedStock(true)} className="px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 text-[10px] font-bold uppercase tracking-wider hover:bg-green-500/30 transition-all">Enable Track</button>
+                  <button onClick={() => handleToggleSelectedStock(false)} className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-[10px] font-bold uppercase tracking-wider hover:bg-red-500/30 transition-all">Disable Track</button>
+                </div>
+                <button onClick={() => { setStockSelectionMode(false); setSelectedStockIds(new Set()); }} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 font-bold">Cancel</button>
+              </div>
+            )}
+
+            {/* Stock Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center"><Package size={20} className="text-blue-400" /></div>
+                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Total Items</span>
+                </div>
+                <p className="text-3xl font-black dark:text-white">{stockSummary.total}</p>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-600/20 flex items-center justify-center"><CheckCircle size={20} className="text-green-600 dark:text-green-400" /></div>
+                  <span className="text-sm font-bold text-gray-600 dark:text-gray-400">In Stock</span>
+                </div>
+                <p className="text-3xl font-black text-green-600 dark:text-green-400">{stockSummary.healthy}</p>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-600/20 flex items-center justify-center"><AlertCircle size={20} className="text-amber-600 dark:text-amber-400" /></div>
+                  <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Low Stock</span>
+                </div>
+                <p className="text-3xl font-black text-amber-600 dark:text-amber-400">{stockSummary.low}</p>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-600/20 flex items-center justify-center"><XCircle size={20} className="text-red-600 dark:text-red-400" /></div>
+                  <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Out of Stock</span>
+                </div>
+                <p className="text-3xl font-black text-red-600 dark:text-red-400">{stockSummary.out}</p>
+              </div>
+            </div>
+
+            {/* Stock Table */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              {filteredStock.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                        <th className="px-3 py-4 w-8">
+                          <div className="relative">
+                            <button onClick={() => setStockMenuOpen(!stockMenuOpen)} className="p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                              <MoreVertical size={16} className="text-gray-500" />
+                            </button>
+                            {stockMenuOpen && (
+                              <div className="absolute left-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 min-w-[140px] py-1">
+                                <button
+                                  onClick={() => { setStockSelectionMode(true); setStockMenuOpen(false); }}
+                                  className="w-full text-left px-4 py-2.5 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                >Select</button>
+                                <button
+                                  onClick={() => { setStockSelectionMode(true); setSelectedStockIds(new Set(filteredStock.map(s => s.menuItemId))); setStockMenuOpen(false); }}
+                                  className="w-full text-left px-4 py-2.5 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                >Select All</button>
+                              </div>
+                            )}
+                          </div>
+                        </th>
+                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Item</th>
+                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Category</th>
+                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Stock</th>
+                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                          <span className="inline-flex items-center gap-1">Threshold
+                            <span className="relative group">
+                              <Info size={12} className="text-gray-400 cursor-help" />
+                              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block w-48 px-2 py-1.5 text-[10px] font-normal normal-case tracking-normal bg-gray-900 text-white rounded-lg shadow-lg z-50 text-center whitespace-normal">When stock falls to or below this number, the item is flagged as low stock.</span>
+                            </span>
+                          </span>
+                        </th>
+                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Last Restocked</th>
+                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Track Stock</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredStock.map(item => {
+                        const status = !item.stockEnabled ? 'disabled' : item.currentStock === 0 ? 'out' : item.currentStock <= item.lowStockThreshold ? 'low' : 'ok';
+                        return (
+                          <tr key={item.menuItemId} className={`border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${!item.stockEnabled ? 'opacity-50' : ''}`}>
+                            <td className="px-3 py-4">
+                              {stockSelectionMode ? (
+                                <input type="checkbox" checked={selectedStockIds.has(item.menuItemId)} onChange={() => handleSelectStockItem(item.menuItemId)} className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
+                              ) : (
+                                <span className="w-4 h-4" />
+                              )}
+                            </td>
+                            <td className="px-3 py-4">
+                              <span className="text-sm font-bold dark:text-white">{item.name}</span>
+                            </td>
+                            <td className="px-3 py-4">
+                              <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md">{item.category}</span>
+                            </td>
+                            <td className="px-3 py-4">
+                              {item.stockEnabled ? (
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => handleSetStock(item.menuItemId, item.currentStock - 1)} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 text-gray-400 hover:text-white flex items-center justify-center"><Minus size={12} /></button>
+                                <span className={`text-sm font-black min-w-[40px] text-center ${
+                                  status === 'out' ? 'text-red-600 dark:text-red-400' : status === 'low' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white'
+                                }`}>{item.currentStock}</span>
+                                <button onClick={() => handleSetStock(item.menuItemId, item.currentStock + 1)} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 text-gray-400 hover:text-white flex items-center justify-center"><Plus size={12} /></button>
+                              </div>
+                              ) : <span className="text-xs text-gray-400">—</span>}
+                            </td>
+                            <td className="px-3 py-4 hidden md:table-cell">
+                              {item.stockEnabled ? (
+                              <input
+                                type="number"
+                                value={item.lowStockThreshold}
+                                onChange={e => handleUpdateStockThreshold(item.menuItemId, parseInt(e.target.value) || 0)}
+                                className="w-16 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none"
+                              />
+                              ) : <span className="text-xs text-gray-400">—</span>}
+                            </td>
+                            <td className="px-3 py-4">
+                              <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
+                                status === 'disabled' ? 'bg-gray-500/20 text-gray-400' :
+                                status === 'out' ? 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400' :
+                                status === 'low' ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400' :
+                                'bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400'
+                              }`}>
+                                {status === 'disabled' ? 'Disabled' : status === 'out' ? 'Out of Stock' : status === 'low' ? 'Low Stock' : 'In Stock'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-4 text-xs text-gray-500 dark:text-gray-400 hidden sm:table-cell">
+                              {item.lastRestocked ? new Date(item.lastRestocked).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) : '-'}
+                            </td>
+                            <td className="px-3 py-4 text-center">
+                              <button
+                                onClick={() => handleToggleStockEnabled(item.menuItemId)}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${item.stockEnabled ? 'bg-green-500' : 'bg-gray-400 dark:bg-gray-600'}`}
+                              >
+                                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${item.stockEnabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="h-48 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
+                  <Package size={40} className="mb-3 opacity-30" />
+                  <p className="text-sm font-bold">No items found</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{stockFilter !== 'all' ? 'Try changing the filter' : 'Add menu items to track stock'}</p>
+                </div>
+              )}
+            </div>
+            </>
+            )}
           </div>
         )}
 
@@ -1378,199 +1595,6 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           </div>
         )}
 
-        {/* ════════════════════════════════════ */}
-        {/* STOCK MANAGEMENT TAB                */}
-        {/* ════════════════════════════════════ */}
-        {activeTab === 'STOCK' && (
-          <div>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              <h2 className="text-lg font-black">Stock Management</h2>
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="relative">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                  <input
-                    type="text"
-                    placeholder="Search items..."
-                    value={stockSearch}
-                    onChange={e => setStockSearch(e.target.value)}
-                    className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-4 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none w-48"
-                  />
-                </div>
-                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-700 p-0.5">
-                  {([['all', 'All'], ['low', 'Low Stock'], ['out', 'Out of Stock']] as const).map(([key, label]) => (
-                    <button
-                      key={key}
-                      onClick={() => setStockFilter(key)}
-                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
-                        stockFilter === key ? 'bg-amber-600 text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                      }`}
-                    >{label}</button>
-                  ))}
-                </div>
-                <button
-                  onClick={handleGoToRestock}
-                  className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20"
-                >
-                  <Plus size={14} /> Purchase Order
-                </button>
-              </div>
-            </div>
-
-            {/* Selection Action Bar */}
-            {stockSelectionMode && (
-              <div className="flex items-center justify-between mb-4 bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-bold text-gray-500 dark:text-gray-400">{selectedStockIds.size} selected</span>
-                  <button onClick={() => handleToggleSelectedStock(true)} className="px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 text-[10px] font-bold uppercase tracking-wider hover:bg-green-500/30 transition-all">Enable Track</button>
-                  <button onClick={() => handleToggleSelectedStock(false)} className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-[10px] font-bold uppercase tracking-wider hover:bg-red-500/30 transition-all">Disable Track</button>
-                </div>
-                <button onClick={() => { setStockSelectionMode(false); setSelectedStockIds(new Set()); }} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 font-bold">Cancel</button>
-              </div>
-            )}
-
-            {/* Stock Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center"><Package size={20} className="text-blue-400" /></div>
-                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Total Items</span>
-                </div>
-                <p className="text-3xl font-black dark:text-white">{stockSummary.total}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-600/20 flex items-center justify-center"><CheckCircle size={20} className="text-green-600 dark:text-green-400" /></div>
-                  <span className="text-sm font-bold text-gray-600 dark:text-gray-400">In Stock</span>
-                </div>
-                <p className="text-3xl font-black text-green-600 dark:text-green-400">{stockSummary.healthy}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-600/20 flex items-center justify-center"><AlertCircle size={20} className="text-amber-600 dark:text-amber-400" /></div>
-                  <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Low Stock</span>
-                </div>
-                <p className="text-3xl font-black text-amber-600 dark:text-amber-400">{stockSummary.low}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-600/20 flex items-center justify-center"><XCircle size={20} className="text-red-600 dark:text-red-400" /></div>
-                  <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Out of Stock</span>
-                </div>
-                <p className="text-3xl font-black text-red-600 dark:text-red-400">{stockSummary.out}</p>
-              </div>
-            </div>
-
-            {/* Stock Table */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-              {filteredStock.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                        <th className="px-3 py-4 w-8">
-                          <div className="relative">
-                            <button onClick={() => setStockMenuOpen(!stockMenuOpen)} className="p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                              <MoreVertical size={16} className="text-gray-500" />
-                            </button>
-                            {stockMenuOpen && (
-                              <div className="absolute left-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 min-w-[140px] py-1">
-                                <button
-                                  onClick={() => { setStockSelectionMode(true); setStockMenuOpen(false); }}
-                                  className="w-full text-left px-4 py-2.5 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                >Select</button>
-                                <button
-                                  onClick={() => { setStockSelectionMode(true); setSelectedStockIds(new Set(filteredStock.map(s => s.menuItemId))); setStockMenuOpen(false); }}
-                                  className="w-full text-left px-4 py-2.5 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                >Select All</button>
-                              </div>
-                            )}
-                          </div>
-                        </th>
-                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Item</th>
-                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Category</th>
-                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Stock</th>
-                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Threshold</th>
-                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Last Restocked</th>
-                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Track Stock</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredStock.map(item => {
-                        const status = !item.stockEnabled ? 'disabled' : item.currentStock === 0 ? 'out' : item.currentStock <= item.lowStockThreshold ? 'low' : 'ok';
-                        return (
-                          <tr key={item.menuItemId} className={`border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${!item.stockEnabled ? 'opacity-50' : ''}`}>
-                            <td className="px-3 py-4">
-                              {stockSelectionMode ? (
-                                <input type="checkbox" checked={selectedStockIds.has(item.menuItemId)} onChange={() => handleSelectStockItem(item.menuItemId)} className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
-                              ) : (
-                                <span className="w-4 h-4" />
-                              )}
-                            </td>
-                            <td className="px-3 py-4">
-                              <span className="text-sm font-bold dark:text-white">{item.name}</span>
-                            </td>
-                            <td className="px-3 py-4">
-                              <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md">{item.category}</span>
-                            </td>
-                            <td className="px-3 py-4">
-                              {item.stockEnabled ? (
-                              <div className="flex items-center gap-2">
-                                <button onClick={() => handleSetStock(item.menuItemId, item.currentStock - 1)} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 text-gray-400 hover:text-white flex items-center justify-center"><Minus size={12} /></button>
-                                <span className={`text-sm font-black min-w-[40px] text-center ${
-                                  status === 'out' ? 'text-red-600 dark:text-red-400' : status === 'low' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white'
-                                }`}>{item.currentStock}</span>
-                                <button onClick={() => handleSetStock(item.menuItemId, item.currentStock + 1)} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 text-gray-400 hover:text-white flex items-center justify-center"><Plus size={12} /></button>
-                              </div>
-                              ) : <span className="text-xs text-gray-400">—</span>}
-                            </td>
-                            <td className="px-3 py-4 hidden md:table-cell">
-                              {item.stockEnabled ? (
-                              <input
-                                type="number"
-                                value={item.lowStockThreshold}
-                                onChange={e => handleUpdateStockThreshold(item.menuItemId, parseInt(e.target.value) || 0)}
-                                className="w-16 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none"
-                              />
-                              ) : <span className="text-xs text-gray-400">—</span>}
-                            </td>
-                            <td className="px-3 py-4">
-                              <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
-                                status === 'disabled' ? 'bg-gray-500/20 text-gray-400' :
-                                status === 'out' ? 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400' :
-                                status === 'low' ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400' :
-                                'bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400'
-                              }`}>
-                                {status === 'disabled' ? 'Disabled' : status === 'out' ? 'Out of Stock' : status === 'low' ? 'Low Stock' : 'In Stock'}
-                              </span>
-                            </td>
-                            <td className="px-3 py-4 text-xs text-gray-500 dark:text-gray-400 hidden sm:table-cell">
-                              {item.lastRestocked ? new Date(item.lastRestocked).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) : '-'}
-                            </td>
-                            <td className="px-3 py-4 text-center">
-                              <button
-                                onClick={() => handleToggleStockEnabled(item.menuItemId)}
-                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${item.stockEnabled ? 'bg-green-500' : 'bg-gray-400 dark:bg-gray-600'}`}
-                              >
-                                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${item.stockEnabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="h-48 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
-                  <Package size={40} className="mb-3 opacity-30" />
-                  <p className="text-sm font-bold">No items found</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{stockFilter !== 'all' ? 'Try changing the filter' : 'Add menu items to track stock'}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
         {/* ════════════════════════════════════ */}
         {/* INVENTORY MANAGEMENT TAB            */}
         {/* ════════════════════════════════════ */}
