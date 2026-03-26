@@ -336,7 +336,7 @@ const MenuItemFormModal: React.FC<Props> = ({
                 key={opt}
                 type="button"
                 onClick={() => setFormItem(prev => ({ ...prev, soldBy: opt }))}
-                className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider border transition-all ${
+                className={`flex-1 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider border transition-all whitespace-nowrap ${
                   (formItem.soldBy || 'each') === opt
                     ? 'bg-amber-500 text-white border-amber-500'
                     : 'bg-gray-50 dark:bg-gray-700 text-gray-500 border-gray-200 dark:border-gray-600'
@@ -430,9 +430,9 @@ const MenuItemFormModal: React.FC<Props> = ({
   const variantsModifiersHeader = (
     <div className="space-y-3 border-t dark:border-gray-700 pt-4">
       <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><Layers size={16} className="text-amber-500" /> Variants & Modifiers</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Portion Size</span>
+      <div className="flex flex-wrap gap-3">
+        <div className="flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">Portion Size</span>
           <button
             type="button"
             onClick={() => setFormItem(prev => ({ ...prev, sizesEnabled: !prev.sizesEnabled }))}
@@ -441,8 +441,8 @@ const MenuItemFormModal: React.FC<Props> = ({
             {formItem.sizesEnabled ? 'On' : 'Off'}
           </button>
         </div>
-        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Thermal</span>
+        <div className="flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">Thermal</span>
           <button
             type="button"
             onClick={() => setFormItem(prev => ({ ...prev, tempOptions: { ...(prev.tempOptions || { hot: 0, cold: 0, enabled: false, options: [] }), enabled: !prev.tempOptions?.enabled } }))}
@@ -451,8 +451,8 @@ const MenuItemFormModal: React.FC<Props> = ({
             {formItem.tempOptions?.enabled ? 'On' : 'Off'}
           </button>
         </div>
-        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Variant Options</span>
+        <div className="flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">Variant Options</span>
           <button
             type="button"
             onClick={() => setFormItem(prev => ({ ...prev, variantOptions: { ...(prev.variantOptions || { enabled: false, options: [] }), enabled: !prev.variantOptions?.enabled } }))}
@@ -820,7 +820,7 @@ const MenuItemFormModal: React.FC<Props> = ({
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-2 md:p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full max-h-[95vh] p-4 md:p-6 shadow-2xl relative animate-in zoom-in fade-in duration-300 overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-xl max-w-6xl w-full max-h-[95vh] p-4 md:p-6 shadow-2xl relative animate-in zoom-in fade-in duration-300 overflow-y-auto">
         <button onClick={onClose} className="absolute top-4 right-4 z-10 p-2 text-gray-400 hover:text-red-500 transition-colors"><X size={20} /></button>
         <h2 className="text-lg font-black mb-4 dark:text-white uppercase tracking-tighter">{formItem.id ? 'Edit Item' : 'Add Item'}</h2>
 
