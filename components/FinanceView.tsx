@@ -111,6 +111,34 @@ const FinanceView: React.FC<Props> = ({ restaurant, orders, currencySymbol, init
     } catch { return []; }
   }, [restaurant.id]);
 
+  // ─── Purchase Orders → auto COGS expenses ───
+  const poExpenses: Expense[] = useMemo(() => {
+    try {
+      const raw = localStorage.getItem(`inv_${restaurant.id}_purchase_orders`);
+      if (!raw) return [];
+      const pos: { id: string; supplierName: string; supplierId: string; items: { name: string; quantity: number; costPerUnit: number; receivedQuantity: number }[]; status: string; receivedDate?: string; createdAt: number }[] = JSON.parse(raw);
+      return pos
+        .filter(po => po.status === 'received' || po.status === 'partial')
+        .map(po => {
+          const totalCost = po.items.reduce((s, i) => s + i.receivedQuantity * i.costPerUnit, 0);
+          return {
+            id: `po_${po.id}`,
+            date: po.receivedDate || new Date(po.createdAt).toISOString().split('T')[0],
+            amount: totalCost,
+            category: 'Food Cost',
+            subcategory: 'Purchase Order',
+            supplierId: po.supplierId,
+            supplierName: po.supplierName,
+            paymentMethod: '–',
+            notes: `PO-${po.id.slice(-6)} (${po.items.length} items)`,
+            type: 'COGS' as const,
+            createdAt: po.createdAt,
+          };
+        })
+        .filter(e => e.amount > 0);
+    } catch { return []; }
+  }, [restaurant.id]);
+
   // ─── Date range filter ───
   const today = new Date();
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d' | 'custom'>('30d');
@@ -192,8 +220,10 @@ const FinanceView: React.FC<Props> = ({ restaurant, orders, currencySymbol, init
 
   // ─── Derived data ─────────────────────────────────────────────────────────
 
+  const allExpenses = useMemo(() => [...expenses, ...poExpenses], [expenses, poExpenses]);
+
   const filteredExpenses = useMemo(() => {
-    return expenses.filter(e => {
+    return allExpenses.filter(e => {
       const d = new Date(e.date);
       if (d < startDate || d > endDate) return false;
       if (filterCategory && e.category !== filterCategory) return false;
@@ -205,7 +235,7 @@ const FinanceView: React.FC<Props> = ({ restaurant, orders, currencySymbol, init
       }
       return true;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [expenses, startDate, endDate, filterCategory, filterSubcategory, filterSupplier, expenseSearch]);
+  }, [allExpenses, startDate, endDate, filterCategory, filterSubcategory, filterSupplier, expenseSearch]);
 
   const totalRevenue = useMemo(() => {
     return orders
@@ -251,13 +281,13 @@ const FinanceView: React.FC<Props> = ({ restaurant, orders, currencySymbol, init
       const key = d.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
       if (months[key]) months[key].revenue += o.total;
     });
-    expenses.forEach(e => {
+    allExpenses.forEach(e => {
       const d = new Date(e.date);
       const key = d.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
       if (months[key]) months[key].expenses += e.amount;
     });
     return Object.values(months).map(m => ({ ...m, netProfit: m.revenue - m.expenses }));
-  }, [orders, expenses]);
+  }, [orders, allExpenses]);
 
   // ─── Date Range Picker ────────────────────────────────────────────────────
   const DateRangePicker = () => (
@@ -541,8 +571,14 @@ const FinanceView: React.FC<Props> = ({ restaurant, orders, currencySymbol, init
                             {e.attachmentName && (
                               <span title={e.attachmentName} className="p-1.5 rounded-lg text-gray-400 cursor-default"><Paperclip size={13} /></span>
                             )}
-                            <button onClick={() => openEdit(e)} className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all"><Edit3 size={13} /></button>
-                            <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"><Trash2 size={13} /></button>
+                            {e.id.startsWith('po_') ? (
+                              <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700" title="Managed from Inventory > Purchase Orders">Auto</span>
+                            ) : (
+                              <>
+                                <button onClick={() => openEdit(e)} className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all"><Edit3 size={13} /></button>
+                                <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"><Trash2 size={13} /></button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
