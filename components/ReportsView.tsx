@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import {
   DollarSign, ShoppingBag, Tag, Users, CreditCard, Layers, Percent, Receipt,
-  TrendingUp, TrendingDown, Search, Download, Calendar,
+  TrendingUp, TrendingDown, Search, Download, Calendar, X, Clock, ArrowLeft,
 } from 'lucide-react';
 
 interface Props {
@@ -29,6 +29,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
   }, [initialSubTab]);
   const today = new Date();
   const [dateRange, setDateRange] = useState<DateRange>('month');
+  const [selectedItemName, setSelectedItemName] = useState<string | null>(null);
   const [customStart, setCustomStart] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
@@ -110,11 +111,11 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     return (
-      <div className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 shadow-xl">
-        <p className="text-xs font-bold text-white mb-1">{label}</p>
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 shadow-xl">
+        <p className="text-xs font-bold text-gray-900 dark:text-white mb-1">{label}</p>
         {payload.map((p: any, i: number) => (
-          <p key={i} className="text-xs text-gray-300">
-            {p.name}: <span className="text-amber-400 font-bold">{typeof p.value === 'number' ? `${currencySymbol}${p.value.toFixed(2)}` : p.value}</span>
+          <p key={i} className="text-xs text-gray-600 dark:text-gray-300">
+            {p.name}: <span className="text-amber-600 dark:text-amber-400 font-bold">{typeof p.value === 'number' ? `${currencySymbol}${p.value.toFixed(2)}` : p.value}</span>
           </p>
         ))}
       </div>
@@ -298,6 +299,20 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
     return Object.values(map).sort((a, b) => b.timesUsed - a.timesUsed);
   }, [completedOrders]);
 
+  // Sales history for a selected item (drill-down)
+  const selectedItemSales = useMemo(() => {
+    if (!selectedItemName) return [];
+    return completedOrders
+      .filter(o => o.items.some(i => i.name === selectedItemName))
+      .map(o => {
+        const matchingItems = o.items.filter(i => i.name === selectedItemName);
+        const qty = matchingItems.reduce((s, i) => s + i.quantity, 0);
+        const rev = matchingItems.reduce((s, i) => s + i.price * i.quantity, 0);
+        return { orderId: o.id, timestamp: o.timestamp, quantity: qty, revenue: rev, paymentMethod: o.paymentMethod || '-', cashier: o.cashierName || '-', orderTotal: o.total };
+      })
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [selectedItemName, completedOrders]);
+
   // Discounts (estimated from order data — if the system has discount fields)
   const discountsReport = useMemo(() => {
     // Placeholder structure — since orders don't have a discount field currently, 
@@ -419,7 +434,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                   <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#333" />
                   <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${v}`} />
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
                   <Bar dataKey="grossSales" fill="#D97706" radius={[4, 4, 0, 0]} maxBarSize={32} name="Gross Sales" />
                 </BarChart>
               </ResponsiveContainer>
@@ -466,7 +481,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                   <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#333" />
                   <XAxis type="number" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${v}`} />
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} width={120} />
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
                   <Bar dataKey="revenue" fill="#D97706" radius={[0, 4, 4, 0]} maxBarSize={24} name="Revenue" />
                 </BarChart>
               </ResponsiveContainer>
@@ -493,9 +508,9 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                     .map((item, idx) => {
                       const totalRev = salesByItem.reduce((s, i) => s + i.revenue, 0);
                       return (
-                        <tr key={item.name} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                        <tr key={item.name} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer" onClick={() => setSelectedItemName(item.name)}>
                           <td className="px-5 py-4 text-xs text-gray-500">{idx + 1}</td>
-                          <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{item.name}</td>
+                          <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400 underline decoration-dotted underline-offset-2">{item.name}</td>
                           <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{item.quantity}</td>
                           <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{currencySymbol}{item.avgPrice.toFixed(2)}</td>
                           <td className="px-5 py-4 text-xs font-bold text-amber-400">{currencySymbol}{item.revenue.toFixed(2)}</td>
@@ -507,6 +522,86 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
               </table>
             </div>
           </div>
+
+          {/* Item Sales Drill-Down Modal */}
+          {selectedItemName && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedItemName(null)}>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => setSelectedItemName(null)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                      <ArrowLeft size={18} className="text-gray-500" />
+                    </button>
+                    <div>
+                      <h3 className="text-base font-black text-gray-900 dark:text-white">{selectedItemName}</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{selectedItemSales.length} sale{selectedItemSales.length !== 1 ? 's' : ''} in selected period</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setSelectedItemName(null)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <X size={18} className="text-gray-500" />
+                  </button>
+                </div>
+
+                {/* Summary */}
+                <div className="grid grid-cols-3 gap-3 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
+                    <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Total Qty</p>
+                    <p className="text-lg font-black text-gray-900 dark:text-white">{selectedItemSales.reduce((s, o) => s + o.quantity, 0)}</p>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
+                    <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Total Revenue</p>
+                    <p className="text-lg font-black text-amber-600 dark:text-amber-400">{currencySymbol}{selectedItemSales.reduce((s, o) => s + o.revenue, 0).toFixed(2)}</p>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
+                    <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Orders</p>
+                    <p className="text-lg font-black text-blue-500 dark:text-blue-400">{selectedItemSales.length}</p>
+                  </div>
+                </div>
+
+                {/* Sales list */}
+                <div className="flex-1 overflow-y-auto px-6 py-3">
+                  {selectedItemSales.length > 0 ? (
+                    <table className="w-full text-left">
+                      <thead className="sticky top-0 bg-white dark:bg-gray-800">
+                        <tr className="border-b border-gray-200 dark:border-gray-700">
+                          <th className="px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Date & Time</th>
+                          <th className="px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Qty</th>
+                          <th className="px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Item Rev.</th>
+                          <th className="px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Payment</th>
+                          <th className="px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Cashier</th>
+                          <th className="px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Order Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedItemSales.map((sale, idx) => {
+                          const d = new Date(sale.timestamp);
+                          return (
+                            <tr key={idx} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                              <td className="px-3 py-3 text-xs text-gray-600 dark:text-gray-300">
+                                <div className="flex items-center gap-1.5">
+                                  <Clock size={12} className="text-gray-400 shrink-0" />
+                                  <span>{d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                  <span className="text-gray-400">{d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
+                              </td>
+                              <td className="px-3 py-3 text-xs font-bold text-gray-900 dark:text-white">{sale.quantity}</td>
+                              <td className="px-3 py-3 text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{sale.revenue.toFixed(2)}</td>
+                              <td className="px-3 py-3 text-xs text-gray-600 dark:text-gray-300 hidden sm:table-cell">{sale.paymentMethod}</td>
+                              <td className="px-3 py-3 text-xs text-gray-600 dark:text-gray-300 hidden sm:table-cell">{sale.cashier}</td>
+                              <td className="px-3 py-3 text-xs text-gray-600 dark:text-gray-300">{currencySymbol}{sale.orderTotal.toFixed(2)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="h-32 flex items-center justify-center text-gray-500 text-sm">No sales found for this item in the selected period</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -547,7 +642,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                       <Tooltip content={({ active, payload }) => {
                         if (!active || !payload?.length) return null;
                         const d = payload[0].payload;
-                        return <div className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 shadow-xl"><p className="text-xs font-bold text-white">{d.name}</p><p className="text-xs text-gray-300">{currencySymbol}{d.revenue.toFixed(2)}</p></div>;
+                        return <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 shadow-xl"><p className="text-xs font-bold text-gray-900 dark:text-white">{d.name}</p><p className="text-xs text-gray-600 dark:text-gray-300">{currencySymbol}{d.revenue.toFixed(2)}</p></div>;
                       }} />
                     </PieChart>
                   </ResponsiveContainer>
@@ -630,7 +725,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                   <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#333" />
                   <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${v}`} />
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
                   <Bar dataKey="revenue" fill="#8B5CF6" radius={[4, 4, 0, 0]} maxBarSize={48} name="Revenue" />
                 </BarChart>
               </ResponsiveContainer>
@@ -691,7 +786,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                         <Tooltip content={({ active, payload }) => {
                           if (!active || !payload?.length) return null;
                           const d = payload[0].payload;
-                          return <div className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 shadow-xl"><p className="text-xs font-bold text-white">{d.name}</p><p className="text-xs text-gray-300">{currencySymbol}{d.revenue.toFixed(2)} ({d.percentage.toFixed(1)}%)</p></div>;
+                          return <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 shadow-xl"><p className="text-xs font-bold text-gray-900 dark:text-white">{d.name}</p><p className="text-xs text-gray-600 dark:text-gray-300">{currencySymbol}{d.revenue.toFixed(2)} ({d.percentage.toFixed(1)}%)</p></div>;
                         }} />
                       </PieChart>
                     </ResponsiveContainer>
