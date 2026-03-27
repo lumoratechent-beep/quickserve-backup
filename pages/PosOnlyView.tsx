@@ -776,7 +776,7 @@ const PosOnlyView: React.FC<Props> = ({
       image: (formItem.image || '').trim() || `https://picsum.photos/seed/${encodeURIComponent(formItem.name.trim())}/300/300`,
       category: formItem.category.trim(),
       isArchived: editingItem?.isArchived || false,
-      sizes: formItem.sizesEnabled ? formItem.sizes : [],
+      sizes: (formItem.sizes || []).length > 0 ? formItem.sizes : [],
       tempOptions: formItem.tempOptions?.enabled ? formItem.tempOptions : undefined,
       variantOptions: formItem.variantOptions?.enabled ? formItem.variantOptions : undefined,
       // Backward compat: set first linked modifier as otherVariantName

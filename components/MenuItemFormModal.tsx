@@ -41,6 +41,9 @@ const MenuItemFormModal: React.FC<Props> = ({
   const [newCategoryName, setNewCategoryName] = useState('');
   const [localCategories, setLocalCategories] = useState<string[]>(categories);
   const [cropFile, setCropFile] = useState<File | null>(null);
+  const [addingSection, setAddingSection] = useState<'sizes' | 'thermal' | 'variants' | null>(null);
+  const [draftOptionName, setDraftOptionName] = useState('');
+  const [draftOptionPrice, setDraftOptionPrice] = useState<number>(0);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -81,6 +84,7 @@ const MenuItemFormModal: React.FC<Props> = ({
       } else {
         setCollapsedAddOns(new Set());
       }
+      setAddingSection(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -545,67 +549,76 @@ const MenuItemFormModal: React.FC<Props> = ({
     </div>
   );
 
-  // ─── Variants & Modifiers header (Loyverse section 5) ───
-  const variantsModifiersHeader = (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm space-y-3">
-      <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><Layers size={16} className="text-amber-500" /> Variants & Modifiers</h3>
-      <div className="grid grid-cols-3 gap-2">
-        {([
-          { label: 'Portion Sizes', enabled: !!formItem.sizesEnabled, toggle: () => setFormItem(prev => ({ ...prev, sizesEnabled: !prev.sizesEnabled })) },
-          { label: 'Thermal', enabled: !!formItem.tempOptions?.enabled, toggle: () => setFormItem(prev => ({ ...prev, tempOptions: { ...(prev.tempOptions || { hot: 0, cold: 0, enabled: false, options: [] }), enabled: !prev.tempOptions?.enabled } })) },
-          { label: 'Variants', enabled: !!formItem.variantOptions?.enabled, toggle: () => setFormItem(prev => ({ ...prev, variantOptions: { ...(prev.variantOptions || { enabled: false, options: [] }), enabled: !prev.variantOptions?.enabled } })) },
-        ] as { label: string; enabled: boolean; toggle: () => void }[]).map(({ label, enabled, toggle }) => (
-          <div key={label} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 flex flex-col items-center gap-2">
-            <span className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest text-center leading-tight">{label}</span>
-            <button
-              type="button"
-              onClick={toggle}
-              className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
-                enabled ? 'bg-amber-500 text-white shadow-sm' : 'bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
-              }`}
-            >
-              {enabled ? 'On' : 'Off'}
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  // ─── Inline helper for option chip cards ───
+  const openAddForm = (section: 'sizes' | 'thermal' | 'variants') => {
+    setAddingSection(section);
+    setDraftOptionName('');
+    setDraftOptionPrice(0);
+  };
 
-  const sizesSection = formItem.sizesEnabled ? (
+  const closeAddForm = () => setAddingSection(null);
+
+  const sizesSection = (
     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-black dark:text-white">Portion Size</h3>
-        <button type="button" onClick={handleAddSize} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-          <Plus size={16} />
-        </button>
+        <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><Layers size={16} className="text-amber-500" /> Portion Sizes</h3>
+        {addingSection !== 'sizes' && (
+          <button type="button" onClick={() => openAddForm('sizes')} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+            <Plus size={16} />
+          </button>
+        )}
       </div>
-      <div className="space-y-2">
-        {formItem.sizes?.map((size, idx) => (
-          <div key={idx} className="flex gap-2 items-center">
+      {(formItem.sizes || []).length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {formItem.sizes!.map((opt, idx) => (
+            <div key={idx} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-full">
+              <span className="text-xs font-bold text-amber-700 dark:text-amber-300">{opt.name}</span>
+              {opt.price > 0 && <span className="text-[10px] text-amber-500">+RM{opt.price.toFixed(2)}</span>}
+              <button type="button" onClick={() => {
+                const next = formItem.sizes!.filter((_, i) => i !== idx);
+                setFormItem(prev => ({ ...prev, sizes: next, sizesEnabled: next.length > 0 }));
+              }} className="text-red-400 hover:text-red-500 ml-0.5"><X size={11} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+      {(formItem.sizes || []).length === 0 && addingSection !== 'sizes' && (
+        <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest text-center py-1">No sizes added yet</p>
+      )}
+      {addingSection === 'sizes' && (
+        <div className="space-y-3 border-t dark:border-gray-700 pt-3 mt-1">
+          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">New Size</p>
+          <div className="flex gap-2">
             <input
+              autoFocus
               type="text"
-              className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
-              placeholder="Size name"
-              value={size.name}
-              onChange={e => handleSizeChange(idx, 'name', e.target.value)}
+              className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none"
+              placeholder="e.g. Small, Regular, Large"
+              value={draftOptionName}
+              onChange={e => setDraftOptionName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (draftOptionName.trim()) { setFormItem(prev => ({ ...prev, sizesEnabled: true, sizes: [...(prev.sizes || []), { name: draftOptionName.trim(), price: draftOptionPrice }] })); closeAddForm(); } } }}
             />
             <input
-              type="number"
-              step="0.01"
-              className="w-24 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
+              type="number" step="0.01" min="0"
+              className="w-24 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none"
               placeholder="+Price"
-              value={size.price === 0 ? '' : size.price}
-              onChange={e => handleSizeChange(idx, 'price', e.target.value === '' ? 0 : Number(e.target.value))}
+              value={draftOptionPrice === 0 ? '' : draftOptionPrice}
+              onChange={e => setDraftOptionPrice(e.target.value === '' ? 0 : Number(e.target.value))}
             />
-            <button type="button" onClick={() => handleRemoveSize(idx)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg">
-              <Trash2 size={16} />
-            </button>
           </div>
-        ))}
-      </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={!draftOptionName.trim()}
+              onClick={() => { setFormItem(prev => ({ ...prev, sizesEnabled: true, sizes: [...(prev.sizes || []), { name: draftOptionName.trim(), price: draftOptionPrice }] })); closeAddForm(); }}
+              className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1 transition-colors"
+            ><Save size={13} /> Save Changes</button>
+            <button type="button" onClick={closeAddForm} className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
-  ) : null;
+  );
 
   const modifiersSection = (
     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm">
@@ -739,75 +752,129 @@ const MenuItemFormModal: React.FC<Props> = ({
     </div>
   );
 
-  const thermalSection = formItem.tempOptions?.enabled ? (
+  const thermalSection = (
     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-black dark:text-white">Thermal Options</h3>
-        <button type="button" onClick={handleAddTempOption} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-          <Plus size={16} />
-        </button>
+        <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><ThermometerSun size={16} className="text-amber-500" /> Thermal Options</h3>
+        {addingSection !== 'thermal' && (
+          <button type="button" onClick={() => openAddForm('thermal')} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+            <Plus size={16} />
+          </button>
+        )}
       </div>
-      <div className="space-y-2">
-        {formItem.tempOptions.options?.map((opt, idx) => (
-          <div key={idx} className="flex gap-2 items-center">
+      {(formItem.tempOptions?.options || []).length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {formItem.tempOptions!.options!.map((opt, idx) => (
+            <div key={idx} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-full">
+              <span className="text-xs font-bold text-amber-700 dark:text-amber-300">{opt.name}</span>
+              {opt.price > 0 && <span className="text-[10px] text-amber-500">+RM{opt.price.toFixed(2)}</span>}
+              <button type="button" onClick={() => {
+                const next = formItem.tempOptions!.options!.filter((_, i) => i !== idx);
+                setFormItem(prev => ({ ...prev, tempOptions: { ...(prev.tempOptions || { enabled: true, hot: 0, cold: 0, options: [] }), enabled: next.length > 0, options: next } }));
+              }} className="text-red-400 hover:text-red-500 ml-0.5"><X size={11} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+      {(formItem.tempOptions?.options || []).length === 0 && addingSection !== 'thermal' && (
+        <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest text-center py-1">No thermal options added yet</p>
+      )}
+      {addingSection === 'thermal' && (
+        <div className="space-y-3 border-t dark:border-gray-700 pt-3 mt-1">
+          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">New Option</p>
+          <div className="flex gap-2">
             <input
+              autoFocus
               type="text"
-              className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
+              className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none"
               placeholder="e.g. Hot, Cold, Warm"
-              value={opt.name}
-              onChange={e => handleTempOptionChange(idx, 'name', e.target.value)}
+              value={draftOptionName}
+              onChange={e => setDraftOptionName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (draftOptionName.trim()) { setFormItem(prev => ({ ...prev, tempOptions: { ...(prev.tempOptions || { enabled: true, hot: 0, cold: 0, options: [] }), enabled: true, options: [...(prev.tempOptions?.options || []), { name: draftOptionName.trim(), price: draftOptionPrice }] } })); closeAddForm(); } } }}
             />
             <input
-              type="number"
-              step="0.01"
-              className="w-24 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
+              type="number" step="0.01" min="0"
+              className="w-24 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none"
               placeholder="+Price"
-              value={opt.price === 0 ? '' : opt.price}
-              onChange={e => handleTempOptionChange(idx, 'price', e.target.value === '' ? 0 : Number(e.target.value))}
+              value={draftOptionPrice === 0 ? '' : draftOptionPrice}
+              onChange={e => setDraftOptionPrice(e.target.value === '' ? 0 : Number(e.target.value))}
             />
-            <button type="button" onClick={() => handleRemoveTempOption(idx)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg">
-              <Trash2 size={16} />
-            </button>
           </div>
-        ))}
-      </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={!draftOptionName.trim()}
+              onClick={() => { setFormItem(prev => ({ ...prev, tempOptions: { ...(prev.tempOptions || { enabled: true, hot: 0, cold: 0, options: [] }), enabled: true, options: [...(prev.tempOptions?.options || []), { name: draftOptionName.trim(), price: draftOptionPrice }] } })); closeAddForm(); }}
+              className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1 transition-colors"
+            ><Save size={13} /> Save Changes</button>
+            <button type="button" onClick={closeAddForm} className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
-  ) : null;
+  );
 
-  const variantSection = formItem.variantOptions?.enabled ? (
+  const variantSection = (
     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-black dark:text-white">Variant Options</h3>
-        <button type="button" onClick={handleAddVariantOption} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-          <Plus size={16} />
-        </button>
+        <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><ChevronDown size={16} className="text-amber-500" /> Variant Options</h3>
+        {addingSection !== 'variants' && (
+          <button type="button" onClick={() => openAddForm('variants')} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+            <Plus size={16} />
+          </button>
+        )}
       </div>
-      <div className="space-y-2">
-        {formItem.variantOptions.options?.map((opt, idx) => (
-          <div key={idx} className="flex gap-2 items-center">
+      {(formItem.variantOptions?.options || []).length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {formItem.variantOptions!.options!.map((opt, idx) => (
+            <div key={idx} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-full">
+              <span className="text-xs font-bold text-amber-700 dark:text-amber-300">{opt.name}</span>
+              {opt.price > 0 && <span className="text-[10px] text-amber-500">+RM{opt.price.toFixed(2)}</span>}
+              <button type="button" onClick={() => {
+                const next = formItem.variantOptions!.options!.filter((_, i) => i !== idx);
+                setFormItem(prev => ({ ...prev, variantOptions: { ...(prev.variantOptions || { enabled: true, options: [] }), enabled: next.length > 0, options: next } }));
+              }} className="text-red-400 hover:text-red-500 ml-0.5"><X size={11} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+      {(formItem.variantOptions?.options || []).length === 0 && addingSection !== 'variants' && (
+        <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest text-center py-1">No variants added yet</p>
+      )}
+      {addingSection === 'variants' && (
+        <div className="space-y-3 border-t dark:border-gray-700 pt-3 mt-1">
+          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">New Variant</p>
+          <div className="flex gap-2">
             <input
+              autoFocus
               type="text"
-              className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
-              placeholder="Option name"
-              value={opt.name}
-              onChange={e => handleVariantOptionChange(idx, 'name', e.target.value)}
+              className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none"
+              placeholder="e.g. Spicy, Original, BBQ"
+              value={draftOptionName}
+              onChange={e => setDraftOptionName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (draftOptionName.trim()) { setFormItem(prev => ({ ...prev, variantOptions: { ...(prev.variantOptions || { enabled: true, options: [] }), enabled: true, options: [...(prev.variantOptions?.options || []), { name: draftOptionName.trim(), price: draftOptionPrice }] } })); closeAddForm(); } } }}
             />
             <input
-              type="number"
-              step="0.01"
-              className="w-24 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
+              type="number" step="0.01" min="0"
+              className="w-24 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none"
               placeholder="+Price"
-              value={opt.price === 0 ? '' : opt.price}
-              onChange={e => handleVariantOptionChange(idx, 'price', e.target.value === '' ? 0 : Number(e.target.value))}
+              value={draftOptionPrice === 0 ? '' : draftOptionPrice}
+              onChange={e => setDraftOptionPrice(e.target.value === '' ? 0 : Number(e.target.value))}
             />
-            <button type="button" onClick={() => handleRemoveVariantOption(idx)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg">
-              <Trash2 size={16} />
-            </button>
           </div>
-        ))}
-      </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={!draftOptionName.trim()}
+              onClick={() => { setFormItem(prev => ({ ...prev, variantOptions: { ...(prev.variantOptions || { enabled: true, options: [] }), enabled: true, options: [...(prev.variantOptions?.options || []), { name: draftOptionName.trim(), price: draftOptionPrice }] } })); closeAddForm(); }}
+              className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1 transition-colors"
+            ><Save size={13} /> Save Changes</button>
+            <button type="button" onClick={closeAddForm} className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
-  ) : null;
+  );
 
   const addOnsSection = (
     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm">
@@ -963,11 +1030,10 @@ const MenuItemFormModal: React.FC<Props> = ({
 
               {/* Right column — Variants & Modifiers */}
               <div className="space-y-5 lg:pl-6">
-                {variantsModifiersHeader}
                 {sizesSection}
-                {modifiersSection}
                 {thermalSection}
                 {variantSection}
+                {modifiersSection}
                 {addOnsSection}
               </div>
             </div>
