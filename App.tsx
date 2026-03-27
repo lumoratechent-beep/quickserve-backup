@@ -474,6 +474,8 @@ const App: React.FC = () => {
             soldBy: others.soldBy ?? 'each',
             trackStock: others.trackStock ?? false,
             color: others.color ?? undefined,
+            onlineDisabled: others.onlineDisabled ?? false,
+            onlinePrice: others.onlinePrice ?? undefined,
           };
         })
       }));
@@ -1116,6 +1118,8 @@ const App: React.FC = () => {
         soldBy: item.soldBy ?? 'each',
         trackStock: item.trackStock ?? false,
         color: item.color ?? null,
+        onlineDisabled: item.onlineDisabled ?? false,
+        onlinePrice: item.onlinePrice ?? null,
       },
       add_ons: item.addOns || []
     }).eq('id', item.id);
@@ -1152,6 +1156,8 @@ const App: React.FC = () => {
         soldBy: item.soldBy ?? 'each',
         trackStock: item.trackStock ?? false,
         color: item.color ?? null,
+        onlineDisabled: item.onlineDisabled ?? false,
+        onlinePrice: item.onlinePrice ?? null,
       },
       add_ons: item.addOns || []
     });

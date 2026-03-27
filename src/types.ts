@@ -61,6 +61,8 @@ export interface MenuItem {
   addOns?: AddOnItem[];
   linkedModifiers?: string[];
   color?: string; // Tile color for POS display
+  onlineDisabled?: boolean;  // Hide from online shop
+  onlinePrice?: number;      // Override price for online orders
 }
 
 export interface Area {

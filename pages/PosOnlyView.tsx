@@ -211,6 +211,29 @@ interface SavedBillEntry {
 
 type SettingsPanel = 'builtin' | 'table' | 'kitchen' | 'qr' | 'printer' | 'receipt' | 'payment' | 'staff' | 'ux';
 
+const MALAYSIA_BANKS = [
+  { name: 'Maybank', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Maybank_logo.svg/200px-Maybank_logo.svg.png' },
+  { name: 'CIMB Bank', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/CIMB_logo.svg/200px-CIMB_logo.svg.png' },
+  { name: 'Public Bank', logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/0/02/Public_Bank_Berhad_logo.svg/200px-Public_Bank_Berhad_logo.svg.png' },
+  { name: 'RHB Bank', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/RHB_Bank_Logo.svg/200px-RHB_Bank_Logo.svg.png' },
+  { name: 'Hong Leong Bank', logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/8/85/Hong_Leong_Bank.svg/200px-Hong_Leong_Bank.svg.png' },
+  { name: 'AmBank', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/AmBank_logo.svg/200px-AmBank_logo.svg.png' },
+  { name: 'Bank Islam', logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/f/f0/Bank_Islam_logo.svg/200px-Bank_Islam_logo.svg.png' },
+  { name: 'Bank Rakyat', logo: 'https://upload.wikimedia.org/wikipedia/ms/thumb/c/c8/Bank_Rakyat.svg/200px-Bank_Rakyat.svg.png' },
+  { name: 'Bank Muamalat', logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/1/14/Bank_Muamalat_Malaysia_Logo.svg/200px-Bank_Muamalat_Malaysia_Logo.svg.png' },
+  { name: 'BSN', logo: 'https://upload.wikimedia.org/wikipedia/ms/thumb/0/06/BSN_logo.svg/200px-BSN_logo.svg.png' },
+  { name: 'Affin Bank', logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/7/7c/Affin_Bank_logo.svg/200px-Affin_Bank_logo.svg.png' },
+  { name: 'Alliance Bank', logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/1/15/Alliance_Bank_Malaysia_logo.svg/200px-Alliance_Bank_Malaysia_logo.svg.png' },
+  { name: 'OCBC Bank', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/OCBC_Bank_logo.svg/200px-OCBC_Bank_logo.svg.png' },
+  { name: 'UOB Bank', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/UOB_Logo.svg/200px-UOB_Logo.svg.png' },
+  { name: 'HSBC Bank', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/HSBC_logo_%282018%29.svg/200px-HSBC_logo_%282018%29.svg.png' },
+  { name: 'Standard Chartered', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Standard_Chartered_%282021%29.svg/200px-Standard_Chartered_%282021%29.svg.png' },
+  { name: 'Agrobank', logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/4/4b/Agrobank_logo.svg/200px-Agrobank_logo.svg.png' },
+  { name: 'GXBank', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/GXBank_Logo.svg/200px-GXBank_Logo.svg.png' },
+  { name: 'Touch \'n Go eWallet', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Touch_%27n_Go_eWallet_logo.svg/200px-Touch_%27n_Go_eWallet_logo.svg.png' },
+  { name: 'Boost', logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/e/e4/Boost_%28company%29_logo.svg/200px-Boost_%28company%29_logo.svg.png' },
+];
+
 const PosOnlyView: React.FC<Props> = ({
   restaurant,
   orders,
@@ -6640,7 +6663,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {/* Document-style tab bar */}
-                <div className="flex gap-0 overflow-x-auto hide-scrollbar border-b border-gray-200 dark:border-gray-700">
+                <div className="flex gap-0 overflow-x-auto hide-scrollbar">
                   {([
                     { id: 'INCOMING' as const, label: 'Incoming Orders', icon: <ShoppingBag size={13} /> },
                     { id: 'PRODUCT' as const, label: 'Product', icon: <Package size={13} /> },
@@ -6674,7 +6697,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {/* Sub-tab content */}
-                <div className="bg-white dark:bg-gray-800 border border-t-0 border-gray-200 dark:border-gray-700 rounded-b-2xl rounded-tr-2xl shadow-sm p-5 md:p-6">
+                <div className="bg-white dark:bg-gray-800 border border-t-0 border-gray-200 dark:border-gray-700 rounded-b-2xl shadow-sm p-5 md:p-6">
                 {/* ── Incoming Orders Sub-tab ── */}
                 {onlineOrderSubTab === 'INCOMING' && (
                   <>
@@ -6684,6 +6707,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm overflow-x-auto hide-scrollbar">
                           <button onClick={() => setQrOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Ongoing</button>
                           <button onClick={() => setQrOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Served</button>
+                          <button onClick={() => setQrOrderFilter(OrderStatus.COMPLETED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.COMPLETED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Paid</button>
                           <button onClick={() => setQrOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Cancelled</button>
                           <button onClick={() => setQrOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>All</button>
                         </div>
@@ -6813,7 +6837,7 @@ const PosOnlyView: React.FC<Props> = ({
                 {onlineOrderSubTab === 'PRODUCT' && (
                   <div>
                     <div className="mb-6">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest mb-4">Products available on your online shop.</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest mb-4">Manage products displayed on your online shop. Toggle items on/off and set online-specific pricing.</p>
                     </div>
                     {(() => {
                       const onlineMenu = restaurant.menu.filter(item => !item.isArchived);
@@ -6837,20 +6861,65 @@ const PosOnlyView: React.FC<Props> = ({
                                 <Tag size={14} className="text-orange-500" />
                                 {category}
                               </h3>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                 {onlineMenu.filter(item => item.category === category).map(item => (
-                                  <div key={item.id} className="bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600 p-3 shadow-sm flex items-center gap-3">
-                                    {item.image && (
-                                      <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-cover shrink-0" />
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-xs font-black dark:text-white truncate">{item.name}</p>
-                                      {item.description && <p className="text-[9px] text-gray-400 truncate">{item.description}</p>}
-                                      <p className="text-xs font-black text-orange-500 mt-0.5">{currencySymbol}{item.price.toFixed(2)}</p>
+                                  <div key={item.id} className={`bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600 p-3 shadow-sm transition-all ${item.onlineDisabled ? 'opacity-50' : ''}`}>
+                                    <div className="flex items-center gap-3 mb-2">
+                                      {item.image && (
+                                        <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                                      )}
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-black dark:text-white truncate">{item.name}</p>
+                                        {item.description && <p className="text-[9px] text-gray-400 truncate">{item.description}</p>}
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                          {item.onlinePrice != null && item.onlinePrice !== item.price ? (
+                                            <>
+                                              <p className="text-xs font-black text-gray-400 line-through">{currencySymbol}{item.price.toFixed(2)}</p>
+                                              <p className="text-xs font-black text-orange-500">{currencySymbol}{item.onlinePrice.toFixed(2)}</p>
+                                            </>
+                                          ) : (
+                                            <p className="text-xs font-black text-orange-500">{currencySymbol}{item.price.toFixed(2)}</p>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {item.sizes && item.sizes.length > 0 && (
+                                        <span className="text-[8px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase">{item.sizes.length} sizes</span>
+                                      )}
                                     </div>
-                                    {item.sizes && item.sizes.length > 0 && (
-                                      <span className="text-[8px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase">{item.sizes.length} sizes</span>
-                                    )}
+                                    <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-600">
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          onClick={() => {
+                                            const updated = { ...item, onlineDisabled: !item.onlineDisabled };
+                                            onUpdateMenu?.(restaurant.id, updated);
+                                          }}
+                                          className={`relative w-9 h-5 rounded-full transition-all ${item.onlineDisabled ? 'bg-gray-300 dark:bg-gray-600' : 'bg-green-500'}`}
+                                        >
+                                          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${item.onlineDisabled ? 'left-0.5' : 'left-[18px]'}`} />
+                                        </button>
+                                        <span className="text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{item.onlineDisabled ? 'Unlisted' : 'Listed'}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[9px] font-bold text-gray-400 uppercase">Online Price:</span>
+                                        <div className="relative">
+                                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">{currencySymbol}</span>
+                                          <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            defaultValue={(item.onlinePrice ?? item.price).toFixed(2)}
+                                            onBlur={e => {
+                                              const val = parseFloat(e.target.value);
+                                              if (!isNaN(val) && val >= 0) {
+                                                const updated = { ...item, onlinePrice: val === item.price ? undefined : val };
+                                                onUpdateMenu?.(restaurant.id, updated);
+                                              }
+                                            }}
+                                            className="w-20 pl-6 pr-2 py-1 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 text-right"
+                                          />
+                                        </div>
+                                      </div>
+                                    </div>
                                   </div>
                                 ))}
                               </div>
@@ -6978,7 +7047,10 @@ const PosOnlyView: React.FC<Props> = ({
                             <div className="space-y-3">
                               <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg">
                                 <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Bank Name</span>
-                                <span className="text-xs font-black dark:text-white">{bankDetails.bankName}</span>
+                                <div className="flex items-center gap-2">
+                                  {(() => { const b = MALAYSIA_BANKS.find(bk => bk.name === bankDetails.bankName); return b ? <img src={b.logo} alt={b.name} className="h-5 w-auto object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} /> : null; })()}
+                                  <span className="text-xs font-black dark:text-white">{bankDetails.bankName}</span>
+                                </div>
                               </div>
                               <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg">
                                 <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Account Holder</span>
@@ -7007,13 +7079,28 @@ const PosOnlyView: React.FC<Props> = ({
                             <div className="space-y-3">
                               <div>
                                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Bank Name</label>
-                                <input
-                                  type="text"
-                                  value={bankFormData.bankName}
-                                  onChange={e => setBankFormData(prev => ({ ...prev, bankName: e.target.value }))}
-                                  placeholder="e.g. Maybank, CIMB, Public Bank"
-                                  className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
-                                />
+                                <div className="relative">
+                                  <select
+                                    value={bankFormData.bankName}
+                                    onChange={e => setBankFormData(prev => ({ ...prev, bankName: e.target.value }))}
+                                    className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 appearance-none cursor-pointer"
+                                  >
+                                    <option value="">Select a bank...</option>
+                                    {MALAYSIA_BANKS.map(b => (
+                                      <option key={b.name} value={b.name}>{b.name}</option>
+                                    ))}
+                                  </select>
+                                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                </div>
+                                {bankFormData.bankName && (() => {
+                                  const selected = MALAYSIA_BANKS.find(b => b.name === bankFormData.bankName);
+                                  return selected ? (
+                                    <div className="flex items-center gap-2 mt-2 px-3 py-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                                      <img src={selected.logo} alt={selected.name} className="h-6 w-auto object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                      <span className="text-xs font-bold dark:text-white">{selected.name}</span>
+                                    </div>
+                                  ) : null;
+                                })()}
                               </div>
                               <div>
                                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Account Holder Name</label>
