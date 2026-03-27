@@ -422,14 +422,18 @@ const MenuItemFormModal: React.FC<Props> = ({
         />
       </div>
       <div className="flex items-center gap-3">
-        <input
-          type="checkbox"
-          id="availableForSale"
-          checked={!formItem.isArchived}
-          onChange={e => setFormItem(prev => ({ ...prev, isArchived: !e.target.checked }))}
-          className="w-4 h-4 text-amber-500 rounded border-gray-300 focus:ring-amber-500"
-        />
-        <label htmlFor="availableForSale" className="text-xs font-bold text-gray-600 dark:text-gray-300">The item is available for sale</label>
+        <button
+          type="button"
+          onClick={() => setFormItem(prev => ({ ...prev, isArchived: !prev.isArchived }))}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+            !formItem.isArchived ? 'bg-amber-500' : 'bg-gray-200 dark:bg-gray-600'
+          }`}
+        >
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+            !formItem.isArchived ? 'translate-x-6' : 'translate-x-1'
+          }`} />
+        </button>
+        <label className="text-xs font-bold text-gray-600 dark:text-gray-300">The item is available for sale</label>
       </div>
     </div>
   );
@@ -932,7 +936,7 @@ const MenuItemFormModal: React.FC<Props> = ({
     )}
     <div className="flex-1 flex flex-col min-h-0">
       {/* Page Header */}
-      <div className="flex items-center gap-3 px-6 py-4 border-b dark:border-gray-700 bg-white dark:bg-gray-800 sticky top-0 z-20">
+      <div className="flex items-center gap-3 px-6 py-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900 sticky top-0 z-20">
         <button onClick={onClose} className="p-2 text-gray-500 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-all">
           <ArrowLeft size={20} />
         </button>
