@@ -936,7 +936,7 @@ const MenuItemFormModal: React.FC<Props> = ({
     )}
     <div className="flex-1 flex flex-col min-h-0">
       {/* Page Header */}
-      <div className="flex items-center gap-3 px-6 py-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900 sticky top-0 z-20">
+      <div className="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-900">
         <button onClick={onClose} className="p-2 text-gray-500 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-all">
           <ArrowLeft size={20} />
         </button>
