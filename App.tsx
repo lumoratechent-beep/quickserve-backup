@@ -499,7 +499,7 @@ const App: React.FC = () => {
 
     const reconcileAccess = async () => {
       try {
-        const res = await fetch('/api/stripe/reconcile-access', {
+        const res = await fetch('/api/stripe/billing?action=reconcile-access', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ restaurantId }),

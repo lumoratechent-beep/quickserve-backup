@@ -426,8 +426,104 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
+      // POST /api/stripe/billing?action=reconcile-access  body: { restaurantId }
+      case 'reconcile-access': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { restaurantId: reconcileRestId } = req.body || {};
+        if (!reconcileRestId) return res.status(400).json({ error: 'restaurantId is required.' });
+
+        const PLAN_PLATFORM_MAP: Record<string, { platformAccess: string; kitchenEnabled: boolean }> = {
+          basic: { platformAccess: 'pos_only', kitchenEnabled: false },
+          pro: { platformAccess: 'pos_and_qr', kitchenEnabled: false },
+          pro_plus: { platformAccess: 'pos_and_qr', kitchenEnabled: true },
+        };
+
+        const { data: reconcileSub, error: reconcileSubErr } = await supabase
+          .from('subscriptions')
+          .select('plan_id, billing_interval, pending_plan_id, pending_billing_interval, pending_change_effective_at, current_period_start')
+          .eq('restaurant_id', reconcileRestId)
+          .single();
+
+        if (reconcileSubErr || !reconcileSub) {
+          return res.status(404).json({ error: 'Subscription not found.' });
+        }
+
+        let reconcilePlan = reconcileSub.plan_id;
+        const now = new Date();
+
+        if (reconcileSub.pending_plan_id) {
+          const effectiveAtRaw = reconcileSub.pending_change_effective_at || reconcileSub.current_period_start;
+          const effectiveAt = effectiveAtRaw ? new Date(effectiveAtRaw) : null;
+
+          if (effectiveAt && effectiveAt > now) {
+            return res.status(200).json({ updated: false, reason: 'before_effective_start' });
+          }
+
+          const pendingInterval = reconcileSub.pending_billing_interval || reconcileSub.billing_interval;
+          const pendingDurationDays = pendingInterval === 'annual' ? 365 : 30;
+          const newPeriodStart = effectiveAt || now;
+          const newPeriodEnd = new Date(newPeriodStart);
+          newPeriodEnd.setDate(newPeriodEnd.getDate() + pendingDurationDays);
+
+          const { error: promoteErr } = await supabase
+            .from('subscriptions')
+            .update({
+              plan_id: reconcileSub.pending_plan_id,
+              billing_interval: pendingInterval,
+              current_period_start: newPeriodStart.toISOString(),
+              current_period_end: newPeriodEnd.toISOString(),
+              pending_plan_id: null,
+              pending_billing_interval: null,
+              pending_change_effective_at: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('restaurant_id', reconcileRestId);
+
+          if (promoteErr) {
+            return res.status(500).json({ error: 'Failed to activate pending plan change.' });
+          }
+
+          reconcilePlan = reconcileSub.pending_plan_id;
+        }
+
+        if (!reconcilePlan || !PLAN_PLATFORM_MAP[reconcilePlan]) {
+          return res.status(400).json({ error: 'Invalid plan in subscription.' });
+        }
+
+        const target = PLAN_PLATFORM_MAP[reconcilePlan];
+
+        const { data: reconcileRest, error: reconcileRestErr } = await supabase
+          .from('restaurants')
+          .select('platform_access, kitchen_enabled')
+          .eq('id', reconcileRestId)
+          .single();
+
+        if (reconcileRestErr || !reconcileRest) {
+          return res.status(404).json({ error: 'Restaurant not found.' });
+        }
+
+        const alreadyApplied =
+          reconcileRest.platform_access === target.platformAccess &&
+          reconcileRest.kitchen_enabled === target.kitchenEnabled;
+
+        if (alreadyApplied) {
+          return res.status(200).json({ updated: false, reason: 'already_synced' });
+        }
+
+        const { error: reconcileUpdateErr } = await supabase
+          .from('restaurants')
+          .update({ platform_access: target.platformAccess, kitchen_enabled: target.kitchenEnabled })
+          .eq('id', reconcileRestId);
+
+        if (reconcileUpdateErr) {
+          return res.status(500).json({ error: 'Failed to update restaurant access.' });
+        }
+
+        return res.status(200).json({ updated: true, plan: reconcilePlan });
+      }
+
       default:
-        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, toggle-auto-renew, renew-direct, cleanup-stale' });
+        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, toggle-auto-renew, renew-direct, cleanup-stale, reconcile-access' });
     }
   } catch (err: any) {
     console.error(`Stripe billing error (${action}):`, err);
