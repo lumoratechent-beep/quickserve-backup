@@ -8,7 +8,7 @@ import {
   LineChart, Line, AreaChart, Area,
 } from 'recharts';
 import {
-  TrendingUp, TrendingDown, DollarSign, ShoppingBag, Users, Receipt, ChevronRight, ChevronLeft, ChevronDown, Filter,
+  TrendingUp, TrendingDown, DollarSign, ShoppingBag, Users, Receipt, ChevronRight, ChevronLeft, ChevronDown, ChevronFirst, ChevronLast, Filter,
   BarChart3, Package, UserPlus, UserMinus, Edit3, Trash2, Plus, Minus, Search, AlertCircle, Info,
   ArrowUpRight, ArrowDownRight, Clock, CheckCircle, XCircle, Eye, Archive, RotateCcw,
   Briefcase, Box, Tag, Layers, Activity, ArrowLeft, Warehouse, FileBarChart, Contact,
@@ -85,6 +85,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [formItem, setFormItem] = useState<MenuFormItem>({});
   const [isSavingItem, setIsSavingItem] = useState(false);
   const [itemSubTab, setItemSubTab] = useState<'list' | 'stock'>('list');
+  const [itemEntriesPerPage, setItemEntriesPerPage] = useState(30);
+  const [itemCurrentPage, setItemCurrentPage] = useState(1);
+  const [stockEntriesPerPage, setStockEntriesPerPage] = useState(30);
+  const [stockCurrentPage, setStockCurrentPage] = useState(1);
 
   // Detect dark mode for Recharts inline color props
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
@@ -511,6 +515,22 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       return true;
     });
   }, [restaurant.menu, itemSearch, itemCategoryFilter, itemShowArchived]);
+
+  const itemTotalPages = useMemo(() => Math.max(1, Math.ceil(filteredItems.length / itemEntriesPerPage)), [filteredItems.length, itemEntriesPerPage]);
+  const paginatedItems = useMemo(() => {
+    const start = (itemCurrentPage - 1) * itemEntriesPerPage;
+    return filteredItems.slice(start, start + itemEntriesPerPage);
+  }, [filteredItems, itemCurrentPage, itemEntriesPerPage]);
+
+  // Reset page when filters change
+  useEffect(() => { setItemCurrentPage(1); }, [itemSearch, itemCategoryFilter, itemShowArchived, itemEntriesPerPage]);
+  useEffect(() => { setStockCurrentPage(1); }, [stockSearch, stockFilter, stockEntriesPerPage]);
+
+  const stockTotalPages = useMemo(() => Math.max(1, Math.ceil(filteredStock.length / stockEntriesPerPage)), [filteredStock.length, stockEntriesPerPage]);
+  const paginatedStock = useMemo(() => {
+    const start = (stockCurrentPage - 1) * stockEntriesPerPage;
+    return filteredStock.slice(start, start + stockEntriesPerPage);
+  }, [filteredStock, stockCurrentPage, stockEntriesPerPage]);
 
   const openAddItem = () => {
     setEditingItem(null);
@@ -1064,7 +1084,18 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
         {/* ════════════════════════════════════ */}
         {/* ITEMS TAB (Loyverse-style)          */}
         {/* ════════════════════════════════════ */}
-        {activeTab === 'ITEMS' && (
+        {activeTab === 'ITEMS' && isItemFormOpen ? (
+          <MenuItemFormModal
+            isOpen={isItemFormOpen}
+            formItem={formItem}
+            setFormItem={setFormItem}
+            categories={itemCategories.filter(c => c !== 'ALL')}
+            availableModifiers={restaurant.modifiers || []}
+            onClose={() => { setIsItemFormOpen(false); setEditingItem(null); }}
+            onSubmit={handleItemFormSubmit}
+            onImageUpload={onImageUpload}
+          />
+        ) : activeTab === 'ITEMS' && (
           <div>
             {/* Sub-tab toggle */}
             <div className="flex items-center gap-1 mb-6 bg-gray-100 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-700 p-0.5 w-fit">
@@ -1139,6 +1170,21 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
             {/* Item Table */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              {/* Filter bar with Show entries */}
+              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                  Showing {filteredItems.length === 0 ? 0 : (itemCurrentPage - 1) * itemEntriesPerPage + 1}–{Math.min(itemCurrentPage * itemEntriesPerPage, filteredItems.length)} of {filteredItems.length}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Show</span>
+                  <select value={itemEntriesPerPage} onChange={e => setItemEntriesPerPage(Number(e.target.value))} className="bg-gray-100 dark:bg-gray-700 border-none rounded-lg text-[10px] font-bold dark:text-white p-1.5 outline-none cursor-pointer">
+                    <option value={30}>30</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Entries</span>
+                </div>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -1153,9 +1199,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredItems.length === 0 ? (
+                    {paginatedItems.length === 0 ? (
                       <tr><td colSpan={7} className="text-center py-12 text-gray-400 text-sm">No items found</td></tr>
-                    ) : filteredItems.map(item => (
+                    ) : paginatedItems.map(item => (
                       <tr key={item.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
@@ -1211,17 +1257,34 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               </div>
             </div>
 
-            {/* Item Form Modal */}
-            <MenuItemFormModal
-              isOpen={isItemFormOpen}
-              formItem={formItem}
-              setFormItem={setFormItem}
-              categories={itemCategories.filter(c => c !== 'ALL')}
-              availableModifiers={restaurant.modifiers || []}
-              onClose={() => { setIsItemFormOpen(false); setEditingItem(null); }}
-              onSubmit={handleItemFormSubmit}
-              onImageUpload={onImageUpload}
-            />
+            {/* Item Pagination */}
+            {itemTotalPages > 1 && (
+              <div className="mt-6 flex items-center justify-center gap-2 overflow-x-auto py-2">
+                <button onClick={() => setItemCurrentPage(1)} disabled={itemCurrentPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">
+                  <ChevronFirst size={16} />
+                </button>
+                <button onClick={() => setItemCurrentPage(p => Math.max(1, p - 1))} disabled={itemCurrentPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">
+                  <ChevronLeft size={16} />
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: itemTotalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      onClick={() => setItemCurrentPage(page)}
+                      className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${itemCurrentPage === page ? 'bg-amber-600 text-white shadow-lg shadow-amber-200' : 'bg-white dark:bg-gray-800 text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => setItemCurrentPage(p => Math.min(itemTotalPages, p + 1))} disabled={itemCurrentPage === itemTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">
+                  <ChevronRight size={16} />
+                </button>
+                <button onClick={() => setItemCurrentPage(itemTotalPages)} disabled={itemCurrentPage === itemTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">
+                  <ChevronLast size={16} />
+                </button>
+              </div>
+            )}
             </>
             )}
 
@@ -1307,7 +1370,22 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
             {/* Stock Table */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-              {filteredStock.length > 0 ? (
+              {/* Filter bar with Show entries */}
+              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                  Showing {filteredStock.length === 0 ? 0 : (stockCurrentPage - 1) * stockEntriesPerPage + 1}–{Math.min(stockCurrentPage * stockEntriesPerPage, filteredStock.length)} of {filteredStock.length}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Show</span>
+                  <select value={stockEntriesPerPage} onChange={e => setStockEntriesPerPage(Number(e.target.value))} className="bg-gray-100 dark:bg-gray-700 border-none rounded-lg text-[10px] font-bold dark:text-white p-1.5 outline-none cursor-pointer">
+                    <option value={30}>30</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Entries</span>
+                </div>
+              </div>
+              {paginatedStock.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
@@ -1348,7 +1426,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredStock.map(item => {
+                      {paginatedStock.map(item => {
                         const status = !item.stockEnabled ? 'disabled' : item.currentStock === 0 ? 'out' : item.currentStock <= item.lowStockThreshold ? 'low' : 'ok';
                         return (
                           <tr key={item.menuItemId} className={`border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${!item.stockEnabled ? 'opacity-50' : ''}`}>
@@ -1421,6 +1499,35 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 </div>
               )}
             </div>
+
+            {/* Stock Pagination */}
+            {stockTotalPages > 1 && (
+              <div className="mt-6 flex items-center justify-center gap-2 overflow-x-auto py-2">
+                <button onClick={() => setStockCurrentPage(1)} disabled={stockCurrentPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">
+                  <ChevronFirst size={16} />
+                </button>
+                <button onClick={() => setStockCurrentPage(p => Math.max(1, p - 1))} disabled={stockCurrentPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">
+                  <ChevronLeft size={16} />
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: stockTotalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      onClick={() => setStockCurrentPage(page)}
+                      className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${stockCurrentPage === page ? 'bg-amber-600 text-white shadow-lg shadow-amber-200' : 'bg-white dark:bg-gray-800 text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => setStockCurrentPage(p => Math.min(stockTotalPages, p + 1))} disabled={stockCurrentPage === stockTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">
+                  <ChevronRight size={16} />
+                </button>
+                <button onClick={() => setStockCurrentPage(stockTotalPages)} disabled={stockCurrentPage === stockTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">
+                  <ChevronLast size={16} />
+                </button>
+              </div>
+            )}
             </>
             )}
           </div>
