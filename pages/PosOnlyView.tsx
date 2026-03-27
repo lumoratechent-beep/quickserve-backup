@@ -332,7 +332,8 @@ const PosOnlyView: React.FC<Props> = ({
   const [onlineStripeBalance, setOnlineStripeBalance] = useState<number | null>(null);
   const [isLoadingStripeBalance, setIsLoadingStripeBalance] = useState(false);
   const [onlineProductView, setOnlineProductView] = useState<'list' | 'grid'>('list');
-  const [onlineProductStatus, setOnlineProductStatus] = useState<'ACTIVE' | 'ARCHIVED'>('ACTIVE');
+  const [onlineProductStatus, setOnlineProductStatus] = useState<'ALL' | 'ACTIVE' | 'ARCHIVED'>('ALL');
+  const [onlineProductSearch, setOnlineProductSearch] = useState('');
   const [onlineEditItem, setOnlineEditItem] = useState<MenuItem | null>(null);
   const [onlineEditTab, setOnlineEditTab] = useState<'instore' | 'online'>('online');
   const [onlineEditForm, setOnlineEditForm] = useState<MenuFormItem>({});
@@ -6668,7 +6669,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {/* Document-style tab bar */}
-                <div className="flex gap-0 overflow-x-auto hide-scrollbar">
+                <div className="flex gap-0 overflow-x-auto hide-scrollbar relative z-10">
                   {([
                     { id: 'INCOMING' as const, label: 'Incoming Orders', icon: <ShoppingBag size={13} /> },
                     { id: 'PRODUCT' as const, label: 'Product', icon: <Package size={13} /> },
@@ -6702,7 +6703,9 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {/* Sub-tab content */}
-                <div className="bg-white dark:bg-gray-800 border border-t-0 border-gray-200 dark:border-gray-700 rounded-b-2xl shadow-sm p-5 md:p-6">
+                <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl ${
+                  onlineOrderSubTab === 'INCOMING' ? 'rounded-tr-2xl' : 'rounded-t-2xl'
+                }`} style={{ marginTop: '-1px' }}>
                 {/* ── Incoming Orders Sub-tab ── */}
                 {onlineOrderSubTab === 'INCOMING' && (
                   <>
@@ -6858,7 +6861,7 @@ const PosOnlyView: React.FC<Props> = ({
                         </div>
 
                         {/* In Store / Online tabs */}
-                        <div className="flex gap-0 mb-0 border-b border-gray-200 dark:border-gray-700">
+                        <div className="flex gap-0 mb-0 relative z-10">
                           {[
                             { key: 'instore' as const, label: 'In Store' },
                             { key: 'online' as const, label: 'Online' },
@@ -6879,7 +6882,7 @@ const PosOnlyView: React.FC<Props> = ({
 
                         {/* In Store tab — opens full menu editor */}
                         {onlineEditTab === 'instore' && (
-                          <div className="border border-t-0 border-gray-200 dark:border-gray-700 rounded-b-2xl p-5">
+                          <div className={`border border-gray-200 dark:border-gray-700 rounded-b-2xl rounded-tr-2xl p-5`} style={{ marginTop: '-1px' }}>
                             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Edit in-store details using the full Menu Editor.</p>
                             <button
                               onClick={() => {
@@ -6895,13 +6898,18 @@ const PosOnlyView: React.FC<Props> = ({
 
                         {/* Online tab — editable fields */}
                         {onlineEditTab === 'online' && (
-                          <div className="border border-t-0 border-gray-200 dark:border-gray-700 rounded-b-2xl p-5 space-y-5">
-                            {/* Online Listing Toggle */}
-                            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
-                              <div>
-                                <p className="text-xs font-black dark:text-white">Online Listing</p>
-                                <p className="text-[9px] text-gray-400">Show this item on your online shop</p>
-                              </div>
+                          <div className="border border-gray-200 dark:border-gray-700 rounded-b-2xl rounded-t-2xl p-5 space-y-4" style={{ marginTop: '-1px' }}>
+
+                            {/* ── Listing & Pricing Container ── */}
+                            <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600 p-5 space-y-4">
+                              <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><Globe size={16} className="text-orange-500" /> Listing & Pricing</h3>
+
+                              {/* Online Listing Toggle */}
+                              <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-600">
+                                <div>
+                                  <p className="text-xs font-black dark:text-white">Online Listing</p>
+                                  <p className="text-[9px] text-gray-400">Show this item on your online shop</p>
+                                </div>
                               <button
                                 onClick={() => setOnlineEditForm(prev => ({ ...prev, onlineDisabled: !prev.onlineDisabled }))}
                                 className={`relative w-10 h-5 rounded-full transition-all ${onlineEditForm.onlineDisabled ? 'bg-gray-300 dark:bg-gray-600' : 'bg-green-500'}`}
@@ -6911,46 +6919,48 @@ const PosOnlyView: React.FC<Props> = ({
                             </div>
 
                             {/* Description */}
-                            <div>
-                              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Description</label>
-                              <textarea
-                                value={onlineEditForm.description || ''}
-                                onChange={e => setOnlineEditForm(prev => ({ ...prev, description: e.target.value }))}
-                                placeholder="Describe this item for online customers..."
-                                rows={3}
-                                className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500 resize-none"
-                              />
-                            </div>
+                              {/* Description */}
+                              <div>
+                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Description</label>
+                                <textarea
+                                  value={onlineEditForm.description || ''}
+                                  onChange={e => setOnlineEditForm(prev => ({ ...prev, description: e.target.value }))}
+                                  placeholder="Describe this item for online customers..."
+                                  rows={3}
+                                  className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                                />
+                              </div>
 
-                            {/* Online Price */}
-                            <div>
-                              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Online Selling Price</label>
-                              <div className="flex items-center gap-3">
-                                <span className="text-xs text-gray-400">In-store: {currencySymbol}{onlineEditItem.price.toFixed(2)}</span>
-                                <div className="relative flex-1 max-w-[200px]">
-                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400">{currencySymbol}</span>
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={onlineEditForm.onlinePrice ?? onlineEditItem.price}
-                                    onChange={e => setOnlineEditForm(prev => ({ ...prev, onlinePrice: parseFloat(e.target.value) || 0 }))}
-                                    className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
-                                  />
+                              {/* Online Price */}
+                              <div>
+                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Online Selling Price</label>
+                                <div className="flex items-center gap-3">
+                                  <span className="text-xs text-gray-400">In-store: {currencySymbol}{onlineEditItem.price.toFixed(2)}</span>
+                                  <div className="relative flex-1 max-w-[200px]">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400">{currencySymbol}</span>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      value={onlineEditForm.onlinePrice ?? onlineEditItem.price}
+                                      onChange={e => setOnlineEditForm(prev => ({ ...prev, onlinePrice: parseFloat(e.target.value) || 0 }))}
+                                      className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                                    />
+                                  </div>
                                 </div>
                               </div>
                             </div>
 
-                            {/* Portion Sizes */}
-                            <div>
-                              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Portion Sizes</label>
+                            {/* ── Portion Sizes Container ── */}
+                            <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600 p-5">
+                              <h3 className="text-sm font-black dark:text-white flex items-center gap-2 mb-3"><Layers size={16} className="text-orange-500" /> Portion Sizes</h3>
                               <div className="space-y-2">
                                 {(onlineEditForm.sizes || []).map((s, i) => (
                                   <div key={i} className="flex items-center gap-2">
-                                    <input type="text" value={s.name} onChange={e => { const sizes = [...(onlineEditForm.sizes || [])]; sizes[i] = { ...sizes[i], name: e.target.value }; setOnlineEditForm(prev => ({ ...prev, sizes })); }} placeholder="Size name" className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                                    <input type="text" value={s.name} onChange={e => { const sizes = [...(onlineEditForm.sizes || [])]; sizes[i] = { ...sizes[i], name: e.target.value }; setOnlineEditForm(prev => ({ ...prev, sizes })); }} placeholder="Size name" className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
                                     <div className="relative w-24">
                                       <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">{currencySymbol}</span>
-                                      <input type="number" step="0.01" value={s.price} onChange={e => { const sizes = [...(onlineEditForm.sizes || [])]; sizes[i] = { ...sizes[i], price: parseFloat(e.target.value) || 0 }; setOnlineEditForm(prev => ({ ...prev, sizes })); }} className="w-full pl-6 pr-2 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 text-right" />
+                                      <input type="number" step="0.01" value={s.price} onChange={e => { const sizes = [...(onlineEditForm.sizes || [])]; sizes[i] = { ...sizes[i], price: parseFloat(e.target.value) || 0 }; setOnlineEditForm(prev => ({ ...prev, sizes })); }} className="w-full pl-6 pr-2 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 text-right" />
                                     </div>
                                     <button onClick={() => { const sizes = (onlineEditForm.sizes || []).filter((_, idx) => idx !== i); setOnlineEditForm(prev => ({ ...prev, sizes })); }} className="p-1.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 size={14} /></button>
                                   </div>
@@ -6959,11 +6969,15 @@ const PosOnlyView: React.FC<Props> = ({
                               </div>
                             </div>
 
-                            {/* Thermal / Temperature Options */}
-                            <div>
-                              <div className="flex items-center justify-between mb-2">
-                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Thermal Options</label>
-                                <button
+                            {/* ── Customization Options Container ── */}
+                            <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600 p-5 space-y-4">
+                              <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><Coffee size={16} className="text-orange-500" /> Customization Options</h3>
+
+                              {/* Thermal / Temperature Options */}
+                              <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-600 p-4">
+                                <div className="flex items-center justify-between mb-2">
+                                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest">Thermal Options</label>
+                                  <button
                                   onClick={() => {
                                     const temp = onlineEditForm.tempOptions || { enabled: false, options: [] };
                                     setOnlineEditForm(prev => ({ ...prev, tempOptions: { ...temp, enabled: !temp.enabled } }));
@@ -6988,12 +7002,12 @@ const PosOnlyView: React.FC<Props> = ({
                                   <button onClick={() => { const opts = [...(onlineEditForm.tempOptions?.options || []), { name: '', price: 0 }]; setOnlineEditForm(prev => ({ ...prev, tempOptions: { ...prev.tempOptions!, options: opts } })); }} className="text-[10px] font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1 uppercase tracking-widest"><Plus size={12} /> Add Option</button>
                                 </div>
                               )}
-                            </div>
+                              </div>
 
-                            {/* Variant Options */}
-                            <div>
-                              <div className="flex items-center justify-between mb-2">
-                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Variant Options</label>
+                              {/* Variant Options */}
+                              <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-600 p-4">
+                                <div className="flex items-center justify-between mb-2">
+                                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest">Variant Options</label>
                                 <button
                                   onClick={() => {
                                     const v = onlineEditForm.variantOptions || { enabled: false, options: [] };
@@ -7019,11 +7033,16 @@ const PosOnlyView: React.FC<Props> = ({
                                   <button onClick={() => { const opts = [...(onlineEditForm.variantOptions?.options || []), { name: '', price: 0 }]; setOnlineEditForm(prev => ({ ...prev, variantOptions: { ...prev.variantOptions!, options: opts } })); }} className="text-[10px] font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1 uppercase tracking-widest"><Plus size={12} /> Add Variant</button>
                                 </div>
                               )}
+                              </div>
                             </div>
 
-                            {/* Linked Modifiers */}
-                            <div>
-                              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Modifiers</label>
+                            {/* ── Extras Container ── */}
+                            <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600 p-5 space-y-4">
+                              <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><Puzzle size={16} className="text-orange-500" /> Extras</h3>
+
+                              {/* Linked Modifiers */}
+                              <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-600 p-4">
+                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Modifiers</label>
                               <div className="flex flex-wrap gap-2">
                                 {modifiers.map(mod => {
                                   const isLinked = (onlineEditForm.linkedModifiers || []).includes(mod.name);
@@ -7049,11 +7068,11 @@ const PosOnlyView: React.FC<Props> = ({
                                 })}
                                 {modifiers.length === 0 && <p className="text-[9px] text-gray-400">No modifiers created yet. Create them in Menu Editor.</p>}
                               </div>
-                            </div>
+                              </div>
 
-                            {/* Add-on Items */}
-                            <div>
-                              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Add-on Items</label>
+                              {/* Add-on Items */}
+                              <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-600 p-4">
+                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Add-on Items</label>
                               <div className="space-y-2">
                                 {(onlineEditForm.addOns || []).map((addon, i) => (
                                   <div key={i} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
@@ -7066,6 +7085,7 @@ const PosOnlyView: React.FC<Props> = ({
                                   </div>
                                 ))}
                                 <button onClick={() => setOnlineEditForm(prev => ({ ...prev, addOns: [...(prev.addOns || []), { name: '', price: 0, maxQuantity: 5 }] }))} className="text-[10px] font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1 uppercase tracking-widest"><Plus size={12} /> Add Add-on</button>
+                              </div>
                               </div>
                             </div>
 
@@ -7107,16 +7127,29 @@ const PosOnlyView: React.FC<Props> = ({
                     <div>
                       {/* Toolbar */}
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Manage products displayed on your online shop.</p>
+                        <div className="relative flex-1 max-w-sm">
+                          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <input
+                            type="text"
+                            value={onlineProductSearch}
+                            onChange={e => setOnlineProductSearch(e.target.value)}
+                            placeholder="Search products..."
+                            className="w-full pl-9 pr-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                          />
+                        </div>
                         <div className="flex items-center gap-3">
-                          {/* Active / Archived filter */}
-                          <div className="flex bg-white dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
-                            <button onClick={() => setOnlineProductStatus('ACTIVE')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${onlineProductStatus === 'ACTIVE' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>
-                              <Eye size={14} /> <span className="hidden sm:inline">Active</span>
-                            </button>
-                            <button onClick={() => setOnlineProductStatus('ARCHIVED')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${onlineProductStatus === 'ARCHIVED' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>
-                              <Archive size={14} /> <span className="hidden sm:inline">Archived</span>
-                            </button>
+                          {/* Status filter dropdown */}
+                          <div className="relative">
+                            <select
+                              value={onlineProductStatus}
+                              onChange={e => setOnlineProductStatus(e.target.value as 'ALL' | 'ACTIVE' | 'ARCHIVED')}
+                              className="appearance-none pl-3 pr-8 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-300 outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
+                            >
+                              <option value="ALL">All Status</option>
+                              <option value="ACTIVE">Active</option>
+                              <option value="ARCHIVED">Archived</option>
+                            </select>
+                            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                           </div>
                           {/* List / Grid toggle */}
                           <div className="flex bg-white dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
@@ -7127,16 +7160,18 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
 
                       {(() => {
-                        const filteredMenu = restaurant.menu.filter(item =>
-                          onlineProductStatus === 'ACTIVE' ? !item.isArchived : !!item.isArchived
-                        );
+                        const filteredMenu = restaurant.menu.filter(item => {
+                          const statusMatch = onlineProductStatus === 'ALL' ? true : onlineProductStatus === 'ACTIVE' ? !item.isArchived : !!item.isArchived;
+                          const searchMatch = !onlineProductSearch || item.name.toLowerCase().includes(onlineProductSearch.toLowerCase()) || item.category.toLowerCase().includes(onlineProductSearch.toLowerCase());
+                          return statusMatch && searchMatch;
+                        });
 
                         if (filteredMenu.length === 0) {
                           return (
                             <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-600">
                               <Package size={32} className="mx-auto text-gray-300 mb-3" />
-                              <p className="text-sm font-black dark:text-white mb-1">No {onlineProductStatus === 'ACTIVE' ? 'Active' : 'Archived'} Products</p>
-                              <p className="text-[10px] text-gray-400">{onlineProductStatus === 'ACTIVE' ? 'Add items in Menu Editor to display them on your online shop.' : 'No archived items found.'}</p>
+                              <p className="text-sm font-black dark:text-white mb-1">No Products Found</p>
+                              <p className="text-[10px] text-gray-400">{onlineProductSearch ? 'Try a different search term.' : onlineProductStatus === 'ARCHIVED' ? 'No archived items found.' : 'Add items in Menu Editor to display them on your online shop.'}</p>
                             </div>
                           );
                         }
@@ -7152,8 +7187,8 @@ const PosOnlyView: React.FC<Props> = ({
                                   <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                                     <th className="text-left px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Product</th>
                                     <th className="text-left px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Category</th>
-                                    <th className="text-right px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">In-Store</th>
-                                    <th className="text-right px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Online</th>
+                                    <th className="text-right px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">In-Store Price</th>
+                                    <th className="text-right px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Online Price</th>
                                     <th className="text-center px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
                                     <th className="text-center px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Actions</th>
                                   </tr>
