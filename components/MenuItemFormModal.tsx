@@ -903,8 +903,8 @@ const MenuItemFormModal: React.FC<Props> = ({
       </div>
 
       {/* Page Body */}
-      <div className="flex-1 overflow-y-auto p-6 bg-gray-50 dark:bg-gray-900">
-        <div className="max-w-5xl mx-auto">
+      <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-gray-50 dark:bg-gray-900">
+        <div>
           <form onSubmit={onSubmit}>
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-0">
               {/* Left column — Details & Selling */}

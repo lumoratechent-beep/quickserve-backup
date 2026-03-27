@@ -114,7 +114,7 @@ const StandardReport: React.FC<Props> = ({
   }, [nonCancelledOrders]);
 
   return (
-    <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
+    <div className="animate-in fade-in duration-500">
       <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Sales Report</h1>
       <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Financial performance and order history.</p>
 

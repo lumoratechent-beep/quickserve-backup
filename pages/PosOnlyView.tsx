@@ -4558,7 +4558,7 @@ const PosOnlyView: React.FC<Props> = ({
 
           {/* Reports Tab - Same as PosView */}
           {activeTab === 'REPORTS' && reportsSubMenu === 'salesReport' && (
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
               {!isOnline && (
                 <div className="mb-4 flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl">
                   <WifiOff size={14} className="text-amber-500 shrink-0" />
@@ -4610,8 +4610,8 @@ const PosOnlyView: React.FC<Props> = ({
               }}
             />
           ) : activeTab === 'MENU_EDITOR' && (
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="max-w-7xl mx-auto">
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+              <div>
                 <div className="mb-8">
                   <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-4">Menu Editor</h1>
                   <div className="flex flex-wrap items-center gap-4 mb-6">
@@ -4985,8 +4985,8 @@ const PosOnlyView: React.FC<Props> = ({
 
           {/* Settings Tab */}
           {activeTab === 'SETTINGS' && (
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+              <div className="animate-in fade-in duration-500">
                 <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Settings</h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Features, printer, receipt, payment, tax, and staff configuration.</p>
 
