@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, PlatformAccess, Subscription, PlanId } from '../src/types';
 import { uploadImage } from '../lib/storage';
-import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage } from 'lucide-react';
+import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send } from 'lucide-react';
 import ImageCropModal from '../components/ImageCropModal';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
@@ -605,7 +605,52 @@ const AdminView: React.FC<Props> = ({
   onFetchAllFilteredOrders,
   onFetchStats
 }) => {
-  const [activeTab, setActiveTab] = useState<'VENDORS' | 'LOCATIONS' | 'REPORTS' | 'INCOME' | 'SYSTEM'>('VENDORS');
+  const [activeTab, setActiveTab] = useState<'VENDORS' | 'LOCATIONS' | 'REPORTS' | 'INCOME' | 'CASHOUT' | 'SYSTEM'>('VENDORS');
+
+  // Cashout requests tab state
+  const [adminCashouts, setAdminCashouts] = useState<any[]>([]);
+  const [adminCashoutsLoading, setAdminCashoutsLoading] = useState(false);
+  const [adminCashoutFilter, setAdminCashoutFilter] = useState<'all' | 'pending' | 'approved' | 'completed' | 'rejected'>('pending');
+
+  const fetchAdminCashouts = async () => {
+    setAdminCashoutsLoading(true);
+    try {
+      const res = await fetch('/api/wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'admin_cashouts' }),
+      });
+      const data = await res.json();
+      if (data.cashouts) {
+        // Enrich with restaurant name
+        const enriched = data.cashouts.map((c: any) => {
+          const rest = restaurants.find(r => r.id === c.restaurant_id);
+          return { ...c, restaurantName: rest?.name || 'Unknown Vendor' };
+        });
+        setAdminCashouts(enriched);
+      }
+    } catch (error) {
+      console.error('Failed to fetch admin cashouts:', error);
+    } finally {
+      setAdminCashoutsLoading(false);
+    }
+  };
+
+  const handleUpdateCashout = async (cashoutId: string, status: 'approved' | 'completed' | 'rejected', notes?: string) => {
+    try {
+      const res = await fetch('/api/wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'admin_update_cashout', cashoutId, status, adminNotes: notes }),
+      });
+      const data = await res.json();
+      if (data.error) { toast(data.error, 'error'); return; }
+      toast(`Cashout request ${status}`, 'success');
+      fetchAdminCashouts();
+    } catch (error) {
+      toast('Failed to update cashout', 'error');
+    }
+  };
 
   // Income tab state
   const [incomeTransactions, setIncomeTransactions] = useState<any[]>([]);
@@ -1112,8 +1157,9 @@ const AdminView: React.FC<Props> = ({
             { id: 'LOCATIONS', label: 'Hubs', icon: MapPin },
             { id: 'REPORTS', label: 'Reports', icon: TrendingUp },
             { id: 'INCOME', label: 'Income', icon: DollarSign },
+            { id: 'CASHOUT', label: 'Cashout', icon: Wallet },
             { id: 'SYSTEM', label: 'System', icon: Database },
-          ] as { id: 'VENDORS' | 'LOCATIONS' | 'REPORTS' | 'INCOME' | 'SYSTEM'; label: string; icon: React.ElementType }[]).map(item => (
+          ] as { id: 'VENDORS' | 'LOCATIONS' | 'REPORTS' | 'INCOME' | 'CASHOUT' | 'SYSTEM'; label: string; icon: React.ElementType }[]).map(item => (
             <button
               key={item.id}
               onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
@@ -1728,6 +1774,143 @@ const AdminView: React.FC<Props> = ({
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'CASHOUT' && (
+          <div className="p-4 md:p-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+              <div>
+                <h2 className="text-xl font-black dark:text-white uppercase tracking-tighter flex items-center gap-2">
+                  <Wallet size={20} className="text-orange-500" />
+                  Cashout Requests
+                </h2>
+                <p className="text-xs text-gray-400 mt-1">Manage vendor withdrawal requests. Approve, complete, or reject cashouts.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={fetchAdminCashouts}
+                  disabled={adminCashoutsLoading}
+                  className="px-4 py-2.5 bg-orange-500 text-white rounded-xl font-bold text-xs hover:bg-orange-600 transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  <RefreshCw size={14} className={adminCashoutsLoading ? 'animate-spin' : ''} /> Refresh
+                </button>
+              </div>
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm mb-6 overflow-x-auto hide-scrollbar w-fit">
+              {(['all', 'pending', 'approved', 'completed', 'rejected'] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => { setAdminCashoutFilter(f); if (adminCashouts.length === 0) fetchAdminCashouts(); }}
+                  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                    adminCashoutFilter === f
+                      ? 'bg-orange-500 text-white shadow-md'
+                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+
+            {adminCashoutsLoading && adminCashouts.length === 0 ? (
+              <div className="text-center py-20">
+                <RefreshCw size={24} className="mx-auto text-gray-300 animate-spin mb-3" />
+                <p className="text-sm text-gray-400 font-bold">Loading cashout requests...</p>
+              </div>
+            ) : (() => {
+              const filtered = adminCashoutFilter === 'all' ? adminCashouts : adminCashouts.filter(c => c.status === adminCashoutFilter);
+              if (filtered.length === 0) {
+                return (
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
+                    <Wallet size={32} className="mx-auto text-gray-300 mb-3" />
+                    <p className="text-sm font-black dark:text-white mb-1">No Cashout Requests</p>
+                    <p className="text-[10px] text-gray-400">
+                      {adminCashouts.length === 0 ? 'Click Refresh to load requests.' : `No ${adminCashoutFilter} requests found.`}
+                    </p>
+                  </div>
+                );
+              }
+              return (
+                <div className="space-y-3">
+                  {filtered.map((req: any) => (
+                    <div key={req.id} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                            req.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900/30' :
+                            req.status === 'approved' ? 'bg-blue-100 dark:bg-blue-900/30' :
+                            req.status === 'completed' ? 'bg-green-100 dark:bg-green-900/30' :
+                            'bg-red-100 dark:bg-red-900/30'
+                          }`}>
+                            <Banknote size={18} className={
+                              req.status === 'pending' ? 'text-yellow-600' :
+                              req.status === 'approved' ? 'text-blue-600' :
+                              req.status === 'completed' ? 'text-green-600' :
+                              'text-red-600'
+                            } />
+                          </div>
+                          <div>
+                            <p className="text-sm font-black dark:text-white">{req.restaurantName}</p>
+                            <p className="text-lg font-black text-orange-500">RM{Number(req.amount).toFixed(2)}</p>
+                            <div className="flex items-center gap-3 mt-1 flex-wrap">
+                              <span className="text-[9px] text-gray-400">
+                                {req.bank_name} — {req.account_holder_name} — •••{req.account_number?.slice(-4)}
+                              </span>
+                              <span className="text-[9px] text-gray-400">
+                                {new Date(req.created_at).toLocaleDateString()} {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            {req.notes && (
+                              <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 italic">Note: {req.notes}</p>
+                            )}
+                            {req.admin_notes && (
+                              <p className="text-[10px] text-blue-500 mt-1 italic">Admin: {req.admin_notes}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${
+                            req.status === 'pending' ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                            req.status === 'approved' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
+                            req.status === 'completed' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
+                            'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                          }`}>
+                            {req.status}
+                          </span>
+                          {req.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => handleUpdateCashout(req.id, 'approved')}
+                                className="px-3 py-1.5 bg-blue-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center gap-1"
+                              >
+                                <CheckCircle size={12} /> Approve
+                              </button>
+                              <button
+                                onClick={() => handleUpdateCashout(req.id, 'rejected')}
+                                className="px-3 py-1.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-red-200 transition-all flex items-center gap-1"
+                              >
+                                <X size={12} /> Reject
+                              </button>
+                            </>
+                          )}
+                          {req.status === 'approved' && (
+                            <button
+                              onClick={() => handleUpdateCashout(req.id, 'completed', 'Funds transferred')}
+                              className="px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all flex items-center gap-1"
+                            >
+                              <Send size={12} /> Mark Transferred
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         )}
 
