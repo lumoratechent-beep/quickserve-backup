@@ -319,6 +319,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [bankFormData, setBankFormData] = useState({ bankName: '', accountHolderName: '', accountNumber: '' });
   const [isSavingBank, setIsSavingBank] = useState(false);
   const [showBankForm, setShowBankForm] = useState(false);
+  const [showBankSection, setShowBankSection] = useState(false);
   const [cashoutAmount, setCashoutAmount] = useState('');
   const [cashoutNotes, setCashoutNotes] = useState('');
   const [isRequestingCashout, setIsRequestingCashout] = useState(false);
@@ -6896,7 +6897,7 @@ const PosOnlyView: React.FC<Props> = ({
                       <div className="flex gap-2 mt-4">
                         <button
                           onClick={() => {
-                            if (!bankDetails) { toast('Please save your bank details first.', 'warning'); setShowBankForm(true); return; }
+                            if (!bankDetails) { toast('Please save your bank details first.', 'warning'); setShowBankSection(true); setShowBankForm(true); return; }
                             setShowCashoutForm(true);
                           }}
                           className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5"
@@ -6959,84 +6960,99 @@ const PosOnlyView: React.FC<Props> = ({
                     )}
 
                     {/* Bank Details Section */}
-                    <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600 p-5 mb-6">
-                      <div className="flex items-center justify-between mb-4">
+                    <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600 mb-6">
+                      <button
+                        onClick={() => setShowBankSection(prev => !prev)}
+                        className="w-full flex items-center justify-between p-5 text-left"
+                      >
                         <h3 className="text-sm font-black dark:text-white uppercase tracking-widest flex items-center gap-2">
                           <Building2 size={14} className="text-orange-500" />
                           Bank Details
                         </h3>
-                        {bankDetails && !showBankForm && (
-                          <button
-                            onClick={() => setShowBankForm(true)}
-                            className="px-3 py-1.5 bg-gray-200 dark:bg-gray-600 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-gray-300 dark:hover:bg-gray-500 transition-all flex items-center gap-1.5 text-gray-600 dark:text-gray-300"
-                          >
-                            <Edit3 size={11} /> Edit
-                          </button>
-                        )}
-                      </div>
+                        <ChevronDown size={14} className={`text-gray-400 transition-transform ${showBankSection ? 'rotate-180' : ''}`} />
+                      </button>
 
-                      {bankDetails && !showBankForm ? (
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg">
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Bank Name</span>
-                            <span className="text-xs font-black dark:text-white">{bankDetails.bankName}</span>
-                          </div>
-                          <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg">
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Account Holder</span>
-                            <span className="text-xs font-black dark:text-white">{bankDetails.accountHolderName}</span>
-                          </div>
-                          <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg">
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Account Number</span>
-                            <span className="text-xs font-black dark:text-white">{bankDetails.accountNumber}</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Bank Name</label>
-                            <input
-                              type="text"
-                              value={bankFormData.bankName}
-                              onChange={e => setBankFormData(prev => ({ ...prev, bankName: e.target.value }))}
-                              placeholder="e.g. Maybank, CIMB, Public Bank"
-                              className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Account Holder Name</label>
-                            <input
-                              type="text"
-                              value={bankFormData.accountHolderName}
-                              onChange={e => setBankFormData(prev => ({ ...prev, accountHolderName: e.target.value }))}
-                              placeholder="e.g. Ahmad bin Ali"
-                              className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Account Number</label>
-                            <input
-                              type="text"
-                              value={bankFormData.accountNumber}
-                              onChange={e => setBankFormData(prev => ({ ...prev, accountNumber: e.target.value }))}
-                              placeholder="e.g. 1234567890"
-                              className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
-                            />
-                          </div>
-                          <div className="flex items-center gap-2 pt-2">
-                            <button
-                              onClick={handleSaveBank}
-                              disabled={isSavingBank}
-                              className="px-5 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center gap-1.5"
-                            >
-                              {isSavingBank ? <RotateCw size={12} className="animate-spin" /> : <CheckCircle size={12} />}
-                              Save Bank Details
-                            </button>
-                            {bankDetails && (
-                              <button onClick={() => setShowBankForm(false)} className="px-4 py-2.5 bg-gray-200 dark:bg-gray-600 rounded-lg font-black text-[10px] uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500 transition-all">
-                                Cancel
-                              </button>
-                            )}
-                          </div>
+                      {showBankSection && (
+                        <div className="px-5 pb-5">
+                          {bankDetails && !showBankForm ? (
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Bank Name</span>
+                                <span className="text-xs font-black dark:text-white">{bankDetails.bankName}</span>
+                              </div>
+                              <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Account Holder</span>
+                                <span className="text-xs font-black dark:text-white">{bankDetails.accountHolderName}</span>
+                              </div>
+                              <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Account Number</span>
+                                <span className="text-xs font-black dark:text-white">{bankDetails.accountNumber}</span>
+                              </div>
+                              <div className="flex items-center gap-2 pt-1">
+                                <button
+                                  onClick={() => setShowBankForm(true)}
+                                  className="px-3 py-1.5 bg-gray-200 dark:bg-gray-600 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-gray-300 dark:hover:bg-gray-500 transition-all flex items-center gap-1.5 text-gray-600 dark:text-gray-300"
+                                >
+                                  <Edit3 size={11} /> Edit
+                                </button>
+                                <button
+                                  onClick={() => setShowBankSection(false)}
+                                  className="px-3 py-1.5 bg-gray-200 dark:bg-gray-600 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-gray-300 dark:hover:bg-gray-500 transition-all text-gray-600 dark:text-gray-300"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Bank Name</label>
+                                <input
+                                  type="text"
+                                  value={bankFormData.bankName}
+                                  onChange={e => setBankFormData(prev => ({ ...prev, bankName: e.target.value }))}
+                                  placeholder="e.g. Maybank, CIMB, Public Bank"
+                                  className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Account Holder Name</label>
+                                <input
+                                  type="text"
+                                  value={bankFormData.accountHolderName}
+                                  onChange={e => setBankFormData(prev => ({ ...prev, accountHolderName: e.target.value }))}
+                                  placeholder="e.g. Ahmad bin Ali"
+                                  className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Account Number</label>
+                                <input
+                                  type="text"
+                                  value={bankFormData.accountNumber}
+                                  onChange={e => setBankFormData(prev => ({ ...prev, accountNumber: e.target.value }))}
+                                  placeholder="e.g. 1234567890"
+                                  className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                                />
+                              </div>
+                              <div className="flex items-center gap-2 pt-2">
+                                <button
+                                  onClick={handleSaveBank}
+                                  disabled={isSavingBank}
+                                  className="px-5 py-2.5 bg-green-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-green-600 transition-all disabled:opacity-50 flex items-center gap-1.5"
+                                >
+                                  {isSavingBank ? <RotateCw size={12} className="animate-spin" /> : <CheckCircle size={12} />}
+                                  Save Changes
+                                </button>
+                                <button
+                                  onClick={() => { setShowBankForm(false); setShowBankSection(false); }}
+                                  className="px-4 py-2.5 bg-gray-200 dark:bg-gray-600 rounded-lg font-black text-[10px] uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500 transition-all"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -7132,40 +7148,6 @@ const PosOnlyView: React.FC<Props> = ({
                 {/* ── Setting Sub-tab ── */}
                 {onlineOrderSubTab === 'SETTING' && (
                   <div>
-                    {/* Account Balance Card */}
-                    <div className="bg-gradient-to-r from-indigo-500 to-blue-600 rounded-2xl p-6 mb-6 text-white shadow-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <CreditCard size={16} />
-                          <span className="text-[10px] font-black uppercase tracking-widest opacity-80">Online Account Balance</span>
-                        </div>
-                        <button
-                          onClick={() => {
-                            if (!subscription?.stripe_customer_id) return;
-                            setIsLoadingStripeBalance(true);
-                            fetch(`/api/stripe/billing?action=balance&customerId=${encodeURIComponent(subscription.stripe_customer_id)}`)
-                              .then(r => r.json())
-                              .then(data => setOnlineStripeBalance(data.balance ?? 0))
-                              .catch(() => setOnlineStripeBalance(0))
-                              .finally(() => setIsLoadingStripeBalance(false));
-                          }}
-                          className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-all"
-                        >
-                          <RotateCw size={12} className={isLoadingStripeBalance ? 'animate-spin' : ''} />
-                        </button>
-                      </div>
-                      <p className="text-3xl font-black">
-                        {isLoadingStripeBalance ? (
-                          <span className="text-white/50">Loading...</span>
-                        ) : onlineStripeBalance !== null ? (
-                          `${currencySymbol}${(onlineStripeBalance / 100).toFixed(2)}`
-                        ) : (
-                          <span className="text-white/50">{subscription?.stripe_customer_id ? 'Tap refresh' : 'No Stripe account'}</span>
-                        )}
-                      </p>
-                      <p className="text-[10px] opacity-70 mt-1">Revenue collected from online Stripe payments</p>
-                    </div>
-
                     {/* Online Shop Settings */}
                     <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600 p-5 mb-4">
                       <h3 className="text-sm font-black dark:text-white uppercase tracking-widest mb-4 flex items-center gap-2">
