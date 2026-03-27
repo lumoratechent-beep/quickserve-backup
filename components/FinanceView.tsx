@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Restaurant, Order, OrderStatus } from '../src/types';
+import { Restaurant, Order, OrderStatus, Subscription } from '../src/types';
+import { PRICING_PLANS } from '../lib/pricingPlans';
 import { loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -19,6 +20,7 @@ const FINANCE_CATEGORIES: { name: string; subcategories: string[]; type: 'COGS' 
   { name: 'Bills', subcategories: ['Utilities', 'Internet', 'Maintenance', 'Cleaning'], type: 'OPEX' },
   { name: 'Rent & Occupancy', subcategories: ['Rent', 'Property Tax', 'Security'], type: 'OPEX' },
   { name: 'Marketing', subcategories: ['Advertising', 'Promotions', 'Loyalty Programs'], type: 'OPEX' },
+  { name: 'Platform Subscription', subcategories: ['Subscription Fee', 'Trial Fee'], type: 'OPEX' },
   { name: 'Others', subcategories: ['Insurance', 'Licenses & Permits', 'Miscellaneous'], type: 'OPEX' },
 ];
 
@@ -56,6 +58,7 @@ interface Props {
   orders: Order[];
   currencySymbol: string;
   initialSubTab?: string;
+  subscription?: Subscription | null;
 }
 
 // ─── Helper: derive expense type from category ────────────────────────────────
@@ -66,7 +69,7 @@ function getCategoryType(categoryName: string): 'COGS' | 'OPEX' {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-const FinanceView: React.FC<Props> = ({ restaurant, orders, currencySymbol, initialSubTab }) => {
+const FinanceView: React.FC<Props> = ({ restaurant, orders, currencySymbol, initialSubTab, subscription }) => {
   const storeKey = (k: string) => `finance_${restaurant.id}_${k}`;
 
   const load = <T,>(key: string, fallback: T): T =>
@@ -138,6 +141,39 @@ const FinanceView: React.FC<Props> = ({ restaurant, orders, currencySymbol, init
         .filter(e => e.amount > 0);
     } catch { return []; }
   }, [restaurant.id]);
+
+  // ─── Subscription billing → auto OPEX expenses ───
+  const billingExpenses: Expense[] = useMemo(() => {
+    if (!subscription) return [];
+    const plan = PRICING_PLANS.find(p => p.id === subscription.plan_id);
+    if (!plan) return [];
+    const isAnnual = subscription.billing_interval === 'annual';
+    const trialEnd = new Date(subscription.trial_end);
+    const subStart = new Date(subscription.trial_start);
+    const now = new Date();
+    const entries: Expense[] = [];
+    const cursor = new Date(subStart.getFullYear(), subStart.getMonth(), 1);
+    while (cursor <= now) {
+      const inTrial = cursor < trialEnd;
+      const amount = inTrial ? plan.trialPrice : (isAnnual ? plan.annualPrice : plan.price);
+      if (amount > 0) {
+        const monthLabel = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        entries.push({
+          id: `billing_${cursor.getFullYear()}_${cursor.getMonth()}`,
+          date: cursor.toISOString().split('T')[0],
+          amount,
+          category: 'Platform Subscription',
+          subcategory: inTrial ? 'Trial Fee' : 'Subscription Fee',
+          paymentMethod: 'Card',
+          notes: `QuickServe ${plan.name} – ${monthLabel}`,
+          type: 'OPEX' as const,
+          createdAt: cursor.getTime(),
+        });
+      }
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+    return entries;
+  }, [subscription]);
 
   // ─── Date range filter ───
   const today = new Date();
@@ -220,7 +256,7 @@ const FinanceView: React.FC<Props> = ({ restaurant, orders, currencySymbol, init
 
   // ─── Derived data ─────────────────────────────────────────────────────────
 
-  const allExpenses = useMemo(() => [...expenses, ...poExpenses], [expenses, poExpenses]);
+  const allExpenses = useMemo(() => [...expenses, ...poExpenses, ...billingExpenses], [expenses, poExpenses, billingExpenses]);
 
   const filteredExpenses = useMemo(() => {
     return allExpenses.filter(e => {
@@ -602,23 +638,32 @@ const FinanceView: React.FC<Props> = ({ restaurant, orders, currencySymbol, init
       {/* ══════════════════════════════════════ */}
       {subTab === 'reports' && (
         <div>
-          {/* Report type selector */}
-          <div className="flex gap-2 mb-6 flex-wrap">
-            {([
+          {/* Document-style tab bar */}
+          {(() => {
+            const reportTabs: { key: ReportType; label: string; icon: React.ReactNode }[] = [
               { key: 'pl', label: 'Profit & Loss', icon: <FileText size={13} /> },
               { key: 'breakdown', label: 'Expense Breakdown', icon: <PieChartIcon size={13} /> },
               { key: 'monthly', label: 'Monthly Comparison', icon: <Activity size={13} /> },
-            ] as { key: ReportType; label: string; icon: React.ReactNode }[]).map(r => (
-              <button key={r.key} onClick={() => setReportType(r.key)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${reportType === r.key ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'}`}>
-                {r.icon} {r.label}
-              </button>
-            ))}
-          </div>
+            ];
+            return (
+              <div className="flex gap-0 border-b border-gray-200 dark:border-gray-700 mb-0">
+                {reportTabs.map(r => (
+                  <button key={r.key} onClick={() => setReportType(r.key)}
+                    className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider border border-b-0 rounded-t-xl transition-all -mb-px ${
+                      reportType === r.key
+                        ? 'bg-white dark:bg-gray-800 text-amber-600 dark:text-amber-400 border-gray-200 dark:border-gray-700 relative z-10'
+                        : 'bg-gray-100 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 border-transparent hover:bg-gray-200 dark:hover:bg-gray-800/60 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}>
+                    {r.icon} {r.label}
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
 
           {/* ── Profit & Loss ── */}
           {reportType === 'pl' && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-b-2xl rounded-tr-2xl border border-gray-200 dark:border-gray-700 border-t-0 shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h3 className="font-black text-gray-900 dark:text-white">Profit &amp; Loss Statement</h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -651,7 +696,7 @@ const FinanceView: React.FC<Props> = ({ restaurant, orders, currencySymbol, init
 
           {/* ── Expense Breakdown (pie) ── */}
           {reportType === 'breakdown' && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-b-2xl rounded-tr-2xl p-6 border border-gray-200 dark:border-gray-700 border-t-0 shadow-sm">
               <h3 className="font-black text-gray-900 dark:text-white mb-4">Expense Breakdown by Category</h3>
               {categoryBreakdown.length > 0 ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
@@ -702,7 +747,7 @@ const FinanceView: React.FC<Props> = ({ restaurant, orders, currencySymbol, init
 
           {/* ── Monthly Comparison (line) ── */}
           {reportType === 'monthly' && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-b-2xl rounded-tr-2xl p-6 border border-gray-200 dark:border-gray-700 border-t-0 shadow-sm">
               <h3 className="font-black text-gray-900 dark:text-white mb-4">Monthly Comparison (Last 6 Months)</h3>
               <ResponsiveContainer width="100%" height={320}>
                 <LineChart data={monthlyData}>

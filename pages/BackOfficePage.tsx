@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Order, OrderStatus, MenuItem, Restaurant } from '../src/types';
+import { Order, OrderStatus, MenuItem, Restaurant, Subscription } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
 import { loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
@@ -30,6 +30,7 @@ interface Props {
   onUpdateMenu?: (restaurantId: string, item: MenuItem) => Promise<void>;
   onPermanentDeleteMenuItem?: (restaurantId: string, itemId: string) => Promise<void>;
   onImageUpload?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  subscription?: Subscription | null;
 }
 
 type BackOfficeTab = 'DASHBOARD' | 'ITEMS' | 'STAFF' | 'STOCK' | 'INVENTORY' | 'REPORTS' | 'CONTACTS' | 'FINANCE';
@@ -67,7 +68,7 @@ interface StockItem {
   stockEnabled: boolean;
 }
 
-const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, onFetchAllFilteredOrders, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload }) => {
+const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, onFetchAllFilteredOrders, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription }) => {
   const [activeTab, setActiveTab] = useState<BackOfficeTab>('DASHBOARD');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [reportSubTab, setReportSubTab] = useState<string | undefined>(undefined);
@@ -1727,7 +1728,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
         {/* FINANCE TAB                         */}
         {/* ════════════════════════════════════ */}
         {activeTab === 'FINANCE' && (
-          <FinanceView restaurant={restaurant} orders={orders} currencySymbol={currencySymbol} initialSubTab={financeSubTab} />
+          <FinanceView restaurant={restaurant} orders={orders} currencySymbol={currencySymbol} initialSubTab={financeSubTab} subscription={subscription} />
         )}
       </div>
       </div>

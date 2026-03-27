@@ -1812,6 +1812,7 @@ const App: React.FC = () => {
         onAddMenuItem={handleAddMenuItem}
         onUpdateMenu={handleUpdateMenuItem}
         onPermanentDeleteMenuItem={handleDeleteMenuItem}
+        subscription={currentUser?.restaurantId ? (vendorSubscriptions[currentUser.restaurantId] ?? null) : null}
       />
     );
   }

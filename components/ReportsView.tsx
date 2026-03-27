@@ -18,11 +18,13 @@ interface Props {
 
 type ReportSubTab = 'sales_summary' | 'sales_by_item' | 'sales_by_category' | 'sales_by_employee' | 'sales_by_payment' | 'sales_by_modifier' | 'discounts' | 'taxes';
 type DateRange = 'today' | 'week' | 'month';
+type SalesPeriod = 'hourly' | 'daily' | 'weekly' | 'monthly';
 
 const COLORS = ['#D97706', '#F59E0B', '#92400E', '#B45309', '#78350F', '#FBBF24', '#FCD34D', '#3B82F6', '#8B5CF6', '#22C55E', '#EF4444', '#EC4899'];
 
 const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSubTab }) => {
   const [subTab, setSubTab] = useState<ReportSubTab>(initialSubTab || 'sales_summary');
+  const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>('daily');
 
   // Detect dark mode for Recharts inline color props
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
@@ -323,6 +325,51 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }, [selectedItemName, completedOrders]);
 
+  // Sales grouped by time period
+  const salesByPeriod = useMemo(() => {
+    const map: Record<string, { label: string; grossSales: number; orders: number; sortKey: string }> = {};
+    completedOrders.forEach(o => {
+      const d = new Date(o.timestamp);
+      let key: string;
+      let label: string;
+      let sortKey: string;
+      switch (salesPeriod) {
+        case 'hourly': {
+          const h = d.getHours();
+          sortKey = h.toString().padStart(2, '0');
+          const ampm = h >= 12 ? 'PM' : 'AM';
+          const h12 = h % 12 || 12;
+          label = `${h12}${ampm}`;
+          key = sortKey;
+          break;
+        }
+        case 'weekly': {
+          const sob = new Date(d);
+          sob.setDate(d.getDate() - d.getDay());
+          sortKey = sob.toISOString().split('T')[0];
+          label = `Wk ${sob.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+          key = sortKey;
+          break;
+        }
+        case 'monthly': {
+          sortKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+          label = d.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+          key = sortKey;
+          break;
+        }
+        default: { // daily
+          sortKey = d.toISOString().split('T')[0];
+          label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          key = sortKey;
+        }
+      }
+      if (!map[key]) map[key] = { label, grossSales: 0, orders: 0, sortKey };
+      map[key].grossSales += o.total;
+      map[key].orders += 1;
+    });
+    return Object.values(map).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+  }, [completedOrders, salesPeriod]);
+
   // Discounts (estimated from order data — if the system has discount fields)
   const discountsReport = useMemo(() => {
     // Placeholder structure — since orders don't have a discount field currently, 
@@ -435,20 +482,65 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
             </div>
           </div>
 
-          {/* Daily Sales Chart */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
-            <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400 mb-4">Daily Sales Trend</h3>
-            {salesSummary.dailyData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={salesSummary.dailyData}>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={gridStroke} />
-                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: tickFill }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: tickFill }} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${v}`} />
-                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
-                  <Bar dataKey="grossSales" fill="#D97706" radius={[4, 4, 0, 0]} maxBarSize={32} name="Gross Sales" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : <div className="h-48 flex items-center justify-center text-gray-500 text-sm">No data for this period</div>}
+          {/* Sales by Period — document tabs */}
+          <div>
+            <div className="flex gap-0 border-b border-gray-200 dark:border-gray-700">
+              {([
+                { key: 'hourly', label: 'By Hour' },
+                { key: 'daily', label: 'By Day' },
+                { key: 'weekly', label: 'By Week' },
+                { key: 'monthly', label: 'By Month' },
+              ] as { key: SalesPeriod; label: string }[]).map(p => (
+                <button key={p.key} onClick={() => setSalesPeriod(p.key)}
+                  className={`px-5 py-2.5 text-xs font-bold uppercase tracking-wider border border-b-0 rounded-t-xl transition-all -mb-px ${
+                    salesPeriod === p.key
+                      ? 'bg-white dark:bg-gray-800 text-amber-600 dark:text-amber-400 border-gray-200 dark:border-gray-700 relative z-10'
+                      : 'bg-gray-100 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 border-transparent hover:bg-gray-200 dark:hover:bg-gray-800/60 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-b-2xl rounded-tr-2xl p-5 border border-gray-200 dark:border-gray-700 border-t-0 shadow-sm dark:shadow-none">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                {salesPeriod === 'hourly' ? 'Sales grouped by hour of day' : salesPeriod === 'daily' ? 'Sales per day' : salesPeriod === 'weekly' ? 'Sales per week' : 'Sales per month'}
+              </p>
+              {salesByPeriod.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={salesByPeriod}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={gridStroke} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: tickFill }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: tickFill }} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${v}`} />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
+                    <Bar dataKey="grossSales" fill="#D97706" radius={[4, 4, 0, 0]} maxBarSize={40} name="Gross Sales" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : <div className="h-48 flex items-center justify-center text-gray-500 text-sm">No data for this period</div>}
+              {salesByPeriod.length > 0 && (
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-700">
+                        <th className="py-2 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Period</th>
+                        <th className="py-2 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Orders</th>
+                        <th className="py-2 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Gross Sales</th>
+                        <th className="py-2 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Avg / Order</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {salesByPeriod.map(row => (
+                        <tr key={row.sortKey} className="border-b border-gray-100 dark:border-gray-700/50">
+                          <td className="py-2 font-medium text-xs dark:text-gray-300">{row.label}</td>
+                          <td className="py-2 text-right text-xs text-gray-600 dark:text-gray-400">{row.orders}</td>
+                          <td className="py-2 text-right text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{row.grossSales.toFixed(2)}</td>
+                          <td className="py-2 text-right text-xs text-gray-600 dark:text-gray-400">{currencySymbol}{(row.orders > 0 ? row.grossSales / row.orders : 0).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
