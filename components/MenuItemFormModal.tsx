@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { MenuItem, AddOnItem, ModifierData } from '../src/types';
+import { MenuItem, AddOnItem, ModifierData, AddOnItemData } from '../src/types';
 import { ArrowLeft, X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle, Save, Pencil, ScanBarcode, DollarSign, Tag, Layers, ChevronDown, Package } from 'lucide-react';
 import { toast } from './Toast';
 import ImageCropModal from './ImageCropModal';
@@ -12,6 +12,7 @@ interface Props {
   setFormItem: React.Dispatch<React.SetStateAction<MenuFormItem>>;
   categories: string[];
   availableModifiers?: ModifierData[];
+  availableAddOnItems?: AddOnItemData[];
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
   onImageUpload?: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -24,6 +25,7 @@ const MenuItemFormModal: React.FC<Props> = ({
   setFormItem,
   categories,
   availableModifiers = [],
+  availableAddOnItems = [],
   onClose,
   onSubmit,
   onImageUpload,
@@ -466,16 +468,16 @@ const MenuItemFormModal: React.FC<Props> = ({
           </div>
         </div>
         <div>
-          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Price *</label>
+          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Base Price</label>
           <input
-            required
             type="number"
             step="0.01"
             className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
-            value={formItem.price === 0 ? '' : formItem.price}
+            value={formItem.price === 0 || formItem.price === undefined ? '' : formItem.price}
             onChange={e => setFormItem(prev => ({ ...prev, price: e.target.value === '' ? 0 : Number(e.target.value) }))}
             placeholder="0.00"
           />
+          <p className="text-[8px] text-gray-400 mt-1">Leave blank to indicate price upon sale</p>
         </div>
       </div>
     </div>
@@ -596,15 +598,15 @@ const MenuItemFormModal: React.FC<Props> = ({
       </div>
       {addingSection === 'sizes' && (
         <div className="flex gap-2 mt-3 pt-3 border-t dark:border-gray-700">
-          <button
-            type="button"
-            onClick={() => { setFormItem(prev => ({ ...prev, sizesEnabled: (prev.sizes || []).some(s => s.name.trim()) })); closeAddForm(); }}
-            className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1 transition-colors"
-          ><Save size={13} /> Save Changes</button>
           <button type="button" onClick={() => {
             setFormItem(prev => ({ ...prev, sizes: (prev.sizes || []).slice(0, addingStartCount), sizesEnabled: addingStartCount > 0 }));
             closeAddForm();
           }} className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">Cancel</button>
+          <button
+            type="button"
+            onClick={() => { setFormItem(prev => ({ ...prev, sizesEnabled: (prev.sizes || []).some(s => s.name.trim()) })); closeAddForm(); }}
+            className="flex-1 py-2 bg-[#22C55E] hover:bg-green-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1 transition-colors"
+          ><Save size={13} /> Save Changes</button>
         </div>
       )}
     </div>
@@ -782,15 +784,15 @@ const MenuItemFormModal: React.FC<Props> = ({
       </div>
       {addingSection === 'thermal' && (
         <div className="flex gap-2 mt-3 pt-3 border-t dark:border-gray-700">
-          <button
-            type="button"
-            onClick={() => { setFormItem(prev => ({ ...prev, tempOptions: { ...(prev.tempOptions || { enabled: true, hot: 0, cold: 0, options: [] }), enabled: (prev.tempOptions?.options || []).some(o => o.name.trim()) } })); closeAddForm(); }}
-            className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1 transition-colors"
-          ><Save size={13} /> Save Changes</button>
           <button type="button" onClick={() => {
             setFormItem(prev => ({ ...prev, tempOptions: { ...(prev.tempOptions || { enabled: true, hot: 0, cold: 0, options: [] }), enabled: addingStartCount > 0, options: (prev.tempOptions?.options || []).slice(0, addingStartCount) } }));
             closeAddForm();
           }} className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">Cancel</button>
+          <button
+            type="button"
+            onClick={() => { setFormItem(prev => ({ ...prev, tempOptions: { ...(prev.tempOptions || { enabled: true, hot: 0, cold: 0, options: [] }), enabled: (prev.tempOptions?.options || []).some(o => o.name.trim()) } })); closeAddForm(); }}
+            className="flex-1 py-2 bg-[#22C55E] hover:bg-green-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1 transition-colors"
+          ><Save size={13} /> Save Changes</button>
         </div>
       )}
     </div>
@@ -836,15 +838,15 @@ const MenuItemFormModal: React.FC<Props> = ({
       </div>
       {addingSection === 'variants' && (
         <div className="flex gap-2 mt-3 pt-3 border-t dark:border-gray-700">
-          <button
-            type="button"
-            onClick={() => { setFormItem(prev => ({ ...prev, variantOptions: { ...(prev.variantOptions || { enabled: true, options: [] }), enabled: (prev.variantOptions?.options || []).some(o => o.name.trim()) } })); closeAddForm(); }}
-            className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1 transition-colors"
-          ><Save size={13} /> Save Changes</button>
           <button type="button" onClick={() => {
             setFormItem(prev => ({ ...prev, variantOptions: { ...(prev.variantOptions || { enabled: true, options: [] }), enabled: addingStartCount > 0, options: (prev.variantOptions?.options || []).slice(0, addingStartCount) } }));
             closeAddForm();
           }} className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">Cancel</button>
+          <button
+            type="button"
+            onClick={() => { setFormItem(prev => ({ ...prev, variantOptions: { ...(prev.variantOptions || { enabled: true, options: [] }), enabled: (prev.variantOptions?.options || []).some(o => o.name.trim()) } })); closeAddForm(); }}
+            className="flex-1 py-2 bg-[#22C55E] hover:bg-green-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1 transition-colors"
+          ><Save size={13} /> Save Changes</button>
         </div>
       )}
     </div>
@@ -858,6 +860,73 @@ const MenuItemFormModal: React.FC<Props> = ({
           <Plus size={16} />
         </button>
       </div>
+
+      {availableAddOnItems.length > 0 && (
+        <div className="mb-4">
+          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">
+            Quick add from saved add-ons
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {availableAddOnItems.filter(a => a.name).map(addon => {
+              const isActive = formItem.addOns?.some(a => a.name === addon.name) || false;
+              return (
+                <button
+                  key={addon.name}
+                  type="button"
+                  onClick={() => {
+                    if (isActive) {
+                      setFormItem(prev => ({
+                        ...prev,
+                        addOns: prev.addOns?.filter(a => a.name !== addon.name),
+                      }));
+                    } else {
+                      setFormItem(prev => ({
+                        ...prev,
+                        addOns: [...(prev.addOns || []), { name: addon.name, price: addon.price, maxQuantity: addon.maxQuantity, required: addon.required || false }],
+                      }));
+                      setCollapsedAddOns(prev => new Set(prev).add((formItem.addOns || []).length));
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-[9px] font-black tracking-wide transition-all border flex items-center gap-1 ${
+                    isActive
+                      ? 'bg-orange-500 text-white border-orange-500'
+                      : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-orange-300'
+                  }`}
+                >
+                  <span>{addon.name} (+{addon.price.toFixed(2)})</span>
+                  {isActive && (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setFormItem(prev => ({
+                          ...prev,
+                          addOns: prev.addOns?.filter(a => a.name !== addon.name),
+                        }));
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setFormItem(prev => ({
+                            ...prev,
+                            addOns: prev.addOns?.filter(a => a.name !== addon.name),
+                          }));
+                        }
+                      }}
+                      className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white/20 hover:bg-white/30"
+                      aria-label={`Remove ${addon.name}`}
+                    >
+                      <X size={10} />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {formItem.addOns && formItem.addOns.length > 0 ? (
         <div className="space-y-3">

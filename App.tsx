@@ -440,6 +440,7 @@ const App: React.FC = () => {
         })(),
         categories: res.categories || [],
         modifiers: res.modifiers || [],
+        addOnItems: res.add_on_items || [],
         menu: menuData.filter(m => m.restaurant_id === res.id).map(m => {
           const temp = m.temp_options || {};
           const others = m.other_variants || {};

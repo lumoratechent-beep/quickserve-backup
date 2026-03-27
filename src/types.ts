@@ -101,6 +101,7 @@ export interface Restaurant {
   };
   categories?: CategoryData[];
   modifiers?: ModifierData[];
+  addOnItems?: AddOnItemData[];
   platformAccess?: PlatformAccess; // Added for restaurant-based access control
   slug?: string; // Short URL identifier e.g. 'burger-palace'
   kitchenDivisions?: KitchenDepartment[];
@@ -195,6 +196,13 @@ export interface ModifierData {
 export interface ModifierOption {
   name: string;
   price: number;
+}
+
+export interface AddOnItemData {
+  name: string;
+  price: number;
+  maxQuantity: number;
+  required?: boolean;
 }
 
 // Subscription & Pricing

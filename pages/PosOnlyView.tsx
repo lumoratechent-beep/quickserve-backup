@@ -1,7 +1,7 @@
 // pages/PosOnlyView.tsx
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters, CategoryData, ModifierData, ModifierOption, QS_DEFAULT_HUB, Subscription, PlanId, KitchenDepartment } from '../src/types';
+import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters, CategoryData, ModifierData, ModifierOption, AddOnItemData, QS_DEFAULT_HUB, Subscription, PlanId, KitchenDepartment } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { uploadImage } from '../lib/storage';
 import { saveAllSettingsToDb } from '../lib/sharedSettings';
@@ -20,7 +20,7 @@ import {
   X, Edit3, Archive, RotateCcw, Upload, Eye,
   AlertCircle, Users, UserPlus, Bluetooth, BluetoothConnected, PrinterIcon,
   Filter, Tag, Layers, Coffee, ChevronDown, ChevronLeft, ChevronRight, RotateCw, Wifi, WifiOff,
-  Receipt, Network, Type, MessageSquare, Zap, Briefcase
+  Receipt, Network, Type, MessageSquare, Zap, Briefcase, PlusCircle
 } from 'lucide-react';
 
 interface Props {
@@ -296,7 +296,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [menuStatusFilter, setMenuStatusFilter] = useState<'ACTIVE' | 'ARCHIVED'>('ACTIVE');
   const [menuViewMode, setMenuViewMode] = useState<'grid' | 'list'>('grid');
   const [menuCategoryFilter, setMenuCategoryFilter] = useState<string>('All');
-  const [menuSubTab, setMenuSubTab] = useState<'KITCHEN' | 'CATEGORY' | 'MODIFIER'>('KITCHEN');
+  const [menuSubTab, setMenuSubTab] = useState<'KITCHEN' | 'CATEGORY' | 'MODIFIER' | 'ADDON'>('KITCHEN');
   const [isSavingMenuItem, setIsSavingMenuItem] = useState(false);
   const [formItem, setFormItem] = useState<MenuFormItem>({
     name: '',
@@ -320,12 +320,14 @@ const PosOnlyView: React.FC<Props> = ({
   const [newClassName, setNewClassName] = useState('');
   const [extraCategories, setExtraCategories] = useState<CategoryData[]>([]);
   const [modifiers, setModifiers] = useState<ModifierData[]>([]);
+  const [addOnItems, setAddOnItems] = useState<AddOnItemData[]>([]);
 
   const [classViewMode, setClassViewMode] = useState<'grid' | 'list'>('list');
   const [renamingClass, setRenamingClass] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
   const [modifierViewMode, setModifierViewMode] = useState<'grid' | 'list'>('list');
+  const [addOnViewMode, setAddOnViewMode] = useState<'grid' | 'list'>('list');
   const [renamingModifier, setRenamingModifier] = useState<string | null>(null);
   const [editingModifierName, setEditingModifierName] = useState<string | null>(null);
   const [tempModifierName, setTempModifierName] = useState('');
@@ -1588,7 +1590,16 @@ const PosOnlyView: React.FC<Props> = ({
         setModifiers(JSON.parse(savedModifiers));
       }
     }
-  }, [restaurant.id, restaurant.categories, restaurant.modifiers]);
+
+    if (restaurant.addOnItems && restaurant.addOnItems.length > 0) {
+      setAddOnItems(restaurant.addOnItems);
+    } else {
+      const savedAddOns = localStorage.getItem(`addOnItems_${restaurant.id}`);
+      if (savedAddOns) {
+        setAddOnItems(JSON.parse(savedAddOns));
+      }
+    }
+  }, [restaurant.id, restaurant.categories, restaurant.modifiers, restaurant.addOnItems]);
 
   const saveCategoriesToDatabase = async (categoriesToSave: CategoryData[]) => {
     try {
@@ -1629,6 +1640,23 @@ const PosOnlyView: React.FC<Props> = ({
     localStorage.setItem(`modifiers_${restaurant.id}`, JSON.stringify(modifiers));
     saveModifiersToDatabase(modifiers);
   }, [modifiers, restaurant.id]);
+
+  const saveAddOnItemsToDatabase = async (items: AddOnItemData[]) => {
+    try {
+      const { error } = await supabase
+        .from('restaurants')
+        .update({ add_on_items: items })
+        .eq('id', restaurant.id);
+      if (error) console.error('Error saving add-on items:', error);
+    } catch (error) {
+      console.error('Error saving add-on items:', error);
+    }
+  };
+
+  useEffect(() => {
+    localStorage.setItem(`addOnItems_${restaurant.id}`, JSON.stringify(addOnItems));
+    saveAddOnItemsToDatabase(addOnItems);
+  }, [addOnItems, restaurant.id]);
 
   useEffect(() => {
     if (!('bluetooth' in navigator) || !(navigator as any).bluetooth) {
@@ -4532,11 +4560,13 @@ const PosOnlyView: React.FC<Props> = ({
                               mobileMenuLayout === 'list' ? 'w-16 h-16' : 'aspect-square w-full'
                             } ${
                               menuLayout === 'list' ? 'lg:w-16 lg:h-16 lg:aspect-auto' : 'lg:aspect-square lg:w-full'
-                            } rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0`}>
+                            } rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0`}
+                            style={!item.image && item.color ? { backgroundColor: item.color } : undefined}
+                            >
                               {item.image ? (
                                 <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                <div className="w-full h-full flex items-center justify-center text-white/70">
                                   <ShoppingBag size={20} />
                                 </div>
                               )}
@@ -4598,6 +4628,7 @@ const PosOnlyView: React.FC<Props> = ({
               setFormItem={setFormItem}
               categories={menuEditorCategories}
               availableModifiers={modifiers}
+              availableAddOnItems={addOnItems}
               onClose={handleCloseFormModal}
               onSubmit={handleSaveMenuItem}
               onImageUpload={handleImageUpload}
@@ -4620,6 +4651,7 @@ const PosOnlyView: React.FC<Props> = ({
                       <button onClick={() => setMenuSubTab('KITCHEN')} className={`px-4 py-2 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${menuSubTab === 'KITCHEN' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>Kitchen Menu</button>
                       <button onClick={() => setMenuSubTab('CATEGORY')} className={`px-4 py-2 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${menuSubTab === 'CATEGORY' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>Category</button>
                       <button onClick={() => setMenuSubTab('MODIFIER')} className={`px-4 py-2 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${menuSubTab === 'MODIFIER' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>Modifier</button>
+                      <button onClick={() => setMenuSubTab('ADDON')} className={`px-4 py-2 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${menuSubTab === 'ADDON' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>Add-On Item</button>
                     </div>
 
                     {menuSubTab === 'KITCHEN' ? (
@@ -4650,7 +4682,7 @@ const PosOnlyView: React.FC<Props> = ({
                           <Tag size={16} /> + New Category
                         </button>
                       </>
-                    ) : (
+                    ) : menuSubTab === 'MODIFIER' ? (
                       <>
                         <div className="flex items-center gap-3">
                           <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm">
@@ -4660,6 +4692,18 @@ const PosOnlyView: React.FC<Props> = ({
                         </div>
                         <button onClick={handleAddModifier} className="ml-auto px-4 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
                           <Coffee size={16} /> + New Modifier
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm">
+                            <button onClick={() => setAddOnViewMode('grid')} className={`p-2 rounded-lg transition-all ${addOnViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={18} /></button>
+                            <button onClick={() => setAddOnViewMode('list')} className={`p-2 rounded-lg transition-all ${addOnViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={18} /></button>
+                          </div>
+                        </div>
+                        <button onClick={() => setAddOnItems(prev => [...prev, { name: '', price: 0, maxQuantity: 1, required: false }])} className="ml-auto px-4 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
+                          <PlusCircle size={16} /> + New Add-On
                         </button>
                       </>
                     )}
@@ -4679,8 +4723,14 @@ const PosOnlyView: React.FC<Props> = ({
                       <div className="grid grid-cols-5 gap-3">
                         {currentMenu.map(item => (
                           <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden border dark:border-gray-700 hover:shadow-md transition-all group flex flex-col">
-                            <div className="relative aspect-square overflow-hidden">
-                              <img src={item.image} className="w-full h-full object-cover" />
+                            <div className="relative aspect-square overflow-hidden" style={!item.image && item.color ? { backgroundColor: item.color } : undefined}>
+                              {item.image ? (
+                                <img src={item.image} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-white/50">
+                                  <ShoppingBag size={28} />
+                                </div>
+                              )}
                               <div className="absolute top-2 right-2 flex gap-1">
                                 {menuStatusFilter === 'ACTIVE' ? (
                                   <>
@@ -4722,7 +4772,13 @@ const PosOnlyView: React.FC<Props> = ({
                                 <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                                   <td className="px-4 py-3">
                                     <div className="flex items-center gap-3">
-                                      <img src={item.image} className="w-10 h-10 rounded-lg object-cover" />
+                                      {item.image ? (
+                                        <img src={item.image} className="w-10 h-10 rounded-lg object-cover" />
+                                      ) : (
+                                        <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white/60" style={item.color ? { backgroundColor: item.color } : { backgroundColor: '#D1D5DB' }}>
+                                          <ShoppingBag size={16} />
+                                        </div>
+                                      )}
                                       <div>
                                         <p className="font-black text-gray-900 dark:text-white uppercase tracking-tight text-xs">{item.name}</p>
                                         <p className="hidden sm:block text-[9px] text-gray-500 dark:text-gray-400 truncate max-w-xs">{item.description}</p>
@@ -4975,6 +5031,153 @@ const PosOnlyView: React.FC<Props> = ({
                         <div className="col-span-full text-center py-12">
                           <Coffee size={32} className="mx-auto text-gray-300 mb-2" />
                           <p className="text-[10px] font-black text-gray-400 uppercase">No modifiers added yet</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {menuSubTab === 'ADDON' && (
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700/30 border-b dark:border-gray-700 flex justify-between items-center">
+                      <div className="flex items-center gap-2 text-gray-400">
+                        <PlusCircle size={16} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Add-On Item Manager</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{addOnItems.length} Total</span>
+                    </div>
+
+                    <div className={addOnViewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4' : 'divide-y dark:divide-gray-700'}>
+                      {addOnItems.map((addon, index) => {
+                        if (addOnViewMode === 'grid') {
+                          return (
+                            <div key={index} className="p-4 bg-gray-50/50 dark:bg-gray-900/50 border dark:border-gray-700 rounded-lg hover:border-orange-200 transition-all">
+                              <div className="flex justify-between items-start mb-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg flex items-center justify-center">
+                                    <PlusCircle size={16} />
+                                  </div>
+                                  <div>
+                                    <input
+                                      type="text"
+                                      value={addon.name}
+                                      onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, name: e.target.value }; setAddOnItems(updated); }}
+                                      placeholder="Add-on name"
+                                      className="font-black text-xs dark:text-white uppercase tracking-tight bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-orange-500 outline-none w-full"
+                                    />
+                                  </div>
+                                </div>
+                                <button onClick={() => setAddOnItems(prev => prev.filter((_, i) => i !== index))} className="p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg" title="Remove">
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+
+                              <div className="space-y-2 mt-2 pt-2 border-t dark:border-gray-700">
+                                <div className="flex items-center justify-between text-[9px]">
+                                  <span className="font-bold text-gray-500 uppercase">Price</span>
+                                  <input
+                                    type="number"
+                                    value={addon.price || ''}
+                                    onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, price: parseFloat(e.target.value) || 0 }; setAddOnItems(updated); }}
+                                    placeholder="0.00"
+                                    className="w-20 text-right font-black text-orange-500 bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-orange-500 outline-none text-[10px]"
+                                    step="0.01"
+                                    min="0"
+                                  />
+                                </div>
+                                <div className="flex items-center justify-between text-[9px]">
+                                  <span className="font-bold text-gray-500 uppercase">Max Qty</span>
+                                  <input
+                                    type="number"
+                                    value={addon.maxQuantity}
+                                    onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, maxQuantity: parseInt(e.target.value) || 1 }; setAddOnItems(updated); }}
+                                    className="w-16 text-right font-black text-gray-700 dark:text-gray-300 bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-orange-500 outline-none text-[10px]"
+                                    min="1"
+                                  />
+                                </div>
+                                <div className="flex items-center justify-between text-[9px]">
+                                  <span className="font-bold text-gray-500 uppercase">Required</span>
+                                  <input
+                                    type="checkbox"
+                                    checked={addon.required || false}
+                                    onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, required: e.target.checked }; setAddOnItems(updated); }}
+                                    className="w-4 h-4 text-orange-500 rounded focus:ring-orange-500"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div key={index} className="p-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all">
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex items-center gap-3 min-w-0 flex-1">
+                                <div className="w-8 h-8 bg-green-50 dark:bg-green-900/20 text-green-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                  <PlusCircle size={16} />
+                                </div>
+                                <input
+                                  type="text"
+                                  value={addon.name}
+                                  onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, name: e.target.value }; setAddOnItems(updated); }}
+                                  placeholder="Add-on name"
+                                  className="text-sm font-black dark:text-white uppercase tracking-tight bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-orange-500 outline-none min-w-0 w-full"
+                                />
+                              </div>
+
+                              <div className="flex items-center gap-4 flex-shrink-0">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] font-bold text-gray-400 uppercase">Price:</span>
+                                  <span className="text-[9px] font-bold text-gray-400">{currencySymbol}</span>
+                                  <input
+                                    type="number"
+                                    value={addon.price || ''}
+                                    onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, price: parseFloat(e.target.value) || 0 }; setAddOnItems(updated); }}
+                                    placeholder="0.00"
+                                    className="w-16 text-right font-black text-orange-500 bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-orange-500 outline-none text-xs"
+                                    step="0.01"
+                                    min="0"
+                                  />
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] font-bold text-gray-400 uppercase">Max:</span>
+                                  <input
+                                    type="number"
+                                    value={addon.maxQuantity}
+                                    onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, maxQuantity: parseInt(e.target.value) || 1 }; setAddOnItems(updated); }}
+                                    className="w-12 text-right font-black text-gray-700 dark:text-gray-300 bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-orange-500 outline-none text-xs"
+                                    min="1"
+                                  />
+                                </div>
+
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <span className="text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase">Required</span>
+                                  <input
+                                    type="checkbox"
+                                    checked={addon.required || false}
+                                    onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, required: e.target.checked }; setAddOnItems(updated); }}
+                                    className="w-4 h-4 text-orange-500 rounded focus:ring-orange-500"
+                                  />
+                                </label>
+                              </div>
+
+                              <button
+                                onClick={() => setAddOnItems(prev => prev.filter((_, i) => i !== index))}
+                                className="p-2 text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded flex-shrink-0"
+                                title="Remove"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {addOnItems.length === 0 && (
+                        <div className="col-span-full text-center py-12">
+                          <PlusCircle size={32} className="mx-auto text-gray-300 mb-2" />
+                          <p className="text-[10px] font-black text-gray-400 uppercase">No add-on items yet</p>
                         </div>
                       )}
                     </div>
