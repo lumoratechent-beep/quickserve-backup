@@ -4054,7 +4054,7 @@ const PosOnlyView: React.FC<Props> = ({
         fixed lg:relative inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 border-r dark:border-gray-700 
         flex flex-col transition-all duration-300 ease-in-out no-print
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        ${isSidebarCollapsed ? 'lg:w-16' : 'w-56'}
+        ${isSidebarCollapsed ? 'lg:w-16' : 'w-64'}
       `}>
         <div className={`border-b dark:border-gray-700 flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'p-6 gap-3'}`}>
           <img src={restaurant.logo} className={`rounded-lg shadow-sm ${isSidebarCollapsed ? 'w-8 h-8' : 'w-10 h-10'}`} />
@@ -5945,8 +5945,10 @@ const PosOnlyView: React.FC<Props> = ({
                       isInstalled: !!onNavigateBackOffice,
                       canInstall: true,
                       onInstall: () => onNavigateBackOffice?.(),
+                      onUninstall: null as (() => void) | null,
                       installLabel: 'Open Back Office',
                       settingsPanel: null as string | null,
+                      renderSettings: null as (() => React.ReactNode) | null,
                     },
                     {
                       id: 'table',
@@ -5962,8 +5964,10 @@ const PosOnlyView: React.FC<Props> = ({
                       author: 'QuickServe',
                       isInstalled: featureSettings.tableManagementEnabled || featureSettings.savedBillEnabled,
                       canInstall: true,
-                      onInstall: () => { setActiveTab('SETTINGS'); setSettingsPanel('table'); },
+                      onInstall: () => { updateFeatureSetting('tableManagementEnabled', true); updateFeatureSetting('savedBillEnabled', true); },
+                      onUninstall: () => { updateFeatureSetting('tableManagementEnabled', false); updateFeatureSetting('savedBillEnabled', false); },
                       settingsPanel: 'table' as string | null,
+                      renderSettings: () => <div className="space-y-4">{renderTableManagementContent()}</div>,
                     },
                     {
                       id: 'qr',
@@ -5979,8 +5983,26 @@ const PosOnlyView: React.FC<Props> = ({
                       author: 'QuickServe',
                       isInstalled: featureSettings.qrEnabled,
                       canInstall: canUseQr,
-                      onInstall: () => { setActiveTab('SETTINGS'); setSettingsPanel('qr'); },
+                      onInstall: () => { updateFeatureSetting('qrEnabled', true); },
+                      onUninstall: () => { updateFeatureSetting('qrEnabled', false); },
                       settingsPanel: 'qr' as string | null,
+                      renderSettings: () => (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                            <div>
+                              <p className="text-xs font-black dark:text-white">QR Ordering</p>
+                              <p className="text-[9px] text-gray-400 mt-0.5">Let customers scan QR codes to order from their table</p>
+                            </div>
+                            <button
+                              onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
+                              className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                            >
+                              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
+                            </button>
+                          </div>
+                          {featureSettings.qrEnabled && renderQrGeneratorContent()}
+                        </div>
+                      ),
                     },
                     {
                       id: 'tableside',
@@ -5997,7 +6019,9 @@ const PosOnlyView: React.FC<Props> = ({
                       isInstalled: featureSettings.tablesideOrderingEnabled,
                       canInstall: canUseQr,
                       onInstall: () => { updateFeatureSetting('tablesideOrderingEnabled', true); },
+                      onUninstall: () => { updateFeatureSetting('tablesideOrderingEnabled', false); },
                       settingsPanel: null as string | null,
+                      renderSettings: null as (() => React.ReactNode) | null,
                     },
                     {
                       id: 'kitchen',
@@ -6013,8 +6037,17 @@ const PosOnlyView: React.FC<Props> = ({
                       author: 'QuickServe',
                       isInstalled: featureSettings.kitchenEnabled,
                       canInstall: canUseKitchen,
-                      onInstall: () => { setActiveTab('SETTINGS'); setSettingsPanel('kitchen'); },
+                      onInstall: () => { updateFeatureSetting('kitchenEnabled', true); },
+                      onUninstall: () => { updateFeatureSetting('kitchenEnabled', false); },
                       settingsPanel: 'kitchen' as string | null,
+                      renderSettings: () => <div className="space-y-0">{canUseKitchen ? renderKitchenSettingsContent() : (
+                        <div className="text-center py-8">
+                          <Coffee size={36} className="mx-auto text-gray-300 mb-3" />
+                          <p className="text-sm font-black dark:text-white mb-1">Upgrade to Pro Plus</p>
+                          <p className="text-[10px] text-gray-400 mb-4">Kitchen Display System requires the Pro Plus plan</p>
+                          <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
+                        </div>
+                      )}</div>,
                     },
                     {
                       id: 'customer-display',
@@ -6030,8 +6063,10 @@ const PosOnlyView: React.FC<Props> = ({
                       author: 'QuickServe',
                       isInstalled: featureSettings.customerDisplayEnabled,
                       canInstall: true,
-                      onInstall: () => updateFeatureSetting('customerDisplayEnabled', !featureSettings.customerDisplayEnabled),
+                      onInstall: () => updateFeatureSetting('customerDisplayEnabled', true),
+                      onUninstall: () => { updateFeatureSetting('customerDisplayEnabled', false); },
                       settingsPanel: null as string | null,
+                      renderSettings: null as (() => React.ReactNode) | null,
                     },
                     {
                       id: 'online-shop',
@@ -6048,7 +6083,9 @@ const PosOnlyView: React.FC<Props> = ({
                       isInstalled: featureSettings.onlineShopEnabled,
                       canInstall: canUseQr,
                       onInstall: () => { updateFeatureSetting('onlineShopEnabled', true); },
+                      onUninstall: () => { updateFeatureSetting('onlineShopEnabled', false); },
                       settingsPanel: null as string | null,
+                      renderSettings: null as (() => React.ReactNode) | null,
                     },
                   ];
 
@@ -6081,12 +6118,23 @@ const PosOnlyView: React.FC<Props> = ({
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{selectedAddon.shortDesc}</p>
                                 <div className="flex flex-wrap items-center gap-3">
                                   {selectedAddon.isInstalled ? (
+                                    <>
                                     <button
                                       onClick={selectedAddon.onInstall}
                                       className="px-6 py-2.5 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-lg font-black text-[10px] uppercase tracking-widest"
                                     >
                                       {selectedAddon.installLabel || 'Installed'}
                                     </button>
+                                    {selectedAddon.onUninstall && (
+                                      <button
+                                        onClick={() => { if (confirm(`Are you sure you want to uninstall ${selectedAddon.name}? This will disable the feature.`)) { selectedAddon.onUninstall!(); } }}
+                                        className="px-5 py-2.5 bg-red-50 dark:bg-red-900/20 text-red-500 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-red-100 dark:hover:bg-red-900/30 transition-all flex items-center gap-2"
+                                      >
+                                        <Trash2 size={14} />
+                                        Uninstall
+                                      </button>
+                                    )}
+                                    </>
                                   ) : selectedAddon.canInstall ? (
                                     <button
                                       onClick={selectedAddon.onInstall}
@@ -6107,29 +6155,27 @@ const PosOnlyView: React.FC<Props> = ({
                             </div>
                           </div>
 
-                          {/* Chrome-style Tabs */}
-                          <div className="flex border-b dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+                          {/* Document-style Tabs */}
+                          <div className="flex bg-gray-100 dark:bg-gray-900 border-b dark:border-gray-700 px-4 pt-2">
                             <button
                               onClick={() => setAddonDetailTab('details')}
-                              className={`px-6 py-3 text-[11px] font-black uppercase tracking-widest transition-all relative ${
+                              className={`px-5 py-2.5 text-[11px] font-black uppercase tracking-widest transition-all rounded-t-lg border border-b-0 ${
                                 addonDetailTab === 'details'
-                                  ? 'text-orange-600 dark:text-orange-400'
-                                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                                  ? 'bg-white dark:bg-gray-800 text-orange-600 dark:text-orange-400 border-gray-200 dark:border-gray-700 -mb-px z-10'
+                                  : 'bg-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 border-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50'
                               }`}
                             >
                               Details
-                              {addonDetailTab === 'details' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-500" />}
                             </button>
                             <button
                               onClick={() => setAddonDetailTab('setting')}
-                              className={`px-6 py-3 text-[11px] font-black uppercase tracking-widest transition-all relative ${
+                              className={`px-5 py-2.5 text-[11px] font-black uppercase tracking-widest transition-all rounded-t-lg border border-b-0 ${
                                 addonDetailTab === 'setting'
-                                  ? 'text-orange-600 dark:text-orange-400'
-                                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                                  ? 'bg-white dark:bg-gray-800 text-orange-600 dark:text-orange-400 border-gray-200 dark:border-gray-700 -mb-px z-10'
+                                  : 'bg-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 border-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50'
                               }`}
                             >
                               Setting
-                              {addonDetailTab === 'setting' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-500" />}
                             </button>
                           </div>
 
@@ -6203,7 +6249,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     </button>
                                   )}
                                 </div>
-                              ) : selectedAddon.settingsPanel ? (
+                              ) : selectedAddon.renderSettings ? (
                                 <div>
                                   <div className="flex items-center gap-3 mb-6">
                                     <div className={`w-10 h-10 rounded-xl ${selectedAddon.iconBg} flex items-center justify-center`}>
@@ -6214,12 +6260,9 @@ const PosOnlyView: React.FC<Props> = ({
                                       <p className="text-[10px] text-gray-400">Configure and manage this feature.</p>
                                     </div>
                                   </div>
-                                  <button
-                                    onClick={() => { setActiveTab('SETTINGS'); setSettingsPanel(selectedAddon.settingsPanel as any); }}
-                                    className="px-6 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all"
-                                  >
-                                    Open Settings
-                                  </button>
+                                  <div className="max-w-lg">
+                                    {selectedAddon.renderSettings()}
+                                  </div>
                                 </div>
                               ) : (
                                 <div className="text-center py-12">
