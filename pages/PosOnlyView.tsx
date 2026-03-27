@@ -4235,7 +4235,7 @@ const PosOnlyView: React.FC<Props> = ({
               <img src={restaurant.logo} className="w-8 h-8 landscape:w-6 landscape:h-6 rounded-lg shadow-sm flex-shrink-0" />
               <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm landscape:text-xs truncate">
                 {activeTab === 'COUNTER' ? 'POS Counter' : 
-                 activeTab === 'MENU_EDITOR' ? 'Menu Editor' : 
+                 activeTab === 'MENU_EDITOR' ? (isFormModalOpen ? (formItem.id ? 'Edit Item' : 'New Item') : 'Menu Editor') : 
                  activeTab === 'REPORTS' ? 'Bill and Report' : 
                  activeTab === 'QR_ORDERS' ? 'QR Orders' :
                  activeTab === 'KITCHEN' ? 'Incoming Orders' :
@@ -4590,7 +4590,26 @@ const PosOnlyView: React.FC<Props> = ({
           )}
 
           {/* Menu Editor Tab */}
-          {activeTab === 'MENU_EDITOR' && (
+          {activeTab === 'MENU_EDITOR' && isFormModalOpen ? (
+            <MenuItemFormModal
+              isOpen={isFormModalOpen}
+              formItem={formItem}
+              setFormItem={setFormItem}
+              categories={menuEditorCategories}
+              availableModifiers={modifiers}
+              onClose={handleCloseFormModal}
+              onSubmit={handleSaveMenuItem}
+              onImageUpload={handleImageUpload}
+              onSaveModifier={(modifier) => {
+                const duplicate = modifiers.some(m => m.name === modifier.name);
+                if (duplicate) {
+                  toast('A modifier with this name already exists.', 'warning');
+                  return;
+                }
+                setModifiers(prev => [...prev, modifier]);
+              }}
+            />
+          ) : activeTab === 'MENU_EDITOR' && (
             <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-7xl mx-auto">
                 <div className="mb-8">
@@ -5565,25 +5584,6 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
             </div>
           )}
-
-        <MenuItemFormModal
-          isOpen={isFormModalOpen}
-          formItem={formItem}
-          setFormItem={setFormItem}
-          categories={menuEditorCategories}
-          availableModifiers={modifiers}
-          onClose={handleCloseFormModal}
-          onSubmit={handleSaveMenuItem}
-          onImageUpload={handleImageUpload}
-          onSaveModifier={(modifier) => {
-            const duplicate = modifiers.some(m => m.name === modifier.name);
-            if (duplicate) {
-              toast('A modifier with this name already exists.', 'warning');
-              return;
-            }
-            setModifiers(prev => [...prev, modifier]);
-          }}
-        />
 
         {showAddClassModal && (
           <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">

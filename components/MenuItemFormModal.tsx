@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MenuItem, AddOnItem, ModifierData } from '../src/types';
-import { X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle, Save, Pencil, ScanBarcode, DollarSign, Tag, Layers, ChevronDown } from 'lucide-react';
+import { ArrowLeft, X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle, Save, Pencil, ScanBarcode, DollarSign, Tag, Layers, ChevronDown } from 'lucide-react';
 import { toast } from './Toast';
 import ImageCropModal from './ImageCropModal';
 
@@ -868,37 +868,45 @@ const MenuItemFormModal: React.FC<Props> = ({
         onCancel={() => setCropFile(null)}
       />
     )}
-    <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-2 md:p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl max-w-6xl w-full max-h-[95vh] p-4 md:p-6 shadow-2xl relative animate-in zoom-in fade-in duration-300 overflow-y-auto">
-        <button onClick={onClose} className="absolute top-4 right-4 z-10 p-2 text-gray-400 hover:text-red-500 transition-colors"><X size={20} /></button>
-        <h2 className="text-lg font-black mb-4 dark:text-white uppercase tracking-tighter">{formItem.id ? 'Edit Item' : 'Add Item'}</h2>
+    <div className="flex-1 flex flex-col min-h-0">
+      {/* Page Header */}
+      <div className="flex items-center gap-3 px-6 py-4 border-b dark:border-gray-700 bg-white dark:bg-gray-800 sticky top-0 z-20">
+        <button onClick={onClose} className="p-2 text-gray-500 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-all">
+          <ArrowLeft size={20} />
+        </button>
+        <h2 className="text-xl font-black dark:text-white uppercase tracking-tighter">{formItem.id ? 'Edit Item' : 'New Item'}</h2>
+      </div>
 
-        <form onSubmit={onSubmit}>
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-0">
-            {/* Left column — Details & Selling */}
-            <div className="space-y-4 overflow-y-auto lg:max-h-[calc(95vh-10rem)] lg:pr-4">
-              {visualAssetSection}
-              {itemDetailsSection}
-              {sellingInfoSection}
-              {costIdSection}
+      {/* Page Body */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="max-w-5xl mx-auto">
+          <form onSubmit={onSubmit}>
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-0">
+              {/* Left column — Details & Selling */}
+              <div className="space-y-4 lg:pr-6">
+                {visualAssetSection}
+                {itemDetailsSection}
+                {sellingInfoSection}
+                {costIdSection}
+              </div>
+
+              {/* Divider */}
+              <div className="hidden lg:block w-px bg-gray-200 dark:bg-gray-700 mx-3" />
+              <hr className="lg:hidden border-gray-200 dark:border-gray-700 my-4" />
+
+              {/* Right column — Variants & Modifiers */}
+              <div className="space-y-4 lg:pl-6">
+                {variantsModifiersHeader}
+                {sizesSection}
+                {modifiersSection}
+                {thermalSection}
+                {variantSection}
+                {addOnsSection}
+              </div>
             </div>
-
-            {/* Divider */}
-            <div className="hidden lg:block w-px bg-gray-200 dark:bg-gray-700 mx-3" />
-            <hr className="lg:hidden border-gray-200 dark:border-gray-700 my-2" />
-
-            {/* Right column — Variants & Modifiers */}
-            <div className="space-y-4 overflow-y-auto lg:max-h-[calc(95vh-10rem)] lg:pl-4">
-              {variantsModifiersHeader}
-              {sizesSection}
-              {modifiersSection}
-              {thermalSection}
-              {variantSection}
-              {addOnsSection}
-            </div>
-          </div>
-          {saveButton}
-        </form>
+            {saveButton}
+          </form>
+        </div>
       </div>
     </div>
     </>
