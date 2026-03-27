@@ -20,7 +20,8 @@ import {
   X, Edit3, Archive, RotateCcw, Upload, Eye,
   AlertCircle, Users, UserPlus, Bluetooth, BluetoothConnected, PrinterIcon,
   Filter, Tag, Layers, Coffee, ChevronDown, ChevronLeft, ChevronRight, RotateCw, Wifi, WifiOff,
-  Receipt, Network, Type, MessageSquare, Zap, Briefcase, PlusCircle, Puzzle
+  Receipt, Network, Type, MessageSquare, Zap, Briefcase, PlusCircle, Puzzle,
+  ArrowLeft, Star, Package, Monitor, Info, ExternalLink
 } from 'lucide-react';
 
 interface Props {
@@ -271,6 +272,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showMobileCart, setShowMobileCart] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [addonDetailView, setAddonDetailView] = useState<string | null>(null);
   const [menuLayout, setMenuLayout] = useState<'grid-3' | 'grid-4' | 'grid-5' | 'grid-6' | 'list'>('grid-5');
   const [mobileMenuLayout, setMobileMenuLayout] = useState<'2' | '3' | 'list'>('3');
   const [flashItemId, setFlashItemId] = useState<string | null>(null);
@@ -2332,6 +2334,7 @@ const PosOnlyView: React.FC<Props> = ({
   const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING' | 'ADDONS') => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
+    if (tab !== 'ADDONS') setAddonDetailView(null);
   };
 
   const handleReportsClick = () => {
@@ -4171,7 +4174,7 @@ const PosOnlyView: React.FC<Props> = ({
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <Puzzle size={20} /> {!isSidebarCollapsed && 'Add-on Feature'}
+            <Package size={20} /> {!isSidebarCollapsed && 'Add-on Feature'}
           </button>
           <button 
             onClick={() => handleTabSelection('BILLING')}
@@ -4280,7 +4283,7 @@ const PosOnlyView: React.FC<Props> = ({
                  activeTab === 'QR_ORDERS' ? 'QR Orders' :
                  activeTab === 'KITCHEN' ? 'Incoming Orders' :
                  activeTab === 'BILLING' ? 'Billing' :
-                 activeTab === 'ADDONS' ? 'Add-on Feature' :
+                 activeTab === 'ADDONS' ? (addonDetailView ? 'Feature Details' : 'Add-on Feature') :
                  'Settings'}
               </h1>
             </div>
@@ -5898,114 +5901,256 @@ const PosOnlyView: React.FC<Props> = ({
           {activeTab === 'ADDONS' && (
             <div className="flex-1 overflow-y-auto p-4 md:p-8">
               <div className="animate-in fade-in duration-500">
-                <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Add-on Feature</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Extend your POS with additional features.</p>
+                {(() => {
+                  // Add-on feature definitions
+                  const addonFeatures = [
+                    {
+                      id: 'backoffice',
+                      name: 'Back Office',
+                      icon: <Briefcase size={28} className="text-gray-600 dark:text-gray-300" />,
+                      iconBg: 'bg-gray-100 dark:bg-gray-700',
+                      plan: 'Basic',
+                      planColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+                      shortDesc: 'Sales dashboard, inventory, staff & finance management.',
+                      description: 'Back Office gives you a comprehensive dashboard to manage your restaurant operations. View sales analytics with KPI cards and charts, manage inventory with purchase orders and stock adjustments, handle staff management, track contacts (suppliers & customers), and access detailed financial reports. Everything you need to run your business from one place.',
+                      features: ['Sales Dashboard with KPI cards', 'Daily sales & payment breakdown charts', 'Inventory management (PO, transfers, adjustments)', 'Staff management & performance tracking', 'Supplier & customer contacts', 'Finance reports & analytics', 'Stock valuation & history'],
+                      version: '1.0.0',
+                      author: 'QuickServe',
+                      isInstalled: !!onNavigateBackOffice,
+                      canInstall: true,
+                      onInstall: () => onNavigateBackOffice?.(),
+                      installLabel: 'Open Back Office',
+                    },
+                    {
+                      id: 'table',
+                      name: 'Table Management',
+                      icon: <LayoutGrid size={28} className="text-sky-600 dark:text-sky-400" />,
+                      iconBg: 'bg-sky-100 dark:bg-sky-900/30',
+                      plan: 'Basic',
+                      planColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+                      shortDesc: 'Save bill & manage table layout for dine-in.',
+                      description: 'Table Management lets you configure your restaurant floor plan with customizable table layouts. Save bills to specific tables, manage multiple floors, and keep track of occupied and available tables in real time. Perfect for dine-in restaurants that need organized seating management.',
+                      features: ['Saved bill per table', 'Customizable table grid layout', 'Multi-floor support', 'Real-time table status', 'Table count & layout configuration'],
+                      version: '1.0.0',
+                      author: 'QuickServe',
+                      isInstalled: featureSettings.tableManagementEnabled || featureSettings.savedBillEnabled,
+                      canInstall: true,
+                      onInstall: () => { setActiveTab('SETTINGS'); setSettingsPanel('table'); },
+                    },
+                    {
+                      id: 'qr',
+                      name: 'QR Ordering',
+                      icon: <QrCode size={28} className="text-violet-600 dark:text-violet-400" />,
+                      iconBg: 'bg-violet-100 dark:bg-violet-900/30',
+                      plan: 'Pro',
+                      planColor: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+                      shortDesc: 'Let customers scan QR codes to order from their table.',
+                      description: 'QR Ordering enables your customers to place orders directly from their smartphones. Generate unique QR codes for each table, let customers browse your menu, customize their orders, and submit them — all without waiting for staff. Orders appear instantly on your POS and kitchen display.',
+                      features: ['QR code generation per table', 'Mobile-friendly customer menu', 'Real-time order submission', 'Table number auto-detection', 'Works with Kitchen Display System'],
+                      version: '1.0.0',
+                      author: 'QuickServe',
+                      isInstalled: featureSettings.qrEnabled,
+                      canInstall: canUseQr,
+                      onInstall: () => { setActiveTab('SETTINGS'); setSettingsPanel('qr'); },
+                    },
+                    {
+                      id: 'kitchen',
+                      name: 'Kitchen Display System',
+                      icon: <Coffee size={28} className="text-orange-600 dark:text-orange-400" />,
+                      iconBg: 'bg-orange-100 dark:bg-orange-900/30',
+                      plan: 'Pro Plus',
+                      planColor: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+                      shortDesc: 'Kitchen order management & display system.',
+                      description: 'Kitchen Display System (KDS) provides a dedicated screen for your kitchen staff to manage incoming orders. Staff can view, accept, and mark orders as prepared. Supports kitchen departments/divisions so orders are routed to the right station. Auto-accept and auto-print options keep your kitchen running smoothly.',
+                      features: ['Dedicated kitchen order screen', 'Accept / reject orders with reasons', 'Kitchen department routing', 'Auto-accept & auto-print options', 'Real-time order updates', 'Kitchen staff login with role filtering'],
+                      version: '1.0.0',
+                      author: 'QuickServe',
+                      isInstalled: featureSettings.kitchenEnabled,
+                      canInstall: canUseKitchen,
+                      onInstall: () => { setActiveTab('SETTINGS'); setSettingsPanel('kitchen'); },
+                    },
+                    {
+                      id: 'customer-display',
+                      name: 'Customer Display',
+                      icon: <Monitor size={28} className="text-emerald-600 dark:text-emerald-400" />,
+                      iconBg: 'bg-emerald-100 dark:bg-emerald-900/30',
+                      plan: 'Basic',
+                      planColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+                      shortDesc: 'External customer-facing display screen.',
+                      description: 'Customer Display enables a second screen facing your customers, showing them the items being added to their order, prices, and the total in real time. Great for transparency and building customer trust at the checkout counter.',
+                      features: ['Real-time order display', 'Shows items, prices & total', 'Second screen support', 'Clean customer-friendly interface'],
+                      version: '1.0.0',
+                      author: 'QuickServe',
+                      isInstalled: featureSettings.customerDisplayEnabled,
+                      canInstall: true,
+                      onInstall: () => updateFeatureSetting('customerDisplayEnabled', !featureSettings.customerDisplayEnabled),
+                    },
+                  ];
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {/* Save Bill & Table Management */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 flex flex-col items-center text-center aspect-square justify-between">
-                    <div className="flex-1 flex flex-col items-center justify-center">
-                      <div className="w-14 h-14 rounded-2xl bg-sky-50 dark:bg-sky-900/20 flex items-center justify-center mb-3">
-                        <LayoutGrid size={28} className="text-sky-500" />
-                      </div>
-                      <p className="text-xs font-black dark:text-white uppercase tracking-wide">Table Management</p>
-                      <p className="text-[9px] text-gray-400 mt-1">Save bill & manage table layout</p>
-                    </div>
-                    <button
-                      onClick={() => { setActiveTab('SETTINGS'); setSettingsPanel('table'); }}
-                      className={`mt-3 w-full py-2 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all ${
-                        featureSettings.tableManagementEnabled || featureSettings.savedBillEnabled
-                          ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800'
-                          : 'bg-orange-500 text-white shadow-lg hover:bg-orange-600'
-                      }`}
-                    >
-                      {featureSettings.tableManagementEnabled || featureSettings.savedBillEnabled ? 'Installed' : 'Install'}
-                    </button>
-                  </div>
+                  const selectedAddon = addonDetailView ? addonFeatures.find(f => f.id === addonDetailView) : null;
 
-                  {/* QR Ordering */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 flex flex-col items-center text-center aspect-square justify-between">
-                    <div className="flex-1 flex flex-col items-center justify-center">
-                      <div className="w-14 h-14 rounded-2xl bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center mb-3">
-                        <QrCode size={28} className="text-violet-500" />
-                      </div>
-                      <p className="text-xs font-black dark:text-white uppercase tracking-wide">QR Ordering</p>
-                      <p className="text-[9px] text-gray-400 mt-1">Customers scan & order from table</p>
-                      {!canUseQr && <p className="text-[9px] text-orange-500 font-black mt-1">Pro Plan</p>}
-                    </div>
-                    {canUseQr ? (
-                      <button
-                        onClick={() => { setActiveTab('SETTINGS'); setSettingsPanel('qr'); }}
-                        className={`mt-3 w-full py-2 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all ${
-                          featureSettings.qrEnabled
-                            ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800'
-                            : 'bg-orange-500 text-white shadow-lg hover:bg-orange-600'
-                        }`}
-                      >
-                        {featureSettings.qrEnabled ? 'Installed' : 'Install'}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => setShowUpgradeModal(true)}
-                        className="mt-3 w-full py-2 rounded-lg font-black text-[10px] uppercase tracking-widest bg-orange-500 text-white shadow-lg hover:bg-orange-600 transition-all"
-                      >
-                        Upgrade
-                      </button>
-                    )}
-                  </div>
+                  // ── Detail View ──
+                  if (selectedAddon) {
+                    return (
+                      <div className="animate-in fade-in duration-300">
+                        <button
+                          onClick={() => setAddonDetailView(null)}
+                          className="flex items-center gap-2 text-sm font-bold text-gray-500 dark:text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 transition-colors mb-6"
+                        >
+                          <ArrowLeft size={18} />
+                          <span className="uppercase tracking-widest text-[10px]">Back to Add-ons</span>
+                        </button>
 
-                  {/* Kitchen Display System */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 flex flex-col items-center text-center aspect-square justify-between">
-                    <div className="flex-1 flex flex-col items-center justify-center">
-                      <div className="w-14 h-14 rounded-2xl bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center mb-3">
-                        <Coffee size={28} className="text-orange-500" />
-                      </div>
-                      <p className="text-xs font-black dark:text-white uppercase tracking-wide">Kitchen Display</p>
-                      <p className="text-[9px] text-gray-400 mt-1">Kitchen order management system</p>
-                      {!canUseKitchen && <p className="text-[9px] text-orange-500 font-black mt-1">Pro Plus Plan</p>}
-                    </div>
-                    {canUseKitchen ? (
-                      <button
-                        onClick={() => { setActiveTab('SETTINGS'); setSettingsPanel('kitchen'); }}
-                        className={`mt-3 w-full py-2 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all ${
-                          featureSettings.kitchenEnabled
-                            ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800'
-                            : 'bg-orange-500 text-white shadow-lg hover:bg-orange-600'
-                        }`}
-                      >
-                        {featureSettings.kitchenEnabled ? 'Installed' : 'Install'}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => setShowUpgradeModal(true)}
-                        className="mt-3 w-full py-2 rounded-lg font-black text-[10px] uppercase tracking-widest bg-orange-500 text-white shadow-lg hover:bg-orange-600 transition-all"
-                      >
-                        Upgrade
-                      </button>
-                    )}
-                  </div>
+                        <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                          {/* Header */}
+                          <div className="p-6 md:p-8 border-b dark:border-gray-700">
+                            <div className="flex flex-col sm:flex-row gap-5">
+                              <div className={`w-20 h-20 rounded-2xl ${selectedAddon.iconBg} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                                {selectedAddon.icon}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-3 mb-2">
+                                  <h1 className="text-xl font-black dark:text-white uppercase tracking-tight">{selectedAddon.name}</h1>
+                                  <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${selectedAddon.planColor}`}>{selectedAddon.plan} Plan</span>
+                                </div>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{selectedAddon.shortDesc}</p>
+                                <div className="flex flex-wrap items-center gap-3">
+                                  {selectedAddon.isInstalled ? (
+                                    <button
+                                      onClick={selectedAddon.onInstall}
+                                      className="px-6 py-2.5 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-lg font-black text-[10px] uppercase tracking-widest"
+                                    >
+                                      {selectedAddon.installLabel || 'Installed'}
+                                    </button>
+                                  ) : selectedAddon.canInstall ? (
+                                    <button
+                                      onClick={selectedAddon.onInstall}
+                                      className="px-6 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all"
+                                    >
+                                      Install
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => setShowUpgradeModal(true)}
+                                      className="px-6 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all"
+                                    >
+                                      Upgrade to {selectedAddon.plan}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
 
-                  {/* Customer Display */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 flex flex-col items-center text-center aspect-square justify-between">
-                    <div className="flex-1 flex flex-col items-center justify-center">
-                      <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mb-3">
-                        <Eye size={28} className="text-emerald-500" />
+                          {/* Body */}
+                          <div className="flex flex-col lg:flex-row">
+                            {/* Left: Description */}
+                            <div className="flex-1 p-6 md:p-8 border-b lg:border-b-0 lg:border-r dark:border-gray-700">
+                              <h2 className="text-sm font-black dark:text-white uppercase tracking-wider mb-4">Description</h2>
+                              <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed mb-6">{selectedAddon.description}</p>
+
+                              {/* Screenshots placeholder */}
+                              <h2 className="text-sm font-black dark:text-white uppercase tracking-wider mb-4">Screenshots</h2>
+                              <div className="grid grid-cols-2 gap-3 mb-6">
+                                <div className="aspect-video bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Coming Soon</p>
+                                </div>
+                                <div className="aspect-video bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Coming Soon</p>
+                                </div>
+                              </div>
+
+                              <h2 className="text-sm font-black dark:text-white uppercase tracking-wider mb-4">Key Features</h2>
+                              <ul className="space-y-2">
+                                {selectedAddon.features.map((feat, idx) => (
+                                  <li key={idx} className="flex items-start gap-2.5">
+                                    <CheckCircle size={14} className="text-green-500 mt-0.5 flex-shrink-0" />
+                                    <span className="text-xs text-gray-600 dark:text-gray-300">{feat}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+
+                            {/* Right: Meta info */}
+                            <div className="w-full lg:w-64 p-6 md:p-8 space-y-4 flex-shrink-0">
+                              {[
+                                { label: 'Version', value: selectedAddon.version },
+                                { label: 'Required Plan', value: selectedAddon.plan },
+                                { label: 'Author', value: selectedAddon.author },
+                                { label: 'Status', value: selectedAddon.isInstalled ? 'Installed' : (selectedAddon.canInstall ? 'Available' : 'Upgrade Required') },
+                              ].map((item, idx) => (
+                                <div key={idx} className="flex items-center justify-between py-2.5 border-b dark:border-gray-700 last:border-0">
+                                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{item.label}</span>
+                                  <span className="text-xs font-bold dark:text-white">{item.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <p className="text-xs font-black dark:text-white uppercase tracking-wide">Customer Display</p>
-                      <p className="text-[9px] text-gray-400 mt-1">External customer-facing screen</p>
-                    </div>
-                    <button
-                      onClick={() => updateFeatureSetting('customerDisplayEnabled', !featureSettings.customerDisplayEnabled)}
-                      className={`mt-3 w-full py-2 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all ${
-                        featureSettings.customerDisplayEnabled
-                          ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800'
-                          : 'bg-orange-500 text-white shadow-lg hover:bg-orange-600'
-                      }`}
-                    >
-                      {featureSettings.customerDisplayEnabled ? 'Installed' : 'Install'}
-                    </button>
-                  </div>
-                </div>
+                    );
+                  }
+
+                  // ── Grid View (WordPress plugin style) ──
+                  return (
+                    <>
+                      <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Add-on Feature</h1>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Extend your POS with additional features.</p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {addonFeatures.map(addon => (
+                          <div
+                            key={addon.id}
+                            className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden hover:shadow-lg hover:border-orange-200 dark:hover:border-orange-800/50 transition-all cursor-pointer"
+                            onClick={() => setAddonDetailView(addon.id)}
+                          >
+                            {/* Card top */}
+                            <div className="p-5 flex items-start gap-4">
+                              <div className={`w-14 h-14 rounded-xl ${addon.iconBg} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                                {addon.icon}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <p className="text-sm font-black dark:text-white truncate">{addon.name}</p>
+                                </div>
+                                <span className={`inline-block px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${addon.planColor} mb-2`}>{addon.plan} Plan</span>
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-2">{addon.shortDesc}</p>
+                              </div>
+                            </div>
+
+                            {/* Card bottom */}
+                            <div className="px-5 py-3 border-t dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <span className="text-[9px] text-gray-400 font-bold">By {addon.author}</span>
+                              </div>
+                              <div onClick={e => e.stopPropagation()}>
+                                {addon.isInstalled ? (
+                                  <span className="px-3 py-1 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                                    Installed
+                                  </span>
+                                ) : addon.canInstall ? (
+                                  <button
+                                    onClick={addon.onInstall}
+                                    className="px-3 py-1 bg-orange-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow hover:bg-orange-600 transition-all"
+                                  >
+                                    Install
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => setShowUpgradeModal(true)}
+                                    className="px-3 py-1 bg-orange-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow hover:bg-orange-600 transition-all"
+                                  >
+                                    Upgrade
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
           )}
