@@ -21,7 +21,8 @@ import {
   AlertCircle, Users, UserPlus, Bluetooth, BluetoothConnected, PrinterIcon,
   Filter, Tag, Layers, Coffee, ChevronDown, ChevronLeft, ChevronRight, RotateCw, Wifi, WifiOff,
   Receipt, Network, Type, MessageSquare, Zap, Briefcase, PlusCircle, Puzzle,
-  ArrowLeft, Star, Package, Monitor, Info, ExternalLink
+  ArrowLeft, Star, Package, Monitor, Info, ExternalLink,
+  Tablet, Globe, ShoppingCart
 } from 'lucide-react';
 
 interface Props {
@@ -152,6 +153,8 @@ interface FeatureSettings {
   customerDisplayEnabled: boolean;
   kitchenEnabled: boolean;
   qrEnabled: boolean;
+  tablesideOrderingEnabled: boolean;
+  onlineShopEnabled: boolean;
 }
 
 const getDefaultFeatureSettings = (): FeatureSettings => ({
@@ -170,6 +173,8 @@ const getDefaultFeatureSettings = (): FeatureSettings => ({
   customerDisplayEnabled: false,
   kitchenEnabled: false,
   qrEnabled: false,
+  tablesideOrderingEnabled: false,
+  onlineShopEnabled: false,
 });
 
 const REJECTION_REASONS = [
@@ -235,7 +240,7 @@ const PosOnlyView: React.FC<Props> = ({
     return local.toISOString().split('T')[0];
   };
 
-  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING' | 'ADDONS'>(() => {
+  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING' | 'ADDONS' | 'ONLINE_ORDERS'>(() => {
     const returnTab = localStorage.getItem('qs_return_tab');
     if (returnTab === 'BILLING') {
       localStorage.removeItem('qs_return_tab');
@@ -273,6 +278,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [showMobileCart, setShowMobileCart] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [addonDetailView, setAddonDetailView] = useState<string | null>(null);
+  const [addonDetailTab, setAddonDetailTab] = useState<'details' | 'setting'>('details');
   const [menuLayout, setMenuLayout] = useState<'grid-3' | 'grid-4' | 'grid-5' | 'grid-6' | 'list'>('grid-5');
   const [mobileMenuLayout, setMobileMenuLayout] = useState<'2' | '3' | 'list'>('3');
   const [flashItemId, setFlashItemId] = useState<string | null>(null);
@@ -2331,10 +2337,10 @@ const PosOnlyView: React.FC<Props> = ({
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
   const paginatedReports = reportData?.orders || [];
 
-  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING' | 'ADDONS') => {
+  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING' | 'ADDONS' | 'ONLINE_ORDERS') => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
-    if (tab !== 'ADDONS') setAddonDetailView(null);
+    if (tab !== 'ADDONS') { setAddonDetailView(null); setAddonDetailTab('details'); }
   };
 
   const handleReportsClick = () => {
@@ -2352,6 +2358,8 @@ const PosOnlyView: React.FC<Props> = ({
   const showQrFeature = canUseQr && (showQrOrders || featureSettings.qrEnabled);
   const showKitchenFeature = canUseKitchen && featureSettings.kitchenEnabled;
   const showSavedBillFeature = canUseSavedBill && featureSettings.savedBillEnabled;
+  const showTablesideFeature = canUseQr && featureSettings.tablesideOrderingEnabled;
+  const showOnlineShopFeature = canUseQr && featureSettings.onlineShopEnabled;
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const isKitchenUser = userRole === 'KITCHEN';
   const isVendorUser = userRole === 'VENDOR';
@@ -4119,6 +4127,23 @@ const PosOnlyView: React.FC<Props> = ({
             </button>
           )}
 
+          {showOnlineShopFeature && (
+            <button
+              onClick={() => handleTabSelection('ONLINE_ORDERS')}
+              title="Online Orders"
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4'} py-3 rounded-xl font-medium transition-all ${
+                activeTab === 'ONLINE_ORDERS'
+                  ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Globe size={20} />
+                {!isSidebarCollapsed && 'Online Orders'}
+              </div>
+            </button>
+          )}
+
           {/* Management Group */}
           {!isSidebarCollapsed && (
             <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-3 pt-4 pb-1">Management</p>
@@ -4281,6 +4306,7 @@ const PosOnlyView: React.FC<Props> = ({
                  activeTab === 'MENU_EDITOR' ? (isFormModalOpen ? (formItem.id ? 'Edit Item' : 'New Item') : 'Menu Editor') : 
                  activeTab === 'REPORTS' ? 'Bill and Report' : 
                  activeTab === 'QR_ORDERS' ? 'QR Orders' :
+                 activeTab === 'ONLINE_ORDERS' ? 'Online Orders' :
                  activeTab === 'KITCHEN' ? 'Incoming Orders' :
                  activeTab === 'BILLING' ? 'Billing' :
                  activeTab === 'ADDONS' ? (addonDetailView ? 'Feature Details' : 'Add-on Feature') :
@@ -5920,6 +5946,7 @@ const PosOnlyView: React.FC<Props> = ({
                       canInstall: true,
                       onInstall: () => onNavigateBackOffice?.(),
                       installLabel: 'Open Back Office',
+                      settingsPanel: null as string | null,
                     },
                     {
                       id: 'table',
@@ -5936,6 +5963,7 @@ const PosOnlyView: React.FC<Props> = ({
                       isInstalled: featureSettings.tableManagementEnabled || featureSettings.savedBillEnabled,
                       canInstall: true,
                       onInstall: () => { setActiveTab('SETTINGS'); setSettingsPanel('table'); },
+                      settingsPanel: 'table' as string | null,
                     },
                     {
                       id: 'qr',
@@ -5952,6 +5980,24 @@ const PosOnlyView: React.FC<Props> = ({
                       isInstalled: featureSettings.qrEnabled,
                       canInstall: canUseQr,
                       onInstall: () => { setActiveTab('SETTINGS'); setSettingsPanel('qr'); },
+                      settingsPanel: 'qr' as string | null,
+                    },
+                    {
+                      id: 'tableside',
+                      name: 'Tableside Ordering',
+                      icon: <Tablet size={28} className="text-teal-600 dark:text-teal-400" />,
+                      iconBg: 'bg-teal-100 dark:bg-teal-900/30',
+                      plan: 'Pro',
+                      planColor: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+                      shortDesc: 'Staff take orders tableside using a tablet device.',
+                      description: 'Tableside Ordering lets your staff walk around the restaurant with a tablet to take customer orders directly at the table. Orders are placed through the same system as QR orders and appear instantly in your QR Orders queue and Kitchen Display. No more running back and forth to the POS terminal.',
+                      features: ['Staff order-taking on tablet', 'Same workflow as QR ordering', 'Orders appear in QR Orders queue', 'Works with Kitchen Display System', 'Table number assignment', 'Portable & wireless'],
+                      version: '1.0.0',
+                      author: 'QuickServe',
+                      isInstalled: featureSettings.tablesideOrderingEnabled,
+                      canInstall: canUseQr,
+                      onInstall: () => { updateFeatureSetting('tablesideOrderingEnabled', true); },
+                      settingsPanel: null as string | null,
                     },
                     {
                       id: 'kitchen',
@@ -5968,6 +6014,7 @@ const PosOnlyView: React.FC<Props> = ({
                       isInstalled: featureSettings.kitchenEnabled,
                       canInstall: canUseKitchen,
                       onInstall: () => { setActiveTab('SETTINGS'); setSettingsPanel('kitchen'); },
+                      settingsPanel: 'kitchen' as string | null,
                     },
                     {
                       id: 'customer-display',
@@ -5984,6 +6031,24 @@ const PosOnlyView: React.FC<Props> = ({
                       isInstalled: featureSettings.customerDisplayEnabled,
                       canInstall: true,
                       onInstall: () => updateFeatureSetting('customerDisplayEnabled', !featureSettings.customerDisplayEnabled),
+                      settingsPanel: null as string | null,
+                    },
+                    {
+                      id: 'online-shop',
+                      name: 'Online Shop',
+                      icon: <Globe size={28} className="text-blue-600 dark:text-blue-400" />,
+                      iconBg: 'bg-blue-100 dark:bg-blue-900/30',
+                      plan: 'Pro',
+                      planColor: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+                      shortDesc: 'Let customers order online via a shareable link.',
+                      description: 'Online Shop gives your restaurant an online ordering page accessible via a shareable link. Customers can browse your full menu, add items to cart, and place orders — all from their browser. Orders flow into your Online Orders queue just like QR orders. Share the link on social media, your website, or messaging apps to reach more customers.',
+                      features: ['Shareable online ordering link', 'Full menu browsing experience', 'Cart & checkout flow', 'Orders appear in Online Orders tab', 'Works with Kitchen Display System', 'Share via social media & messaging'],
+                      version: '1.0.0',
+                      author: 'QuickServe',
+                      isInstalled: featureSettings.onlineShopEnabled,
+                      canInstall: canUseQr,
+                      onInstall: () => { updateFeatureSetting('onlineShopEnabled', true); },
+                      settingsPanel: null as string | null,
                     },
                   ];
 
@@ -5994,7 +6059,7 @@ const PosOnlyView: React.FC<Props> = ({
                     return (
                       <div className="animate-in fade-in duration-300">
                         <button
-                          onClick={() => setAddonDetailView(null)}
+                          onClick={() => { setAddonDetailView(null); setAddonDetailTab('details'); }}
                           className="flex items-center gap-2 text-sm font-bold text-gray-500 dark:text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 transition-colors mb-6"
                         >
                           <ArrowLeft size={18} />
@@ -6042,50 +6107,129 @@ const PosOnlyView: React.FC<Props> = ({
                             </div>
                           </div>
 
-                          {/* Body */}
-                          <div className="flex flex-col lg:flex-row">
-                            {/* Left: Description */}
-                            <div className="flex-1 p-6 md:p-8 border-b lg:border-b-0 lg:border-r dark:border-gray-700">
-                              <h2 className="text-sm font-black dark:text-white uppercase tracking-wider mb-4">Description</h2>
-                              <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed mb-6">{selectedAddon.description}</p>
+                          {/* Chrome-style Tabs */}
+                          <div className="flex border-b dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+                            <button
+                              onClick={() => setAddonDetailTab('details')}
+                              className={`px-6 py-3 text-[11px] font-black uppercase tracking-widest transition-all relative ${
+                                addonDetailTab === 'details'
+                                  ? 'text-orange-600 dark:text-orange-400'
+                                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                              }`}
+                            >
+                              Details
+                              {addonDetailTab === 'details' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-500" />}
+                            </button>
+                            <button
+                              onClick={() => setAddonDetailTab('setting')}
+                              className={`px-6 py-3 text-[11px] font-black uppercase tracking-widest transition-all relative ${
+                                addonDetailTab === 'setting'
+                                  ? 'text-orange-600 dark:text-orange-400'
+                                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                              }`}
+                            >
+                              Setting
+                              {addonDetailTab === 'setting' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-500" />}
+                            </button>
+                          </div>
 
-                              {/* Screenshots placeholder */}
-                              <h2 className="text-sm font-black dark:text-white uppercase tracking-wider mb-4">Screenshots</h2>
-                              <div className="grid grid-cols-2 gap-3 mb-6">
-                                <div className="aspect-video bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Coming Soon</p>
+                          {/* Tab Content */}
+                          {addonDetailTab === 'details' && (
+                            <div className="flex flex-col lg:flex-row">
+                              {/* Left: Description */}
+                              <div className="flex-1 p-6 md:p-8 border-b lg:border-b-0 lg:border-r dark:border-gray-700">
+                                <h2 className="text-sm font-black dark:text-white uppercase tracking-wider mb-4">Description</h2>
+                                <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed mb-6">{selectedAddon.description}</p>
+
+                                {/* Screenshots placeholder */}
+                                <h2 className="text-sm font-black dark:text-white uppercase tracking-wider mb-4">Screenshots</h2>
+                                <div className="grid grid-cols-2 gap-3 mb-6">
+                                  <div className="aspect-video bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Coming Soon</p>
+                                  </div>
+                                  <div className="aspect-video bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Coming Soon</p>
+                                  </div>
                                 </div>
-                                <div className="aspect-video bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Coming Soon</p>
-                                </div>
+
+                                <h2 className="text-sm font-black dark:text-white uppercase tracking-wider mb-4">Key Features</h2>
+                                <ul className="space-y-2">
+                                  {selectedAddon.features.map((feat, idx) => (
+                                    <li key={idx} className="flex items-start gap-2.5">
+                                      <CheckCircle size={14} className="text-green-500 mt-0.5 flex-shrink-0" />
+                                      <span className="text-xs text-gray-600 dark:text-gray-300">{feat}</span>
+                                    </li>
+                                  ))}
+                                </ul>
                               </div>
 
-                              <h2 className="text-sm font-black dark:text-white uppercase tracking-wider mb-4">Key Features</h2>
-                              <ul className="space-y-2">
-                                {selectedAddon.features.map((feat, idx) => (
-                                  <li key={idx} className="flex items-start gap-2.5">
-                                    <CheckCircle size={14} className="text-green-500 mt-0.5 flex-shrink-0" />
-                                    <span className="text-xs text-gray-600 dark:text-gray-300">{feat}</span>
-                                  </li>
+                              {/* Right: Meta info */}
+                              <div className="w-full lg:w-64 p-6 md:p-8 space-y-4 flex-shrink-0">
+                                {[
+                                  { label: 'Version', value: selectedAddon.version },
+                                  { label: 'Required Plan', value: selectedAddon.plan },
+                                  { label: 'Author', value: selectedAddon.author },
+                                  { label: 'Status', value: selectedAddon.isInstalled ? 'Installed' : (selectedAddon.canInstall ? 'Available' : 'Upgrade Required') },
+                                ].map((item, idx) => (
+                                  <div key={idx} className="flex items-center justify-between py-2.5 border-b dark:border-gray-700 last:border-0">
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{item.label}</span>
+                                    <span className="text-xs font-bold dark:text-white">{item.value}</span>
+                                  </div>
                                 ))}
-                              </ul>
+                              </div>
                             </div>
+                          )}
 
-                            {/* Right: Meta info */}
-                            <div className="w-full lg:w-64 p-6 md:p-8 space-y-4 flex-shrink-0">
-                              {[
-                                { label: 'Version', value: selectedAddon.version },
-                                { label: 'Required Plan', value: selectedAddon.plan },
-                                { label: 'Author', value: selectedAddon.author },
-                                { label: 'Status', value: selectedAddon.isInstalled ? 'Installed' : (selectedAddon.canInstall ? 'Available' : 'Upgrade Required') },
-                              ].map((item, idx) => (
-                                <div key={idx} className="flex items-center justify-between py-2.5 border-b dark:border-gray-700 last:border-0">
-                                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{item.label}</span>
-                                  <span className="text-xs font-bold dark:text-white">{item.value}</span>
+                          {addonDetailTab === 'setting' && (
+                            <div className="p-6 md:p-8">
+                              {!selectedAddon.isInstalled ? (
+                                <div className="text-center py-12">
+                                  <Settings size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+                                  <p className="text-sm font-black dark:text-white mb-2">Feature Not Installed</p>
+                                  <p className="text-xs text-gray-400 mb-6 max-w-sm mx-auto">Please install <span className="font-black text-gray-600 dark:text-gray-300">{selectedAddon.name}</span> in order to manage its settings and configuration.</p>
+                                  {selectedAddon.canInstall ? (
+                                    <button
+                                      onClick={selectedAddon.onInstall}
+                                      className="px-6 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all"
+                                    >
+                                      Install Now
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => setShowUpgradeModal(true)}
+                                      className="px-6 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all"
+                                    >
+                                      Upgrade to {selectedAddon.plan}
+                                    </button>
+                                  )}
                                 </div>
-                              ))}
+                              ) : selectedAddon.settingsPanel ? (
+                                <div>
+                                  <div className="flex items-center gap-3 mb-6">
+                                    <div className={`w-10 h-10 rounded-xl ${selectedAddon.iconBg} flex items-center justify-center`}>
+                                      {selectedAddon.icon}
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-black dark:text-white">{selectedAddon.name} Settings</p>
+                                      <p className="text-[10px] text-gray-400">Configure and manage this feature.</p>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => { setActiveTab('SETTINGS'); setSettingsPanel(selectedAddon.settingsPanel as any); }}
+                                    className="px-6 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all"
+                                  >
+                                    Open Settings
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="text-center py-12">
+                                  <CheckCircle size={40} className="mx-auto text-green-500 mb-4" />
+                                  <p className="text-sm font-black dark:text-white mb-2">Feature Active</p>
+                                  <p className="text-xs text-gray-400 max-w-sm mx-auto"><span className="font-black text-gray-600 dark:text-gray-300">{selectedAddon.name}</span> is installed and active. No additional configuration is required.</p>
+                                </div>
+                              )}
                             </div>
-                          </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -6101,11 +6245,11 @@ const PosOnlyView: React.FC<Props> = ({
                         {addonFeatures.map(addon => (
                           <div
                             key={addon.id}
-                            className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden hover:shadow-lg hover:border-orange-200 dark:hover:border-orange-800/50 transition-all cursor-pointer"
-                            onClick={() => setAddonDetailView(addon.id)}
+                            className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden hover:shadow-lg hover:border-orange-200 dark:hover:border-orange-800/50 transition-all cursor-pointer flex flex-col h-[180px]"
+                            onClick={() => { setAddonDetailView(addon.id); setAddonDetailTab('details'); }}
                           >
                             {/* Card top */}
-                            <div className="p-5 flex items-start gap-4">
+                            <div className="p-5 flex items-start gap-4 flex-1 min-h-0">
                               <div className={`w-14 h-14 rounded-xl ${addon.iconBg} flex items-center justify-center flex-shrink-0 shadow-sm`}>
                                 {addon.icon}
                               </div>
@@ -6119,7 +6263,7 @@ const PosOnlyView: React.FC<Props> = ({
                             </div>
 
                             {/* Card bottom */}
-                            <div className="px-5 py-3 border-t dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-between">
+                            <div className="px-5 py-3 border-t dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-between flex-shrink-0">
                               <div className="flex items-center gap-3">
                                 <span className="text-[9px] text-gray-400 font-bold">By {addon.author}</span>
                               </div>
@@ -6329,6 +6473,86 @@ const PosOnlyView: React.FC<Props> = ({
                           </>
                           )}
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* Online Orders Tab - reuses QR order flow */}
+          {activeTab === 'ONLINE_ORDERS' && showOnlineShopFeature && (
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+              <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                <div>
+                  <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Online Orders</h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1 uppercase tracking-widest">Manage orders placed via your online shop link.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm overflow-x-auto hide-scrollbar">
+                    <button onClick={() => setQrOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Ongoing</button>
+                    <button onClick={() => setQrOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Served</button>
+                    <button onClick={() => setQrOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Cancelled</button>
+                    <button onClick={() => setQrOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>All</button>
+                  </div>
+                </div>
+              </div>
+
+              {(() => {
+                const filteredOnlineOrders = orders.filter(o => {
+                  if (qrOrderFilter === 'ALL') return true;
+                  if (qrOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
+                  return o.status === qrOrderFilter;
+                });
+
+                if (filteredOnlineOrders.length === 0) {
+                  return (
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
+                      <Globe size={32} className="mx-auto text-gray-300 mb-3" />
+                      <p className="text-sm font-black dark:text-white mb-1">No Online Orders</p>
+                      <p className="text-[10px] text-gray-400">Orders placed via your online shop link will appear here.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredOnlineOrders.map(order => (
+                      <div key={order.id} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 shadow-sm hover:shadow-md transition-all">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Globe size={14} className="text-blue-500" />
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">#{order.id.slice(-6)}</span>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                            order.status === OrderStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                            order.status === OrderStatus.ONGOING ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                            order.status === OrderStatus.SERVED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                            order.status === OrderStatus.COMPLETED ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                            'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                          }`}>{order.status}</span>
+                        </div>
+                        <div className="space-y-1 mb-3">
+                          {order.items.map((item, idx) => (
+                            <div key={idx} className="flex items-center justify-between text-xs">
+                              <span className="text-gray-600 dark:text-gray-300">{item.quantity}x {item.name}</span>
+                              <span className="font-bold dark:text-white">{(item.price * item.quantity).toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-center justify-between pt-3 border-t dark:border-gray-700">
+                          <span className="text-[10px] text-gray-400">{new Date(order.timestamp).toLocaleString()}</span>
+                          <span className="text-sm font-black dark:text-white">{order.total.toFixed(2)}</span>
+                        </div>
+                        {(order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) && (
+                          <div className="flex gap-2 mt-3">
+                            {order.status === OrderStatus.PENDING && (
+                              <button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className="flex-1 py-2 bg-blue-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-blue-600 transition-all">Accept</button>
+                            )}
+                            <button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className="flex-1 py-2 bg-green-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all">Serve</button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
