@@ -4056,7 +4056,7 @@ const PosOnlyView: React.FC<Props> = ({
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         ${isSidebarCollapsed ? 'lg:w-16' : 'w-64'}
       `}>
-        <div className={`border-b dark:border-gray-700 flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'p-6 gap-3'}`}>
+        <div className={`border-b dark:border-gray-700 flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
           <img src={restaurant.logo} className={`rounded-lg shadow-sm ${isSidebarCollapsed ? 'w-8 h-8' : 'w-10 h-10'}`} />
           {!isSidebarCollapsed && (
             <div>
@@ -4066,18 +4066,18 @@ const PosOnlyView: React.FC<Props> = ({
           )}
         </div>
 
-        <nav className={`flex-1 overflow-y-auto ${isSidebarCollapsed ? 'p-2 space-y-1' : 'px-3 py-2 space-y-1'}`}>
+        <nav className={`flex-1 overflow-y-auto ${isSidebarCollapsed ? 'p-2 space-y-1' : 'px-3 py-4 space-y-1'}`}>
           {isKitchenUser && (
             <button
               onClick={() => handleTabSelection('KITCHEN')}
               title="Incoming Orders"
-              className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
+              className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeTab === 'KITCHEN'
                   ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
               }`}
             >
-              <Coffee size={20} /> {!isSidebarCollapsed && 'Incoming Orders'}
+              <Coffee size={18} /> {!isSidebarCollapsed && 'Incoming Orders'}
             </button>
           )}
 
@@ -4089,27 +4089,27 @@ const PosOnlyView: React.FC<Props> = ({
           <button 
             onClick={() => handleTabSelection('COUNTER')}
             title="Counter"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
               activeTab === 'COUNTER' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <ShoppingBag size={20} /> {!isSidebarCollapsed && 'Counter'}
+            <ShoppingBag size={18} /> {!isSidebarCollapsed && 'Counter'}
           </button>
 
           {showQrFeature && (
             <button
               onClick={() => handleTabSelection('QR_ORDERS')}
               title="QR Orders"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4'} py-3 rounded-xl font-medium transition-all ${
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeTab === 'QR_ORDERS'
                   ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
               }`}
             >
               <div className="flex items-center gap-3">
-                <QrCode size={20} />
+                <QrCode size={18} />
                 {!isSidebarCollapsed && 'QR Orders'}
               </div>
               {!isSidebarCollapsed && (() => {
@@ -4131,14 +4131,14 @@ const PosOnlyView: React.FC<Props> = ({
             <button
               onClick={() => handleTabSelection('ONLINE_ORDERS')}
               title="Online Orders"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4'} py-3 rounded-xl font-medium transition-all ${
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeTab === 'ONLINE_ORDERS'
                   ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
               }`}
             >
               <div className="flex items-center gap-3">
-                <Globe size={20} />
+                <Globe size={18} />
                 {!isSidebarCollapsed && 'Online Orders'}
               </div>
             </button>
@@ -4152,37 +4152,37 @@ const PosOnlyView: React.FC<Props> = ({
           <button 
             onClick={() => handleTabSelection('MENU_EDITOR')}
             title="Menu Editor"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
               activeTab === 'MENU_EDITOR' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <BookOpen size={20} /> {!isSidebarCollapsed && 'Menu Editor'}
+            <BookOpen size={18} /> {!isSidebarCollapsed && 'Menu Editor'}
           </button>
 
           <button 
             onClick={handleReportsClick}
             title="Bill and Report"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
               activeTab === 'REPORTS' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <BarChart3 size={20} /> {!isSidebarCollapsed && 'Reports'}
+            <BarChart3 size={18} /> {!isSidebarCollapsed && 'Reports'}
           </button>
 
           <button 
             onClick={() => handleTabSelection('SETTINGS')}
             title="Settings"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
               activeTab === 'SETTINGS' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <Settings size={20} /> {!isSidebarCollapsed && 'Settings'}
+            <Settings size={18} /> {!isSidebarCollapsed && 'Settings'}
           </button>
 
           {/* Account Group */}
@@ -4193,24 +4193,24 @@ const PosOnlyView: React.FC<Props> = ({
           <button 
             onClick={() => handleTabSelection('ADDONS')}
             title="Add-on Feature"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
               activeTab === 'ADDONS' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <Package size={20} /> {!isSidebarCollapsed && 'Add-on Feature'}
+            <Package size={18} /> {!isSidebarCollapsed && 'Add-on Feature'}
           </button>
           <button 
             onClick={() => handleTabSelection('BILLING')}
             title="Billing"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-3 rounded-xl font-medium transition-all ${
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
               activeTab === 'BILLING' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <CreditCard size={20} /> {!isSidebarCollapsed && 'Billing'}
+            <CreditCard size={18} /> {!isSidebarCollapsed && 'Billing'}
           </button>
           </>)}
         </nav>
