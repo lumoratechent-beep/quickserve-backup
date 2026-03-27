@@ -7145,9 +7145,9 @@ const PosOnlyView: React.FC<Props> = ({
                               onChange={e => setOnlineProductStatus(e.target.value as 'ALL' | 'ACTIVE' | 'ARCHIVED')}
                               className="appearance-none pl-3 pr-8 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-300 outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
                             >
-                              <option value="ALL">All Status</option>
-                              <option value="ACTIVE">Active</option>
-                              <option value="ARCHIVED">Archived</option>
+                              <option value="ALL">All Listing</option>
+                              <option value="ACTIVE">Listed</option>
+                              <option value="ARCHIVED">Unlisted</option>
                             </select>
                             <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                           </div>
@@ -7161,7 +7161,7 @@ const PosOnlyView: React.FC<Props> = ({
 
                       {(() => {
                         const filteredMenu = restaurant.menu.filter(item => {
-                          const statusMatch = onlineProductStatus === 'ALL' ? true : onlineProductStatus === 'ACTIVE' ? !item.isArchived : !!item.isArchived;
+                          const statusMatch = onlineProductStatus === 'ALL' ? true : onlineProductStatus === 'ACTIVE' ? !item.onlineDisabled : !!item.onlineDisabled;
                           const searchMatch = !onlineProductSearch || item.name.toLowerCase().includes(onlineProductSearch.toLowerCase()) || item.category.toLowerCase().includes(onlineProductSearch.toLowerCase());
                           return statusMatch && searchMatch;
                         });
@@ -7171,7 +7171,7 @@ const PosOnlyView: React.FC<Props> = ({
                             <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-600">
                               <Package size={32} className="mx-auto text-gray-300 mb-3" />
                               <p className="text-sm font-black dark:text-white mb-1">No Products Found</p>
-                              <p className="text-[10px] text-gray-400">{onlineProductSearch ? 'Try a different search term.' : onlineProductStatus === 'ARCHIVED' ? 'No archived items found.' : 'Add items in Menu Editor to display them on your online shop.'}</p>
+                              <p className="text-[10px] text-gray-400">{onlineProductSearch ? 'Try a different search term.' : onlineProductStatus === 'ARCHIVED' ? 'No unlisted items found.' : 'Add items in Menu Editor to display them on your online shop.'}</p>
                             </div>
                           );
                         }
@@ -7189,7 +7189,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     <th className="text-left px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Category</th>
                                     <th className="text-right px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">In-Store Price</th>
                                     <th className="text-right px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Online Price</th>
-                                    <th className="text-center px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                                    <th className="text-center px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Online Listing</th>
                                     <th className="text-center px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Actions</th>
                                   </tr>
                                 </thead>
