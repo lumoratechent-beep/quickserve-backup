@@ -331,6 +331,11 @@ const PosOnlyView: React.FC<Props> = ({
   const [onlineOrderSubTab, setOnlineOrderSubTab] = useState<'INCOMING' | 'PRODUCT' | 'WALLET' | 'SETTING'>('INCOMING');
   const [onlineStripeBalance, setOnlineStripeBalance] = useState<number | null>(null);
   const [isLoadingStripeBalance, setIsLoadingStripeBalance] = useState(false);
+  const [onlineProductView, setOnlineProductView] = useState<'list' | 'grid'>('list');
+  const [onlineProductStatus, setOnlineProductStatus] = useState<'ACTIVE' | 'ARCHIVED'>('ACTIVE');
+  const [onlineEditItem, setOnlineEditItem] = useState<MenuItem | null>(null);
+  const [onlineEditTab, setOnlineEditTab] = useState<'instore' | 'online'>('online');
+  const [onlineEditForm, setOnlineEditForm] = useState<MenuFormItem>({});
 
   // Wallet state
   const [walletBalance, setWalletBalance] = useState<number>(0);
@@ -6836,98 +6841,455 @@ const PosOnlyView: React.FC<Props> = ({
                 {/* ── Product Sub-tab ── */}
                 {onlineOrderSubTab === 'PRODUCT' && (
                   <div>
-                    <div className="mb-6">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest mb-4">Manage products displayed on your online shop. Toggle items on/off and set online-specific pricing.</p>
-                    </div>
-                    {(() => {
-                      const onlineMenu = restaurant.menu.filter(item => !item.isArchived);
-                      if (onlineMenu.length === 0) {
-                        return (
-                          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-600">
-                            <Package size={32} className="mx-auto text-gray-300 mb-3" />
-                            <p className="text-sm font-black dark:text-white mb-1">No Products</p>
-                            <p className="text-[10px] text-gray-400">Add items in Menu Editor to display them on your online shop.</p>
+                    {/* ── Online Edit Modal ── */}
+                    {onlineEditItem ? (
+                      <div>
+                        <div className="flex items-center gap-3 mb-6">
+                          <button onClick={() => { setOnlineEditItem(null); setOnlineEditTab('online'); }} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all">
+                            <ArrowLeft size={18} className="text-gray-500" />
+                          </button>
+                          <div className="flex items-center gap-3 flex-1">
+                            {onlineEditItem.image && <img src={onlineEditItem.image} alt={onlineEditItem.name} className="w-10 h-10 rounded-lg object-cover" />}
+                            <div>
+                              <h3 className="text-sm font-black dark:text-white">{onlineEditItem.name}</h3>
+                              <p className="text-[9px] text-gray-400">{onlineEditItem.category} · {currencySymbol}{onlineEditItem.price.toFixed(2)}</p>
+                            </div>
                           </div>
-                        );
-                      }
+                        </div>
 
-                      const categories = Array.from(new Set(onlineMenu.map(item => item.category))).sort();
+                        {/* In Store / Online tabs */}
+                        <div className="flex gap-0 mb-0 border-b border-gray-200 dark:border-gray-700">
+                          {[
+                            { key: 'instore' as const, label: 'In Store' },
+                            { key: 'online' as const, label: 'Online' },
+                          ].map(t => (
+                            <button
+                              key={t.key}
+                              onClick={() => setOnlineEditTab(t.key)}
+                              className={`px-5 py-2.5 text-xs font-bold uppercase tracking-wider border border-b-0 rounded-t-xl transition-all -mb-px ${
+                                onlineEditTab === t.key
+                                  ? 'bg-white dark:bg-gray-800 text-orange-600 dark:text-orange-400 border-gray-200 dark:border-gray-700 relative z-10'
+                                  : 'bg-gray-100 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 border-transparent hover:bg-gray-200 dark:hover:bg-gray-800/60'
+                              }`}
+                            >
+                              {t.label}
+                            </button>
+                          ))}
+                        </div>
 
-                      return (
-                        <div className="space-y-6">
-                          {categories.map(category => (
-                            <div key={category}>
-                              <h3 className="text-sm font-black dark:text-white uppercase tracking-widest mb-3 flex items-center gap-2">
-                                <Tag size={14} className="text-orange-500" />
-                                {category}
-                              </h3>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                {onlineMenu.filter(item => item.category === category).map(item => (
-                                  <div key={item.id} className={`bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600 p-3 shadow-sm transition-all ${item.onlineDisabled ? 'opacity-50' : ''}`}>
-                                    <div className="flex items-center gap-3 mb-2">
-                                      {item.image && (
-                                        <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-cover shrink-0" />
-                                      )}
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-black dark:text-white truncate">{item.name}</p>
-                                        {item.description && <p className="text-[9px] text-gray-400 truncate">{item.description}</p>}
-                                        <div className="flex items-center gap-2 mt-0.5">
-                                          {item.onlinePrice != null && item.onlinePrice !== item.price ? (
-                                            <>
-                                              <p className="text-xs font-black text-gray-400 line-through">{currencySymbol}{item.price.toFixed(2)}</p>
-                                              <p className="text-xs font-black text-orange-500">{currencySymbol}{item.onlinePrice.toFixed(2)}</p>
-                                            </>
-                                          ) : (
-                                            <p className="text-xs font-black text-orange-500">{currencySymbol}{item.price.toFixed(2)}</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                      {item.sizes && item.sizes.length > 0 && (
-                                        <span className="text-[8px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase">{item.sizes.length} sizes</span>
-                                      )}
+                        {/* In Store tab — opens full menu editor */}
+                        {onlineEditTab === 'instore' && (
+                          <div className="border border-t-0 border-gray-200 dark:border-gray-700 rounded-b-2xl p-5">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Edit in-store details using the full Menu Editor.</p>
+                            <button
+                              onClick={() => {
+                                handleOpenEditModal(onlineEditItem);
+                                setOnlineEditItem(null);
+                              }}
+                              className="px-5 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center gap-1.5"
+                            >
+                              <Edit3 size={12} /> Open in Menu Editor
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Online tab — editable fields */}
+                        {onlineEditTab === 'online' && (
+                          <div className="border border-t-0 border-gray-200 dark:border-gray-700 rounded-b-2xl p-5 space-y-5">
+                            {/* Online Listing Toggle */}
+                            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                              <div>
+                                <p className="text-xs font-black dark:text-white">Online Listing</p>
+                                <p className="text-[9px] text-gray-400">Show this item on your online shop</p>
+                              </div>
+                              <button
+                                onClick={() => setOnlineEditForm(prev => ({ ...prev, onlineDisabled: !prev.onlineDisabled }))}
+                                className={`relative w-10 h-5 rounded-full transition-all ${onlineEditForm.onlineDisabled ? 'bg-gray-300 dark:bg-gray-600' : 'bg-green-500'}`}
+                              >
+                                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${onlineEditForm.onlineDisabled ? 'left-0.5' : 'left-[22px]'}`} />
+                              </button>
+                            </div>
+
+                            {/* Description */}
+                            <div>
+                              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Description</label>
+                              <textarea
+                                value={onlineEditForm.description || ''}
+                                onChange={e => setOnlineEditForm(prev => ({ ...prev, description: e.target.value }))}
+                                placeholder="Describe this item for online customers..."
+                                rows={3}
+                                className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                              />
+                            </div>
+
+                            {/* Online Price */}
+                            <div>
+                              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Online Selling Price</label>
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs text-gray-400">In-store: {currencySymbol}{onlineEditItem.price.toFixed(2)}</span>
+                                <div className="relative flex-1 max-w-[200px]">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400">{currencySymbol}</span>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={onlineEditForm.onlinePrice ?? onlineEditItem.price}
+                                    onChange={e => setOnlineEditForm(prev => ({ ...prev, onlinePrice: parseFloat(e.target.value) || 0 }))}
+                                    className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Portion Sizes */}
+                            <div>
+                              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Portion Sizes</label>
+                              <div className="space-y-2">
+                                {(onlineEditForm.sizes || []).map((s, i) => (
+                                  <div key={i} className="flex items-center gap-2">
+                                    <input type="text" value={s.name} onChange={e => { const sizes = [...(onlineEditForm.sizes || [])]; sizes[i] = { ...sizes[i], name: e.target.value }; setOnlineEditForm(prev => ({ ...prev, sizes })); }} placeholder="Size name" className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                                    <div className="relative w-24">
+                                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">{currencySymbol}</span>
+                                      <input type="number" step="0.01" value={s.price} onChange={e => { const sizes = [...(onlineEditForm.sizes || [])]; sizes[i] = { ...sizes[i], price: parseFloat(e.target.value) || 0 }; setOnlineEditForm(prev => ({ ...prev, sizes })); }} className="w-full pl-6 pr-2 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 text-right" />
                                     </div>
-                                    <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-600">
-                                      <div className="flex items-center gap-2">
+                                    <button onClick={() => { const sizes = (onlineEditForm.sizes || []).filter((_, idx) => idx !== i); setOnlineEditForm(prev => ({ ...prev, sizes })); }} className="p-1.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 size={14} /></button>
+                                  </div>
+                                ))}
+                                <button onClick={() => setOnlineEditForm(prev => ({ ...prev, sizes: [...(prev.sizes || []), { name: '', price: 0 }] }))} className="text-[10px] font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1 uppercase tracking-widest"><Plus size={12} /> Add Size</button>
+                              </div>
+                            </div>
+
+                            {/* Thermal / Temperature Options */}
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Thermal Options</label>
+                                <button
+                                  onClick={() => {
+                                    const temp = onlineEditForm.tempOptions || { enabled: false, options: [] };
+                                    setOnlineEditForm(prev => ({ ...prev, tempOptions: { ...temp, enabled: !temp.enabled } }));
+                                  }}
+                                  className={`relative w-9 h-5 rounded-full transition-all ${onlineEditForm.tempOptions?.enabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                >
+                                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${onlineEditForm.tempOptions?.enabled ? 'left-[18px]' : 'left-0.5'}`} />
+                                </button>
+                              </div>
+                              {onlineEditForm.tempOptions?.enabled && (
+                                <div className="space-y-2">
+                                  {(onlineEditForm.tempOptions.options || []).map((opt, i) => (
+                                    <div key={i} className="flex items-center gap-2">
+                                      <input type="text" value={opt.name} onChange={e => { const opts = [...(onlineEditForm.tempOptions?.options || [])]; opts[i] = { ...opts[i], name: e.target.value }; setOnlineEditForm(prev => ({ ...prev, tempOptions: { ...prev.tempOptions!, options: opts } })); }} placeholder="e.g. Hot, Cold" className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                                      <div className="relative w-24">
+                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">{currencySymbol}</span>
+                                        <input type="number" step="0.01" value={opt.price} onChange={e => { const opts = [...(onlineEditForm.tempOptions?.options || [])]; opts[i] = { ...opts[i], price: parseFloat(e.target.value) || 0 }; setOnlineEditForm(prev => ({ ...prev, tempOptions: { ...prev.tempOptions!, options: opts } })); }} className="w-full pl-6 pr-2 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 text-right" />
+                                      </div>
+                                      <button onClick={() => { const opts = (onlineEditForm.tempOptions?.options || []).filter((_, idx) => idx !== i); setOnlineEditForm(prev => ({ ...prev, tempOptions: { ...prev.tempOptions!, options: opts } })); }} className="p-1.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 size={14} /></button>
+                                    </div>
+                                  ))}
+                                  <button onClick={() => { const opts = [...(onlineEditForm.tempOptions?.options || []), { name: '', price: 0 }]; setOnlineEditForm(prev => ({ ...prev, tempOptions: { ...prev.tempOptions!, options: opts } })); }} className="text-[10px] font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1 uppercase tracking-widest"><Plus size={12} /> Add Option</button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Variant Options */}
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Variant Options</label>
+                                <button
+                                  onClick={() => {
+                                    const v = onlineEditForm.variantOptions || { enabled: false, options: [] };
+                                    setOnlineEditForm(prev => ({ ...prev, variantOptions: { ...v, enabled: !v.enabled } }));
+                                  }}
+                                  className={`relative w-9 h-5 rounded-full transition-all ${onlineEditForm.variantOptions?.enabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                >
+                                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${onlineEditForm.variantOptions?.enabled ? 'left-[18px]' : 'left-0.5'}`} />
+                                </button>
+                              </div>
+                              {onlineEditForm.variantOptions?.enabled && (
+                                <div className="space-y-2">
+                                  {(onlineEditForm.variantOptions.options || []).map((opt, i) => (
+                                    <div key={i} className="flex items-center gap-2">
+                                      <input type="text" value={opt.name} onChange={e => { const opts = [...(onlineEditForm.variantOptions?.options || [])]; opts[i] = { ...opts[i], name: e.target.value }; setOnlineEditForm(prev => ({ ...prev, variantOptions: { ...prev.variantOptions!, options: opts } })); }} placeholder="e.g. Spicy, BBQ" className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                                      <div className="relative w-24">
+                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">{currencySymbol}</span>
+                                        <input type="number" step="0.01" value={opt.price} onChange={e => { const opts = [...(onlineEditForm.variantOptions?.options || [])]; opts[i] = { ...opts[i], price: parseFloat(e.target.value) || 0 }; setOnlineEditForm(prev => ({ ...prev, variantOptions: { ...prev.variantOptions!, options: opts } })); }} className="w-full pl-6 pr-2 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 text-right" />
+                                      </div>
+                                      <button onClick={() => { const opts = (onlineEditForm.variantOptions?.options || []).filter((_, idx) => idx !== i); setOnlineEditForm(prev => ({ ...prev, variantOptions: { ...prev.variantOptions!, options: opts } })); }} className="p-1.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 size={14} /></button>
+                                    </div>
+                                  ))}
+                                  <button onClick={() => { const opts = [...(onlineEditForm.variantOptions?.options || []), { name: '', price: 0 }]; setOnlineEditForm(prev => ({ ...prev, variantOptions: { ...prev.variantOptions!, options: opts } })); }} className="text-[10px] font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1 uppercase tracking-widest"><Plus size={12} /> Add Variant</button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Linked Modifiers */}
+                            <div>
+                              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Modifiers</label>
+                              <div className="flex flex-wrap gap-2">
+                                {modifiers.map(mod => {
+                                  const isLinked = (onlineEditForm.linkedModifiers || []).includes(mod.name);
+                                  return (
+                                    <button
+                                      key={mod.name}
+                                      onClick={() => {
+                                        const linked = onlineEditForm.linkedModifiers || [];
+                                        setOnlineEditForm(prev => ({
+                                          ...prev,
+                                          linkedModifiers: isLinked ? linked.filter(m => m !== mod.name) : [...linked, mod.name],
+                                        }));
+                                      }}
+                                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border ${
+                                        isLinked
+                                          ? 'bg-orange-100 text-orange-600 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800'
+                                          : 'bg-white dark:bg-gray-700 text-gray-400 border-gray-200 dark:border-gray-600 hover:border-orange-300'
+                                      }`}
+                                    >
+                                      {mod.name}
+                                    </button>
+                                  );
+                                })}
+                                {modifiers.length === 0 && <p className="text-[9px] text-gray-400">No modifiers created yet. Create them in Menu Editor.</p>}
+                              </div>
+                            </div>
+
+                            {/* Add-on Items */}
+                            <div>
+                              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Add-on Items</label>
+                              <div className="space-y-2">
+                                {(onlineEditForm.addOns || []).map((addon, i) => (
+                                  <div key={i} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                                    <input type="text" value={addon.name} onChange={e => { const addOns = [...(onlineEditForm.addOns || [])]; addOns[i] = { ...addOns[i], name: e.target.value }; setOnlineEditForm(prev => ({ ...prev, addOns })); }} placeholder="Add-on name" className="flex-1 px-3 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                                    <div className="relative w-20">
+                                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">{currencySymbol}</span>
+                                      <input type="number" step="0.01" value={addon.price} onChange={e => { const addOns = [...(onlineEditForm.addOns || [])]; addOns[i] = { ...addOns[i], price: parseFloat(e.target.value) || 0 }; setOnlineEditForm(prev => ({ ...prev, addOns })); }} className="w-full pl-5 pr-1 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 text-right" />
+                                    </div>
+                                    <button onClick={() => { const addOns = (onlineEditForm.addOns || []).filter((_, idx) => idx !== i); setOnlineEditForm(prev => ({ ...prev, addOns })); }} className="p-1 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 size={13} /></button>
+                                  </div>
+                                ))}
+                                <button onClick={() => setOnlineEditForm(prev => ({ ...prev, addOns: [...(prev.addOns || []), { name: '', price: 0, maxQuantity: 5 }] }))} className="text-[10px] font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1 uppercase tracking-widest"><Plus size={12} /> Add Add-on</button>
+                              </div>
+                            </div>
+
+                            {/* Save / Cancel */}
+                            <div className="flex items-center gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                              <button
+                                onClick={() => {
+                                  const updated: MenuItem = {
+                                    ...onlineEditItem,
+                                    description: onlineEditForm.description ?? onlineEditItem.description,
+                                    onlineDisabled: onlineEditForm.onlineDisabled ?? onlineEditItem.onlineDisabled,
+                                    onlinePrice: onlineEditForm.onlinePrice === onlineEditItem.price ? undefined : onlineEditForm.onlinePrice,
+                                    sizes: onlineEditForm.sizes,
+                                    tempOptions: onlineEditForm.tempOptions,
+                                    variantOptions: onlineEditForm.variantOptions,
+                                    linkedModifiers: onlineEditForm.linkedModifiers,
+                                    addOns: onlineEditForm.addOns,
+                                  };
+                                  onUpdateMenu?.(restaurant.id, updated);
+                                  setOnlineEditItem(null);
+                                  toast('Online settings saved!', 'success');
+                                }}
+                                className="px-5 py-2.5 bg-green-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-green-600 transition-all flex items-center gap-1.5"
+                              >
+                                <CheckCircle size={12} /> Save Changes
+                              </button>
+                              <button
+                                onClick={() => { setOnlineEditItem(null); setOnlineEditTab('online'); }}
+                                className="px-4 py-2.5 bg-gray-200 dark:bg-gray-600 rounded-lg font-black text-[10px] uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500 transition-all"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                    /* ── Product List / Grid View ── */
+                    <div>
+                      {/* Toolbar */}
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Manage products displayed on your online shop.</p>
+                        <div className="flex items-center gap-3">
+                          {/* Active / Archived filter */}
+                          <div className="flex bg-white dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
+                            <button onClick={() => setOnlineProductStatus('ACTIVE')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${onlineProductStatus === 'ACTIVE' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>
+                              <Eye size={14} /> <span className="hidden sm:inline">Active</span>
+                            </button>
+                            <button onClick={() => setOnlineProductStatus('ARCHIVED')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${onlineProductStatus === 'ARCHIVED' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>
+                              <Archive size={14} /> <span className="hidden sm:inline">Archived</span>
+                            </button>
+                          </div>
+                          {/* List / Grid toggle */}
+                          <div className="flex bg-white dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
+                            <button onClick={() => setOnlineProductView('list')} className={`p-2 rounded-lg transition-all ${onlineProductView === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={16} /></button>
+                            <button onClick={() => setOnlineProductView('grid')} className={`p-2 rounded-lg transition-all ${onlineProductView === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={16} /></button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {(() => {
+                        const filteredMenu = restaurant.menu.filter(item =>
+                          onlineProductStatus === 'ACTIVE' ? !item.isArchived : !!item.isArchived
+                        );
+
+                        if (filteredMenu.length === 0) {
+                          return (
+                            <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-600">
+                              <Package size={32} className="mx-auto text-gray-300 mb-3" />
+                              <p className="text-sm font-black dark:text-white mb-1">No {onlineProductStatus === 'ACTIVE' ? 'Active' : 'Archived'} Products</p>
+                              <p className="text-[10px] text-gray-400">{onlineProductStatus === 'ACTIVE' ? 'Add items in Menu Editor to display them on your online shop.' : 'No archived items found.'}</p>
+                            </div>
+                          );
+                        }
+
+                        const categories = Array.from(new Set(filteredMenu.map(item => item.category))).sort();
+
+                        /* ── List View ── */
+                        if (onlineProductView === 'list') {
+                          return (
+                            <div className="overflow-x-auto">
+                              <table className="w-full">
+                                <thead>
+                                  <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                                    <th className="text-left px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Product</th>
+                                    <th className="text-left px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Category</th>
+                                    <th className="text-right px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">In-Store</th>
+                                    <th className="text-right px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Online</th>
+                                    <th className="text-center px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                                    <th className="text-center px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Actions</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {filteredMenu.map(item => (
+                                    <tr key={item.id} className={`border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${item.onlineDisabled ? 'opacity-50' : ''}`}>
+                                      <td className="px-4 py-2.5">
+                                        <div className="flex items-center gap-3">
+                                          {item.image ? (
+                                            <img src={item.image} alt={item.name} className="w-9 h-9 rounded-lg object-cover shrink-0" />
+                                          ) : (
+                                            <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0"><Package size={14} className="text-gray-400" /></div>
+                                          )}
+                                          <div className="min-w-0">
+                                            <p className="text-xs font-black dark:text-white truncate">{item.name}</p>
+                                            {item.description && <p className="text-[9px] text-gray-400 truncate max-w-[200px]">{item.description}</p>}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-2.5 text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase">{item.category}</td>
+                                      <td className="px-4 py-2.5 text-right text-xs font-black text-gray-500 dark:text-gray-400">{currencySymbol}{item.price.toFixed(2)}</td>
+                                      <td className="px-4 py-2.5 text-right text-xs font-black text-orange-500">{currencySymbol}{(item.onlinePrice ?? item.price).toFixed(2)}</td>
+                                      <td className="px-4 py-2.5 text-center">
                                         <button
-                                          onClick={() => {
-                                            const updated = { ...item, onlineDisabled: !item.onlineDisabled };
-                                            onUpdateMenu?.(restaurant.id, updated);
-                                          }}
-                                          className={`relative w-9 h-5 rounded-full transition-all ${item.onlineDisabled ? 'bg-gray-300 dark:bg-gray-600' : 'bg-green-500'}`}
+                                          onClick={() => { const updated = { ...item, onlineDisabled: !item.onlineDisabled }; onUpdateMenu?.(restaurant.id, updated); }}
+                                          className={`relative w-9 h-5 rounded-full transition-all mx-auto ${item.onlineDisabled ? 'bg-gray-300 dark:bg-gray-600' : 'bg-green-500'}`}
                                         >
                                           <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${item.onlineDisabled ? 'left-0.5' : 'left-[18px]'}`} />
                                         </button>
-                                        <span className="text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{item.onlineDisabled ? 'Unlisted' : 'Listed'}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1.5">
-                                        <span className="text-[9px] font-bold text-gray-400 uppercase">Online Price:</span>
-                                        <div className="relative">
-                                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">{currencySymbol}</span>
-                                          <input
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            defaultValue={(item.onlinePrice ?? item.price).toFixed(2)}
-                                            onBlur={e => {
-                                              const val = parseFloat(e.target.value);
-                                              if (!isNaN(val) && val >= 0) {
-                                                const updated = { ...item, onlinePrice: val === item.price ? undefined : val };
-                                                onUpdateMenu?.(restaurant.id, updated);
-                                              }
-                                            }}
-                                            className="w-20 pl-6 pr-2 py-1 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 text-right"
-                                          />
+                                      </td>
+                                      <td className="px-4 py-2.5 text-center">
+                                        <button
+                                          onClick={() => {
+                                            setOnlineEditItem(item);
+                                            setOnlineEditTab('online');
+                                            setOnlineEditForm({
+                                              description: item.description,
+                                              onlineDisabled: item.onlineDisabled,
+                                              onlinePrice: item.onlinePrice ?? item.price,
+                                              sizes: item.sizes ? [...item.sizes] : [],
+                                              tempOptions: item.tempOptions ? { ...item.tempOptions, options: item.tempOptions.options ? [...item.tempOptions.options] : [] } : { enabled: false, options: [] },
+                                              variantOptions: item.variantOptions ? { ...item.variantOptions, options: item.variantOptions.options ? [...item.variantOptions.options] : [] } : { enabled: false, options: [] },
+                                              linkedModifiers: item.linkedModifiers ? [...item.linkedModifiers] : [],
+                                              addOns: item.addOns ? [...item.addOns] : [],
+                                            });
+                                          }}
+                                          className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-all text-gray-400 hover:text-orange-500"
+                                        >
+                                          <Edit3 size={14} />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          );
+                        }
+
+                        /* ── Grid View ── */
+                        return (
+                          <div className="space-y-6">
+                            {categories.map(category => (
+                              <div key={category}>
+                                <h3 className="text-sm font-black dark:text-white uppercase tracking-widest mb-3 flex items-center gap-2">
+                                  <Tag size={14} className="text-orange-500" />
+                                  {category}
+                                </h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                  {filteredMenu.filter(item => item.category === category).map(item => (
+                                    <div key={item.id} className={`bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600 p-3 shadow-sm transition-all ${item.onlineDisabled ? 'opacity-50' : ''}`}>
+                                      <div className="flex items-center gap-3 mb-2">
+                                        {item.image ? (
+                                          <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                                        ) : (
+                                          <div className="w-12 h-12 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center shrink-0"><Package size={16} className="text-gray-400" /></div>
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-xs font-black dark:text-white truncate">{item.name}</p>
+                                          {item.description && <p className="text-[9px] text-gray-400 truncate">{item.description}</p>}
+                                          <div className="flex items-center gap-2 mt-0.5">
+                                            {item.onlinePrice != null && item.onlinePrice !== item.price ? (
+                                              <>
+                                                <p className="text-xs font-black text-gray-400 line-through">{currencySymbol}{item.price.toFixed(2)}</p>
+                                                <p className="text-xs font-black text-orange-500">{currencySymbol}{item.onlinePrice.toFixed(2)}</p>
+                                              </>
+                                            ) : (
+                                              <p className="text-xs font-black text-orange-500">{currencySymbol}{item.price.toFixed(2)}</p>
+                                            )}
+                                          </div>
                                         </div>
+                                        {item.sizes && item.sizes.length > 0 && (
+                                          <span className="text-[8px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase">{item.sizes.length} sizes</span>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-600">
+                                        <div className="flex items-center gap-2">
+                                          <button
+                                            onClick={() => { const updated = { ...item, onlineDisabled: !item.onlineDisabled }; onUpdateMenu?.(restaurant.id, updated); }}
+                                            className={`relative w-9 h-5 rounded-full transition-all ${item.onlineDisabled ? 'bg-gray-300 dark:bg-gray-600' : 'bg-green-500'}`}
+                                          >
+                                            <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${item.onlineDisabled ? 'left-0.5' : 'left-[18px]'}`} />
+                                          </button>
+                                          <span className="text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{item.onlineDisabled ? 'Unlisted' : 'Listed'}</span>
+                                        </div>
+                                        <button
+                                          onClick={() => {
+                                            setOnlineEditItem(item);
+                                            setOnlineEditTab('online');
+                                            setOnlineEditForm({
+                                              description: item.description,
+                                              onlineDisabled: item.onlineDisabled,
+                                              onlinePrice: item.onlinePrice ?? item.price,
+                                              sizes: item.sizes ? [...item.sizes] : [],
+                                              tempOptions: item.tempOptions ? { ...item.tempOptions, options: item.tempOptions.options ? [...item.tempOptions.options] : [] } : { enabled: false, options: [] },
+                                              variantOptions: item.variantOptions ? { ...item.variantOptions, options: item.variantOptions.options ? [...item.variantOptions.options] : [] } : { enabled: false, options: [] },
+                                              linkedModifiers: item.linkedModifiers ? [...item.linkedModifiers] : [],
+                                              addOns: item.addOns ? [...item.addOns] : [],
+                                            });
+                                          }}
+                                          className="px-3 py-1.5 bg-gray-200 dark:bg-gray-600 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-gray-300 dark:hover:bg-gray-500 transition-all flex items-center gap-1.5 text-gray-600 dark:text-gray-300"
+                                        >
+                                          <Edit3 size={11} /> Edit
+                                        </button>
                                       </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    )}
                   </div>
                 )}
 
