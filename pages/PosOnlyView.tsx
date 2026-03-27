@@ -6639,8 +6639,8 @@ const PosOnlyView: React.FC<Props> = ({
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Manage your online storefront — orders, products, wallet &amp; settings all in one place.</p>
                 </div>
 
-                {/* Tab switcher */}
-                <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 mb-6 w-fit overflow-x-auto hide-scrollbar">
+                {/* Document-style tab bar */}
+                <div className="flex gap-0 overflow-x-auto hide-scrollbar border-b border-gray-200 dark:border-gray-700">
                   {([
                     { id: 'INCOMING' as const, label: 'Incoming Orders', icon: <ShoppingBag size={13} /> },
                     { id: 'PRODUCT' as const, label: 'Product', icon: <Package size={13} /> },
@@ -6661,10 +6661,10 @@ const PosOnlyView: React.FC<Props> = ({
                             .finally(() => setIsLoadingStripeBalance(false));
                         }
                       }}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
+                      className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider border border-b-0 rounded-t-xl transition-all -mb-px whitespace-nowrap ${
                         onlineOrderSubTab === tab.id
-                          ? 'bg-white dark:bg-gray-700 text-orange-600 dark:text-orange-400 shadow-sm'
-                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          ? 'bg-white dark:bg-gray-800 text-orange-600 dark:text-orange-400 border-gray-200 dark:border-gray-700 relative z-10'
+                          : 'bg-gray-100 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 border-transparent hover:bg-gray-200 dark:hover:bg-gray-800/60 hover:text-gray-700 dark:hover:text-gray-300'
                       }`}
                     >
                       {tab.icon}
@@ -6674,7 +6674,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {/* Sub-tab content */}
-                <div>
+                <div className="bg-white dark:bg-gray-800 border border-t-0 border-gray-200 dark:border-gray-700 rounded-b-2xl rounded-tr-2xl shadow-sm p-5 md:p-6">
                 {/* ── Incoming Orders Sub-tab ── */}
                 {onlineOrderSubTab === 'INCOMING' && (
                   <>
