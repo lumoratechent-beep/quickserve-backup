@@ -6630,15 +6630,16 @@ const PosOnlyView: React.FC<Props> = ({
 
           {/* Online Orders Tab - Enhanced with document-style sub-tabs */}
           {activeTab === 'ONLINE_ORDERS' && showOnlineShopFeature && (
-            <div className="flex-1 overflow-y-auto flex flex-col">
-              {/* Chrome-style document tab bar */}
-              <div className="bg-gray-100 dark:bg-gray-900 border-b dark:border-gray-700 px-4 md:px-8 pt-4">
-                <div className="mb-1">
-                  <h1 className="text-xl font-black dark:text-white uppercase tracking-tighter">Online Menu</h1>
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium mt-1 uppercase tracking-widest">Manage your online storefront — orders, products, wallet & settings all in one place.</p>
+            <div className="flex-1 overflow-y-auto p-4 md:p-6">
+              <div className="max-w-7xl mx-auto w-full">
+                {/* Header */}
+                <div className="mb-5">
+                  <h2 className="text-lg font-black dark:text-white uppercase tracking-tighter">Online Menu</h2>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Manage your online storefront — orders, products, wallet &amp; settings all in one place.</p>
                 </div>
-                {/* Chrome-style tabs */}
-                <div className="flex mt-3 gap-0.5 overflow-x-auto hide-scrollbar -mb-px">
+
+                {/* Tab switcher */}
+                <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 mb-6 w-fit overflow-x-auto hide-scrollbar">
                   {([
                     { id: 'INCOMING' as const, label: 'Incoming Orders', icon: <ShoppingBag size={13} /> },
                     { id: 'PRODUCT' as const, label: 'Product', icon: <Package size={13} /> },
@@ -6659,10 +6660,10 @@ const PosOnlyView: React.FC<Props> = ({
                             .finally(() => setIsLoadingStripeBalance(false));
                         }
                       }}
-                      className={`relative flex items-center gap-2 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap rounded-t-xl ${
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
                         onlineOrderSubTab === tab.id
-                          ? 'bg-white dark:bg-gray-800 text-orange-600 dark:text-orange-400 shadow-sm border border-b-0 border-gray-200 dark:border-gray-700 z-10'
-                          : 'bg-gray-50 dark:bg-gray-800/50 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/80 border border-transparent'
+                          ? 'bg-white dark:bg-gray-700 text-orange-600 dark:text-orange-400 shadow-sm'
+                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                       }`}
                     >
                       {tab.icon}
@@ -6670,10 +6671,9 @@ const PosOnlyView: React.FC<Props> = ({
                     </button>
                   ))}
                 </div>
-              </div>
 
-              {/* Sub-tab content pane */}
-              <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-white dark:bg-gray-800">
+                {/* Sub-tab content */}
+                <div>
                 {/* ── Incoming Orders Sub-tab ── */}
                 {onlineOrderSubTab === 'INCOMING' && (
                   <>
@@ -7223,6 +7223,7 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
                   </div>
                 )}
+                </div>
               </div>
             </div>
           )}
