@@ -101,6 +101,8 @@ export interface Restaurant {
     currency?: string;
     printers?: Array<Record<string, any>>;
     kitchenSettings?: { autoAccept: boolean; autoPrint: boolean };
+    onlineDeliveryOptions?: Array<{ id: string; type: string; label: string; enabled: boolean; fee: number }>;
+    onlinePaymentMethods?: Array<{ id: string; label: string; enabled: boolean }>;
     backoffice?: Record<string, any>;
   };
   categories?: CategoryData[];
