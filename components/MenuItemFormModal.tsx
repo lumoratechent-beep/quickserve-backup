@@ -264,12 +264,24 @@ const MenuItemFormModal: React.FC<Props> = ({
     });
   };
 
+  const ITEM_COLORS = [
+    { name: 'Grey', value: '#D1D5DB' },
+    { name: 'Red', value: '#EF4444' },
+    { name: 'Crimson', value: '#E11D63' },
+    { name: 'Orange', value: '#F97316' },
+    { name: 'Lime', value: '#CDDC39' },
+    { name: 'Green', value: '#22C55E' },
+    { name: 'Blue', value: '#3B82F6' },
+    { name: 'Purple', value: '#8B5CF6' },
+  ];
+
   const visualAssetSection = (
     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm">
-      <h3 className="text-sm font-black dark:text-white mb-3 flex items-center gap-2"><ImageIcon size={16} className="text-amber-500" /> Image</h3>
+      <h3 className="text-sm font-black dark:text-white mb-3 flex items-center gap-2"><ImageIcon size={16} className="text-amber-500" /> Appearance</h3>
       <div className="flex items-start gap-4">
         <div
           className="relative group w-40 h-40 flex-shrink-0 rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-700 border-2 border-dashed border-gray-200 dark:border-gray-600 flex items-center justify-center cursor-pointer"
+          style={!formItem.image && formItem.color ? { backgroundColor: formItem.color, borderColor: formItem.color } : undefined}
           onClick={() => fileInputRef.current?.click()}
         >
           {formItem.image ? (
@@ -282,15 +294,40 @@ const MenuItemFormModal: React.FC<Props> = ({
           )}
           <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
         </div>
-        <div className="flex-1 space-y-2">
-          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest">Or Image URL</label>
-          <input
-            type="text"
-            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
-            value={formItem.image}
-            onChange={e => setFormItem(prev => ({ ...prev, image: e.target.value }))}
-            placeholder="Paste link here..."
-          />
+        <div className="flex-1 space-y-3">
+          {/* Colour selection */}
+          <div>
+            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Colour</label>
+            <div className="flex flex-wrap gap-2">
+              {ITEM_COLORS.map(c => (
+                <button
+                  key={c.value}
+                  type="button"
+                  title={c.name}
+                  onClick={() => setFormItem(prev => ({ ...prev, color: prev.color === c.value ? undefined : c.value }))}
+                  className={`w-8 h-8 rounded-md border-2 transition-all flex items-center justify-center ${formItem.color === c.value ? 'border-gray-800 dark:border-white ring-2 ring-offset-1 ring-amber-400' : 'border-transparent hover:border-gray-300 dark:hover:border-gray-500'}`}
+                  style={{ backgroundColor: c.value }}
+                >
+                  {formItem.color === c.value && (
+                    <svg className="w-4 h-4 text-white drop-shadow" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Image URL */}
+          <div>
+            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Image Link</label>
+            <input
+              type="text"
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none font-bold dark:text-white text-sm"
+              value={formItem.image}
+              onChange={e => setFormItem(prev => ({ ...prev, image: e.target.value }))}
+              placeholder="Paste link here..."
+            />
+          </div>
         </div>
       </div>
     </div>

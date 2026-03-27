@@ -58,6 +58,7 @@ export interface MenuItem {
   };
   addOns?: AddOnItem[];
   linkedModifiers?: string[];
+  color?: string; // Tile color for POS display
 }
 
 export interface Area {
