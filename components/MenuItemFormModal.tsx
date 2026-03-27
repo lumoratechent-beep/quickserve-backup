@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MenuItem, AddOnItem, ModifierData } from '../src/types';
-import { ArrowLeft, X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle, Save, Pencil, ScanBarcode, DollarSign, Tag, Layers, ChevronDown } from 'lucide-react';
+import { ArrowLeft, X, Plus, Trash2, ThermometerSun, Info, Image as ImageIcon, PlusCircle, Save, Pencil, ScanBarcode, DollarSign, Tag, Layers, ChevronDown, Package } from 'lucide-react';
 import { toast } from './Toast';
 import ImageCropModal from './ImageCropModal';
 
@@ -265,26 +265,24 @@ const MenuItemFormModal: React.FC<Props> = ({
   };
 
   const visualAssetSection = (
-    <div className={`${isLandscape ? '' : 'border-b dark:border-gray-700'} pb-4`}>
-      <h3 className="text-sm font-black dark:text-white mb-3">Image</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className={isLandscape ? 'flex flex-col' : ''}>
-          <div
-            className={`relative group ${isLandscape ? 'flex-1' : 'aspect-video'} rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-700 border-2 border-dashed border-gray-200 dark:border-gray-600 flex items-center justify-center cursor-pointer`}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {formItem.image ? (
-              <img src={formItem.image} className="w-full h-full object-cover group-hover:scale-105 transition-all" />
-            ) : (
-              <div className="text-center">
-                <ImageIcon size={24} className="mx-auto text-gray-300 mb-1" />
-                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Upload Frame</span>
-              </div>
-            )}
-            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
-          </div>
+    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm">
+      <h3 className="text-sm font-black dark:text-white mb-3 flex items-center gap-2"><ImageIcon size={16} className="text-amber-500" /> Image</h3>
+      <div className="flex items-start gap-4">
+        <div
+          className="relative group w-40 h-40 flex-shrink-0 rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-700 border-2 border-dashed border-gray-200 dark:border-gray-600 flex items-center justify-center cursor-pointer"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          {formItem.image ? (
+            <img src={formItem.image} className="w-full h-full object-cover group-hover:scale-105 transition-all" />
+          ) : (
+            <div className="text-center">
+              <ImageIcon size={24} className="mx-auto text-gray-300 mb-1" />
+              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Upload Frame</span>
+            </div>
+          )}
+          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
         </div>
-        <div className="space-y-2">
+        <div className="flex-1 space-y-2">
           <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest">Or Image URL</label>
           <input
             type="text"
@@ -300,7 +298,7 @@ const MenuItemFormModal: React.FC<Props> = ({
 
   // ─── Item Details (Loyverse section 1) ───
   const itemDetailsSection = (
-    <div className="space-y-4">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm space-y-4">
       <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><Tag size={16} className="text-amber-500" /> Item Details</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -401,7 +399,7 @@ const MenuItemFormModal: React.FC<Props> = ({
 
   // ─── Selling Information (Loyverse section 2) ───
   const sellingInfoSection = (
-    <div className="space-y-4 border-t dark:border-gray-700 pt-4">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm space-y-4">
       <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><DollarSign size={16} className="text-amber-500" /> Selling Information</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -441,7 +439,7 @@ const MenuItemFormModal: React.FC<Props> = ({
 
   // ─── Cost & Identification (Loyverse section 3) ───
   const costIdSection = (
-    <div className="space-y-4 border-t dark:border-gray-700 pt-4">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm space-y-4">
       <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><ScanBarcode size={16} className="text-amber-500" /> Cost & Identification</h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
@@ -479,9 +477,36 @@ const MenuItemFormModal: React.FC<Props> = ({
     </div>
   );
 
+  // ─── Inventory / Track Stock (Loyverse section 4) ───
+  const trackStockSection = (
+    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm space-y-4">
+      <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><Package size={16} className="text-amber-500" /> Inventory</h3>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setFormItem(prev => ({ ...prev, trackStock: !prev.trackStock }))}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+            formItem.trackStock ? 'bg-amber-500' : 'bg-gray-200 dark:bg-gray-600'
+          }`}
+        >
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+            formItem.trackStock ? 'translate-x-6' : 'translate-x-1'
+          }`} />
+        </button>
+        <label className="text-xs font-bold text-gray-600 dark:text-gray-300">Track stock</label>
+        <div className="relative group">
+          <Info size={14} className="text-gray-400 cursor-help" />
+          <div className="hidden group-hover:block absolute bottom-full left-0 mb-1 w-48 p-2 bg-gray-800 text-white text-[10px] rounded-lg shadow-lg z-10">
+            Enable to track inventory levels for this item in Stock Management.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   // ─── Variants & Modifiers header (Loyverse section 5) ───
   const variantsModifiersHeader = (
-    <div className="space-y-3 border-t dark:border-gray-700 pt-4">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm space-y-3">
       <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><Layers size={16} className="text-amber-500" /> Variants & Modifiers</h3>
       <div className="grid grid-cols-3 gap-2">
         {([
@@ -507,7 +532,7 @@ const MenuItemFormModal: React.FC<Props> = ({
   );
 
   const sizesSection = formItem.sizesEnabled ? (
-    <div className={`${isLandscape ? '' : 'border-t dark:border-gray-700'} pt-4`}>
+    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-black dark:text-white">Portion Size</h3>
         <button type="button" onClick={handleAddSize} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
@@ -542,7 +567,7 @@ const MenuItemFormModal: React.FC<Props> = ({
   ) : null;
 
   const modifiersSection = (
-    <div className={`${isLandscape ? '' : 'border-t dark:border-gray-700'} pt-4`}>
+    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-black dark:text-white">Modifier</h3>
         <button type="button" onClick={handleOpenNewModifierForm} title="Create a new modifier" className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
@@ -674,7 +699,7 @@ const MenuItemFormModal: React.FC<Props> = ({
   );
 
   const thermalSection = formItem.tempOptions?.enabled ? (
-    <div className={`${isLandscape ? '' : 'border-t dark:border-gray-700'} pt-4`}>
+    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-black dark:text-white">Thermal Options</h3>
         <button type="button" onClick={handleAddTempOption} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
@@ -709,7 +734,7 @@ const MenuItemFormModal: React.FC<Props> = ({
   ) : null;
 
   const variantSection = formItem.variantOptions?.enabled ? (
-    <div className={`${isLandscape ? '' : 'border-t dark:border-gray-700'} pt-4`}>
+    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-black dark:text-white">Variant Options</h3>
         <button type="button" onClick={handleAddVariantOption} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
@@ -744,7 +769,7 @@ const MenuItemFormModal: React.FC<Props> = ({
   ) : null;
 
   const addOnsSection = (
-    <div className={`${isLandscape ? '' : 'border-t dark:border-gray-700'} pt-4`}>
+    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-black dark:text-white">Add-On Items</h3>
         <button type="button" onClick={handleAddAddOn} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
@@ -878,16 +903,17 @@ const MenuItemFormModal: React.FC<Props> = ({
       </div>
 
       {/* Page Body */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-6 bg-gray-50 dark:bg-gray-900">
         <div className="max-w-5xl mx-auto">
           <form onSubmit={onSubmit}>
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-0">
               {/* Left column — Details & Selling */}
-              <div className="space-y-4 lg:pr-6">
+              <div className="space-y-5 lg:pr-6">
                 {visualAssetSection}
                 {itemDetailsSection}
                 {sellingInfoSection}
                 {costIdSection}
+                {trackStockSection}
               </div>
 
               {/* Divider */}
@@ -895,7 +921,7 @@ const MenuItemFormModal: React.FC<Props> = ({
               <hr className="lg:hidden border-gray-200 dark:border-gray-700 my-4" />
 
               {/* Right column — Variants & Modifiers */}
-              <div className="space-y-4 lg:pl-6">
+              <div className="space-y-5 lg:pl-6">
                 {variantsModifiersHeader}
                 {sizesSection}
                 {modifiersSection}
