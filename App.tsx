@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, PlatformAccess, QS_DEFAULT_HUB, Subscription, KitchenDepartment } from './src/types';
+import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, PlatformAccess, QS_DEFAULT_HUB, Subscription, KitchenDepartment, OrderSource } from './src/types';
 import CustomerView from './pages/CustomerView';
 import AdminView from './pages/AdminView';
 import PosOnlyView from './pages/PosOnlyView';
@@ -555,7 +555,8 @@ const App: React.FC = () => {
               paymentMethod: o.payment_method,
               cashierName: o.cashier_name,
               amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
-              changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined
+              changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined,
+              orderSource: o.order_source || undefined
             };
             const localOrder = prev.find(p => p.id === o.id);
             if (localOrder) {
@@ -632,7 +633,8 @@ const App: React.FC = () => {
           paymentMethod: o.payment_method,
           cashierName: o.cashier_name,
           amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
-          changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined
+          changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined,
+          orderSource: o.order_source || undefined
         }));
 
         setOrders(prev => {
@@ -773,7 +775,8 @@ const App: React.FC = () => {
           paymentMethod: o.payment_method,
           cashierName: o.cashier_name,
           amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
-          changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined
+          changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined,
+          orderSource: o.order_source || undefined
         };
         
         setOrders(prev => {
@@ -826,6 +829,7 @@ const App: React.FC = () => {
                 cashierName: o.cashier_name ?? existing.cashierName,
                 amountReceived: o.amount_received != null ? Number(o.amount_received) : existing.amountReceived,
                 changeAmount: o.change_amount != null ? Number(o.change_amount) : existing.changeAmount,
+                orderSource: o.order_source ?? existing.orderSource,
               };
             }
             return existing;
@@ -941,7 +945,8 @@ const App: React.FC = () => {
         id: orderId, items: itemsForThisRestaurant, total: totalForThisRestaurant,
         status: OrderStatus.PENDING, timestamp: Date.now(), customer_id: 'guest_user',
         restaurant_id: rid, table_number: sessionTable || 'N/A', location_name: sessionLocation || QS_DEFAULT_HUB,
-        remark: remark
+        remark: remark,
+        order_source: 'qr_order'
       });
       orderIds.push(orderId);
     }
@@ -1544,7 +1549,8 @@ const App: React.FC = () => {
             payment_method: offlineOrder.payment_method,
             cashier_name: offlineOrder.cashier_name,
             amount_received: offlineOrder.amount_received ?? null,
-            change_amount: offlineOrder.change_amount ?? null
+            change_amount: offlineOrder.change_amount ?? null,
+            order_source: offlineOrder.order_source ?? null
           }]);
 
           if (!error) {
@@ -1616,6 +1622,7 @@ const App: React.FC = () => {
         cashier_name: cashierName,
         amount_received: amountReceived,
         change_amount: amountReceived != null ? Math.max(0, amountReceived - total) : undefined,
+        order_source: 'counter',
         createdAt: Date.now(),
         synced: false
       };
@@ -1688,6 +1695,7 @@ const App: React.FC = () => {
         cashier_name: cashierName,
         amount_received: amountReceived,
         change_amount: amountReceived != null ? Math.max(0, amountReceived - total) : undefined,
+        order_source: 'counter',
         createdAt: Date.now(),
         synced: false
       };
@@ -1714,7 +1722,8 @@ const App: React.FC = () => {
       payment_method: paymentMethod || null,
       cashier_name: cashierName || null,
       amount_received: amountReceived ?? null,
-      change_amount: amountReceived != null ? Math.max(0, amountReceived - total) : null
+      change_amount: amountReceived != null ? Math.max(0, amountReceived - total) : null,
+      order_source: 'counter'
     };
 
     const { error } = await supabase.from('orders').insert([orderToInsert]);
@@ -1736,6 +1745,7 @@ const App: React.FC = () => {
         cashier_name: cashierName,
         amount_received: amountReceived,
         change_amount: amountReceived != null ? Math.max(0, amountReceived - total) : undefined,
+        order_source: 'counter',
         createdAt: Date.now(),
         synced: false
       };

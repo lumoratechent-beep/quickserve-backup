@@ -1,4 +1,4 @@
-import { CartItem, OrderStatus } from '../src/types';
+import { CartItem, OrderStatus, OrderSource } from '../src/types';
 
 export interface OfflineOrder {
   id: string;
@@ -15,6 +15,7 @@ export interface OfflineOrder {
   cashier_name?: string;
   amount_received?: number;
   change_amount?: number;
+  order_source?: OrderSource;
   createdAt: number; // When it was queued
   synced?: boolean; // Whether it's been successfully synced
 }

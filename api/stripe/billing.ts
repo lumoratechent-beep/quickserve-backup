@@ -108,6 +108,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'Invalid document ID.' });
       }
 
+      // GET /api/stripe/billing?action=balance&customerId=...
+      case 'balance': {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const customerId = req.query.customerId as string;
+        if (!customerId) return res.status(400).json({ error: 'customerId is required.' });
+
+        // Fetch total successful charges for this customer (online payments received)
+        const charges = await stripe.charges.list({ customer: customerId, limit: 100 });
+        const totalReceived = charges.data
+          .filter(ch => ch.paid && ch.status === 'succeeded')
+          .reduce((sum, ch) => sum + ch.amount, 0);
+
+        // Also get customer balance (credits/debits on account)
+        const customer = await stripe.customers.retrieve(customerId) as Stripe.Customer;
+        const customerBalance = customer.balance || 0; // negative = credit
+
+        return res.status(200).json({
+          balance: totalReceived,
+          customerBalance,
+          currency: charges.data[0]?.currency || 'myr',
+        });
+      }
+
       // GET /api/stripe/billing?action=payment-methods&customerId=...
       case 'payment-methods': {
         if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });

@@ -15,6 +15,8 @@ export enum OrderStatus {
   CANCELLED = 'CANCELLED'
 }
 
+export type OrderSource = 'counter' | 'qr_order' | 'online';
+
 export interface MenuItemVariant {
   name: string;
   price: number;
@@ -144,6 +146,7 @@ export interface Order {
   cashierName?: string;
   amountReceived?: number;
   changeAmount?: number;
+  orderSource?: OrderSource;
 }
 
 export interface User {

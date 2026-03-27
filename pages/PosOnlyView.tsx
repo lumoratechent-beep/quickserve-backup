@@ -305,6 +305,9 @@ const PosOnlyView: React.FC<Props> = ({
   const [menuViewMode, setMenuViewMode] = useState<'grid' | 'list'>('grid');
   const [menuCategoryFilter, setMenuCategoryFilter] = useState<string>('All');
   const [menuSubTab, setMenuSubTab] = useState<'KITCHEN' | 'CATEGORY' | 'MODIFIER' | 'ADDON'>('KITCHEN');
+  const [onlineOrderSubTab, setOnlineOrderSubTab] = useState<'INCOMING' | 'PRODUCT' | 'SETTING'>('INCOMING');
+  const [onlineStripeBalance, setOnlineStripeBalance] = useState<number | null>(null);
+  const [isLoadingStripeBalance, setIsLoadingStripeBalance] = useState(false);
   const [isSavingMenuItem, setIsSavingMenuItem] = useState(false);
   const [formItem, setFormItem] = useState<MenuFormItem>({
     name: '',
@@ -1274,6 +1277,7 @@ const PosOnlyView: React.FC<Props> = ({
         cashierName: cashierName || '',
         amountReceived: selectedCashAmount ?? undefined,
         changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - selectedQrOrderForPayment.total) : undefined,
+        orderSource: selectedQrOrderForPayment.orderSource,
       }]);
     } else {
       // Counter order — place a new order in DB
@@ -1301,6 +1305,7 @@ const PosOnlyView: React.FC<Props> = ({
         cashierName: cashierName || '',
         amountReceived: selectedCashAmount ?? undefined,
         changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined,
+        orderSource: 'counter',
       }]);
     }
 
@@ -6406,6 +6411,16 @@ const PosOnlyView: React.FC<Props> = ({
                                 order.status === OrderStatus.COMPLETED ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400' :
                                 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
                               }`}>{order.status}</span>
+                              {order.orderSource && (
+                                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                                  order.orderSource === 'counter' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' :
+                                  order.orderSource === 'qr_order' ? 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400' :
+                                  order.orderSource === 'online' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' :
+                                  'bg-gray-100 text-gray-500'
+                                }`}>
+                                  {order.orderSource === 'counter' ? 'Counter' : order.orderSource === 'qr_order' ? 'QR Order' : order.orderSource === 'online' ? 'Online' : order.orderSource}
+                                </span>
+                              )}
                             </div>
                             <div className="flex items-center gap-2">
                               <Clock size={14} className="text-gray-400" />
@@ -6524,83 +6539,343 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
           )}
 
-          {/* Online Orders Tab - reuses QR order flow */}
+          {/* Online Orders Tab - Enhanced with document-style sub-tabs */}
           {activeTab === 'ONLINE_ORDERS' && showOnlineShopFeature && (
-            <div className="flex-1 overflow-y-auto p-4 md:p-8">
-              <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-                <div>
-                  <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Online Orders</h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1 uppercase tracking-widest">Manage orders placed via your online shop link.</p>
+            <div className="flex-1 overflow-y-auto flex flex-col">
+              {/* Document-style tab bar */}
+              <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 md:px-8 pt-4">
+                <div className="flex items-center gap-6 mb-0">
+                  <h1 className="text-xl font-black dark:text-white uppercase tracking-tighter">Online Orders</h1>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm overflow-x-auto hide-scrollbar">
-                    <button onClick={() => setQrOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Ongoing</button>
-                    <button onClick={() => setQrOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Served</button>
-                    <button onClick={() => setQrOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Cancelled</button>
-                    <button onClick={() => setQrOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>All</button>
-                  </div>
+                <div className="flex mt-3 -mb-px overflow-x-auto hide-scrollbar">
+                  <button
+                    onClick={() => setOnlineOrderSubTab('INCOMING')}
+                    className={`px-5 py-2.5 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap ${
+                      onlineOrderSubTab === 'INCOMING'
+                        ? 'border-orange-500 text-orange-600 dark:text-orange-400'
+                        : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    Incoming Orders
+                  </button>
+                  <button
+                    onClick={() => setOnlineOrderSubTab('PRODUCT')}
+                    className={`px-5 py-2.5 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap ${
+                      onlineOrderSubTab === 'PRODUCT'
+                        ? 'border-orange-500 text-orange-600 dark:text-orange-400'
+                        : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    Product
+                  </button>
+                  <button
+                    onClick={() => {
+                      setOnlineOrderSubTab('SETTING');
+                      // Fetch Stripe balance when switching to settings
+                      if (subscription?.stripe_customer_id && onlineStripeBalance === null) {
+                        setIsLoadingStripeBalance(true);
+                        fetch(`/api/stripe/billing?action=balance&customerId=${encodeURIComponent(subscription.stripe_customer_id)}`)
+                          .then(r => r.json())
+                          .then(data => setOnlineStripeBalance(data.balance ?? 0))
+                          .catch(() => setOnlineStripeBalance(0))
+                          .finally(() => setIsLoadingStripeBalance(false));
+                      }
+                    }}
+                    className={`px-5 py-2.5 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap ${
+                      onlineOrderSubTab === 'SETTING'
+                        ? 'border-orange-500 text-orange-600 dark:text-orange-400'
+                        : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    Setting
+                  </button>
                 </div>
               </div>
 
-              {(() => {
-                const filteredOnlineOrders = orders.filter(o => {
-                  if (qrOrderFilter === 'ALL') return true;
-                  if (qrOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
-                  return o.status === qrOrderFilter;
-                });
-
-                if (filteredOnlineOrders.length === 0) {
-                  return (
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
-                      <Globe size={32} className="mx-auto text-gray-300 mb-3" />
-                      <p className="text-sm font-black dark:text-white mb-1">No Online Orders</p>
-                      <p className="text-[10px] text-gray-400">Orders placed via your online shop link will appear here.</p>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredOnlineOrders.map(order => (
-                      <div key={order.id} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 shadow-sm hover:shadow-md transition-all">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <Globe size={14} className="text-blue-500" />
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">#{order.id.slice(-6)}</span>
-                          </div>
-                          <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
-                            order.status === OrderStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                            order.status === OrderStatus.ONGOING ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                            order.status === OrderStatus.SERVED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                            order.status === OrderStatus.COMPLETED ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                            'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                          }`}>{order.status}</span>
+              {/* Sub-tab content */}
+              <div className="flex-1 overflow-y-auto p-4 md:p-8">
+                {/* ── Incoming Orders Sub-tab ── */}
+                {onlineOrderSubTab === 'INCOMING' && (
+                  <>
+                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Manage orders placed via your online shop link.</p>
+                      <div className="flex items-center gap-3">
+                        <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm overflow-x-auto hide-scrollbar">
+                          <button onClick={() => setQrOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Ongoing</button>
+                          <button onClick={() => setQrOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Served</button>
+                          <button onClick={() => setQrOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Cancelled</button>
+                          <button onClick={() => setQrOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>All</button>
                         </div>
-                        <div className="space-y-1 mb-3">
-                          {order.items.map((item, idx) => (
-                            <div key={idx} className="flex items-center justify-between text-xs">
-                              <span className="text-gray-600 dark:text-gray-300">{item.quantity}x {item.name}</span>
-                              <span className="font-bold dark:text-white">{(item.price * item.quantity).toFixed(2)}</span>
+                      </div>
+                    </div>
+
+                    {(() => {
+                      const filteredOnlineOrders = orders.filter(o => {
+                        if (o.orderSource && o.orderSource !== 'online') return false;
+                        if (qrOrderFilter === 'ALL') return true;
+                        if (qrOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
+                        return o.status === qrOrderFilter;
+                      });
+
+                      if (filteredOnlineOrders.length === 0) {
+                        return (
+                          <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
+                            <Globe size={32} className="mx-auto text-gray-300 mb-3" />
+                            <p className="text-sm font-black dark:text-white mb-1">No Online Orders</p>
+                            <p className="text-[10px] text-gray-400">Orders placed via your online shop link will appear here.</p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {filteredOnlineOrders.map(order => (
+                            <div key={order.id} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 shadow-sm hover:shadow-md transition-all">
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                  <Globe size={14} className="text-blue-500" />
+                                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">#{order.id.slice(-6)}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {order.orderSource && (
+                                    <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                                      order.orderSource === 'online' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' :
+                                      order.orderSource === 'qr_order' ? 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400' :
+                                      'bg-gray-100 text-gray-500'
+                                    }`}>
+                                      {order.orderSource === 'online' ? 'Online' : order.orderSource === 'qr_order' ? 'QR' : order.orderSource}
+                                    </span>
+                                  )}
+                                  <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                                    order.status === OrderStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                    order.status === OrderStatus.ONGOING ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                    order.status === OrderStatus.SERVED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                    order.status === OrderStatus.COMPLETED ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                                    'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                  }`}>{order.status}</span>
+                                </div>
+                              </div>
+                              {order.tableNumber && order.tableNumber !== 'N/A' && (
+                                <div className="flex items-center gap-1.5 mb-2">
+                                  <Hash size={12} className="text-gray-400" />
+                                  <span className="text-[10px] font-black text-gray-500 dark:text-gray-400">Table {order.tableNumber}</span>
+                                </div>
+                              )}
+                              <div className="space-y-1 mb-3">
+                                {order.items.map((item, idx) => (
+                                  <div key={idx} className="flex items-center justify-between text-xs">
+                                    <span className="text-gray-600 dark:text-gray-300">{item.quantity}x {item.name}</span>
+                                    <span className="font-bold dark:text-white">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              {order.remark && (
+                                <div className="mb-3 p-2 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-lg">
+                                  <p className="text-[9px] text-gray-600 dark:text-gray-300 italic">{order.remark}</p>
+                                </div>
+                              )}
+                              <div className="flex items-center justify-between pt-3 border-t dark:border-gray-700">
+                                <span className="text-[10px] text-gray-400">{new Date(order.timestamp).toLocaleString()}</span>
+                                <span className="text-sm font-black dark:text-white">{currencySymbol}{order.total.toFixed(2)}</span>
+                              </div>
+                              {(order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) && (
+                                <div className="flex gap-2 mt-3">
+                                  {order.status === OrderStatus.PENDING && (
+                                    <button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className="flex-1 py-2.5 bg-blue-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-1.5">
+                                      <CheckCircle size={14} /> Accept
+                                    </button>
+                                  )}
+                                  {order.status === OrderStatus.PENDING && (
+                                    <button onClick={() => {
+                                      if (onKitchenUpdateOrder) onKitchenUpdateOrder(order.id, OrderStatus.CANCELLED, 'Rejected by vendor');
+                                      else onUpdateOrder(order.id, OrderStatus.CANCELLED);
+                                    }} className="py-2.5 px-3 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-red-200 dark:hover:bg-red-900/40 transition-all">
+                                      <X size={14} />
+                                    </button>
+                                  )}
+                                  {order.status === OrderStatus.ONGOING && (
+                                    <button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className="flex-1 py-2.5 bg-green-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-1.5">
+                                      <CheckCircle2 size={14} /> Mark Ready
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                              {order.status === OrderStatus.SERVED && (
+                                <div className="flex gap-2 mt-3">
+                                  <button onClick={() => {
+                                    setSelectedQrOrderForPayment(order);
+                                    setPendingOrderData({
+                                      items: order.items,
+                                      remark: order.remark,
+                                      tableNumber: order.tableNumber,
+                                      total: order.total,
+                                    });
+                                    setSelectedCashAmount(order.total);
+                                    setCashAmountInput(order.total.toFixed(2));
+                                    setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
+                                    setIsQrPaymentMode(true);
+                                    setShowPaymentModal(true);
+                                  }} className="flex-1 py-2.5 bg-blue-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-1.5">
+                                    <CreditCard size={14} /> Mark Paid
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
-                        <div className="flex items-center justify-between pt-3 border-t dark:border-gray-700">
-                          <span className="text-[10px] text-gray-400">{new Date(order.timestamp).toLocaleString()}</span>
-                          <span className="text-sm font-black dark:text-white">{order.total.toFixed(2)}</span>
+                      );
+                    })()}
+                  </>
+                )}
+
+                {/* ── Product Sub-tab ── */}
+                {onlineOrderSubTab === 'PRODUCT' && (
+                  <div>
+                    <div className="mb-6">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest mb-4">Products available on your online shop.</p>
+                    </div>
+                    {(() => {
+                      const onlineMenu = restaurant.menu.filter(item => !item.isArchived);
+                      if (onlineMenu.length === 0) {
+                        return (
+                          <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
+                            <Package size={32} className="mx-auto text-gray-300 mb-3" />
+                            <p className="text-sm font-black dark:text-white mb-1">No Products</p>
+                            <p className="text-[10px] text-gray-400">Add items in Menu Editor to display them on your online shop.</p>
+                          </div>
+                        );
+                      }
+
+                      const categories = Array.from(new Set(onlineMenu.map(item => item.category))).sort();
+
+                      return (
+                        <div className="space-y-6">
+                          {categories.map(category => (
+                            <div key={category}>
+                              <h3 className="text-sm font-black dark:text-white uppercase tracking-widest mb-3 flex items-center gap-2">
+                                <Tag size={14} className="text-orange-500" />
+                                {category}
+                              </h3>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                {onlineMenu.filter(item => item.category === category).map(item => (
+                                  <div key={item.id} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-3 shadow-sm flex items-center gap-3">
+                                    {item.image && (
+                                      <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-black dark:text-white truncate">{item.name}</p>
+                                      {item.description && <p className="text-[9px] text-gray-400 truncate">{item.description}</p>}
+                                      <p className="text-xs font-black text-orange-500 mt-0.5">{currencySymbol}{item.price.toFixed(2)}</p>
+                                    </div>
+                                    {item.sizes && item.sizes.length > 0 && (
+                                      <span className="text-[8px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase">{item.sizes.length} sizes</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                        {(order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) && (
-                          <div className="flex gap-2 mt-3">
-                            {order.status === OrderStatus.PENDING && (
-                              <button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className="flex-1 py-2 bg-blue-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-blue-600 transition-all">Accept</button>
-                            )}
-                            <button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className="flex-1 py-2 bg-green-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all">Serve</button>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* ── Setting Sub-tab ── */}
+                {onlineOrderSubTab === 'SETTING' && (
+                  <div>
+                    {/* Account Balance Card */}
+                    <div className="bg-gradient-to-r from-indigo-500 to-blue-600 rounded-2xl p-6 mb-6 text-white shadow-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <CreditCard size={16} />
+                          <span className="text-[10px] font-black uppercase tracking-widest opacity-80">Online Account Balance</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (!subscription?.stripe_customer_id) return;
+                            setIsLoadingStripeBalance(true);
+                            fetch(`/api/stripe/billing?action=balance&customerId=${encodeURIComponent(subscription.stripe_customer_id)}`)
+                              .then(r => r.json())
+                              .then(data => setOnlineStripeBalance(data.balance ?? 0))
+                              .catch(() => setOnlineStripeBalance(0))
+                              .finally(() => setIsLoadingStripeBalance(false));
+                          }}
+                          className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-all"
+                        >
+                          <RotateCw size={12} className={isLoadingStripeBalance ? 'animate-spin' : ''} />
+                        </button>
+                      </div>
+                      <p className="text-3xl font-black">
+                        {isLoadingStripeBalance ? (
+                          <span className="text-white/50">Loading...</span>
+                        ) : onlineStripeBalance !== null ? (
+                          `${currencySymbol}${(onlineStripeBalance / 100).toFixed(2)}`
+                        ) : (
+                          <span className="text-white/50">{subscription?.stripe_customer_id ? 'Tap refresh' : 'No Stripe account'}</span>
+                        )}
+                      </p>
+                      <p className="text-[10px] opacity-70 mt-1">Revenue collected from online Stripe payments</p>
+                    </div>
+
+                    {/* Online Shop Settings */}
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 mb-4">
+                      <h3 className="text-sm font-black dark:text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <Settings size={16} className="text-orange-500" />
+                        Online Shop Configuration
+                      </h3>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                          <div>
+                            <p className="text-xs font-black dark:text-white">Shop Status</p>
+                            <p className="text-[9px] text-gray-400">Your online shop is currently {restaurant.isOnline ? 'accepting' : 'not accepting'} orders.</p>
+                          </div>
+                          <span className={`text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${restaurant.isOnline ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'}`}>
+                            {restaurant.isOnline ? 'Online' : 'Offline'}
+                          </span>
+                        </div>
+
+                        {restaurant.slug && (
+                          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-black dark:text-white">Shop Link</p>
+                              <p className="text-[9px] text-gray-400 truncate">Share this link for customers to order online.</p>
+                            </div>
+                            <button
+                              onClick={() => {
+                                const url = `${window.location.origin}?r=${restaurant.slug}`;
+                                navigator.clipboard.writeText(url);
+                                toast('Shop link copied to clipboard!', 'success');
+                              }}
+                              className="ml-3 shrink-0 px-3 py-1.5 bg-orange-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center gap-1.5"
+                            >
+                              <ExternalLink size={12} /> Copy Link
+                            </button>
                           </div>
                         )}
+
+                        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                          <div>
+                            <p className="text-xs font-black dark:text-white">Menu Items</p>
+                            <p className="text-[9px] text-gray-400">Total active items available for online customers.</p>
+                          </div>
+                          <span className="text-sm font-black text-orange-500">{restaurant.menu.filter(m => !m.isArchived).length}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                          <div>
+                            <p className="text-xs font-black dark:text-white">Plan</p>
+                            <p className="text-[9px] text-gray-400">Your current subscription plan.</p>
+                          </div>
+                          <span className="text-[9px] font-black px-3 py-1 rounded-full bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 uppercase tracking-widest">
+                            {subscription?.plan_id?.replace('_', ' ') || 'Basic'}
+                          </span>
+                        </div>
                       </div>
-                    ))}
+                    </div>
                   </div>
-                );
-              })()}
+                )}
+              </div>
             </div>
           )}
 
@@ -6647,6 +6922,16 @@ const PosOnlyView: React.FC<Props> = ({
                                 <Hash size={12} className="text-orange-500" />
                                 <span className="text-xs font-black">Table {order.tableNumber}</span>
                               </div>
+                              {order.orderSource && (
+                                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                                  order.orderSource === 'counter' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' :
+                                  order.orderSource === 'qr_order' ? 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400' :
+                                  order.orderSource === 'online' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' :
+                                  'bg-gray-100 text-gray-500'
+                                }`}>
+                                  {order.orderSource === 'counter' ? 'Counter' : order.orderSource === 'qr_order' ? 'QR Order' : order.orderSource === 'online' ? 'Online' : order.orderSource}
+                                </span>
+                              )}
                             </div>
                             <div className="flex items-center gap-2">
                               <Clock size={14} className="text-gray-400" />
@@ -7435,6 +7720,19 @@ const PosOnlyView: React.FC<Props> = ({
                   {selectedReportOrder.status === OrderStatus.COMPLETED ? 'Paid' : selectedReportOrder.status === OrderStatus.SERVED ? 'Served' : selectedReportOrder.status === OrderStatus.CANCELLED ? 'Refunded' : selectedReportOrder.status}
                 </span>
               </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Source</span>
+                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                  selectedReportOrder.orderSource === 'counter' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' :
+                  selectedReportOrder.orderSource === 'qr_order' ? 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400' :
+                  selectedReportOrder.orderSource === 'online' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' :
+                  'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                }`}>
+                  {selectedReportOrder.orderSource === 'counter' ? 'Counter' :
+                   selectedReportOrder.orderSource === 'qr_order' ? 'QR Order' :
+                   selectedReportOrder.orderSource === 'online' ? 'Online' : '-'}
+                </span>
+              </div>
 
               <div className="border-t dark:border-gray-700 pt-3">
                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Items</p>
@@ -7745,6 +8043,7 @@ const PosOnlyView: React.FC<Props> = ({
                           cashierName: cashierName || '',
                           amountReceived: collectCashAmount,
                           changeAmount: changeAmt,
+                          orderSource: selectedReportOrder.orderSource,
                         }]);
                         setCollectPaymentSuccess(true);
                       } catch (err: any) {

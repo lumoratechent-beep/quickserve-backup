@@ -254,6 +254,7 @@ const StandardReport: React.FC<Props> = ({
                 <th className="px-4 py-3 text-left">Date</th>
                 <th className="px-4 py-3 text-left">Time</th>
                 <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-left">Source</th>
                 <th className="px-4 py-3 text-left">Payment</th>
                 <th className="px-4 py-3 text-left">Cashier</th>
                 <th className="px-4 py-3 text-right">Bill</th>
@@ -284,6 +285,18 @@ const StandardReport: React.FC<Props> = ({
                       'bg-orange-100 text-orange-600'
                     }`}>
                       {report.status === OrderStatus.COMPLETED ? 'Paid' : report.status === OrderStatus.SERVED ? 'Served' : report.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2">
+                    <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                      report.orderSource === 'counter' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' :
+                      report.orderSource === 'qr_order' ? 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400' :
+                      report.orderSource === 'online' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' :
+                      'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                    }`}>
+                      {report.orderSource === 'counter' ? 'Counter' :
+                       report.orderSource === 'qr_order' ? 'QR Order' :
+                       report.orderSource === 'online' ? 'Online' : '-'}
                     </span>
                   </td>
                   <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">{report.paymentMethod || '-'}</td>
