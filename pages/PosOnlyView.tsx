@@ -790,6 +790,7 @@ const PosOnlyView: React.FC<Props> = ({
       barcode: (formItem.barcode || '').trim(),
       soldBy: formItem.soldBy || 'each',
       trackStock: formItem.trackStock || false,
+      color: formItem.color || undefined,
     };
 
     setIsSavingMenuItem(true);

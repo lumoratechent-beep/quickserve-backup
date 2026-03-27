@@ -472,6 +472,7 @@ const App: React.FC = () => {
             barcode: others.barcode ?? '',
             soldBy: others.soldBy ?? 'each',
             trackStock: others.trackStock ?? false,
+            color: others.color ?? undefined,
           };
         })
       }));
@@ -1108,6 +1109,7 @@ const App: React.FC = () => {
         barcode: item.barcode ?? '',
         soldBy: item.soldBy ?? 'each',
         trackStock: item.trackStock ?? false,
+        color: item.color ?? null,
       },
       add_ons: item.addOns || []
     }).eq('id', item.id);
@@ -1143,6 +1145,7 @@ const App: React.FC = () => {
         barcode: item.barcode ?? '',
         soldBy: item.soldBy ?? 'each',
         trackStock: item.trackStock ?? false,
+        color: item.color ?? null,
       },
       add_ons: item.addOns || []
     });
