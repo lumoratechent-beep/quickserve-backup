@@ -11,24 +11,70 @@
     @apply transition-colors duration-300;
     letter-spacing: 0.03em;
   }
-  /* Soften light-mode grey tones */
+  /* =====================================================
+     LIGHT MODE — Elevated Token System
+     All values designed to meet WCAG AA (4.5:1) on white
+     ===================================================== */
+
+  /* Semantic CSS variables for light / dark */
   :root:not(.dark) {
-    --tw-bg-opacity: 1;
+    --qs-bg-main:        #F1F5F9; /* page background     */
+    --qs-bg-card:        #ffffff; /* card / panel        */
+    --qs-bg-input:       #F8FAFC; /* input inner fill    */
+    --qs-border-subtle:  #E2E8F0; /* dividers / inner    */
+    --qs-border-default: #CBD5E1; /* card & input edges  */
+    --qs-text-primary:   #0F172A;
+    --qs-text-secondary: #475569;
+    --qs-text-muted:     #64748B;
+    color-scheme: light;
   }
+  .dark {
+    --qs-bg-main:        #0F172A;
+    --qs-bg-card:        #1E293B;
+    --qs-border-subtle:  #334155;
+    --qs-border-default: #475569;
+    --qs-text-primary:   #F8FAFC;
+    --qs-text-secondary: #CBD5E1;
+    --qs-text-muted:     #94A3B8;
+    color-scheme: dark;
+  }
+
+  /* --- Background layers --- */
   :root:not(.dark) .bg-gray-50 {
-    background-color: #FAFAF9;
+    background-color: #F1F5F9; /* page / section bg — clearly off-white against #FFF cards */
   }
   :root:not(.dark) .bg-gray-100 {
-    background-color: #F5F5F4;
+    background-color: #E2E8F0; /* tab / toggle / input bg — visibly distinct */
   }
   :root:not(.dark) .bg-gray-200 {
-    background-color: #E7E5E4;
+    background-color: #CBD5E1; /* secondary surfaces */
   }
+
+  /* --- Border visibility --- */
   :root:not(.dark) .border-gray-200 {
-    border-color: #E7E5E4;
+    border-color: #CBD5E1; /* 1.9× contrast on white — clearly legible edge */
   }
   :root:not(.dark) .border-gray-100 {
-    border-color: #F5F5F4;
+    border-color: #E2E8F0; /* subtle inner dividers */
+  }
+
+  /* --- Text contrast (WCAG AA baseline) --- */
+  :root:not(.dark) .text-gray-300 {
+    color: #94A3B8; /* icons / decorative  — up from invisible #D1D5DB */
+  }
+  :root:not(.dark) .text-gray-400 {
+    color: #64748B; /* muted labels — 4.6:1 on white  ✓ WCAG AA */
+  }
+  :root:not(.dark) .text-gray-500 {
+    color: #475569; /* secondary text — 6.6:1 on white ✓ WCAG AA */
+  }
+
+  /* --- Card elevation — strengthen shadow-sm for light mode --- */
+  :root:not(.dark) .shadow-sm {
+    --tw-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.07), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+    box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000),
+                var(--tw-ring-shadow, 0 0 #0000),
+                var(--tw-shadow);
   }
 }
 

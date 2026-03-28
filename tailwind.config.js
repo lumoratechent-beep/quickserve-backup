@@ -26,9 +26,9 @@ export default {
       },
       colors: {
         gray: {
-          50: '#eef0f3',
-          100: '#dfe2e6',
-          200: '#c8ccd3',
+          50:  '#F1F5F9', // slate-100 — page/input bg
+          100: '#E2E8F0', // slate-200 — tab/toggle bg
+          200: '#CBD5E1', // slate-300 — default border via Tailwind preflight
         },
       },
       animation: {
