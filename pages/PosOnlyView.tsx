@@ -344,6 +344,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [menuCategoryFilter, setMenuCategoryFilter] = useState<string>('All');
   const [menuSubTab, setMenuSubTab] = useState<'KITCHEN' | 'CATEGORY' | 'MODIFIER' | 'ADDON'>('KITCHEN');
   const [onlineOrderSubTab, setOnlineOrderSubTab] = useState<'INCOMING' | 'PRODUCT' | 'WALLET' | 'SETTING'>('INCOMING');
+  const [qrOrderSubTab, setQrOrderSubTab] = useState<'INCOMING' | 'SETTING'>('INCOMING');
   const [onlineStripeBalance, setOnlineStripeBalance] = useState<number | null>(null);
   const [isLoadingStripeBalance, setIsLoadingStripeBalance] = useState(false);
   const [onlineProductView, setOnlineProductView] = useState<'list' | 'grid'>('list');
@@ -6515,45 +6516,80 @@ const PosOnlyView: React.FC<Props> = ({
             />
           )}
 
-          {/* QR Orders Tab */}
+          {/* QR Orders Tab - Document-style sub-tabs */}
           {activeTab === 'QR_ORDERS' && showQrFeature && (
-            <div className="flex-1 overflow-y-auto p-4 md:p-8">
-              <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-                <div>
-                  <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter">QR Orders</h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1 uppercase tracking-widest">Manage incoming orders from QR scan customers.</p>
+            <div className="flex-1 overflow-y-auto p-4 md:p-6">
+              <div className="max-w-7xl mx-auto w-full">
+                {/* Header */}
+                <div className="mb-5">
+                  <h2 className="text-lg font-black dark:text-white uppercase tracking-tighter">QR Orders</h2>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Manage incoming orders from QR scan customers.</p>
                 </div>
-                <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm overflow-x-auto hide-scrollbar">
-                  <button onClick={() => setQrOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Ongoing</button>
-                  <button onClick={() => setQrOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Served</button>
-                  <button onClick={() => setQrOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>Cancelled</button>
-                  <button onClick={() => setQrOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>All</button>
+
+                {/* Document-style tab bar */}
+                <div className="flex gap-0 overflow-x-auto hide-scrollbar relative z-10">
+                  {([
+                    { id: 'INCOMING' as const, label: 'Incoming Orders', icon: <QrCode size={13} /> },
+                    { id: 'SETTING' as const, label: 'Setting', icon: <Settings size={13} /> },
+                  ]).map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setQrOrderSubTab(tab.id)}
+                      className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider border border-b-0 rounded-t-xl transition-all -mb-px whitespace-nowrap ${
+                        qrOrderSubTab === tab.id
+                          ? 'bg-white dark:bg-gray-800 text-orange-600 dark:text-orange-400 border-gray-200 dark:border-gray-700 relative z-10'
+                          : 'bg-gray-100 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 border-transparent hover:bg-gray-200 dark:hover:bg-gray-800/60 hover:text-gray-700 dark:hover:text-gray-300'
+                      }`}
+                    >
+                      {tab.icon}
+                      {tab.label}
+                    </button>
+                  ))}
                 </div>
-              </div>
 
-              {(() => {
-                const filteredQrOrders = orders.filter(o => {
-                  if (o.orderSource !== 'qr_order') return false;
-                  if (qrOrderFilter === 'ALL') return true;
-                  if (qrOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
-                  return o.status === qrOrderFilter;
-                });
+                {/* Sub-tab content */}
+                <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl ${
+                  qrOrderSubTab === 'INCOMING' ? 'rounded-tr-2xl' : 'rounded-t-2xl'
+                }`} style={{ marginTop: '-1px' }}>
 
-                if (filteredQrOrders.length === 0) {
-                  return (
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
-                      <div className="w-16 h-16 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
-                        <QrCode size={24} />
+                {/* ── Incoming Orders Sub-tab ── */}
+                {qrOrderSubTab === 'INCOMING' && (
+                  <>
+                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Manage orders placed via QR table scan.</p>
+                      <div className="flex items-center gap-3">
+                        <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm overflow-x-auto hide-scrollbar">
+                          <button onClick={() => setQrOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Ongoing</button>
+                          <button onClick={() => setQrOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Served</button>
+                          <button onClick={() => setQrOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Cancelled</button>
+                          <button onClick={() => setQrOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>All</button>
+                        </div>
                       </div>
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white uppercase tracking-tighter">No QR Orders</h3>
-                      <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">Waiting for customers to scan and order...</p>
                     </div>
-                  );
-                }
 
-                return (
-                  <div className="space-y-4">
-                    {filteredQrOrders.map(order => (
+                    {(() => {
+                      const filteredQrOrders = orders.filter(o => {
+                        if (o.orderSource !== 'qr_order') return false;
+                        if (qrOrderFilter === 'ALL') return true;
+                        if (qrOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
+                        return o.status === qrOrderFilter;
+                      });
+
+                      if (filteredQrOrders.length === 0) {
+                        return (
+                          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-600">
+                            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                              <QrCode size={24} />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white uppercase tracking-tighter">No QR Orders</h3>
+                            <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">Waiting for customers to scan and order...</p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-4">
+                          {filteredQrOrders.map(order => (
                       <div key={order.id} className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-start gap-6 transition-all hover:border-orange-200">
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-4">
@@ -6695,10 +6731,45 @@ const PosOnlyView: React.FC<Props> = ({
                   </div>
                 );
               })()}
+                  </>
+                )}
+
+                {/* ── Setting Sub-tab ── */}
+                {qrOrderSubTab === 'SETTING' && (
+                  <div className="space-y-4">
+                    {canUseQr ? (
+                      <>
+                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                          <div>
+                            <p className="text-xs font-black dark:text-white">QR Ordering</p>
+                            <p className="text-[9px] text-gray-400 mt-0.5">Let customers scan QR codes to order from their table</p>
+                          </div>
+                          <button
+                            onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
+                            className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                          >
+                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
+                          </button>
+                        </div>
+                        {featureSettings.qrEnabled && renderQrGeneratorContent()}
+                      </>
+                    ) : (
+                      <div className="text-center py-8">
+                        <QrCode size={36} className="mx-auto text-gray-300 mb-3" />
+                        <p className="text-sm font-black dark:text-white mb-1">Upgrade to Pro</p>
+                        <p className="text-[10px] text-gray-400 mb-4">QR Ordering requires the Pro plan or higher</p>
+                        <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Online Orders Tab - Enhanced with document-style sub-tabs */}
+
           {activeTab === 'ONLINE_ORDERS' && showOnlineShopFeature && (
             <div className="flex-1 overflow-y-auto p-4 md:p-6">
               <div className="max-w-7xl mx-auto w-full">
