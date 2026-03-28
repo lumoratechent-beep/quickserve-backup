@@ -4057,66 +4057,11 @@ const PosOnlyView: React.FC<Props> = ({
 
     return (
       <div className="space-y-6">
-        {/* Two-column layout: Left config, Right single preview */}
+        {/* Two-column layout: Left preview, Right config */}
         <div className="flex flex-col lg:flex-row gap-6">
 
-          {/* Left: Configuration Inputs */}
-          <div className="flex-1 space-y-4">
-            {/* Location Name */}
-            <div>
-              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">{restaurant.location === QS_DEFAULT_HUB ? 'Restaurant Name (for labels)' : 'Location Name'}</label>
-              <input
-                type="text"
-                value={qrGenLocation || (restaurant.location === QS_DEFAULT_HUB ? restaurant.name : restaurant.location)}
-                onChange={e => setQrGenLocation(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                placeholder={restaurant.location === QS_DEFAULT_HUB ? restaurant.name : (restaurant.location || 'e.g. Main Hall')}
-              />
-              <p className="text-[9px] text-gray-400 mt-1 ml-1">{restaurant.location === QS_DEFAULT_HUB ? 'Used as a label on printed QR codes' : <span>Maps to the <code className="font-mono">?loc=</code> parameter in the QR URL</span>}</p>
-            </div>
-
-            {/* Table Prefix */}
-            <div>
-              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Table Prefix</label>
-              <input
-                type="text"
-                value={qrGenTablePrefix}
-                onChange={e => setQrGenTablePrefix(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                placeholder="Table "
-              />
-            </div>
-
-            {/* Start Number | Number of Tables */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Start Number</label>
-                <input
-                  type="number"
-                  value={qrGenStartNum}
-                  onChange={e => setQrGenStartNum(e.target.value)}
-                  min="1"
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                  placeholder="1"
-                />
-              </div>
-              <div>
-                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Number of Tables (max 50)</label>
-                <input
-                  type="number"
-                  value={qrGenTableCount}
-                  onChange={e => setQrGenTableCount(e.target.value)}
-                  min="1"
-                  max="50"
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                  placeholder="10"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Right: Single QR Preview */}
-          <div className="w-full lg:w-60 bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 flex flex-col gap-3 border dark:border-gray-600">
+          {/* Left: Single QR Preview */}
+          <div className="w-full lg:w-56 bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 flex flex-col gap-3 border dark:border-gray-600 shrink-0">
             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Single QR Preview</p>
             <input
               type="text"
@@ -4129,7 +4074,7 @@ const PosOnlyView: React.FC<Props> = ({
               const t = qrGenPreviewTable || tableNames[0];
               if (!t) return null;
               return (
-                <div className="flex flex-col items-center gap-2 py-1">
+                <div className="flex flex-col items-center gap-2 py-1 flex-1">
                   <img
                     src={buildQrImageUrl(t)}
                     alt={`QR for ${t}`}
@@ -4139,7 +4084,7 @@ const PosOnlyView: React.FC<Props> = ({
                   <p className="text-[8px] text-gray-400 font-mono text-center break-all w-full leading-relaxed">{buildQrUrl(t)}</p>
                   <button
                     onClick={() => handleDownloadQr(t)}
-                    className="w-full py-2 bg-orange-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
+                    className="w-full py-2 bg-orange-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2 mt-auto"
                   >
                     <Download size={13} /> Download
                   </button>
@@ -4147,18 +4092,91 @@ const PosOnlyView: React.FC<Props> = ({
               );
             })()}
           </div>
+
+          {/* Right: Configuration Inputs + Actions */}
+          <div className="flex-1 flex flex-col justify-between gap-4">
+            <div className="space-y-4">
+              {/* Location Name */}
+              <div>
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">{restaurant.location === QS_DEFAULT_HUB ? 'Restaurant Name (for labels)' : 'Location Name'}</label>
+                <input
+                  type="text"
+                  value={qrGenLocation || (restaurant.location === QS_DEFAULT_HUB ? restaurant.name : restaurant.location)}
+                  onChange={e => setQrGenLocation(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                  placeholder={restaurant.location === QS_DEFAULT_HUB ? restaurant.name : (restaurant.location || 'e.g. Main Hall')}
+                />
+                <p className="text-[9px] text-gray-400 mt-1 ml-1">{restaurant.location === QS_DEFAULT_HUB ? 'Used as a label on printed QR codes' : <span>Maps to the <code className="font-mono">?loc=</code> parameter in the QR URL</span>}</p>
+              </div>
+
+              {/* Table Prefix */}
+              <div>
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Table Prefix</label>
+                <input
+                  type="text"
+                  value={qrGenTablePrefix}
+                  onChange={e => setQrGenTablePrefix(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                  placeholder="Table "
+                />
+              </div>
+
+              {/* Start Number | Number of Tables */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Start Number</label>
+                  <input
+                    type="number"
+                    value={qrGenStartNum}
+                    onChange={e => setQrGenStartNum(e.target.value)}
+                    min="1"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                    placeholder="1"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Number of Tables (max 50)</label>
+                  <input
+                    type="number"
+                    value={qrGenTableCount}
+                    onChange={e => setQrGenTableCount(e.target.value)}
+                    min="1"
+                    max="50"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                    placeholder="10"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={handlePrintQrs}
+                className="flex-1 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-500 hover:text-white dark:hover:bg-orange-500 dark:hover:text-white transition-all flex items-center justify-center gap-2"
+              >
+                <Printer size={13} /> Print All
+              </button>
+              <button
+                onClick={() => {
+                  setQrGenLocation('');
+                  setQrGenTablePrefix('Table ');
+                  setQrGenStartNum('1');
+                  setQrGenTableCount('10');
+                  setQrGenPreviewTable('');
+                }}
+                className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-all flex items-center justify-center gap-2"
+              >
+                <RotateCcw size={13} /> Reset
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Bulk QR Grid */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{count} Table QR Codes</p>
-            <button
-              onClick={handlePrintQrs}
-              className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-500 hover:text-white dark:hover:bg-orange-500 dark:hover:text-white transition-all flex items-center gap-2"
-            >
-              <Printer size={14} /> Print All
-            </button>
           </div>
           <div className="grid grid-cols-10 gap-2 max-h-64 overflow-y-auto pr-1">
             {tableNames.map(t => (
