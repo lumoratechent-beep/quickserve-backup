@@ -288,6 +288,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [counterMode, setCounterMode] = useState<'SAVED_BILL' | 'COUNTER_ORDER' | 'QR_ORDER'>('COUNTER_ORDER');
   const [selectedQrOrderForPayment, setSelectedQrOrderForPayment] = useState<Order | null>(null);
   const [qrOrderFilter, setQrOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
+  const [onlineOrderFilter, setOnlineOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
   const [rejectingQrOrderId, setRejectingQrOrderId] = useState<string | null>(null);
   const [qrRejectionReason, setQrRejectionReason] = useState('Item out of stock');
   const [qrRejectionNote, setQrRejectionNote] = useState('');
@@ -517,24 +518,21 @@ const PosOnlyView: React.FC<Props> = ({
   // Feature settings
   const [featureSettings, setFeatureSettings] = useState<FeatureSettings>(() => {
     const defaults = getDefaultFeatureSettings();
-    // Priority 1: DB settings (cross-device)
-    const dbSaved = restaurant.settings?.features;
-    if (dbSaved && typeof dbSaved === 'object') {
-      const merged = { ...defaults, ...dbSaved };
-      if (restaurant.kitchenEnabled && !merged.kitchenEnabled) merged.kitchenEnabled = true;
-      return merged;
-    }
-    // Priority 2: localStorage (same-device offline cache)
+    // Apply kitchenEnabled from dedicated DB column as the base default only
+    if (restaurant.kitchenEnabled) defaults.kitchenEnabled = true;
+    // Priority 1: localStorage (most recent — written synchronously on every change)
     const saved = localStorage.getItem(`features_${restaurant.id}`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        const merged = { ...defaults, ...parsed };
-        if (restaurant.kitchenEnabled && !merged.kitchenEnabled) merged.kitchenEnabled = true;
-        return merged;
+        return { ...defaults, ...parsed };
       } catch {}
     }
-    if (restaurant.kitchenEnabled) defaults.kitchenEnabled = true;
+    // Priority 2: DB settings.features (cross-device, may lag up to 1.5s behind)
+    const dbSaved = restaurant.settings?.features;
+    if (dbSaved && typeof dbSaved === 'object') {
+      return { ...defaults, ...dbSaved };
+    }
     return defaults;
   });
   const [tableCountDraft, setTableCountDraft] = useState<string>('12');
@@ -6535,6 +6533,7 @@ const PosOnlyView: React.FC<Props> = ({
 
               {(() => {
                 const filteredQrOrders = orders.filter(o => {
+                  if (o.orderSource !== 'qr_order') return false;
                   if (qrOrderFilter === 'ALL') return true;
                   if (qrOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
                   return o.status === qrOrderFilter;
@@ -6754,21 +6753,21 @@ const PosOnlyView: React.FC<Props> = ({
                       <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Manage orders placed via your online shop link.</p>
                       <div className="flex items-center gap-3">
                         <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm overflow-x-auto hide-scrollbar">
-                          <button onClick={() => setQrOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Ongoing</button>
-                          <button onClick={() => setQrOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Served</button>
-                          <button onClick={() => setQrOrderFilter(OrderStatus.COMPLETED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.COMPLETED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Paid</button>
-                          <button onClick={() => setQrOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Cancelled</button>
-                          <button onClick={() => setQrOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>All</button>
+                          <button onClick={() => setOnlineOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${onlineOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Ongoing</button>
+                          <button onClick={() => setOnlineOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${onlineOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Served</button>
+                          <button onClick={() => setOnlineOrderFilter(OrderStatus.COMPLETED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${onlineOrderFilter === OrderStatus.COMPLETED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Paid</button>
+                          <button onClick={() => setOnlineOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${onlineOrderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Cancelled</button>
+                          <button onClick={() => setOnlineOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${onlineOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>All</button>
                         </div>
                       </div>
                     </div>
 
                     {(() => {
                       const filteredOnlineOrders = orders.filter(o => {
-                        if (o.orderSource && o.orderSource !== 'online') return false;
-                        if (qrOrderFilter === 'ALL') return true;
-                        if (qrOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
-                        return o.status === qrOrderFilter;
+                        if (o.orderSource !== 'online') return false;
+                        if (onlineOrderFilter === 'ALL') return true;
+                        if (onlineOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
+                        return o.status === onlineOrderFilter;
                       });
 
                       if (filteredOnlineOrders.length === 0) {
