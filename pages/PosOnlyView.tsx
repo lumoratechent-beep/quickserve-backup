@@ -6809,7 +6809,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {/* Document-style tab bar */}
-                <div className="flex gap-2 border-b border-gray-200 dark:border-slate-700 overflow-x-auto hide-scrollbar">
+                <div className="flex gap-0 border-b border-gray-200 dark:border-slate-700 overflow-x-auto hide-scrollbar">
                   {([
                     { id: 'INCOMING' as const, label: 'Incoming Orders', icon: <QrCode size={13} /> },
                     { id: 'SETTING' as const, label: 'Setting', icon: <Settings size={13} /> },
@@ -7046,7 +7046,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {/* Document-style tab bar */}
-                <div className="flex gap-2 border-b border-gray-200 dark:border-slate-700 overflow-x-auto hide-scrollbar">
+                <div className="flex gap-0 border-b border-gray-200 dark:border-slate-700 overflow-x-auto hide-scrollbar">
                   {([
                     { id: 'INCOMING' as const, label: 'Incoming Orders', icon: <ShoppingBag size={13} /> },
                     { id: 'PRODUCT' as const, label: 'Product', icon: <Package size={13} /> },
