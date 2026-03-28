@@ -6809,7 +6809,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {/* Document-style tab bar */}
-                <div className="flex gap-0 overflow-x-auto hide-scrollbar relative z-10">
+                <div className="flex gap-2 border-b border-gray-200 dark:border-slate-700 overflow-x-auto hide-scrollbar">
                   {([
                     { id: 'INCOMING' as const, label: 'Incoming Orders', icon: <QrCode size={13} /> },
                     { id: 'SETTING' as const, label: 'Setting', icon: <Settings size={13} /> },
@@ -6817,10 +6817,10 @@ const PosOnlyView: React.FC<Props> = ({
                     <button
                       key={tab.id}
                       onClick={() => setQrOrderSubTab(tab.id)}
-                      className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider border border-b-0 rounded-t-xl transition-all -mb-px whitespace-nowrap ${
+                      className={`flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-t-lg border-x border-t transition-all whitespace-nowrap ${
                         qrOrderSubTab === tab.id
-                          ? 'bg-white dark:bg-gray-800 text-orange-600 dark:text-orange-400 border-gray-200 dark:border-gray-700 relative z-10'
-                          : 'bg-gray-100 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 border-transparent hover:bg-gray-200 dark:hover:bg-gray-800/60 hover:text-gray-700 dark:hover:text-gray-300'
+                          ? 'bg-gray-100 dark:bg-slate-800 text-orange-500 border-gray-300 dark:border-slate-700'
+                          : 'bg-gray-50 dark:bg-[rgba(255,255,255,0.05)] text-gray-500 dark:text-slate-400 border-gray-200 dark:border-slate-800/50 hover:bg-gray-200 dark:hover:bg-slate-800/60 hover:text-gray-700 dark:hover:text-slate-300'
                       }`}
                     >
                       {tab.icon}
@@ -6830,9 +6830,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {/* Sub-tab content */}
-                <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl ${
-                  qrOrderSubTab === 'INCOMING' ? 'rounded-tr-2xl' : 'rounded-t-2xl'
-                }`} style={{ marginTop: '-1px' }}>
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 border-t-0 shadow-sm p-5 md:p-6 rounded-b-2xl">
 
                 {/* ── Incoming Orders Sub-tab ── */}
                 {qrOrderSubTab === 'INCOMING' && (
@@ -7048,7 +7046,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {/* Document-style tab bar */}
-                <div className="flex gap-0 overflow-x-auto hide-scrollbar relative z-10">
+                <div className="flex gap-2 border-b border-gray-200 dark:border-slate-700 overflow-x-auto hide-scrollbar">
                   {([
                     { id: 'INCOMING' as const, label: 'Incoming Orders', icon: <ShoppingBag size={13} /> },
                     { id: 'PRODUCT' as const, label: 'Product', icon: <Package size={13} /> },
@@ -7069,10 +7067,10 @@ const PosOnlyView: React.FC<Props> = ({
                             .finally(() => setIsLoadingStripeBalance(false));
                         }
                       }}
-                      className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider border border-b-0 rounded-t-xl transition-all -mb-px whitespace-nowrap ${
+                      className={`flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-t-lg border-x border-t transition-all whitespace-nowrap ${
                         onlineOrderSubTab === tab.id
-                          ? 'bg-white dark:bg-gray-800 text-orange-600 dark:text-orange-400 border-gray-200 dark:border-gray-700 relative z-10'
-                          : 'bg-gray-100 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 border-transparent hover:bg-gray-200 dark:hover:bg-gray-800/60 hover:text-gray-700 dark:hover:text-gray-300'
+                          ? 'bg-gray-100 dark:bg-slate-800 text-orange-500 border-gray-300 dark:border-slate-700'
+                          : 'bg-gray-50 dark:bg-[rgba(255,255,255,0.05)] text-gray-500 dark:text-slate-400 border-gray-200 dark:border-slate-800/50 hover:bg-gray-200 dark:hover:bg-slate-800/60 hover:text-gray-700 dark:hover:text-slate-300'
                       }`}
                     >
                       {tab.icon}
@@ -7082,9 +7080,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {/* Sub-tab content */}
-                <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl ${
-                  onlineOrderSubTab === 'INCOMING' ? 'rounded-tr-2xl' : 'rounded-t-2xl'
-                }`} style={{ marginTop: '-1px' }}>
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 border-t-0 shadow-sm p-5 md:p-6 rounded-b-2xl">
                 {/* ── Incoming Orders Sub-tab ── */}
                 {onlineOrderSubTab === 'INCOMING' && (
                   <>
