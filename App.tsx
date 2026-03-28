@@ -9,7 +9,7 @@ import MarketingPage from './pages/MarketingPage';
 import RegisterPage from './pages/RegisterPage';
 import OnlineShopPage from './pages/OnlineShopPage';
 import { supabase } from './lib/supabase';
-import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, X as XIcon } from 'lucide-react';
+import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, ChevronLeft } from 'lucide-react';
 import * as offlineQueue from './lib/offlineOrdersQueue';
 import { toast } from './components/Toast';
 
@@ -233,7 +233,7 @@ const App: React.FC = () => {
   const [stripeRedirect] = useState(() => stripeRedirectRef.current());
 
   const [onlineShopSlug, setOnlineShopSlug] = useState<string | null>(null);
-  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS' | 'BACK_OFFICE' | 'ONLINE_SHOP'>(() => {
+  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS' | 'BACK_OFFICE' | 'ONLINE_SHOP' | 'MAIL'>(() => {
     const savedView = localStorage.getItem('qs_view') as any;
     
     // Handle Stripe payment redirect
@@ -368,8 +368,7 @@ const App: React.FC = () => {
   const [pendingOfflineOrdersCount, setPendingOfflineOrdersCount] = useState(0);
 
   // Announcements / Mail state
-  const [showMailPanel, setShowMailPanel] = useState(false);
-  const [announcements, setAnnouncements] = useState<Array<{id: string; title: string; body: string; category: string; created_at: string; is_read: boolean}>>([]); 
+  const [announcements, setAnnouncements] = useState<Array<{id: string; title: string; body: string; category: string; created_at: string; is_read: boolean}>>([]);
   const [announcementsLoading, setAnnouncementsLoading] = useState(false);
 
   const fetchAnnouncements = useCallback(async (restaurantId?: string) => {
@@ -1910,6 +1909,77 @@ const App: React.FC = () => {
     return <MarketingPage onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
   }
 
+  if (view === 'MAIL') {
+    const prevView = (currentRole === 'VENDOR' || currentRole === 'CASHIER' || currentRole === 'KITCHEN') ? 'APP' : 'MARKETING';
+    return (
+      <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
+        <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-16 flex items-center justify-between px-8 shadow-sm">
+          <button onClick={() => setView(prevView as any)} className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 font-semibold transition-colors">
+            <ChevronLeft size={20} />
+            Back
+          </button>
+          <div className="flex items-center gap-2">
+            <Mail size={18} className="text-orange-500" />
+            <span className="font-black dark:text-white uppercase tracking-tight text-sm">Mail</span>
+          </div>
+          <div className="w-20" />
+        </header>
+        <main className="flex-1 overflow-y-auto p-6 md:p-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="mb-6">
+              <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Inbox</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Announcements and updates from QuickServe.</p>
+            </div>
+            {announcementsLoading ? (
+              <div className="flex items-center justify-center py-32">
+                <RotateCw size={28} className="animate-spin text-gray-400" />
+              </div>
+            ) : announcements.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-32 opacity-40">
+                <Mail size={56} className="mb-4" />
+                <p className="text-base font-bold dark:text-gray-300">No announcements yet</p>
+                <p className="text-sm text-gray-500 mt-1">When the admin sends updates, they will appear here.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {announcements.map(a => (
+                  <div
+                    key={a.id}
+                    onClick={() => { if (!a.is_read) markAnnouncementRead(a.id); }}
+                    className={`p-5 rounded-2xl border transition-all cursor-pointer ${
+                      a.is_read
+                        ? 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'
+                        : 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800/40 shadow-sm'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          {!a.is_read && <span className="w-2 h-2 bg-orange-500 rounded-full shrink-0" />}
+                          <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${
+                            a.category === 'billing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
+                            a.category === 'update' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
+                            a.category === 'maintenance' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
+                            'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                          }`}>{a.category}</span>
+                        </div>
+                        <h3 className={`font-black text-base dark:text-white ${!a.is_read ? '' : 'font-semibold'}`}>{a.title}</h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1.5 whitespace-pre-line leading-relaxed">{a.body}</p>
+                      </div>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 mt-1 whitespace-nowrap">
+                        {new Date(a.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (view === 'BACK_OFFICE' && currentRole === 'VENDOR' && activeVendorRes) {
     const CURRENCY_MAP: Record<string, string> = { MYR: 'RM', USD: '$', EUR: '€', GBP: '£', SGD: 'S$', JPY: '¥', KRW: '₩', INR: '₹', AUD: 'A$', CNY: '¥', TWD: 'NT$', BND: 'B$' };
     const currCode = activeVendorRes.settings?.currency || localStorage.getItem(`ux_currency_${activeVendorRes.id}`) || 'MYR';
@@ -1946,13 +2016,10 @@ const App: React.FC = () => {
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('MARKETING')}>
           <img src={isDarkMode ? "/LOGO/9-dark.png" : "/LOGO/9.png"} alt="QuickServe" className="h-10" />
         </div>
-        <div className="flex items-center gap-4">
-          <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white">
-            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
+        <div className="flex items-center gap-3">
           {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (
             <button
-              onClick={() => { setShowMailPanel(true); fetchAnnouncements(); }}
+              onClick={() => { setView('MAIL'); fetchAnnouncements(); }}
               className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white relative"
               title="Mail"
             >
@@ -1962,6 +2029,24 @@ const App: React.FC = () => {
               )}
             </button>
           )}
+          {/* Theme toggle switch */}
+          <button
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            className={`relative flex items-center w-16 h-8 rounded-full transition-colors duration-300 focus:outline-none ${
+              isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+            }`}
+          >
+            <span className={`absolute left-1 flex items-center justify-center w-6 h-6 rounded-full shadow-md transition-all duration-300 ${
+              isDarkMode ? 'translate-x-8 bg-gray-900' : 'translate-x-0 bg-white'
+            }`}>
+              {isDarkMode
+                ? <Moon size={13} className="text-orange-400" />
+                : <Sun size={13} className="text-orange-500" />}
+            </span>
+            <Sun size={12} className={`absolute left-2 transition-opacity duration-300 ${isDarkMode ? 'opacity-20 text-gray-400' : 'opacity-0'}`} />
+            <Moon size={12} className={`absolute right-2 transition-opacity duration-300 ${isDarkMode ? 'opacity-0' : 'opacity-20 text-gray-400'}`} />
+          </button>
           {currentUser && (
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block">
@@ -2135,73 +2220,6 @@ const App: React.FC = () => {
             onFetchAllFilteredOrders={onFetchAllFilteredOrders}
             onFetchStats={onFetchStats}
           />
-        )}
-
-        {/* Mail Panel Overlay */}
-        {showMailPanel && (
-          <div className="fixed inset-0 z-[99999] flex items-start justify-end" onClick={() => setShowMailPanel(false)}>
-            <div className="absolute inset-0 bg-black/20" />
-            <div
-              className="relative mt-16 mr-4 w-full max-w-lg max-h-[calc(100vh-5rem)] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border dark:border-gray-700 flex flex-col overflow-hidden"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between px-5 py-4 border-b dark:border-gray-700">
-                <div>
-                  <h2 className="text-sm font-black dark:text-white uppercase tracking-tight">Mail</h2>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">Announcements & updates from QuickServe</p>
-                </div>
-                <button onClick={() => setShowMailPanel(false)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-                  <XIcon size={18} />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4">
-                {announcementsLoading ? (
-                  <div className="flex items-center justify-center py-16">
-                    <RotateCw size={24} className="animate-spin text-gray-400" />
-                  </div>
-                ) : announcements.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 opacity-40">
-                    <Mail size={40} className="mb-3" />
-                    <p className="text-sm font-bold dark:text-gray-300">No announcements yet</p>
-                    <p className="text-xs text-gray-500 mt-1">When the admin sends updates, they will appear here.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {announcements.map(a => (
-                      <div
-                        key={a.id}
-                        onClick={() => { if (!a.is_read) markAnnouncementRead(a.id); }}
-                        className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-                          a.is_read
-                            ? 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'
-                            : 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800/40 shadow-sm'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              {!a.is_read && <span className="w-2 h-2 bg-orange-500 rounded-full shrink-0" />}
-                              <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                                a.category === 'billing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
-                                a.category === 'update' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
-                                a.category === 'maintenance' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
-                                'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                              }`}>{a.category}</span>
-                            </div>
-                            <h3 className="font-bold text-sm dark:text-white">{a.title}</h3>
-                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 whitespace-pre-line">{a.body}</p>
-                          </div>
-                          <span className="text-[10px] text-gray-400 dark:text-gray-500 shrink-0 mt-1">
-                            {new Date(a.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
         )}
       </main>
     </div>
