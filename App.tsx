@@ -592,6 +592,8 @@ const App: React.FC = () => {
       if (currentRole === 'CUSTOMER') {
         if (sessionLocation && sessionTable) {
           query = query.eq('location_name', sessionLocation).eq('table_number', sessionTable).limit(10);
+        } else if (sessionRestaurantId && sessionTable) {
+          query = query.eq('restaurant_id', sessionRestaurantId).eq('table_number', sessionTable).limit(10);
         } else {
           isFetchingRef.current = false;
           return;
@@ -789,6 +791,17 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Resolve slug → restaurant ID once restaurants are fetched
+  useEffect(() => {
+    if (sessionRestaurantSlug && !sessionRestaurantId && restaurants.length > 0) {
+      const match = restaurants.find(r => r.slug === sessionRestaurantSlug);
+      if (match) {
+        setSessionRestaurantId(match.id);
+        localStorage.setItem('qs_session_restaurant_id', match.id);
+      }
+    }
+  }, [restaurants, sessionRestaurantSlug, sessionRestaurantId]);
+
   // Compute active vendor and current area early for hooks
   const activeVendorRes = (currentUser?.role === 'VENDOR' || currentUser?.role === 'KITCHEN') ? restaurants.find(r => r.id === currentUser.restaurantId) : null;
   const currentArea = locations.find(l => l.name === sessionLocation);
@@ -819,6 +832,8 @@ const App: React.FC = () => {
     let orderFilter = undefined;
     if (currentRole === 'CUSTOMER' && sessionLocation) {
       orderFilter = `location_name=eq.${sessionLocation}`;
+    } else if (currentRole === 'CUSTOMER' && sessionRestaurantId) {
+      orderFilter = `restaurant_id=eq.${sessionRestaurantId}`;
     } else if (currentRole === 'VENDOR' && currentUser?.restaurantId) {
       orderFilter = `restaurant_id=eq.${currentUser.restaurantId}`;
     }
@@ -915,7 +930,11 @@ const App: React.FC = () => {
         event: 'UPDATE', 
         schema: 'public', 
         table: 'restaurants',
-        filter: currentRole === 'CUSTOMER' && sessionLocation ? `location_name=eq.${sessionLocation}` : undefined
+        filter: currentRole === 'CUSTOMER' && sessionLocation
+          ? `location_name=eq.${sessionLocation}`
+          : currentRole === 'CUSTOMER' && sessionRestaurantId
+            ? `id=eq.${sessionRestaurantId}`
+            : undefined
       }, (payload) => {
         const res = payload.new;
         const newSettings = res.settings ? (typeof res.settings === 'string' ? JSON.parse(res.settings) : res.settings) : undefined;
@@ -935,7 +954,7 @@ const App: React.FC = () => {
     return () => { 
       supabase.removeChannel(channel); 
     };
-  }, [currentRole, sessionLocation, currentUser]);
+  }, [currentRole, sessionLocation, sessionRestaurantId, currentUser]);
 
   // Vendor Polling Fallback (poll for all vendors since kitchen/QR features are now dynamic toggles)
   useEffect(() => {
@@ -2030,22 +2049,31 @@ const App: React.FC = () => {
         )}
         
         {view === 'ONLINE_SHOP' && onlineShopSlug && <OnlineShopPage slug={onlineShopSlug} />}
-        {view !== 'ONLINE_SHOP' && currentRole === 'CUSTOMER' && <CustomerView
-          restaurants={
-            sessionRestaurantId
-              ? restaurants.filter(r => r.id === sessionRestaurantId && r.isOnline === true)
-              : restaurants.filter(r => r.location === sessionLocation && r.isOnline === true)
-          }
-          cart={cart}
-          orders={orders}
-          onAddToCart={addToCart}
-          onRemoveFromCart={removeFromCart}
-          onPlaceOrder={placeOrder}
-          locationName={sessionLocation || undefined}
-          tableNo={sessionTable || undefined}
-          areaType={sessionRestaurantId || sessionRestaurantSlug ? 'SINGLE' : 'MULTI'}
-          allRestaurants={restaurants}
-        />}
+        {view !== 'ONLINE_SHOP' && currentRole === 'CUSTOMER' && (() => {
+          const filteredRestaurants = sessionRestaurantId
+            ? restaurants.filter(r => r.id === sessionRestaurantId && r.isOnline === true)
+            : sessionRestaurantSlug
+              ? restaurants.filter(r => r.slug === sessionRestaurantSlug && r.isOnline === true)
+              : restaurants.filter(r => r.location === sessionLocation && r.isOnline === true);
+          const isSingle = !!(sessionRestaurantId || sessionRestaurantSlug);
+          const singleRes = isSingle ? filteredRestaurants[0] : null;
+          const derivedLocationName = sessionLocation
+            || singleRes?.settings?.qrLocationLabel
+            || singleRes?.name
+            || undefined;
+          return <CustomerView
+            restaurants={filteredRestaurants}
+            cart={cart}
+            orders={orders}
+            onAddToCart={addToCart}
+            onRemoveFromCart={removeFromCart}
+            onPlaceOrder={placeOrder}
+            locationName={derivedLocationName}
+            tableNo={sessionTable || undefined}
+            areaType={isSingle ? 'SINGLE' : 'MULTI'}
+            allRestaurants={restaurants}
+          />;
+        })()}
         
         {currentRole === 'CASHIER' && view === 'APP' && (
           currentUser && restaurants.find(r => r.id === currentUser.restaurantId) ? (

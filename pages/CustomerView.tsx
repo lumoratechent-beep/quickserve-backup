@@ -123,7 +123,10 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
   const activeOrders = useMemo(() => {
     const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
     return orders.filter(o => {
-      const isCurrentLocation = o.locationName === locationName && o.tableNumber === tableNo;
+      // For SINGLE mode (slug/id QR), match by table only since orders are already restaurant-filtered
+      const isCurrentLocation = areaType === 'SINGLE'
+        ? o.tableNumber === tableNo
+        : o.locationName === locationName && o.tableNumber === tableNo;
       if (!isCurrentLocation) return false;
       
       const isDismissed = dismissedOrders.includes(o.id);
@@ -142,7 +145,7 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
 
       return true;
     });
-  }, [orders, locationName, tableNo, dismissedOrders]);
+  }, [orders, locationName, tableNo, dismissedOrders, areaType]);
 
   return (
     <div className="relative min-h-screen pb-28 bg-gray-50 dark:bg-gray-900 transition-colors">

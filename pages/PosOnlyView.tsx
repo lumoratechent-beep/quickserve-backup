@@ -579,7 +579,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [newTaxApplyToItems, setNewTaxApplyToItems] = useState(false);
 
   // QR Generator state
-  const [qrGenLocation, setQrGenLocation] = useState<string>(() => '');
+  const [qrGenLocation, setQrGenLocation] = useState<string>(() => restaurant.settings?.qrLocationLabel || '');
   const [qrGenTableCount, setQrGenTableCount] = useState<string>('10');
   const [qrGenTablePrefix, setQrGenTablePrefix] = useState<string>('Table ');
   const [qrGenStartNum, setQrGenStartNum] = useState<string>('1');
@@ -2874,13 +2874,14 @@ const PosOnlyView: React.FC<Props> = ({
         kitchenSettings: kitchenOrderSettings,
         onlineDeliveryOptions,
         onlinePaymentMethods,
+        ...(restaurant.location === QS_DEFAULT_HUB && qrGenLocation ? { qrLocationLabel: qrGenLocation } : {}),
       };
       saveAllSettingsToDb(restaurant.id, bundle);
     }, 1500);
     return () => {
       if (settingsSyncTimerRef.current) clearTimeout(settingsSyncTimerRef.current);
     };
-  }, [receiptSettings, featureSettings, paymentTypes, taxEntries, userFont, userCurrency, savedPrinters, kitchenOrderSettings, onlineDeliveryOptions, onlinePaymentMethods, restaurant.id]);
+  }, [receiptSettings, featureSettings, paymentTypes, taxEntries, userFont, userCurrency, savedPrinters, kitchenOrderSettings, onlineDeliveryOptions, onlinePaymentMethods, qrGenLocation, restaurant.id]);
   // ────────────────────────────────────────────────────────────────────────────
 
   const renderPrinterContent = () => (
@@ -4144,10 +4145,17 @@ const PosOnlyView: React.FC<Props> = ({
                   <input
                     type="text"
                     value={qrGenLocation || (restaurant.location === QS_DEFAULT_HUB ? restaurant.name : restaurant.location)}
-                    onChange={e => setQrGenLocation(e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                    onChange={e => { if (restaurant.location === QS_DEFAULT_HUB) setQrGenLocation(e.target.value); }}
+                    disabled={restaurant.location !== QS_DEFAULT_HUB}
+                    className={`w-full px-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white ${restaurant.location !== QS_DEFAULT_HUB ? 'opacity-60 cursor-not-allowed' : ''}`}
                     placeholder={restaurant.location === QS_DEFAULT_HUB ? restaurant.name : (restaurant.location || 'e.g. Main Hall')}
                   />
+                  {restaurant.location !== QS_DEFAULT_HUB && (
+                    <p className="text-[8px] text-gray-400 mt-1">Location name is set by your hub assignment</p>
+                  )}
+                  {restaurant.location === QS_DEFAULT_HUB && (
+                    <p className="text-[8px] text-gray-400 mt-1">Shown as "Serving At" in customer view</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Table Prefix</label>
