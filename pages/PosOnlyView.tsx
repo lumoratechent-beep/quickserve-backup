@@ -4933,10 +4933,8 @@ const PosOnlyView: React.FC<Props> = ({
                 <div className="space-y-4">
                   {Object.entries(groupedMenu).map(([category, items]) => (
                     <section key={category}>
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700"></div>
+                      <div className="mb-2">
                         <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] whitespace-nowrap">{category}</h3>
-                        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700"></div>
                       </div>
                       
                       <div className={`grid gap-1.5 ${
