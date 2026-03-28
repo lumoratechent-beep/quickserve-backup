@@ -9,7 +9,7 @@ import MarketingPage from './pages/MarketingPage';
 import RegisterPage from './pages/RegisterPage';
 import OnlineShopPage from './pages/OnlineShopPage';
 import { supabase } from './lib/supabase';
-import { LogOut, Sun, Moon, MapPin, LogIn, Loader2 } from 'lucide-react';
+import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, X as XIcon } from 'lucide-react';
 import * as offlineQueue from './lib/offlineOrdersQueue';
 import { toast } from './components/Toast';
 
@@ -366,6 +366,43 @@ const App: React.FC = () => {
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingOfflineOrdersCount, setPendingOfflineOrdersCount] = useState(0);
+
+  // Announcements / Mail state
+  const [showMailPanel, setShowMailPanel] = useState(false);
+  const [announcements, setAnnouncements] = useState<Array<{id: string; title: string; body: string; category: string; created_at: string; is_read: boolean}>>([]); 
+  const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+
+  const fetchAnnouncements = useCallback(async (restaurantId?: string) => {
+    const rid = restaurantId || currentUser?.restaurantId;
+    if (!rid) return;
+    setAnnouncementsLoading(true);
+    try {
+      const { data: items } = await supabase
+        .from('announcements')
+        .select('id, title, body, category, created_at')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+      if (!items) { setAnnouncements([]); return; }
+      const { data: reads } = await supabase
+        .from('announcement_reads')
+        .select('announcement_id')
+        .eq('restaurant_id', rid);
+      const readIds = new Set((reads || []).map((r: any) => r.announcement_id));
+      setAnnouncements(items.map((a: any) => ({ ...a, is_read: readIds.has(a.id) })));
+    } catch { setAnnouncements([]); } finally { setAnnouncementsLoading(false); }
+  }, [currentUser?.restaurantId]);
+
+  const markAnnouncementRead = async (announcementId: string) => {
+    const rid = currentUser?.restaurantId;
+    if (!rid) return;
+    await supabase.from('announcement_reads').upsert(
+      { announcement_id: announcementId, restaurant_id: rid },
+      { onConflict: 'announcement_id,restaurant_id' }
+    );
+    setAnnouncements(prev => prev.map(a => a.id === announcementId ? { ...a, is_read: true } : a));
+  };
+
+  const unreadMailCount = announcements.filter(a => !a.is_read).length;
 
   const persistCache = (key: string, data: any) => {
     try {
@@ -922,6 +959,13 @@ const App: React.FC = () => {
     else document.documentElement.classList.remove('dark');
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
+
+  // Fetch announcements when vendor/cashier logs in
+  useEffect(() => {
+    if (currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER')) {
+      fetchAnnouncements(currentUser.restaurantId);
+    }
+  }, [currentUser?.restaurantId, currentRole]);
 
   const handleScanSimulation = (locationName: string, tableNo: string) => {
     setSessionLocation(locationName);
@@ -1906,6 +1950,18 @@ const App: React.FC = () => {
           <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white">
             {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>
+          {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (
+            <button
+              onClick={() => { setShowMailPanel(true); fetchAnnouncements(); }}
+              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white relative"
+              title="Mail"
+            >
+              <Mail size={20} />
+              {unreadMailCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">{unreadMailCount}</span>
+              )}
+            </button>
+          )}
           {currentUser && (
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block">
@@ -2079,6 +2135,73 @@ const App: React.FC = () => {
             onFetchAllFilteredOrders={onFetchAllFilteredOrders}
             onFetchStats={onFetchStats}
           />
+        )}
+
+        {/* Mail Panel Overlay */}
+        {showMailPanel && (
+          <div className="fixed inset-0 z-[99999] flex items-start justify-end" onClick={() => setShowMailPanel(false)}>
+            <div className="absolute inset-0 bg-black/20" />
+            <div
+              className="relative mt-16 mr-4 w-full max-w-lg max-h-[calc(100vh-5rem)] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border dark:border-gray-700 flex flex-col overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-5 py-4 border-b dark:border-gray-700">
+                <div>
+                  <h2 className="text-sm font-black dark:text-white uppercase tracking-tight">Mail</h2>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">Announcements & updates from QuickServe</p>
+                </div>
+                <button onClick={() => setShowMailPanel(false)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                  <XIcon size={18} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4">
+                {announcementsLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <RotateCw size={24} className="animate-spin text-gray-400" />
+                  </div>
+                ) : announcements.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 opacity-40">
+                    <Mail size={40} className="mb-3" />
+                    <p className="text-sm font-bold dark:text-gray-300">No announcements yet</p>
+                    <p className="text-xs text-gray-500 mt-1">When the admin sends updates, they will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {announcements.map(a => (
+                      <div
+                        key={a.id}
+                        onClick={() => { if (!a.is_read) markAnnouncementRead(a.id); }}
+                        className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                          a.is_read
+                            ? 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'
+                            : 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800/40 shadow-sm'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              {!a.is_read && <span className="w-2 h-2 bg-orange-500 rounded-full shrink-0" />}
+                              <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                                a.category === 'billing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
+                                a.category === 'update' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
+                                a.category === 'maintenance' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
+                                'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                              }`}>{a.category}</span>
+                            </div>
+                            <h3 className="font-bold text-sm dark:text-white">{a.title}</h3>
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 whitespace-pre-line">{a.body}</p>
+                          </div>
+                          <span className="text-[10px] text-gray-400 dark:text-gray-500 shrink-0 mt-1">
+                            {new Date(a.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         )}
       </main>
     </div>

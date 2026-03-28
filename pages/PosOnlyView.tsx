@@ -23,7 +23,7 @@ import {
   Filter, Tag, Layers, Coffee, ChevronDown, ChevronLeft, ChevronRight, RotateCw, Wifi, WifiOff,
   Receipt, Network, Type, MessageSquare, Zap, Briefcase, PlusCircle, Puzzle,
   ArrowLeft, Star, Package, Monitor, Info, ExternalLink,
-  Tablet, Globe, ShoppingCart, Wallet, ArrowUpRight, ArrowDownRight, Building2, Banknote, Send, Copy, Truck, Mail
+  Tablet, Globe, ShoppingCart, Wallet, ArrowUpRight, ArrowDownRight, Building2, Banknote, Send, Copy, Truck
 } from 'lucide-react';
 
 interface Props {
@@ -278,40 +278,7 @@ const PosOnlyView: React.FC<Props> = ({
     return local.toISOString().split('T')[0];
   };
 
-  const [announcements, setAnnouncements] = useState<Array<{id: string; title: string; body: string; category: string; created_at: string; is_read: boolean}>>([]); 
-  const [announcementsLoading, setAnnouncementsLoading] = useState(false);
-
-  const fetchAnnouncements = async () => {
-    setAnnouncementsLoading(true);
-    try {
-      const { data: items, error } = await supabase
-        .from('announcements')
-        .select('id, title, body, category, created_at')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-      if (error || !items) { setAnnouncements([]); return; }
-
-      const { data: reads } = await supabase
-        .from('announcement_reads')
-        .select('announcement_id')
-        .eq('restaurant_id', restaurant.id);
-      const readIds = new Set((reads || []).map((r: any) => r.announcement_id));
-
-      setAnnouncements(items.map((a: any) => ({ ...a, is_read: readIds.has(a.id) })));
-    } catch { setAnnouncements([]); } finally { setAnnouncementsLoading(false); }
-  };
-
-  const markAnnouncementRead = async (announcementId: string) => {
-    await supabase.from('announcement_reads').upsert(
-      { announcement_id: announcementId, restaurant_id: restaurant.id },
-      { onConflict: 'announcement_id,restaurant_id' }
-    );
-    setAnnouncements(prev => prev.map(a => a.id === announcementId ? { ...a, is_read: true } : a));
-  };
-
-  const unreadCount = announcements.filter(a => !a.is_read).length;
-
-  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING' | 'ADDONS' | 'ONLINE_ORDERS' | 'MAIL'>(() => {
+  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING' | 'ADDONS' | 'ONLINE_ORDERS'>(() => {
     const returnTab = localStorage.getItem('qs_return_tab');
     if (returnTab === 'BILLING') {
       localStorage.removeItem('qs_return_tab');
@@ -2538,15 +2505,11 @@ const PosOnlyView: React.FC<Props> = ({
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
   const paginatedReports = reportData?.orders || [];
 
-  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING' | 'ADDONS' | 'ONLINE_ORDERS' | 'MAIL') => {
+  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING' | 'ADDONS' | 'ONLINE_ORDERS') => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
     if (tab !== 'ADDONS') { setAddonDetailView(null); setAddonDetailTab('details'); }
-    if (tab === 'MAIL') { fetchAnnouncements(); }
   };
-
-  // Fetch unread announcement count on mount
-  useEffect(() => { fetchAnnouncements(); }, [restaurant.id]);
 
   const handleReportsClick = () => {
     setReportsSubMenu('salesReport');
@@ -4618,26 +4581,6 @@ const PosOnlyView: React.FC<Props> = ({
           >
             <CreditCard size={18} /> {!isSidebarCollapsed && 'Billing'}
           </button>
-          <button 
-            onClick={() => handleTabSelection('MAIL')}
-            title="Mail"
-            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-3'} py-2.5 rounded-xl text-sm font-medium transition-all relative ${
-              activeTab === 'MAIL' 
-                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <Mail size={18} />
-              {!isSidebarCollapsed && 'Mail'}
-            </div>
-            {!isSidebarCollapsed && unreadCount > 0 && (
-              <span className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">{unreadCount}</span>
-            )}
-            {isSidebarCollapsed && unreadCount > 0 && (
-              <span className="absolute top-1 right-1 bg-red-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center">{unreadCount}</span>
-            )}
-          </button>
           </>)}
         </nav>
 
@@ -4736,7 +4679,6 @@ const PosOnlyView: React.FC<Props> = ({
                  activeTab === 'KITCHEN' ? 'Incoming Orders' :
                  activeTab === 'BILLING' ? 'Billing' :
                  activeTab === 'ADDONS' ? (addonDetailView ? 'Feature Details' : 'Add-on Feature') :
-                 activeTab === 'MAIL' ? 'Mail' :
                  'Settings'}
               </h1>
             </div>
@@ -6763,63 +6705,6 @@ const PosOnlyView: React.FC<Props> = ({
                     </>
                   );
                 })()}
-              </div>
-            </div>
-          )}
-
-          {/* Mail Tab */}
-          {activeTab === 'MAIL' && (
-            <div className="flex-1 overflow-y-auto p-4 md:p-6">
-              <div className="max-w-3xl mx-auto w-full">
-                <div className="mb-5">
-                  <h2 className="text-lg font-black dark:text-white uppercase tracking-tighter">Mail</h2>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Announcements and updates from QuickServe.</p>
-                </div>
-
-                {announcementsLoading ? (
-                  <div className="flex items-center justify-center py-20">
-                    <RotateCw size={24} className="animate-spin text-gray-400" />
-                  </div>
-                ) : announcements.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-20 opacity-40">
-                    <Mail size={48} className="mb-4" />
-                    <p className="text-sm font-bold dark:text-gray-300">No announcements yet</p>
-                    <p className="text-xs text-gray-500 mt-1">When the admin sends updates, they will appear here.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {announcements.map(a => (
-                      <div
-                        key={a.id}
-                        onClick={() => { if (!a.is_read) markAnnouncementRead(a.id); }}
-                        className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-                          a.is_read
-                            ? 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'
-                            : 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800/40 shadow-sm'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              {!a.is_read && <span className="w-2 h-2 bg-orange-500 rounded-full shrink-0" />}
-                              <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                                a.category === 'billing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
-                                a.category === 'update' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
-                                a.category === 'maintenance' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
-                                'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                              }`}>{a.category}</span>
-                            </div>
-                            <h3 className="font-bold text-sm dark:text-white">{a.title}</h3>
-                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 whitespace-pre-line">{a.body}</p>
-                          </div>
-                          <span className="text-[10px] text-gray-400 dark:text-gray-500 shrink-0 mt-1">
-                            {new Date(a.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           )}
