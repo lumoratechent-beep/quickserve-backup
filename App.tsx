@@ -300,8 +300,32 @@ const App: React.FC = () => {
 
         syncAfterCheckout();
       } else {
-        toast('Your free trial is active! Log in to get started.', 'success');
-        setView('LOGIN');
+        // New registration: confirm checkout to activate the account
+        const activateAfterRegistration = async () => {
+          if (stripeRedirect.checkoutSessionId) {
+            toast('Activating your account...', 'info');
+            try {
+              const res = await fetch('/api/stripe/confirm-checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ checkoutSessionId: stripeRedirect.checkoutSessionId }),
+              });
+              const data = await res.json();
+              if (res.ok) {
+                toast('Your account is active! Log in to get started.', 'success');
+                setView('LOGIN');
+                return;
+              }
+              console.error('Registration confirm-checkout failed:', data?.error);
+            } catch (err) {
+              console.error('Registration confirm-checkout error:', err);
+            }
+          }
+          // Fallback: webhook may still activate the account
+          toast('Your free trial is active! Log in to get started.', 'success');
+          setView('LOGIN');
+        };
+        activateAfterRegistration();
       }
     } else if (stripeRedirect.payment === 'cancelled') {
       if (stripeRedirect.source === 'upgrade') {
