@@ -962,7 +962,12 @@ const App: React.FC = () => {
       orderIds.push(orderId);
     }
 
-    const { error } = await supabase.from('orders').insert(ordersToInsert);
+    let { error } = await supabase.from('orders').insert(ordersToInsert);
+    if (error && (error.code === 'PGRST204' || (error.message || '').includes('order_source'))) {
+      console.warn('order_source column missing – retrying QR batch without it');
+      const stripped = ordersToInsert.map(({ order_source, ...rest }: any) => rest);
+      ({ error } = await supabase.from('orders').insert(stripped));
+    }
     if (error) toast("Placement Error: " + error.message, 'error');
     else { setCart([]); toast(`Your order(s) have been placed! Reference: ${orderIds.join(', ')}`, 'success'); }
   };
@@ -1490,6 +1495,20 @@ const App: React.FC = () => {
     };
 
   /**
+   * Insert a single order row, falling back without order_source if the column
+   * doesn't exist yet (PGRST204 – schema cache miss after a pending migration).
+   */
+  const insertOrderSafe = async (row: Record<string, unknown>): Promise<{ error: any }> => {
+    const { error } = await supabase.from('orders').insert([row]);
+    if (error && (error.code === 'PGRST204' || (error.message || '').includes('order_source'))) {
+      console.warn('order_source column missing – retrying without it');
+      const { order_source, ...rowWithout } = row;
+      return supabase.from('orders').insert([rowWithout]);
+    }
+    return { error };
+  };
+
+  /**
    * Sync offline orders to Supabase when back online
    */
   const syncOfflineOrders = async () => {
@@ -1550,7 +1569,7 @@ const App: React.FC = () => {
 
         // Try to insert; if duplicate, regenerate ID and retry
         while (retries < maxRetries) {
-          const { error } = await supabase.from('orders').insert([{
+          const { error } = await insertOrderSafe({
             id: orderId,
             items: offlineOrder.items,
             total: offlineOrder.total,
@@ -1566,7 +1585,7 @@ const App: React.FC = () => {
             amount_received: offlineOrder.amount_received ?? null,
             change_amount: offlineOrder.change_amount ?? null,
             order_source: offlineOrder.order_source ?? null
-          }]);
+          });
 
           if (!error) {
             console.log(`Successfully synced order ${orderId}`);
@@ -1741,7 +1760,7 @@ const App: React.FC = () => {
       order_source: 'counter'
     };
 
-    const { error } = await supabase.from('orders').insert([orderToInsert]);
+    const { error } = await insertOrderSafe(orderToInsert);
     if (error) {
       console.error('Failed to insert order:', error);
       // If insert fails, queue it for later
