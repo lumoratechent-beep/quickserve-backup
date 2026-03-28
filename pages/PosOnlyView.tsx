@@ -23,7 +23,7 @@ import {
   Filter, Tag, Layers, Coffee, ChevronDown, ChevronLeft, ChevronRight, RotateCw, Wifi, WifiOff,
   Receipt, Network, Type, MessageSquare, Zap, Briefcase, PlusCircle, Puzzle,
   ArrowLeft, Star, Package, Monitor, Info, ExternalLink,
-  Tablet, Globe, ShoppingCart, Wallet, ArrowUpRight, ArrowDownRight, Building2, Banknote, Send, Copy, Truck
+  Tablet, Globe, ShoppingCart, Wallet, ArrowUpRight, ArrowDownRight, Building2, Banknote, Send, Copy, Truck, Mail
 } from 'lucide-react';
 
 interface Props {
@@ -49,6 +49,12 @@ interface Props {
   subscription?: Subscription | null;
   onSubscriptionUpdated?: () => void;
   onNavigateBackOffice?: () => void;
+  announcements?: Array<{id: string; title: string; body: string; category: string; created_at: string; is_read: boolean}>;
+  announcementsLoading?: boolean;
+  onMarkAnnouncementRead?: (id: string) => void;
+  unreadMailCount?: number;
+  openMailTab?: boolean;
+  onMailTabOpened?: () => void;
 }
 
 const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
@@ -272,13 +278,19 @@ const PosOnlyView: React.FC<Props> = ({
   subscription = null,
   onSubscriptionUpdated,
   onNavigateBackOffice,
+  announcements = [],
+  announcementsLoading = false,
+  onMarkAnnouncementRead,
+  unreadMailCount = 0,
+  openMailTab = false,
+  onMailTabOpened,
 }) => {
   const toLocalDateInputValue = (date: Date) => {
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
     return local.toISOString().split('T')[0];
   };
 
-  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING' | 'ADDONS' | 'ONLINE_ORDERS'>(() => {
+  const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING' | 'ADDONS' | 'ONLINE_ORDERS' | 'MAIL'>(() => {
     const returnTab = localStorage.getItem('qs_return_tab');
     if (returnTab === 'BILLING') {
       localStorage.removeItem('qs_return_tab');
@@ -1590,6 +1602,15 @@ const PosOnlyView: React.FC<Props> = ({
     }
   }, [activeTab, reportStart, reportEnd, reportStatus, reportSearchQuery, currentPage, entriesPerPage]);
 
+  // Open MAIL tab when triggered from outside (header mail button)
+  useEffect(() => {
+    if (openMailTab) {
+      setActiveTab('MAIL');
+      setIsMobileMenuOpen(false);
+      onMailTabOpened?.();
+    }
+  }, [openMailTab]);
+
   useEffect(() => {
     setCurrentPage(1);
   }, [entriesPerPage, reportStatus, reportStart, reportEnd, reportSearchQuery]);
@@ -2505,7 +2526,7 @@ const PosOnlyView: React.FC<Props> = ({
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
   const paginatedReports = reportData?.orders || [];
 
-  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING' | 'ADDONS' | 'ONLINE_ORDERS') => {
+  const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING' | 'ADDONS' | 'ONLINE_ORDERS' | 'MAIL') => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
     if (tab !== 'ADDONS') { setAddonDetailView(null); setAddonDetailTab('details'); }
@@ -4581,6 +4602,30 @@ const PosOnlyView: React.FC<Props> = ({
           >
             <CreditCard size={18} /> {!isSidebarCollapsed && 'Billing'}
           </button>
+          <button
+            onClick={() => handleTabSelection('MAIL')}
+            title="Mail"
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all relative ${
+              activeTab === 'MAIL'
+                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }`}
+          >
+            <span className="relative">
+              <Mail size={18} />
+              {unreadMailCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center">{unreadMailCount}</span>
+              )}
+            </span>
+            {!isSidebarCollapsed && (
+              <span className="flex items-center gap-2">
+                Mail
+                {unreadMailCount > 0 && (
+                  <span className="bg-red-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">{unreadMailCount}</span>
+                )}
+              </span>
+            )}
+          </button>
           </>)}
         </nav>
 
@@ -4679,6 +4724,7 @@ const PosOnlyView: React.FC<Props> = ({
                  activeTab === 'KITCHEN' ? 'Incoming Orders' :
                  activeTab === 'BILLING' ? 'Billing' :
                  activeTab === 'ADDONS' ? (addonDetailView ? 'Feature Details' : 'Add-on Feature') :
+                 activeTab === 'MAIL' ? 'Mail' :
                  'Settings'}
               </h1>
             </div>
@@ -6717,6 +6763,62 @@ const PosOnlyView: React.FC<Props> = ({
               onUpgradeClick={() => setShowUpgradeModal(true)}
               onSubscriptionUpdated={onSubscriptionUpdated}
             />
+          )}
+
+          {/* Mail Tab */}
+          {activeTab === 'MAIL' && (
+            <div className="flex-1 overflow-y-auto p-4 md:p-6">
+              <div className="max-w-4xl mx-auto w-full">
+                <div className="mb-6">
+                  <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Inbox</h1>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Announcements and updates from QuickServe.</p>
+                </div>
+                {announcementsLoading ? (
+                  <div className="flex items-center justify-center py-32">
+                    <RotateCw size={28} className="animate-spin text-gray-400" />
+                  </div>
+                ) : announcements.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-32 opacity-40">
+                    <Mail size={56} className="mb-4" />
+                    <p className="text-base font-bold dark:text-gray-300">No announcements yet</p>
+                    <p className="text-sm text-gray-500 mt-1">When the admin sends updates, they will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {announcements.map(a => (
+                      <div
+                        key={a.id}
+                        onClick={() => { if (!a.is_read) onMarkAnnouncementRead?.(a.id); }}
+                        className={`p-5 rounded-2xl border transition-all cursor-pointer ${
+                          a.is_read
+                            ? 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'
+                            : 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800/40 shadow-sm'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              {!a.is_read && <span className="w-2 h-2 bg-orange-500 rounded-full shrink-0" />}
+                              <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${
+                                a.category === 'billing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
+                                a.category === 'update' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
+                                a.category === 'maintenance' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
+                                'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                              }`}>{a.category}</span>
+                            </div>
+                            <h3 className={`text-base dark:text-white ${!a.is_read ? 'font-black' : 'font-semibold'}`}>{a.title}</h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1.5 whitespace-pre-line leading-relaxed">{a.body}</p>
+                          </div>
+                          <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 mt-1 whitespace-nowrap">
+                            {new Date(a.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
           {/* QR Orders Tab - Document-style sub-tabs */}

@@ -9,7 +9,7 @@ import MarketingPage from './pages/MarketingPage';
 import RegisterPage from './pages/RegisterPage';
 import OnlineShopPage from './pages/OnlineShopPage';
 import { supabase } from './lib/supabase';
-import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, ChevronLeft } from 'lucide-react';
+import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw } from 'lucide-react';
 import * as offlineQueue from './lib/offlineOrdersQueue';
 import { toast } from './components/Toast';
 
@@ -233,7 +233,7 @@ const App: React.FC = () => {
   const [stripeRedirect] = useState(() => stripeRedirectRef.current());
 
   const [onlineShopSlug, setOnlineShopSlug] = useState<string | null>(null);
-  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS' | 'BACK_OFFICE' | 'ONLINE_SHOP' | 'MAIL'>(() => {
+  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS' | 'BACK_OFFICE' | 'ONLINE_SHOP'>(() => {
     const savedView = localStorage.getItem('qs_view') as any;
     
     // Handle Stripe payment redirect
@@ -370,6 +370,7 @@ const App: React.FC = () => {
   // Announcements / Mail state
   const [announcements, setAnnouncements] = useState<Array<{id: string; title: string; body: string; category: string; created_at: string; is_read: boolean}>>([]);
   const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+  const [openMailInPOS, setOpenMailInPOS] = useState(false);
 
   const fetchAnnouncements = useCallback(async (restaurantId?: string) => {
     const rid = restaurantId || currentUser?.restaurantId;
@@ -1909,77 +1910,6 @@ const App: React.FC = () => {
     return <MarketingPage onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
   }
 
-  if (view === 'MAIL') {
-    const prevView = (currentRole === 'VENDOR' || currentRole === 'CASHIER' || currentRole === 'KITCHEN') ? 'APP' : 'MARKETING';
-    return (
-      <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
-        <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-16 flex items-center justify-between px-8 shadow-sm">
-          <button onClick={() => setView(prevView as any)} className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 font-semibold transition-colors">
-            <ChevronLeft size={20} />
-            Back
-          </button>
-          <div className="flex items-center gap-2">
-            <Mail size={18} className="text-orange-500" />
-            <span className="font-black dark:text-white uppercase tracking-tight text-sm">Mail</span>
-          </div>
-          <div className="w-20" />
-        </header>
-        <main className="flex-1 overflow-y-auto p-6 md:p-8">
-          <div className="max-w-4xl mx-auto">
-            <div className="mb-6">
-              <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Inbox</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Announcements and updates from QuickServe.</p>
-            </div>
-            {announcementsLoading ? (
-              <div className="flex items-center justify-center py-32">
-                <RotateCw size={28} className="animate-spin text-gray-400" />
-              </div>
-            ) : announcements.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-32 opacity-40">
-                <Mail size={56} className="mb-4" />
-                <p className="text-base font-bold dark:text-gray-300">No announcements yet</p>
-                <p className="text-sm text-gray-500 mt-1">When the admin sends updates, they will appear here.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {announcements.map(a => (
-                  <div
-                    key={a.id}
-                    onClick={() => { if (!a.is_read) markAnnouncementRead(a.id); }}
-                    className={`p-5 rounded-2xl border transition-all cursor-pointer ${
-                      a.is_read
-                        ? 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'
-                        : 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800/40 shadow-sm'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          {!a.is_read && <span className="w-2 h-2 bg-orange-500 rounded-full shrink-0" />}
-                          <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${
-                            a.category === 'billing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
-                            a.category === 'update' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
-                            a.category === 'maintenance' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
-                            'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                          }`}>{a.category}</span>
-                        </div>
-                        <h3 className={`font-black text-base dark:text-white ${!a.is_read ? '' : 'font-semibold'}`}>{a.title}</h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1.5 whitespace-pre-line leading-relaxed">{a.body}</p>
-                      </div>
-                      <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 mt-1 whitespace-nowrap">
-                        {new Date(a.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   if (view === 'BACK_OFFICE' && currentRole === 'VENDOR' && activeVendorRes) {
     const CURRENCY_MAP: Record<string, string> = { MYR: 'RM', USD: '$', EUR: '€', GBP: '£', SGD: 'S$', JPY: '¥', KRW: '₩', INR: '₹', AUD: 'A$', CNY: '¥', TWD: 'NT$', BND: 'B$' };
     const currCode = activeVendorRes.settings?.currency || localStorage.getItem(`ux_currency_${activeVendorRes.id}`) || 'MYR';
@@ -2019,7 +1949,7 @@ const App: React.FC = () => {
         <div className="flex items-center gap-3">
           {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (
             <button
-              onClick={() => { setView('MAIL'); fetchAnnouncements(); }}
+              onClick={() => { setView('APP'); fetchAnnouncements(); setOpenMailInPOS(true); }}
               className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white relative"
               title="Mail"
             >
@@ -2034,18 +1964,18 @@ const App: React.FC = () => {
             onClick={() => setIsDarkMode(!isDarkMode)}
             title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
             className={`relative flex items-center w-16 h-8 rounded-full transition-colors duration-300 focus:outline-none ${
-              isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+              isDarkMode ? 'bg-indigo-700' : 'bg-orange-300'
             }`}
           >
             <span className={`absolute left-1 flex items-center justify-center w-6 h-6 rounded-full shadow-md transition-all duration-300 ${
               isDarkMode ? 'translate-x-8 bg-gray-900' : 'translate-x-0 bg-white'
             }`}>
               {isDarkMode
-                ? <Moon size={13} className="text-orange-400" />
+                ? <Moon size={13} className="text-indigo-300" />
                 : <Sun size={13} className="text-orange-500" />}
             </span>
-            <Sun size={12} className={`absolute left-2 transition-opacity duration-300 ${isDarkMode ? 'opacity-20 text-gray-400' : 'opacity-0'}`} />
-            <Moon size={12} className={`absolute right-2 transition-opacity duration-300 ${isDarkMode ? 'opacity-0' : 'opacity-20 text-gray-400'}`} />
+            <Sun size={12} className={`absolute left-2 transition-opacity duration-300 ${isDarkMode ? 'opacity-40 text-orange-300' : 'opacity-0'}`} />
+            <Moon size={12} className={`absolute right-2 transition-opacity duration-300 ${isDarkMode ? 'opacity-0' : 'opacity-40 text-indigo-500'}`} />
           </button>
           {currentUser && (
             <div className="flex items-center gap-3">
@@ -2125,6 +2055,12 @@ const App: React.FC = () => {
               cashierName={currentUser?.username}
               subscription={currentUser?.restaurantId ? (vendorSubscriptions[currentUser.restaurantId] || null) : null}
               onSubscriptionUpdated={() => { fetchSubscriptions(); fetchRestaurants(); }}
+              announcements={announcements}
+              announcementsLoading={announcementsLoading}
+              onMarkAnnouncementRead={markAnnouncementRead}
+              unreadMailCount={unreadMailCount}
+              openMailTab={openMailInPOS}
+              onMailTabOpened={() => setOpenMailInPOS(false)}
             />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
@@ -2161,6 +2097,12 @@ const App: React.FC = () => {
                 subscription={vendorSubscriptions[activeVendorRes.id] || null}
                 onSubscriptionUpdated={() => { fetchSubscriptions(); fetchRestaurants(); }}
                 onNavigateBackOffice={() => setView('BACK_OFFICE')}
+                announcements={announcements}
+                announcementsLoading={announcementsLoading}
+                onMarkAnnouncementRead={markAnnouncementRead}
+                unreadMailCount={unreadMailCount}
+                openMailTab={openMailInPOS}
+                onMailTabOpened={() => setOpenMailInPOS(false)}
               />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
@@ -2192,6 +2134,12 @@ const App: React.FC = () => {
                 userKitchenCategories={currentUser?.kitchenCategories}
                 subscription={vendorSubscriptions[activeVendorRes.id] || null}
                 onSubscriptionUpdated={() => { fetchSubscriptions(); fetchRestaurants(); }}
+                announcements={announcements}
+                announcementsLoading={announcementsLoading}
+                onMarkAnnouncementRead={markAnnouncementRead}
+                unreadMailCount={unreadMailCount}
+                openMailTab={openMailInPOS}
+                onMailTabOpened={() => setOpenMailInPOS(false)}
               />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
