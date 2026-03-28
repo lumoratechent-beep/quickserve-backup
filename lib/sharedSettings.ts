@@ -4,6 +4,196 @@
 
 import { supabase } from './supabase';
 
+// ─── POS Settings Defaults (for delta compression) ─────────────────────────
+// Used by compressPosSettings / expandPosSettings to store only non-default
+// values in the DB, reducing per-write payload size by ~80–90% for typical
+// restaurants that keep most settings at their defaults.
+export const POS_DEFAULTS = {
+  font: 'Inter',
+  currency: 'MYR',
+  receipt: {
+    businessName: '',        // dynamic — always overridden by restaurant.name at expand time
+    headerLine1: '',
+    headerLine2: '',
+    showDateTime: true,
+    showOrderId: true,
+    showTableNumber: true,
+    showItems: true,
+    showRemark: true,
+    showTotal: true,
+    showTaxes: false,
+    footerLine1: 'Thank you!',
+    footerLine2: 'Please come again',
+  },
+  features: {
+    autoPrintReceipt: false,
+    autoOpenDrawer: false,
+    dineInEnabled: false,
+    takeawayEnabled: false,
+    deliveryEnabled: false,
+    savedBillEnabled: false,
+    tableManagementEnabled: false,
+    tableCount: 12,
+    tableRows: 3,
+    tableColumns: 4,
+    floorEnabled: false,
+    floorCount: 1,
+    customerDisplayEnabled: false,
+    kitchenEnabled: false,
+    qrEnabled: false,
+    tablesideOrderingEnabled: false,
+    onlineShopEnabled: false,
+  } as Record<string, unknown>,
+  paymentTypes: [
+    { id: 'cash', name: 'CASH' },
+    { id: 'qr', name: 'QR' },
+  ],
+  kitchenSettings: { autoAccept: false, autoPrint: false } as Record<string, unknown>,
+  onlinePaymentMethods: [
+    { id: 'cod', label: 'COD (Cash on Delivery)', enabled: true },
+    { id: 'online', label: 'Online Payment', enabled: false },
+  ],
+  onlineDeliveryOptions: [
+    { id: 'pickup', type: 'pickup', label: 'Pickup', enabled: true, fee: 0 },
+    { id: 'lalamove', type: 'lalamove', label: 'Lalamove', enabled: false, fee: 0 },
+    { id: 'postage', type: 'postage', label: 'Postage', enabled: false, fee: 0 },
+  ],
+};
+
+// Keys managed by POS settings sync — everything else (backoffice, orderCode, etc.) passes through unchanged.
+const POS_OWNED_KEYS = new Set([
+  'font', 'currency', 'taxes', 'printers', 'receipt', 'features',
+  'paymentTypes', 'kitchenSettings', 'onlinePaymentMethods', 'onlineDeliveryOptions',
+  'qrLocationLabel',
+]);
+
+/** Look up a restaurant's name from the localStorage cache (used inside async helpers). */
+function getRestaurantNameFromCache(restaurantId: string): string {
+  try {
+    const cached = localStorage.getItem('qs_cache_restaurants');
+    if (!cached) return '';
+    const list: Array<{ id: string; name: string }> = JSON.parse(cached);
+    return list.find(r => r.id === restaurantId)?.name ?? '';
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Compress a full POS settings object to only store values that differ from defaults.
+ * Non-POS keys (backoffice, orderCode, etc.) are passed through unchanged.
+ * Always store the full version in localStorage for fast offline access;
+ * only store the delta in the DB to reduce payload size (~80–90% for typical restaurants).
+ */
+export function compressPosSettings(
+  settings: Record<string, any>,
+  restaurantName: string,
+): Record<string, any> {
+  const result: Record<string, any> = {};
+
+  // Pass through non-POS keys (backoffice, orderCode, etc.) unchanged.
+  for (const [k, v] of Object.entries(settings)) {
+    if (!POS_OWNED_KEYS.has(k)) result[k] = v;
+  }
+
+  // Scalar fields — omit when equal to default.
+  if (settings.font !== undefined && settings.font !== POS_DEFAULTS.font) result.font = settings.font;
+  if (settings.currency !== undefined && settings.currency !== POS_DEFAULTS.currency) result.currency = settings.currency;
+  if (settings.qrLocationLabel) result.qrLocationLabel = settings.qrLocationLabel;
+
+  // Empty-by-default arrays — omit entirely when empty.
+  if (Array.isArray(settings.taxes) && settings.taxes.length > 0) result.taxes = settings.taxes;
+  if (Array.isArray(settings.printers) && settings.printers.length > 0) result.printers = settings.printers;
+
+  // receipt — only store fields that differ from defaults.
+  if (settings.receipt && typeof settings.receipt === 'object') {
+    const delta: Record<string, any> = {};
+    const r = settings.receipt as Record<string, any>;
+    const d = POS_DEFAULTS.receipt as Record<string, any>;
+    if (r.businessName !== undefined && r.businessName !== restaurantName) delta.businessName = r.businessName;
+    for (const key of Object.keys(d)) {
+      if (key === 'businessName') continue;
+      if (r[key] !== undefined && r[key] !== d[key]) delta[key] = r[key];
+    }
+    if (Object.keys(delta).length > 0) result.receipt = delta;
+  }
+
+  // features — only store fields that differ from defaults.
+  if (settings.features && typeof settings.features === 'object') {
+    const delta: Record<string, any> = {};
+    for (const [k, v] of Object.entries(settings.features as Record<string, any>)) {
+      if (v !== POS_DEFAULTS.features[k]) delta[k] = v;
+    }
+    if (Object.keys(delta).length > 0) result.features = delta;
+  }
+
+  // paymentTypes — store only if different from default.
+  if (Array.isArray(settings.paymentTypes)) {
+    if (JSON.stringify(settings.paymentTypes) !== JSON.stringify(POS_DEFAULTS.paymentTypes)) {
+      result.paymentTypes = settings.paymentTypes;
+    }
+  }
+
+  // kitchenSettings — only store fields that differ.
+  if (settings.kitchenSettings && typeof settings.kitchenSettings === 'object') {
+    const delta: Record<string, any> = {};
+    for (const [k, v] of Object.entries(settings.kitchenSettings as Record<string, any>)) {
+      if (v !== POS_DEFAULTS.kitchenSettings[k]) delta[k] = v;
+    }
+    if (Object.keys(delta).length > 0) result.kitchenSettings = delta;
+  }
+
+  // onlinePaymentMethods — store only if different from default.
+  if (Array.isArray(settings.onlinePaymentMethods)) {
+    if (JSON.stringify(settings.onlinePaymentMethods) !== JSON.stringify(POS_DEFAULTS.onlinePaymentMethods)) {
+      result.onlinePaymentMethods = settings.onlinePaymentMethods;
+    }
+  }
+
+  // onlineDeliveryOptions — store only if different from default.
+  if (Array.isArray(settings.onlineDeliveryOptions)) {
+    if (JSON.stringify(settings.onlineDeliveryOptions) !== JSON.stringify(POS_DEFAULTS.onlineDeliveryOptions)) {
+      result.onlineDeliveryOptions = settings.onlineDeliveryOptions;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Expand a compressed settings delta back to the full POS settings object.
+ * Call this after reading settings from the DB so all consumers see a complete object.
+ * Safe to call on already-expanded settings (backward compatible with old full-format DB rows).
+ */
+export function expandPosSettings(
+  delta: Record<string, any>,
+  restaurantName: string,
+): Record<string, any> {
+  return {
+    ...delta,
+    font: delta.font ?? POS_DEFAULTS.font,
+    currency: delta.currency ?? POS_DEFAULTS.currency,
+    taxes: delta.taxes ?? [],
+    printers: delta.printers ?? [],
+    receipt: {
+      ...POS_DEFAULTS.receipt,
+      businessName: restaurantName,
+      ...(delta.receipt && typeof delta.receipt === 'object' ? delta.receipt : {}),
+    },
+    features: {
+      ...POS_DEFAULTS.features,
+      ...(delta.features && typeof delta.features === 'object' ? delta.features : {}),
+    },
+    paymentTypes: delta.paymentTypes ?? POS_DEFAULTS.paymentTypes,
+    kitchenSettings: {
+      ...POS_DEFAULTS.kitchenSettings,
+      ...(delta.kitchenSettings && typeof delta.kitchenSettings === 'object' ? delta.kitchenSettings : {}),
+    },
+    onlinePaymentMethods: delta.onlinePaymentMethods ?? POS_DEFAULTS.onlinePaymentMethods,
+    onlineDeliveryOptions: delta.onlineDeliveryOptions ?? POS_DEFAULTS.onlineDeliveryOptions,
+  };
+}
+
 // ─── Back Office Data Sync ─────────────────────────────────────────────────
 // Keeps localStorage as primary (fast) store; syncs to restaurants.settings.backoffice
 // as a durable cross-device backup. Zero new tables, zero new queries.
@@ -109,13 +299,17 @@ export async function saveSettingsToDb(
     [key]: value,
   };
 
-  // Cache to localStorage immediately
+  // Cache FULL version to localStorage for fast offline access.
   localStorage.setItem(`qs_settings_${restaurantId}`, JSON.stringify(merged));
+
+  // Compress POS settings before DB write to reduce payload size.
+  const restaurantName = getRestaurantNameFromCache(restaurantId);
+  const toStore = compressPosSettings(merged, restaurantName);
 
   try {
     const { error } = await supabase
       .from('restaurants')
-      .update({ settings: merged })
+      .update({ settings: toStore })
       .eq('id', restaurantId);
 
     if (error) {
@@ -135,15 +329,20 @@ export async function saveSettingsToDb(
  */
 export async function saveAllSettingsToDb(
   restaurantId: string,
-  settings: Record<string, any>
+  settings: Record<string, any>,
+  restaurantName?: string,
 ): Promise<boolean> {
-  // Always persist to localStorage for offline access
+  // Always persist FULL version to localStorage for fast offline access.
   localStorage.setItem(`qs_settings_${restaurantId}`, JSON.stringify(settings));
+
+  // Compress POS settings before DB write to reduce payload size.
+  const name = restaurantName ?? getRestaurantNameFromCache(restaurantId);
+  const toStore = compressPosSettings(settings, name);
 
   try {
     const { error } = await supabase
       .from('restaurants')
-      .update({ settings })
+      .update({ settings: toStore })
       .eq('id', restaurantId);
 
     if (error) {

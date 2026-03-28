@@ -9,6 +9,7 @@ import MarketingPage from './pages/MarketingPage';
 import RegisterPage from './pages/RegisterPage';
 import OnlineShopPage from './pages/OnlineShopPage';
 import { supabase } from './lib/supabase';
+import { expandPosSettings } from './lib/sharedSettings';
 import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw } from 'lucide-react';
 import * as offlineQueue from './lib/offlineOrdersQueue';
 import { toast } from './components/Toast';
@@ -87,11 +88,12 @@ const App: React.FC = () => {
     try {
       const saved = localStorage.getItem('qs_cache_restaurants');
       let res: Restaurant[] = saved ? JSON.parse(saved) : [];
-      // Merge with local settings
+      // Merge with local settings and expand any compressed delta from DB.
       return res.map(r => {
         const localSettings = localStorage.getItem(`qs_settings_${r.id}`);
         if (localSettings) {
-          return { ...r, settings: JSON.parse(localSettings) };
+          const parsed = JSON.parse(localSettings);
+          return { ...r, settings: expandPosSettings(parsed, r.name) };
         }
         return r;
       });
@@ -496,10 +498,12 @@ const App: React.FC = () => {
         kitchenDivisions: normalizeKitchenDepartments(res.kitchen_divisions),
         kitchenEnabled: res.kitchen_enabled === true,
         settings: (() => {
-          const dbSettings = res.settings ? (typeof res.settings === 'string' ? JSON.parse(res.settings) : res.settings) : null;
+          const raw = res.settings ? (typeof res.settings === 'string' ? JSON.parse(res.settings) : res.settings) : null;
           const localSettings = localStorage.getItem(`qs_settings_${res.id}`);
           // DB is authoritative (cross-device); localStorage is only a fallback when DB has nothing.
-          return dbSettings || (localSettings ? JSON.parse(localSettings) : null);
+          // Expand compressed delta → full settings so all consumers get a complete object.
+          const base = raw || (localSettings ? JSON.parse(localSettings) : null);
+          return base ? expandPosSettings(base, res.name) : undefined;
         })(),
         categories: res.categories || [],
         modifiers: res.modifiers || [],

@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters, CategoryData, ModifierData, ModifierOption, AddOnItemData, QS_DEFAULT_HUB, Subscription, PlanId, KitchenDepartment } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { uploadImage } from '../lib/storage';
-import { saveAllSettingsToDb } from '../lib/sharedSettings';
+import { saveAllSettingsToDb, compressPosSettings } from '../lib/sharedSettings';
 import * as counterOrdersCache from '../lib/counterOrdersCache';
 import printerService, { PrinterDevice, ReceiptPrintOptions } from '../services/printerService';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
@@ -2227,7 +2227,7 @@ const PosOnlyView: React.FC<Props> = ({
 
       const { error } = await supabase
         .from('restaurants')
-        .update({ settings: mergedSettings })
+        .update({ settings: compressPosSettings(mergedSettings, restaurant.name) })
         .eq('id', restaurant.id);
 
       if (error) {
@@ -2876,7 +2876,7 @@ const PosOnlyView: React.FC<Props> = ({
         onlinePaymentMethods,
         ...(restaurant.location === QS_DEFAULT_HUB && qrGenLocation ? { qrLocationLabel: qrGenLocation } : {}),
       };
-      saveAllSettingsToDb(restaurant.id, bundle);
+      saveAllSettingsToDb(restaurant.id, bundle, restaurant.name);
     }, 1500);
     return () => {
       if (settingsSyncTimerRef.current) clearTimeout(settingsSyncTimerRef.current);
@@ -3324,12 +3324,12 @@ const PosOnlyView: React.FC<Props> = ({
                     ...(restaurant.settings || {}),
                     orderCode: orderCode.toUpperCase(),
                   };
-                  const { error } = await supabase
+                  const { error: orderCodeError } = await supabase
                     .from('restaurants')
-                    .update({ settings: mergedSettings })
+                    .update({ settings: compressPosSettings(mergedSettings, restaurant.name) })
                     .eq('id', restaurant.id);
-                  if (error) {
-                    console.warn('Cloud save failed for order code:', error.message);
+                  if (orderCodeError) {
+                    console.warn('Cloud save failed for order code:', orderCodeError.message);
                   }
                   localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(mergedSettings));
                   toast('Order code saved successfully!', 'success');
