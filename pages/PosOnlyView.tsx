@@ -4933,7 +4933,7 @@ const PosOnlyView: React.FC<Props> = ({
                 <div className="space-y-4">
                   {Object.entries(groupedMenu).map(([category, items]) => (
                     <section key={category}>
-                      <div className="mb-2">
+                      <div className="mb-2 text-center">
                         <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] whitespace-nowrap">{category}</h3>
                       </div>
                       
