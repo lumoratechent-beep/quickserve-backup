@@ -7,6 +7,7 @@ import BackOfficePage from './pages/BackOfficePage';
 import LoginPage from './pages/LoginPage';
 import MarketingPage from './pages/MarketingPage';
 import RegisterPage from './pages/RegisterPage';
+import OnlineShopPage from './pages/OnlineShopPage';
 import { supabase } from './lib/supabase';
 import { LogOut, Sun, Moon, MapPin, LogIn, Loader2 } from 'lucide-react';
 import * as offlineQueue from './lib/offlineOrdersQueue';
@@ -231,7 +232,8 @@ const App: React.FC = () => {
   });
   const [stripeRedirect] = useState(() => stripeRedirectRef.current());
 
-  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS' | 'BACK_OFFICE'>(() => {
+  const [onlineShopSlug, setOnlineShopSlug] = useState<string | null>(null);
+  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS' | 'BACK_OFFICE' | 'ONLINE_SHOP'>(() => {
     const savedView = localStorage.getItem('qs_view') as any;
     
     // Handle Stripe payment redirect
@@ -674,6 +676,13 @@ const App: React.FC = () => {
     const restaurantId = params.get('restaurant');
     const restaurantSlug = params.get('r');
     const table = params.get('table');
+    if (restaurantSlug && !table) {
+      // Online shop — no table needed, show the public shop page
+      setOnlineShopSlug(restaurantSlug);
+      setView('ONLINE_SHOP');
+      window.history.replaceState({}, '', window.location.pathname);
+      return;
+    }
     if (restaurantSlug && table) {
       // Short slug QR — e.g. ?r=burger-palace&table=1
       setSessionRestaurantSlug(restaurantSlug);
@@ -1893,7 +1902,8 @@ const App: React.FC = () => {
           </div>
         )}
         
-        {currentRole === 'CUSTOMER' && <CustomerView
+        {view === 'ONLINE_SHOP' && onlineShopSlug && <OnlineShopPage slug={onlineShopSlug} />}
+        {view !== 'ONLINE_SHOP' && currentRole === 'CUSTOMER' && <CustomerView
           restaurants={
             sessionRestaurantId
               ? restaurants.filter(r => r.id === sessionRestaurantId && r.isOnline === true)
