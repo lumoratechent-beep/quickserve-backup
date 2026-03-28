@@ -12,6 +12,7 @@ import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import { toast } from '../components/Toast';
 import StandardReport from '../components/StandardReport';
 import UpgradePlanModal from '../components/UpgradePlanModal';
+import ImageCropModal from '../components/ImageCropModal';
 import BillingPage from './BillingPage';
 import {
   ShoppingBag, Search, Download, Calendar,
@@ -571,7 +572,12 @@ const PosOnlyView: React.FC<Props> = ({
   const [qrGenTablePrefix, setQrGenTablePrefix] = useState<string>('Table ');
   const [qrGenStartNum, setQrGenStartNum] = useState<string>('1');
   const [qrGenPreviewTable, setQrGenPreviewTable] = useState<string>('');
-
+  const [qrPreviewIndex, setQrPreviewIndex] = useState<number>(0);
+  const [qrLogoUrl, setQrLogoUrl] = useState<string>('');
+  const [qrShowLogo, setQrShowLogo] = useState<boolean>(false);
+  const [qrLogoCropFile, setQrLogoCropFile] = useState<File | null>(null);
+  const [qrLogoUploading, setQrLogoUploading] = useState<boolean>(false);
+  const qrLogoInputRef = useRef<HTMLInputElement>(null);
   // Saved printers list
   const [savedPrinters, setSavedPrinters] = useState<SavedPrinter[]>(() => {
     const dbSaved = restaurant.settings?.printers;
@@ -4055,149 +4061,312 @@ const PosOnlyView: React.FC<Props> = ({
       setTimeout(() => { printWindow.print(); }, 500);
     };
 
+    const handleLogoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        toast('Please select a PNG or JPEG image file.', 'warning');
+        return;
+      }
+      setQrLogoCropFile(file);
+      if (qrLogoInputRef.current) qrLogoInputRef.current.value = '';
+    };
+
+    const handleLogoCropped = async (blob: Blob) => {
+      setQrLogoCropFile(null);
+      setQrLogoUploading(true);
+      try {
+        const file = new File([blob], `qr-logo-${restaurant.id}.png`, { type: 'image/png' });
+        const url = await uploadImage(file, 'qr-logos', `${restaurant.id}/logo`);
+        if (url) {
+          setQrLogoUrl(url);
+          setQrShowLogo(true);
+          toast('Logo uploaded successfully!', 'success');
+        }
+      } catch {
+        toast('Failed to upload logo.', 'error');
+      } finally {
+        setQrLogoUploading(false);
+      }
+    };
+
+    const handleLogoDrop = (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      const file = e.dataTransfer.files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        toast('Please drop a PNG or JPEG image file.', 'warning');
+        return;
+      }
+      setQrLogoCropFile(file);
+    };
+
+    // Clamp preview index to valid range
+    const safePreviewIdx = Math.max(0, Math.min(qrPreviewIndex, tableNames.length - 1));
+    const previewTableName = tableNames[safePreviewIdx] || tableNames[0] || 'Table 1';
+    const locationLabel = qrGenLocation || (restaurant.location === QS_DEFAULT_HUB ? restaurant.name : restaurant.location);
+
     return (
-      <div className="space-y-6">
-        {/* Two-column layout: Left preview, Right config */}
-        <div className="flex flex-col lg:flex-row gap-6">
+      <div className="space-y-8">
+        {/* Three-column layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* Left: Single QR Preview */}
-          <div className="w-full lg:w-56 bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 flex flex-col gap-3 border dark:border-gray-600 shrink-0">
-            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Single QR Preview</p>
-            <input
-              type="text"
-              value={qrGenPreviewTable}
-              onChange={e => setQrGenPreviewTable(e.target.value)}
-              className="w-full px-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-              placeholder={tableNames[0] || 'Table 1'}
-            />
-            {(() => {
-              const t = qrGenPreviewTable || tableNames[0];
-              if (!t) return null;
-              return (
-                <div className="flex flex-col items-center gap-2 py-1 flex-1">
-                  <img
-                    src={buildQrImageUrl(t)}
-                    alt={`QR for ${t}`}
-                    className="w-32 h-32 rounded-lg border dark:border-gray-600"
-                  />
-                  <p className="text-[10px] font-black dark:text-white uppercase tracking-widest">{t}</p>
-                  <p className="text-[8px] text-gray-400 font-mono text-center break-all w-full leading-relaxed">{buildQrUrl(t)}</p>
-                  <button
-                    onClick={() => handleDownloadQr(t)}
-                    className="w-full py-2 bg-orange-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2 mt-auto"
-                  >
-                    <Download size={13} /> Download
-                  </button>
-                </div>
-              );
-            })()}
-          </div>
+          {/* ── Column 1: QR Code Generator Config ── */}
+          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-5 border dark:border-gray-600">
+            <h3 className="text-sm font-black dark:text-white uppercase tracking-tight mb-5">QR Code Generator Config</h3>
 
-          {/* Right: Configuration Inputs + Actions */}
-          <div className="flex-1 flex flex-col justify-between gap-4">
             <div className="space-y-4">
-              {/* Location Name */}
-              <div>
-                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">{restaurant.location === QS_DEFAULT_HUB ? 'Restaurant Name (for labels)' : 'Location Name'}</label>
-                <input
-                  type="text"
-                  value={qrGenLocation || (restaurant.location === QS_DEFAULT_HUB ? restaurant.name : restaurant.location)}
-                  onChange={e => setQrGenLocation(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                  placeholder={restaurant.location === QS_DEFAULT_HUB ? restaurant.name : (restaurant.location || 'e.g. Main Hall')}
-                />
-                <p className="text-[9px] text-gray-400 mt-1 ml-1">{restaurant.location === QS_DEFAULT_HUB ? 'Used as a label on printed QR codes' : <span>Maps to the <code className="font-mono">?loc=</code> parameter in the QR URL</span>}</p>
-              </div>
-
-              {/* Table Prefix */}
-              <div>
-                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Table Prefix</label>
-                <input
-                  type="text"
-                  value={qrGenTablePrefix}
-                  onChange={e => setQrGenTablePrefix(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                  placeholder="Table "
-                />
-              </div>
-
-              {/* Start Number | Number of Tables */}
+              {/* Location Name & Table Prefix side by side */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Start Number</label>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Location Name</label>
+                  <input
+                    type="text"
+                    value={qrGenLocation || (restaurant.location === QS_DEFAULT_HUB ? restaurant.name : restaurant.location)}
+                    onChange={e => setQrGenLocation(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                    placeholder={restaurant.location === QS_DEFAULT_HUB ? restaurant.name : (restaurant.location || 'e.g. Main Hall')}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Table Prefix</label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400 text-sm">—</span>
+                    <input
+                      type="text"
+                      value={qrGenTablePrefix}
+                      onChange={e => setQrGenTablePrefix(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                      placeholder="Table "
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Start Number & Number of Tables side by side */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Start Number</label>
                   <input
                     type="number"
                     value={qrGenStartNum}
                     onChange={e => setQrGenStartNum(e.target.value)}
                     min="1"
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                    className="w-full px-3 py-2.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
                     placeholder="1"
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Number of Tables (max 50)</label>
-                  <input
-                    type="number"
-                    value={qrGenTableCount}
-                    onChange={e => setQrGenTableCount(e.target.value)}
-                    min="1"
-                    max="50"
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                    placeholder="10"
-                  />
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Number of Tables</label>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setQrGenTableCount(String(Math.max(1, (parseInt(qrGenTableCount, 10) || 1) - 1)))}
+                      className="p-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-gray-500 hover:text-orange-500 hover:border-orange-300 transition-all"
+                    >
+                      <Minus size={14} />
+                    </button>
+                    <input
+                      type="number"
+                      value={qrGenTableCount}
+                      onChange={e => setQrGenTableCount(e.target.value)}
+                      min="1"
+                      max="50"
+                      className="flex-1 px-3 py-2.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white text-center"
+                      placeholder="10"
+                    />
+                    <button
+                      onClick={() => setQrGenTableCount(String(Math.min(50, (parseInt(qrGenTableCount, 10) || 0) + 1)))}
+                      className="p-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-gray-500 hover:text-orange-500 hover:border-orange-300 transition-all"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-2">
+              {/* Bulk Actions */}
+              <div className="pt-2">
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Bulk Actions</p>
+                <button
+                  onClick={handlePrintQrs}
+                  className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-500 hover:text-white dark:hover:bg-orange-500 dark:hover:text-white transition-all flex items-center justify-center gap-2"
+                >
+                  <Printer size={15} /> Print All [{count}] QR Codes
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Column 2: QR Code Design & Branding ── */}
+          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-5 border dark:border-gray-600">
+            <h3 className="text-sm font-black dark:text-white uppercase tracking-tight mb-5">QR Code Design & Branding <span className="text-[9px] font-bold text-gray-400 normal-case">(Optional)</span></h3>
+
+            <div className="space-y-4">
+              {/* Logo Upload Area */}
+              <div>
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Add Your Logo</p>
+                <div
+                  onClick={() => qrLogoInputRef.current?.click()}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={handleLogoDrop}
+                  className="relative border-2 border-dashed border-gray-300 dark:border-gray-500 rounded-xl p-6 text-center cursor-pointer hover:border-orange-400 hover:bg-orange-50/30 dark:hover:bg-orange-900/10 transition-all group"
+                >
+                  {qrLogoUploading ? (
+                    <div className="flex flex-col items-center gap-2 py-4">
+                      <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                      <p className="text-xs text-gray-500">Uploading...</p>
+                    </div>
+                  ) : qrLogoUrl ? (
+                    <div className="flex flex-col items-center gap-3">
+                      <img src={qrLogoUrl} alt="QR Logo" className="w-16 h-16 object-contain rounded-lg border dark:border-gray-600" />
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400">Click to change logo</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 py-2">
+                      <div className="w-12 h-12 bg-gray-100 dark:bg-gray-600 rounded-xl flex items-center justify-center text-gray-400 group-hover:text-orange-500 transition-colors">
+                        <Upload size={24} />
+                      </div>
+                      <p className="text-xs font-bold text-gray-600 dark:text-gray-300">Click to Upload or Drag Logo</p>
+                      <p className="text-[10px] text-gray-400">Supported file: PNG, JPEG</p>
+                    </div>
+                  )}
+                  <input
+                    ref={qrLogoInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg"
+                    onChange={handleLogoFileSelect}
+                    className="hidden"
+                  />
+                </div>
+                <p className="text-[9px] text-gray-400 mt-2">*Recommended size: 100x100px. The logo will be placed in the center of the QR code.</p>
+              </div>
+
+              {/* Show Logo Toggle */}
+              <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-600">
+                <span className="text-xs font-black dark:text-white">Show Logo</span>
+                <button
+                  onClick={() => {
+                    if (!qrLogoUrl) { toast('Upload a logo first.', 'warning'); return; }
+                    setQrShowLogo(!qrShowLogo);
+                  }}
+                  className={`relative w-11 h-6 rounded-full transition-all ${qrShowLogo && qrLogoUrl ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                >
+                  <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${qrShowLogo && qrLogoUrl ? 'left-[22px]' : 'left-0.5'}`} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Column 3: Interactive QR Preview ── */}
+          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-5 border dark:border-gray-600 flex flex-col">
+            <h3 className="text-sm font-black dark:text-white uppercase tracking-tight mb-5">Interactive QR Preview</h3>
+
+            <div className="flex-1 flex flex-col items-center justify-center gap-3">
+              {/* QR Code Preview */}
+              <div className="relative">
+                <img
+                  src={buildQrImageUrl(previewTableName)}
+                  alt={`QR for ${previewTableName}`}
+                  className="w-40 h-40 rounded-xl border-2 border-gray-200 dark:border-gray-500"
+                />
+                {qrShowLogo && qrLogoUrl && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <img src={qrLogoUrl} alt="Logo" className="w-10 h-10 rounded-lg bg-white p-0.5 shadow-md" />
+                  </div>
+                )}
+              </div>
+
+              {/* Table Label */}
+              <div className="text-center">
+                <p className="text-sm font-black dark:text-white uppercase tracking-tight">
+                  {previewTableName} <span className="text-gray-400">({locationLabel})</span>
+                </p>
+                <p className="text-[8px] text-gray-400 font-mono mt-1 break-all leading-relaxed max-w-[250px]">{buildQrUrl(previewTableName)}</p>
+              </div>
+
+              {/* Preview & Download Button */}
               <button
-                onClick={handlePrintQrs}
-                className="flex-1 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-500 hover:text-white dark:hover:bg-orange-500 dark:hover:text-white transition-all flex items-center justify-center gap-2"
+                onClick={() => handleDownloadQr(previewTableName)}
+                className="w-full py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
               >
-                <Printer size={13} /> Print All
+                <QrCode size={14} /> Preview & Download Single Code
               </button>
-              <button
-                onClick={() => {
-                  setQrGenLocation('');
-                  setQrGenTablePrefix('Table ');
-                  setQrGenStartNum('1');
-                  setQrGenTableCount('10');
-                  setQrGenPreviewTable('');
-                }}
-                className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-all flex items-center justify-center gap-2"
-              >
-                <RotateCcw size={13} /> Reset
-              </button>
+
+              {/* Navigation */}
+              <div className="flex items-center justify-between w-full pt-2">
+                <button
+                  onClick={() => setQrPreviewIndex(Math.max(0, safePreviewIdx - 1))}
+                  disabled={safePreviewIdx === 0}
+                  className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed text-gray-500 dark:text-gray-400"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">
+                  Showing Table {safePreviewIdx + 1} of {tableNames.length}
+                </span>
+                <button
+                  onClick={() => setQrPreviewIndex(Math.min(tableNames.length - 1, safePreviewIdx + 1))}
+                  disabled={safePreviewIdx >= tableNames.length - 1}
+                  className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed text-gray-500 dark:text-gray-400"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Bulk QR Grid */}
-        <div className="space-y-3">
+        {/* ── Generated QR Code Gallery ── */}
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{count} Table QR Codes</p>
+            <h3 className="text-sm font-black dark:text-white uppercase tracking-tight">
+              Generated QR Code Gallery <span className="text-gray-400">[{count} Codes]</span>
+            </h3>
+            <button
+              onClick={() => {
+                const newCount = Math.min(50, count + 10);
+                setQrGenTableCount(String(newCount));
+              }}
+              className="px-4 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase tracking-widest hover:border-orange-400 hover:text-orange-500 transition-all"
+            >
+              Generate More
+            </button>
           </div>
-          <div className="grid grid-cols-10 gap-2 max-h-64 overflow-y-auto pr-1">
-            {tableNames.map(t => (
-              <div key={t} className="flex flex-col items-center gap-1 p-1.5 bg-gray-50 dark:bg-gray-700/30 rounded-lg border dark:border-gray-600">
+          <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
+            {tableNames.map((t, idx) => (
+              <div
+                key={t}
+                className={`flex flex-col items-center gap-1.5 p-2 bg-white dark:bg-gray-800 rounded-xl border-2 transition-all cursor-pointer hover:border-orange-400 hover:shadow-md ${
+                  idx === safePreviewIdx ? 'border-orange-500 shadow-md bg-orange-50 dark:bg-orange-900/20' : 'border-gray-200 dark:border-gray-600'
+                }`}
+                onClick={() => setQrPreviewIndex(idx)}
+              >
                 <img
                   src={buildQrImageUrl(t)}
                   alt={`QR ${t}`}
-                  className="w-full aspect-square rounded"
+                  className="w-full aspect-square rounded-lg"
                 />
-                <p className="text-[7px] font-black dark:text-white uppercase tracking-tighter text-center line-clamp-1 w-full">{t}</p>
+                <p className="text-[8px] font-black dark:text-white uppercase tracking-tighter text-center line-clamp-1 w-full">{t}</p>
                 <button
-                  onClick={() => handleDownloadQr(t)}
-                  className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
+                  onClick={e => { e.stopPropagation(); handleDownloadQr(t); }}
+                  className="flex items-center gap-1 text-[8px] text-gray-400 hover:text-orange-500 transition-colors font-bold"
                   title={`Download QR for ${t}`}
                 >
-                  <Download size={10} />
+                  <Download size={10} /> Download
                 </button>
               </div>
             ))}
           </div>
         </div>
+
+        {/* Logo Crop Modal */}
+        {qrLogoCropFile && (
+          <ImageCropModal
+            imageFile={qrLogoCropFile}
+            onCrop={(blob) => handleLogoCropped(blob)}
+            onCancel={() => setQrLogoCropFile(null)}
+          />
+        )}
       </div>
     );
   };
