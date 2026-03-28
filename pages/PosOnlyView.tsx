@@ -8400,10 +8400,14 @@ const PosOnlyView: React.FC<Props> = ({
                   {showSavedBillFeature && (
                     <button
                       onClick={() => { setCounterMode('SAVED_BILL'); setSelectedQrOrderForPayment(null); }}
-                      className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                      className={`relative flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
                         counterMode === 'SAVED_BILL' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
                       }`}
-                    >Saved Bill</button>
+                    >Saved Bill
+                      {savedBills.length > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] font-black min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center">{savedBills.length}</span>
+                      )}
+                    </button>
                   )}
                   <button
                     onClick={() => { setCounterMode('COUNTER_ORDER'); setSelectedQrOrderForPayment(null); }}
@@ -8411,14 +8415,21 @@ const PosOnlyView: React.FC<Props> = ({
                       counterMode === 'COUNTER_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
                     }`}
                   >Counter</button>
-                  {showQrFeature && (
+                  {showQrFeature && (() => {
+                    const servedQrCount = orders.filter(o => o.status === OrderStatus.SERVED).length;
+                    return (
                     <button
                       onClick={() => { setCounterMode('QR_ORDER'); setSelectedQrOrderForPayment(null); }}
-                      className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                      className={`relative flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
                         counterMode === 'QR_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
                       }`}
-                    >QR Order</button>
-                  )}
+                    >QR Order
+                      {servedQrCount > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] font-black min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center">{servedQrCount}</span>
+                      )}
+                    </button>
+                    );
+                  })()}
                 </div>
               )}
               <div className="flex items-center justify-between">
