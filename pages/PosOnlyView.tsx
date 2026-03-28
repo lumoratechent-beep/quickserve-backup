@@ -4602,30 +4602,7 @@ const PosOnlyView: React.FC<Props> = ({
           >
             <CreditCard size={18} /> {!isSidebarCollapsed && 'Billing'}
           </button>
-          <button
-            onClick={() => handleTabSelection('MAIL')}
-            title="Mail"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all relative ${
-              activeTab === 'MAIL'
-                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-            }`}
-          >
-            <span className="relative">
-              <Mail size={18} />
-              {unreadMailCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center">{unreadMailCount}</span>
-              )}
-            </span>
-            {!isSidebarCollapsed && (
-              <span className="flex items-center gap-2">
-                Mail
-                {unreadMailCount > 0 && (
-                  <span className="bg-red-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">{unreadMailCount}</span>
-                )}
-              </span>
-            )}
-          </button>
+
           </>)}
         </nav>
 
@@ -6768,7 +6745,7 @@ const PosOnlyView: React.FC<Props> = ({
           {/* Mail Tab */}
           {activeTab === 'MAIL' && (
             <div className="flex-1 overflow-y-auto p-4 md:p-6">
-              <div className="max-w-4xl mx-auto w-full">
+              <div className="max-w-7xl mx-auto w-full">
                 <div className="mb-6">
                   <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Inbox</h1>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Announcements and updates from QuickServe.</p>

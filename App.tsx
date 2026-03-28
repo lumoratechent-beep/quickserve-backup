@@ -1963,19 +1963,27 @@ const App: React.FC = () => {
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
             title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-            className={`relative flex items-center w-16 h-8 rounded-full transition-colors duration-300 focus:outline-none ${
-              isDarkMode ? 'bg-indigo-700' : 'bg-orange-300'
-            }`}
+            style={{
+              backgroundColor: isDarkMode ? '#1E293B' : '#FFEDD5',
+              border: '1px solid rgba(0,0,0,0.05)',
+            }}
+            className="relative flex items-center w-16 h-8 rounded-full transition-all duration-300 focus:outline-none"
           >
-            <span className={`absolute left-1 flex items-center justify-center w-6 h-6 rounded-full shadow-md transition-all duration-300 ${
-              isDarkMode ? 'translate-x-8 bg-gray-900' : 'translate-x-0 bg-white'
-            }`}>
+            <span
+              style={isDarkMode
+                ? { background: 'linear-gradient(135deg, #6366f1 0%, #3730a3 100%)', boxShadow: '0 0 10px rgba(99, 102, 241, 0.4)' }
+                : { background: 'linear-gradient(135deg, #fbbf24 0%, #f97316 100%)', boxShadow: '0 0 10px rgba(249, 115, 22, 0.3)' }
+              }
+              className={`absolute left-1 flex items-center justify-center w-6 h-6 rounded-full transition-all duration-300 ${
+                isDarkMode ? 'translate-x-8' : 'translate-x-0'
+              }`}
+            >
               {isDarkMode
-                ? <Moon size={13} className="text-indigo-300" />
-                : <Sun size={13} className="text-orange-500" />}
+                ? <Moon size={13} className="text-yellow-100" />
+                : <Sun size={13} className="text-white" />}
             </span>
-            <Sun size={12} className={`absolute left-2 transition-opacity duration-300 ${isDarkMode ? 'opacity-40 text-orange-300' : 'opacity-0'}`} />
-            <Moon size={12} className={`absolute right-2 transition-opacity duration-300 ${isDarkMode ? 'opacity-0' : 'opacity-40 text-indigo-500'}`} />
+            <Sun size={12} className={`absolute left-2 transition-opacity duration-300 text-orange-400 ${isDarkMode ? 'opacity-40' : 'opacity-0'}`} />
+            <Moon size={12} className={`absolute right-2 transition-opacity duration-300 text-indigo-400 ${isDarkMode ? 'opacity-0' : 'opacity-40'}`} />
           </button>
           {currentUser && (
             <div className="flex items-center gap-3">
