@@ -567,7 +567,7 @@ const PosOnlyView: React.FC<Props> = ({
 
   // QR Generator state
   const [qrGenLocation, setQrGenLocation] = useState<string>(() => '');
-  const [qrGenTableCount, setQrGenTableCount] = useState<string>('5');
+  const [qrGenTableCount, setQrGenTableCount] = useState<string>('10');
   const [qrGenTablePrefix, setQrGenTablePrefix] = useState<string>('Table ');
   const [qrGenStartNum, setQrGenStartNum] = useState<string>('1');
   const [qrGenPreviewTable, setQrGenPreviewTable] = useState<string>('');
@@ -4057,21 +4057,25 @@ const PosOnlyView: React.FC<Props> = ({
 
     return (
       <div className="space-y-6">
-        {/* Config */}
-        <div className="space-y-3">
-          <div>
-            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">{restaurant.location === QS_DEFAULT_HUB ? 'Restaurant Name (for labels)' : 'Location Name'}</label>
-            <input
-              type="text"
-              value={qrGenLocation || (restaurant.location === QS_DEFAULT_HUB ? restaurant.name : restaurant.location)}
-              onChange={e => setQrGenLocation(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-              placeholder={restaurant.location === QS_DEFAULT_HUB ? restaurant.name : (restaurant.location || 'e.g. Main Hall')}
-            />
-            <p className="text-[9px] text-gray-400 mt-1 ml-1">{restaurant.location === QS_DEFAULT_HUB ? 'Used as a label on printed QR codes' : <span>This maps to the <code className="font-mono">?loc=</code> parameter in the QR URL</span>}</p>
-          </div>
+        {/* Two-column layout: Left config, Right single preview */}
+        <div className="flex flex-col lg:flex-row gap-6">
 
-          <div className="grid grid-cols-2 gap-3">
+          {/* Left: Configuration Inputs */}
+          <div className="flex-1 space-y-4">
+            {/* Location Name */}
+            <div>
+              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">{restaurant.location === QS_DEFAULT_HUB ? 'Restaurant Name (for labels)' : 'Location Name'}</label>
+              <input
+                type="text"
+                value={qrGenLocation || (restaurant.location === QS_DEFAULT_HUB ? restaurant.name : restaurant.location)}
+                onChange={e => setQrGenLocation(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                placeholder={restaurant.location === QS_DEFAULT_HUB ? restaurant.name : (restaurant.location || 'e.g. Main Hall')}
+              />
+              <p className="text-[9px] text-gray-400 mt-1 ml-1">{restaurant.location === QS_DEFAULT_HUB ? 'Used as a label on printed QR codes' : <span>Maps to the <code className="font-mono">?loc=</code> parameter in the QR URL</span>}</p>
+            </div>
+
+            {/* Table Prefix */}
             <div>
               <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Table Prefix</label>
               <input
@@ -4082,69 +4086,70 @@ const PosOnlyView: React.FC<Props> = ({
                 placeholder="Table "
               />
             </div>
-            <div>
-              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Start Number</label>
-              <input
-                type="number"
-                value={qrGenStartNum}
-                onChange={e => setQrGenStartNum(e.target.value)}
-                min="1"
-                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                placeholder="1"
-              />
+
+            {/* Start Number | Number of Tables */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Start Number</label>
+                <input
+                  type="number"
+                  value={qrGenStartNum}
+                  onChange={e => setQrGenStartNum(e.target.value)}
+                  min="1"
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                  placeholder="1"
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Number of Tables (max 50)</label>
+                <input
+                  type="number"
+                  value={qrGenTableCount}
+                  onChange={e => setQrGenTableCount(e.target.value)}
+                  min="1"
+                  max="50"
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                  placeholder="10"
+                />
+              </div>
             </div>
           </div>
 
-          <div>
-            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Number of Tables (max 50)</label>
-            <input
-              type="number"
-              value={qrGenTableCount}
-              onChange={e => setQrGenTableCount(e.target.value)}
-              min="1"
-              max="50"
-              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-              placeholder="5"
-            />
-          </div>
-        </div>
-
-        {/* Preview single QR */}
-        <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-3">
-          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Single QR Preview</p>
-          <div className="flex gap-2">
+          {/* Right: Single QR Preview */}
+          <div className="w-full lg:w-60 bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 flex flex-col gap-3 border dark:border-gray-600">
+            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Single QR Preview</p>
             <input
               type="text"
               value={qrGenPreviewTable}
               onChange={e => setQrGenPreviewTable(e.target.value)}
-              className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
               placeholder={tableNames[0] || 'Table 1'}
             />
+            {(() => {
+              const t = qrGenPreviewTable || tableNames[0];
+              if (!t) return null;
+              return (
+                <div className="flex flex-col items-center gap-2 py-1">
+                  <img
+                    src={buildQrImageUrl(t)}
+                    alt={`QR for ${t}`}
+                    className="w-32 h-32 rounded-lg border dark:border-gray-600"
+                  />
+                  <p className="text-[10px] font-black dark:text-white uppercase tracking-widest">{t}</p>
+                  <p className="text-[8px] text-gray-400 font-mono text-center break-all w-full leading-relaxed">{buildQrUrl(t)}</p>
+                  <button
+                    onClick={() => handleDownloadQr(t)}
+                    className="w-full py-2 bg-orange-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Download size={13} /> Download
+                  </button>
+                </div>
+              );
+            })()}
           </div>
-          {(() => {
-            const t = qrGenPreviewTable || tableNames[0];
-            if (!t) return null;
-            return (
-              <div className="flex flex-col items-center gap-3 py-2">
-                <img
-                  src={buildQrImageUrl(t)}
-                  alt={`QR for ${t}`}
-                  className="w-36 h-36 rounded-lg border dark:border-gray-600"
-                />
-                <p className="text-[10px] font-black dark:text-white uppercase tracking-widest">{t}</p>
-                <p className="text-[9px] text-gray-400 font-mono text-center break-all max-w-xs">{buildQrUrl(t)}</p>
-                <button
-                  onClick={() => handleDownloadQr(t)}
-                  className="px-4 py-2 bg-orange-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center gap-2"
-                >
-                  <Download size={14} /> Download
-                </button>
-              </div>
-            );
-          })()}
         </div>
 
-        {/* Bulk generate */}
+        {/* Bulk QR Grid */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{count} Table QR Codes</p>
@@ -4155,21 +4160,21 @@ const PosOnlyView: React.FC<Props> = ({
               <Printer size={14} /> Print All
             </button>
           </div>
-          <div className="grid grid-cols-3 gap-3 max-h-72 overflow-y-auto pr-1">
+          <div className="grid grid-cols-10 gap-2 max-h-64 overflow-y-auto pr-1">
             {tableNames.map(t => (
-              <div key={t} className="flex flex-col items-center gap-1 p-2 bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600">
+              <div key={t} className="flex flex-col items-center gap-1 p-1.5 bg-gray-50 dark:bg-gray-700/30 rounded-lg border dark:border-gray-600">
                 <img
                   src={buildQrImageUrl(t)}
                   alt={`QR ${t}`}
                   className="w-full aspect-square rounded"
                 />
-                <p className="text-[9px] font-black dark:text-white uppercase tracking-tighter text-center line-clamp-1">{t}</p>
+                <p className="text-[7px] font-black dark:text-white uppercase tracking-tighter text-center line-clamp-1 w-full">{t}</p>
                 <button
                   onClick={() => handleDownloadQr(t)}
-                  className="p-1 text-gray-400 hover:text-orange-500 transition-colors"
+                  className="p-0.5 text-gray-400 hover:text-orange-500 transition-colors"
                   title={`Download QR for ${t}`}
                 >
-                  <Download size={12} />
+                  <Download size={10} />
                 </button>
               </div>
             ))}
@@ -6738,21 +6743,7 @@ const PosOnlyView: React.FC<Props> = ({
                 {qrOrderSubTab === 'SETTING' && (
                   <div className="space-y-4">
                     {canUseQr ? (
-                      <>
-                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                          <div>
-                            <p className="text-xs font-black dark:text-white">QR Ordering</p>
-                            <p className="text-[9px] text-gray-400 mt-0.5">Let customers scan QR codes to order from their table</p>
-                          </div>
-                          <button
-                            onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
-                            className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                          >
-                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
-                          </button>
-                        </div>
-                        {featureSettings.qrEnabled && renderQrGeneratorContent()}
-                      </>
+                      renderQrGeneratorContent()
                     ) : (
                       <div className="text-center py-8">
                         <QrCode size={36} className="mx-auto text-gray-300 mb-3" />
