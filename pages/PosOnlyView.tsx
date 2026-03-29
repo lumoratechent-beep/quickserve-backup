@@ -23,7 +23,8 @@ import {
   Filter, Tag, Layers, Coffee, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeftRight, RotateCw, Wifi, WifiOff,
   Receipt, Network, Type, MessageSquare, Zap, Briefcase, PlusCircle, Puzzle,
   ArrowLeft, Star, Package, Monitor, Info, ExternalLink,
-  Tablet, Globe, ShoppingCart, Wallet, ArrowUpRight, ArrowDownRight, Building2, Banknote, Send, Copy, Truck, Mail
+  Tablet, Globe, ShoppingCart, Wallet, ArrowUpRight, ArrowDownRight, Building2, Banknote, Send, Copy, Truck, Mail,
+  MoreVertical, Lock, ImagePlus, EyeOff, User
 } from 'lucide-react';
 
 interface Props {
@@ -328,6 +329,20 @@ const PosOnlyView: React.FC<Props> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showMobileCart, setShowMobileCart] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // Profile panel state
+  const [showProfilePanel, setShowProfilePanel] = useState(false);
+  const [profileRestaurantName, setProfileRestaurantName] = useState('');
+  const [profileCurrentPassword, setProfileCurrentPassword] = useState('');
+  const [profileNewPassword, setProfileNewPassword] = useState('');
+  const [profileConfirmPassword, setProfileConfirmPassword] = useState('');
+  const [profileShowCurrentPw, setProfileShowCurrentPw] = useState(false);
+  const [profileShowNewPw, setProfileShowNewPw] = useState(false);
+  const [profileCropFile, setProfileCropFile] = useState<File | null>(null);
+  const [profileLogoUploading, setProfileLogoUploading] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const profileLogoInputRef = useRef<HTMLInputElement>(null);
+
   const [addonDetailView, setAddonDetailView] = useState<string | null>(null);
   const [addonDetailTab, setAddonDetailTab] = useState<'details' | 'setting'>('details');
   const [menuLayout, setMenuLayout] = useState<'grid-3' | 'grid-4' | 'grid-5' | 'grid-6' | 'list'>('grid-5');
@@ -786,6 +801,123 @@ const PosOnlyView: React.FC<Props> = ({
       setIsAddingStaff(false);
     }
   };
+
+  // ── Profile Panel Handlers ──────────────────────────────────────────────
+  const openProfilePanel = () => {
+    setProfileRestaurantName(restaurant.name);
+    setProfileCurrentPassword('');
+    setProfileNewPassword('');
+    setProfileConfirmPassword('');
+    setProfileShowCurrentPw(false);
+    setProfileShowNewPw(false);
+    setShowProfilePanel(true);
+  };
+
+  const handleProfileLogoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast('Please select a PNG or JPEG image file.', 'warning');
+      return;
+    }
+    setProfileCropFile(file);
+    if (profileLogoInputRef.current) profileLogoInputRef.current.value = '';
+  };
+
+  const handleProfileLogoCropped = async (blob: Blob) => {
+    setProfileCropFile(null);
+    setProfileLogoUploading(true);
+    try {
+      const file = new File([blob], `restaurant-logo-${restaurant.id}.png`, { type: 'image/png' });
+      const url = await uploadImage(file, 'qr-logos', `${restaurant.id}/restaurant-logo`);
+      if (url) {
+        const { error } = await supabase
+          .from('restaurants')
+          .update({ logo: url })
+          .eq('id', restaurant.id);
+        if (error) throw error;
+        toast('Logo updated successfully!', 'success');
+      }
+    } catch {
+      toast('Failed to upload logo.', 'error');
+    } finally {
+      setProfileLogoUploading(false);
+    }
+  };
+
+  const handleSaveProfileInfo = async () => {
+    const newName = profileRestaurantName.trim();
+    if (!newName) {
+      toast('Restaurant name cannot be empty.', 'warning');
+      return;
+    }
+    setProfileSaving(true);
+    try {
+      const { error } = await supabase
+        .from('restaurants')
+        .update({ name: newName })
+        .eq('id', restaurant.id);
+      if (error) throw error;
+      toast('Restaurant info updated!', 'success');
+    } catch {
+      toast('Failed to update info.', 'error');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handleSaveProfilePassword = async () => {
+    if (!profileCurrentPassword) {
+      toast('Please enter your current password.', 'warning');
+      return;
+    }
+    if (!profileNewPassword) {
+      toast('Please enter a new password.', 'warning');
+      return;
+    }
+    if (profileNewPassword.length < 6) {
+      toast('New password must be at least 6 characters.', 'warning');
+      return;
+    }
+    if (profileNewPassword !== profileConfirmPassword) {
+      toast('New passwords do not match.', 'warning');
+      return;
+    }
+    setProfileSaving(true);
+    try {
+      const rawUser = localStorage.getItem('qs_user');
+      const currentUser = rawUser ? JSON.parse(rawUser) : null;
+      if (!currentUser?.id) throw new Error('User session not found.');
+
+      // Verify current password first
+      const { data: userData, error: fetchError } = await supabase
+        .from('users')
+        .select('password')
+        .eq('id', currentUser.id)
+        .single();
+      if (fetchError || !userData) throw new Error('Could not verify current password.');
+      if (userData.password !== profileCurrentPassword) {
+        toast('Current password is incorrect.', 'error');
+        setProfileSaving(false);
+        return;
+      }
+
+      const { error } = await supabase
+        .from('users')
+        .update({ password: profileNewPassword })
+        .eq('id', currentUser.id);
+      if (error) throw error;
+      toast('Password updated successfully!', 'success');
+      setProfileCurrentPassword('');
+      setProfileNewPassword('');
+      setProfileConfirmPassword('');
+    } catch (err: any) {
+      toast(err.message || 'Failed to update password.', 'error');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+  // ───────────────────────────────────────────────────────────────────────
 
   const handleOpenAddModal = (initialCategory?: string) => {
     setEditingItem(null);
@@ -4467,12 +4599,21 @@ const PosOnlyView: React.FC<Props> = ({
         ${isSidebarCollapsed ? 'lg:w-16' : 'w-64'}
       `}>
         <div className={`border-b dark:border-gray-700 flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
-          <img src={restaurant.logo} className={`rounded-lg shadow-sm ${isSidebarCollapsed ? 'w-8 h-8' : 'w-10 h-10'}`} />
+          <img src={restaurant.logo} className={`rounded-lg shadow-sm ${isSidebarCollapsed ? 'w-8 h-8' : 'w-10 h-10'} flex-shrink-0`} />
           {!isSidebarCollapsed && (
-            <div>
-              <h2 className="font-black dark:text-white text-sm uppercase tracking-tight leading-tight">{restaurant.name}</h2>
-              <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest">{showKitchenFeature && showQrFeature ? 'POS + Kitchen + QR' : showKitchenFeature ? 'POS + Kitchen' : showQrFeature ? 'POS + QR' : 'POS Terminal'}</p>
-            </div>
+            <>
+              <div className="flex-1 min-w-0">
+                <h2 className="font-black dark:text-white text-sm uppercase tracking-tight leading-tight truncate">{restaurant.name}</h2>
+                <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest">{showKitchenFeature && showQrFeature ? 'POS + Kitchen + QR' : showKitchenFeature ? 'POS + Kitchen' : showQrFeature ? 'POS + QR' : 'POS Terminal'}</p>
+              </div>
+              <button
+                onClick={openProfilePanel}
+                title="Account & Restaurant Settings"
+                className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <MoreVertical size={16} />
+              </button>
+            </>
           )}
         </div>
 
@@ -9644,6 +9785,173 @@ const PosOnlyView: React.FC<Props> = ({
           }}
         />
       )}
+
+      {/* ── Profile / Account Panel ─────────────────────────────────────── */}
+      {showProfilePanel && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/40 z-50"
+            onClick={() => setShowProfilePanel(false)}
+          />
+          {/* Panel */}
+          <div className="fixed inset-y-0 left-0 z-50 w-80 bg-white dark:bg-gray-800 shadow-2xl flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b dark:border-gray-700">
+              <div className="flex items-center gap-2">
+                <User size={18} className="text-orange-500" />
+                <h2 className="font-black text-sm uppercase tracking-tight dark:text-white">Account & Settings</h2>
+              </div>
+              <button
+                onClick={() => setShowProfilePanel(false)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+
+              {/* ── Restaurant Logo ── */}
+              <div>
+                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Restaurant Logo</p>
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <img
+                      src={restaurant.logo}
+                      alt="Restaurant logo"
+                      className="w-16 h-16 rounded-xl shadow border dark:border-gray-600 object-cover bg-gray-100 dark:bg-gray-700"
+                    />
+                    {profileLogoUploading && (
+                      <div className="absolute inset-0 rounded-xl bg-black/40 flex items-center justify-center">
+                        <RotateCw size={18} className="text-white animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <button
+                      onClick={() => profileLogoInputRef.current?.click()}
+                      disabled={profileLogoUploading}
+                      className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors disabled:opacity-50"
+                    >
+                      <ImagePlus size={13} /> Upload Logo
+                    </button>
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500">PNG or JPEG recommended</p>
+                  </div>
+                  <input
+                    ref={profileLogoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleProfileLogoFileSelect}
+                  />
+                </div>
+              </div>
+
+              {/* ── Restaurant Info ── */}
+              <div>
+                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Restaurant Info</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Restaurant Name</label>
+                    <input
+                      type="text"
+                      value={profileRestaurantName}
+                      onChange={e => setProfileRestaurantName(e.target.value)}
+                      className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      placeholder="Restaurant name"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSaveProfileInfo}
+                    disabled={profileSaving}
+                    className="w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {profileSaving ? <RotateCw size={13} className="animate-spin" /> : null}
+                    Save Info
+                  </button>
+                </div>
+              </div>
+
+              {/* ── Change Password ── */}
+              <div>
+                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Change Password</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Current Password</label>
+                    <div className="relative">
+                      <input
+                        type={profileShowCurrentPw ? 'text' : 'password'}
+                        value={profileCurrentPassword}
+                        onChange={e => setProfileCurrentPassword(e.target.value)}
+                        className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400 pr-9"
+                        placeholder="Current password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setProfileShowCurrentPw(v => !v)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                      >
+                        {profileShowCurrentPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">New Password</label>
+                    <div className="relative">
+                      <input
+                        type={profileShowNewPw ? 'text' : 'password'}
+                        value={profileNewPassword}
+                        onChange={e => setProfileNewPassword(e.target.value)}
+                        className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400 pr-9"
+                        placeholder="New password (min 6 chars)"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setProfileShowNewPw(v => !v)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                      >
+                        {profileShowNewPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Confirm New Password</label>
+                    <input
+                      type="password"
+                      value={profileConfirmPassword}
+                      onChange={e => setProfileConfirmPassword(e.target.value)}
+                      className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      placeholder="Confirm new password"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSaveProfilePassword}
+                    disabled={profileSaving}
+                    className="w-full py-2 rounded-lg bg-gray-800 dark:bg-gray-200 hover:bg-gray-700 dark:hover:bg-white text-white dark:text-gray-900 text-xs font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {profileSaving ? <RotateCw size={13} className="animate-spin" /> : <Lock size={13} />}
+                    Update Password
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* Logo Crop Modal */}
+          {profileCropFile && (
+            <ImageCropModal
+              imageFile={profileCropFile}
+              onCrop={handleProfileLogoCropped}
+              onCancel={() => setProfileCropFile(null)}
+            />
+          )}
+        </>
+      )}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+
       </div>
     </div>
   );
