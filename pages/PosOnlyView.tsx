@@ -4476,7 +4476,7 @@ const PosOnlyView: React.FC<Props> = ({
           )}
         </div>
 
-        <nav className={`flex-1 overflow-y-auto ${isSidebarCollapsed ? 'p-2 space-y-1' : ('px-3 ' + navContainerPy + ' space-y-1')}`}>
+        <nav className={`flex-1 overflow-y-auto ${isSidebarCollapsed ? 'p-2 space-y-1' : ('px-3 pt-2 pb-2 space-y-1')}`}>
           {isKitchenUser && (
             <button
               onClick={() => handleTabSelection('KITCHEN')}
@@ -4494,7 +4494,7 @@ const PosOnlyView: React.FC<Props> = ({
           {!isKitchenUser && (<>
           {/* Operations Group */}
           {!isSidebarCollapsed && (
-            <p className={`text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-3 ${navSectionPt}`}>Operations</p>
+            <p className={`text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-3 pt-1 pb-1`}>Operations</p>
           )}
           <button 
             onClick={() => handleTabSelection('COUNTER')}
@@ -4626,14 +4626,14 @@ const PosOnlyView: React.FC<Props> = ({
           </>)}
         </nav>
 
-        {/* Sidebar Collapse Toggle */}
-        <div className={`hidden lg:flex ${isSidebarCollapsed ? 'justify-center p-2' : 'justify-end px-4'} pt-1`}>
+        {/* Sidebar Collapse Toggle — absolutely positioned at bottom-right, takes no flow space */}
+        <div className={`hidden lg:block absolute bottom-[4.5rem] ${isSidebarCollapsed ? 'right-0 left-0 flex justify-center' : 'right-2'} z-10`}>
           <button
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-all"
+            className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-all"
           >
-            {isSidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+            {isSidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
           </button>
         </div>
 
