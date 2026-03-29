@@ -4626,8 +4626,8 @@ const PosOnlyView: React.FC<Props> = ({
           </>)}
         </nav>
 
-        {/* Sidebar Collapse Toggle — absolutely positioned at bottom-right, takes no flow space */}
-        <div className={`hidden lg:block absolute bottom-[4.5rem] ${isSidebarCollapsed ? 'right-0 left-0 flex justify-center' : 'right-2'} z-10`}>
+        {/* Sidebar Collapse Toggle — in-flow, sits just above the printer separator */}
+        <div className={`hidden lg:flex ${isSidebarCollapsed ? 'justify-center px-2 pb-1' : 'justify-end px-3 pb-1'}`}>
           <button
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
