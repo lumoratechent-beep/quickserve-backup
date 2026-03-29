@@ -4466,15 +4466,15 @@ const PosOnlyView: React.FC<Props> = ({
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         ${isSidebarCollapsed ? 'lg:w-16' : 'w-64'}
       `}>
-        {/* Floating Collapse Toggle — sits on the sidebar/content border */}
-        <button
-          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className="hidden lg:flex items-center justify-center absolute -right-3 top-1/2 -translate-y-1/2 z-20 w-6 h-6 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-full shadow-md text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 hover:border-orange-300 dark:hover:border-orange-600 hover:shadow-lg transition-all"
-        >
-          {isSidebarCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
-        </button>
-        <div className={`border-b dark:border-gray-700 flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
+        <div className={`relative border-b dark:border-gray-700 flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
+          {/* Collapse Toggle — on the bottom-right border between header and nav */}
+          <button
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="hidden lg:flex items-center justify-center absolute -bottom-3 -right-3 z-20 w-6 h-6 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-full shadow-md text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 hover:border-orange-300 dark:hover:border-orange-600 hover:shadow-lg transition-all"
+          >
+            {isSidebarCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
+          </button>
           <img src={restaurant.logo} className={`rounded-lg shadow-sm ${isSidebarCollapsed ? 'w-8 h-8' : 'w-10 h-10'}`} />
           {!isSidebarCollapsed && (
             <div>
