@@ -4467,11 +4467,11 @@ const PosOnlyView: React.FC<Props> = ({
         ${isSidebarCollapsed ? 'lg:w-16' : 'w-64'}
       `}>
         <div className={`relative border-b dark:border-gray-700 flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
-          {/* Collapse Toggle — on the bottom-right corner of the header */}
+          {/* Collapse Toggle — middle-right edge of the logo box */}
           <button
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="hidden lg:flex items-center justify-center absolute -bottom-3 -right-3 z-20 w-7 h-6 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-md shadow-[0_0_8px_2px_rgba(156,163,175,0.35)] dark:shadow-[0_0_8px_2px_rgba(75,85,99,0.5)] text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 hover:border-orange-300 dark:hover:border-orange-600 hover:shadow-[0_0_10px_3px_rgba(249,115,22,0.35)] transition-all"
+            className="hidden lg:flex items-center justify-center absolute top-1/2 -translate-y-1/2 -right-3 z-20 w-7 h-6 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-md shadow-[0_0_4px_1px_rgba(156,163,175,0.2)] dark:shadow-[0_0_4px_1px_rgba(75,85,99,0.3)] text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 hover:border-orange-300 dark:hover:border-orange-600 hover:shadow-[0_0_6px_2px_rgba(249,115,22,0.25)] transition-all"
           >
             <ChevronsLeftRight size={12} />
           </button>
