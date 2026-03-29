@@ -2553,6 +2553,18 @@ const PosOnlyView: React.FC<Props> = ({
   const isKitchenUser = userRole === 'KITCHEN';
   const isVendorUser = userRole === 'VENDOR';
 
+  // Sidebar nav item count – used to auto-scale spacing so the menu never needs to scroll
+  const sidebarNavItemCount = isKitchenUser
+    ? 1
+    : 6 + (showQrFeature ? 1 : 0) + (showOnlineShopFeature ? 1 : 0);
+  const navCompact      = sidebarNavItemCount >= 9;
+  const navExtraCompact = sidebarNavItemCount >= 11;
+  const navItemPy       = navExtraCompact ? 'py-1.5' : navCompact ? 'py-2' : 'py-2.5';
+  const navSectionPt    = navExtraCompact ? 'pt-2 pb-0' : navCompact ? 'pt-3 pb-0.5' : 'pt-4 pb-1';
+  const navContainerPy  = navExtraCompact ? 'py-2' : navCompact ? 'py-3' : 'py-4';
+  const navIconSize     = navExtraCompact ? 16 : navCompact ? 17 : 18;
+  const navTextSize     = navExtraCompact ? 'text-xs' : 'text-sm';
+
   const kitchenPendingOrders = useMemo(() => {
     return orders.filter(o => o.status === OrderStatus.PENDING);
   }, [orders]);
@@ -4464,50 +4476,50 @@ const PosOnlyView: React.FC<Props> = ({
           )}
         </div>
 
-        <nav className={`flex-1 overflow-y-auto ${isSidebarCollapsed ? 'p-2 space-y-1' : 'px-3 py-4 space-y-1'}`}>
+        <nav className={`flex-1 overflow-y-auto ${isSidebarCollapsed ? 'p-2 space-y-1' : ('px-3 ' + navContainerPy + ' space-y-1')}`}>
           {isKitchenUser && (
             <button
               onClick={() => handleTabSelection('KITCHEN')}
               title="Incoming Orders"
-              className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
+              className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
                 activeTab === 'KITCHEN'
                   ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
               }`}
             >
-              <Coffee size={18} /> {!isSidebarCollapsed && 'Incoming Orders'}
+              <Coffee size={navIconSize} /> {!isSidebarCollapsed && 'Incoming Orders'}
             </button>
           )}
 
           {!isKitchenUser && (<>
           {/* Operations Group */}
           {!isSidebarCollapsed && (
-            <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-3 pt-4 pb-1">Operations</p>
+            <p className={`text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-3 ${navSectionPt}`}>Operations</p>
           )}
           <button 
             onClick={() => handleTabSelection('COUNTER')}
             title="Counter"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
               activeTab === 'COUNTER' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <ShoppingBag size={18} /> {!isSidebarCollapsed && 'Counter'}
+            <ShoppingBag size={navIconSize} /> {!isSidebarCollapsed && 'Counter'}
           </button>
 
           {showQrFeature && (
             <button
               onClick={() => handleTabSelection('QR_ORDERS')}
               title="QR Orders"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
                 activeTab === 'QR_ORDERS'
                   ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
               }`}
             >
               <div className="flex items-center gap-3">
-                <QrCode size={18} />
+                <QrCode size={navIconSize} />
                 {!isSidebarCollapsed && 'QR Orders'}
               </div>
               {!isSidebarCollapsed && (() => {
@@ -4529,14 +4541,14 @@ const PosOnlyView: React.FC<Props> = ({
             <button
               onClick={() => handleTabSelection('ONLINE_ORDERS')}
               title="Online Orders"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
                 activeTab === 'ONLINE_ORDERS'
                   ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
               }`}
             >
               <div className="flex items-center gap-3">
-                <Globe size={18} />
+                <Globe size={navIconSize} />
                 {!isSidebarCollapsed && 'Online Orders'}
               </div>
             </button>
@@ -4544,71 +4556,71 @@ const PosOnlyView: React.FC<Props> = ({
 
           {/* Management Group */}
           {!isSidebarCollapsed && (
-            <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-3 pt-4 pb-1">Management</p>
+            <p className={`text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-3 ${navSectionPt}`}>Management</p>
           )}
           {isSidebarCollapsed && <div className="border-t dark:border-gray-700 my-0.5" />}
           <button 
             onClick={() => handleTabSelection('MENU_EDITOR')}
             title="Menu Editor"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
               activeTab === 'MENU_EDITOR' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <BookOpen size={18} /> {!isSidebarCollapsed && 'Menu Editor'}
+            <BookOpen size={navIconSize} /> {!isSidebarCollapsed && 'Menu Editor'}
           </button>
 
           <button 
             onClick={handleReportsClick}
             title="Bill and Report"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
               activeTab === 'REPORTS' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <BarChart3 size={18} /> {!isSidebarCollapsed && 'Reports'}
+            <BarChart3 size={navIconSize} /> {!isSidebarCollapsed && 'Reports'}
           </button>
 
           <button 
             onClick={() => handleTabSelection('SETTINGS')}
             title="Settings"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
               activeTab === 'SETTINGS' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <Settings size={18} /> {!isSidebarCollapsed && 'Settings'}
+            <Settings size={navIconSize} /> {!isSidebarCollapsed && 'Settings'}
           </button>
 
           {/* Account Group */}
           {!isSidebarCollapsed && (
-            <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-3 pt-4 pb-1">Account</p>
+            <p className={`text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-3 ${navSectionPt}`}>Account</p>
           )}
           {isSidebarCollapsed && <div className="border-t dark:border-gray-700 my-0.5" />}
           <button 
             onClick={() => handleTabSelection('ADDONS')}
             title="Add-on Feature"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
               activeTab === 'ADDONS' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <Package size={18} /> {!isSidebarCollapsed && 'Add-on Feature'}
+            <Package size={navIconSize} /> {!isSidebarCollapsed && 'Add-on Feature'}
           </button>
           <button 
             onClick={() => handleTabSelection('BILLING')}
             title="Billing"
-            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl text-sm font-medium transition-all ${
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
               activeTab === 'BILLING' 
                 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
-            <CreditCard size={18} /> {!isSidebarCollapsed && 'Billing'}
+            <CreditCard size={navIconSize} /> {!isSidebarCollapsed && 'Billing'}
           </button>
 
           </>)}
@@ -4663,17 +4675,6 @@ const PosOnlyView: React.FC<Props> = ({
               </>
             )}
           </button>
-          {connectedDevice && !isSidebarCollapsed && (
-            <div className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-700/50 rounded-xl border dark:border-gray-600">
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${
-                  isAutoReconnecting ? 'bg-blue-500 scale-125' : (realPrinterConnected ? 'bg-green-500' : 'bg-red-500')
-                } transition-all duration-300 animate-pulse`}></div>
-                <span className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest truncate">{connectedDevice.name}</span>
-              </div>
-              {isAutoReconnecting && <RotateCw size={10} className="animate-spin text-blue-500" />}
-            </div>
-          )}
           {isVendorUser && onNavigateBackOffice && (
             <button
               onClick={onNavigateBackOffice}
