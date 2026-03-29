@@ -4466,14 +4466,6 @@ const PosOnlyView: React.FC<Props> = ({
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         ${isSidebarCollapsed ? 'lg:w-16' : 'w-64'}
       `}>
-        {/* Collapse Toggle — vertically centered on the right edge of the sidebar */}
-        <button
-          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className="hidden lg:flex items-center justify-center absolute top-1/2 -translate-y-1/2 -right-3 z-20 w-6 h-8 bg-orange-500 border border-orange-500 rounded-md shadow-[0_0_4px_1px_rgba(249,115,22,0.25)] text-white hover:bg-orange-600 hover:border-orange-600 hover:shadow-[0_0_6px_2px_rgba(249,115,22,0.35)] transition-all"
-        >
-          <ChevronsLeftRight size={12} />
-        </button>
         <div className={`border-b dark:border-gray-700 flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
           <img src={restaurant.logo} className={`rounded-lg shadow-sm ${isSidebarCollapsed ? 'w-8 h-8' : 'w-10 h-10'}`} />
           {!isSidebarCollapsed && (
@@ -4484,7 +4476,7 @@ const PosOnlyView: React.FC<Props> = ({
           )}
         </div>
 
-        <nav className={`flex-1 overflow-y-auto ${isSidebarCollapsed ? 'p-2 space-y-1' : ('px-3 pr-7 ' + navContainerPy + ' space-y-1')}`}>
+        <nav className={`flex-1 overflow-y-auto ${isSidebarCollapsed ? 'p-2 space-y-1' : ('px-3 ' + navContainerPy + ' space-y-1')}`}>
           {isKitchenUser && (
             <button
               onClick={() => handleTabSelection('KITCHEN')}
@@ -4633,6 +4625,17 @@ const PosOnlyView: React.FC<Props> = ({
 
           </>)}
         </nav>
+
+        {/* Sidebar Collapse Toggle */}
+        <div className={`hidden lg:flex ${isSidebarCollapsed ? 'justify-center p-2' : 'justify-end px-4'} pt-1`}>
+          <button
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-all"
+          >
+            {isSidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          </button>
+        </div>
 
         {/* Printer Connection Status */}
         <div className={`mt-auto border-t dark:border-gray-700 space-y-1.5 ${isSidebarCollapsed ? 'p-2' : 'px-3 py-2'}`}>
