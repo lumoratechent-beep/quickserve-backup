@@ -74,8 +74,6 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const testimonialScrollRef = useRef<HTMLDivElement>(null);
-  const pricingScrollRef = useRef<HTMLDivElement>(null);
   const [testimonialIdx, setTestimonialIdx] = useState(0);
   const [pricingIdx, setPricingIdx] = useState(1);
   const heroRef = useInView();
@@ -94,17 +92,6 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
   const [partnerLogos, setPartnerLogos] = useState<{ url: string; alt: string; crop_shape: string; display_width: number; display_height: number }[]>([]);
 
   useEffect(() => { setMounted(true); }, []);
-
-  // Scroll pricing carousel to Pro plan (index 1) on mount
-  useEffect(() => {
-    const el = pricingScrollRef.current;
-    if (!el) return;
-    const timer = setTimeout(() => {
-      const count = PRICING_PLANS.length;
-      el.scrollTo({ left: (el.scrollWidth / count) * 1, behavior: 'auto' });
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
 
   // Fetch feature images for the partner carousel
   useEffect(() => {
@@ -471,44 +458,45 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
           </div>
           {/* Mobile carousel */}
           <div className="md:hidden">
-            <div
-              ref={testimonialScrollRef}
-              className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-4 -mx-6 px-6"
-              onScroll={(e) => {
-                const el = e.currentTarget;
-                const idx = Math.round(el.scrollLeft / (el.scrollWidth / 3));
-                setTestimonialIdx(Math.min(idx, 2));
-              }}
-            >
-              {[
-                { name: 'Ahmad R.', biz: 'Nasi Lemak Corner, KL', text: "Setup took me 3 minutes. The next day I already had customers ordering from their phones. Incredible value for the price.", avatar: 'A' },
-                { name: 'Mei Ling T.', biz: 'Bubble Tea House, PJ', text: "We cut our wait times by half. Customers love scanning QR and ordering without waiting. Our staff is happier too.", avatar: 'M' },
-                { name: 'Raj K.', biz: 'Mamak Express, Penang', text: "I tried 3 other POS systems before QuickServe. This is the only one that's actually affordable for a small restaurant.", avatar: 'R' },
-              ].map((t, i) => (
-                <div
-                  key={i}
-                  className="flex-shrink-0 w-[85vw] snap-center p-6 bg-white dark:bg-gray-800/50 rounded-3xl border border-gray-100 dark:border-gray-800"
-                >
-                  <div className="flex gap-1 mb-4">
-                    {[...Array(5)].map((_, j) => <Star key={j} size={14} className="fill-orange-400 text-orange-400" />)}
-                  </div>
-                  <p className="text-gray-700 dark:text-gray-300 font-medium text-sm leading-relaxed mb-6">"{t.text}"</p>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-orange-500 text-white rounded-full flex items-center justify-center font-black text-sm">{t.avatar}</div>
-                    <div>
-                      <div className="font-bold text-sm text-gray-900 dark:text-white">{t.name}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">{t.biz}</div>
+            <div className="relative overflow-hidden -mx-6">
+              <div
+                className="flex transition-transform duration-500 ease-in-out"
+                style={{ transform: `translateX(-${testimonialIdx * 100}%)` }}
+              >
+                {[
+                  { name: 'Ahmad R.', biz: 'Nasi Lemak Corner, KL', text: "Setup took me 3 minutes. The next day I already had customers ordering from their phones. Incredible value for the price.", avatar: 'A' },
+                  { name: 'Mei Ling T.', biz: 'Bubble Tea House, PJ', text: "We cut our wait times by half. Customers love scanning QR and ordering without waiting. Our staff is happier too.", avatar: 'M' },
+                  { name: 'Raj K.', biz: 'Mamak Express, Penang', text: "I tried 3 other POS systems before QuickServe. This is the only one that's actually affordable for a small restaurant.", avatar: 'R' },
+                ].map((t, i) => (
+                  <div
+                    key={i}
+                    className="flex-shrink-0 w-full px-6 pb-4"
+                  >
+                    <div className="p-6 bg-white dark:bg-gray-800/50 rounded-3xl border border-gray-100 dark:border-gray-800">
+                      <div className="flex gap-1 mb-4">
+                        {[...Array(5)].map((_, j) => <Star key={j} size={14} className="fill-orange-400 text-orange-400" />)}
+                      </div>
+                      <p className="text-gray-700 dark:text-gray-300 font-medium text-sm leading-relaxed mb-6">"{t.text}"</p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-orange-500 text-white rounded-full flex items-center justify-center font-black text-sm">{t.avatar}</div>
+                        <div>
+                          <div className="font-bold text-sm text-gray-900 dark:text-white">{t.name}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{t.biz}</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
             {/* Dots */}
             <div className="flex justify-center gap-2 mt-4">
               {[0, 1, 2].map(i => (
-                <button key={i} className={`w-2 h-2 rounded-full transition-all ${testimonialIdx === i ? 'bg-orange-500 w-6' : 'bg-gray-300 dark:bg-gray-600'}`} onClick={() => {
-                  testimonialScrollRef.current?.scrollTo({ left: (testimonialScrollRef.current.scrollWidth / 3) * i, behavior: 'smooth' });
-                }} />
+                <button
+                  key={i}
+                  className={`h-2 rounded-full transition-all duration-300 hover:scale-125 active:scale-75 ${testimonialIdx === i ? 'bg-orange-500 w-6' : 'bg-gray-300 dark:bg-gray-600 w-2'}`}
+                  onClick={() => setTestimonialIdx(i)}
+                />
               ))}
             </div>
           </div>
@@ -643,22 +631,20 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
 
           {/* Mobile pricing carousel */}
           <div className="md:hidden overflow-visible">
+            <div className="relative overflow-hidden -mx-6">
             <div
-              ref={pricingScrollRef}
-              className="flex gap-4 overflow-x-auto overflow-y-visible snap-x snap-mandatory scrollbar-hide pt-6 pb-4 -mx-6 px-6"
-              onScroll={(e) => {
-                const el = e.currentTarget;
-                const count = PRICING_PLANS.length;
-                const idx = Math.round(el.scrollLeft / (el.scrollWidth / count));
-                setPricingIdx(Math.min(idx, count - 1));
-              }}
+              className="flex pt-6 pb-4 transition-transform duration-500 ease-in-out"
+              style={{ transform: `translateX(-${pricingIdx * 100}%)` }}
             >
               {PRICING_PLANS.map((plan, i) => {
                 const displayPrice = billingCycle === 'annual' ? plan.annualPrice : plan.price;
                 return (
                   <div
                     key={plan.id}
-                    className={`flex-shrink-0 w-[80vw] snap-center relative p-6 rounded-3xl border flex flex-col backdrop-blur-sm ${
+                    className="flex-shrink-0 w-full px-6"
+                    style={{ minWidth: '100%' }}
+                  >
+                  <div className={`relative p-6 rounded-3xl border flex flex-col backdrop-blur-sm ${
                       plan.highlight
                         ? 'bg-white/10 border-orange-500 shadow-2xl shadow-orange-500/20'
                         : 'bg-white/[0.03] border-white/10'
@@ -698,15 +684,19 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
                       Start Free Trial <ArrowRight size={16} />
                     </button>
                   </div>
+                  </div>
                 );
               })}
+            </div>
             </div>
             {/* Dots */}
             <div className="flex justify-center gap-2 mt-4">
               {PRICING_PLANS.map((_, i) => (
-                <button key={i} className={`w-2 h-2 rounded-full transition-all ${pricingIdx === i ? 'bg-orange-500 w-6' : 'bg-white/20'}`} onClick={() => {
-                  pricingScrollRef.current?.scrollTo({ left: (pricingScrollRef.current.scrollWidth / PRICING_PLANS.length) * i, behavior: 'smooth' });
-                }} />
+                <button
+                  key={i}
+                  className={`h-2 rounded-full transition-all duration-300 hover:scale-125 active:scale-75 ${pricingIdx === i ? 'bg-orange-500 w-6' : 'bg-white/20 w-2'}`}
+                  onClick={() => setPricingIdx(i)}
+                />
               ))}
             </div>
           </div>
