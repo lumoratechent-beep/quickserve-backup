@@ -4466,6 +4466,14 @@ const PosOnlyView: React.FC<Props> = ({
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         ${isSidebarCollapsed ? 'lg:w-16' : 'w-64'}
       `}>
+        {/* Floating Collapse Toggle — sits on the sidebar/content border */}
+        <button
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="hidden lg:flex items-center justify-center absolute -right-3 top-1/2 -translate-y-1/2 z-20 w-6 h-6 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-full shadow-md text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 hover:border-orange-300 dark:hover:border-orange-600 hover:shadow-lg transition-all"
+        >
+          {isSidebarCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
+        </button>
         <div className={`border-b dark:border-gray-700 flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
           <img src={restaurant.logo} className={`rounded-lg shadow-sm ${isSidebarCollapsed ? 'w-8 h-8' : 'w-10 h-10'}`} />
           {!isSidebarCollapsed && (
@@ -4626,20 +4634,8 @@ const PosOnlyView: React.FC<Props> = ({
           </>)}
         </nav>
 
-        {/* Sidebar Collapse Toggle */}
-        <div className={`hidden lg:flex ${isSidebarCollapsed ? 'justify-center p-2' : 'justify-end px-4'} pt-1`}>
-          <button
-            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-all"
-          >
-            {isSidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-          </button>
-        </div>
-
         {/* Printer Connection Status */}
         <div className={`mt-auto border-t dark:border-gray-700 space-y-1.5 ${isSidebarCollapsed ? 'p-2' : 'px-3 py-2'}`}>
-          {!isSidebarCollapsed && <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Printer Connection</label>}
           <button
             onClick={handlePrinterButtonClick}
             disabled={isAutoReconnecting}
