@@ -4470,7 +4470,7 @@ const PosOnlyView: React.FC<Props> = ({
         <button
           onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className="hidden lg:flex items-center justify-center absolute top-1/2 -translate-y-1/2 -right-2.5 z-20 w-5 h-8 bg-orange-500 border border-orange-500 rounded-md shadow-[0_0_4px_1px_rgba(249,115,22,0.25)] text-white hover:bg-orange-600 hover:border-orange-600 hover:shadow-[0_0_6px_2px_rgba(249,115,22,0.35)] transition-all"
+          className="hidden lg:flex items-center justify-center absolute top-1/2 -translate-y-1/2 -right-3 z-20 w-6 h-8 bg-orange-500 border border-orange-500 rounded-md shadow-[0_0_4px_1px_rgba(249,115,22,0.25)] text-white hover:bg-orange-600 hover:border-orange-600 hover:shadow-[0_0_6px_2px_rgba(249,115,22,0.35)] transition-all"
         >
           <ChevronsLeftRight size={12} />
         </button>
