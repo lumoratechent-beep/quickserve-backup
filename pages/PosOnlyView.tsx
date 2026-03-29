@@ -9787,15 +9787,13 @@ const PosOnlyView: React.FC<Props> = ({
       )}
 
       {/* ── Profile / Account Panel ─────────────────────────────────────── */}
-      {showProfilePanel && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-black/40 z-50"
-            onClick={() => setShowProfilePanel(false)}
-          />
-          {/* Panel */}
-          <div className="fixed inset-y-0 left-0 z-50 w-80 bg-white dark:bg-gray-800 shadow-2xl flex flex-col overflow-hidden">
+      {/* Backdrop */}
+        <div
+          className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${showProfilePanel ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+          onClick={() => setShowProfilePanel(false)}
+        />
+        {/* Panel */}
+        <div className={`fixed inset-y-0 left-0 z-50 w-80 bg-white dark:bg-gray-800 shadow-2xl flex flex-col overflow-hidden transition-transform duration-300 ease-in-out ${showProfilePanel ? 'translate-x-0' : '-translate-x-full'}`}>
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b dark:border-gray-700">
               <div className="flex items-center gap-2">
@@ -9941,14 +9939,13 @@ const PosOnlyView: React.FC<Props> = ({
           </div>
 
           {/* Logo Crop Modal */}
-          {profileCropFile && (
-            <ImageCropModal
-              imageFile={profileCropFile}
-              onCrop={handleProfileLogoCropped}
-              onCancel={() => setProfileCropFile(null)}
-            />
-          )}
-        </>
+        </div>
+      {profileCropFile && (
+        <ImageCropModal
+          imageFile={profileCropFile}
+          onCrop={handleProfileLogoCropped}
+          onCancel={() => setProfileCropFile(null)}
+        />
       )}
       {/* ─────────────────────────────────────────────────────────────────── */}
 
