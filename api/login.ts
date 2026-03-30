@@ -56,6 +56,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // Block ORDER_TAKER users if tableside ordering is disabled for their restaurant
+    if (data.role === 'ORDER_TAKER' && data.restaurant_id) {
+      const { data: restaurantData, error: restaurantError } = await supabase
+        .from('restaurants')
+        .select('settings')
+        .eq('id', data.restaurant_id)
+        .single();
+
+      const tablesideEnabled = restaurantData?.settings?.features?.tablesideOrderingEnabled;
+      if (restaurantError || !restaurantData || !tablesideEnabled) {
+        return res.status(403).json({ error: 'Tableside Ordering is disabled for this restaurant. Contact your manager.' });
+      }
+    }
+
     // Map to camelCase to match frontend User interface
     const userResponse = {
       id: data.id,

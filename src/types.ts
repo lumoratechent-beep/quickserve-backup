@@ -2,7 +2,7 @@
 
 export const QS_DEFAULT_HUB = 'QuickServe Hub';
 
-export type Role = 'CUSTOMER' | 'VENDOR' | 'ADMIN' | 'CASHIER' | 'KITCHEN';
+export type Role = 'CUSTOMER' | 'VENDOR' | 'ADMIN' | 'CASHIER' | 'KITCHEN' | 'ORDER_TAKER';
 
 // Platform access type
 export type PlatformAccess = 'pos_and_kitchen' | 'pos_only' | 'pos_and_qr';

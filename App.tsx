@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage';
 import MarketingPage from './pages/MarketingPage';
 import RegisterPage from './pages/RegisterPage';
 import OnlineShopPage from './pages/OnlineShopPage';
+import TableSideOrderPage from './pages/TableSideOrderPage';
 import { supabase } from './lib/supabase';
 import { expandPosSettings } from './lib/sharedSettings';
 import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw } from 'lucide-react';
@@ -579,7 +580,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const roleCanOwnRestaurant = currentRole === 'VENDOR' || currentRole === 'CASHIER' || currentRole === 'KITCHEN';
+    const roleCanOwnRestaurant = currentRole === 'VENDOR' || currentRole === 'CASHIER' || currentRole === 'KITCHEN' || currentRole === 'ORDER_TAKER';
     const restaurantId = currentUser?.restaurantId;
 
     if (!roleCanOwnRestaurant || !restaurantId) return;
@@ -830,7 +831,7 @@ const App: React.FC = () => {
   }, [restaurants, sessionRestaurantSlug, sessionRestaurantId]);
 
   // Compute active vendor and current area early for hooks
-  const activeVendorRes = (currentUser?.role === 'VENDOR' || currentUser?.role === 'KITCHEN') ? restaurants.find(r => r.id === currentUser.restaurantId) : null;
+  const activeVendorRes = (currentUser?.role === 'VENDOR' || currentUser?.role === 'KITCHEN' || currentUser?.role === 'ORDER_TAKER') ? restaurants.find(r => r.id === currentUser.restaurantId) : null;
   const currentArea = locations.find(l => l.name === sessionLocation);
 
   // Global Data Initialization
@@ -986,7 +987,7 @@ const App: React.FC = () => {
   // Vendor Polling Fallback (poll for all vendors since kitchen/QR features are now dynamic toggles)
   useEffect(() => {
     let interval: any;
-    const shouldPoll = currentRole === 'VENDOR' || currentRole === 'KITCHEN';
+    const shouldPoll = currentRole === 'VENDOR' || currentRole === 'KITCHEN' || currentRole === 'ORDER_TAKER';
     
     if (shouldPoll) {
       // Initial fetch to ensure we have the latest before polling
@@ -1139,6 +1140,14 @@ const App: React.FC = () => {
       handleLogout();
     }
   }, [currentUser?.role, activeVendorRes?.kitchenEnabled]);
+
+  // Block ORDER_TAKER users at runtime if tableside ordering is disabled
+  useEffect(() => {
+    if (currentUser?.role === 'ORDER_TAKER' && activeVendorRes && !activeVendorRes.settings?.features?.tablesideOrderingEnabled) {
+      toast('Tableside Ordering has been disabled. You have been logged out.', 'warning');
+      handleLogout();
+    }
+  }, [currentUser?.role, activeVendorRes?.settings?.features?.tablesideOrderingEnabled]);
 
   // Adapter for POS views — matches their onUpdateOrder prop signature
   const updateOrderForPos = (orderId: string, status: OrderStatus, paymentDetails?: { paymentMethod?: string; cashierName?: string; amountReceived?: number; changeAmount?: number }) => {
@@ -1911,6 +1920,47 @@ const App: React.FC = () => {
     return orderId;
   };
 
+  const placeTablesideOrder = async (orderData: { items: CartItem[]; total: number; tableNumber: string; remark: string; orderSource: OrderSource }) => {
+    if (orderData.items.length === 0 || !currentUser?.restaurantId) return;
+    const res = restaurants.find(r => r.id === currentUser.restaurantId);
+    const code = resolveOrderCode(res, locations);
+
+    let nextNum = 1;
+    const { data: recentOrders } = await supabase.from('orders')
+      .select('id')
+      .eq('restaurant_id', currentUser.restaurantId)
+      .ilike('id', `${code}%`)
+      .order('id', { ascending: false })
+      .limit(50);
+
+    if (recentOrders && recentOrders.length > 0) {
+      for (const order of recentOrders) {
+        const num = offlineQueue.extractOrderNumber(order.id, code);
+        if (num > 0) { nextNum = num + 1; break; }
+      }
+    }
+
+    const orderId = `${code}${String(nextNum).padStart(7, '0')}`;
+    const orderToInsert = {
+      id: orderId,
+      items: orderData.items,
+      total: orderData.total,
+      status: OrderStatus.PENDING,
+      timestamp: Date.now(),
+      customer_id: 'tableside_user',
+      restaurant_id: currentUser.restaurantId,
+      table_number: orderData.tableNumber,
+      location_name: res?.location || 'Unspecified',
+      remark: orderData.remark,
+      cashier_name: currentUser.username,
+      order_source: 'qr_order',
+    };
+
+    const { error } = await insertOrderSafe(orderToInsert);
+    if (error) throw new Error(error.message || 'Failed to place order');
+    offlineQueue.updateOrderNumberTracker(code, nextNum);
+  };
+
   const updateRestaurantSettings = async (restaurantId: string, settings: any) => {
     // Attempt to update Supabase, but handle missing column error gracefully
     const { error } = await supabase
@@ -2217,6 +2267,27 @@ const App: React.FC = () => {
           )
         )}
         
+        {currentRole === 'ORDER_TAKER' && view === 'APP' && (
+          activeVendorRes ? (
+            <TableSideOrderPage
+              restaurant={activeVendorRes}
+              orders={orders.filter(o => {
+                if (o.restaurantId !== currentUser?.restaurantId) return false;
+                const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+                return o.timestamp > oneDayAgo;
+              })}
+              cashierName={currentUser?.username}
+              onLogout={handleLogout}
+              onPlaceOrder={placeTablesideOrder}
+            />
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center p-12">
+              <Loader2 className="w-10 h-10 text-orange-500 animate-spin mb-4" />
+              <p className="text-gray-500 font-black uppercase tracking-widest text-[10px]">Loading Tableside...</p>
+            </div>
+          )
+        )}
+
         {currentRole === 'ADMIN' && (
           <AdminView 
             vendors={allUsers.filter(u => u.role === 'VENDOR')} 
