@@ -4558,7 +4558,7 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   return (
-    <div className="flex h-[calc(100dvh-64px)] bg-gray-50 dark:bg-gray-900 overflow-hidden flex-col">
+    <div className="flex h-full bg-gray-50 dark:bg-gray-900 overflow-hidden flex-col">
       {/* Offline Status Banner */}
       {!isOnline && (
         <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 px-4 py-1.5 flex items-center justify-between">

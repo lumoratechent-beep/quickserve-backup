@@ -2026,7 +2026,7 @@ const App: React.FC = () => {
           )}
         </div>
       </header>
-      <main className="flex-1">
+      <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
         {/* Global Error Display */}
         {globalError && (
           <div className="fixed top-20 left-0 right-0 z-[999999] max-w-2xl mx-auto">

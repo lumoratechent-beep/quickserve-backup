@@ -1132,7 +1132,7 @@ const AdminView: React.FC<Props> = ({
   };
 
   return (
-    <div className="flex h-[calc(100dvh-64px)] bg-gray-50 dark:bg-gray-900 overflow-hidden">
+    <div className="flex h-full bg-gray-50 dark:bg-gray-900 overflow-hidden">
 
       {/* Mobile Overlay */}
       {isMobileMenuOpen && (
