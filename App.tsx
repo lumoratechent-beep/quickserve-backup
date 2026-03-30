@@ -774,6 +774,7 @@ const App: React.FC = () => {
       setSessionRestaurantId(null);
       setSessionTable(table);
       setSessionLocation(null);
+      setCart([]);
       setCurrentRole('CUSTOMER');
       setView('APP');
       localStorage.setItem('qs_role', 'CUSTOMER');
@@ -789,6 +790,7 @@ const App: React.FC = () => {
       setSessionRestaurantSlug(null);
       setSessionTable(table);
       setSessionLocation(null);
+      setCart([]);
       setCurrentRole('CUSTOMER');
       setView('APP');
       localStorage.setItem('qs_role', 'CUSTOMER');
@@ -802,6 +804,8 @@ const App: React.FC = () => {
       setSessionLocation(loc);
       setSessionTable(table);
       setSessionRestaurantId(null);
+      setSessionRestaurantSlug(null);
+      setCart([]);
       setCurrentRole('CUSTOMER');
       setView('APP');
       localStorage.setItem('qs_role', 'CUSTOMER');
@@ -809,6 +813,7 @@ const App: React.FC = () => {
       localStorage.setItem('qs_session_location', loc);
       localStorage.setItem('qs_session_table', table);
       localStorage.removeItem('qs_session_restaurant_id');
+      localStorage.removeItem('qs_session_restaurant_slug');
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
