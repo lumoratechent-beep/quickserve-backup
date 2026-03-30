@@ -195,6 +195,24 @@ const App: React.FC = () => {
   // Keep syncOfflineOrders ref up to date so event listeners always call the latest version
   useEffect(() => { syncOfflineOrdersRef.current = syncOfflineOrders; });
 
+  // Fix PWA / Chrome refresh viewport height bug.
+  // CSS 100vh/100dvh can report a stale value on refresh in installed PWAs.
+  // Reading from visualViewport gives the real pixel height and sets a CSS
+  // variable that the layout uses instead of any CSS viewport unit.
+  useEffect(() => {
+    const setAppHeight = () => {
+      const h = window.visualViewport?.height ?? window.innerHeight;
+      document.documentElement.style.setProperty('--app-height', `${h}px`);
+    };
+    setAppHeight();
+    window.visualViewport?.addEventListener('resize', setAppHeight);
+    window.addEventListener('resize', setAppHeight);
+    return () => {
+      window.visualViewport?.removeEventListener('resize', setAppHeight);
+      window.removeEventListener('resize', setAppHeight);
+    };
+  }, [])
+
   // Online/Offline status listener
   useEffect(() => {
     const unsubscribe = offlineQueue.onOnlineStatusChange((isOnlineNow) => {
@@ -1964,7 +1982,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="h-dvh flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors">
+    <div className="flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors" style={{ height: 'var(--app-height, 100dvh)' }}>
       <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-16 flex items-center justify-between px-8 shadow-sm">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('MARKETING')}>
           <img src={isDarkMode ? "/LOGO/9-dark.png" : "/LOGO/9.png"} alt="QuickServe" className="h-10" />
