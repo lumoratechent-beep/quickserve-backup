@@ -6,6 +6,7 @@ import ImageCropModal from '../components/ImageCropModal';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
 import { PRICING_PLANS } from '../lib/pricingPlans';
+import PitchDeck from '../components/PitchDeck';
 
 interface Props {
   vendors: User[];
@@ -768,6 +769,7 @@ const AdminView: React.FC<Props> = ({
 
   // Feature Images State
   const [systemSubTab, setSystemSubTab] = useState<'STATUS' | 'FEATURE_IMAGES'>('STATUS');
+  const [showPitchDeck, setShowPitchDeck] = useState(false);
   const [featureImages, setFeatureImages] = useState<{ id: string; url: string; alt: string; crop_shape: string; display_width: number; display_height: number; sort_order: number }[]>([]);
   const [isLoadingFeatureImages, setIsLoadingFeatureImages] = useState(false);
   const [featureCropFile, setFeatureCropFile] = useState<File | null>(null);
@@ -1916,15 +1918,23 @@ const AdminView: React.FC<Props> = ({
 
         {activeTab === 'SYSTEM' && (
           <div className="p-4 md:p-8">
-            {/* Sub-tab switcher */}
-            <div className="flex gap-2 mb-6">
-              {([{ id: 'STATUS', label: 'System Status', icon: <Activity size={16} /> }, { id: 'FEATURE_IMAGES', label: 'Feature Images', icon: <ImageIcon size={16} /> }] as const).map(t => (
+            {/* Pitch Deck Button */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex gap-2">
+                {([{ id: 'STATUS', label: 'System Status', icon: <Activity size={16} /> }, { id: 'FEATURE_IMAGES', label: 'Feature Images', icon: <ImageIcon size={16} /> }] as const).map(t => (
                 <button key={t.id} onClick={() => setSystemSubTab(t.id)} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
                   systemSubTab === t.id ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}>
                   {t.icon} {t.label}
                 </button>
               ))}
+              </div>
+              <button
+                onClick={() => setShowPitchDeck(true)}
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25"
+              >
+                <FileText size={16} /> Pitch Deck
+              </button>
             </div>
 
             {systemSubTab === 'STATUS' && <SystemStatusDashboard />}
@@ -1988,6 +1998,9 @@ const AdminView: React.FC<Props> = ({
             onCancel={() => setFeatureCropFile(null)}
           />
         )}
+
+        {/* Pitch Deck Modal */}
+        {showPitchDeck && <PitchDeck onClose={() => setShowPitchDeck(false)} />}
 
         </div>
       </div>
