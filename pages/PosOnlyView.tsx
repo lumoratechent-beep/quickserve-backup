@@ -4790,7 +4790,7 @@ const PosOnlyView: React.FC<Props> = ({
                   ? 'bg-green-500 text-white hover:bg-green-600'
                   : connectedDevice
                     ? 'bg-red-500 text-white hover:bg-red-600'
-                    : 'bg-gray-400 text-white hover:bg-gray-500'
+                    : 'bg-red-500 text-white hover:bg-red-600'
             }`}
           >
             {isAutoReconnecting ? (
