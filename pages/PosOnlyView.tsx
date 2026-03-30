@@ -9939,14 +9939,13 @@ const PosOnlyView: React.FC<Props> = ({
           </div>
 
           {/* Logo Crop Modal */}
-        </div>
-      {profileCropFile && (
-        <ImageCropModal
-          imageFile={profileCropFile}
-          onCrop={handleProfileLogoCropped}
-          onCancel={() => setProfileCropFile(null)}
-        />
-      )}
+          {profileCropFile && (
+            <ImageCropModal
+              imageFile={profileCropFile}
+              onCrop={handleProfileLogoCropped}
+              onCancel={() => setProfileCropFile(null)}
+            />
+          )}
       {/* ─────────────────────────────────────────────────────────────────── */}
 
       </div>
