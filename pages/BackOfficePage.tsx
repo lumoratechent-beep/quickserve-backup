@@ -721,7 +721,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   );
 
   return (
-    <div className="h-screen flex bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
+    <div className="h-dvh flex bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
       {/* Sidebar */}
       <aside className={`${isSidebarCollapsed ? 'lg:w-16' : 'w-64'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0 hidden md:flex transition-all duration-300 ease-in-out`}>
         {/* Logo / Header */}
