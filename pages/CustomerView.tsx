@@ -44,19 +44,17 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
   });
   
   const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({});
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const scrollToSection = (id: string) => {
     setActiveRestaurant(id);
     const element = sectionRefs.current[id];
-    if (element) {
+    const container = scrollContainerRef.current;
+    if (element && container) {
       const offset = 140;
-      const bodyRect = document.body.getBoundingClientRect().top;
-      const elementRect = element.getBoundingClientRect().top;
-      const elementPosition = elementRect - bodyRect;
-      const offsetPosition = elementPosition - offset;
-
-      window.scrollTo({
-        top: offsetPosition,
+      const elementTop = element.offsetTop;
+      container.scrollTo({
+        top: elementTop - offset,
         behavior: 'smooth'
       });
     }
@@ -74,8 +72,10 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
 
   useEffect(() => {
     if (areaType === 'SINGLE') return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
     const handleScroll = () => {
-      const scrollPos = window.scrollY + 180;
+      const scrollPos = container.scrollTop + 180;
       for (const res of restaurants) {
         const el = sectionRefs.current[res.id];
         if (el && el.offsetTop <= scrollPos && el.offsetTop + el.offsetHeight > scrollPos) {
@@ -83,8 +83,8 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
         }
       }
     };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
   }, [restaurants, areaType]);
 
   useEffect(() => {
@@ -148,10 +148,10 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
   }, [orders, locationName, tableNo, dismissedOrders, areaType]);
 
   return (
-    <div className="relative min-h-screen pb-28 bg-gray-50 dark:bg-gray-900 transition-colors">
+    <div ref={scrollContainerRef} className="relative flex-1 min-h-0 overflow-y-auto pb-28 bg-gray-50 dark:bg-gray-900 transition-colors">
       {/* Restaurant Navbar - Only shown for MULTI vendor hubs */}
       {areaType !== 'SINGLE' && (
-        <div className="sticky top-16 z-40 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-b dark:border-gray-700 shadow-md">
+        <div className="sticky top-0 z-40 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-b dark:border-gray-700 shadow-md">
           <div className="px-4 py-2 border-b dark:border-gray-700 flex items-center justify-between">
             <div className="flex items-center gap-2">
                 <UtensilsCrossed size={14} className="text-orange-500" />
