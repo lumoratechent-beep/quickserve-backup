@@ -324,7 +324,8 @@ const PosOnlyView: React.FC<Props> = ({
   const [newDivisionName, setNewDivisionName] = useState('');
   const [renamingDepartment, setRenamingDepartment] = useState<string | null>(null);
   const [renameDepartmentValue, setRenameDepartmentValue] = useState('');
-  const [newStaffRole, setNewStaffRole] = useState<'CASHIER' | 'KITCHEN'>('CASHIER');
+  const [newStaffRole, setNewStaffRole] = useState<'CASHIER' | 'KITCHEN' | 'ORDER_TAKER'>('CASHIER');
+  const [showLockedRoleAlert, setShowLockedRoleAlert] = useState<string | null>(null);
   const [newStaffKitchenCategories, setNewStaffKitchenCategories] = useState<string[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showMobileCart, setShowMobileCart] = useState(false);
@@ -687,7 +688,7 @@ const PosOnlyView: React.FC<Props> = ({
     setNewStaffKitchenCategories([]);
   };
 
-  const openAddStaffModal = (initialRole: 'CASHIER' | 'KITCHEN' = 'CASHIER') => {
+  const openAddStaffModal = (initialRole: 'CASHIER' | 'KITCHEN' | 'ORDER_TAKER' = 'CASHIER') => {
     setEditingStaffIndex(null);
     resetStaffForm();
     setNewStaffRole(initialRole);
@@ -700,7 +701,7 @@ const PosOnlyView: React.FC<Props> = ({
     setNewStaffPassword('');
     setNewStaffEmail(staff.email || '');
     setNewStaffPhone(staff.phone || '');
-    const mappedRole: 'CASHIER' | 'KITCHEN' = staff.role === 'KITCHEN' ? 'KITCHEN' : 'CASHIER';
+    const mappedRole: 'CASHIER' | 'KITCHEN' | 'ORDER_TAKER' = staff.role === 'KITCHEN' ? 'KITCHEN' : staff.role === 'ORDER_TAKER' ? 'ORDER_TAKER' : 'CASHIER';
     setNewStaffRole(mappedRole);
     setNewStaffKitchenCategories(
       mappedRole === 'KITCHEN' && Array.isArray(staff.kitchen_categories)
@@ -3530,8 +3531,10 @@ const PosOnlyView: React.FC<Props> = ({
                   <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
                     staff.role === 'KITCHEN' 
                       ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
-                      : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                  }`}>{staff.role === 'KITCHEN' ? 'Kitchen' : 'Cashier'}</span>
+                      : staff.role === 'ORDER_TAKER'
+                        ? 'bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400'
+                        : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                  }`}>{staff.role === 'KITCHEN' ? 'Kitchen' : staff.role === 'ORDER_TAKER' ? 'Order Taker' : 'Cashier'}</span>
                   {staff.role === 'KITCHEN' && (
                     <span className="text-[9px] text-gray-400">
                       Departments: {staff.kitchen_categories && staff.kitchen_categories.length > 0 ? staff.kitchen_categories.join(', ') : 'General Kitchen'}
@@ -6400,16 +6403,58 @@ const PosOnlyView: React.FC<Props> = ({
                         newStaffRole === 'CASHIER' ? 'bg-white dark:bg-gray-800 text-blue-600 shadow-sm' : 'text-gray-400'
                       }`}
                     >Cashier</button>
-                    {featureSettings.kitchenEnabled && (
-                      <button
-                        onClick={() => setNewStaffRole('KITCHEN')}
-                        className={`flex-1 py-2 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
-                          newStaffRole === 'KITCHEN' ? 'bg-white dark:bg-gray-800 text-orange-600 shadow-sm' : 'text-gray-400'
-                        }`}
-                      >Kitchen</button>
-                    )}
+                    <button
+                      onClick={() => {
+                        if (!featureSettings.kitchenEnabled) { setShowLockedRoleAlert('Kitchen Display'); return; }
+                        setNewStaffRole('KITCHEN');
+                      }}
+                      className={`flex-1 py-2 rounded-md text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1 ${
+                        newStaffRole === 'KITCHEN' ? 'bg-white dark:bg-gray-800 text-orange-600 shadow-sm' : 'text-gray-400'
+                      }`}
+                    >
+                      Kitchen
+                      {!featureSettings.kitchenEnabled && <Lock size={10} />}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (!featureSettings.tablesideOrderingEnabled) { setShowLockedRoleAlert('Tableside Ordering'); return; }
+                        setNewStaffRole('ORDER_TAKER'); setNewStaffKitchenCategories([]);
+                      }}
+                      className={`flex-1 py-2 rounded-md text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1 ${
+                        newStaffRole === 'ORDER_TAKER' ? 'bg-white dark:bg-gray-800 text-teal-600 shadow-sm' : 'text-gray-400'
+                      }`}
+                    >
+                      Order Taker
+                      {!featureSettings.tablesideOrderingEnabled && <Lock size={10} />}
+                    </button>
                   </div>
                 </div>
+
+                {/* Locked Role Alert */}
+                {showLockedRoleAlert && (
+                  <div className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4" onClick={() => setShowLockedRoleAlert(null)}>
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                          <Lock size={20} className="text-orange-500" />
+                        </div>
+                        <div>
+                          <h3 className="font-black text-sm dark:text-white uppercase tracking-tight">Feature Required</h3>
+                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Add-on not installed</p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-600 dark:text-gray-300 mb-4">
+                        Please install the <span className="font-black text-orange-500">{showLockedRoleAlert}</span> feature from the Add-on Features page before creating this role.
+                      </p>
+                      <button
+                        onClick={() => setShowLockedRoleAlert(null)}
+                        className="w-full py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
+                      >
+                        Got it
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Kitchen Category Assignment (only for Kitchen role + when divisions exist) */}
                 {newStaffRole === 'KITCHEN' && kitchenDivisions.length > 0 && (
