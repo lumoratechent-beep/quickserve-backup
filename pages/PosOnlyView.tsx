@@ -375,8 +375,15 @@ const PosOnlyView: React.FC<Props> = ({
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [menuStatusFilter, setMenuStatusFilter] = useState<'ACTIVE' | 'ARCHIVED'>('ACTIVE');
-  const [menuViewMode, setMenuViewMode] = useState<'grid' | 'list'>('grid');
+  const [menuViewMode, setMenuViewMode] = useState<'grid' | 'list'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`ux_menuViewMode_${restaurant.id}`);
+      if (saved === 'grid' || saved === 'list') return saved;
+    }
+    return 'list';
+  });
   const [menuCategoryFilter, setMenuCategoryFilter] = useState<string>('All');
+  const [menuSearchQuery, setMenuSearchQuery] = useState('');
   const [menuSubTab, setMenuSubTab] = useState<'KITCHEN' | 'CATEGORY' | 'MODIFIER' | 'ADDON'>('KITCHEN');
   const [onlineOrderSubTab, setOnlineOrderSubTab] = useState<'INCOMING' | 'PRODUCT' | 'WALLET' | 'SETTING'>('INCOMING');
   const [qrOrderSubTab, setQrOrderSubTab] = useState<'INCOMING' | 'SETTING'>('INCOMING');
@@ -1150,12 +1157,17 @@ const PosOnlyView: React.FC<Props> = ({
   }, [restaurant.menu, extraCategories]);
 
   const currentMenu = useMemo(() => {
-    return restaurant.menu.filter(item => {
+    const filtered = restaurant.menu.filter(item => {
       const statusMatch = menuStatusFilter === 'ACTIVE' ? !item.isArchived : !!item.isArchived;
       const categoryMatch = menuCategoryFilter === 'All' || item.category === menuCategoryFilter;
-      return statusMatch && categoryMatch;
+      const searchMatch = !menuSearchQuery || item.name.toLowerCase().includes(menuSearchQuery.toLowerCase()) || item.category.toLowerCase().includes(menuSearchQuery.toLowerCase());
+      return statusMatch && categoryMatch && searchMatch;
     });
-  }, [restaurant.menu, menuStatusFilter, menuCategoryFilter]);
+    if (menuCategoryFilter === 'All') {
+      return filtered.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return filtered;
+  }, [restaurant.menu, menuStatusFilter, menuCategoryFilter, menuSearchQuery]);
 
   const filteredMenu = useMemo(() => {
     return restaurant.menu.filter(item => {
@@ -2076,6 +2088,11 @@ const PosOnlyView: React.FC<Props> = ({
   useEffect(() => {
     localStorage.setItem(`ux_currency_${restaurant.id}`, userCurrency);
   }, [userCurrency, restaurant.id]);
+
+  // User Experience: persist menu view mode choice
+  useEffect(() => {
+    localStorage.setItem(`ux_menuViewMode_${restaurant.id}`, menuViewMode);
+  }, [menuViewMode, restaurant.id]);
 
   useEffect(() => {
     if (!receiptSettingsSaved) return;
@@ -5293,8 +5310,8 @@ const PosOnlyView: React.FC<Props> = ({
                       style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
                       className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
                         menuSubTab === tab.id
-                          ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-700 z-10'
-                          : 'bg-gray-100 dark:bg-gray-800/50 text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-700/40 hover:text-gray-600 dark:hover:text-slate-300'
+                          ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
+                          : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
                       }`}
                     >
                       {tab.icon}
@@ -5314,6 +5331,16 @@ const PosOnlyView: React.FC<Props> = ({
                           <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
                             <button onClick={() => setMenuViewMode('grid')} className={`p-2 rounded-lg transition-all ${menuViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={18} /></button>
                             <button onClick={() => setMenuViewMode('list')} className={`p-2 rounded-lg transition-all ${menuViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={18} /></button>
+                          </div>
+                          <div className="relative">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
+                              type="text"
+                              value={menuSearchQuery}
+                              onChange={e => setMenuSearchQuery(e.target.value)}
+                              placeholder="Search menu..."
+                              className="w-48 pl-9 pr-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                            />
                           </div>
                         </div>
                         <div className="ml-auto flex items-center gap-3">
@@ -7166,8 +7193,8 @@ const PosOnlyView: React.FC<Props> = ({
                       style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
                       className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
                         qrOrderSubTab === tab.id
-                          ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-700 z-10'
-                          : 'bg-gray-100 dark:bg-gray-800/50 text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-700/40 hover:text-gray-600 dark:hover:text-slate-300'
+                          ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
+                          : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
                       }`}
                     >
                       {tab.icon}
@@ -7417,8 +7444,8 @@ const PosOnlyView: React.FC<Props> = ({
                       style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
                       className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
                         onlineOrderSubTab === tab.id
-                          ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-700 z-10'
-                          : 'bg-gray-100 dark:bg-gray-800/50 text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-700/40 hover:text-gray-600 dark:hover:text-slate-300'
+                          ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
+                          : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
                       }`}
                     >
                       {tab.icon}
