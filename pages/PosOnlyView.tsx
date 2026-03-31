@@ -7286,11 +7286,11 @@ const PosOnlyView: React.FC<Props> = ({
                                   {showKitchenFeature && !isKitchenUser && (order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) ? (
                                     <div className={`${compact ? 'px-3 py-1.5 text-[9px]' : 'px-4 py-2 text-[10px]'} rounded-lg font-black uppercase tracking-widest text-center whitespace-nowrap ${order.status === OrderStatus.PENDING ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400' : 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'}`}>{order.status === OrderStatus.PENDING ? 'Waiting for Kitchen' : 'Kitchen Preparing'}</div>
                                   ) : (
-                                    <div className="flex gap-1.5">
-                                      {order.status === OrderStatus.PENDING && (<><button onClick={() => setRejectingQrOrderId(order.id)} className={`${compact ? 'px-3 py-1.5 text-[9px]' : 'flex-1 py-2.5 text-[10px]'} rounded-lg font-black uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all`}>Reject</button><button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className={`${compact ? 'px-3 py-1.5 text-[9px]' : 'flex-1 py-2.5 text-[10px]'} bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow`}>Accept</button></>)}
-                                      {order.status === OrderStatus.ONGOING && (<button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className={`${compact ? 'px-3 py-1.5 text-[9px]' : 'flex-1 py-2.5 text-[10px]'} bg-green-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-1 shadow`}><CheckCircle size={11} /> Serve</button>)}
-                                      {order.status === OrderStatus.SERVED && (<button onClick={() => { setSelectedQrOrderForPayment(order); setPendingOrderData({ items: order.items, remark: order.remark, tableNumber: order.tableNumber, total: order.total }); setSelectedCashAmount(order.total); setCashAmountInput(order.total.toFixed(2)); setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : ''); setIsQrPaymentMode(true); setShowPaymentModal(true); }} className={`${compact ? 'px-3 py-1.5 text-[9px]' : 'flex-1 py-2.5 text-[10px]'} bg-blue-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-1 shadow`}><CheckCircle2 size={11} /> Collect Payment</button>)}
-                                      {(order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) && (<div className={`${compact ? 'px-3 py-1.5 text-[9px]' : 'flex-1 py-2.5 text-[10px]'} rounded-lg font-black uppercase tracking-widest text-center ${order.status === OrderStatus.COMPLETED ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>{order.status}</div>)}
+                                    <div className="flex justify-between gap-1.5">
+                                      {order.status === OrderStatus.PENDING && (<><button onClick={() => setRejectingQrOrderId(order.id)} className={`${compact ? 'w-[47.5%] px-2 py-1.5 text-[9px]' : 'w-[47.5%] py-2.5 text-[10px]'} rounded-lg font-black uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all`}>Reject</button><button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className={`${compact ? 'w-[47.5%] px-2 py-1.5 text-[9px]' : 'w-[47.5%] py-2.5 text-[10px]'} bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow`}>Accept</button></>)}
+                                      {order.status === OrderStatus.ONGOING && (<button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className={`${compact ? 'w-full px-3 py-1.5 text-[9px]' : 'w-full py-2.5 text-[10px]'} bg-green-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-green-600 transition-all shadow`}>Serve</button>)}
+                                      {order.status === OrderStatus.SERVED && (<button onClick={() => { setSelectedQrOrderForPayment(order); setPendingOrderData({ items: order.items, remark: order.remark, tableNumber: order.tableNumber, total: order.total }); setSelectedCashAmount(order.total); setCashAmountInput(order.total.toFixed(2)); setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : ''); setIsQrPaymentMode(true); setShowPaymentModal(true); }} className={`${compact ? 'w-full px-3 py-1.5 text-[9px]' : 'w-full py-2.5 text-[10px]'} bg-blue-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow`}>Collect Payment</button>)}
+                                      {(order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) && (<div className={`${compact ? 'w-full px-3 py-1.5 text-[9px]' : 'w-full py-2.5 text-[10px]'} rounded-lg font-black uppercase tracking-widest text-center ${order.status === OrderStatus.COMPLETED ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>{order.status}</div>)}
                                     </div>
                                   )}
                                 </>);
@@ -7348,11 +7348,11 @@ const PosOnlyView: React.FC<Props> = ({
                                         {showKitchenFeature && !isKitchenUser && (order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) ? (
                                           <div className={`${compact ? 'px-3 py-1.5 text-[9px]' : 'px-4 py-2 text-[10px]'} rounded-lg font-black uppercase tracking-widest text-center whitespace-nowrap ${order.status === OrderStatus.PENDING ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400' : 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'}`}>{order.status === OrderStatus.PENDING ? 'In Kitchen' : 'Preparing'}</div>
                                         ) : (
-                                          <div className="flex gap-1.5">
-                                            {order.status === OrderStatus.PENDING && (<><button onClick={() => setRejectingQrOrderId(order.id)} className="px-3 py-1.5 text-[9px] rounded-lg font-black uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">Reject</button><button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className="px-3 py-1.5 text-[9px] bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow">Accept</button></>)}
-                                            {order.status === OrderStatus.ONGOING && (<button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className="px-3 py-1.5 text-[9px] bg-green-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-1 shadow"><CheckCircle size={11} /> Serve</button>)}
-                                            {order.status === OrderStatus.SERVED && (<button onClick={() => { setSelectedQrOrderForPayment(order); setPendingOrderData({ items: order.items, remark: order.remark, tableNumber: order.tableNumber, total: order.total }); setSelectedCashAmount(order.total); setCashAmountInput(order.total.toFixed(2)); setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : ''); setIsQrPaymentMode(true); setShowPaymentModal(true); }} className="px-3 py-1.5 text-[9px] bg-blue-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-1 shadow"><CheckCircle2 size={11} /> Collect Payment</button>)}
-                                            {(order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) && (<div className={`px-3 py-1.5 text-[9px] rounded-lg font-black uppercase tracking-widest text-center ${order.status === OrderStatus.COMPLETED ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>{order.status}</div>)}
+                                          <div className="flex justify-between gap-1.5">
+                                            {order.status === OrderStatus.PENDING && (<><button onClick={() => setRejectingQrOrderId(order.id)} className="w-[47.5%] px-2 py-1.5 text-[9px] rounded-lg font-black uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">Reject</button><button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className="w-[47.5%] px-2 py-1.5 text-[9px] bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow">Accept</button></>)}
+                                            {order.status === OrderStatus.ONGOING && (<button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className="w-full px-3 py-1.5 text-[9px] bg-green-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-green-600 transition-all shadow">Serve</button>)}
+                                            {order.status === OrderStatus.SERVED && (<button onClick={() => { setSelectedQrOrderForPayment(order); setPendingOrderData({ items: order.items, remark: order.remark, tableNumber: order.tableNumber, total: order.total }); setSelectedCashAmount(order.total); setCashAmountInput(order.total.toFixed(2)); setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : ''); setIsQrPaymentMode(true); setShowPaymentModal(true); }} className="w-full px-3 py-1.5 text-[9px] bg-blue-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow">Collect Payment</button>)}
+                                            {(order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) && (<div className={`w-full px-3 py-1.5 text-[9px] rounded-lg font-black uppercase tracking-widest text-center ${order.status === OrderStatus.COMPLETED ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>{order.status}</div>)}
                                           </div>
                                         )}
                                       </>);
@@ -7447,14 +7447,14 @@ const PosOnlyView: React.FC<Props> = ({
                             )}
 
                             {/* Total + Actions */}
-                            <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-4 shrink-0">
-                              <div className="flex items-center justify-between mb-3">
+                            <div className="border-t border-gray-100 dark:border-gray-700 px-5 pt-4 pb-6 shrink-0">
+                              <div className="flex items-center justify-between mb-4">
                                 <span className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Grand Total</span>
                                 <span className="text-2xl font-black text-gray-900 dark:text-white">{currencySymbol}{o.total.toFixed(2)}</span>
                               </div>
                               {(o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING) && (
-                                <button onClick={() => handleEditQrOrder(o)} className="w-full py-2.5 mb-2 rounded-xl font-black text-xs uppercase tracking-widest border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all flex items-center justify-center gap-2">
-                                  <Edit3 size={14} /> Edit Order
+                                <button onClick={() => handleEditQrOrder(o)} className="w-full py-3 mb-3 rounded-xl font-black text-xs uppercase tracking-widest border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all">
+                                  Edit Order
                                 </button>
                               )}
                               {showKitchenFeature && !isKitchenUser && (o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING) ? (
@@ -7464,14 +7464,14 @@ const PosOnlyView: React.FC<Props> = ({
                               ) : (
                                 <>
                                   {o.status === OrderStatus.PENDING && (
-                                    <div className="flex gap-2">
-                                      <button onClick={() => { setRejectingQrOrderId(o.id); setViewingQrOrderDetail(null); }} className="flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">Reject</button>
-                                      <button onClick={() => { onUpdateOrder(o.id, OrderStatus.ONGOING); setViewingQrOrderDetail(null); }} className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg">Accept</button>
+                                    <div className="flex justify-between">
+                                      <button onClick={() => { setRejectingQrOrderId(o.id); setViewingQrOrderDetail(null); }} className="w-[47.5%] py-3 rounded-xl font-black text-xs uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">Reject</button>
+                                      <button onClick={() => { onUpdateOrder(o.id, OrderStatus.ONGOING); setViewingQrOrderDetail(null); }} className="w-[47.5%] py-3 bg-orange-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg">Accept</button>
                                     </div>
                                   )}
                                   {o.status === OrderStatus.ONGOING && (
-                                    <button onClick={() => { onUpdateOrder(o.id, OrderStatus.SERVED); setViewingQrOrderDetail(null); }} className="w-full py-3 bg-green-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-lg">
-                                      <CheckCircle size={15} /> Serve Order
+                                    <button onClick={() => { onUpdateOrder(o.id, OrderStatus.SERVED); setViewingQrOrderDetail(null); }} className="w-full py-3 bg-green-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all shadow-lg">
+                                      Serve Order
                                     </button>
                                   )}
                                   {o.status === OrderStatus.SERVED && (
@@ -7484,8 +7484,8 @@ const PosOnlyView: React.FC<Props> = ({
                                       setIsQrPaymentMode(true);
                                       setShowPaymentModal(true);
                                       setViewingQrOrderDetail(null);
-                                    }} className="w-full py-3 bg-blue-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-2 shadow-lg">
-                                      <CheckCircle2 size={15} /> Collect Payment
+                                    }} className="w-full py-3 bg-blue-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg">
+                                      Collect Payment
                                     </button>
                                   )}
                                 </>
@@ -9126,50 +9126,61 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
 
               <div className="space-y-3">
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Table</label>
-                    <input type="text" value={posTableNo} onChange={e => setPosTableNo(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" />
+                {!editingQrOrderId && (
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Table</label>
+                      <input type="text" value={posTableNo} onChange={e => setPosTableNo(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" />
+                    </div>
+                    <div className="flex-[2]">
+                      <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Remark</label>
+                      <input type="text" value={posRemark} onChange={e => setPosRemark(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" placeholder="No spicy..." />
+                    </div>
                   </div>
-                  <div className="flex-[2]">
-                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Remark</label>
-                    <input type="text" value={posRemark} onChange={e => setPosRemark(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" placeholder="No spicy..." />
-                  </div>
-                </div>
+                )}
 
-                <div className="flex gap-2">
+                <div className="flex justify-between pb-2">
                   {editingQrOrderId ? (
-                    <button
-                      onClick={() => { setEditingQrOrderId(null); setPosCart([]); setPosRemark(''); setPosTableNo('Counter'); }}
-                      className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
-                    >
-                      Cancel
-                    </button>
-                  ) : showSavedBillFeature && (
-                    <button
-                      onClick={saveCurrentBill}
-                      disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
-                      className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
-                    >
-                      Saved Bill
-                    </button>
-                  )}
-                  {editingQrOrderId ? (
-                    <button
-                      onClick={handleSaveQrOrderEdit}
-                      disabled={posCart.length === 0}
-                      className="flex-[2] py-4 bg-blue-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-xl shadow-blue-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
-                    >
-                      <CheckCircle size={16} /> Save Changes
-                    </button>
+                    <>
+                      <button
+                        onClick={() => { setEditingQrOrderId(null); setPosCart([]); setPosRemark(''); setPosTableNo('Counter'); }}
+                        className="w-[47.5%] py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveQrOrderEdit}
+                        disabled={posCart.length === 0}
+                        className="w-[47.5%] py-4 bg-blue-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-xl shadow-blue-500/20 disabled:opacity-50 disabled:shadow-none"
+                      >
+                        Save Changes
+                      </button>
+                    </>
+                  ) : showSavedBillFeature ? (
+                    <>
+                      <button
+                        onClick={saveCurrentBill}
+                        disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
+                        className="w-[47.5%] py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                      >
+                        Saved Bill
+                      </button>
+                      <button
+                        onClick={handleCheckout}
+                        disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
+                        className="w-[47.5%] py-4 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
+                      >
+                        {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : 'Complete Payment'}
+                      </button>
+                    </>
                   ) : (
-                  <button
-                    onClick={handleCheckout}
-                    disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
-                    className={`${showSavedBillFeature ? 'flex-[2]' : 'flex-1'} py-4 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2`}
-                  >
-                    <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : 'Complete Payment'}
-                  </button>
+                    <button
+                      onClick={handleCheckout}
+                      disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
+                      className="w-full py-4 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
+                    >
+                      {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : 'Complete Payment'}
+                    </button>
                   )}
                 </div>
               </div>
