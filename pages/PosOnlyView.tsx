@@ -8881,62 +8881,71 @@ const PosOnlyView: React.FC<Props> = ({
           `}>
             {/* Sidebar header */}
             <div className="p-4 border-b dark:border-gray-700">
-              {(showSavedBillFeature || showQrFeature) && (
-                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 mb-3">
-                  {showSavedBillFeature && (
-                    <button
-                      onClick={() => { setCounterMode('SAVED_BILL'); setSelectedQrOrderForPayment(null); }}
-                      className={`relative flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
-                        counterMode === 'SAVED_BILL' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
-                      }`}
-                    >Saved Bill
-                      {savedBills.length > 0 && (
-                        <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] font-black min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center">{savedBills.length}</span>
-                      )}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => { setCounterMode('COUNTER_ORDER'); setSelectedQrOrderForPayment(null); }}
-                    className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
-                      counterMode === 'COUNTER_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
-                    }`}
-                  >Counter</button>
-                  {showQrFeature && (() => {
-                    const servedQrCount = orders.filter(o => o.status === OrderStatus.SERVED).length;
-                    return (
-                    <button
-                      onClick={() => { setCounterMode('QR_ORDER'); setSelectedQrOrderForPayment(null); }}
-                      className={`relative flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
-                        counterMode === 'QR_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
-                      }`}
-                    >QR Order
-                      {servedQrCount > 0 && (
-                        <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] font-black min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center">{servedQrCount}</span>
-                      )}
-                    </button>
-                    );
-                  })()}
+              {editingQrOrderId ? (
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                  <Edit3 size={13} className="text-blue-500 shrink-0" />
+                  <span className="text-[10px] font-black text-blue-700 dark:text-blue-300 uppercase tracking-widest">Editing QR Order #{editingQrOrderId.slice(-6).toUpperCase()}</span>
                 </div>
+              ) : (
+                <>
+                  {(showSavedBillFeature || showQrFeature) && (
+                    <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 mb-3">
+                      {showSavedBillFeature && (
+                        <button
+                          onClick={() => { setCounterMode('SAVED_BILL'); setSelectedQrOrderForPayment(null); }}
+                          className={`relative flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                            counterMode === 'SAVED_BILL' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
+                          }`}
+                        >Saved Bill
+                          {savedBills.length > 0 && (
+                            <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] font-black min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center">{savedBills.length}</span>
+                          )}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => { setCounterMode('COUNTER_ORDER'); setSelectedQrOrderForPayment(null); }}
+                        className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                          counterMode === 'COUNTER_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
+                        }`}
+                      >Counter</button>
+                      {showQrFeature && (() => {
+                        const servedQrCount = orders.filter(o => o.status === OrderStatus.SERVED).length;
+                        return (
+                        <button
+                          onClick={() => { setCounterMode('QR_ORDER'); setSelectedQrOrderForPayment(null); }}
+                          className={`relative flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                            counterMode === 'QR_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
+                          }`}
+                        >QR Order
+                          {servedQrCount > 0 && (
+                            <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] font-black min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center">{servedQrCount}</span>
+                          )}
+                        </button>
+                        );
+                      })()}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-black dark:text-white uppercase tracking-tighter text-sm">
+                      {showSavedBillFeature && counterMode === 'SAVED_BILL'
+                        ? 'Saved Bills'
+                        : showQrFeature && counterMode === 'QR_ORDER'
+                        ? (selectedQrOrderForPayment ? `Order #${selectedQrOrderForPayment.id}` : 'QR Order')
+                        : 'Current Order'}
+                    </h3>
+                    {(counterMode === 'COUNTER_ORDER' || (!showQrFeature && counterMode !== 'SAVED_BILL')) && (
+                      <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors">
+                        <Trash2 size={18} />
+                      </button>
+                    )}
+                    {showQrFeature && counterMode === 'QR_ORDER' && selectedQrOrderForPayment && (
+                      <button onClick={() => setSelectedQrOrderForPayment(null)} className="text-gray-400 hover:text-red-500 transition-colors">
+                        <X size={18} />
+                      </button>
+                    )}
+                  </div>
+                </>
               )}
-              <div className="flex items-center justify-between">
-                <h3 className="font-black dark:text-white uppercase tracking-tighter text-sm">
-                  {showSavedBillFeature && counterMode === 'SAVED_BILL'
-                    ? 'Saved Bills'
-                    : showQrFeature && counterMode === 'QR_ORDER'
-                    ? (selectedQrOrderForPayment ? `Order #${selectedQrOrderForPayment.id}` : 'QR Order')
-                    : 'Current Order'}
-                </h3>
-                {(counterMode === 'COUNTER_ORDER' || (!showQrFeature && counterMode !== 'SAVED_BILL')) && (
-                  <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors">
-                    <Trash2 size={18} />
-                  </button>
-                )}
-                {showQrFeature && counterMode === 'QR_ORDER' && selectedQrOrderForPayment && (
-                  <button onClick={() => setSelectedQrOrderForPayment(null)} className="text-gray-400 hover:text-red-500 transition-colors">
-                    <X size={18} />
-                  </button>
-                )}
-              </div>
             </div>
 
             {/* Sidebar content by mode */}
@@ -9087,15 +9096,6 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
 
             <div className="p-6 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-4">
-              {editingQrOrderId && (
-                <div className="px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Edit3 size={11} className="text-blue-500 shrink-0" />
-                    <span className="text-[10px] font-black text-blue-700 dark:text-blue-300 uppercase tracking-widest">Editing QR Order #{editingQrOrderId.slice(-6).toUpperCase()}</span>
-                  </div>
-                  <button onClick={() => { setEditingQrOrderId(null); setPosCart([]); setPosRemark(''); setPosTableNo('Counter'); }} className="text-[9px] font-black text-blue-500 hover:text-blue-700 uppercase tracking-widest">Cancel</button>
-                </div>
-              )}
               {showPaymentSuccess && (
                 <div className="px-3 py-2 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-300 text-[10px] font-black uppercase tracking-widest text-center">
                   Payment Completed Successfully
@@ -9138,7 +9138,14 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 <div className="flex gap-2">
-                  {showSavedBillFeature && (
+                  {editingQrOrderId ? (
+                    <button
+                      onClick={() => { setEditingQrOrderId(null); setPosCart([]); setPosRemark(''); setPosTableNo('Counter'); }}
+                      className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+                    >
+                      Cancel
+                    </button>
+                  ) : showSavedBillFeature && (
                     <button
                       onClick={saveCurrentBill}
                       disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
@@ -9151,7 +9158,7 @@ const PosOnlyView: React.FC<Props> = ({
                     <button
                       onClick={handleSaveQrOrderEdit}
                       disabled={posCart.length === 0}
-                      className={`${showSavedBillFeature ? 'flex-[2]' : 'flex-1'} py-4 bg-blue-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-xl shadow-blue-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2`}
+                      className="flex-[2] py-4 bg-blue-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-xl shadow-blue-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
                     >
                       <CheckCircle size={16} /> Save Changes
                     </button>
