@@ -7246,21 +7246,25 @@ const PosOnlyView: React.FC<Props> = ({
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                           {filteredQrOrders.map(order => {
                             const totalQty = order.items.reduce((s, i) => s + i.quantity, 0);
-                            const statusBorder =
-                              order.status === OrderStatus.PENDING ? 'border-l-yellow-400' :
-                              order.status === OrderStatus.ONGOING ? 'border-l-blue-500' :
-                              order.status === OrderStatus.SERVED  ? 'border-l-purple-500' :
-                              order.status === OrderStatus.COMPLETED ? 'border-l-green-500' :
-                              'border-l-red-400';
+                            const statusStyles =
+                              order.status === OrderStatus.PENDING
+                                ? 'border-l-amber-400 bg-amber-50/60 dark:bg-amber-900/10 border-amber-200 dark:border-amber-700/40' :
+                              order.status === OrderStatus.ONGOING
+                                ? 'border-l-blue-500 bg-blue-50/60 dark:bg-blue-900/10 border-blue-200 dark:border-blue-700/40' :
+                              order.status === OrderStatus.SERVED
+                                ? 'border-l-purple-500 bg-purple-50/60 dark:bg-purple-900/10 border-purple-200 dark:border-purple-700/40' :
+                              order.status === OrderStatus.COMPLETED
+                                ? 'border-l-green-500 bg-green-50/60 dark:bg-green-900/10 border-green-200 dark:border-green-700/40' :
+                                'border-l-red-400 bg-red-50/40 dark:bg-red-900/10 border-red-200 dark:border-red-700/40';
                             return (
-                              <div key={order.id} className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 border-l-4 ${statusBorder} rounded-xl flex flex-col`}>
+                              <div key={order.id} className={`border border-l-4 ${statusStyles} rounded-xl flex flex-col`}>
 
                                 {/* Row 1: Items count · Date/Time */}
                                 <div className="flex items-center justify-between px-4 pt-3 pb-1">
-                                  <span className="text-xs font-bold text-gray-500 dark:text-gray-400">
+                                  <span className="text-xs font-bold text-gray-600 dark:text-gray-300">
                                     Items: <span className="text-gray-900 dark:text-white font-black">{totalQty}</span>
                                   </span>
-                                  <div className="flex items-center gap-1 text-gray-400 dark:text-gray-500">
+                                  <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
                                     <Clock size={10} />
                                     <span className="text-[10px]">
                                       {new Date(order.timestamp).toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' })}
@@ -7281,19 +7285,19 @@ const PosOnlyView: React.FC<Props> = ({
                                 </div>
 
                                 {/* Divider */}
-                                <div className="h-px bg-gray-100 dark:bg-gray-700" />
+                                <div className="h-px bg-black/5 dark:bg-white/5" />
 
                                 {/* Row 3: Order no + Table / Total */}
                                 <div className="flex items-center justify-between px-4 py-3">
                                   <div className="flex items-center gap-2.5">
-                                    <div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center shrink-0">
+                                    <div className="w-8 h-8 bg-white/70 dark:bg-gray-700 rounded-lg flex items-center justify-center shrink-0 border border-black/5 dark:border-white/5">
                                       <QrCode size={14} className="text-orange-500" />
                                     </div>
                                     <div>
                                       <p className="text-[11px] font-black text-gray-800 dark:text-white uppercase tracking-tight">
                                         #{typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : String(order.id).slice(-6).toUpperCase()}
                                       </p>
-                                      <p className="text-[10px] text-gray-400 dark:text-gray-500">Table {order.tableNumber}</p>
+                                      <p className="text-[10px] text-gray-500 dark:text-gray-400">Table {order.tableNumber}</p>
                                     </div>
                                   </div>
                                   <span className="text-lg font-black text-gray-900 dark:text-white">{currencySymbol}{order.total.toFixed(2)}</span>
@@ -7303,8 +7307,8 @@ const PosOnlyView: React.FC<Props> = ({
                                 <div className="px-3 pb-3">
                                   {showKitchenFeature && !isKitchenUser && (order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) ? (
                                     <div className={`w-full py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest text-center ${
-                                      order.status === OrderStatus.PENDING ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400' :
-                                      'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
+                                      order.status === OrderStatus.PENDING ? 'bg-amber-100/80 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                                      'bg-blue-100/80 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                                     }`}>
                                       {order.status === OrderStatus.PENDING ? 'Waiting for Kitchen' : 'Kitchen Preparing'}
                                     </div>
@@ -7312,7 +7316,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     <>
                                       {order.status === OrderStatus.PENDING && (
                                         <div className="flex gap-2">
-                                          <button onClick={() => setRejectingQrOrderId(order.id)} className="flex-1 py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all">Reject</button>
+                                          <button onClick={() => setRejectingQrOrderId(order.id)} className="flex-1 py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 bg-white/60 dark:bg-transparent transition-all">Reject</button>
                                           <button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className="flex-1 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all shadow">Accept</button>
                                         </div>
                                       )}
@@ -7335,7 +7339,7 @@ const PosOnlyView: React.FC<Props> = ({
                                         </button>
                                       )}
                                       {(order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) && (
-                                        <div className={`w-full py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest text-center ${order.status === OrderStatus.COMPLETED ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-500 dark:bg-red-900/20 dark:text-red-400'}`}>
+                                        <div className={`w-full py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest text-center ${order.status === OrderStatus.COMPLETED ? 'bg-green-100/80 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100/60 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>
                                           {order.status}
                                         </div>
                                       )}
@@ -7364,7 +7368,7 @@ const PosOnlyView: React.FC<Props> = ({
                       };
                       return (
                         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm" onClick={() => setViewingQrOrderDetail(null)}>
-                          <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                          <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:w-[440px] sm:h-[600px] flex flex-col" onClick={e => e.stopPropagation()}>
 
                             {/* Modal header */}
                             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 shrink-0">
@@ -7399,10 +7403,10 @@ const PosOnlyView: React.FC<Props> = ({
                             <div className="overflow-y-auto flex-1 px-5 py-3 divide-y divide-gray-100 dark:divide-gray-700/50">
                               {getSortedOrderItems(o).map((item, idx) => (
                                 <div key={`modal-${o.id}-${idx}`} className="flex items-start gap-3 py-2.5">
-                                  <span className="text-xs font-black text-gray-400 dark:text-gray-500 shrink-0 w-5 pt-0.5">×{item.quantity}</span>
+                                  <span className="text-xs font-black text-gray-500 dark:text-gray-400 shrink-0 w-5 pt-0.5">×{item.quantity}</span>
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-bold text-gray-800 dark:text-white">{item.name}</p>
-                                    {modLine(item) && <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{modLine(item)}</p>}
+                                    {modLine(item) && <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{modLine(item)}</p>}
                                   </div>
                                   <span className="text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap shrink-0">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
                                 </div>
@@ -7431,7 +7435,7 @@ const PosOnlyView: React.FC<Props> = ({
                                 <>
                                   {o.status === OrderStatus.PENDING && (
                                     <div className="flex gap-2">
-                                      <button onClick={() => { setRejectingQrOrderId(o.id); setViewingQrOrderDetail(null); }} className="flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all">Reject</button>
+                                      <button onClick={() => { setRejectingQrOrderId(o.id); setViewingQrOrderDetail(null); }} className="flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">Reject</button>
                                       <button onClick={() => { onUpdateOrder(o.id, OrderStatus.ONGOING); setViewingQrOrderDetail(null); }} className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg">Accept</button>
                                     </div>
                                   )}
