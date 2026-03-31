@@ -7242,149 +7242,134 @@ const PosOnlyView: React.FC<Props> = ({
                       }
 
                       return (
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                           {filteredQrOrders.map(order => (
-                      <div key={order.id} className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-start gap-6 transition-all hover:border-orange-200">
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3 flex-wrap">
-                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ORDER #{order.id}</span>
-                              <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg">
-                                <QrCode size={12} className="text-orange-500" />
-                                <span className="text-xs font-black">Table {order.tableNumber}</span>
-                              </div>
-                              <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${
-                                order.status === OrderStatus.PENDING ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400' :
-                                order.status === OrderStatus.ONGOING ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' :
-                                order.status === OrderStatus.SERVED ? 'bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400' :
-                                order.status === OrderStatus.COMPLETED ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400' :
-                                'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
-                              }`}>{order.status}</span>
-                              {order.orderSource && (
-                                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
-                                  order.orderSource === 'counter' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' :
-                                  order.orderSource === 'qr_order' ? 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400' :
-                                  order.orderSource === 'online' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' :
-                                  'bg-gray-100 text-gray-500'
-                                }`}>
-                                  {order.orderSource === 'counter' ? 'Counter' : order.orderSource === 'qr_order' ? 'QR Order' : order.orderSource === 'online' ? 'Online' : order.orderSource}
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Clock size={14} className="text-gray-400" />
-                              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
-                          </div>
+                            <div key={order.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
 
-                          <div className="space-y-3">
-                            {Object.entries(groupItemsByCategory(getSortedOrderItems(order))).map(([categoryName, groupedItems]) => (
-                              <div key={`${order.id}-${categoryName}`} className="space-y-2">
+                              {/* ── Header: Order No · Time · Table No ── */}
+                              <div className="grid grid-cols-3 items-center px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
                                 <div className="flex items-center gap-2">
-                                  <div className="h-px flex-1 bg-gray-100 dark:bg-gray-700" />
-                                  <span className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">{categoryName}</span>
-                                  <div className="h-px flex-1 bg-gray-100 dark:bg-gray-700" />
+                                  <span className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+                                    #{typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : String(order.id).slice(-6).toUpperCase()}
+                                  </span>
+                                  <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest ${
+                                    order.status === OrderStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                    order.status === OrderStatus.ONGOING ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                    order.status === OrderStatus.SERVED ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
+                                    order.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                    'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                  }`}>{order.status}</span>
                                 </div>
-                                {groupedItems.map((item, idx) => (
-                                  <div key={`${order.id}-${categoryName}-${item.id}-${idx}`} className="flex justify-between items-start text-sm border-l-2 border-gray-100 dark:border-gray-700 pl-3">
-                                    <div>
-                                      <p className="font-bold text-gray-900 dark:text-white">x{item.quantity} {item.name}</p>
-                                      <div className="flex flex-wrap gap-2 mt-1">
-                                        {item.selectedSize && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">Size: {item.selectedSize}</span>}
-                                        {item.selectedTemp && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${item.selectedTemp === 'Hot' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>Temp: {item.selectedTemp}</span>}
-                                        {item.selectedOtherVariant && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">{item.selectedOtherVariant}</span>}
-                                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${getKitchenStatusClass(order.status)}`}>
-                                          Kitchen: {getKitchenStatusText(order.status)}
-                                        </span>
+                                <div className="flex items-center justify-center gap-1 text-gray-400">
+                                  <Clock size={11} />
+                                  <span className="text-[10px] font-semibold">{new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
+                                <div className="flex items-center justify-end gap-1.5 px-2.5 py-1 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg w-fit ml-auto">
+                                  <QrCode size={11} className="text-orange-400" />
+                                  <span className="text-[10px] font-black">Table {order.tableNumber}</span>
+                                </div>
+                              </div>
+
+                              {/* ── Items ── */}
+                              <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                                {getSortedOrderItems(order).map((item, idx) => (
+                                  <div key={`${order.id}-${item.id}-${idx}`} className="flex items-start gap-3 px-4 py-2.5">
+                                    <span className="text-xs font-black text-gray-400 dark:text-gray-500 w-6 shrink-0 pt-0.5">×{item.quantity}</span>
+                                    <div className="flex-1 min-w-0">
+                                      <span className="text-sm font-bold text-gray-800 dark:text-white">{item.name}</span>
+                                      <div className="flex flex-wrap gap-1 mt-0.5">
+                                        {item.selectedSize && <span className="text-[9px] font-bold px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded">{item.selectedSize}</span>}
+                                        {item.selectedTemp && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${item.selectedTemp === 'Hot' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'}`}>{item.selectedTemp}</span>}
+                                        {item.selectedOtherVariant && <span className="text-[9px] font-bold px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded">{item.selectedOtherVariant}</span>}
+                                        {(item as any).addons && (item as any).addons.length > 0 && (item as any).addons.map((addon: any, ai: number) => (
+                                          <span key={ai} className="text-[9px] font-bold px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded">+{addon.name}</span>
+                                        ))}
                                       </div>
                                     </div>
-                                    <span className="text-gray-500 dark:text-gray-400 font-bold">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                                    <span className="text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap shrink-0">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
                                   </div>
                                 ))}
                               </div>
-                            ))}
-                          </div>
 
-                          {order.remark && (
-                            <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-lg">
-                              <div className="flex items-center gap-2 mb-1">
-                                <MessageSquare size={12} className="text-orange-500" />
-                                <span className="text-[9px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest">Special Remark</span>
+                              {order.remark && (
+                                <div className="mx-4 mb-2 px-3 py-1.5 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-lg flex items-center gap-1.5">
+                                  <MessageSquare size={10} className="text-orange-500 shrink-0" />
+                                  <span className="text-[9px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-wider shrink-0">Note:</span>
+                                  <span className="text-[10px] text-gray-600 dark:text-gray-300 italic truncate">{order.remark}</span>
+                                </div>
+                              )}
+
+                              {/* ── Footer: Grand Total · Action ── */}
+                              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+                                <div>
+                                  <p className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Grand Total</p>
+                                  <p className="text-xl font-black text-gray-900 dark:text-white">{currencySymbol}{order.total.toFixed(2)}</p>
+                                </div>
+                                <div className="flex gap-2">
+                                  {showKitchenFeature && !isKitchenUser && (order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) ? (
+                                    <div className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest text-center ${
+                                      order.status === OrderStatus.PENDING ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400' :
+                                      'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
+                                    }`}>
+                                      {order.status === OrderStatus.PENDING ? 'Waiting for Kitchen' : 'Kitchen Preparing'}
+                                    </div>
+                                  ) : (
+                                    <>
+                                      {order.status === OrderStatus.PENDING && (
+                                        <>
+                                          <button
+                                            onClick={() => setRejectingQrOrderId(order.id)}
+                                            className="py-2.5 px-4 bg-transparent text-red-500 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/20 transition-all border border-red-200 dark:border-red-800"
+                                          >
+                                            Reject
+                                          </button>
+                                          <button
+                                            onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)}
+                                            className="py-2.5 px-5 bg-orange-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow"
+                                          >
+                                            Accept
+                                          </button>
+                                        </>
+                                      )}
+                                      {order.status === OrderStatus.ONGOING && (
+                                        <button
+                                          onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)}
+                                          className="py-2.5 px-5 bg-green-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center gap-2 shadow"
+                                        >
+                                          <CheckCircle size={15} /> Serve Order
+                                        </button>
+                                      )}
+                                      {order.status === OrderStatus.SERVED && (
+                                        <button
+                                          onClick={() => {
+                                            setSelectedQrOrderForPayment(order);
+                                            setPendingOrderData({
+                                              items: order.items,
+                                              remark: order.remark,
+                                              tableNumber: order.tableNumber,
+                                              total: order.total,
+                                            });
+                                            setSelectedCashAmount(order.total);
+                                            setCashAmountInput(order.total.toFixed(2));
+                                            setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
+                                            setIsQrPaymentMode(true);
+                                            setShowPaymentModal(true);
+                                          }}
+                                          className="py-2.5 px-5 bg-blue-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center gap-2 shadow"
+                                        >
+                                          <CheckCircle2 size={15} /> Mark Paid
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
                               </div>
-                              <p className="text-xs text-gray-700 dark:text-gray-300 italic">{order.remark}</p>
-                            </div>
-                          )}
 
-                          <div className="mt-4 pt-4 border-t dark:border-gray-700 flex justify-between items-center">
-                            <span className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Grand Total</span>
-                            <span className="text-2xl font-black text-gray-900 dark:text-white">{currencySymbol}{order.total.toFixed(2)}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex md:flex-col gap-2 min-w-[140px] mt-2 md:mt-0">
-                          {/* When kitchen is enabled, POS users can only see order status — kitchen handles accept/reject/serve */}
-                          {showKitchenFeature && !isKitchenUser && (order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) ? (
-                            <div className={`px-4 py-3 rounded-lg font-black text-[10px] uppercase tracking-widest text-center ${
-                              order.status === OrderStatus.PENDING ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400' :
-                              'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
-                            }`}>
-                              {order.status === OrderStatus.PENDING ? 'Waiting for Kitchen' : 'Kitchen Preparing'}
                             </div>
-                          ) : (
-                          <>
-                          {order.status === OrderStatus.PENDING && (
-                            <>
-                              <button
-                                onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)}
-                                className="flex-1 py-3 px-4 bg-orange-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg"
-                              >
-                                Accept
-                              </button>
-                              <button
-                                onClick={() => setRejectingQrOrderId(order.id)}
-                                className="flex-1 py-3 px-4 bg-red-50 text-red-500 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-100"
-                              >
-                                Reject
-                              </button>
-                            </>
-                          )}
-                          {order.status === OrderStatus.ONGOING && (
-                            <button
-                              onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)}
-                              className="flex-1 py-4 px-4 bg-green-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-lg"
-                            >
-                              <CheckCircle size={18} /> Serve Order
-                            </button>
-                          )}
-                          {order.status === OrderStatus.SERVED && (
-                            <button
-                              onClick={() => {
-                                setSelectedQrOrderForPayment(order);
-                                setPendingOrderData({
-                                  items: order.items,
-                                  remark: order.remark,
-                                  tableNumber: order.tableNumber,
-                                  total: order.total,
-                                });
-                                setSelectedCashAmount(order.total);
-                                setCashAmountInput(order.total.toFixed(2));
-                                setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
-                                setIsQrPaymentMode(true);
-                                setShowPaymentModal(true);
-                              }}
-                              className="flex-1 py-4 px-4 bg-blue-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-2 shadow-lg"
-                            >
-                              <CheckCircle2 size={18} /> Mark Paid
-                            </button>
-                          )}
-                          </>
-                          )}
+                          ))}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
+                      );
+                    })()}
                   </>
                 )}
 
