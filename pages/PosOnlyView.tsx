@@ -6741,6 +6741,46 @@ const PosOnlyView: React.FC<Props> = ({
                       settingsPanel: null as string | null,
                       renderSettings: null as (() => React.ReactNode) | null,
                     },
+                    {
+                      id: 'foodpanda',
+                      name: 'FoodPanda Integration',
+                      icon: <Truck size={28} className="text-pink-600 dark:text-pink-400" />,
+                      iconBg: 'bg-pink-100 dark:bg-pink-900/30',
+                      plan: 'Pro',
+                      planColor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+                      shortDesc: 'Receive FoodPanda orders directly in your POS.',
+                      description: 'FoodPanda Integration connects your QuickServe POS directly to FoodPanda. Receive delivery orders in real-time, manage them alongside dine-in and takeaway orders, and streamline your kitchen workflow. No more switching between tablets — everything in one place.',
+                      features: ['Real-time FoodPanda order sync', 'Orders appear in delivery queue', 'Automatic menu sync', 'Order status updates to FoodPanda', 'Works with Kitchen Display System', 'Unified order management'],
+                      version: '1.0.0',
+                      author: 'QuickServe',
+                      isInstalled: false,
+                      canInstall: false,
+                      isComingSoon: true,
+                      onInstall: () => {},
+                      onUninstall: null as (() => void) | null,
+                      settingsPanel: null as string | null,
+                      renderSettings: null as (() => React.ReactNode) | null,
+                    },
+                    {
+                      id: 'grabfood',
+                      name: 'GrabFood Integration',
+                      icon: <Truck size={28} className="text-green-600 dark:text-green-400" />,
+                      iconBg: 'bg-green-100 dark:bg-green-900/30',
+                      plan: 'Pro',
+                      planColor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+                      shortDesc: 'Receive GrabFood orders directly in your POS.',
+                      description: 'GrabFood Integration connects your QuickServe POS directly to GrabFood. Receive delivery orders in real-time, manage them alongside dine-in and takeaway orders, and streamline your kitchen workflow. No more switching between tablets — everything in one place.',
+                      features: ['Real-time GrabFood order sync', 'Orders appear in delivery queue', 'Automatic menu sync', 'Order status updates to GrabFood', 'Works with Kitchen Display System', 'Unified order management'],
+                      version: '1.0.0',
+                      author: 'QuickServe',
+                      isInstalled: false,
+                      canInstall: false,
+                      isComingSoon: true,
+                      onInstall: () => {},
+                      onUninstall: null as (() => void) | null,
+                      settingsPanel: null as string | null,
+                      renderSettings: null as (() => React.ReactNode) | null,
+                    },
                   ];
 
                   const selectedAddon = addonDetailView ? addonFeatures.find(f => f.id === addonDetailView) : null;
@@ -6789,6 +6829,10 @@ const PosOnlyView: React.FC<Props> = ({
                                       </button>
                                     )}
                                     </>
+                                  ) : (selectedAddon as any).isComingSoon ? (
+                                    <span className="px-6 py-2.5 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 rounded-lg font-black text-[10px] uppercase tracking-widest">
+                                      Coming Soon
+                                    </span>
                                   ) : selectedAddon.canInstall ? (
                                     <button
                                       onClick={selectedAddon.onInstall}
@@ -6869,7 +6913,7 @@ const PosOnlyView: React.FC<Props> = ({
                                   { label: 'Version', value: selectedAddon.version },
                                   { label: 'Required Plan', value: selectedAddon.plan },
                                   { label: 'Author', value: selectedAddon.author },
-                                  { label: 'Status', value: selectedAddon.isInstalled ? 'Installed' : (selectedAddon.canInstall ? 'Available' : 'Upgrade Required') },
+                                  { label: 'Status', value: selectedAddon.isInstalled ? 'Installed' : ((selectedAddon as any).isComingSoon ? 'Coming Soon' : (selectedAddon.canInstall ? 'Available' : 'Upgrade Required')) },
                                 ].map((item, idx) => (
                                   <div key={idx} className="flex items-center justify-between py-2.5 border-b dark:border-gray-700 last:border-0">
                                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{item.label}</span>
@@ -6882,7 +6926,13 @@ const PosOnlyView: React.FC<Props> = ({
 
                           {addonDetailTab === 'setting' && (
                             <div className="p-6 md:p-8">
-                              {!selectedAddon.isInstalled ? (
+                              {(selectedAddon as any).isComingSoon ? (
+                                <div className="text-center py-12">
+                                  <Clock size={40} className="mx-auto text-amber-500 mb-4" />
+                                  <p className="text-sm font-black dark:text-white mb-2">Coming Soon</p>
+                                  <p className="text-xs text-gray-400 max-w-sm mx-auto"><span className="font-black text-gray-600 dark:text-gray-300">{selectedAddon.name}</span> is currently in development. Stay tuned for updates!</p>
+                                </div>
+                              ) : !selectedAddon.isInstalled ? (
                                 <div className="text-center py-12">
                                   <Settings size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
                                   <p className="text-sm font-black dark:text-white mb-2">Feature Not Installed</p>
@@ -6968,6 +7018,10 @@ const PosOnlyView: React.FC<Props> = ({
                                 {addon.isInstalled ? (
                                   <span className="px-3 py-1 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-lg text-[9px] font-black uppercase tracking-widest">
                                     Installed
+                                  </span>
+                                ) : (addon as any).isComingSoon ? (
+                                  <span className="px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                                    Coming Soon
                                   </span>
                                 ) : addon.canInstall ? (
                                   <button
