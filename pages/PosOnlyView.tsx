@@ -5290,10 +5290,11 @@ const PosOnlyView: React.FC<Props> = ({
                     <button
                       key={tab.id}
                       onClick={() => setMenuSubTab(tab.id)}
-                      className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-all whitespace-nowrap -mb-px relative ${
+                      style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                      className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
                         menuSubTab === tab.id
                           ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-700 z-10'
-                          : 'bg-gray-100 dark:bg-[rgba(255,255,255,0.05)] text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-700/40 hover:text-gray-600 dark:hover:text-slate-300'
+                          : 'bg-gray-100 dark:bg-gray-800/50 text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-700/40 hover:text-gray-600 dark:hover:text-slate-300'
                       }`}
                     >
                       {tab.icon}
@@ -6857,7 +6858,8 @@ const PosOnlyView: React.FC<Props> = ({
                           <div className="flex bg-gray-100 dark:bg-gray-900 border-b dark:border-gray-700 px-4 pt-2">
                             <button
                               onClick={() => setAddonDetailTab('details')}
-                              className={`px-5 py-2.5 text-[11px] font-black uppercase tracking-widest transition-all rounded-t-lg border border-b-0 ${
+                              style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                              className={`px-5 py-2.5 text-[11px] font-black uppercase tracking-widest transition-colors duration-150 rounded-t-lg border border-b-0 ${
                                 addonDetailTab === 'details'
                                   ? 'bg-white dark:bg-gray-800 text-orange-600 dark:text-orange-400 border-gray-200 dark:border-gray-700 -mb-px z-10'
                                   : 'bg-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 border-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50'
@@ -6867,7 +6869,8 @@ const PosOnlyView: React.FC<Props> = ({
                             </button>
                             <button
                               onClick={() => setAddonDetailTab('setting')}
-                              className={`px-5 py-2.5 text-[11px] font-black uppercase tracking-widest transition-all rounded-t-lg border border-b-0 ${
+                              style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                              className={`px-5 py-2.5 text-[11px] font-black uppercase tracking-widest transition-colors duration-150 rounded-t-lg border border-b-0 ${
                                 addonDetailTab === 'setting'
                                   ? 'bg-white dark:bg-gray-800 text-orange-600 dark:text-orange-400 border-gray-200 dark:border-gray-700 -mb-px z-10'
                                   : 'bg-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 border-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50'
@@ -7160,10 +7163,11 @@ const PosOnlyView: React.FC<Props> = ({
                     <button
                       key={tab.id}
                       onClick={() => setQrOrderSubTab(tab.id)}
-                      className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-all whitespace-nowrap -mb-px relative ${
+                      style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                      className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
                         qrOrderSubTab === tab.id
                           ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-700 z-10'
-                          : 'bg-gray-100 dark:bg-[rgba(255,255,255,0.05)] text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-700/40 hover:text-gray-600 dark:hover:text-slate-300'
+                          : 'bg-gray-100 dark:bg-gray-800/50 text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-700/40 hover:text-gray-600 dark:hover:text-slate-300'
                       }`}
                     >
                       {tab.icon}
@@ -7410,10 +7414,11 @@ const PosOnlyView: React.FC<Props> = ({
                             .finally(() => setIsLoadingStripeBalance(false));
                         }
                       }}
-                      className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-all whitespace-nowrap -mb-px relative ${
+                      style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                      className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
                         onlineOrderSubTab === tab.id
                           ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-700 z-10'
-                          : 'bg-gray-100 dark:bg-[rgba(255,255,255,0.05)] text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-700/40 hover:text-gray-600 dark:hover:text-slate-300'
+                          : 'bg-gray-100 dark:bg-gray-800/50 text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-700/40 hover:text-gray-600 dark:hover:text-slate-300'
                       }`}
                     >
                       {tab.icon}
