@@ -7272,23 +7272,24 @@ const PosOnlyView: React.FC<Props> = ({
 
                               {/* ── Items ── */}
                               <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
-                                {getSortedOrderItems(order).map((item, idx) => (
-                                  <div key={`${order.id}-${item.id}-${idx}`} className="flex items-start gap-3 px-4 py-2.5">
-                                    <span className="text-xs font-black text-gray-400 dark:text-gray-500 w-6 shrink-0 pt-0.5">×{item.quantity}</span>
-                                    <div className="flex-1 min-w-0">
-                                      <span className="text-sm font-bold text-gray-800 dark:text-white">{item.name}</span>
-                                      <div className="flex flex-wrap gap-1 mt-0.5">
-                                        {item.selectedSize && <span className="text-[9px] font-bold px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded">{item.selectedSize}</span>}
-                                        {item.selectedTemp && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${item.selectedTemp === 'Hot' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'}`}>{item.selectedTemp}</span>}
-                                        {item.selectedOtherVariant && <span className="text-[9px] font-bold px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded">{item.selectedOtherVariant}</span>}
-                                        {(item as any).addons && (item as any).addons.length > 0 && (item as any).addons.map((addon: any, ai: number) => (
-                                          <span key={ai} className="text-[9px] font-bold px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded">+{addon.name}</span>
-                                        ))}
-                                      </div>
+                                {getSortedOrderItems(order).map((item, idx) => {
+                                  const modParts: string[] = [];
+                                  if (item.selectedSize) modParts.push(item.selectedSize);
+                                  if (item.selectedTemp) modParts.push(item.selectedTemp);
+                                  if (item.selectedOtherVariant) modParts.push(item.selectedOtherVariant);
+                                  if (item.selectedModifiers) Object.entries(item.selectedModifiers).forEach(([, v]) => v && modParts.push(v));
+                                  if (item.selectedAddOns && item.selectedAddOns.length > 0) item.selectedAddOns.forEach(a => modParts.push(a.quantity > 1 ? `${a.name} ×${a.quantity}` : a.name));
+                                  return (
+                                    <div key={`${order.id}-${item.id}-${idx}`} className="flex items-center gap-2 px-4 py-1 text-xs">
+                                      <span className="font-black text-gray-400 dark:text-gray-500 shrink-0 w-5">×{item.quantity}</span>
+                                      <span className="font-bold text-gray-800 dark:text-white shrink-0">{item.name}</span>
+                                      <span className="flex-1 text-gray-400 dark:text-gray-500 truncate">
+                                        {modParts.length > 0 ? modParts.join('  ·  ') : '—'}
+                                      </span>
+                                      <span className="font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap shrink-0">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
                                     </div>
-                                    <span className="text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap shrink-0">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
 
                               {order.remark && (
