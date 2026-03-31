@@ -305,6 +305,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [onlineOrderFilter, setOnlineOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
   const [rejectingQrOrderId, setRejectingQrOrderId] = useState<string | null>(null);
   const [viewingQrOrderDetail, setViewingQrOrderDetail] = useState<Order | null>(null);
+  const [qrOrderView, setQrOrderView] = useState<'grid' | 'list'>('grid');
   const [qrRejectionReason, setQrRejectionReason] = useState('Item out of stock');
   const [qrRejectionNote, setQrRejectionNote] = useState('');
 
@@ -7218,6 +7219,10 @@ const PosOnlyView: React.FC<Props> = ({
                           <button onClick={() => setQrOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Served</button>
                           <button onClick={() => setQrOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Cancelled</button>
                           <button onClick={() => setQrOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>All</button>
+                        </div>
+                        <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm shrink-0">
+                          <button onClick={() => setQrOrderView('grid')} className={`p-2 rounded-md transition-all ${qrOrderView === 'grid' ? 'bg-white dark:bg-gray-600 text-orange-500 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}><LayoutGrid size={13} /></button>
+                          <button onClick={() => setQrOrderView('list')} className={`p-2 rounded-md transition-all ${qrOrderView === 'list' ? 'bg-white dark:bg-gray-600 text-orange-500 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}><List size={13} /></button>
                         </div>
                       </div>
                     </div>
