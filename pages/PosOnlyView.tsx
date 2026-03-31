@@ -24,7 +24,7 @@ import {
   Receipt, Network, Type, MessageSquare, Zap, Briefcase, PlusCircle, Puzzle,
   ArrowLeft, Star, Package, Monitor, Info, ExternalLink,
   Tablet, Globe, ShoppingCart, Wallet, ArrowUpRight, ArrowDownRight, Building2, Banknote, Send, Copy, Truck, Mail,
-  MoreVertical, Lock, ImagePlus, EyeOff, User
+  MoreVertical, Lock, ImagePlus, EyeOff, User, Link2
 } from 'lucide-react';
 
 interface Props {
@@ -346,7 +346,8 @@ const PosOnlyView: React.FC<Props> = ({
 
   // Image link state
   const [profileImageLink, setProfileImageLink] = useState<string>(restaurant.settings?.imageLink || '');
-  const [profileImageDesc, setProfileImageDesc] = useState<string>(restaurant.settings?.imageDescription || '');
+  const [profileImageLinkInput, setProfileImageLinkInput] = useState<string>('');
+  const [profileShowLinkInput, setProfileShowLinkInput] = useState(false);
   const [profileImageCropFile, setProfileImageCropFile] = useState<File | null>(null);
   const [profileImageUploading, setProfileImageUploading] = useState(false);
   const profileImageInputRef = useRef<HTMLInputElement>(null);
@@ -819,7 +820,8 @@ const PosOnlyView: React.FC<Props> = ({
     setProfileShowCurrentPw(false);
     setProfileShowNewPw(false);
     setProfileImageLink(restaurant.settings?.imageLink || '');
-    setProfileImageDesc(restaurant.settings?.imageDescription || '');
+    setProfileImageLinkInput('');
+    setProfileShowLinkInput(false);
     setShowProfilePanel(true);
   };
 
@@ -875,7 +877,7 @@ const PosOnlyView: React.FC<Props> = ({
       const url = await uploadImage(file, 'qr-logos', `${restaurant.id}/restaurant-image`);
       if (url) {
         setProfileImageLink(url);
-        const newSettings = { ...restaurant.settings, imageLink: url, imageDescription: profileImageDesc };
+        const newSettings = { ...restaurant.settings, imageLink: url };
         const { error } = await supabase
           .from('restaurants')
           .update({ settings: newSettings })
@@ -890,18 +892,23 @@ const PosOnlyView: React.FC<Props> = ({
     }
   };
 
-  const handleSaveImageDescription = async () => {
+  const handleSaveImageLink = async () => {
+    const url = profileImageLinkInput.trim();
+    if (!url) { toast('Please enter an image URL.', 'warning'); return; }
     setProfileSaving(true);
     try {
-      const newSettings = { ...restaurant.settings, imageLink: profileImageLink, imageDescription: profileImageDesc };
+      setProfileImageLink(url);
+      const newSettings = { ...restaurant.settings, imageLink: url };
       const { error } = await supabase
         .from('restaurants')
         .update({ settings: newSettings })
         .eq('id', restaurant.id);
       if (error) throw error;
-      toast('Image description saved!', 'success');
+      setProfileImageLinkInput('');
+      setProfileShowLinkInput(false);
+      toast('Image link saved!', 'success');
     } catch {
-      toast('Failed to save description.', 'error');
+      toast('Failed to save image link.', 'error');
     } finally {
       setProfileSaving(false);
     }
@@ -9942,30 +9949,50 @@ const PosOnlyView: React.FC<Props> = ({
 
               {/* ── Restaurant Logo ── */}
               <div>
-                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Restaurant Logo</p>
-                <div className="flex items-center gap-4">
+                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">Restaurant Logo</p>
+                <div className="flex flex-col items-center gap-4">
+                  {/* Photo Frame */}
                   <div className="relative">
-                    <img
-                      src={restaurant.logo}
-                      alt="Restaurant logo"
-                      className="w-16 h-16 rounded-xl shadow border dark:border-gray-600 object-cover bg-gray-100 dark:bg-gray-700"
-                    />
+                    <div className="w-28 h-28 rounded-2xl border-2 border-gray-200 dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-700 shadow-sm">
+                      {restaurant.logo ? (
+                        <img
+                          src={restaurant.logo}
+                          alt="Restaurant logo"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ImagePlus size={28} className="text-gray-300 dark:text-gray-500" />
+                        </div>
+                      )}
+                    </div>
                     {profileLogoUploading && (
-                      <div className="absolute inset-0 rounded-xl bg-black/40 flex items-center justify-center">
-                        <RotateCw size={18} className="text-white animate-spin" />
+                      <div className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center">
+                        <RotateCw size={20} className="text-white animate-spin" />
                       </div>
                     )}
                   </div>
-                  <div className="space-y-1.5">
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 w-full">
                     <button
                       onClick={() => profileLogoInputRef.current?.click()}
                       disabled={profileLogoUploading}
-                      className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors disabled:opacity-50"
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors disabled:opacity-50 border border-orange-200 dark:border-orange-800/40"
                     >
-                      <ImagePlus size={13} /> Upload Logo
+                      <Upload size={13} /> Upload
                     </button>
-                    <p className="text-[10px] text-gray-400 dark:text-gray-500">PNG or JPEG recommended</p>
+                    <button
+                      onClick={() => setProfileShowLinkInput(v => !v)}
+                      className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold rounded-lg transition-colors border ${
+                        profileShowLinkInput
+                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800/40'
+                          : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      <Link2 size={13} /> Add Link
+                    </button>
                   </div>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500">PNG or JPEG recommended</p>
                   <input
                     ref={profileLogoInputRef}
                     type="file"
@@ -9974,66 +10001,77 @@ const PosOnlyView: React.FC<Props> = ({
                     onChange={handleProfileLogoFileSelect}
                   />
                 </div>
-              </div>
 
-              {/* ── Add Image Link ── */}
-              <div>
-                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Add Image Link</p>
-                <div className="flex items-start gap-4">
-                  <div className="relative flex-shrink-0">
-                    {profileImageLink ? (
-                      <img
-                        src={profileImageLink}
-                        alt="Restaurant photo"
-                        className="w-20 h-20 rounded-xl shadow border dark:border-gray-600 object-cover bg-gray-100 dark:bg-gray-700"
-                      />
-                    ) : (
-                      <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center bg-gray-50 dark:bg-gray-700">
-                        <ImagePlus size={20} className="text-gray-300 dark:text-gray-500" />
-                      </div>
-                    )}
-                    {profileImageUploading && (
-                      <div className="absolute inset-0 rounded-xl bg-black/40 flex items-center justify-center">
-                        <RotateCw size={18} className="text-white animate-spin" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    <button
-                      onClick={() => profileImageInputRef.current?.click()}
-                      disabled={profileImageUploading}
-                      className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors disabled:opacity-50"
-                    >
-                      <Upload size={13} /> Upload Photo
-                    </button>
-                    <p className="text-[10px] text-gray-400 dark:text-gray-500">PNG or JPEG recommended</p>
-                    <div>
-                      <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-1">Description</label>
+                {/* Link Input */}
+                {profileShowLinkInput && (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex gap-2">
                       <input
-                        type="text"
-                        value={profileImageDesc}
-                        onChange={e => setProfileImageDesc(e.target.value)}
-                        className="w-full border dark:border-gray-600 rounded-lg px-3 py-1.5 text-xs bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
-                        placeholder="Image description"
+                        type="url"
+                        value={profileImageLinkInput}
+                        onChange={e => setProfileImageLinkInput(e.target.value)}
+                        className="flex-1 border dark:border-gray-600 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                        placeholder="https://example.com/image.png"
                       />
+                      <button
+                        onClick={handleSaveImageLink}
+                        disabled={profileSaving || !profileImageLinkInput.trim()}
+                        className="px-3 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors disabled:opacity-50"
+                      >
+                        {profileSaving ? <RotateCw size={12} className="animate-spin" /> : 'Save'}
+                      </button>
                     </div>
-                    <button
-                      onClick={handleSaveImageDescription}
-                      disabled={profileSaving}
-                      className="w-full py-1.5 rounded-lg bg-gray-800 dark:bg-gray-200 hover:bg-gray-700 dark:hover:bg-white text-white dark:text-gray-900 text-[10px] font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
-                    >
-                      {profileSaving ? <RotateCw size={11} className="animate-spin" /> : null}
-                      Save
-                    </button>
                   </div>
-                  <input
-                    ref={profileImageInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleProfileImageFileSelect}
-                  />
-                </div>
+                )}
+
+                {/* Image Link Preview */}
+                {profileImageLink && (
+                  <div className="mt-3">
+                    <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Image Link</p>
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <div className="w-16 h-16 rounded-xl border dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-700 shadow-sm">
+                          <img src={profileImageLink} alt="Linked image" className="w-full h-full object-cover" />
+                        </div>
+                        {profileImageUploading && (
+                          <div className="absolute inset-0 rounded-xl bg-black/40 flex items-center justify-center">
+                            <RotateCw size={14} className="text-white animate-spin" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate">{profileImageLink}</p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => profileImageInputRef.current?.click()}
+                            disabled={profileImageUploading}
+                            className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors border dark:border-gray-600 disabled:opacity-50"
+                          >
+                            <Upload size={11} /> Replace
+                          </button>
+                          <button
+                            onClick={async () => {
+                              setProfileImageLink('');
+                              const newSettings = { ...restaurant.settings, imageLink: '' };
+                              await supabase.from('restaurants').update({ settings: newSettings }).eq('id', restaurant.id);
+                              toast('Image link removed.', 'success');
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors border border-red-200 dark:border-red-800/40"
+                          >
+                            <Trash2 size={11} /> Remove
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <input
+                      ref={profileImageInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleProfileImageFileSelect}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* ── Restaurant Info ── */}
