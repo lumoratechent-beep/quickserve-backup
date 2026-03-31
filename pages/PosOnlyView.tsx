@@ -6744,7 +6744,7 @@ const PosOnlyView: React.FC<Props> = ({
                     {
                       id: 'foodpanda',
                       name: 'FoodPanda Integration',
-                      icon: <Truck size={28} className="text-pink-600 dark:text-pink-400" />,
+                      icon: <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/Foodpanda_logo.svg/2560px-Foodpanda_logo.svg.png" alt="FoodPanda" className="w-7 h-7 object-contain" />,
                       iconBg: 'bg-pink-100 dark:bg-pink-900/30',
                       plan: 'Pro',
                       planColor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
@@ -6764,7 +6764,7 @@ const PosOnlyView: React.FC<Props> = ({
                     {
                       id: 'grabfood',
                       name: 'GrabFood Integration',
-                      icon: <Truck size={28} className="text-green-600 dark:text-green-400" />,
+                      icon: <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Grab_Food_logo.svg/2560px-Grab_Food_logo.svg.png" alt="GrabFood" className="w-7 h-7 object-contain" />,
                       iconBg: 'bg-green-100 dark:bg-green-900/30',
                       plan: 'Pro',
                       planColor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
@@ -6983,66 +6983,91 @@ const PosOnlyView: React.FC<Props> = ({
                   }
 
                   // ── Grid View (WordPress plugin style) ──
+                  const existingAddons = addonFeatures.filter(a => !(a as any).isComingSoon);
+                  const upcomingAddons = addonFeatures.filter(a => (a as any).isComingSoon);
+
+                  const renderAddonCard = (addon: typeof addonFeatures[0]) => (
+                    <div
+                      key={addon.id}
+                      className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden hover:shadow-lg hover:border-orange-200 dark:hover:border-orange-800/50 transition-all cursor-pointer flex flex-col h-[180px]"
+                      onClick={() => { setAddonDetailView(addon.id); setAddonDetailTab('details'); }}
+                    >
+                      {/* Card top */}
+                      <div className="p-5 flex items-start gap-4 flex-1 min-h-0">
+                        <div className={`w-14 h-14 rounded-xl ${addon.iconBg} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                          {addon.icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="text-sm font-black dark:text-white truncate">{addon.name}</p>
+                          </div>
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${addon.planColor} mb-2`}>{addon.plan} Plan</span>
+                          <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-2">{addon.shortDesc}</p>
+                        </div>
+                      </div>
+
+                      {/* Card bottom */}
+                      <div className="px-5 py-3 border-t dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-between flex-shrink-0">
+                        <div className="flex items-center gap-3">
+                          <span className="text-[9px] text-gray-400 font-bold">By {addon.author}</span>
+                        </div>
+                        <div onClick={e => e.stopPropagation()}>
+                          {addon.isInstalled ? (
+                            <span className="px-3 py-1 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                              Installed
+                            </span>
+                          ) : (addon as any).isComingSoon ? (
+                            <span className="px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                              Coming Soon
+                            </span>
+                          ) : addon.canInstall ? (
+                            <button
+                              onClick={addon.onInstall}
+                              className="px-3 py-1 bg-orange-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow hover:bg-orange-600 transition-all"
+                            >
+                              Install
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setShowUpgradeModal(true)}
+                              className="px-3 py-1 bg-orange-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow hover:bg-orange-600 transition-all"
+                            >
+                              Upgrade
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+
                   return (
                     <>
                       <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Add-on Feature</h1>
                       <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Extend your POS with additional features.</p>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                        {addonFeatures.map(addon => (
-                          <div
-                            key={addon.id}
-                            className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden hover:shadow-lg hover:border-orange-200 dark:hover:border-orange-800/50 transition-all cursor-pointer flex flex-col h-[180px]"
-                            onClick={() => { setAddonDetailView(addon.id); setAddonDetailTab('details'); }}
-                          >
-                            {/* Card top */}
-                            <div className="p-5 flex items-start gap-4 flex-1 min-h-0">
-                              <div className={`w-14 h-14 rounded-xl ${addon.iconBg} flex items-center justify-center flex-shrink-0 shadow-sm`}>
-                                {addon.icon}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <p className="text-sm font-black dark:text-white truncate">{addon.name}</p>
-                                </div>
-                                <span className={`inline-block px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${addon.planColor} mb-2`}>{addon.plan} Plan</span>
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-2">{addon.shortDesc}</p>
-                              </div>
-                            </div>
-
-                            {/* Card bottom */}
-                            <div className="px-5 py-3 border-t dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-between flex-shrink-0">
-                              <div className="flex items-center gap-3">
-                                <span className="text-[9px] text-gray-400 font-bold">By {addon.author}</span>
-                              </div>
-                              <div onClick={e => e.stopPropagation()}>
-                                {addon.isInstalled ? (
-                                  <span className="px-3 py-1 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-lg text-[9px] font-black uppercase tracking-widest">
-                                    Installed
-                                  </span>
-                                ) : (addon as any).isComingSoon ? (
-                                  <span className="px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 rounded-lg text-[9px] font-black uppercase tracking-widest">
-                                    Coming Soon
-                                  </span>
-                                ) : addon.canInstall ? (
-                                  <button
-                                    onClick={addon.onInstall}
-                                    className="px-3 py-1 bg-orange-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow hover:bg-orange-600 transition-all"
-                                  >
-                                    Install
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => setShowUpgradeModal(true)}
-                                    className="px-3 py-1 bg-orange-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow hover:bg-orange-600 transition-all"
-                                  >
-                                    Upgrade
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                      {/* Available Features */}
+                      <div className="mb-10">
+                        <div className="flex items-center gap-3 mb-4">
+                          <h2 className="text-sm font-black dark:text-white uppercase tracking-widest">Available Features</h2>
+                          <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-[9px] font-black uppercase tracking-widest rounded-full">{existingAddons.length}</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                          {existingAddons.map(renderAddonCard)}
+                        </div>
                       </div>
+
+                      {/* Upcoming Features */}
+                      {upcomingAddons.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-3 mb-4">
+                            <h2 className="text-sm font-black dark:text-white uppercase tracking-widest">Upcoming Features</h2>
+                            <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase tracking-widest rounded-full">{upcomingAddons.length}</span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {upcomingAddons.map(renderAddonCard)}
+                          </div>
+                        </div>
+                      )}
                     </>
                   );
                 })()}
