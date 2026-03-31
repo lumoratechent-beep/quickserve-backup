@@ -304,6 +304,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [qrOrderFilter, setQrOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
   const [onlineOrderFilter, setOnlineOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
   const [rejectingQrOrderId, setRejectingQrOrderId] = useState<string | null>(null);
+  const [viewingQrOrderDetail, setViewingQrOrderDetail] = useState<Order | null>(null);
   const [qrRejectionReason, setQrRejectionReason] = useState('Item out of stock');
   const [qrRejectionNote, setQrRejectionNote] = useState('');
 
@@ -7242,73 +7243,66 @@ const PosOnlyView: React.FC<Props> = ({
                       }
 
                       return (
-                        <div className="space-y-3">
-                          {filteredQrOrders.map(order => (
-                            <div key={order.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {filteredQrOrders.map(order => {
+                            const totalQty = order.items.reduce((s, i) => s + i.quantity, 0);
+                            const statusBorder =
+                              order.status === OrderStatus.PENDING ? 'border-l-yellow-400' :
+                              order.status === OrderStatus.ONGOING ? 'border-l-blue-500' :
+                              order.status === OrderStatus.SERVED  ? 'border-l-purple-500' :
+                              order.status === OrderStatus.COMPLETED ? 'border-l-green-500' :
+                              'border-l-red-400';
+                            return (
+                              <div key={order.id} className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 border-l-4 ${statusBorder} rounded-xl flex flex-col`}>
 
-                              {/* ── Header: Order No · Time · Table No ── */}
-                              <div className="grid grid-cols-3 items-center px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">
-                                    #{typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : String(order.id).slice(-6).toUpperCase()}
+                                {/* Row 1: Items count · Date/Time */}
+                                <div className="flex items-center justify-between px-4 pt-3 pb-1">
+                                  <span className="text-xs font-bold text-gray-500 dark:text-gray-400">
+                                    Items: <span className="text-gray-900 dark:text-white font-black">{totalQty}</span>
                                   </span>
-                                  <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest ${
-                                    order.status === OrderStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                    order.status === OrderStatus.ONGOING ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                                    order.status === OrderStatus.SERVED ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
-                                    order.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                    'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                                  }`}>{order.status}</span>
+                                  <div className="flex items-center gap-1 text-gray-400 dark:text-gray-500">
+                                    <Clock size={10} />
+                                    <span className="text-[10px]">
+                                      {new Date(order.timestamp).toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                      {' · '}
+                                      {new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  </div>
                                 </div>
-                                <div className="flex items-center justify-center gap-1 text-gray-400">
-                                  <Clock size={11} />
-                                  <span className="text-[10px] font-semibold">{new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                </div>
-                                <div className="flex items-center justify-end gap-1.5 px-2.5 py-1 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg w-fit ml-auto">
-                                  <QrCode size={11} className="text-orange-400" />
-                                  <span className="text-[10px] font-black">Table {order.tableNumber}</span>
-                                </div>
-                              </div>
 
-                              {/* ── Items ── */}
-                              <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
-                                {getSortedOrderItems(order).map((item, idx) => {
-                                  const modParts: string[] = [];
-                                  if (item.selectedSize) modParts.push(item.selectedSize);
-                                  if (item.selectedTemp) modParts.push(item.selectedTemp);
-                                  if (item.selectedOtherVariant) modParts.push(item.selectedOtherVariant);
-                                  if (item.selectedModifiers) Object.entries(item.selectedModifiers).forEach(([, v]) => v && modParts.push(v));
-                                  if (item.selectedAddOns && item.selectedAddOns.length > 0) item.selectedAddOns.forEach(a => modParts.push(a.quantity > 1 ? `${a.name} ×${a.quantity}` : a.name));
-                                  return (
-                                    <div key={`${order.id}-${item.id}-${idx}`} className="flex items-center gap-2 px-4 py-1 text-xs">
-                                      <span className="font-black text-gray-400 dark:text-gray-500 shrink-0 w-5">×{item.quantity}</span>
-                                      <span className="font-bold text-gray-800 dark:text-white shrink-0">{item.name}</span>
-                                      <span className="flex-1 text-gray-400 dark:text-gray-500 truncate">
-                                        {modParts.length > 0 ? modParts.join('  ·  ') : '—'}
-                                      </span>
-                                      <span className="font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap shrink-0">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                                {/* Row 2: View Order Details link */}
+                                <div className="px-4 pb-3">
+                                  <button
+                                    onClick={() => setViewingQrOrderDetail(order)}
+                                    className="text-orange-500 hover:text-orange-600 text-[11px] font-black uppercase tracking-wider transition-colors"
+                                  >
+                                    View Order Details →
+                                  </button>
+                                </div>
+
+                                {/* Divider */}
+                                <div className="h-px bg-gray-100 dark:bg-gray-700" />
+
+                                {/* Row 3: Order no + Table / Total */}
+                                <div className="flex items-center justify-between px-4 py-3">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center shrink-0">
+                                      <QrCode size={14} className="text-orange-500" />
                                     </div>
-                                  );
-                                })}
-                              </div>
-
-                              {order.remark && (
-                                <div className="mx-4 mb-2 px-3 py-1.5 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-lg flex items-center gap-1.5">
-                                  <MessageSquare size={10} className="text-orange-500 shrink-0" />
-                                  <span className="text-[9px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-wider shrink-0">Note:</span>
-                                  <span className="text-[10px] text-gray-600 dark:text-gray-300 italic truncate">{order.remark}</span>
+                                    <div>
+                                      <p className="text-[11px] font-black text-gray-800 dark:text-white uppercase tracking-tight">
+                                        #{typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : String(order.id).slice(-6).toUpperCase()}
+                                      </p>
+                                      <p className="text-[10px] text-gray-400 dark:text-gray-500">Table {order.tableNumber}</p>
+                                    </div>
+                                  </div>
+                                  <span className="text-lg font-black text-gray-900 dark:text-white">{currencySymbol}{order.total.toFixed(2)}</span>
                                 </div>
-                              )}
 
-                              {/* ── Footer: Grand Total · Action ── */}
-                              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
-                                <div>
-                                  <p className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Grand Total</p>
-                                  <p className="text-xl font-black text-gray-900 dark:text-white">{currencySymbol}{order.total.toFixed(2)}</p>
-                                </div>
-                                <div className="flex gap-2">
+                                {/* Row 4: Action buttons */}
+                                <div className="px-3 pb-3">
                                   {showKitchenFeature && !isKitchenUser && (order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) ? (
-                                    <div className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest text-center ${
+                                    <div className={`w-full py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest text-center ${
                                       order.status === OrderStatus.PENDING ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400' :
                                       'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
                                     }`}>
@@ -7317,57 +7311,154 @@ const PosOnlyView: React.FC<Props> = ({
                                   ) : (
                                     <>
                                       {order.status === OrderStatus.PENDING && (
-                                        <>
-                                          <button
-                                            onClick={() => setRejectingQrOrderId(order.id)}
-                                            className="py-2.5 px-4 bg-transparent text-red-500 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/20 transition-all border border-red-200 dark:border-red-800"
-                                          >
-                                            Reject
-                                          </button>
-                                          <button
-                                            onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)}
-                                            className="py-2.5 px-5 bg-orange-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow"
-                                          >
-                                            Accept
-                                          </button>
-                                        </>
+                                        <div className="flex gap-2">
+                                          <button onClick={() => setRejectingQrOrderId(order.id)} className="flex-1 py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all">Reject</button>
+                                          <button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className="flex-1 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all shadow">Accept</button>
+                                        </div>
                                       )}
                                       {order.status === OrderStatus.ONGOING && (
-                                        <button
-                                          onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)}
-                                          className="py-2.5 px-5 bg-green-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center gap-2 shadow"
-                                        >
-                                          <CheckCircle size={15} /> Serve Order
+                                        <button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className="w-full py-2.5 bg-green-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-1.5 shadow">
+                                          <CheckCircle size={13} /> Serve Order
                                         </button>
                                       )}
                                       {order.status === OrderStatus.SERVED && (
-                                        <button
-                                          onClick={() => {
-                                            setSelectedQrOrderForPayment(order);
-                                            setPendingOrderData({
-                                              items: order.items,
-                                              remark: order.remark,
-                                              tableNumber: order.tableNumber,
-                                              total: order.total,
-                                            });
-                                            setSelectedCashAmount(order.total);
-                                            setCashAmountInput(order.total.toFixed(2));
-                                            setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
-                                            setIsQrPaymentMode(true);
-                                            setShowPaymentModal(true);
-                                          }}
-                                          className="py-2.5 px-5 bg-blue-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center gap-2 shadow"
-                                        >
-                                          <CheckCircle2 size={15} /> Mark Paid
+                                        <button onClick={() => {
+                                          setSelectedQrOrderForPayment(order);
+                                          setPendingOrderData({ items: order.items, remark: order.remark, tableNumber: order.tableNumber, total: order.total });
+                                          setSelectedCashAmount(order.total);
+                                          setCashAmountInput(order.total.toFixed(2));
+                                          setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
+                                          setIsQrPaymentMode(true);
+                                          setShowPaymentModal(true);
+                                        }} className="w-full py-2.5 bg-blue-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-1.5 shadow">
+                                          <CheckCircle2 size={13} /> Mark Paid
                                         </button>
+                                      )}
+                                      {(order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) && (
+                                        <div className={`w-full py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest text-center ${order.status === OrderStatus.COMPLETED ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-500 dark:bg-red-900/20 dark:text-red-400'}`}>
+                                          {order.status}
+                                        </div>
                                       )}
                                     </>
                                   )}
                                 </div>
-                              </div>
 
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+
+                    {/* ── Order Detail Modal ── */}
+                    {viewingQrOrderDetail && (() => {
+                      const o = viewingQrOrderDetail;
+                      const modLine = (item: typeof o.items[0]) => {
+                        const parts: string[] = [];
+                        if (item.selectedSize) parts.push(item.selectedSize);
+                        if (item.selectedTemp) parts.push(item.selectedTemp);
+                        if (item.selectedOtherVariant) parts.push(item.selectedOtherVariant);
+                        if (item.selectedModifiers) Object.values(item.selectedModifiers).forEach(v => v && parts.push(v));
+                        if (item.selectedAddOns) item.selectedAddOns.forEach(a => parts.push(a.quantity > 1 ? `${a.name} ×${a.quantity}` : a.name));
+                        return parts.join('  ·  ');
+                      };
+                      return (
+                        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm" onClick={() => setViewingQrOrderDetail(null)}>
+                          <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
+
+                            {/* Modal header */}
+                            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 shrink-0">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 bg-orange-50 dark:bg-orange-900/20 rounded-xl flex items-center justify-center">
+                                  <QrCode size={16} className="text-orange-500" />
+                                </div>
+                                <div>
+                                  <p className="font-black text-gray-900 dark:text-white uppercase tracking-tight text-sm">
+                                    #{typeof o.id === 'string' ? o.id.slice(-6).toUpperCase() : String(o.id).slice(-6).toUpperCase()}
+                                  </p>
+                                  <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                                    Table {o.tableNumber} · {new Date(o.timestamp).toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' })} {new Date(o.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest ${
+                                  o.status === OrderStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                  o.status === OrderStatus.ONGOING ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                  o.status === OrderStatus.SERVED  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
+                                  o.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                  'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                }`}>{o.status}</span>
+                                <button onClick={() => setViewingQrOrderDetail(null)} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all">
+                                  <X size={15} />
+                                </button>
+                              </div>
                             </div>
-                          ))}
+
+                            {/* Items list */}
+                            <div className="overflow-y-auto flex-1 px-5 py-3 divide-y divide-gray-100 dark:divide-gray-700/50">
+                              {getSortedOrderItems(o).map((item, idx) => (
+                                <div key={`modal-${o.id}-${idx}`} className="flex items-start gap-3 py-2.5">
+                                  <span className="text-xs font-black text-gray-400 dark:text-gray-500 shrink-0 w-5 pt-0.5">×{item.quantity}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-gray-800 dark:text-white">{item.name}</p>
+                                    {modLine(item) && <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{modLine(item)}</p>}
+                                  </div>
+                                  <span className="text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap shrink-0">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Remark */}
+                            {o.remark && (
+                              <div className="mx-5 mb-3 px-3 py-2 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-lg flex items-start gap-2 shrink-0">
+                                <MessageSquare size={11} className="text-orange-500 shrink-0 mt-0.5" />
+                                <p className="text-[10px] text-gray-600 dark:text-gray-300 italic">{o.remark}</p>
+                              </div>
+                            )}
+
+                            {/* Total + Actions */}
+                            <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-4 shrink-0">
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Grand Total</span>
+                                <span className="text-2xl font-black text-gray-900 dark:text-white">{currencySymbol}{o.total.toFixed(2)}</span>
+                              </div>
+                              {showKitchenFeature && !isKitchenUser && (o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING) ? (
+                                <div className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-center ${o.status === OrderStatus.PENDING ? 'bg-yellow-50 text-yellow-600' : 'bg-blue-50 text-blue-600'}`}>
+                                  {o.status === OrderStatus.PENDING ? 'Waiting for Kitchen' : 'Kitchen Preparing'}
+                                </div>
+                              ) : (
+                                <>
+                                  {o.status === OrderStatus.PENDING && (
+                                    <div className="flex gap-2">
+                                      <button onClick={() => { setRejectingQrOrderId(o.id); setViewingQrOrderDetail(null); }} className="flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all">Reject</button>
+                                      <button onClick={() => { onUpdateOrder(o.id, OrderStatus.ONGOING); setViewingQrOrderDetail(null); }} className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg">Accept</button>
+                                    </div>
+                                  )}
+                                  {o.status === OrderStatus.ONGOING && (
+                                    <button onClick={() => { onUpdateOrder(o.id, OrderStatus.SERVED); setViewingQrOrderDetail(null); }} className="w-full py-3 bg-green-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-lg">
+                                      <CheckCircle size={15} /> Serve Order
+                                    </button>
+                                  )}
+                                  {o.status === OrderStatus.SERVED && (
+                                    <button onClick={() => {
+                                      setSelectedQrOrderForPayment(o);
+                                      setPendingOrderData({ items: o.items, remark: o.remark, tableNumber: o.tableNumber, total: o.total });
+                                      setSelectedCashAmount(o.total);
+                                      setCashAmountInput(o.total.toFixed(2));
+                                      setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
+                                      setIsQrPaymentMode(true);
+                                      setShowPaymentModal(true);
+                                      setViewingQrOrderDetail(null);
+                                    }} className="w-full py-3 bg-blue-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-2 shadow-lg">
+                                      <CheckCircle2 size={15} /> Mark Paid
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+
+                          </div>
                         </div>
                       );
                     })()}
@@ -9797,6 +9888,76 @@ const PosOnlyView: React.FC<Props> = ({
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* QR Order Detail Modal */}
+      {viewingQrOrderDetail && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setViewingQrOrderDetail(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg px-2.5 py-1.5">
+                  <QrCode size={12} className="text-orange-400" />
+                  <span className="text-xs font-black">Table {viewingQrOrderDetail.tableNumber}</span>
+                </div>
+                <span className="text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                  #{typeof viewingQrOrderDetail.id === 'string' ? viewingQrOrderDetail.id.slice(-6).toUpperCase() : String(viewingQrOrderDetail.id).slice(-6).toUpperCase()}
+                </span>
+                <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest ${
+                  viewingQrOrderDetail.status === OrderStatus.PENDING   ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                  viewingQrOrderDetail.status === OrderStatus.ONGOING   ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                  viewingQrOrderDetail.status === OrderStatus.SERVED    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
+                  viewingQrOrderDetail.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                  'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                }`}>{viewingQrOrderDetail.status}</span>
+              </div>
+              <button onClick={() => setViewingQrOrderDetail(null)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Items */}
+            <div className="overflow-y-auto max-h-80 divide-y divide-gray-100 dark:divide-gray-700/50">
+              {getSortedOrderItems(viewingQrOrderDetail).map((item, idx) => {
+                const modParts: string[] = [];
+                if (item.selectedSize) modParts.push(item.selectedSize);
+                if (item.selectedTemp) modParts.push(item.selectedTemp);
+                if (item.selectedOtherVariant) modParts.push(item.selectedOtherVariant);
+                if (item.selectedModifiers) Object.entries(item.selectedModifiers).forEach(([, v]) => v && modParts.push(v));
+                if (item.selectedAddOns?.length) item.selectedAddOns.forEach(a => modParts.push(a.quantity > 1 ? `${a.name} ×${a.quantity}` : a.name));
+                return (
+                  <div key={`detail-${viewingQrOrderDetail.id}-${item.id}-${idx}`} className="flex items-start gap-3 px-5 py-3">
+                    <span className="text-xs font-black text-gray-400 dark:text-gray-500 w-5 shrink-0 mt-0.5">×{item.quantity}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-gray-800 dark:text-white">{item.name}</p>
+                      {modParts.length > 0 && <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{modParts.join('  ·  ')}</p>}
+                    </div>
+                    <span className="text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap shrink-0">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {viewingQrOrderDetail.remark && (
+              <div className="mx-5 my-2 flex items-center gap-1.5 px-3 py-2 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-lg">
+                <MessageSquare size={10} className="text-orange-500 shrink-0" />
+                <span className="text-[10px] text-gray-600 dark:text-gray-300 italic">{viewingQrOrderDetail.remark}</span>
+              </div>
+            )}
+
+            {/* Footer: total + close */}
+            <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+              <div>
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Grand Total</p>
+                <p className="text-xl font-black text-gray-900 dark:text-white">{currencySymbol}{viewingQrOrderDetail.total.toFixed(2)}</p>
+              </div>
+              <button onClick={() => setViewingQrOrderDetail(null)} className="px-5 py-2.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl font-black text-xs uppercase tracking-widest hover:opacity-90 transition-opacity">
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
