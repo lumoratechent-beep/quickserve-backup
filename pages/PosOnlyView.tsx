@@ -7248,7 +7248,20 @@ const PosOnlyView: React.FC<Props> = ({
                       }
 
                       return (
-                        <div className={qrOrderView === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3' : 'space-y-2'}>
+                        <>
+                          {qrOrderView === 'list' && (
+                            <div className="flex items-center px-4 py-1.5 mb-1 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-lg text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                              <span className="w-[76px] shrink-0">Status</span>
+                              <span className="w-[80px] shrink-0">Order No.</span>
+                              <span className="w-[68px] shrink-0">Table</span>
+                              <span className="w-[130px] shrink-0">Date · Time</span>
+                              <span className="w-[54px] shrink-0">Items</span>
+                              <span className="flex-1" />
+                              <span className="w-[80px] text-right shrink-0">Total</span>
+                              <span className="w-[110px] shrink-0 pl-3">Action</span>
+                            </div>
+                          )}
+                          <div className={qrOrderView === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3' : 'space-y-1'}>
                           {filteredQrOrders.map(order => {
                             const totalQty = order.items.reduce((s, i) => s + i.quantity, 0);
                             const orderId = typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : String(order.id).slice(-6).toUpperCase();
@@ -7282,10 +7295,10 @@ const PosOnlyView: React.FC<Props> = ({
                                       <button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className={`${compact ? 'px-3 py-1.5 text-[9px]' : 'flex-1 py-2.5 text-[10px]'} bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow`}>Accept</button>
                                     </>)}
                                     {order.status === OrderStatus.ONGOING && (
-                                      <button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className={`${compact ? 'px-3 py-1.5 text-[9px]' : 'flex-1 py-2.5 text-[10px]'} bg-green-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-green-600 transition-all flex items-center gap-1 shadow`}><CheckCircle size={11} /> Serve</button>
+                                      <button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className={`${compact ? 'px-3 py-1.5 text-[9px]' : 'flex-1 py-2.5 text-[10px]'} bg-green-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-1 shadow`}><CheckCircle size={11} /> Serve</button>
                                     )}
                                     {order.status === OrderStatus.SERVED && (
-                                      <button onClick={() => { setSelectedQrOrderForPayment(order); setPendingOrderData({ items: order.items, remark: order.remark, tableNumber: order.tableNumber, total: order.total }); setSelectedCashAmount(order.total); setCashAmountInput(order.total.toFixed(2)); setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : ''); setIsQrPaymentMode(true); setShowPaymentModal(true); }} className={`${compact ? 'px-3 py-1.5 text-[9px]' : 'flex-1 py-2.5 text-[10px]'} bg-blue-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center gap-1 shadow`}><CheckCircle2 size={11} /> Paid</button>
+                                      <button onClick={() => { setSelectedQrOrderForPayment(order); setPendingOrderData({ items: order.items, remark: order.remark, tableNumber: order.tableNumber, total: order.total }); setSelectedCashAmount(order.total); setCashAmountInput(order.total.toFixed(2)); setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : ''); setIsQrPaymentMode(true); setShowPaymentModal(true); }} className={`${compact ? 'px-3 py-1.5 text-[9px]' : 'flex-1 py-2.5 text-[10px]'} bg-blue-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-1 shadow`}><CheckCircle2 size={11} /> Paid</button>
                                     )}
                                     {(order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) && (
                                       <div className={`${compact ? 'px-3 py-1.5 text-[9px]' : 'flex-1 py-2.5 text-[10px]'} rounded-lg font-black uppercase tracking-widest text-center ${order.status === OrderStatus.COMPLETED ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>{order.status}</div>
@@ -7297,24 +7310,18 @@ const PosOnlyView: React.FC<Props> = ({
 
                             if (qrOrderView === 'list') {
                               return (
-                                <div key={order.id} className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 border-l-4 ${borderColor} rounded-xl flex items-center gap-3 px-4 py-3`}>
-                                  {statusPill}
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="text-xs font-black text-gray-800 dark:text-white uppercase">#{orderId}</span>
-                                      <span className="text-[10px] text-gray-500 dark:text-gray-400">Table {order.tableNumber}</span>
-                                      <span className="text-[10px] text-gray-400 dark:text-gray-500">·  Items: {totalQty}</span>
-                                    </div>
-                                    <div className="flex items-center gap-3 mt-0.5">
-                                      <div className="flex items-center gap-1 text-gray-400 dark:text-gray-500">
-                                        <Clock size={9} />
-                                        <span className="text-[10px]">{orderTime}</span>
-                                      </div>
-                                      <button onClick={() => setViewingQrOrderDetail(order)} className="text-orange-500 hover:text-orange-600 text-[10px] font-black uppercase tracking-wider transition-colors">View Details →</button>
-                                    </div>
+                                <div key={order.id} className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 border-l-4 ${borderColor} rounded-lg flex items-center px-4 py-2`}>
+                                  <div className="w-[76px] shrink-0">{statusPill}</div>
+                                  <span className="w-[80px] shrink-0 text-[11px] font-black text-gray-800 dark:text-white uppercase">#{orderId}</span>
+                                  <span className="w-[68px] shrink-0 text-[10px] text-gray-600 dark:text-gray-300">Table {order.tableNumber}</span>
+                                  <div className="w-[130px] shrink-0 flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
+                                    <Clock size={9} className="shrink-0" />
+                                    <span className="truncate">{orderTime}</span>
                                   </div>
-                                  <span className="text-sm font-black text-gray-900 dark:text-white whitespace-nowrap shrink-0">{currencySymbol}{order.total.toFixed(2)}</span>
-                                  <div className="shrink-0">{actionButtons(true)}</div>
+                                  <span className="w-[54px] shrink-0 text-[10px] text-gray-500 dark:text-gray-400">{totalQty} item{totalQty !== 1 ? 's' : ''}</span>
+                                  <button onClick={() => setViewingQrOrderDetail(order)} className="flex-1 text-left text-orange-500 hover:text-orange-600 text-[10px] font-black uppercase tracking-wider transition-colors truncate">View Details →</button>
+                                  <span className="w-[80px] text-right shrink-0 text-sm font-black text-gray-900 dark:text-white">{currencySymbol}{order.total.toFixed(2)}</span>
+                                  <div className="w-[110px] shrink-0 pl-3">{actionButtons(true)}</div>
                                 </div>
                               );
                             }
@@ -7352,7 +7359,8 @@ const PosOnlyView: React.FC<Props> = ({
                               </div>
                             );
                           })}
-                        </div>
+                          </div>
+                        </>
                       );
                     })()}
 
@@ -9894,76 +9902,6 @@ const PosOnlyView: React.FC<Props> = ({
                 </button>
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* QR Order Detail Modal */}
-      {viewingQrOrderDetail && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setViewingQrOrderDetail(null)}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
-            {/* Modal header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg px-2.5 py-1.5">
-                  <QrCode size={12} className="text-orange-400" />
-                  <span className="text-xs font-black">Table {viewingQrOrderDetail.tableNumber}</span>
-                </div>
-                <span className="text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                  #{typeof viewingQrOrderDetail.id === 'string' ? viewingQrOrderDetail.id.slice(-6).toUpperCase() : String(viewingQrOrderDetail.id).slice(-6).toUpperCase()}
-                </span>
-                <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest ${
-                  viewingQrOrderDetail.status === OrderStatus.PENDING   ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                  viewingQrOrderDetail.status === OrderStatus.ONGOING   ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                  viewingQrOrderDetail.status === OrderStatus.SERVED    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
-                  viewingQrOrderDetail.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                  'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                }`}>{viewingQrOrderDetail.status}</span>
-              </div>
-              <button onClick={() => setViewingQrOrderDetail(null)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 transition-colors">
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Items */}
-            <div className="overflow-y-auto max-h-80 divide-y divide-gray-100 dark:divide-gray-700/50">
-              {getSortedOrderItems(viewingQrOrderDetail).map((item, idx) => {
-                const modParts: string[] = [];
-                if (item.selectedSize) modParts.push(item.selectedSize);
-                if (item.selectedTemp) modParts.push(item.selectedTemp);
-                if (item.selectedOtherVariant) modParts.push(item.selectedOtherVariant);
-                if (item.selectedModifiers) Object.entries(item.selectedModifiers).forEach(([, v]) => v && modParts.push(v));
-                if (item.selectedAddOns?.length) item.selectedAddOns.forEach(a => modParts.push(a.quantity > 1 ? `${a.name} ×${a.quantity}` : a.name));
-                return (
-                  <div key={`detail-${viewingQrOrderDetail.id}-${item.id}-${idx}`} className="flex items-start gap-3 px-5 py-3">
-                    <span className="text-xs font-black text-gray-400 dark:text-gray-500 w-5 shrink-0 mt-0.5">×{item.quantity}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-gray-800 dark:text-white">{item.name}</p>
-                      {modParts.length > 0 && <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{modParts.join('  ·  ')}</p>}
-                    </div>
-                    <span className="text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap shrink-0">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {viewingQrOrderDetail.remark && (
-              <div className="mx-5 my-2 flex items-center gap-1.5 px-3 py-2 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-lg">
-                <MessageSquare size={10} className="text-orange-500 shrink-0" />
-                <span className="text-[10px] text-gray-600 dark:text-gray-300 italic">{viewingQrOrderDetail.remark}</span>
-              </div>
-            )}
-
-            {/* Footer: total + close */}
-            <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
-              <div>
-                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Grand Total</p>
-                <p className="text-xl font-black text-gray-900 dark:text-white">{currencySymbol}{viewingQrOrderDetail.total.toFixed(2)}</p>
-              </div>
-              <button onClick={() => setViewingQrOrderDetail(null)} className="px-5 py-2.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl font-black text-xs uppercase tracking-widest hover:opacity-90 transition-opacity">
-                Close
-              </button>
-            </div>
           </div>
         </div>
       )}
