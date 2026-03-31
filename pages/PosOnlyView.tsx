@@ -342,15 +342,13 @@ const PosOnlyView: React.FC<Props> = ({
   const [profileCropFile, setProfileCropFile] = useState<File | null>(null);
   const [profileLogoUploading, setProfileLogoUploading] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
+  const [profileLogoPreview, setProfileLogoPreview] = useState<string>(restaurant.logo || '');
+  const [profileLogoHovered, setProfileLogoHovered] = useState(false);
   const profileLogoInputRef = useRef<HTMLInputElement>(null);
 
   // Image link state
-  const [profileImageLink, setProfileImageLink] = useState<string>(restaurant.settings?.imageLink || '');
   const [profileImageLinkInput, setProfileImageLinkInput] = useState<string>('');
   const [profileShowLinkInput, setProfileShowLinkInput] = useState(false);
-  const [profileImageCropFile, setProfileImageCropFile] = useState<File | null>(null);
-  const [profileImageUploading, setProfileImageUploading] = useState(false);
-  const profileImageInputRef = useRef<HTMLInputElement>(null);
 
   const [addonDetailView, setAddonDetailView] = useState<string | null>(null);
   const [addonDetailTab, setAddonDetailTab] = useState<'details' | 'setting'>('details');
@@ -819,7 +817,8 @@ const PosOnlyView: React.FC<Props> = ({
     setProfileConfirmPassword('');
     setProfileShowCurrentPw(false);
     setProfileShowNewPw(false);
-    setProfileImageLink(restaurant.settings?.imageLink || '');
+    setProfileLogoPreview(restaurant.logo || '');
+    setProfileLogoHovered(false);
     setProfileImageLinkInput('');
     setProfileShowLinkInput(false);
     setShowProfilePanel(true);
@@ -848,6 +847,7 @@ const PosOnlyView: React.FC<Props> = ({
           .update({ logo: url })
           .eq('id', restaurant.id);
         if (error) throw error;
+        setProfileLogoPreview(url);
         toast('Logo updated successfully!', 'success');
       }
     } catch {
@@ -857,60 +857,39 @@ const PosOnlyView: React.FC<Props> = ({
     }
   };
 
-  // ── Image Link Handlers ──
-  const handleProfileImageFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      toast('Please select a PNG or JPEG image file.', 'warning');
-      return;
-    }
-    setProfileImageCropFile(file);
-    if (profileImageInputRef.current) profileImageInputRef.current.value = '';
-  };
-
-  const handleProfileImageCropped = async (blob: Blob) => {
-    setProfileImageCropFile(null);
-    setProfileImageUploading(true);
-    try {
-      const file = new File([blob], `restaurant-image-${restaurant.id}.png`, { type: 'image/png' });
-      const url = await uploadImage(file, 'qr-logos', `${restaurant.id}/restaurant-image`);
-      if (url) {
-        setProfileImageLink(url);
-        const newSettings = { ...restaurant.settings, imageLink: url };
-        const { error } = await supabase
-          .from('restaurants')
-          .update({ settings: newSettings })
-          .eq('id', restaurant.id);
-        if (error) throw error;
-        toast('Image uploaded successfully!', 'success');
-      }
-    } catch {
-      toast('Failed to upload image.', 'error');
-    } finally {
-      setProfileImageUploading(false);
-    }
-  };
-
   const handleSaveImageLink = async () => {
     const url = profileImageLinkInput.trim();
     if (!url) { toast('Please enter an image URL.', 'warning'); return; }
     setProfileSaving(true);
     try {
-      setProfileImageLink(url);
-      const newSettings = { ...restaurant.settings, imageLink: url };
       const { error } = await supabase
         .from('restaurants')
-        .update({ settings: newSettings })
+        .update({ logo: url })
         .eq('id', restaurant.id);
       if (error) throw error;
+      setProfileLogoPreview(url);
       setProfileImageLinkInput('');
       setProfileShowLinkInput(false);
-      toast('Image link saved!', 'success');
+      toast('Logo updated!', 'success');
     } catch {
       toast('Failed to save image link.', 'error');
     } finally {
       setProfileSaving(false);
+    }
+  };
+
+  const handleDeleteLogo = async () => {
+    try {
+      const { error } = await supabase
+        .from('restaurants')
+        .update({ logo: '' })
+        .eq('id', restaurant.id);
+      if (error) throw error;
+      setProfileLogoPreview('');
+      setProfileLogoHovered(false);
+      toast('Logo removed.', 'success');
+    } catch {
+      toast('Failed to remove logo.', 'error');
     }
   };
 
@@ -9951,12 +9930,16 @@ const PosOnlyView: React.FC<Props> = ({
               <div>
                 <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">Restaurant Logo</p>
                 <div className="flex flex-col items-center gap-4">
-                  {/* Photo Frame */}
-                  <div className="relative">
+                  {/* Photo Frame with hover-delete */}
+                  <div
+                    className="relative cursor-pointer"
+                    onMouseEnter={() => profileLogoPreview ? setProfileLogoHovered(true) : undefined}
+                    onMouseLeave={() => setProfileLogoHovered(false)}
+                  >
                     <div className="w-28 h-28 rounded-2xl border-2 border-gray-200 dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-700 shadow-sm">
-                      {restaurant.logo ? (
+                      {profileLogoPreview ? (
                         <img
-                          src={restaurant.logo}
+                          src={profileLogoPreview}
                           alt="Restaurant logo"
                           className="w-full h-full object-cover"
                         />
@@ -9966,12 +9949,25 @@ const PosOnlyView: React.FC<Props> = ({
                         </div>
                       )}
                     </div>
+                    {/* Hover overlay – delete */}
+                    {profileLogoHovered && profileLogoPreview && (
+                      <div className="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center">
+                        <button
+                          onClick={handleDeleteLogo}
+                          className="flex flex-col items-center gap-1 text-white hover:text-red-300 transition-colors"
+                        >
+                          <Trash2 size={20} />
+                          <span className="text-[9px] font-black uppercase tracking-widest">Remove</span>
+                        </button>
+                      </div>
+                    )}
                     {profileLogoUploading && (
                       <div className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center">
                         <RotateCw size={20} className="text-white animate-spin" />
                       </div>
                     )}
                   </div>
+
                   {/* Actions */}
                   <div className="flex items-center gap-2 w-full">
                     <button
@@ -10004,72 +10000,25 @@ const PosOnlyView: React.FC<Props> = ({
 
                 {/* Link Input */}
                 {profileShowLinkInput && (
-                  <div className="mt-3 space-y-2">
+                  <div className="mt-3">
                     <div className="flex gap-2">
                       <input
                         type="url"
                         value={profileImageLinkInput}
                         onChange={e => setProfileImageLinkInput(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSaveImageLink()}
                         className="flex-1 border dark:border-gray-600 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
                         placeholder="https://example.com/image.png"
+                        autoFocus
                       />
                       <button
                         onClick={handleSaveImageLink}
                         disabled={profileSaving || !profileImageLinkInput.trim()}
-                        className="px-3 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors disabled:opacity-50"
+                        className="px-3 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
                       >
-                        {profileSaving ? <RotateCw size={12} className="animate-spin" /> : 'Save'}
+                        {profileSaving ? <RotateCw size={12} className="animate-spin" /> : 'Set'}
                       </button>
                     </div>
-                  </div>
-                )}
-
-                {/* Image Link Preview */}
-                {profileImageLink && (
-                  <div className="mt-3">
-                    <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Image Link</p>
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <div className="w-16 h-16 rounded-xl border dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-700 shadow-sm">
-                          <img src={profileImageLink} alt="Linked image" className="w-full h-full object-cover" />
-                        </div>
-                        {profileImageUploading && (
-                          <div className="absolute inset-0 rounded-xl bg-black/40 flex items-center justify-center">
-                            <RotateCw size={14} className="text-white animate-spin" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0 space-y-1.5">
-                        <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate">{profileImageLink}</p>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => profileImageInputRef.current?.click()}
-                            disabled={profileImageUploading}
-                            className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors border dark:border-gray-600 disabled:opacity-50"
-                          >
-                            <Upload size={11} /> Replace
-                          </button>
-                          <button
-                            onClick={async () => {
-                              setProfileImageLink('');
-                              const newSettings = { ...restaurant.settings, imageLink: '' };
-                              await supabase.from('restaurants').update({ settings: newSettings }).eq('id', restaurant.id);
-                              toast('Image link removed.', 'success');
-                            }}
-                            className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors border border-red-200 dark:border-red-800/40"
-                          >
-                            <Trash2 size={11} /> Remove
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                    <input
-                      ref={profileImageInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleProfileImageFileSelect}
-                    />
                   </div>
                 )}
               </div>
@@ -10174,14 +10123,7 @@ const PosOnlyView: React.FC<Props> = ({
             />
           )}
 
-          {/* Image Link Crop Modal */}
-          {profileImageCropFile && (
-            <ImageCropModal
-              imageFile={profileImageCropFile}
-              onCrop={handleProfileImageCropped}
-              onCancel={() => setProfileImageCropFile(null)}
-            />
-          )}
+
       {/* ─────────────────────────────────────────────────────────────────── */}
 
       </div>
