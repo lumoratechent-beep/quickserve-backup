@@ -335,7 +335,7 @@ const OnlineShopPage: React.FC<{ slug: string }> = ({ slug }) => {
   return (
     <div className="relative min-h-screen bg-gray-50 dark:bg-gray-900 pb-32">
       {/* ── Header ── */}
-      <header className="sticky top-0 z-50 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-b dark:border-gray-700 shadow-sm">
+      <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
           {restaurant.logo && (
             <img src={restaurant.logo} alt={restaurant.name} className="w-10 h-10 rounded-xl object-cover border dark:border-gray-700 shrink-0" />

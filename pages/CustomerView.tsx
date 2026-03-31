@@ -151,7 +151,7 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
     <div ref={scrollContainerRef} className="relative flex-1 min-h-0 overflow-y-auto pb-28 bg-gray-50 dark:bg-gray-900 transition-colors">
       {/* Restaurant Navbar - Only shown for MULTI vendor hubs */}
       {areaType !== 'SINGLE' && (
-        <div className="sticky top-0 z-40 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-b dark:border-gray-700 shadow-md">
+        <div className="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b dark:border-gray-700 shadow-md">
           <div className="px-4 py-2 border-b dark:border-gray-700 flex items-center justify-between">
             <div className="flex items-center gap-2">
                 <UtensilsCrossed size={14} className="text-orange-500" />
