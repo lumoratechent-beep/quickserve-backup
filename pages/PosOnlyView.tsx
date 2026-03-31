@@ -344,6 +344,13 @@ const PosOnlyView: React.FC<Props> = ({
   const [profileSaving, setProfileSaving] = useState(false);
   const profileLogoInputRef = useRef<HTMLInputElement>(null);
 
+  // Image link state
+  const [profileImageLink, setProfileImageLink] = useState<string>(restaurant.settings?.imageLink || '');
+  const [profileImageDesc, setProfileImageDesc] = useState<string>(restaurant.settings?.imageDescription || '');
+  const [profileImageCropFile, setProfileImageCropFile] = useState<File | null>(null);
+  const [profileImageUploading, setProfileImageUploading] = useState(false);
+  const profileImageInputRef = useRef<HTMLInputElement>(null);
+
   const [addonDetailView, setAddonDetailView] = useState<string | null>(null);
   const [addonDetailTab, setAddonDetailTab] = useState<'details' | 'setting'>('details');
   const [menuLayout, setMenuLayout] = useState<'grid-3' | 'grid-4' | 'grid-5' | 'grid-6' | 'list'>('grid-5');
@@ -811,6 +818,8 @@ const PosOnlyView: React.FC<Props> = ({
     setProfileConfirmPassword('');
     setProfileShowCurrentPw(false);
     setProfileShowNewPw(false);
+    setProfileImageLink(restaurant.settings?.imageLink || '');
+    setProfileImageDesc(restaurant.settings?.imageDescription || '');
     setShowProfilePanel(true);
   };
 
@@ -843,6 +852,58 @@ const PosOnlyView: React.FC<Props> = ({
       toast('Failed to upload logo.', 'error');
     } finally {
       setProfileLogoUploading(false);
+    }
+  };
+
+  // ── Image Link Handlers ──
+  const handleProfileImageFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast('Please select a PNG or JPEG image file.', 'warning');
+      return;
+    }
+    setProfileImageCropFile(file);
+    if (profileImageInputRef.current) profileImageInputRef.current.value = '';
+  };
+
+  const handleProfileImageCropped = async (blob: Blob) => {
+    setProfileImageCropFile(null);
+    setProfileImageUploading(true);
+    try {
+      const file = new File([blob], `restaurant-image-${restaurant.id}.png`, { type: 'image/png' });
+      const url = await uploadImage(file, 'qr-logos', `${restaurant.id}/restaurant-image`);
+      if (url) {
+        setProfileImageLink(url);
+        const newSettings = { ...restaurant.settings, imageLink: url, imageDescription: profileImageDesc };
+        const { error } = await supabase
+          .from('restaurants')
+          .update({ settings: newSettings })
+          .eq('id', restaurant.id);
+        if (error) throw error;
+        toast('Image uploaded successfully!', 'success');
+      }
+    } catch {
+      toast('Failed to upload image.', 'error');
+    } finally {
+      setProfileImageUploading(false);
+    }
+  };
+
+  const handleSaveImageDescription = async () => {
+    setProfileSaving(true);
+    try {
+      const newSettings = { ...restaurant.settings, imageLink: profileImageLink, imageDescription: profileImageDesc };
+      const { error } = await supabase
+        .from('restaurants')
+        .update({ settings: newSettings })
+        .eq('id', restaurant.id);
+      if (error) throw error;
+      toast('Image description saved!', 'success');
+    } catch {
+      toast('Failed to save description.', 'error');
+    } finally {
+      setProfileSaving(false);
     }
   };
 
@@ -5227,26 +5288,49 @@ const PosOnlyView: React.FC<Props> = ({
           ) : activeTab === 'MENU_EDITOR' && (
             <div className="flex-1 overflow-y-auto p-4 md:p-8">
               <div>
-                <div className="mb-8">
-                  <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-4">Menu Editor</h1>
-                  <div className="flex flex-wrap items-center gap-4 mb-6">
-                    <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm">
-                      <button onClick={() => setMenuSubTab('KITCHEN')} className={`px-4 py-2 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${menuSubTab === 'KITCHEN' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>Kitchen Menu</button>
-                      <button onClick={() => setMenuSubTab('CATEGORY')} className={`px-4 py-2 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${menuSubTab === 'CATEGORY' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>Category</button>
-                      <button onClick={() => setMenuSubTab('MODIFIER')} className={`px-4 py-2 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${menuSubTab === 'MODIFIER' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>Modifier</button>
-                      <button onClick={() => setMenuSubTab('ADDON')} className={`px-4 py-2 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${menuSubTab === 'ADDON' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>Add-On Item</button>
-                    </div>
+                <div className="mb-5">
+                  <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">Menu Editor</h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Manage your menu items, categories, modifiers, and add-ons.</p>
+                </div>
 
+                {/* Document-style tab bar */}
+                <div className="flex gap-0 relative">
+                  {([
+                    { id: 'KITCHEN' as const, label: 'Kitchen Menu', icon: <BookOpen size={13} /> },
+                    { id: 'CATEGORY' as const, label: 'Category', icon: <Layers size={13} /> },
+                    { id: 'MODIFIER' as const, label: 'Modifier', icon: <Coffee size={13} /> },
+                    { id: 'ADDON' as const, label: 'Add-On Item', icon: <PlusCircle size={13} /> },
+                  ]).map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setMenuSubTab(tab.id)}
+                      className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-all whitespace-nowrap -mb-px relative ${
+                        menuSubTab === tab.id
+                          ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-700 z-10'
+                          : 'bg-gray-100 dark:bg-[rgba(255,255,255,0.05)] text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-700/40 hover:text-gray-600 dark:hover:text-slate-300'
+                      }`}
+                    >
+                      {tab.icon}
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Sub-tab content */}
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl rounded-tr-2xl">
+
+                  {/* Sub-tab controls */}
+                  <div className="flex flex-wrap items-center gap-4 mb-6">
                     {menuSubTab === 'KITCHEN' ? (
                       <>
                         <div className="flex items-center gap-3">
-                          <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm">
+                          <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
                             <button onClick={() => setMenuViewMode('grid')} className={`p-2 rounded-lg transition-all ${menuViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={18} /></button>
                             <button onClick={() => setMenuViewMode('list')} className={`p-2 rounded-lg transition-all ${menuViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={18} /></button>
                           </div>
                         </div>
                         <div className="ml-auto flex items-center gap-3">
-                          <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm">
+                          <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
                             <button onClick={() => setMenuStatusFilter('ACTIVE')} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${menuStatusFilter === 'ACTIVE' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}><Eye size={14} /> <span className="hidden sm:inline">Active</span></button>
                             <button onClick={() => setMenuStatusFilter('ARCHIVED')} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${menuStatusFilter === 'ARCHIVED' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}><Archive size={14} /> <span className="hidden sm:inline">Archived</span></button>
                           </div>
@@ -5256,7 +5340,7 @@ const PosOnlyView: React.FC<Props> = ({
                     ) : menuSubTab === 'CATEGORY' ? (
                       <>
                         <div className="flex items-center gap-3">
-                          <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm">
+                          <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
                             <button onClick={() => setClassViewMode('grid')} className={`p-2 rounded-lg transition-all ${classViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={18} /></button>
                             <button onClick={() => setClassViewMode('list')} className={`p-2 rounded-lg transition-all ${classViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={18} /></button>
                           </div>
@@ -5268,7 +5352,7 @@ const PosOnlyView: React.FC<Props> = ({
                     ) : menuSubTab === 'MODIFIER' ? (
                       <>
                         <div className="flex items-center gap-3">
-                          <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm">
+                          <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
                             <button onClick={() => setModifierViewMode('grid')} className={`p-2 rounded-lg transition-all ${modifierViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={18} /></button>
                             <button onClick={() => setModifierViewMode('list')} className={`p-2 rounded-lg transition-all ${modifierViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={18} /></button>
                           </div>
@@ -5280,7 +5364,7 @@ const PosOnlyView: React.FC<Props> = ({
                     ) : (
                       <>
                         <div className="flex items-center gap-3">
-                          <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm">
+                          <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
                             <button onClick={() => setAddOnViewMode('grid')} className={`p-2 rounded-lg transition-all ${addOnViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={18} /></button>
                             <button onClick={() => setAddOnViewMode('list')} className={`p-2 rounded-lg transition-all ${addOnViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={18} /></button>
                           </div>
@@ -5291,11 +5375,10 @@ const PosOnlyView: React.FC<Props> = ({
                       </>
                     )}
                   </div>
-                </div>
 
                 {menuSubTab === 'KITCHEN' && (
                   <>
-                    <div className="flex items-center gap-2 mb-6 bg-white dark:bg-gray-800 px-4 py-3 border dark:border-gray-700 rounded-lg shadow-sm overflow-x-auto hide-scrollbar sticky top-0 z-20">
+                    <div className="flex items-center gap-2 mb-6 bg-gray-50 dark:bg-gray-700/30 px-4 py-3 border dark:border-gray-700 rounded-lg overflow-x-auto hide-scrollbar sticky top-0 z-20">
                       <Filter size={16} className="text-gray-400 shrink-0" />
                       {menuEditorCategories.map(cat => (
                         <button key={cat} onClick={() => setMenuCategoryFilter(cat)} className={`whitespace-nowrap px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${menuCategoryFilter === cat ? 'bg-orange-100 text-orange-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}>{cat}</button>
@@ -5766,6 +5849,7 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
                   </div>
                 )}
+                </div>
               </div>
             </div>
           )}
@@ -9892,6 +9976,66 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               </div>
 
+              {/* ── Add Image Link ── */}
+              <div>
+                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Add Image Link</p>
+                <div className="flex items-start gap-4">
+                  <div className="relative flex-shrink-0">
+                    {profileImageLink ? (
+                      <img
+                        src={profileImageLink}
+                        alt="Restaurant photo"
+                        className="w-20 h-20 rounded-xl shadow border dark:border-gray-600 object-cover bg-gray-100 dark:bg-gray-700"
+                      />
+                    ) : (
+                      <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center bg-gray-50 dark:bg-gray-700">
+                        <ImagePlus size={20} className="text-gray-300 dark:text-gray-500" />
+                      </div>
+                    )}
+                    {profileImageUploading && (
+                      <div className="absolute inset-0 rounded-xl bg-black/40 flex items-center justify-center">
+                        <RotateCw size={18} className="text-white animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <button
+                      onClick={() => profileImageInputRef.current?.click()}
+                      disabled={profileImageUploading}
+                      className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors disabled:opacity-50"
+                    >
+                      <Upload size={13} /> Upload Photo
+                    </button>
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500">PNG or JPEG recommended</p>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-1">Description</label>
+                      <input
+                        type="text"
+                        value={profileImageDesc}
+                        onChange={e => setProfileImageDesc(e.target.value)}
+                        className="w-full border dark:border-gray-600 rounded-lg px-3 py-1.5 text-xs bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                        placeholder="Image description"
+                      />
+                    </div>
+                    <button
+                      onClick={handleSaveImageDescription}
+                      disabled={profileSaving}
+                      className="w-full py-1.5 rounded-lg bg-gray-800 dark:bg-gray-200 hover:bg-gray-700 dark:hover:bg-white text-white dark:text-gray-900 text-[10px] font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      {profileSaving ? <RotateCw size={11} className="animate-spin" /> : null}
+                      Save
+                    </button>
+                  </div>
+                  <input
+                    ref={profileImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleProfileImageFileSelect}
+                  />
+                </div>
+              </div>
+
               {/* ── Restaurant Info ── */}
               <div>
                 <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Restaurant Info</p>
@@ -9989,6 +10133,15 @@ const PosOnlyView: React.FC<Props> = ({
               imageFile={profileCropFile}
               onCrop={handleProfileLogoCropped}
               onCancel={() => setProfileCropFile(null)}
+            />
+          )}
+
+          {/* Image Link Crop Modal */}
+          {profileImageCropFile && (
+            <ImageCropModal
+              imageFile={profileImageCropFile}
+              onCrop={handleProfileImageCropped}
+              onCancel={() => setProfileImageCropFile(null)}
             />
           )}
       {/* ─────────────────────────────────────────────────────────────────── */}
