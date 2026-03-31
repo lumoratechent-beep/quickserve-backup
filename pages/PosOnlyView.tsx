@@ -4719,7 +4719,7 @@ const PosOnlyView: React.FC<Props> = ({
           {showQrFeature && (
             <button
               onClick={() => handleTabSelection('QR_ORDERS')}
-              title="QR Orders"
+              title="QR & Table Order"
               className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
                 activeTab === 'QR_ORDERS'
                   ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
@@ -4728,7 +4728,7 @@ const PosOnlyView: React.FC<Props> = ({
             >
               <div className="flex items-center gap-3">
                 <QrCode size={navIconSize} />
-                {!isSidebarCollapsed && 'QR Orders'}
+                {!isSidebarCollapsed && 'QR & Table Order'}
               </div>
               {!isSidebarCollapsed && (() => {
                 const pendingQr = orders.filter(o => o.status === OrderStatus.PENDING).length;
@@ -4748,7 +4748,7 @@ const PosOnlyView: React.FC<Props> = ({
           {showOnlineShopFeature && (
             <button
               onClick={() => handleTabSelection('ONLINE_ORDERS')}
-              title="Online Orders"
+              title="Online Shop"
               className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
                 activeTab === 'ONLINE_ORDERS'
                   ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
@@ -4757,7 +4757,7 @@ const PosOnlyView: React.FC<Props> = ({
             >
               <div className="flex items-center gap-3">
                 <Globe size={navIconSize} />
-                {!isSidebarCollapsed && 'Online Orders'}
+                {!isSidebarCollapsed && 'Online Shop'}
               </div>
             </button>
           )}
@@ -4912,8 +4912,8 @@ const PosOnlyView: React.FC<Props> = ({
                 {activeTab === 'COUNTER' ? 'POS Counter' : 
                  activeTab === 'MENU_EDITOR' ? (isFormModalOpen ? (formItem.id ? 'Edit Item' : 'New Item') : 'Menu Editor') : 
                  activeTab === 'REPORTS' ? 'Bill and Report' : 
-                 activeTab === 'QR_ORDERS' ? 'QR Orders' :
-                 activeTab === 'ONLINE_ORDERS' ? 'Online Orders' :
+                 activeTab === 'QR_ORDERS' ? 'QR & Table Order' :
+                 activeTab === 'ONLINE_ORDERS' ? 'Online Shop' :
                  activeTab === 'KITCHEN' ? 'Incoming Orders' :
                  activeTab === 'BILLING' ? 'Billing' :
                  activeTab === 'ADDONS' ? (addonDetailView ? 'Feature Details' : 'Add-on Feature') :
@@ -5328,63 +5328,63 @@ const PosOnlyView: React.FC<Props> = ({
                     {menuSubTab === 'KITCHEN' ? (
                       <>
                         <div className="flex items-center gap-3">
-                          <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
-                            <button onClick={() => setMenuViewMode('grid')} className={`p-2 rounded-lg transition-all ${menuViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={18} /></button>
-                            <button onClick={() => setMenuViewMode('list')} className={`p-2 rounded-lg transition-all ${menuViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={18} /></button>
+                          <div className="flex h-9 bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
+                            <button onClick={() => setMenuViewMode('grid')} className={`px-2 rounded-md transition-all ${menuViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={16} /></button>
+                            <button onClick={() => setMenuViewMode('list')} className={`px-2 rounded-md transition-all ${menuViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={16} /></button>
                           </div>
                           <div className="relative">
-                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                             <input
                               type="text"
                               value={menuSearchQuery}
                               onChange={e => setMenuSearchQuery(e.target.value)}
                               placeholder="Search menu..."
-                              className="w-48 pl-9 pr-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                              className="h-9 w-48 pl-9 pr-3 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
                             />
                           </div>
                         </div>
                         <div className="ml-auto flex items-center gap-3">
-                          <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
-                            <button onClick={() => setMenuStatusFilter('ACTIVE')} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${menuStatusFilter === 'ACTIVE' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}><Eye size={14} /> <span className="hidden sm:inline">Active</span></button>
-                            <button onClick={() => setMenuStatusFilter('ARCHIVED')} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${menuStatusFilter === 'ARCHIVED' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}><Archive size={14} /> <span className="hidden sm:inline">Archived</span></button>
+                          <div className="flex h-9 bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
+                            <button onClick={() => setMenuStatusFilter('ACTIVE')} className={`flex items-center gap-1.5 px-3 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${menuStatusFilter === 'ACTIVE' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}><Eye size={13} /> <span className="hidden sm:inline">Active</span></button>
+                            <button onClick={() => setMenuStatusFilter('ARCHIVED')} className={`flex items-center gap-1.5 px-3 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${menuStatusFilter === 'ARCHIVED' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}><Archive size={13} /> <span className="hidden sm:inline">Archived</span></button>
                           </div>
-                          <button onClick={() => handleOpenAddModal()} className="px-4 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">+ Add Item</button>
+                          <button onClick={() => handleOpenAddModal()} className="h-9 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">+ Add Item</button>
                         </div>
                       </>
                     ) : menuSubTab === 'CATEGORY' ? (
                       <>
                         <div className="flex items-center gap-3">
-                          <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
-                            <button onClick={() => setClassViewMode('grid')} className={`p-2 rounded-lg transition-all ${classViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={18} /></button>
-                            <button onClick={() => setClassViewMode('list')} className={`p-2 rounded-lg transition-all ${classViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={18} /></button>
+                          <div className="flex h-9 bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
+                            <button onClick={() => setClassViewMode('grid')} className={`px-2 rounded-md transition-all ${classViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={16} /></button>
+                            <button onClick={() => setClassViewMode('list')} className={`px-2 rounded-md transition-all ${classViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={16} /></button>
                           </div>
                         </div>
-                        <button onClick={() => setShowAddClassModal(true)} className="ml-auto px-4 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
-                          <Tag size={16} /> + New Category
+                        <button onClick={() => setShowAddClassModal(true)} className="ml-auto h-9 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
+                          <Tag size={14} /> + New Category
                         </button>
                       </>
                     ) : menuSubTab === 'MODIFIER' ? (
                       <>
                         <div className="flex items-center gap-3">
-                          <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
-                            <button onClick={() => setModifierViewMode('grid')} className={`p-2 rounded-lg transition-all ${modifierViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={18} /></button>
-                            <button onClick={() => setModifierViewMode('list')} className={`p-2 rounded-lg transition-all ${modifierViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={18} /></button>
+                          <div className="flex h-9 bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
+                            <button onClick={() => setModifierViewMode('grid')} className={`px-2 rounded-md transition-all ${modifierViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={16} /></button>
+                            <button onClick={() => setModifierViewMode('list')} className={`px-2 rounded-md transition-all ${modifierViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={16} /></button>
                           </div>
                         </div>
-                        <button onClick={handleAddModifier} className="ml-auto px-4 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
-                          <Coffee size={16} /> + New Modifier
+                        <button onClick={handleAddModifier} className="ml-auto h-9 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
+                          <Coffee size={14} /> + New Modifier
                         </button>
                       </>
                     ) : (
                       <>
                         <div className="flex items-center gap-3">
-                          <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
-                            <button onClick={() => setAddOnViewMode('grid')} className={`p-2 rounded-lg transition-all ${addOnViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={18} /></button>
-                            <button onClick={() => setAddOnViewMode('list')} className={`p-2 rounded-lg transition-all ${addOnViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={18} /></button>
+                          <div className="flex h-9 bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
+                            <button onClick={() => setAddOnViewMode('grid')} className={`px-2 rounded-md transition-all ${addOnViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={16} /></button>
+                            <button onClick={() => setAddOnViewMode('list')} className={`px-2 rounded-md transition-all ${addOnViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={16} /></button>
                           </div>
                         </div>
-                        <button onClick={() => setAddOnItems(prev => [...prev, { name: '', price: 0, maxQuantity: 1, required: false }])} className="ml-auto px-4 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
-                          <PlusCircle size={16} /> + New Add-On
+                        <button onClick={() => setAddOnItems(prev => [...prev, { name: '', price: 0, maxQuantity: 1, required: false }])} className="ml-auto h-9 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
+                          <PlusCircle size={14} /> + New Add-On
                         </button>
                       </>
                     )}
@@ -7177,7 +7177,7 @@ const PosOnlyView: React.FC<Props> = ({
               <div className="max-w-7xl mx-auto w-full">
                 {/* Header */}
                 <div className="mb-5">
-                  <h2 className="text-lg font-black dark:text-white uppercase tracking-tighter">QR Orders</h2>
+                  <h2 className="text-lg font-black dark:text-white uppercase tracking-tighter">QR & Table Order</h2>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Manage incoming orders from QR scan customers.</p>
                 </div>
 
@@ -7415,7 +7415,7 @@ const PosOnlyView: React.FC<Props> = ({
               <div className="max-w-7xl mx-auto w-full">
                 {/* Header */}
                 <div className="mb-5">
-                  <h2 className="text-lg font-black dark:text-white uppercase tracking-tighter">Online Menu</h2>
+                  <h2 className="text-lg font-black dark:text-white uppercase tracking-tighter">Online Shop</h2>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Manage your online storefront — orders, products, wallet &amp; settings all in one place.</p>
                 </div>
 
