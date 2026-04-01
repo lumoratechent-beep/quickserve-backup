@@ -671,7 +671,7 @@ class PrinterService {
         receipt = receipt
           .line('')
           .size(1, 2)
-          .line(`Table: ${safeTableNumber}`)
+          .line(safeTableNumber)
           .size(1, 1);
       }
 

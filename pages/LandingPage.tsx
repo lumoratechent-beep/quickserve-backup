@@ -181,7 +181,7 @@ const LandingPage: React.FC<Props> = ({ onScan, onLoginClick, isDarkMode, onTogg
                         className="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl font-black text-lg hover:scale-[1.02] active:scale-95 transition-all shadow-xl flex items-center justify-center gap-3 border-2 border-transparent pr-12"
                       >
                         <ShoppingBag size={24} className="text-orange-500" />
-                        Return to Table {existingSession.table}
+                        Return to {existingSession.table}
                       </button>
                       <button 
                         onClick={(e) => {

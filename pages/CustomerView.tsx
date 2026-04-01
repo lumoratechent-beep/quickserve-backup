@@ -195,7 +195,7 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
             {tableNo && (
               <div className="flex items-center gap-1 px-3 py-1 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-tighter">
                 <Hash size={12} className="text-orange-500" />
-                Table {tableNo}
+                {tableNo}
               </div>
             )}
             

@@ -1403,7 +1403,7 @@ const PosOnlyView: React.FC<Props> = ({
 
     const defaultTable = source === 'COUNTER'
       ? (posTableNo?.trim() || tableLabels[0] || 'Table 1')
-      : (`Table ${selectedQrOrderForPayment?.tableNumber ?? 1}`);
+      : (selectedQrOrderForPayment?.tableNumber ?? 'Table 1');
 
     setPendingSaveBillSource(source);
     setSelectedSaveTableNumber(defaultTable);
@@ -5228,7 +5228,7 @@ const PosOnlyView: React.FC<Props> = ({
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-2">
                                 <QrCode size={14} className="text-orange-500" />
-                                <span className="text-xs font-black dark:text-white uppercase">Table {order.tableNumber}</span>
+                                <span className="text-xs font-black dark:text-white uppercase">{order.tableNumber}</span>
                                 <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">#{order.id}</span>
                               </div>
                               <span className="text-xs font-black text-orange-500">{currencySymbol}{order.total.toFixed(2)}</span>
@@ -7407,7 +7407,7 @@ const PosOnlyView: React.FC<Props> = ({
                                         <div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center shrink-0"><QrCode size={14} className="text-orange-500" /></div>
                                         <div>
                                           <p className="text-[11px] font-black text-gray-800 dark:text-white uppercase tracking-tight">#{orderId}</p>
-                                          <p className="text-[10px] text-gray-500 dark:text-gray-400">Table {order.tableNumber}</p>
+                                          <p className="text-[10px] text-gray-500 dark:text-gray-400">{order.tableNumber}</p>
                                         </div>
                                       </div>
                                       <div className="text-right">{statusPill}<p className="text-lg font-black text-gray-900 dark:text-white mt-1">{currencySymbol}{order.total.toFixed(2)}</p></div>
@@ -7458,7 +7458,7 @@ const PosOnlyView: React.FC<Props> = ({
                                         <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer" onClick={() => handleEditQrOrder(order)}>
                                           <td className="px-5 py-3 text-center">{statusPill}</td>
                                           <td className="px-5 py-3 text-center text-[11px] font-black text-gray-800 dark:text-white uppercase">#{orderId}</td>
-                                          <td className="px-5 py-3 text-center text-[10px] text-gray-600 dark:text-gray-300">Table {order.tableNumber}</td>
+                                          <td className="px-5 py-3 text-center text-[10px] text-gray-600 dark:text-gray-300">{order.tableNumber}</td>
                                           <td className="px-5 py-3 text-center text-[10px] text-gray-500 dark:text-gray-400">{orderDate}</td>
                                           <td className="px-5 py-3 text-center text-[10px] text-gray-500 dark:text-gray-400">{orderTimeStr}</td>
                                           <td className="px-5 py-3 text-center text-[10px] text-gray-500 dark:text-gray-400">{totalQty}</td>
@@ -7504,7 +7504,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     #{typeof o.id === 'string' ? o.id.slice(-6).toUpperCase() : String(o.id).slice(-6).toUpperCase()}
                                   </p>
                                   <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                                    Table {o.tableNumber} · {new Date(o.timestamp).toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' })} {new Date(o.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    {o.tableNumber} · {new Date(o.timestamp).toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' })} {new Date(o.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                   </p>
                                 </div>
                               </div>
@@ -7726,7 +7726,7 @@ const PosOnlyView: React.FC<Props> = ({
                               {order.tableNumber && order.tableNumber !== 'N/A' && (
                                 <div className="flex items-center gap-1.5 mb-2">
                                   <Hash size={12} className="text-gray-400" />
-                                  <span className="text-[10px] font-black text-gray-500 dark:text-gray-400">Table {order.tableNumber}</span>
+                                  <span className="text-[10px] font-black text-gray-500 dark:text-gray-400">{order.tableNumber}</span>
                                 </div>
                               )}
                               <div className="space-y-1 mb-3">
@@ -8829,7 +8829,7 @@ const PosOnlyView: React.FC<Props> = ({
                               <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ORDER #{order.id}</span>
                               <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg">
                                 <Hash size={12} className="text-orange-500" />
-                                <span className="text-xs font-black">Table {order.tableNumber}</span>
+                                <span className="text-xs font-black">{order.tableNumber}</span>
                               </div>
                               {order.orderSource && (
                                 <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
@@ -9068,7 +9068,7 @@ const PosOnlyView: React.FC<Props> = ({
                     <>
                       <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
                         <QrCode size={14} className="text-purple-500 shrink-0" />
-                        <span className="text-[10px] font-black text-purple-700 dark:text-purple-400 uppercase tracking-widest">Table {selectedQrOrderForPayment.tableNumber}</span>
+                        <span className="text-[10px] font-black text-purple-700 dark:text-purple-400 uppercase tracking-widest">{selectedQrOrderForPayment.tableNumber}</span>
                       </div>
                       {selectedQrOrderForPayment.items.map((item, idx) => (
                         <div key={`qr-${item.id}-${idx}`} className="flex items-center gap-4">
