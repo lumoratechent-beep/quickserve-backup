@@ -398,6 +398,8 @@ const PosOnlyView: React.FC<Props> = ({
   const [menuCategoryFilter, setMenuCategoryFilter] = useState<string>('All');
   const [menuSearchQuery, setMenuSearchQuery] = useState('');
   const [menuSubTab, setMenuSubTab] = useState<'KITCHEN' | 'CATEGORY' | 'MODIFIER' | 'ADDON'>('KITCHEN');
+  const [menuEditorStuck, setMenuEditorStuck] = useState(false);
+  const menuEditorStickyRef = useRef<HTMLDivElement>(null);
   const [onlineOrderSubTab, setOnlineOrderSubTab] = useState<'INCOMING' | 'PRODUCT' | 'SETTING'>('INCOMING');
   const [qrOrderSubTab, setQrOrderSubTab] = useState<'INCOMING' | 'QR_GENERATOR' | 'SETTING_TAB'>('INCOMING');
   const [onlineStripeBalance, setOnlineStripeBalance] = useState<number | null>(null);
@@ -1189,6 +1191,18 @@ const PosOnlyView: React.FC<Props> = ({
   useEffect(() => {
     setKitchenDivisions(normalizeKitchenDepartments(restaurant.kitchenDivisions));
   }, [restaurant.kitchenDivisions]);
+
+  // Detect when menu editor toolbar becomes stuck
+  useEffect(() => {
+    const el = menuEditorStickyRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setMenuEditorStuck(entry.intersectionRatio < 1),
+      { threshold: [1], rootMargin: '-1px 0px 0px 0px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [activeTab, menuSubTab]);
 
   const areSameCartOptions = (first: CartItem, second: CartItem) => {
     const normalizeAddOns = (item: CartItem) => {
@@ -5439,7 +5453,14 @@ const PosOnlyView: React.FC<Props> = ({
                 <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl rounded-tr-2xl">
 
                   {/* Sub-tab controls — sticky toolbar */}
-                  <div className="sticky top-0 z-30 bg-white dark:bg-gray-800 -mx-5 md:-mx-6 -mt-5 md:-mt-6 px-5 md:px-6 pt-3 pb-2 border-b border-gray-100 dark:border-gray-700 space-y-2 rounded-tr-2xl">
+                  <div
+                    ref={menuEditorStickyRef}
+                    className={`sticky -top-px z-30 bg-white dark:bg-gray-800 -mt-5 md:-mt-6 pt-3 pb-2 border-b border-gray-100 dark:border-gray-700 space-y-3 transition-all duration-300 ${
+                      menuEditorStuck
+                        ? '-mx-4 md:-mx-8 px-4 md:px-8 shadow-md rounded-none'
+                        : '-mx-5 md:-mx-6 px-5 md:px-6 rounded-tr-2xl'
+                    }`}
+                  >
                     <div className="flex flex-wrap items-center gap-3">
                     {menuSubTab === 'KITCHEN' ? (
                       <>
