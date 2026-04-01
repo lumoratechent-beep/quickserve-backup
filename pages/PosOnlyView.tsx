@@ -56,6 +56,7 @@ interface Props {
   unreadMailCount?: number;
   openMailTab?: boolean;
   onMailTabOpened?: () => void;
+  onUpdateOrderItems?: (orderId: string, items: CartItem[], total: number) => void;
 }
 
 const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
@@ -285,6 +286,7 @@ const PosOnlyView: React.FC<Props> = ({
   unreadMailCount = 0,
   openMailTab = false,
   onMailTabOpened,
+  onUpdateOrderItems,
 }) => {
   const toLocalDateInputValue = (date: Date) => {
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -1518,6 +1520,10 @@ const PosOnlyView: React.FC<Props> = ({
     const savedTotal = cartGrandTotal;
     try {
       await supabase.from('orders').update({ items: savedItems, total: savedTotal }).eq('id', savedOrderId);
+      // Update local orders state immediately so all lists reflect the change
+      if (onUpdateOrderItems) {
+        onUpdateOrderItems(savedOrderId, savedItems, savedTotal);
+      }
       setPosCart([]);
       setPosRemark('');
       setPosTableNo('Counter');

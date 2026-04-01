@@ -1196,6 +1196,10 @@ const App: React.FC = () => {
     }
   };
 
+  const updateOrderItems = (orderId: string, items: CartItem[], total: number) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, items, total } : o));
+  };
+
   const toggleVendorOnline = async (restaurantId: string, currentStatus: boolean) => {
     const res = restaurants.find(r => r.id === restaurantId);
     const vendor = allUsers.find(u => u.restaurantId === restaurantId);
@@ -2179,6 +2183,7 @@ const App: React.FC = () => {
               unreadMailCount={unreadMailCount}
               openMailTab={openMailInPOS}
               onMailTabOpened={() => setOpenMailInPOS(false)}
+              onUpdateOrderItems={updateOrderItems}
             />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
@@ -2221,6 +2226,7 @@ const App: React.FC = () => {
                 unreadMailCount={unreadMailCount}
                 openMailTab={openMailInPOS}
                 onMailTabOpened={() => setOpenMailInPOS(false)}
+                onUpdateOrderItems={updateOrderItems}
               />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
@@ -2258,6 +2264,7 @@ const App: React.FC = () => {
                 unreadMailCount={unreadMailCount}
                 openMailTab={openMailInPOS}
                 onMailTabOpened={() => setOpenMailInPOS(false)}
+                onUpdateOrderItems={updateOrderItems}
               />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
