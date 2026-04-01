@@ -4751,7 +4751,7 @@ const PosOnlyView: React.FC<Props> = ({
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         ${isSidebarCollapsed ? 'lg:w-16' : 'w-64'}
       `}>
-        <div className={`border-b dark:border-gray-700 flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
+        <div className={`flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
           {isSidebarCollapsed ? (
             <button onClick={openProfilePanel} title="Account & Settings" className="rounded-lg hover:ring-2 hover:ring-orange-300 transition-all">
               <img src={restaurant.logo} className="w-8 h-8 rounded-lg shadow-sm cursor-pointer" />
