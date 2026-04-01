@@ -5455,7 +5455,7 @@ const PosOnlyView: React.FC<Props> = ({
                   {/* Sub-tab controls — sticky toolbar */}
                   <div
                     ref={menuEditorStickyRef}
-                    className={`sticky -top-px z-30 bg-white dark:bg-gray-800 -mt-5 md:-mt-6 pt-3 pb-2 border-b border-gray-100 dark:border-gray-700 space-y-3 transition-all duration-300 ${
+                    className={`sticky -top-px z-30 bg-white dark:bg-gray-800 -mt-5 md:-mt-6 pt-3 pb-2 space-y-3 transition-all duration-300 ${
                       menuEditorStuck
                         ? '-mx-9 md:-mx-14 px-9 md:px-14 shadow-md rounded-none'
                         : '-mx-5 md:-mx-6 px-5 md:px-6 rounded-tr-2xl'
