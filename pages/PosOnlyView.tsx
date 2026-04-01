@@ -307,7 +307,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [onlineOrderFilter, setOnlineOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
   const [rejectingQrOrderId, setRejectingQrOrderId] = useState<string | null>(null);
   const [viewingQrOrderDetail, setViewingQrOrderDetail] = useState<Order | null>(null);
-  const [qrOrderView, setQrOrderView] = useState<'grid' | 'list'>('list');
+  const [qrOrderView, setQrOrderView] = useState<'grid' | 'list'>('grid');
   const [qrSearchQuery, setQrSearchQuery] = useState('');
   const [qrGridColumns, setQrGridColumns] = useState<2 | 3>(2);
   const [editingQrOrderId, setEditingQrOrderId] = useState<string | null>(null);
@@ -5253,14 +5253,14 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               ) : (
                 <>
-              <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 lg:px-6 py-3 lg:py-4 max-lg:landscape:py-1.5 flex flex-col gap-3 lg:gap-4 max-lg:landscape:gap-1">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-1 pb-1">
+              <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 lg:px-5 py-2 lg:py-2.5 max-lg:landscape:py-1 flex flex-col gap-2 lg:gap-2 max-lg:landscape:gap-1">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1">
                     {categories.map(cat => (
                       <button
                         key={cat}
                         onClick={() => setSelectedCategory(cat)}
-                        className={`px-3 py-1.5 lg:px-4 lg:py-2 max-lg:landscape:py-0.5 max-lg:landscape:px-2 rounded-lg font-black text-[10px] uppercase tracking-widest whitespace-nowrap transition-all ${
+                        className={`px-2.5 py-1 lg:px-3 lg:py-1.5 max-lg:landscape:py-0.5 max-lg:landscape:px-2 rounded-lg font-black text-[10px] uppercase tracking-widest whitespace-nowrap transition-all ${
                           selectedCategory === cat 
                             ? 'bg-black text-white dark:bg-white dark:text-black' 
                             : 'bg-gray-100 dark:bg-gray-700 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -5271,8 +5271,8 @@ const PosOnlyView: React.FC<Props> = ({
                     ))}
                   </div>
                   <div className="relative shrink-0 hidden lg:block">
-                    <button onClick={() => setShowLayoutPicker(!showLayoutPicker)} className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-all">
-                      <LayoutGrid size={16} />
+                    <button onClick={() => setShowLayoutPicker(!showLayoutPicker)} className="p-1.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-all">
+                      <LayoutGrid size={14} />
                     </button>
                     {showLayoutPicker && (
                       <div className="absolute right-0 top-full mt-1 z-50 flex items-center gap-1 bg-white dark:bg-gray-800 border dark:border-gray-700 p-1 rounded-xl shadow-lg">
@@ -5286,11 +5286,11 @@ const PosOnlyView: React.FC<Props> = ({
                   </div>
                 </div>
                 <div className="relative">
-                  <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input 
                     type="text" 
                     placeholder="Search menu items..." 
-                    className="w-full pl-12 pr-4 py-3 max-lg:landscape:py-1.5 bg-gray-50 dark:bg-gray-700 border-none rounded-xl text-xs font-black dark:text-white outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+                    className="w-full pl-10 pr-3 py-2 max-lg:landscape:py-1.5 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white outline-none focus:ring-2 focus:ring-orange-500 transition-all"
                     value={menuSearch}
                     onChange={e => setMenuSearch(e.target.value)}
                   />
