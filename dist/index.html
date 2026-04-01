@@ -11,6 +11,17 @@
     <meta name="apple-mobile-web-app-title" content="QuickServe" />
     <link rel="apple-touch-icon" sizes="180x180" href="/LOGO/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('theme');
+          var useDark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('dark', useDark);
+        } catch (_) {
+          // Ignore storage/matchMedia errors and continue with default theme.
+        }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -29,8 +40,8 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="/assets/index-CB24Z6XO.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-UDmY7fOl.css">
+  <script type="module" crossorigin src="/assets/index-9Nfa4HGh.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DEQOVllh.css">
 </head>
   <body class="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 overscroll-none">
     <div id="root"></div>

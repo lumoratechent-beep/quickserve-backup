@@ -392,3 +392,100 @@ export function loadSharedSetting<T>(
   // 3. Defaults
   return defaults;
 }
+
+// ─── Cross-Device Settings Sync ─────────────────────────────────────────────
+// Fetch and update settings from the server to ensure consistency across devices.
+
+/**
+ * Fetch restaurant settings from the server (GET /api/settings).
+ * Use this on app initialization to hydrate settings from the latest server state.
+ */
+export async function fetchSettingsFromServer(restaurantId: string): Promise<Record<string, any> | null> {
+  try {
+    const response = await fetch(`/api/settings?restaurantId=${restaurantId}`);
+    if (!response.ok) {
+      console.warn(`Failed to fetch settings: ${response.statusText}`);
+      return null;
+    }
+    const data = await response.json();
+    return data.settings || {};
+  } catch (error) {
+    console.warn('Failed to fetch settings from server:', error);
+    return null;
+  }
+}
+
+/**
+ * Update a specific feature flag on the server (POST /api/settings).
+ * Call this when a feature is toggled to ensure cross-device sync.
+ */
+export async function updateFeatureOnServer(
+  restaurantId: string,
+  featureName: string,
+  enabled: boolean,
+  currentSettings: Record<string, any>
+): Promise<boolean> {
+  try {
+    const updated = {
+      ...currentSettings,
+      features: {
+        ...currentSettings.features,
+        [featureName]: enabled,
+      },
+    };
+
+    const response = await fetch(`/api/settings?restaurantId=${restaurantId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings: updated }),
+    });
+
+    if (!response.ok) {
+      console.warn(`Failed to update feature: ${response.statusText}`);
+      return false;
+    }
+
+    // Update localStorage cache
+    localStorage.setItem(`qs_settings_${restaurantId}`, JSON.stringify(updated));
+    return true;
+  } catch (error) {
+    console.warn(`Failed to update feature on server:`, error);
+    return false;
+  }
+}
+
+/**
+ * Update any settings sub-key on the server (POST /api/settings).
+ * Generic function for syncing any settings changes.
+ */
+export async function updateSettingOnServer(
+  restaurantId: string,
+  key: string,
+  value: any,
+  currentSettings: Record<string, any>
+): Promise<boolean> {
+  try {
+    const updated = {
+      ...currentSettings,
+      [key]: value,
+    };
+
+    const response = await fetch(`/api/settings?restaurantId=${restaurantId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings: updated }),
+    });
+
+    if (!response.ok) {
+      console.warn(`Failed to update setting: ${response.statusText}`);
+      return false;
+    }
+
+    // Update localStorage cache
+    localStorage.setItem(`qs_settings_${restaurantId}`, JSON.stringify(updated));
+    return true;
+  } catch (error) {
+    console.warn(`Failed to update setting on server:`, error);
+    return false;
+  }
+}

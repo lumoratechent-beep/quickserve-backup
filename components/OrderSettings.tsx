@@ -1,10 +1,13 @@
 import React from 'react';
 import { BellRing, Printer } from 'lucide-react';
+import { updateSettingOnServer } from '../lib/sharedSettings';
 
 interface Props {
   autoAccept: boolean;
   autoPrint: boolean;
   printerConnected: boolean;
+  restaurantId: string;
+  currentSettings?: Record<string, any>;
   onToggleAccept: () => void;
   onTogglePrint: () => void;
 }
@@ -13,9 +16,32 @@ const OrderSettings: React.FC<Props> = ({
   autoAccept,
   autoPrint,
   printerConnected,
+  restaurantId,
+  currentSettings = {},
   onToggleAccept,
   onTogglePrint
 }) => {
+  const handleToggleAccept = async () => {
+    onToggleAccept();
+    // Sync to server
+    await updateSettingOnServer(
+      restaurantId,
+      'kitchenSettings',
+      { ...currentSettings.kitchenSettings, autoAccept: !autoAccept },
+      currentSettings
+    );
+  };
+
+  const handleTogglePrint = async () => {
+    onTogglePrint();
+    // Sync to server
+    await updateSettingOnServer(
+      restaurantId,
+      'kitchenSettings',
+      { ...currentSettings.kitchenSettings, autoPrint: !autoPrint },
+      currentSettings
+    );
+  };
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
@@ -27,7 +53,7 @@ const OrderSettings: React.FC<Props> = ({
           </div>
         </div>
         <button
-          onClick={onToggleAccept}
+          onClick={handleToggleAccept}
           className={`w-12 h-6 rounded-full transition-all relative ${
             autoAccept ? 'bg-green-500' : 'bg-gray-300'
           }`}
@@ -47,13 +73,13 @@ const OrderSettings: React.FC<Props> = ({
           </div>
         </div>
         <button
-          onClick={onTogglePrint}
+          onClick={handleTogglePrint}
           disabled={!printerConnected}
           className={`w-12 h-6 rounded-full transition-all relative ${
-            !printerConnected 
+            !printerConnected
               ? 'bg-gray-200 cursor-not-allowed'
-              : autoPrint 
-                ? 'bg-green-500' 
+              : autoPrint
+                ? 'bg-green-500'
                 : 'bg-gray-300'
           }`}
         >

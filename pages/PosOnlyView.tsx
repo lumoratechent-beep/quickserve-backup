@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters, CategoryData, ModifierData, ModifierOption, AddOnItemData, QS_DEFAULT_HUB, Subscription, PlanId, KitchenDepartment } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { uploadImage } from '../lib/storage';
-import { saveAllSettingsToDb, compressPosSettings } from '../lib/sharedSettings';
+import { saveAllSettingsToDb, compressPosSettings, expandPosSettings, fetchSettingsFromServer, updateFeatureOnServer } from '../lib/sharedSettings';
 import * as counterOrdersCache from '../lib/counterOrdersCache';
 import printerService, { PrinterDevice, ReceiptPrintOptions } from '../services/printerService';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
@@ -566,18 +566,18 @@ const PosOnlyView: React.FC<Props> = ({
     const defaults = getDefaultFeatureSettings();
     // Apply kitchenEnabled from dedicated DB column as the base default only
     if (restaurant.kitchenEnabled) defaults.kitchenEnabled = true;
-    // Priority 1: localStorage (most recent — written synchronously on every change)
+    // Priority 1: DB settings.features (cross-device authoritative — always prefer DB over localStorage)
+    const dbSaved = restaurant.settings?.features;
+    if (dbSaved && typeof dbSaved === 'object') {
+      return { ...defaults, ...dbSaved };
+    }
+    // Priority 2: localStorage (same-device offline cache)
     const saved = localStorage.getItem(`features_${restaurant.id}`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         return { ...defaults, ...parsed };
       } catch {}
-    }
-    // Priority 2: DB settings.features (cross-device, may lag up to 1.5s behind)
-    const dbSaved = restaurant.settings?.features;
-    if (dbSaved && typeof dbSaved === 'object') {
-      return { ...defaults, ...dbSaved };
     }
     return defaults;
   });
@@ -1851,6 +1851,65 @@ const PosOnlyView: React.FC<Props> = ({
     setCachedCounterOrders(cached);
   }, [restaurant.id]);
 
+  // Fetch latest settings from server on mount to ensure cross-device consistency
+  useEffect(() => {
+    const syncSettingsFromServer = async () => {
+      const serverSettingsRaw = await fetchSettingsFromServer(restaurant.id);
+      if (!serverSettingsRaw) {
+        // Server fetch failed — allow debounced sync to work with local state
+        settingsHydratedRef.current = true;
+        return;
+      }
+
+      // Expand compressed settings from DB to full settings object
+      const serverSettings = expandPosSettings(serverSettingsRaw, restaurant.name);
+
+      // Hydrate ALL settings state from server (DB is authoritative for cross-device)
+      if (serverSettings.features) {
+        setFeatureSettings(prev => ({ ...prev, ...serverSettings.features }));
+      }
+      if (serverSettings.receipt && typeof serverSettings.receipt === 'object') {
+        setReceiptSettings(prev => ({ ...prev, ...serverSettings.receipt }));
+      }
+      if (Array.isArray(serverSettings.paymentTypes) && serverSettings.paymentTypes.length > 0) {
+        setPaymentTypes(serverSettings.paymentTypes);
+      }
+      if (Array.isArray(serverSettings.taxes)) {
+        setTaxEntries(serverSettings.taxes);
+      }
+      if (serverSettings.currency) {
+        setUserCurrency(serverSettings.currency);
+      }
+      if (serverSettings.font) {
+        setUserFont(serverSettings.font);
+      }
+      if (Array.isArray(serverSettings.printers)) {
+        setSavedPrinters(serverSettings.printers as SavedPrinter[]);
+      }
+      if (serverSettings.kitchenSettings && typeof serverSettings.kitchenSettings === 'object') {
+        setKitchenOrderSettings(prev => ({ ...prev, ...serverSettings.kitchenSettings }));
+      }
+      if (Array.isArray(serverSettings.onlineDeliveryOptions)) {
+        setOnlineDeliveryOptions(serverSettings.onlineDeliveryOptions as OnlineDeliveryOption[]);
+      }
+      if (Array.isArray(serverSettings.onlinePaymentMethods)) {
+        setOnlinePaymentMethods(serverSettings.onlinePaymentMethods as OnlinePaymentMethod[]);
+      }
+
+      // Update localStorage cache with full expanded settings
+      try {
+        localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(serverSettings));
+        localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(serverSettings.features));
+      } catch (e) {
+        console.warn('Failed to update localStorage cache:', e);
+      }
+
+      // Mark hydration complete so the debounced sync can start writing user changes
+      settingsHydratedRef.current = true;
+    };
+    syncSettingsFromServer();
+  }, [restaurant.id]);
+
   // Setup periodic sync to database every 10 minutes
   useEffect(() => {
     const syncToDB = async () => {
@@ -2505,7 +2564,36 @@ const PosOnlyView: React.FC<Props> = ({
 
   const updateFeatureSetting = <K extends keyof FeatureSettings>(key: K, value: FeatureSettings[K]) => {
     setFeatureSettings(prev => ({ ...prev, [key]: value }));
-    // Persist kitchenEnabled to Supabase so other devices (and login API) can read it
+
+    // Sync to server immediately for cross-device consistency
+    const updated = { ...featureSettings, [key]: value };
+    const currentSettings = (() => {
+      try {
+        const cached = localStorage.getItem(`qs_settings_${restaurant.id}`);
+        return cached ? JSON.parse(cached) : {};
+      } catch {
+        return {};
+      }
+    })();
+
+    const newSettings = {
+      ...currentSettings,
+      features: {
+        ...(currentSettings.features || {}),
+        [key]: value,
+      },
+    };
+
+    // Update localStorage caches immediately
+    localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(newSettings));
+    localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(newSettings.features));
+
+    updateFeatureOnServer(restaurant.id, String(key), value as boolean, newSettings)
+      .catch(error => {
+        console.warn(`Failed to sync ${key} to server:`, error);
+      });
+
+    // Also sync kitchenEnabled to the kitchen_enabled DB column for login API compatibility
     if (key === 'kitchenEnabled') {
       supabase.from('restaurants').update({ kitchen_enabled: value }).eq('id', restaurant.id)
         .then(({ error }) => {
@@ -3085,14 +3173,14 @@ const PosOnlyView: React.FC<Props> = ({
   }, [kitchenOrderSettings, restaurant.id]);
 
   // ── Cross-device settings sync ──────────────────────────────────────────────
-  // Only writes to DB when a setting *changes* after initial load.
-  // Skips the first render so login/refresh doesn't trigger a redundant write.
+  // Only writes to DB when a setting *changes* after initial server hydration.
+  // Skips renders until server settings have been fetched to avoid overwriting
+  // DB with stale localStorage data.
   const settingsSyncTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const settingsInitializedRef = useRef(false);
+  const settingsHydratedRef = useRef(false);
   useEffect(() => {
-    // Skip on first render — values were just loaded from DB, no write needed.
-    if (!settingsInitializedRef.current) {
-      settingsInitializedRef.current = true;
+    // Skip until server settings have been fetched and applied.
+    if (!settingsHydratedRef.current) {
       return;
     }
     if (settingsSyncTimerRef.current) clearTimeout(settingsSyncTimerRef.current);
