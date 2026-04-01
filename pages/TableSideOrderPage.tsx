@@ -127,7 +127,7 @@ const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, 
         total: cartTotal,
         tableNumber: selectedTable,
         remark: orderRemark,
-        orderSource: 'qr_order', // Uses same pipeline as QR orders
+        orderSource: 'tableside',
       });
       setRecentOrderIds([]); // will be updated by orders prop
       setCart([]);
@@ -270,9 +270,7 @@ const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, 
             <Hash size={12} className="text-orange-500" />
             {selectedTable}
           </div>
-          <button onClick={onLogout} className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 hover:text-red-500 transition-all" title="Logout">
-            <LogOut size={16} />
-          </button>
+
         </div>
       </header>
 

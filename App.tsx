@@ -1957,7 +1957,7 @@ const App: React.FC = () => {
       location_name: res?.location || 'Unspecified',
       remark: orderData.remark,
       cashier_name: currentUser.username,
-      order_source: 'qr_order',
+      order_source: orderData.orderSource || 'tableside',
     };
 
     const { error } = await insertOrderSafe(orderToInsert);

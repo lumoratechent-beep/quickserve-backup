@@ -291,6 +291,7 @@ const StandardReport: React.FC<Props> = ({
                     <span className="text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">
                       {report.orderSource === 'counter' ? 'Counter' :
                        report.orderSource === 'qr_order' ? 'QR Order' :
+                       report.orderSource === 'tableside' ? 'Tableside' :
                        report.orderSource === 'online' ? 'Online' : '-'}
                     </span>
                   </td>
