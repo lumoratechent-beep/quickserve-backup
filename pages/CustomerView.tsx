@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Restaurant, CartItem, Order, OrderStatus, MenuItem, ModifierData } from '../src/types';
-import { ShoppingCart, Plus, Minus, X, CheckCircle, ChevronRight, Info, ThermometerSun, Maximize2, MapPin, Hash, LayoutGrid, Grid3X3, List, Search, MessageSquare, AlertTriangle, UtensilsCrossed, LogIn, WifiOff, Layers } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, X, CheckCircle, ChevronRight, Info, ThermometerSun, Maximize2, MapPin, Hash, LayoutGrid, Grid3X3, MessageSquare, AlertTriangle, UtensilsCrossed, LogIn, WifiOff, Layers } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 
@@ -34,8 +34,7 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
   }, [propOrders]);
 
   const [selectedItemForVariants, setSelectedItemForVariants] = useState<{item: MenuItem, resId: string} | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 2 | 3>(3);
-  const [customerSearch, setCustomerSearch] = useState('');
+  const [gridColumns, setGridColumns] = useState<2 | 3>(3);
   const [orderRemark, setOrderRemark] = useState('');
   const [dismissedOrders, setDismissedOrders] = useState<string[]>(() => {
     try {
@@ -110,7 +109,9 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
     }
   };
 
-
+  const toggleGrid = () => {
+    setGridColumns(prev => (prev === 3 ? 2 : 3));
+  };
 
   const handleDismissOrder = (orderId: string) => {
     const updatedDismissed = [...dismissedOrders, orderId];
@@ -179,7 +180,7 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
 
       <div className="max-w-7xl mx-auto px-2 md:px-4 py-4">
         {/* Compact Location Info */}
-        <div className="mb-2 px-3 py-2 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm flex items-center justify-between gap-2">
+        <div className="mb-4 px-3 py-2 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <MapPin size={14} className="text-orange-500 shrink-0" />
             <div className="flex flex-col">
@@ -197,25 +198,13 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
                 {tableNo}
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Search Bar & View Options */}
-        <div className="mb-4 flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              value={customerSearch}
-              onChange={e => setCustomerSearch(e.target.value)}
-              placeholder="Search menu..."
-              className="w-full pl-9 pr-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 transition-all"
-            />
-          </div>
-          <div className="flex bg-white dark:bg-gray-800 rounded-xl p-1 border dark:border-gray-700 shadow-sm shrink-0">
-            <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={14} /></button>
-            <button onClick={() => setViewMode(2)} className={`px-2 py-1.5 rounded-lg transition-all text-[10px] font-black ${viewMode === 2 ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}>2</button>
-            <button onClick={() => setViewMode(3)} className={`px-2 py-1.5 rounded-lg transition-all text-[10px] font-black ${viewMode === 3 ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}>3</button>
+            
+            <button 
+              onClick={toggleGrid}
+              className="p-2 bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-300 rounded-lg hover:text-orange-500 transition-colors flex items-center gap-1.5 border dark:border-gray-600"
+            >
+              {gridColumns === 3 ? <LayoutGrid size={14} /> : <Grid3X3 size={14} />}
+            </button>
           </div>
         </div>
 
@@ -282,55 +271,31 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
                 </div>
               </div>
 
-              {viewMode === 'list' ? (
-                <div className="space-y-2">
-                  {res.menu.filter(item => !item.isArchived && item.name.toLowerCase().includes(customerSearch.toLowerCase())).map(item => (
-                    <button
-                      key={item.id}
-                      onClick={() => handleInitialAdd(item, res.id)}
-                      className="w-full flex items-center gap-3 p-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm hover:border-orange-500 transition-all text-left"
-                    >
-                      <div className="w-14 h-14 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0">
-                        <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">{item.category}</span>
-                        <h4 className="text-xs font-black text-gray-900 dark:text-white leading-tight line-clamp-1">{item.name}</h4>
-                        <p className="font-black text-orange-500 text-xs">RM{item.price.toFixed(2)}</p>
-                      </div>
-                      <div className="px-3 py-1.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-black text-[9px] uppercase tracking-tighter shrink-0">
-                        Add
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className={`grid gap-3 md:gap-6 ${viewMode === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                  {res.menu.filter(item => !item.isArchived && item.name.toLowerCase().includes(customerSearch.toLowerCase())).map(item => (
-                    <div key={item.id} className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col">
-                      <div className="relative aspect-[4/3] overflow-hidden bg-gray-100 dark:bg-gray-700">
-                        <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                        <div className="absolute top-2 left-2 bg-black/50 backdrop-blur-md px-2 py-0.5 rounded-lg text-[8px] font-black text-white shadow-sm uppercase tracking-widest">
-                          {item.category}
-                        </div>
-                      </div>
-                      <div className="p-2 md:p-4 flex-1 flex flex-col">
-                        <div className="mb-2">
-                          <h4 className={`font-black text-gray-900 dark:text-white leading-tight line-clamp-1 mb-1 ${viewMode === 3 ? 'text-[10px] md:text-sm' : 'text-xs md:text-base'}`}>{item.name}</h4>
-                          <p className="font-black text-orange-500 text-xs md:text-lg">RM{item.price.toFixed(2)}</p>
-                        </div>
-                        
-                        <button 
-                          onClick={() => handleInitialAdd(item, res.id)}
-                          className={`mt-auto w-full py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black uppercase tracking-tighter hover:bg-orange-500 dark:hover:bg-orange-500 hover:text-white transition-all active:scale-95 shadow-sm text-[9px] md:text-xs`}
-                        >
-                          Add to Order
-                        </button>
+              <div className={`grid gap-3 md:gap-6 ${gridColumns === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                {res.menu.filter(item => !item.isArchived).map(item => (
+                  <div key={item.id} className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col">
+                    <div className="relative aspect-[4/3] overflow-hidden bg-gray-100 dark:bg-gray-700">
+                      <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                      <div className="absolute top-2 left-2 bg-black/50 backdrop-blur-md px-2 py-0.5 rounded-lg text-[8px] font-black text-white shadow-sm uppercase tracking-widest">
+                        {item.category}
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div className="p-2 md:p-4 flex-1 flex flex-col">
+                      <div className="mb-2">
+                        <h4 className={`font-black text-gray-900 dark:text-white leading-tight line-clamp-1 mb-1 ${gridColumns === 3 ? 'text-[10px] md:text-sm' : 'text-xs md:text-base'}`}>{item.name}</h4>
+                        <p className="font-black text-orange-500 text-xs md:text-lg">RM{item.price.toFixed(2)}</p>
+                      </div>
+                      
+                      <button 
+                        onClick={() => handleInitialAdd(item, res.id)}
+                        className={`mt-auto w-full py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black uppercase tracking-tighter hover:bg-orange-500 dark:hover:bg-orange-500 hover:text-white transition-all active:scale-95 shadow-sm text-[9px] md:text-xs`}
+                      >
+                        Add to Order
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </section>
           ))}
         </div>

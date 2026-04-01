@@ -308,6 +308,8 @@ const PosOnlyView: React.FC<Props> = ({
   const [rejectingQrOrderId, setRejectingQrOrderId] = useState<string | null>(null);
   const [viewingQrOrderDetail, setViewingQrOrderDetail] = useState<Order | null>(null);
   const [qrOrderView, setQrOrderView] = useState<'grid' | 'list'>('list');
+  const [qrSearchQuery, setQrSearchQuery] = useState('');
+  const [qrGridColumns, setQrGridColumns] = useState<2 | 3>(2);
   const [editingQrOrderId, setEditingQrOrderId] = useState<string | null>(null);
   const [qrRejectionReason, setQrRejectionReason] = useState('Item out of stock');
   const [qrRejectionNote, setQrRejectionNote] = useState('');
@@ -5165,19 +5167,43 @@ const PosOnlyView: React.FC<Props> = ({
                   )}
                 </div>
               ) : showQrFeature && counterMode === 'QR_ORDER' ? (
-                <div className="flex-1 overflow-y-auto p-4">
+                <div className="flex-1 overflow-hidden flex flex-col">
+                  {/* QR Order toolbar */}
+                  <div className="px-4 py-2 border-b dark:border-gray-700 flex items-center gap-2 bg-white dark:bg-gray-800 shrink-0">
+                    <div className="relative flex-1">
+                      <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        value={qrSearchQuery}
+                        onChange={e => setQrSearchQuery(e.target.value)}
+                        placeholder="Search table or order..."
+                        className="w-full h-8 pl-9 pr-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                    </div>
+                    <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-0.5 border dark:border-gray-600 shrink-0">
+                      <button onClick={() => setQrOrderView('list')} className={`p-1.5 rounded-md transition-all ${qrOrderView === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={14} /></button>
+                      <button onClick={() => { setQrOrderView('grid'); setQrGridColumns(2); }} className={`px-2 py-1.5 rounded-md transition-all text-[10px] font-black ${qrOrderView === 'grid' && qrGridColumns === 2 ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}>2</button>
+                      <button onClick={() => { setQrOrderView('grid'); setQrGridColumns(3); }} className={`px-2 py-1.5 rounded-md transition-all text-[10px] font-black ${qrOrderView === 'grid' && qrGridColumns === 3 ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}>3</button>
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4">
                   {(() => {
-                    const servedOrders = orders.filter(o => o.status === OrderStatus.SERVED);
+                    const servedOrders = orders.filter(o => {
+                      if (o.status !== OrderStatus.SERVED) return false;
+                      if (!qrSearchQuery) return true;
+                      const q = qrSearchQuery.toLowerCase();
+                      return (o.tableNumber || '').toLowerCase().includes(q) || o.id.toLowerCase().includes(q) || o.items.some(i => i.name.toLowerCase().includes(q));
+                    });
                     if (servedOrders.length === 0) {
                       return (
                         <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
                           <QrCode size={48} className="mb-4" />
-                          <p className="text-[10px] font-black uppercase tracking-widest">No served orders waiting</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest">{qrSearchQuery ? 'No matching orders' : 'No served orders waiting'}</p>
                         </div>
                       );
                     }
                     return (
-                      <div className="space-y-3">
+                      <div className={qrOrderView === 'grid' ? `grid ${qrGridColumns === 3 ? 'grid-cols-3' : 'grid-cols-2'} gap-3` : 'space-y-3'}>
                         {servedOrders.map(order => (
                           <button
                             key={order.id}
@@ -5209,6 +5235,7 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                     );
                   })()}
+                  </div>
                 </div>
               ) : (
                 <>
@@ -5377,8 +5404,8 @@ const PosOnlyView: React.FC<Props> = ({
               }}
             />
           ) : activeTab === 'MENU_EDITOR' && (
-            <div className="flex-1 overflow-y-auto p-4 md:p-8">
-              <div>
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-4 md:p-8 pb-0 md:pb-0">
                 <div className="mb-5">
                   <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">Menu Editor</h1>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Manage your menu items, categories, modifiers, and add-ons.</p>
@@ -5412,7 +5439,7 @@ const PosOnlyView: React.FC<Props> = ({
                 <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl rounded-tr-2xl">
 
                   {/* Sub-tab controls — sticky toolbar */}
-                  <div className="sticky top-0 z-30 bg-white dark:bg-gray-800 -mx-5 md:-mx-6 px-5 md:px-6 py-2 border-b border-gray-100 dark:border-gray-700 space-y-2">
+                  <div className="sticky top-0 z-30 bg-white dark:bg-gray-800 -mx-5 md:-mx-6 -mt-5 md:-mt-6 px-5 md:px-6 pt-3 pb-2 border-b border-gray-100 dark:border-gray-700 space-y-2 rounded-tr-2xl">
                     <div className="flex flex-wrap items-center gap-3">
                     {menuSubTab === 'KITCHEN' ? (
                       <>
