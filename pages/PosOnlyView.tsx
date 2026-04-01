@@ -5183,7 +5183,7 @@ const PosOnlyView: React.FC<Props> = ({
               ) : showQrFeature && counterMode === 'QR_ORDER' ? (
                 <div className="flex-1 overflow-hidden flex flex-col">
                   {/* QR Order toolbar */}
-                  <div className="px-4 py-2 border-b dark:border-gray-700 flex items-center gap-2 bg-white dark:bg-gray-800 shrink-0">
+                  <div className="px-4 py-3 border-b dark:border-gray-700 flex items-center gap-3 bg-white dark:bg-gray-800 shrink-0">
                     <div className="relative flex-1">
                       <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input
@@ -5191,10 +5191,10 @@ const PosOnlyView: React.FC<Props> = ({
                         value={qrSearchQuery}
                         onChange={e => setQrSearchQuery(e.target.value)}
                         placeholder="Search table or order..."
-                        className="w-full h-8 pl-9 pr-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                        className="w-full h-9 pl-9 pr-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
                       />
                     </div>
-                    <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-0.5 border dark:border-gray-600 shrink-0">
+                    <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-0.5 border dark:border-gray-600 shrink-0 h-9 items-center">
                       <button onClick={() => setQrOrderView('list')} className={`p-1.5 rounded-md transition-all ${qrOrderView === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={14} /></button>
                       <button onClick={() => { setQrOrderView('grid'); setQrGridColumns(2); }} className={`px-2 py-1.5 rounded-md transition-all text-[10px] font-black ${qrOrderView === 'grid' && qrGridColumns === 2 ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}>2</button>
                       <button onClick={() => { setQrOrderView('grid'); setQrGridColumns(3); }} className={`px-2 py-1.5 rounded-md transition-all text-[10px] font-black ${qrOrderView === 'grid' && qrGridColumns === 3 ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}>3</button>
@@ -5457,7 +5457,7 @@ const PosOnlyView: React.FC<Props> = ({
                     ref={menuEditorStickyRef}
                     className={`sticky -top-px z-30 bg-white dark:bg-gray-800 -mt-5 md:-mt-6 pt-3 pb-2 border-b border-gray-100 dark:border-gray-700 space-y-3 transition-all duration-300 ${
                       menuEditorStuck
-                        ? '-mx-4 md:-mx-8 px-4 md:px-8 shadow-md rounded-none'
+                        ? '-mx-9 md:-mx-14 px-9 md:px-14 shadow-md rounded-none'
                         : '-mx-5 md:-mx-6 px-5 md:px-6 rounded-tr-2xl'
                     }`}
                   >
