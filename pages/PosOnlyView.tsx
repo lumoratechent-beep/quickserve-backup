@@ -4751,4 +4751,5521 @@ const PosOnlyView: React.FC<Props> = ({
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         ${isSidebarCollapsed ? 'lg:w-16' : 'w-64'}
       `}>
-        <div className={`
+        <div className={`flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
+          {isSidebarCollapsed ? (
+            <button onClick={openProfilePanel} title="Account & Settings" className="rounded-lg hover:ring-2 hover:ring-orange-300 transition-all">
+              <img src={restaurant.logo} className="w-8 h-8 rounded-lg shadow-sm cursor-pointer" />
+            </button>
+          ) : (
+            <img src={restaurant.logo} className="w-10 h-10 rounded-lg shadow-sm flex-shrink-0" />
+          )}
+          {!isSidebarCollapsed && (
+            <>
+              <div className="flex-1 min-w-0">
+                <h2 className="font-black dark:text-white text-sm uppercase tracking-tight leading-tight truncate">{restaurant.name}</h2>
+                <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest">{showKitchenFeature && showQrFeature ? 'POS + Kitchen + QR' : showKitchenFeature ? 'POS + Kitchen' : showQrFeature ? 'POS + QR' : 'POS Terminal'}</p>
+              </div>
+              <button
+                onClick={openProfilePanel}
+                title="Account & Restaurant Settings"
+                className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <MoreVertical size={16} />
+              </button>
+            </>
+          )}
+        </div>
+
+        <nav className={`flex-1 overflow-y-auto ${isSidebarCollapsed ? 'p-2 space-y-1' : ('px-3 pt-2 pb-2 space-y-1')}`}>
+          {isKitchenUser && (
+            <button
+              onClick={() => handleTabSelection('KITCHEN')}
+              title="Incoming Orders"
+              className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
+                activeTab === 'KITCHEN'
+                  ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+              }`}
+            >
+              <Coffee size={navIconSize} /> {!isSidebarCollapsed && 'Incoming Orders'}
+            </button>
+          )}
+
+          {!isKitchenUser && (<>
+          {/* Operations Group */}
+          {!isSidebarCollapsed && (
+            <p className={`text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-3 pt-1 pb-1`}>Operations</p>
+          )}
+          <button 
+            onClick={() => handleTabSelection('COUNTER')}
+            title="Counter"
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
+              activeTab === 'COUNTER' 
+                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }`}
+          >
+            <ShoppingBag size={navIconSize} /> {!isSidebarCollapsed && 'Counter'}
+          </button>
+
+          {showQrFeature && (
+            <button
+              onClick={() => handleTabSelection('QR_ORDERS')}
+              title="QR & Table Order"
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2 relative' : 'justify-between px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
+                activeTab === 'QR_ORDERS'
+                  ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <QrCode size={navIconSize} />
+                {!isSidebarCollapsed && 'QR & Table Order'}
+              </div>
+              {!isSidebarCollapsed && (() => {
+                const pendingQr = orders.filter(o => (o.orderSource === 'qr_order' || o.orderSource === 'tableside') && o.status === OrderStatus.PENDING).length;
+                return pendingQr > 0 ? (
+                  <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">{pendingQr}</span>
+                ) : null;
+              })()}
+              {isSidebarCollapsed && (() => {
+                const pendingQr = orders.filter(o => (o.orderSource === 'qr_order' || o.orderSource === 'tableside') && o.status === OrderStatus.PENDING).length;
+                return pendingQr > 0 ? (
+                  <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-bounce">{pendingQr}</span>
+                ) : null;
+              })()}
+            </button>
+          )}
+
+          {showOnlineShopFeature && (
+            <button
+              onClick={() => handleTabSelection('ONLINE_ORDERS')}
+              title="Online Shop"
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2 relative' : 'justify-between px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
+                activeTab === 'ONLINE_ORDERS'
+                  ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Globe size={navIconSize} />
+                {!isSidebarCollapsed && 'Online Shop'}
+              </div>
+              {!isSidebarCollapsed && (() => {
+                const pendingOnline = orders.filter(o => o.orderSource === 'online' && o.status === OrderStatus.PENDING).length;
+                return pendingOnline > 0 ? (
+                  <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">{pendingOnline}</span>
+                ) : null;
+              })()}
+              {isSidebarCollapsed && (() => {
+                const pendingOnline = orders.filter(o => o.orderSource === 'online' && o.status === OrderStatus.PENDING).length;
+                return pendingOnline > 0 ? (
+                  <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-bounce">{pendingOnline}</span>
+                ) : null;
+              })()}
+            </button>
+          )}
+
+          {/* Management Group */}
+          {!isSidebarCollapsed && (
+            <p className={`text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-3 ${navSectionPt}`}>Management</p>
+          )}
+          {isSidebarCollapsed && <div className="border-t dark:border-gray-700 my-0.5" />}
+          <button 
+            onClick={() => handleTabSelection('MENU_EDITOR')}
+            title="Menu Editor"
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
+              activeTab === 'MENU_EDITOR' 
+                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }`}
+          >
+            <BookOpen size={navIconSize} /> {!isSidebarCollapsed && 'Menu Editor'}
+          </button>
+
+          <button 
+            onClick={handleReportsClick}
+            title="Bill and Report"
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
+              activeTab === 'REPORTS' 
+                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }`}
+          >
+            <BarChart3 size={navIconSize} /> {!isSidebarCollapsed && 'Reports'}
+          </button>
+
+          <button 
+            onClick={() => handleTabSelection('SETTINGS')}
+            title="Settings"
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
+              activeTab === 'SETTINGS' 
+                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }`}
+          >
+            <Settings size={navIconSize} /> {!isSidebarCollapsed && 'Settings'}
+          </button>
+
+          {/* Account Group */}
+          {!isSidebarCollapsed && (
+            <p className={`text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest px-3 ${navSectionPt}`}>Account</p>
+          )}
+          {isSidebarCollapsed && <div className="border-t dark:border-gray-700 my-0.5" />}
+          <button 
+            onClick={() => handleTabSelection('ADDONS')}
+            title="Add-on Feature"
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
+              activeTab === 'ADDONS' 
+                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }`}
+          >
+            <Package size={navIconSize} /> {!isSidebarCollapsed && 'Add-on Feature'}
+          </button>
+          <button 
+            onClick={() => handleTabSelection('BILLING')}
+            title="Billing"
+            className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
+              activeTab === 'BILLING' 
+                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }`}
+          >
+            <CreditCard size={navIconSize} /> {!isSidebarCollapsed && 'Wallet & billing'}
+          </button>
+
+          </>)}
+        </nav>
+
+        {/* Sidebar Collapse Toggle — in-flow, sits just above the printer separator */}
+        <div className={`hidden lg:flex ${isSidebarCollapsed ? 'justify-center px-2 pb-1' : 'justify-end px-3 pb-1'}`}>
+          <button
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-all"
+          >
+            {isSidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
+        </div>
+
+        {/* Printer Connection Status */}
+        <div className={`mt-auto border-t dark:border-gray-700 space-y-1.5 ${isSidebarCollapsed ? 'p-2' : 'px-3 py-2'}`}>
+          <button
+            onClick={handlePrinterButtonClick}
+            disabled={isAutoReconnecting}
+            className={`w-full py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg ${
+              isAutoReconnecting
+                ? 'bg-blue-500 text-white cursor-wait'
+                : realPrinterConnected
+                  ? 'bg-green-500 text-white hover:bg-green-600'
+                  : connectedDevice
+                    ? 'bg-red-500 text-white hover:bg-red-600'
+                    : 'bg-red-500 text-white hover:bg-red-600'
+            }`}
+          >
+            {isAutoReconnecting ? (
+              <>
+                <Bluetooth size={18} className="animate-pulse" />
+                {!isSidebarCollapsed && 'Connecting...'}
+              </>
+            ) : realPrinterConnected ? (
+              <>
+                <BluetoothConnected size={18} />
+                {!isSidebarCollapsed && 'Printer Connected'}
+              </>
+            ) : connectedDevice ? (
+              <>
+                <Bluetooth size={18} />
+                {!isSidebarCollapsed && 'Printer Offline'}
+              </>
+            ) : (
+              <>
+                <Bluetooth size={18} />
+                {!isSidebarCollapsed && 'No Printer'}
+              </>
+            )}
+          </button>
+          {isVendorUser && onNavigateBackOffice && (
+            <button
+              onClick={onNavigateBackOffice}
+              title="Back Office"
+              className={`w-full py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg bg-gray-700 dark:bg-gray-600 text-white hover:bg-gray-800 dark:hover:bg-gray-500`}
+            >
+              <Briefcase size={18} />
+              {!isSidebarCollapsed && 'Back Office'}
+            </button>
+          )}
+        </div>
+      </aside>
+
+      {/* Main Content Area - Same as PosView but without Settings tab */}
+      <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Mobile Header */}
+          <div className="lg:hidden flex items-center p-4 landscape:py-1.5 landscape:px-2 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30 no-print">
+            <button 
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="p-2 -ml-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <Menu size={24} />
+            </button>
+            <div className="ml-4 flex items-center gap-2 flex-1 min-w-0">
+              <img src={restaurant.logo} className="w-8 h-8 landscape:w-6 landscape:h-6 rounded-lg shadow-sm flex-shrink-0" />
+              <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm landscape:text-xs truncate">
+                {activeTab === 'COUNTER' ? 'POS Counter' : 
+                 activeTab === 'MENU_EDITOR' ? (isFormModalOpen ? (formItem.id ? 'Edit Item' : 'New Item') : 'Menu Editor') : 
+                 activeTab === 'REPORTS' ? 'Bill and Report' : 
+                 activeTab === 'QR_ORDERS' ? 'QR & Table Order' :
+                 activeTab === 'ONLINE_ORDERS' ? 'Online Shop' :
+                 activeTab === 'KITCHEN' ? 'Incoming Orders' :
+                 activeTab === 'BILLING' ? 'Wallet & billing' :
+                 activeTab === 'ADDONS' ? (addonDetailView ? 'Feature Details' : 'Add-on Feature') :
+                 activeTab === 'MAIL' ? 'Mail' :
+                 'Settings'}
+              </h1>
+            </div>
+            {/* Mobile View Option (only on COUNTER tab) */}
+            {activeTab === 'COUNTER' && (
+              <div className="relative ml-2 flex-shrink-0">
+                <button
+                  onClick={() => setShowLayoutPicker(!showLayoutPicker)}
+                  className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-all"
+                >
+                  <LayoutGrid size={18} />
+                </button>
+                {showLayoutPicker && (
+                  <div className="absolute right-0 top-full mt-1 z-50 flex items-center gap-1 bg-white dark:bg-gray-800 border dark:border-gray-700 p-1 rounded-xl shadow-lg">
+                    <button onClick={() => { setMobileMenuLayout('2'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${mobileMenuLayout === '2' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>2</button>
+                    <button onClick={() => { setMobileMenuLayout('3'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${mobileMenuLayout === '3' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>3</button>
+                    <button onClick={() => { setMobileMenuLayout('list'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all ${mobileMenuLayout === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><List size={14} /></button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Counter Tab - Same as PosView */}
+          {activeTab === 'COUNTER' && (
+            <>
+              {/* Saved Bill selection panel */}
+              {counterMode === 'SAVED_BILL' ? (
+                <div className="flex-1 overflow-hidden flex flex-col p-4">
+                  {!featureSettings.savedBillEnabled ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
+                      <Receipt size={48} className="mb-4" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">Saved bill feature is disabled</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col h-full">
+                      <div className="mb-3">
+                        <p className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">Table Arrangement</p>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Choose a table with pending bill to continue editing, or view empty tables ready for new saved bills.</p>
+                      </div>
+                      {/* Floor tabs */}
+                      {featureSettings.floorEnabled && effectiveFloorCount > 1 && (
+                        <div className="flex items-center gap-1.5 mb-3 overflow-x-auto">
+                          {Array.from({ length: effectiveFloorCount }, (_, i) => i + 1).map(f => (
+                            <button
+                              key={f}
+                              onClick={() => { setSelectedFloor(f); setTableColPage(0); }}
+                              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shrink-0 ${
+                                selectedFloor === f
+                                  ? 'bg-orange-500 text-white shadow-sm'
+                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                              }`}
+                            >
+                              Floor {f}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {(() => {
+                        const COLS_PER_PAGE = 4;
+                        const totalColPages = Math.ceil(effectiveTableCols / COLS_PER_PAGE);
+                        const safePage = Math.min(tableColPage, Math.max(0, totalColPages - 1));
+                        const colStart = safePage * COLS_PER_PAGE;
+                        // Always use COLS_PER_PAGE columns for consistent cell width,
+                        // unless total cols < 4 (then shrink to fit)
+                        const gridCols = Math.min(COLS_PER_PAGE, effectiveTableCols);
+                        const colsThisPage = Math.min(COLS_PER_PAGE, effectiveTableCols - colStart);
+                        return (
+                          <>
+                      <div
+                        className="flex-1 overflow-y-auto space-y-2 min-h-0"
+                        onTouchStart={e => { tableSwipeStartX.current = e.touches[0].clientX; }}
+                        onTouchEnd={e => {
+                          if (tableSwipeStartX.current === null) return;
+                          const delta = e.changedTouches[0].clientX - tableSwipeStartX.current;
+                          tableSwipeStartX.current = null;
+                          if (Math.abs(delta) < 40) return;
+                          if (delta < 0) setTableColPage(p => Math.min(p + 1, totalColPages - 1));
+                          else setTableColPage(p => Math.max(p - 1, 0));
+                        }}
+                      >
+                        {tableRowsForSelection.map((row, rowIdx) => (
+                          <div key={`saved-row-${rowIdx}`} className="grid gap-2" style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}>
+                            {Array.from({ length: colsThisPage }, (_, i) => {
+                              const colIdx = colStart + i;
+                              const table = colIdx < effectiveTableCols ? (row[colIdx] || null) : null;
+                              if (!table) {
+                                return <div key={`saved-empty-${rowIdx}-${i}`} aria-hidden="true" />;
+                              }
+                              const tableBill = savedBillsByTable.get(table);
+                              const hasPending = !!tableBill;
+                              const isActiveTable = activeSavedBillTable === table;
+                              return (
+                                <div
+                                  key={table}
+                                  className={`saved-table-cell rounded-xl border p-3 transition-all ${
+                                    isActiveTable
+                                      ? 'border-orange-600 bg-orange-100 dark:bg-orange-900/30 shadow-[0_0_0_1px_rgba(234,88,12,0.5),0_0_20px_rgba(234,88,12,0.35)]'
+                                      :
+                                    hasPending
+                                      ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 shadow-[0_0_0_1px_rgba(249,115,22,0.35),0_0_16px_rgba(249,115,22,0.3)]'
+                                      : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 opacity-70'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <p className="text-[10px] font-black uppercase tracking-widest dark:text-white">{table}</p>
+                                    <span className={`text-[8px] font-black uppercase tracking-widest ${hasPending ? 'text-orange-500' : 'text-gray-400'}`}>
+                                      {hasPending ? 'Pending' : 'Empty'}
+                                    </span>
+                                  </div>
+                                  {hasPending ? (
+                                    <>
+                                      <p className="mt-1 text-[9px] text-gray-500 dark:text-gray-300 line-clamp-1">
+                                        {tableBill.items.length} items · {currencySymbol}{(tableBill.items.reduce((sum, item) => sum + item.price * item.quantity, 0) + activeTaxEntries.reduce((sum, tax) => sum + ((tableBill.items.reduce((sub, item) => sub + item.price * item.quantity, 0) * tax.percentage) / 100), 0)).toFixed(2)}
+                                      </p>
+                                      <div className="mt-2 flex gap-1">
+                                        <button
+                                          onClick={() => loadSavedBill(table)}
+                                          className="flex-1 py-1.5 bg-orange-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 transition-all"
+                                        >
+                                          Load
+                                        </button>
+                                        <button
+                                          onClick={() => deleteSavedBill(table)}
+                                          className="px-2 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+                                        >
+                                          Del
+                                        </button>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div className="mt-2 text-[9px] text-gray-400">No pending bill</div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                      {/* Fixed dot indicator area — always takes space so layout never shifts */}
+                      <div className="h-8 flex items-center justify-center gap-1.5 shrink-0">
+                        {totalColPages > 1 && Array.from({ length: totalColPages }, (_, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => setTableColPage(i)}
+                            className={`h-2 rounded-full transition-all duration-200 ${
+                              i === safePage ? 'bg-orange-500 w-5' : 'bg-gray-300 dark:bg-gray-600 w-2 hover:bg-gray-400'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+              ) : showQrFeature && counterMode === 'QR_ORDER' ? (
+                <div className="flex-1 overflow-hidden flex flex-col">
+                  {/* QR Order toolbar */}
+                  <div className="px-4 py-4 border-b dark:border-gray-700 flex items-center gap-3 bg-white dark:bg-gray-800 shrink-0">
+                    <div className="relative flex-1">
+                      <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        value={qrSearchQuery}
+                        onChange={e => setQrSearchQuery(e.target.value)}
+                        placeholder="Search table or order..."
+                        className="w-full h-10 pl-9 pr-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                    </div>
+                    <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-0.5 border dark:border-gray-600 shrink-0 h-10 items-center">
+                      <button onClick={() => setQrOrderView('list')} className={`p-2 rounded-md transition-all ${qrOrderView === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={14} /></button>
+                      <button onClick={() => { setQrOrderView('grid'); setQrGridColumns(2); }} className={`px-2.5 py-2 rounded-md transition-all text-[10px] font-black ${qrOrderView === 'grid' && qrGridColumns === 2 ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}>2</button>
+                      <button onClick={() => { setQrOrderView('grid'); setQrGridColumns(3); }} className={`px-2.5 py-2 rounded-md transition-all text-[10px] font-black ${qrOrderView === 'grid' && qrGridColumns === 3 ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}>3</button>
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4">
+                  {(() => {
+                    const servedOrders = orders.filter(o => {
+                      if (o.status !== OrderStatus.SERVED) return false;
+                      if (!qrSearchQuery) return true;
+                      const q = qrSearchQuery.toLowerCase();
+                      return (o.tableNumber || '').toLowerCase().includes(q) || o.id.toLowerCase().includes(q) || o.items.some(i => i.name.toLowerCase().includes(q));
+                    });
+                    if (servedOrders.length === 0) {
+                      return (
+                        <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
+                          <QrCode size={48} className="mb-4" />
+                          <p className="text-[10px] font-black uppercase tracking-widest">{qrSearchQuery ? 'No matching orders' : 'No served orders waiting'}</p>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className={qrOrderView === 'grid' ? `grid ${qrGridColumns === 3 ? 'grid-cols-3' : 'grid-cols-2'} gap-3` : 'space-y-3'}>
+                        {servedOrders.map(order => (
+                          <button
+                            key={order.id}
+                            onClick={() => setSelectedQrOrderForPayment(order)}
+                            className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                              selectedQrOrderForPayment?.id === order.id
+                                ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/10'
+                                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-orange-300'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <QrCode size={14} className="text-orange-500" />
+                                <span className="text-xs font-black dark:text-white uppercase">{order.tableNumber}</span>
+                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">#{order.id}</span>
+                              </div>
+                              <span className="text-xs font-black text-orange-500">{currencySymbol}{order.total.toFixed(2)}</span>
+                            </div>
+                            <div className="space-y-0.5">
+                              {order.items.map((item, idx) => (
+                                <p key={idx} className="text-[10px] text-gray-500 dark:text-gray-400">x{item.quantity} {item.name}</p>
+                              ))}
+                            </div>
+                            {selectedQrOrderForPayment?.id === order.id && (
+                              <p className="mt-2 text-[9px] font-black text-orange-500 uppercase tracking-widest">Selected — see right panel to complete payment</p>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                  </div>
+                </div>
+              ) : (
+                <>
+              <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 lg:px-5 py-2 lg:py-2.5 max-lg:landscape:py-1 flex flex-col gap-2 lg:gap-2 max-lg:landscape:gap-1">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1">
+                    {categories.map(cat => (
+                      <button
+                        key={cat}
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`px-2.5 py-1 lg:px-3 lg:py-1.5 max-lg:landscape:py-0.5 max-lg:landscape:px-2 rounded-lg font-black text-[10px] uppercase tracking-widest whitespace-nowrap transition-all ${
+                          selectedCategory === cat 
+                            ? 'bg-black text-white dark:bg-white dark:text-black' 
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="relative shrink-0 hidden lg:block">
+                    <button onClick={() => setShowLayoutPicker(!showLayoutPicker)} className="p-1.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-all">
+                      <LayoutGrid size={14} />
+                    </button>
+                    {showLayoutPicker && (
+                      <div className="absolute right-0 top-full mt-1 z-50 flex items-center gap-1 bg-white dark:bg-gray-800 border dark:border-gray-700 p-1 rounded-xl shadow-lg">
+                        <button onClick={() => { setMenuLayout('grid-3'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-3' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>3</button>
+                        <button onClick={() => { setMenuLayout('grid-4'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-4' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>4</button>
+                        <button onClick={() => { setMenuLayout('grid-5'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-5' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>5</button>
+                        <button onClick={() => { setMenuLayout('grid-6'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${menuLayout === 'grid-6' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>6</button>
+                        <button onClick={() => { setMenuLayout('list'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all ${menuLayout === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><List size={14} /></button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input 
+                    type="text" 
+                    placeholder="Search menu items..." 
+                    className="w-full pl-10 pr-3 py-2 max-lg:landscape:py-1.5 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+                    value={menuSearch}
+                    onChange={e => setMenuSearch(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-2 pb-24 lg:pb-2 scroll-smooth">
+                <div className="space-y-4">
+                  {Object.entries(groupedMenu).map(([category, items]) => (
+                    <section key={category}>
+                      <div className="mb-2 text-center">
+                        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] whitespace-nowrap">{category}</h3>
+                      </div>
+                      
+                      <div className={`grid gap-1.5 ${
+                        mobileMenuLayout === '2' ? 'grid-cols-2' :
+                        mobileMenuLayout === '3' ? 'grid-cols-3' :
+                        'grid-cols-1'
+                      } ${
+                        menuLayout === 'list' ? 'lg:grid-cols-1' :
+                        menuLayout === 'grid-3' ? 'lg:grid-cols-3' :
+                        menuLayout === 'grid-4' ? 'lg:grid-cols-4' :
+                        menuLayout === 'grid-5' ? 'lg:grid-cols-5' :
+                        'lg:grid-cols-6'
+                      }`}>
+                        {items.map(item => (
+                          <button
+                            key={item.id}
+                            onClick={() => handleMenuItemClick(item)}
+                            className={`relative bg-white dark:bg-gray-800 border dark:border-gray-700 text-left hover:border-orange-500 transition-all group shadow-sm flex p-2 rounded-xl ${
+                              mobileMenuLayout === 'list' ? 'flex-row items-center gap-4' : 'flex-col'
+                            } ${
+                              menuLayout === 'list' ? 'lg:flex-row lg:items-center lg:gap-4' : 'lg:flex-col lg:items-stretch lg:gap-0'
+                            } ${flashItemId === item.id ? 'ring-2 ring-green-500 border-green-500 scale-95' : ''}`}
+                            style={flashItemId === item.id ? { transition: 'all 0.15s ease-in-out' } : {}}
+                          >
+                            {flashItemId === item.id && (
+                              <div className="absolute inset-0 bg-green-500/20 rounded-xl flex items-center justify-center z-10 pointer-events-none">
+                                <CheckCircle2 size={28} className="text-green-500 drop-shadow-md" />
+                              </div>
+                            )}
+                            <div className={`${
+                              mobileMenuLayout === 'list' ? 'w-16 h-16' : 'aspect-square w-full'
+                            } ${
+                              menuLayout === 'list' ? 'lg:w-16 lg:h-16 lg:aspect-auto' : 'lg:aspect-square lg:w-full'
+                            } rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0`}
+                            style={!item.image && item.color ? { backgroundColor: item.color } : undefined}
+                            >
+                              {item.image ? (
+                                <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-white/70">
+                                  <ShoppingBag size={20} />
+                                </div>
+                              )}
+                            </div>
+                            <div className={`${mobileMenuLayout === 'list' ? 'flex-1' : 'mt-3'} ${menuLayout === 'list' ? 'lg:flex-1 lg:mt-0' : 'lg:flex-none lg:mt-3'}`}>
+                              <h4 className="font-black text-xs dark:text-white uppercase tracking-tighter mb-1 line-clamp-1">{item.name}</h4>
+                              <p className="text-orange-500 font-black text-sm">{currencySymbol}{item.price.toFixed(2)}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              </div>
+            </>
+              )}
+            </>
+          )}
+
+          {/* Reports Tab - Same as PosView */}
+          {activeTab === 'REPORTS' && reportsSubMenu === 'salesReport' && (
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+              {!isOnline && (
+                <div className="mb-4 flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl">
+                  <WifiOff size={14} className="text-amber-500 shrink-0" />
+                  <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">
+                    Offline — showing locally cached orders only
+                  </p>
+                </div>
+              )}
+              <StandardReport
+                reportStart={reportStart}
+                reportEnd={reportEnd}
+                reportStatus={reportStatus}
+                reportSearchQuery={reportSearchQuery}
+                entriesPerPage={entriesPerPage}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                paginatedReports={paginatedReports}
+                reportData={reportData}
+                onChangeReportStart={setReportStart}
+                onChangeReportEnd={setReportEnd}
+                onChangeReportStatus={(value) => setReportStatus(value as any)}
+                onChangeReportSearchQuery={setReportSearchQuery}
+                onChangeEntriesPerPage={setEntriesPerPage}
+                onChangeCurrentPage={setCurrentPage}
+                onDownloadReport={handleDownloadReport}
+                onSelectOrder={(order) => setSelectedReportOrder(order)}
+              />
+            </div>
+          )}
+
+          {/* Menu Editor Tab */}
+          {activeTab === 'MENU_EDITOR' && isFormModalOpen ? (
+            <MenuItemFormModal
+              isOpen={isFormModalOpen}
+              formItem={formItem}
+              setFormItem={setFormItem}
+              categories={menuEditorCategories}
+              availableModifiers={modifiers}
+              availableAddOnItems={addOnItems}
+              onClose={handleCloseFormModal}
+              onSubmit={handleSaveMenuItem}
+              onImageUpload={handleImageUpload}
+              onSaveModifier={(modifier) => {
+                const duplicate = modifiers.some(m => m.name === modifier.name);
+                if (duplicate) {
+                  toast('A modifier with this name already exists.', 'warning');
+                  return;
+                }
+                setModifiers(prev => [...prev, modifier]);
+              }}
+            />
+          ) : activeTab === 'MENU_EDITOR' && (
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-4 md:p-8 pb-0 md:pb-0">
+                <div className="mb-5">
+                  <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">Menu Editor</h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Manage your menu items, categories, modifiers, and add-ons.</p>
+                </div>
+
+                {/* Document-style tab bar */}
+                <div className="flex gap-0 relative">
+                  {([
+                    { id: 'KITCHEN' as const, label: 'Kitchen Menu', icon: <BookOpen size={13} /> },
+                    { id: 'CATEGORY' as const, label: 'Category', icon: <Layers size={13} /> },
+                    { id: 'MODIFIER' as const, label: 'Modifier', icon: <Coffee size={13} /> },
+                    { id: 'ADDON' as const, label: 'Add-On Item', icon: <PlusCircle size={13} /> },
+                  ]).map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setMenuSubTab(tab.id)}
+                      style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                      className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
+                        menuSubTab === tab.id
+                          ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
+                          : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
+                      }`}
+                    >
+                      {tab.icon}
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Sub-tab content */}
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl rounded-tr-2xl">
+
+                  {/* Sub-tab controls — sticky toolbar */}
+                  <div
+                    ref={menuEditorStickyRef}
+                    className={`sticky -top-px z-30 bg-white dark:bg-gray-800 -mt-5 md:-mt-6 pt-3 pb-2 space-y-3 transition-all duration-300 ${
+                      menuEditorStuck
+                        ? '-mx-9 md:-mx-14 px-9 md:px-14 shadow-md rounded-none'
+                        : '-mx-5 md:-mx-6 px-5 md:px-6 rounded-tr-2xl'
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center gap-3">
+                    {menuSubTab === 'KITCHEN' ? (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
+                            <button onClick={() => setMenuViewMode('grid')} className={`px-2 rounded-md transition-all ${menuViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={14} /></button>
+                            <button onClick={() => setMenuViewMode('list')} className={`px-2 rounded-md transition-all ${menuViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={14} /></button>
+                          </div>
+                          <div className="relative">
+                            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
+                              type="text"
+                              value={menuSearchQuery}
+                              onChange={e => setMenuSearchQuery(e.target.value)}
+                              placeholder="Search menu..."
+                              className="h-8 w-48 pl-9 pr-3 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="ml-auto flex items-center gap-3">
+                          <div className="flex h-8 bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
+                            <button onClick={() => setMenuStatusFilter('ACTIVE')} className={`flex items-center gap-1.5 px-3 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${menuStatusFilter === 'ACTIVE' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}><Eye size={13} /> <span className="hidden sm:inline">Active</span></button>
+                            <button onClick={() => setMenuStatusFilter('ARCHIVED')} className={`flex items-center gap-1.5 px-3 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${menuStatusFilter === 'ARCHIVED' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}><Archive size={13} /> <span className="hidden sm:inline">Archived</span></button>
+                          </div>
+                          <button onClick={() => handleOpenAddModal()} className="h-8 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">+ Add Item</button>
+                        </div>
+                      </>
+                    ) : menuSubTab === 'CATEGORY' ? (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
+                            <button onClick={() => setClassViewMode('grid')} className={`px-2 rounded-md transition-all ${classViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={14} /></button>
+                            <button onClick={() => setClassViewMode('list')} className={`px-2 rounded-md transition-all ${classViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={14} /></button>
+                          </div>
+                        </div>
+                        <button onClick={() => setShowAddClassModal(true)} className="ml-auto h-8 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
+                          <Tag size={14} /> + New Category
+                        </button>
+                      </>
+                    ) : menuSubTab === 'MODIFIER' ? (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
+                            <button onClick={() => setModifierViewMode('grid')} className={`px-2 rounded-md transition-all ${modifierViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={14} /></button>
+                            <button onClick={() => setModifierViewMode('list')} className={`px-2 rounded-md transition-all ${modifierViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={14} /></button>
+                          </div>
+                        </div>
+                        <button onClick={handleAddModifier} className="ml-auto h-8 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
+                          <Coffee size={14} /> + New Modifier
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
+                            <button onClick={() => setAddOnViewMode('grid')} className={`px-2 rounded-md transition-all ${addOnViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={14} /></button>
+                            <button onClick={() => setAddOnViewMode('list')} className={`px-2 rounded-md transition-all ${addOnViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={14} /></button>
+                          </div>
+                        </div>
+                        <button onClick={() => setAddOnItems(prev => [...prev, { name: '', price: 0, maxQuantity: 1, required: false }])} className="ml-auto h-8 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
+                          <PlusCircle size={14} /> + New Add-On
+                        </button>
+                      </>
+                    )}
+                    </div>
+
+                    {/* Category filter — included in sticky toolbar */}
+                    {menuSubTab === 'KITCHEN' && (
+                      <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700/30 px-3 py-1.5 border dark:border-gray-700 rounded-lg overflow-x-auto hide-scrollbar">
+                        <Filter size={14} className="text-gray-400 shrink-0" />
+                        {menuEditorCategories.map(cat => (
+                          <button key={cat} onClick={() => setMenuCategoryFilter(cat)} className={`whitespace-nowrap px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${menuCategoryFilter === cat ? 'bg-orange-100 text-orange-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}>{cat}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                {menuSubTab === 'KITCHEN' && (
+                  <>
+                    {menuViewMode === 'grid' ? (
+                      <div className="grid grid-cols-5 gap-3 mt-4">
+                        {currentMenu.map(item => (
+                          <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden border dark:border-gray-700 hover:shadow-md transition-all group flex flex-col">
+                            <div className="relative aspect-square overflow-hidden" style={!item.image && item.color ? { backgroundColor: item.color } : undefined}>
+                              {item.image ? (
+                                <img src={item.image} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-white/50">
+                                  <ShoppingBag size={28} />
+                                </div>
+                              )}
+                              <div className="absolute top-2 right-2 flex gap-1">
+                                {menuStatusFilter === 'ACTIVE' ? (
+                                  <>
+                                    <button onClick={() => handleArchiveItem(item)} className="p-1.5 bg-red-50/90 backdrop-blur rounded-lg text-red-600 shadow-sm"><Archive size={18} /></button>
+                                    <button onClick={() => handleOpenEditModal(item)} className="p-1.5 bg-white/90 backdrop-blur rounded-lg text-gray-700 shadow-sm"><Edit3 size={18} /></button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button onClick={() => handleRestoreItem(item)} className="p-1.5 bg-green-50/90 backdrop-blur rounded-lg text-green-600 shadow-sm"><RotateCcw size={18} /></button>
+                                    <button onClick={() => handlePermanentDelete(item.id)} className="p-1.5 bg-red-50/90 backdrop-blur rounded-lg text-red-600 shadow-sm"><Trash2 size={18} /></button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            <div className="p-2">
+                              <h3 className="font-black text-xs text-gray-900 dark:text-white mb-1 uppercase tracking-tight line-clamp-1">{item.name}</h3>
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm font-black text-orange-500">{currencySymbol}{item.price.toFixed(2)}</span>
+                                <span className="text-[8px] font-black uppercase tracking-widest text-gray-400 truncate ml-1">{item.category}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden shadow-sm">
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                              <tr>
+                                <th className="px-4 py-3 text-left">Dish Profile</th>
+                                <th className="px-4 py-3 text-left">Category</th>
+                                <th className="px-4 py-3 text-left">Base Cost</th>
+                                <th className="px-4 py-3 text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y dark:divide-gray-700">
+                              {currentMenu.map(item => (
+                                <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                                  <td className="px-4 py-3">
+                                    <div className="flex items-center gap-3">
+                                      {item.image ? (
+                                        <img src={item.image} className="w-10 h-10 rounded-lg object-cover" />
+                                      ) : (
+                                        <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white/60" style={item.color ? { backgroundColor: item.color } : { backgroundColor: '#D1D5DB' }}>
+                                          <ShoppingBag size={16} />
+                                        </div>
+                                      )}
+                                      <div>
+                                        <p className="font-black text-gray-900 dark:text-white uppercase tracking-tight text-xs">{item.name}</p>
+                                        <p className="hidden sm:block text-[9px] text-gray-500 dark:text-gray-400 truncate max-w-xs">{item.description}</p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-[9px] font-black uppercase text-gray-400">{item.category}</td>
+                                  <td className="px-4 py-3 font-black text-gray-900 dark:text-white text-xs">{currencySymbol}{item.price.toFixed(2)}</td>
+                                  <td className="px-4 py-3 text-right">
+                                    <div className="flex justify-end items-center gap-1">
+                                      {menuStatusFilter === 'ACTIVE' ? (
+                                        <button onClick={() => handleArchiveItem(item)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"><Archive size={20} /></button>
+                                      ) : (
+                                        <button onClick={() => handleRestoreItem(item)} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-all"><RotateCcw size={20} /></button>
+                                      )}
+                                      <button onClick={() => handleOpenEditModal(item)} className="p-2 text-gray-400 hover:text-orange-500 rounded-lg transition-all"><Edit3 size={20} /></button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {menuSubTab === 'CATEGORY' && (
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700/30 border-b dark:border-gray-700 flex justify-between items-center">
+                      <div className="flex items-center gap-2 text-gray-400">
+                        <Layers size={16} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Category Manager</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{extraCategories.length} Total</span>
+                    </div>
+
+                    <div className={classViewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4' : 'divide-y dark:divide-gray-700'}>
+                      {extraCategories.map(category => {
+                        const itemsInCategory = restaurant.menu.filter(item => item.category === category.name && !item.isArchived);
+
+                        if (classViewMode === 'grid') {
+                          return (
+                            <div key={category.name} className="p-4 bg-gray-50/50 dark:bg-gray-900/50 border dark:border-gray-700 rounded-lg hover:border-orange-200 transition-all">
+                              <div className="flex justify-between items-start mb-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg flex items-center justify-center">
+                                    <Layers size={16} />
+                                  </div>
+                                  <div>
+                                    <h4 className="font-black text-xs dark:text-white uppercase tracking-tight">{category.name}</h4>
+                                    <p className="text-[8px] font-bold text-gray-400 uppercase">{itemsInCategory.length} Items</p>
+                                  </div>
+                                </div>
+                                <div className="flex gap-1">
+                                  <button onClick={() => { setRenamingClass(category.name); setRenameValue(category.name); }} className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg">
+                                    <Edit3 size={14} />
+                                  </button>
+                                  <button onClick={() => handleRemoveCategory(category.name)} className="p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </div>
+
+
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div key={category.name} className="flex items-center justify-between p-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all">
+                            <div className="flex items-center gap-3 flex-1">
+                              <div className="w-8 h-8 bg-orange-50 dark:bg-orange-900/20 text-orange-500 rounded-lg flex items-center justify-center">
+                                <Layers size={16} />
+                              </div>
+
+                              {renamingClass === category.name ? (
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    autoFocus
+                                    className="px-2 py-1 text-sm font-black border dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                    value={renameValue}
+                                    onChange={event => setRenameValue(event.target.value)}
+                                    onKeyDown={event => event.key === 'Enter' && handleRenameCategory(category.name, renameValue)}
+                                  />
+                                  <button onClick={() => handleRenameCategory(category.name, renameValue)} className="text-green-500">
+                                    <CheckCircle2 size={16} />
+                                  </button>
+                                  <button onClick={() => setRenamingClass(null)} className="text-red-500">
+                                    <X size={16} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-4 flex-1">
+                                  <div>
+                                    <p className="text-sm font-black dark:text-white uppercase tracking-tight">{category.name}</p>
+                                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                                      {itemsInCategory.length} Active Dishes
+                                    </p>
+                                  </div>
+
+
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => { setRenamingClass(category.name); setRenameValue(category.name); }} className="p-2 text-gray-400 hover:text-orange-500">
+                                <Edit3 size={16} />
+                              </button>
+                              <button onClick={() => handleRemoveCategory(category.name)} className="p-2 text-red-400 hover:text-red-500">
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {extraCategories.length === 0 && (
+                        <div className="col-span-full text-center py-12">
+                          <Layers size={32} className="mx-auto text-gray-300 mb-2" />
+                          <p className="text-[10px] font-black text-gray-400 uppercase">No categories added yet</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {menuSubTab === 'MODIFIER' && (
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700/30 border-b dark:border-gray-700 flex justify-between items-center">
+                      <div className="flex items-center gap-2 text-gray-400">
+                        <Coffee size={16} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Modifier Manager</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{modifiers.length} Total</span>
+                    </div>
+
+                    <div className={modifierViewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4' : 'divide-y dark:divide-gray-700'}>
+                      {modifiers.map(modifier => {
+                        if (modifierViewMode === 'grid') {
+                          return (
+                            <div key={modifier.name} className="p-4 bg-gray-50/50 dark:bg-gray-900/50 border dark:border-gray-700 rounded-lg hover:border-orange-200 transition-all">
+                              <div className="flex justify-between items-start mb-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg flex items-center justify-center">
+                                    <Coffee size={16} />
+                                  </div>
+                                  <div>
+                                    <h4 className="font-black text-xs dark:text-white uppercase tracking-tight">{modifier.name}</h4>
+                                    <p className="text-[8px] font-bold text-gray-400 uppercase">{modifier.options.length} Options</p>
+                                  </div>
+                                </div>
+                                <div className="flex gap-1">
+                                  <button onClick={() => handleEditModifier(modifier)} className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg" title="Edit">
+                                    <Edit3 size={14} />
+                                  </button>
+                                  <button onClick={() => handleRemoveModifier(modifier.name)} className="p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg" title="Remove">
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="space-y-1 mt-2 pt-2 border-t dark:border-gray-700">
+                                {modifier.options.slice(0, 3).map((option, idx) => (
+                                  <div key={idx} className="flex items-center justify-between text-[8px]">
+                                    <span className="font-bold text-gray-600 dark:text-gray-300">{option.name}</span>
+                                    <span className="font-black text-orange-500">+{currencySymbol}{option.price.toFixed(2)}</span>
+                                  </div>
+                                ))}
+                                {modifier.options.length > 3 && (
+                                  <p className="text-[7px] text-gray-400 italic">+{modifier.options.length - 3} more</p>
+                                )}
+                                {modifier.options.length === 0 && (
+                                  <p className="text-[8px] text-gray-400 italic text-center py-2">No options</p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div key={modifier.name} className="p-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all">
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
+                                <div className="w-8 h-8 bg-purple-50 dark:bg-purple-900/20 text-purple-500 rounded-lg flex items-center justify-center">
+                                  <Coffee size={16} />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-black dark:text-white uppercase tracking-tight">{modifier.name}</p>
+                                  <p className="text-[9px] font-bold text-gray-400">{modifier.options.length} Options</p>
+                                </div>
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                {modifier.options.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {modifier.options.slice(0, 3).map((option, idx) => (
+                                      <span key={idx} className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-[9px]">
+                                        <span className="font-bold text-gray-600 dark:text-gray-300">{option.name}</span>
+                                        <span className="font-black text-orange-500">+{currencySymbol}{option.price.toFixed(2)}</span>
+                                      </span>
+                                    ))}
+                                    {modifier.options.length > 3 && (
+                                      <span className="inline-flex items-center px-2 py-1 text-[9px] text-gray-400 italic">
+                                        +{modifier.options.length - 3} more
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="text-[9px] text-gray-400 italic">No options</p>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <span className="text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase">Required</span>
+                                  <input
+                                    type="checkbox"
+                                    checked={modifier.required || false}
+                                    onChange={() => handleToggleModifierRequired(modifier.name)}
+                                    className="w-4 h-4 text-orange-500 rounded focus:ring-orange-500"
+                                  />
+                                </label>
+                              </div>
+
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <button
+                                  onClick={() => handleEditModifier(modifier)}
+                                  className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded"
+                                  title="Edit"
+                                >
+                                  <Edit3 size={16} />
+                                </button>
+                                <button
+                                  onClick={() => handleRemoveModifier(modifier.name)}
+                                  className="p-2 text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                                  title="Remove"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {modifiers.length === 0 && (
+                        <div className="col-span-full text-center py-12">
+                          <Coffee size={32} className="mx-auto text-gray-300 mb-2" />
+                          <p className="text-[10px] font-black text-gray-400 uppercase">No modifiers added yet</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {menuSubTab === 'ADDON' && (
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700/30 border-b dark:border-gray-700 flex justify-between items-center">
+                      <div className="flex items-center gap-2 text-gray-400">
+                        <PlusCircle size={16} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Add-On Item Manager</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{addOnItems.length} Total</span>
+                    </div>
+
+                    <div className={addOnViewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4' : 'divide-y dark:divide-gray-700'}>
+                      {addOnItems.map((addon, index) => {
+                        if (addOnViewMode === 'grid') {
+                          return (
+                            <div key={index} className="p-4 bg-gray-50/50 dark:bg-gray-900/50 border dark:border-gray-700 rounded-lg hover:border-orange-200 transition-all">
+                              <div className="flex justify-between items-start mb-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg flex items-center justify-center">
+                                    <PlusCircle size={16} />
+                                  </div>
+                                  <div>
+                                    <input
+                                      type="text"
+                                      value={addon.name}
+                                      onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, name: e.target.value }; setAddOnItems(updated); }}
+                                      placeholder="Add-on name"
+                                      className="font-black text-xs dark:text-white uppercase tracking-tight bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-orange-500 outline-none w-full"
+                                    />
+                                  </div>
+                                </div>
+                                <button onClick={() => setAddOnItems(prev => prev.filter((_, i) => i !== index))} className="p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg" title="Remove">
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+
+                              <div className="space-y-2 mt-2 pt-2 border-t dark:border-gray-700">
+                                <div className="flex items-center justify-between text-[9px]">
+                                  <span className="font-bold text-gray-500 uppercase">Price</span>
+                                  <input
+                                    type="number"
+                                    value={addon.price || ''}
+                                    onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, price: parseFloat(e.target.value) || 0 }; setAddOnItems(updated); }}
+                                    placeholder="0.00"
+                                    className="w-20 text-right font-black text-orange-500 bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-orange-500 outline-none text-[10px]"
+                                    step="0.01"
+                                    min="0"
+                                  />
+                                </div>
+                                <div className="flex items-center justify-between text-[9px]">
+                                  <span className="font-bold text-gray-500 uppercase">Max Qty</span>
+                                  <input
+                                    type="number"
+                                    value={addon.maxQuantity}
+                                    onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, maxQuantity: parseInt(e.target.value) || 1 }; setAddOnItems(updated); }}
+                                    className="w-16 text-right font-black text-gray-700 dark:text-gray-300 bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-orange-500 outline-none text-[10px]"
+                                    min="1"
+                                  />
+                                </div>
+                                <div className="flex items-center justify-between text-[9px]">
+                                  <span className="font-bold text-gray-500 uppercase">Required</span>
+                                  <input
+                                    type="checkbox"
+                                    checked={addon.required || false}
+                                    onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, required: e.target.checked }; setAddOnItems(updated); }}
+                                    className="w-4 h-4 text-orange-500 rounded focus:ring-orange-500"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div key={index} className="p-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all">
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex items-center gap-3 min-w-0 flex-1">
+                                <div className="w-8 h-8 bg-green-50 dark:bg-green-900/20 text-green-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                  <PlusCircle size={16} />
+                                </div>
+                                <input
+                                  type="text"
+                                  value={addon.name}
+                                  onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, name: e.target.value }; setAddOnItems(updated); }}
+                                  placeholder="Add-on name"
+                                  className="text-sm font-black dark:text-white uppercase tracking-tight bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-orange-500 outline-none min-w-0 w-full"
+                                />
+                              </div>
+
+                              <div className="flex items-center gap-4 flex-shrink-0">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] font-bold text-gray-400 uppercase">Price:</span>
+                                  <span className="text-[9px] font-bold text-gray-400">{currencySymbol}</span>
+                                  <input
+                                    type="number"
+                                    value={addon.price || ''}
+                                    onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, price: parseFloat(e.target.value) || 0 }; setAddOnItems(updated); }}
+                                    placeholder="0.00"
+                                    className="w-16 text-right font-black text-orange-500 bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-orange-500 outline-none text-xs"
+                                    step="0.01"
+                                    min="0"
+                                  />
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] font-bold text-gray-400 uppercase">Max:</span>
+                                  <input
+                                    type="number"
+                                    value={addon.maxQuantity}
+                                    onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, maxQuantity: parseInt(e.target.value) || 1 }; setAddOnItems(updated); }}
+                                    className="w-12 text-right font-black text-gray-700 dark:text-gray-300 bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-orange-500 outline-none text-xs"
+                                    min="1"
+                                  />
+                                </div>
+
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <span className="text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase">Required</span>
+                                  <input
+                                    type="checkbox"
+                                    checked={addon.required || false}
+                                    onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, required: e.target.checked }; setAddOnItems(updated); }}
+                                    className="w-4 h-4 text-orange-500 rounded focus:ring-orange-500"
+                                  />
+                                </label>
+                              </div>
+
+                              <button
+                                onClick={() => setAddOnItems(prev => prev.filter((_, i) => i !== index))}
+                                className="p-2 text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded flex-shrink-0"
+                                title="Remove"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {addOnItems.length === 0 && (
+                        <div className="col-span-full text-center py-12">
+                          <PlusCircle size={32} className="mx-auto text-gray-300 mb-2" />
+                          <p className="text-[10px] font-black text-gray-400 uppercase">No add-on items yet</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Settings Tab */}
+          {activeTab === 'SETTINGS' && (
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+              <div className="animate-in fade-in duration-500">
+                <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Settings</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Features, printer, receipt, payment, tax, and staff configuration.</p>
+
+                {isKitchenUser && (
+                  <div className="mb-6 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 space-y-3">
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Kitchen Order Settings</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                        <div>
+                          <p className="text-xs font-black dark:text-white">Auto-Accept</p>
+                          <p className="text-[9px] text-gray-400 mt-0.5">Automatically accept incoming orders</p>
+                        </div>
+                        <button
+                          onClick={() => toggleKitchenOrderSetting('autoAccept')}
+                          className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoAccept ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                        >
+                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${kitchenOrderSettings.autoAccept ? 'left-6' : 'left-1'}`} />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                        <div>
+                          <p className="text-xs font-black dark:text-white">Auto-Print</p>
+                          <p className="text-[9px] text-gray-400 mt-0.5">Automatically print accepted orders</p>
+                        </div>
+                        <button
+                          onClick={() => toggleKitchenOrderSetting('autoPrint')}
+                          className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoPrint ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                        >
+                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${kitchenOrderSettings.autoPrint ? 'left-6' : 'left-1'}`} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ===== MOBILE: Accordion Layout ===== */}
+                <div className="lg:hidden space-y-4">
+
+                  {/* Settings Container */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                    <div className="flex items-center gap-2.5 px-4 py-3 bg-emerald-50/50 dark:bg-emerald-900/10 border-b dark:border-gray-700">
+                      <Settings size={14} className="text-emerald-500" />
+                      <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Settings</p>
+                    </div>
+                    <div className="divide-y dark:divide-gray-700">
+
+                  {/* Built-in Features Accordion (moved to top of Settings) */}
+                  {!isKitchenUser && (
+                  <div>
+                    <button
+                      onClick={() => setSettingsPanel(settingsPanel === 'builtin' ? 'printer' : 'builtin')}
+                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'builtin' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
+                        <Zap size={18} className="text-amber-500" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'builtin' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Built-in Features</p>
+                        <p className="text-[10px] text-gray-400">Auto-print, drawer, dining</p>
+                      </div>
+                      <ChevronDown size={16} className={`transition-all ${settingsPanel === 'builtin' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
+                    </button>
+                    {settingsPanel === 'builtin' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg">
+                          {renderFeaturesContent()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  )}
+
+                  {/* Printer Accordion */}
+                  <div>
+                    <button
+                      onClick={() => { setSettingsPanel(settingsPanel === 'printer' ? 'builtin' : 'printer'); setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }}
+                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'printer' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center">
+                        <Printer size={18} className="text-orange-500" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'printer' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Printer Setup</p>
+                        <p className="text-[10px] text-gray-400">{savedPrinters.length > 0 ? savedPrinters[0].model : 'No printer configured'}</p>
+                      </div>
+                      <ChevronDown size={16} className={`transition-all ${settingsPanel === 'printer' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
+                    </button>
+                    {settingsPanel === 'printer' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg">
+                          {renderPrinterContent()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Receipt Accordion */}
+                  <div>
+                    <button
+                      onClick={() => setSettingsPanel(settingsPanel === 'receipt' ? 'builtin' : 'receipt')}
+                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'receipt' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
+                        <Receipt size={18} className="text-blue-500" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'receipt' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Receipt</p>
+                        <p className="text-[10px] text-gray-400">Configure receipt layout</p>
+                      </div>
+                      <ChevronDown size={16} className={`transition-all ${settingsPanel === 'receipt' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
+                    </button>
+                    {settingsPanel === 'receipt' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg">
+                          {renderReceiptContent()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Payment Type & Taxes Accordion */}
+                  <div>
+                    <button
+                      onClick={() => setSettingsPanel(settingsPanel === 'payment' ? 'builtin' : 'payment')}
+                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'payment' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
+                        <CreditCard size={18} className="text-green-500" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'payment' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Payment Type &amp; Taxes</p>
+                        <p className="text-[10px] text-gray-400">{paymentTypes.length} types · {taxEntries.length} configured</p>
+                      </div>
+                      <ChevronDown size={16} className={`transition-all ${settingsPanel === 'payment' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
+                    </button>
+                    {settingsPanel === 'payment' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg">
+                          {renderPaymentAndTaxesContent()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Staff Accordion */}
+                  <div>
+                    <button
+                      onClick={() => setSettingsPanel(settingsPanel === 'staff' ? 'builtin' : 'staff')}
+                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'staff' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
+                        <Users size={18} className="text-violet-500" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'staff' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Staff Management</p>
+                        <p className="text-[10px] text-gray-400">{staffList.length} member{staffList.length !== 1 ? 's' : ''}</p>
+                      </div>
+                      <ChevronDown size={16} className={`transition-all ${settingsPanel === 'staff' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
+                    </button>
+                    {settingsPanel === 'staff' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg">
+                          {renderStaffContent()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* User Experience Accordion */}
+                  <div>
+                    <button
+                      onClick={() => setSettingsPanel(settingsPanel === 'ux' ? 'builtin' : 'ux')}
+                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'ux' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
+                        <Type size={18} className="text-indigo-500" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'ux' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>User Experience</p>
+                        <p className="text-[10px] text-gray-400">{userFont} · {CURRENCY_OPTIONS.find(c => c.code === userCurrency)?.label}</p>
+                      </div>
+                      <ChevronDown size={16} className={`transition-all ${settingsPanel === 'ux' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
+                    </button>
+                    {settingsPanel === 'ux' && (
+                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                        <div className="max-w-lg">
+                          {renderUXContent()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                    </div>
+                  </div>
+
+                </div>
+                <div className="hidden lg:flex gap-6 min-h-[500px]">
+                  {/* Left Sidebar */}
+                  <div className="flex-1 space-y-4">
+
+                    {/* Settings Card */}
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                      <div className="flex items-center gap-2.5 px-4 py-3 bg-emerald-50/50 dark:bg-emerald-900/10 border-b dark:border-gray-700">
+                        <Settings size={14} className="text-emerald-500" />
+                        <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Settings</p>
+                      </div>
+
+                      {/* Built-in Features Nav (at top of Settings) */}
+                      {!isKitchenUser && (
+                      <button
+                        onClick={() => setSettingsPanel('builtin')}
+                        className={`w-full flex items-center gap-3 p-4 transition-all ${
+                          settingsPanel === 'builtin'
+                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          settingsPanel === 'builtin' ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <Zap size={16} className={settingsPanel === 'builtin' ? 'text-orange-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'builtin' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Built-in Features</p>
+                          <p className="text-[10px] text-gray-400">Auto-print, drawer, dining</p>
+                        </div>
+                      </button>
+                      )}
+
+                      {/* Printer Nav Item */}
+                      <button
+                        onClick={() => { setSettingsPanel('printer'); setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }}
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-t-gray-700 ${
+                          settingsPanel === 'printer'
+                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          settingsPanel === 'printer'
+                            ? 'bg-orange-100 dark:bg-orange-900/30'
+                            : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <Printer size={16} className={settingsPanel === 'printer' ? 'text-orange-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${
+                            settingsPanel === 'printer' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'
+                          }`}>Printer Setup</p>
+                          <p className="text-[10px] text-gray-400">{savedPrinters.length > 0 ? savedPrinters[0].model : 'No printer configured'}</p>
+                        </div>
+                      </button>
+
+                      {/* Receipt Nav Item */}
+                      <button
+                        onClick={() => setSettingsPanel('receipt')}
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-t-gray-700 ${
+                          settingsPanel === 'receipt'
+                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          settingsPanel === 'receipt'
+                            ? 'bg-orange-100 dark:bg-orange-900/30'
+                            : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <Receipt size={16} className={settingsPanel === 'receipt' ? 'text-orange-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${
+                            settingsPanel === 'receipt' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'
+                          }`}>Receipt</p>
+                          <p className="text-[10px] text-gray-400">Configure receipt layout</p>
+                        </div>
+                      </button>
+
+                      {/* Payment Type & Taxes Nav Item */}
+                      <button
+                        onClick={() => setSettingsPanel('payment')}
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-t-gray-700 ${
+                          settingsPanel === 'payment'
+                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          settingsPanel === 'payment'
+                            ? 'bg-orange-100 dark:bg-orange-900/30'
+                            : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <CreditCard size={16} className={settingsPanel === 'payment' ? 'text-orange-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${
+                            settingsPanel === 'payment' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'
+                          }`}>Payment Type &amp; Taxes</p>
+                          <p className="text-[10px] text-gray-400">{paymentTypes.length} types · {taxEntries.length} configured</p>
+                        </div>
+                      </button>
+
+                      {/* Staff Nav Item */}
+                      <button
+                        onClick={() => setSettingsPanel('staff')}
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-t-gray-700 ${
+                          settingsPanel === 'staff'
+                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          settingsPanel === 'staff'
+                            ? 'bg-orange-100 dark:bg-orange-900/30'
+                            : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <Users size={16} className={settingsPanel === 'staff' ? 'text-orange-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${
+                            settingsPanel === 'staff' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'
+                          }`}>Staff Management</p>
+                          <p className="text-[10px] text-gray-400">{staffList.length} member{staffList.length !== 1 ? 's' : ''}</p>
+                        </div>
+                      </button>
+
+                      {/* User Experience Nav Item */}
+                      <button
+                        onClick={() => setSettingsPanel('ux')}
+                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-t-gray-700 ${
+                          settingsPanel === 'ux'
+                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
+                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          settingsPanel === 'ux'
+                            ? 'bg-orange-100 dark:bg-orange-900/30'
+                            : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <Type size={16} className={settingsPanel === 'ux' ? 'text-orange-500' : 'text-gray-400'} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-xs font-black uppercase tracking-wide ${
+                            settingsPanel === 'ux' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'
+                          }`}>User Experience</p>
+                          <p className="text-[10px] text-gray-400">{userFont} · {CURRENCY_OPTIONS.find(c => c.code === userCurrency)?.label}</p>
+                        </div>
+                      </button>
+
+                    </div>
+                  </div>
+
+                  {/* Right Content Panel */}
+                  <div className="w-[560px] shrink-0 min-h-0 overflow-y-auto">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
+                      <div className="max-w-lg">
+                        {settingsPanel === 'builtin' && renderFeaturesContent()}
+
+                        {settingsPanel === 'table' && (
+                          <div className="space-y-4">
+                            {renderTableManagementContent()}
+                          </div>
+                        )}
+
+                        {settingsPanel === 'kitchen' && (
+                          <div className="space-y-0">
+                            {canUseKitchen ? renderKitchenSettingsContent() : (
+                              <div className="text-center py-8">
+                                <Coffee size={36} className="mx-auto text-gray-300 mb-3" />
+                                <p className="text-sm font-black dark:text-white mb-1">Upgrade to Pro Plus</p>
+                                <p className="text-[10px] text-gray-400 mb-4">Kitchen Display System requires the Pro Plus plan</p>
+                                <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {settingsPanel === 'qr' && (
+                          <div className="space-y-4">
+                            {canUseQr ? (
+                              <>
+                                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                                  <div>
+                                    <p className="text-xs font-black dark:text-white">QR Ordering</p>
+                                    <p className="text-[9px] text-gray-400 mt-0.5">Let customers scan QR codes to order from their table</p>
+                                  </div>
+                                  <button
+                                    onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
+                                    className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                  >
+                                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
+                                  </button>
+                                </div>
+                                {featureSettings.qrEnabled && renderQrGeneratorContent()}
+                              </>
+                            ) : (
+                              <div className="text-center py-8">
+                                <QrCode size={36} className="mx-auto text-gray-300 mb-3" />
+                                <p className="text-sm font-black dark:text-white mb-1">Upgrade to Pro</p>
+                                <p className="text-[10px] text-gray-400 mb-4">QR Ordering requires the Pro plan or higher</p>
+                                <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {settingsPanel === 'printer' && renderPrinterContent()}
+                        {settingsPanel === 'receipt' && renderReceiptContent()}
+                        {settingsPanel === 'payment' && renderPaymentAndTaxesContent()}
+                        {settingsPanel === 'staff' && renderStaffContent()}
+                        {settingsPanel === 'ux' && renderUXContent()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+        {showAddClassModal && (
+          <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-2xl relative animate-in zoom-in fade-in duration-300">
+              <button onClick={() => setShowAddClassModal(false)} className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 transition-colors"><X size={18} /></button>
+              <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tighter">Add Category</h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Category Name</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                    placeholder="e.g. Beverages"
+                    value={newClassName}
+                    onChange={event => setNewClassName(event.target.value)}
+                  />
+                </div>
+
+
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => setShowAddClassModal(false)}
+                    className="flex-1 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAddCategory}
+                    className="flex-1 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showAddModifierModal && (
+          <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full p-6 shadow-2xl relative animate-in zoom-in fade-in duration-300">
+              <button onClick={() => { setShowAddModifierModal(false); setEditingModifierName(null); }} className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 transition-colors"><X size={18} /></button>
+              <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tighter">{editingModifierName ? 'Edit Modifier' : 'Add Modifier'}</h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Modifier Name</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                    placeholder="e.g. Sugar Level"
+                    value={tempModifierName}
+                    onChange={event => setTempModifierName(event.target.value)}
+                  />
+                </div>
+
+                {/* Required Toggle */}
+                <div className="flex items-center gap-3 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-900">
+                  <label className="flex items-center gap-3 cursor-pointer flex-1">
+                    <input
+                      type="checkbox"
+                      checked={tempModifierRequired}
+                      onChange={(e) => setTempModifierRequired(e.target.checked)}
+                      className="w-5 h-5 text-orange-500 rounded focus:ring-orange-500"
+                    />
+                    <div>
+                      <p className="text-[10px] font-black text-gray-700 dark:text-gray-200 uppercase tracking-wide">Required Modifier</p>
+                      <p className="text-[8px] text-gray-500 dark:text-gray-400">Cashier must select an option when adding this item to cart</p>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Options</label>
+                    <button onClick={handleAddModifierOption} className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-lg text-[9px] font-black uppercase tracking-widest text-gray-500 hover:text-orange-500">
+                      + Add Option
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                    {tempModifierOptions.map((option, idx) => (
+                      <div key={idx} className="grid grid-cols-12 gap-2">
+                        <input
+                          type="text"
+                          className="col-span-7 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                          placeholder="Option name"
+                          value={option.name}
+                          onChange={event => handleModifierOptionChange(idx, 'name', event.target.value)}
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="col-span-4 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                          placeholder="0.00"
+                          value={option.price}
+                          onChange={event => handleModifierOptionChange(idx, 'price', Number(event.target.value))}
+                        />
+                        <button
+                          onClick={() => handleRemoveModifierOption(idx)}
+                          className="col-span-1 p-2 text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+
+                    {tempModifierOptions.length === 0 && (
+                      <div className="text-center py-4 border border-dashed dark:border-gray-700 rounded-lg">
+                        <p className="text-[9px] text-gray-400 uppercase tracking-widest font-black">No options yet</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => { setShowAddModifierModal(false); setEditingModifierName(null); }}
+                    className="flex-1 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveModifier}
+                    className="flex-1 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow"
+                  >
+                    {editingModifierName ? 'Update' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Staff Modal */}
+        {isAddStaffModalOpen && (
+          <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-2xl relative animate-in zoom-in fade-in duration-300 max-h-[90vh] overflow-y-auto">
+              <button
+                onClick={() => {
+                  setIsAddStaffModalOpen(false);
+                  setEditingStaffIndex(null);
+                  resetStaffForm();
+                }}
+                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 transition-colors"
+              >
+                <X size={18} />
+              </button>
+              <h2 className="text-xl font-black mb-4 dark:text-white uppercase tracking-tighter">
+                {isEditingStaff ? 'Edit Staff Member' : 'Add Staff Member'}
+              </h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Username</label>
+                  <input 
+                    type="text"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                    placeholder="e.g. cashier1"
+                    value={newStaffUsername}
+                    onChange={e => setNewStaffUsername(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">
+                    {isEditingStaff ? 'Reset Password (Optional)' : 'Password'}
+                  </label>
+                  <input 
+                    type="password"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                    placeholder={isEditingStaff ? 'Leave blank to keep current password' : 'Set password'}
+                    value={newStaffPassword}
+                    onChange={e => setNewStaffPassword(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Email</label>
+                  <input 
+                    type="email"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                    placeholder="staff@example.com"
+                    value={newStaffEmail}
+                    onChange={e => setNewStaffEmail(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Phone Number</label>
+                  <input 
+                    type="tel"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                    placeholder="+60 XXX XXX XXXX"
+                    value={newStaffPhone}
+                    onChange={e => setNewStaffPhone(e.target.value)}
+                  />
+                </div>
+
+                {/* Role Selection */}
+                <div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Role</label>
+                  <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                    <button
+                      onClick={() => { setNewStaffRole('CASHIER'); setNewStaffKitchenCategories([]); }}
+                      className={`flex-1 py-2 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                        newStaffRole === 'CASHIER' ? 'bg-white dark:bg-gray-800 text-blue-600 shadow-sm' : 'text-gray-400'
+                      }`}
+                    >Cashier</button>
+                    <button
+                      onClick={() => {
+                        if (!featureSettings.kitchenEnabled) { setShowLockedRoleAlert('Kitchen Display'); return; }
+                        setNewStaffRole('KITCHEN');
+                      }}
+                      className={`flex-1 py-2 rounded-md text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1 ${
+                        newStaffRole === 'KITCHEN' ? 'bg-white dark:bg-gray-800 text-orange-600 shadow-sm' : 'text-gray-400'
+                      }`}
+                    >
+                      Kitchen
+                      {!featureSettings.kitchenEnabled && <Lock size={10} />}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (!featureSettings.tablesideOrderingEnabled) { setShowLockedRoleAlert('Tableside Ordering'); return; }
+                        setNewStaffRole('ORDER_TAKER'); setNewStaffKitchenCategories([]);
+                      }}
+                      className={`flex-1 py-2 rounded-md text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1 ${
+                        newStaffRole === 'ORDER_TAKER' ? 'bg-white dark:bg-gray-800 text-teal-600 shadow-sm' : 'text-gray-400'
+                      }`}
+                    >
+                      Order Taker
+                      {!featureSettings.tablesideOrderingEnabled && <Lock size={10} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Locked Role Alert */}
+                {showLockedRoleAlert && (
+                  <div className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4" onClick={() => setShowLockedRoleAlert(null)}>
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                          <Lock size={20} className="text-orange-500" />
+                        </div>
+                        <div>
+                          <h3 className="font-black text-sm dark:text-white uppercase tracking-tight">Feature Required</h3>
+                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Add-on not installed</p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-600 dark:text-gray-300 mb-4">
+                        Please install the <span className="font-black text-orange-500">{showLockedRoleAlert}</span> feature from the Add-on Features page before creating this role.
+                      </p>
+                      <button
+                        onClick={() => setShowLockedRoleAlert(null)}
+                        className="w-full py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
+                      >
+                        Got it
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Kitchen Category Assignment (only for Kitchen role + when divisions exist) */}
+                {newStaffRole === 'KITCHEN' && kitchenDivisions.length > 0 && (
+                  <div>
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Kitchen Departments</label>
+                    <p className="text-[9px] text-gray-400 mb-2 ml-1">Select which departments this user handles. Leave empty for all.</p>
+                    <div className="flex flex-wrap gap-2">
+                      {kitchenDivisions.map(dep => (
+                        <button
+                          key={dep.name}
+                          onClick={() => {
+                            setNewStaffKitchenCategories(prev => 
+                              prev.includes(dep.name) ? prev.filter(c => c !== dep.name) : [...prev, dep.name]
+                            );
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${
+                            newStaffKitchenCategories.includes(dep.name)
+                              ? 'bg-orange-500 text-white border-orange-500'
+                              : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-orange-400'
+                          }`}
+                        >
+                          {dep.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-4">
+                  <button 
+                    onClick={() => {
+                      setIsAddStaffModalOpen(false);
+                      setEditingStaffIndex(null);
+                      resetStaffForm();
+                    }}
+                    className="flex-1 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleSaveStaff}
+                    disabled={isAddingStaff}
+                    className="flex-1 py-2 bg-orange-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow disabled:opacity-50"
+                  >
+                    {isAddingStaff ? (isEditingStaff ? 'Saving...' : 'Adding...') : (isEditingStaff ? 'Save Changes' : 'Add')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+          {/* Add-on Feature Tab */}
+          {activeTab === 'ADDONS' && (
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+              <div className="animate-in fade-in duration-500">
+                {(() => {
+                  // Add-on feature definitions
+                  const addonFeatures = [
+                    {
+                      id: 'backoffice',
+                      name: 'Back Office',
+                      icon: <Briefcase size={28} className="text-gray-600 dark:text-gray-300" />,
+                      iconBg: 'bg-gray-100 dark:bg-gray-700',
+                      plan: 'Basic',
+                      planColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+                      shortDesc: 'Sales dashboard, inventory, staff & finance management.',
+                      description: 'Back Office gives you a comprehensive dashboard to manage your restaurant operations. View sales analytics with KPI cards and charts, manage inventory with purchase orders and stock adjustments, handle staff management, track contacts (suppliers & customers), and access detailed financial reports. Everything you need to run your business from one place.',
+                      features: ['Sales Dashboard with KPI cards', 'Daily sales & payment breakdown charts', 'Inventory management (PO, transfers, adjustments)', 'Staff management & performance tracking', 'Supplier & customer contacts', 'Finance reports & analytics', 'Stock valuation & history'],
+                      version: '1.0.0',
+                      author: 'QuickServe',
+                      isInstalled: !!onNavigateBackOffice,
+                      canInstall: true,
+                      onInstall: () => onNavigateBackOffice?.(),
+                      onUninstall: null as (() => void) | null,
+                      installLabel: 'Open Back Office',
+                      settingsPanel: null as string | null,
+                      renderSettings: null as (() => React.ReactNode) | null,
+                    },
+                    {
+                      id: 'table',
+                      name: 'Table Management',
+                      icon: <LayoutGrid size={28} className="text-sky-600 dark:text-sky-400" />,
+                      iconBg: 'bg-sky-100 dark:bg-sky-900/30',
+                      plan: 'Basic',
+                      planColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+                      shortDesc: 'Save bill & manage table layout for dine-in.',
+                      description: 'Table Management lets you configure your restaurant floor plan with customizable table layouts. Save bills to specific tables, manage multiple floors, and keep track of occupied and available tables in real time. Perfect for dine-in restaurants that need organized seating management.',
+                      features: ['Saved bill per table', 'Customizable table grid layout', 'Multi-floor support', 'Real-time table status', 'Table count & layout configuration'],
+                      version: '1.0.0',
+                      author: 'QuickServe',
+                      isInstalled: featureSettings.tableManagementEnabled || featureSettings.savedBillEnabled,
+                      canInstall: true,
+                      onInstall: () => { updateFeatureSetting('tableManagementEnabled', true); updateFeatureSetting('savedBillEnabled', true); },
+                      onUninstall: () => { updateFeatureSetting('tableManagementEnabled', false); updateFeatureSetting('savedBillEnabled', false); },
+                      settingsPanel: 'table' as string | null,
+                      renderSettings: () => <div className="space-y-4">{renderTableManagementContent()}</div>,
+                    },
+                    {
+                      id: 'qr',
+                      name: 'QR Ordering',
+                      icon: <QrCode size={28} className="text-violet-600 dark:text-violet-400" />,
+                      iconBg: 'bg-violet-100 dark:bg-violet-900/30',
+                      plan: 'Pro',
+                      planColor: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+                      shortDesc: 'Let customers scan QR codes to order from their table.',
+                      description: 'QR Ordering enables your customers to place orders directly from their smartphones. Generate unique QR codes for each table, let customers browse your menu, customize their orders, and submit them — all without waiting for staff. Orders appear instantly on your POS and kitchen display.',
+                      features: ['QR code generation per table', 'Mobile-friendly customer menu', 'Real-time order submission', 'Table number auto-detection', 'Works with Kitchen Display System'],
+                      version: '1.0.0',
+                      author: 'QuickServe',
+                      isInstalled: featureSettings.qrEnabled,
+                      canInstall: canUseQr,
+                      onInstall: () => { updateFeatureSetting('qrEnabled', true); },
+                      onUninstall: () => { updateFeatureSetting('qrEnabled', false); },
+                      settingsPanel: 'qr' as string | null,
+                      renderSettings: () => (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                            <div>
+                              <p className="text-xs font-black dark:text-white">QR Ordering</p>
+                              <p className="text-[9px] text-gray-400 mt-0.5">Let customers scan QR codes to order from their table</p>
+                            </div>
+                            <button
+                              onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
+                              className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                            >
+                              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
+                            </button>
+                          </div>
+                          {featureSettings.qrEnabled && renderQrGeneratorContent()}
+                        </div>
+                      ),
+                    },
+                    {
+                      id: 'tableside',
+                      name: 'Tableside Ordering',
+                      icon: <Tablet size={28} className="text-teal-600 dark:text-teal-400" />,
+                      iconBg: 'bg-teal-100 dark:bg-teal-900/30',
+                      plan: 'Pro',
+                      planColor: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+                      shortDesc: 'Staff take orders tableside using a tablet device.',
+                      description: 'Tableside Ordering lets your staff walk around the restaurant with a tablet to take customer orders directly at the table. Orders are placed through the same system as QR orders and appear instantly in your QR Orders queue and Kitchen Display. No more running back and forth to the POS terminal.',
+                      features: ['Staff order-taking on tablet', 'Same workflow as QR ordering', 'Orders appear in QR Orders queue', 'Works with Kitchen Display System', 'Table number assignment', 'Portable & wireless'],
+                      version: '1.0.0',
+                      author: 'QuickServe',
+                      isInstalled: featureSettings.tablesideOrderingEnabled,
+                      canInstall: canUseQr,
+                      onInstall: () => { updateFeatureSetting('tablesideOrderingEnabled', true); },
+                      onUninstall: () => { updateFeatureSetting('tablesideOrderingEnabled', false); },
+                      settingsPanel: null as string | null,
+                      renderSettings: null as (() => React.ReactNode) | null,
+                    },
+                    {
+                      id: 'kitchen',
+                      name: 'Kitchen Display System',
+                      icon: <Coffee size={28} className="text-orange-600 dark:text-orange-400" />,
+                      iconBg: 'bg-orange-100 dark:bg-orange-900/30',
+                      plan: 'Pro Plus',
+                      planColor: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+                      shortDesc: 'Kitchen order management & display system.',
+                      description: 'Kitchen Display System (KDS) provides a dedicated screen for your kitchen staff to manage incoming orders. Staff can view, accept, and mark orders as prepared. Supports kitchen departments/divisions so orders are routed to the right station. Auto-accept and auto-print options keep your kitchen running smoothly.',
+                      features: ['Dedicated kitchen order screen', 'Accept / reject orders with reasons', 'Kitchen department routing', 'Auto-accept & auto-print options', 'Real-time order updates', 'Kitchen staff login with role filtering'],
+                      version: '1.0.0',
+                      author: 'QuickServe',
+                      isInstalled: featureSettings.kitchenEnabled,
+                      canInstall: canUseKitchen,
+                      onInstall: () => { updateFeatureSetting('kitchenEnabled', true); },
+                      onUninstall: () => { updateFeatureSetting('kitchenEnabled', false); },
+                      settingsPanel: 'kitchen' as string | null,
+                      renderSettings: () => <div className="space-y-0">{canUseKitchen ? renderKitchenSettingsContent() : (
+                        <div className="text-center py-8">
+                          <Coffee size={36} className="mx-auto text-gray-300 mb-3" />
+                          <p className="text-sm font-black dark:text-white mb-1">Upgrade to Pro Plus</p>
+                          <p className="text-[10px] text-gray-400 mb-4">Kitchen Display System requires the Pro Plus plan</p>
+                          <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
+                        </div>
+                      )}</div>,
+                    },
+                    {
+                      id: 'customer-display',
+                      name: 'Customer Display',
+                      icon: <Monitor size={28} className="text-emerald-600 dark:text-emerald-400" />,
+                      iconBg: 'bg-emerald-100 dark:bg-emerald-900/30',
+                      plan: 'Basic',
+                      planColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+                      shortDesc: 'External customer-facing display screen.',
+                      description: 'Customer Display enables a second screen facing your customers, showing them the items being added to their order, prices, and the total in real time. Great for transparency and building customer trust at the checkout counter.',
+                      features: ['Real-time order display', 'Shows items, prices & total', 'Second screen support', 'Clean customer-friendly interface'],
+                      version: '1.0.0',
+                      author: 'QuickServe',
+                      isInstalled: featureSettings.customerDisplayEnabled,
+                      canInstall: true,
+                      onInstall: () => updateFeatureSetting('customerDisplayEnabled', true),
+                      onUninstall: () => { updateFeatureSetting('customerDisplayEnabled', false); },
+                      settingsPanel: null as string | null,
+                      renderSettings: null as (() => React.ReactNode) | null,
+                    },
+                    {
+                      id: 'online-shop',
+                      name: 'Online Shop',
+                      icon: <Globe size={28} className="text-blue-600 dark:text-blue-400" />,
+                      iconBg: 'bg-blue-100 dark:bg-blue-900/30',
+                      plan: 'Pro',
+                      planColor: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+                      shortDesc: 'Let customers order online via a shareable link.',
+                      description: 'Online Shop gives your restaurant an online ordering page accessible via a shareable link. Customers can browse your full menu, add items to cart, and place orders — all from their browser. Orders flow into your Online Orders queue just like QR orders. Share the link on social media, your website, or messaging apps to reach more customers.',
+                      features: ['Shareable online ordering link', 'Full menu browsing experience', 'Cart & checkout flow', 'Orders appear in Online Orders tab', 'Works with Kitchen Display System', 'Share via social media & messaging'],
+                      version: '1.0.0',
+                      author: 'QuickServe',
+                      isInstalled: featureSettings.onlineShopEnabled,
+                      canInstall: canUseQr,
+                      onInstall: () => { updateFeatureSetting('onlineShopEnabled', true); },
+                      onUninstall: () => { updateFeatureSetting('onlineShopEnabled', false); },
+                      settingsPanel: null as string | null,
+                      renderSettings: null as (() => React.ReactNode) | null,
+                    },
+                    {
+                      id: 'foodpanda',
+                      name: 'FoodPanda Integration',
+                      icon: <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTZ8WyOVgm7u4MbpCHXhobc5aXOxHw7JBrB4w&s" alt="FoodPanda" className="w-7 h-7 object-contain" />,
+                      iconBg: 'bg-pink-100 dark:bg-pink-900/30',
+                      plan: 'Pro',
+                      planColor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+                      shortDesc: 'Receive FoodPanda orders directly in your POS.',
+                      description: 'FoodPanda Integration connects your QuickServe POS directly to FoodPanda. Receive delivery orders in real-time, manage them alongside dine-in and takeaway orders, and streamline your kitchen workflow. No more switching between tablets — everything in one place.',
+                      features: ['Real-time FoodPanda order sync', 'Orders appear in delivery queue', 'Automatic menu sync', 'Order status updates to FoodPanda', 'Works with Kitchen Display System', 'Unified order management'],
+                      version: '1.0.0',
+                      author: 'QuickServe',
+                      isInstalled: false,
+                      canInstall: false,
+                      isComingSoon: true,
+                      onInstall: () => {},
+                      onUninstall: null as (() => void) | null,
+                      settingsPanel: null as string | null,
+                      renderSettings: null as (() => React.ReactNode) | null,
+                    },
+                    {
+                      id: 'grabfood',
+                      name: 'GrabFood Integration',
+                      icon: <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ6fjai_GH6_ALG_h0E1FA2YjJyRi7S6tjuiQ&s" alt="GrabFood" className="w-7 h-7 object-contain" />,
+                      iconBg: 'bg-green-100 dark:bg-green-900/30',
+                      plan: 'Pro',
+                      planColor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+                      shortDesc: 'Receive GrabFood orders directly in your POS.',
+                      description: 'GrabFood Integration connects your QuickServe POS directly to GrabFood. Receive delivery orders in real-time, manage them alongside dine-in and takeaway orders, and streamline your kitchen workflow. No more switching between tablets — everything in one place.',
+                      features: ['Real-time GrabFood order sync', 'Orders appear in delivery queue', 'Automatic menu sync', 'Order status updates to GrabFood', 'Works with Kitchen Display System', 'Unified order management'],
+                      version: '1.0.0',
+                      author: 'QuickServe',
+                      isInstalled: false,
+                      canInstall: false,
+                      isComingSoon: true,
+                      onInstall: () => {},
+                      onUninstall: null as (() => void) | null,
+                      settingsPanel: null as string | null,
+                      renderSettings: null as (() => React.ReactNode) | null,
+                    },
+                    {
+                      id: 'shopee',
+                      name: 'Shopee Food Integration',
+                      icon: <img src="https://pvc-59e770c8-2cb3-44f2-ae48-15e1acc03f35.ams3.digitaloceanspaces.com/images/Shopee%20Food.webp" alt="Shopee Food" className="w-7 h-7 object-contain" />,
+                      iconBg: 'bg-orange-100 dark:bg-orange-900/30',
+                      plan: 'Pro',
+                      planColor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+                      shortDesc: 'Receive Shopee Food orders directly in your POS.',
+                      description: 'Shopee Food Integration connects your QuickServe POS directly to Shopee Food. Receive delivery orders in real-time, manage them alongside dine-in and takeaway orders, and streamline your kitchen workflow. No more switching between tablets — everything in one place.',
+                      features: ['Real-time Shopee Food order sync', 'Orders appear in delivery queue', 'Automatic menu sync', 'Order status updates to Shopee Food', 'Works with Kitchen Display System', 'Unified order management'],
+                      version: '1.0.0',
+                      author: 'QuickServe',
+                      isInstalled: false,
+                      canInstall: false,
+                      isComingSoon: true,
+                      onInstall: () => {},
+                      onUninstall: null as (() => void) | null,
+                      settingsPanel: null as string | null,
+                      renderSettings: null as (() => React.ReactNode) | null,
+                    },
+                  ];
+
+                  const selectedAddon = addonDetailView ? addonFeatures.find(f => f.id === addonDetailView) : null;
+
+                  // ── Detail View ──
+                  if (selectedAddon) {
+                    return (
+                      <div className="animate-in fade-in duration-300">
+                        <button
+                          onClick={() => { setAddonDetailView(null); setAddonDetailTab('details'); }}
+                          className="flex items-center gap-2 text-sm font-bold text-gray-500 dark:text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 transition-colors mb-6"
+                        >
+                          <ArrowLeft size={18} />
+                          <span className="uppercase tracking-widest text-[10px]">Back to Add-ons</span>
+                        </button>
+
+                        <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+                          {/* Header */}
+                          <div className="p-6 md:p-8 border-b dark:border-gray-700">
+                            <div className="flex flex-col sm:flex-row gap-5">
+                              <div className={`w-20 h-20 rounded-2xl ${selectedAddon.iconBg} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                                {selectedAddon.icon}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-3 mb-2">
+                                  <h1 className="text-xl font-black dark:text-white uppercase tracking-tight">{selectedAddon.name}</h1>
+                                  <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${selectedAddon.planColor}`}>{selectedAddon.plan} Plan</span>
+                                </div>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{selectedAddon.shortDesc}</p>
+                                <div className="flex flex-wrap items-center gap-3">
+                                  {selectedAddon.isInstalled ? (
+                                    <>
+                                    <button
+                                      onClick={selectedAddon.onInstall}
+                                      className="px-6 py-2.5 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-lg font-black text-[10px] uppercase tracking-widest"
+                                    >
+                                      {selectedAddon.installLabel || 'Installed'}
+                                    </button>
+                                    {selectedAddon.onUninstall && (
+                                      <button
+                                        onClick={() => { if (confirm(`Are you sure you want to uninstall ${selectedAddon.name}? This will disable the feature.`)) { selectedAddon.onUninstall!(); } }}
+                                        className="px-5 py-2.5 bg-red-50 dark:bg-red-900/20 text-red-500 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-red-100 dark:hover:bg-red-900/30 transition-all flex items-center gap-2"
+                                      >
+                                        <Trash2 size={14} />
+                                        Uninstall
+                                      </button>
+                                    )}
+                                    </>
+                                  ) : (selectedAddon as any).isComingSoon ? (
+                                    <span className="px-6 py-2.5 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 rounded-lg font-black text-[10px] uppercase tracking-widest">
+                                      Coming Soon
+                                    </span>
+                                  ) : selectedAddon.canInstall ? (
+                                    <button
+                                      onClick={selectedAddon.onInstall}
+                                      className="px-6 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all"
+                                    >
+                                      Install
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => setShowUpgradeModal(true)}
+                                      className="px-6 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all"
+                                    >
+                                      Upgrade to {selectedAddon.plan}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Document-style Tabs */}
+                          <div className="flex bg-gray-100 dark:bg-gray-900 border-b dark:border-gray-700 px-4 pt-2">
+                            <button
+                              onClick={() => setAddonDetailTab('details')}
+                              style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                              className={`px-5 py-2.5 text-[11px] font-black uppercase tracking-widest transition-colors duration-150 rounded-t-lg border border-b-0 ${
+                                addonDetailTab === 'details'
+                                  ? 'bg-white dark:bg-gray-800 text-orange-600 dark:text-orange-400 border-gray-200 dark:border-gray-700 -mb-px z-10'
+                                  : 'bg-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 border-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                              }`}
+                            >
+                              Details
+                            </button>
+                            <button
+                              onClick={() => setAddonDetailTab('setting')}
+                              style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                              className={`px-5 py-2.5 text-[11px] font-black uppercase tracking-widest transition-colors duration-150 rounded-t-lg border border-b-0 ${
+                                addonDetailTab === 'setting'
+                                  ? 'bg-white dark:bg-gray-800 text-orange-600 dark:text-orange-400 border-gray-200 dark:border-gray-700 -mb-px z-10'
+                                  : 'bg-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 border-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                              }`}
+                            >
+                              Setting
+                            </button>
+                          </div>
+
+                          {/* Tab Content */}
+                          {addonDetailTab === 'details' && (
+                            <div className="flex flex-col lg:flex-row">
+                              {/* Left: Description */}
+                              <div className="flex-1 p-6 md:p-8 border-b lg:border-b-0 lg:border-r dark:border-gray-700">
+                                <h2 className="text-sm font-black dark:text-white uppercase tracking-wider mb-4">Description</h2>
+                                <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed mb-6">{selectedAddon.description}</p>
+
+                                {/* Screenshots placeholder */}
+                                <h2 className="text-sm font-black dark:text-white uppercase tracking-wider mb-4">Screenshots</h2>
+                                <div className="grid grid-cols-2 gap-3 mb-6">
+                                  <div className="aspect-video bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Coming Soon</p>
+                                  </div>
+                                  <div className="aspect-video bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Coming Soon</p>
+                                  </div>
+                                </div>
+
+                                <h2 className="text-sm font-black dark:text-white uppercase tracking-wider mb-4">Key Features</h2>
+                                <ul className="space-y-2">
+                                  {selectedAddon.features.map((feat, idx) => (
+                                    <li key={idx} className="flex items-start gap-2.5">
+                                      <CheckCircle size={14} className="text-green-500 mt-0.5 flex-shrink-0" />
+                                      <span className="text-xs text-gray-600 dark:text-gray-300">{feat}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+
+                              {/* Right: Meta info */}
+                              <div className="w-full lg:w-64 p-6 md:p-8 space-y-4 flex-shrink-0">
+                                {[
+                                  { label: 'Version', value: selectedAddon.version },
+                                  { label: 'Required Plan', value: selectedAddon.plan },
+                                  { label: 'Author', value: selectedAddon.author },
+                                  { label: 'Status', value: selectedAddon.isInstalled ? 'Installed' : ((selectedAddon as any).isComingSoon ? 'Coming Soon' : (selectedAddon.canInstall ? 'Available' : 'Upgrade Required')) },
+                                ].map((item, idx) => (
+                                  <div key={idx} className="flex items-center justify-between py-2.5 border-b dark:border-gray-700 last:border-0">
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{item.label}</span>
+                                    <span className="text-xs font-bold dark:text-white">{item.value}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {addonDetailTab === 'setting' && (
+                            <div className="p-6 md:p-8">
+                              {(selectedAddon as any).isComingSoon ? (
+                                <div className="text-center py-12">
+                                  <Clock size={40} className="mx-auto text-amber-500 mb-4" />
+                                  <p className="text-sm font-black dark:text-white mb-2">Coming Soon</p>
+                                  <p className="text-xs text-gray-400 max-w-sm mx-auto"><span className="font-black text-gray-600 dark:text-gray-300">{selectedAddon.name}</span> is currently in development. Stay tuned for updates!</p>
+                                </div>
+                              ) : !selectedAddon.isInstalled ? (
+                                <div className="text-center py-12">
+                                  <Settings size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+                                  <p className="text-sm font-black dark:text-white mb-2">Feature Not Installed</p>
+                                  <p className="text-xs text-gray-400 mb-6 max-w-sm mx-auto">Please install <span className="font-black text-gray-600 dark:text-gray-300">{selectedAddon.name}</span> in order to manage its settings and configuration.</p>
+                                  {selectedAddon.canInstall ? (
+                                    <button
+                                      onClick={selectedAddon.onInstall}
+                                      className="px-6 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all"
+                                    >
+                                      Install Now
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => setShowUpgradeModal(true)}
+                                      className="px-6 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all"
+                                    >
+                                      Upgrade to {selectedAddon.plan}
+                                    </button>
+                                  )}
+                                </div>
+                              ) : selectedAddon.renderSettings ? (
+                                <div>
+                                  <div className="flex items-center gap-3 mb-6">
+                                    <div className={`w-10 h-10 rounded-xl ${selectedAddon.iconBg} flex items-center justify-center`}>
+                                      {selectedAddon.icon}
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-black dark:text-white">{selectedAddon.name} Settings</p>
+                                      <p className="text-[10px] text-gray-400">Configure and manage this feature.</p>
+                                    </div>
+                                  </div>
+                                  <div className="max-w-lg">
+                                    {selectedAddon.renderSettings()}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-center py-12">
+                                  <CheckCircle size={40} className="mx-auto text-green-500 mb-4" />
+                                  <p className="text-sm font-black dark:text-white mb-2">Feature Active</p>
+                                  <p className="text-xs text-gray-400 max-w-sm mx-auto"><span className="font-black text-gray-600 dark:text-gray-300">{selectedAddon.name}</span> is installed and active. No additional configuration is required.</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // ── Grid View (WordPress plugin style) ──
+                  const existingAddons = addonFeatures.filter(a => !(a as any).isComingSoon);
+                  const upcomingAddons = addonFeatures.filter(a => (a as any).isComingSoon);
+
+                  const renderAddonCard = (addon: typeof addonFeatures[0]) => (
+                    <div
+                      key={addon.id}
+                      className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden hover:shadow-lg hover:border-orange-200 dark:hover:border-orange-800/50 transition-all cursor-pointer flex flex-col h-[180px]"
+                      onClick={() => { setAddonDetailView(addon.id); setAddonDetailTab('details'); }}
+                    >
+                      {/* Card top */}
+                      <div className="p-5 flex items-start gap-4 flex-1 min-h-0">
+                        <div className={`w-14 h-14 rounded-xl ${addon.iconBg} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                          {addon.icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="text-sm font-black dark:text-white truncate">{addon.name}</p>
+                          </div>
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${addon.planColor} mb-2`}>{addon.plan} Plan</span>
+                          <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-2">{addon.shortDesc}</p>
+                        </div>
+                      </div>
+
+                      {/* Card bottom */}
+                      <div className="px-5 py-3 border-t dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-between flex-shrink-0">
+                        <div className="flex items-center gap-3">
+                          <span className="text-[9px] text-gray-400 font-bold">By {addon.author}</span>
+                        </div>
+                        <div onClick={e => e.stopPropagation()}>
+                          {addon.isInstalled ? (
+                            <span className="px-3 py-1 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                              Installed
+                            </span>
+                          ) : (addon as any).isComingSoon ? (
+                            <span className="px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                              Coming Soon
+                            </span>
+                          ) : addon.canInstall ? (
+                            <button
+                              onClick={addon.onInstall}
+                              className="px-3 py-1 bg-orange-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow hover:bg-orange-600 transition-all"
+                            >
+                              Install
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setShowUpgradeModal(true)}
+                              className="px-3 py-1 bg-orange-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow hover:bg-orange-600 transition-all"
+                            >
+                              Upgrade
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+
+                  return (
+                    <>
+                      <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Add-on Feature</h1>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Extend your POS with additional features.</p>
+
+                      {/* Available Features */}
+                      <div className="mb-10">
+                        <div className="flex items-center gap-3 mb-4">
+                          <h2 className="text-sm font-black dark:text-white uppercase tracking-widest">Available Features</h2>
+                          <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-[9px] font-black uppercase tracking-widest rounded-full">{existingAddons.length}</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                          {existingAddons.map(renderAddonCard)}
+                        </div>
+                      </div>
+
+                      {/* Upcoming Features */}
+                      {upcomingAddons.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-3 mb-4">
+                            <h2 className="text-sm font-black dark:text-white uppercase tracking-widest">Upcoming Features</h2>
+                            <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase tracking-widest rounded-full">{upcomingAddons.length}</span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {upcomingAddons.map(renderAddonCard)}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* Billing Tab */}
+          {activeTab === 'BILLING' && (
+            <WalletBillingPage
+              restaurant={restaurant}
+              restaurantId={restaurant.id}
+              subscription={subscription}
+              onUpgradeClick={() => setShowUpgradeModal(true)}
+              onSubscriptionUpdated={onSubscriptionUpdated}
+            />
+          )}
+
+          {/* Mail Tab */}
+          {activeTab === 'MAIL' && (
+            <div className="flex-1 overflow-y-auto p-4 md:p-6">
+              <div className="max-w-7xl mx-auto w-full">
+                <div className="mb-6">
+                  <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Inbox</h1>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Announcements and updates from QuickServe.</p>
+                </div>
+                {announcementsLoading ? (
+                  <div className="flex items-center justify-center py-32">
+                    <RotateCw size={28} className="animate-spin text-gray-400" />
+                  </div>
+                ) : announcements.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-32 opacity-40">
+                    <Mail size={56} className="mb-4" />
+                    <p className="text-base font-bold dark:text-gray-300">No announcements yet</p>
+                    <p className="text-sm text-gray-500 mt-1">When the admin sends updates, they will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {announcements.map(a => (
+                      <div
+                        key={a.id}
+                        onClick={() => { if (!a.is_read) onMarkAnnouncementRead?.(a.id); }}
+                        className={`p-5 rounded-2xl border transition-all cursor-pointer ${
+                          a.is_read
+                            ? 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'
+                            : 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800/40 shadow-sm'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              {!a.is_read && <span className="w-2 h-2 bg-orange-500 rounded-full shrink-0" />}
+                              <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${
+                                a.category === 'billing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
+                                a.category === 'update' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
+                                a.category === 'maintenance' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
+                                'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                              }`}>{a.category}</span>
+                            </div>
+                            <h3 className={`text-base dark:text-white ${!a.is_read ? 'font-black' : 'font-semibold'}`}>{a.title}</h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1.5 whitespace-pre-line leading-relaxed">{a.body}</p>
+                          </div>
+                          <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 mt-1 whitespace-nowrap">
+                            {new Date(a.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* QR Orders Tab - Document-style sub-tabs */}
+          {activeTab === 'QR_ORDERS' && showQrFeature && (
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+              <div className="w-full">
+                {/* Header */}
+                <div className="mb-5">
+                  <h2 className="text-lg font-black dark:text-white uppercase tracking-tighter">QR & Table Order</h2>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Manage incoming orders from QR scan customers.</p>
+                </div>
+
+                {/* Document-style tab bar */}
+                <div className="flex gap-0 relative">
+                  {([
+                    { id: 'INCOMING' as const, label: 'Incoming Orders', icon: <QrCode size={13} /> },
+                    { id: 'QR_GENERATOR' as const, label: 'QR Generator', icon: <QrCode size={13} /> },
+                    { id: 'SETTING_TAB' as const, label: 'Setting', icon: <Settings size={13} /> },
+                  ]).map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setQrOrderSubTab(tab.id)}
+                      style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                      className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
+                        qrOrderSubTab === tab.id
+                          ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
+                          : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
+                      }`}
+                    >
+                      {tab.icon}
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Sub-tab content */}
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl rounded-tr-2xl">
+
+                {/* ── Incoming Orders Sub-tab ── */}
+                {qrOrderSubTab === 'INCOMING' && (
+                  <>
+                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Manage orders placed via QR table scan.</p>
+                      <div className="flex items-center gap-3">
+                        <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm overflow-x-auto hide-scrollbar">
+                          <button onClick={() => setQrOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Ongoing</button>
+                          <button onClick={() => setQrOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Served</button>
+                          <button onClick={() => setQrOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Cancelled</button>
+                          <button onClick={() => setQrOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${qrOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>All</button>
+                        </div>
+                        <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm shrink-0">
+                          <button onClick={() => setQrOrderView('grid')} className={`p-2 rounded-md transition-all ${qrOrderView === 'grid' ? 'bg-white dark:bg-gray-600 text-orange-500 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}><LayoutGrid size={13} /></button>
+                          <button onClick={() => setQrOrderView('list')} className={`p-2 rounded-md transition-all ${qrOrderView === 'list' ? 'bg-white dark:bg-gray-600 text-orange-500 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}><List size={13} /></button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {(() => {
+                      const filteredQrOrders = orders.filter(o => {
+                        if (o.orderSource !== 'qr_order' && o.orderSource !== 'tableside') return false;
+                        if (qrOrderFilter === 'ALL') return true;
+                        if (qrOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
+                        return o.status === qrOrderFilter;
+                      });
+
+                      if (filteredQrOrders.length === 0) {
+                        return (
+                          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-600">
+                            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                              <QrCode size={24} />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white uppercase tracking-tighter">No QR Orders</h3>
+                            <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">Waiting for customers to scan and order...</p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <>
+                          {qrOrderView === 'grid' ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {filteredQrOrders.map(order => {
+                                const totalQty = order.items.reduce((s, i) => s + i.quantity, 0);
+                                const orderId = typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : String(order.id).slice(-6).toUpperCase();
+                                const orderTime = new Date(order.timestamp).toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' · ' + new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                const borderColor = order.status === OrderStatus.PENDING ? 'border-l-amber-400' : order.status === OrderStatus.ONGOING ? 'border-l-blue-500' : order.status === OrderStatus.SERVED ? 'border-l-purple-500' : order.status === OrderStatus.COMPLETED ? 'border-l-green-500' : 'border-l-red-400';
+                                const statusPill = <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest ${order.status === OrderStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : order.status === OrderStatus.ONGOING ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : order.status === OrderStatus.SERVED ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : order.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>{order.status}</span>;
+                                const actionButtons = (compact?: boolean) => (<>
+                                  {showKitchenFeature && !isKitchenUser && (order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) ? (
+                                    <div className={`${compact ? 'px-3 py-1.5 text-[9px]' : 'px-4 py-2 text-[10px]'} rounded-lg font-black uppercase tracking-widest text-center whitespace-nowrap ${order.status === OrderStatus.PENDING ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400' : 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'}`}>{order.status === OrderStatus.PENDING ? 'Waiting for Kitchen' : 'Kitchen Preparing'}</div>
+                                  ) : (
+                                    <div className="flex justify-between gap-1.5">
+                                      {order.status === OrderStatus.PENDING && (<><button onClick={() => setRejectingQrOrderId(order.id)} className={`${compact ? 'w-[47.5%] px-2 py-1.5 text-[9px]' : 'w-[47.5%] py-2.5 text-[10px]'} rounded-lg font-black uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all`}>Reject</button><button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className={`${compact ? 'w-[47.5%] px-2 py-1.5 text-[9px]' : 'w-[47.5%] py-2.5 text-[10px]'} bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow`}>Accept</button></>)}
+                                      {order.status === OrderStatus.ONGOING && (<button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className={`${compact ? 'w-full px-3 py-1.5 text-[9px]' : 'w-full py-2.5 text-[10px]'} bg-green-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-green-600 transition-all shadow`}>Serve</button>)}
+                                      {order.status === OrderStatus.SERVED && (<button onClick={() => { setSelectedQrOrderForPayment(order); setActiveTab('COUNTER'); setCounterMode('QR_ORDER'); }} className={`${compact ? 'w-full px-3 py-1.5 text-[9px]' : 'w-full py-2.5 text-[10px]'} bg-blue-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow`}>Collect Payment</button>)}
+                                      {(order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) && (<div className={`${compact ? 'w-full px-3 py-1.5 text-[9px]' : 'w-full py-2.5 text-[10px]'} rounded-lg font-black uppercase tracking-widest text-center ${order.status === OrderStatus.COMPLETED ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>{order.status}</div>)}
+                                    </div>
+                                  )}
+                                </>);
+                                return (
+                                  <div key={order.id} className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 border-l-4 ${borderColor} rounded-xl flex flex-col cursor-pointer hover:ring-2 hover:ring-orange-300 dark:hover:ring-orange-600 transition-all`} onClick={() => handleEditQrOrder(order)}>
+                                    <div className="flex items-center justify-between px-4 pt-3 pb-1">
+                                      <span className="text-xs font-bold text-gray-600 dark:text-gray-300">Items: <span className="text-gray-900 dark:text-white font-black">{totalQty}</span></span>
+                                      <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400"><Clock size={10} /><span className="text-[10px]">{orderTime}</span></div>
+                                    </div>
+                                    <div className="px-4 pb-3">
+                                      <button onClick={(e) => { e.stopPropagation(); setViewingQrOrderDetail(order); }} className="text-orange-500 hover:text-orange-600 text-[11px] font-black uppercase tracking-wider transition-colors">View Order Details →</button>
+                                    </div>
+                                    <div className="h-px bg-gray-100 dark:bg-gray-700" />
+                                    <div className="flex items-center justify-between px-4 py-3">
+                                      <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center shrink-0">{order.orderSource === 'tableside' ? <Tablet size={14} className="text-orange-500" /> : <QrCode size={14} className="text-orange-500" />}</div>
+                                        <div>
+                                          <p className="text-[11px] font-black text-gray-800 dark:text-white uppercase tracking-tight">#{orderId}</p>
+                                          <p className="text-[10px] text-gray-500 dark:text-gray-400">{order.tableNumber}</p>
+                                        </div>
+                                      </div>
+                                      <div className="text-right">{statusPill}<p className="text-lg font-black text-gray-900 dark:text-white mt-1">{currencySymbol}{order.total.toFixed(2)}</p></div>
+                                    </div>
+                                    <div className="px-3 pb-3" onClick={(e) => e.stopPropagation()}>{actionButtons()}</div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            /* ── List / Table view ── */
+                            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                              <div className="overflow-x-auto">
+                                <table className="w-full">
+                                  <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[9px] font-black uppercase tracking-widest border-b border-gray-200 dark:border-gray-700">
+                                    <tr>
+                                      <th className="px-5 py-3 text-center">Status</th>
+                                      <th className="px-5 py-3 text-center">Order No.</th>
+                                      <th className="px-5 py-3 text-center">Table</th>
+                                      <th className="px-5 py-3 text-center">Date</th>
+                                      <th className="px-5 py-3 text-center">Time</th>
+                                      <th className="px-5 py-3 text-center">Items</th>
+                                      <th className="px-5 py-3 text-center">Details</th>
+                                      <th className="px-5 py-3 text-center">Total</th>
+                                      <th className="px-5 py-3 text-center">Action</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                    {filteredQrOrders.map(order => {
+                                      const totalQty = order.items.reduce((s, i) => s + i.quantity, 0);
+                                      const orderId = typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : String(order.id).slice(-6).toUpperCase();
+                                      const orderDate = new Date(order.timestamp).toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' });
+                                      const orderTimeStr = new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                      const statusPill = <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest ${order.status === OrderStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : order.status === OrderStatus.ONGOING ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : order.status === OrderStatus.SERVED ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : order.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>{order.status}</span>;
+                                      const actionButtons = (compact?: boolean) => (<>
+                                        {showKitchenFeature && !isKitchenUser && (order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) ? (
+                                          <div className={`${compact ? 'px-3 py-1.5 text-[9px]' : 'px-4 py-2 text-[10px]'} rounded-lg font-black uppercase tracking-widest text-center whitespace-nowrap ${order.status === OrderStatus.PENDING ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400' : 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'}`}>{order.status === OrderStatus.PENDING ? 'In Kitchen' : 'Preparing'}</div>
+                                        ) : (
+                                          <div className="flex justify-between gap-1.5">
+                                            {order.status === OrderStatus.PENDING && (<><button onClick={() => setRejectingQrOrderId(order.id)} className="w-[47.5%] px-2 py-1.5 text-[9px] rounded-lg font-black uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">Reject</button><button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className="w-[47.5%] px-2 py-1.5 text-[9px] bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow">Accept</button></>)}
+                                            {order.status === OrderStatus.ONGOING && (<button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className="w-full px-3 py-1.5 text-[9px] bg-green-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-green-600 transition-all shadow">Serve</button>)}
+                                            {order.status === OrderStatus.SERVED && (<button onClick={() => { setSelectedQrOrderForPayment(order); setActiveTab('COUNTER'); setCounterMode('QR_ORDER'); }} className="w-full px-3 py-1.5 text-[9px] bg-blue-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow">Collect Payment</button>)}
+                                            {(order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) && (<div className={`w-full px-3 py-1.5 text-[9px] rounded-lg font-black uppercase tracking-widest text-center ${order.status === OrderStatus.COMPLETED ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>{order.status}</div>)}
+                                          </div>
+                                        )}
+                                      </>);
+                                      return (
+                                        <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer" onClick={() => handleEditQrOrder(order)}>
+                                          <td className="px-5 py-3 text-center">{statusPill}</td>
+                                          <td className="px-5 py-3 text-center text-[11px] font-black text-gray-800 dark:text-white uppercase">#{orderId}</td>
+                                          <td className="px-5 py-3 text-center text-[10px] text-gray-600 dark:text-gray-300">{order.tableNumber}</td>
+                                          <td className="px-5 py-3 text-center text-[10px] text-gray-500 dark:text-gray-400">{orderDate}</td>
+                                          <td className="px-5 py-3 text-center text-[10px] text-gray-500 dark:text-gray-400">{orderTimeStr}</td>
+                                          <td className="px-5 py-3 text-center text-[10px] text-gray-500 dark:text-gray-400">{totalQty}</td>
+                                          <td className="px-5 py-3 text-center"><button onClick={(e) => { e.stopPropagation(); setViewingQrOrderDetail(order); }} className="text-orange-500 hover:text-orange-600 text-[10px] font-black uppercase tracking-wider transition-colors whitespace-nowrap">View Details →</button></td>
+                                          <td className="px-5 py-3 text-center text-[10px] font-black text-gray-900 dark:text-white whitespace-nowrap">{currencySymbol}{order.total.toFixed(2)}</td>
+                                          <td className="px-5 py-3 text-center" onClick={(e) => e.stopPropagation()}>{actionButtons(true)}</td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+
+                    {/* ── Order Detail Modal ── */}
+                    {viewingQrOrderDetail && (() => {
+                      const o = viewingQrOrderDetail;
+                      const modLine = (item: typeof o.items[0]) => {
+                        const parts: string[] = [];
+                        if (item.selectedSize) parts.push(item.selectedSize);
+                        if (item.selectedTemp) parts.push(item.selectedTemp);
+                        if (item.selectedOtherVariant) parts.push(item.selectedOtherVariant);
+                        if (item.selectedModifiers) Object.values(item.selectedModifiers).forEach(v => v && parts.push(v));
+                        if (item.selectedAddOns) item.selectedAddOns.forEach(a => parts.push(a.quantity > 1 ? `${a.name} ×${a.quantity}` : a.name));
+                        return parts.join('  ·  ');
+                      };
+                      return (
+                        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm" onClick={() => setViewingQrOrderDetail(null)}>
+                          <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:w-[440px] sm:h-[600px] flex flex-col" onClick={e => e.stopPropagation()}>
+
+                            {/* Modal header */}
+                            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 shrink-0">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 bg-orange-50 dark:bg-orange-900/20 rounded-xl flex items-center justify-center">
+                                  <QrCode size={16} className="text-orange-500" />
+                                </div>
+                                <div>
+                                  <p className="font-black text-gray-900 dark:text-white uppercase tracking-tight text-sm">
+                                    #{typeof o.id === 'string' ? o.id.slice(-6).toUpperCase() : String(o.id).slice(-6).toUpperCase()}
+                                  </p>
+                                  <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                                    {o.tableNumber} · {new Date(o.timestamp).toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' })} {new Date(o.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest ${
+                                  o.status === OrderStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                  o.status === OrderStatus.ONGOING ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                  o.status === OrderStatus.SERVED  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
+                                  o.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                  'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                }`}>{o.status}</span>
+                                <button onClick={() => setViewingQrOrderDetail(null)} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all">
+                                  <X size={15} />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Items list */}
+                            <div className="overflow-y-auto flex-1 px-5 py-3 divide-y divide-gray-100 dark:divide-gray-700/50">
+                              {getSortedOrderItems(o).map((item, idx) => (
+                                <div key={`modal-${o.id}-${idx}`} className="flex items-start gap-3 py-2.5">
+                                  <span className="text-xs font-black text-gray-500 dark:text-gray-400 shrink-0 w-5 pt-0.5">×{item.quantity}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-gray-800 dark:text-white">{item.name}</p>
+                                    {modLine(item) && <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{modLine(item)}</p>}
+                                  </div>
+                                  <span className="text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap shrink-0">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Remark */}
+                            {o.remark && (
+                              <div className="mx-5 mb-3 px-3 py-2 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-lg flex items-start gap-2 shrink-0">
+                                <MessageSquare size={11} className="text-orange-500 shrink-0 mt-0.5" />
+                                <p className="text-[10px] text-gray-600 dark:text-gray-300 italic">{o.remark}</p>
+                              </div>
+                            )}
+
+                            {/* Total + Actions */}
+                            <div className="border-t border-gray-100 dark:border-gray-700 px-5 pt-4 pb-6 shrink-0">
+                              <div className="flex items-center justify-between mb-4">
+                                <span className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Grand Total</span>
+                                <span className="text-2xl font-black text-gray-900 dark:text-white">{currencySymbol}{o.total.toFixed(2)}</span>
+                              </div>
+                              {(o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING) && (
+                                <button onClick={() => handleEditQrOrder(o)} className="w-full py-3 mb-3 rounded-xl font-black text-xs uppercase tracking-widest border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all">
+                                  Edit Order
+                                </button>
+                              )}
+                              {showKitchenFeature && !isKitchenUser && (o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING) ? (
+                                <div className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-center ${o.status === OrderStatus.PENDING ? 'bg-yellow-50 text-yellow-600' : 'bg-blue-50 text-blue-600'}`}>
+                                  {o.status === OrderStatus.PENDING ? 'Waiting for Kitchen' : 'Kitchen Preparing'}
+                                </div>
+                              ) : (
+                                <>
+                                  {o.status === OrderStatus.PENDING && (
+                                    <div className="flex justify-between">
+                                      <button onClick={() => { setRejectingQrOrderId(o.id); setViewingQrOrderDetail(null); }} className="w-[47.5%] py-3 rounded-xl font-black text-xs uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">Reject</button>
+                                      <button onClick={() => { onUpdateOrder(o.id, OrderStatus.ONGOING); setViewingQrOrderDetail(null); }} className="w-[47.5%] py-3 bg-orange-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg">Accept</button>
+                                    </div>
+                                  )}
+                                  {o.status === OrderStatus.ONGOING && (
+                                    <button onClick={() => { onUpdateOrder(o.id, OrderStatus.SERVED); setViewingQrOrderDetail(null); }} className="w-full py-3 bg-green-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all shadow-lg">
+                                      Serve Order
+                                    </button>
+                                  )}
+                                  {o.status === OrderStatus.SERVED && (
+                                    <button onClick={() => {
+                                      setSelectedQrOrderForPayment(o);
+                                      setViewingQrOrderDetail(null);
+                                      setActiveTab('COUNTER');
+                                      setCounterMode('QR_ORDER');
+                                    }} className="w-full py-3 bg-blue-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg">
+                                      Collect Payment
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
+
+                {/* ── QR Generator Sub-tab ── */}
+                {qrOrderSubTab === 'QR_GENERATOR' && (
+                  <div className="space-y-4">
+                    {canUseQr ? (
+                      renderQrGeneratorContent()
+                    ) : (
+                      <div className="text-center py-8">
+                        <QrCode size={36} className="mx-auto text-gray-300 mb-3" />
+                        <p className="text-sm font-black dark:text-white mb-1">Upgrade to Pro</p>
+                        <p className="text-[10px] text-gray-400 mb-4">QR Ordering requires the Pro plan or higher</p>
+                        <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Setting Sub-tab ── */}
+                {qrOrderSubTab === 'SETTING_TAB' && (
+                  <div className="space-y-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 space-y-3">
+                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">QR Order Settings</p>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                          <div>
+                            <p className="text-xs font-black dark:text-white">Auto-Approve Order</p>
+                            <p className="text-[9px] text-gray-400 mt-0.5">Automatically approve incoming QR orders</p>
+                          </div>
+                          <button
+                            onClick={() => toggleQrOrderSetting('autoApprove')}
+                            className={`w-11 h-6 rounded-full transition-all relative ${qrOrderSettings.autoApprove ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                          >
+                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${qrOrderSettings.autoApprove ? 'left-6' : 'left-1'}`} />
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                          <div>
+                            <p className="text-xs font-black dark:text-white">Auto-Print Order</p>
+                            <p className="text-[9px] text-gray-400 mt-0.5">Automatically print incoming QR orders</p>
+                          </div>
+                          <button
+                            onClick={() => toggleQrOrderSetting('autoPrint')}
+                            className={`w-11 h-6 rounded-full transition-all relative ${
+                              !connectedDevice
+                                ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
+                                : qrOrderSettings.autoPrint ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                            }`}
+                            disabled={!connectedDevice}
+                          >
+                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                              !connectedDevice
+                                ? 'left-1 opacity-50'
+                                : qrOrderSettings.autoPrint ? 'left-6' : 'left-1'
+                            }`} />
+                          </button>
+                        </div>
+                        {!connectedDevice && qrOrderSettings.autoPrint && (
+                          <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl">
+                            <p className="text-[10px] text-yellow-600 dark:text-yellow-400">Auto-print enabled but no printer connected. Connect a printer to use this feature.</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                </div>
+              </div>
+            </div>
+          )}
+
+
+          {activeTab === 'ONLINE_ORDERS' && showOnlineShopFeature && (
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+              <div className="w-full">
+                {/* Header */}
+                <div className="mb-5">
+                  <h2 className="text-lg font-black dark:text-white uppercase tracking-tighter">Online Shop</h2>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Manage your online storefront — orders, products, wallet &amp; settings all in one place.</p>
+                </div>
+
+                {/* Document-style tab bar */}
+                <div className="flex gap-0 relative">
+                  {([
+                    { id: 'INCOMING' as const, label: 'Incoming Orders', icon: <ShoppingBag size={13} /> },
+                    { id: 'PRODUCT' as const, label: 'Product', icon: <Package size={13} /> },
+                    { id: 'SETTING' as const, label: 'Setting', icon: <Settings size={13} /> },
+                  ]).map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setOnlineOrderSubTab(tab.id);
+                        if (tab.id === 'SETTING' && subscription?.stripe_customer_id && onlineStripeBalance === null) {
+                          setIsLoadingStripeBalance(true);
+                          fetch(`/api/stripe/billing?action=balance&customerId=${encodeURIComponent(subscription.stripe_customer_id)}`)
+                            .then(r => r.json())
+                            .then(data => setOnlineStripeBalance(data.balance ?? 0))
+                            .catch(() => setOnlineStripeBalance(0))
+                            .finally(() => setIsLoadingStripeBalance(false));
+                        }
+                      }}
+                      style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                      className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
+                        onlineOrderSubTab === tab.id
+                          ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
+                          : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
+                      }`}
+                    >
+                      {tab.icon}
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Sub-tab content */}
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl rounded-tr-2xl">
+                {/* ── Incoming Orders Sub-tab ── */}
+                {onlineOrderSubTab === 'INCOMING' && (
+                  <>
+                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Manage orders placed via your online shop link.</p>
+                      <div className="flex items-center gap-3">
+                        <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm overflow-x-auto hide-scrollbar">
+                          <button onClick={() => setOnlineOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${onlineOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Ongoing</button>
+                          <button onClick={() => setOnlineOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${onlineOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Served</button>
+                          <button onClick={() => setOnlineOrderFilter(OrderStatus.COMPLETED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${onlineOrderFilter === OrderStatus.COMPLETED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Paid</button>
+                          <button onClick={() => setOnlineOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${onlineOrderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>Cancelled</button>
+                          <button onClick={() => setOnlineOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${onlineOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>All</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {(() => {
+                      const filteredOnlineOrders = orders.filter(o => {
+                        if (o.orderSource !== 'online') return false;
+                        if (onlineOrderFilter === 'ALL') return true;
+                        if (onlineOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
+                        return o.status === onlineOrderFilter;
+                      });
+
+                      if (filteredOnlineOrders.length === 0) {
+                        return (
+                          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-600">
+                            <Globe size={32} className="mx-auto text-gray-300 mb-3" />
+                            <p className="text-sm font-black dark:text-white mb-1">No Online Orders</p>
+                            <p className="text-[10px] text-gray-400">Orders placed via your online shop link will appear here.</p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {filteredOnlineOrders.map(order => (
+                            <div key={order.id} className="bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600 p-4 shadow-sm hover:shadow-md transition-all">
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                  <Globe size={14} className="text-blue-500" />
+                                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">#{order.id.slice(-6)}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {order.orderSource && (
+                                    <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                                      order.orderSource === 'online' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' :
+                                      order.orderSource === 'qr_order' ? 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400' :
+                                      order.orderSource === 'tableside' ? 'bg-teal-100 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400' :
+                                      'bg-gray-100 text-gray-500'
+                                    }`}>
+                                      {order.orderSource === 'online' ? 'Online' : order.orderSource === 'qr_order' ? 'QR' : order.orderSource === 'tableside' ? 'Tableside' : order.orderSource}
+                                    </span>
+                                  )}
+                                  <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                                    order.status === OrderStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                    order.status === OrderStatus.ONGOING ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                    order.status === OrderStatus.SERVED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                    order.status === OrderStatus.COMPLETED ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                                    'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                  }`}>{order.status}</span>
+                                </div>
+                              </div>
+                              {order.tableNumber && order.tableNumber !== 'N/A' && (
+                                <div className="flex items-center gap-1.5 mb-2">
+                                  <Hash size={12} className="text-gray-400" />
+                                  <span className="text-[10px] font-black text-gray-500 dark:text-gray-400">{order.tableNumber}</span>
+                                </div>
+                              )}
+                              <div className="space-y-1 mb-3">
+                                {order.items.map((item, idx) => (
+                                  <div key={idx} className="flex items-center justify-between text-xs">
+                                    <span className="text-gray-600 dark:text-gray-300">{item.quantity}x {item.name}</span>
+                                    <span className="font-bold dark:text-white">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              {order.remark && (
+                                <div className="mb-3 p-2 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-lg">
+                                  <p className="text-[9px] text-gray-600 dark:text-gray-300 italic">{order.remark}</p>
+                                </div>
+                              )}
+                              <div className="flex items-center justify-between pt-3 border-t dark:border-gray-600">
+                                <span className="text-[10px] text-gray-400">{new Date(order.timestamp).toLocaleString()}</span>
+                                <span className="text-sm font-black dark:text-white">{currencySymbol}{order.total.toFixed(2)}</span>
+                              </div>
+                              {(order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) && (
+                                <div className="flex gap-2 mt-3">
+                                  {order.status === OrderStatus.PENDING && (
+                                    <button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className="flex-1 py-2.5 bg-blue-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-1.5">
+                                      <CheckCircle size={14} /> Accept
+                                    </button>
+                                  )}
+                                  {order.status === OrderStatus.PENDING && (
+                                    <button onClick={() => {
+                                      if (onKitchenUpdateOrder) onKitchenUpdateOrder(order.id, OrderStatus.CANCELLED, 'Rejected by vendor');
+                                      else onUpdateOrder(order.id, OrderStatus.CANCELLED);
+                                    }} className="py-2.5 px-3 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-red-200 dark:hover:bg-red-900/40 transition-all">
+                                      <X size={14} />
+                                    </button>
+                                  )}
+                                  {order.status === OrderStatus.ONGOING && (
+                                    <button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className="flex-1 py-2.5 bg-green-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-1.5">
+                                      <CheckCircle2 size={14} /> Mark Ready
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                              {order.status === OrderStatus.SERVED && (
+                                <div className="flex gap-2 mt-3">
+                                  <button onClick={() => {
+                                    setSelectedQrOrderForPayment(order);
+                                    setPendingOrderData({
+                                      items: order.items,
+                                      remark: order.remark,
+                                      tableNumber: order.tableNumber,
+                                      total: order.total,
+                                    });
+                                    setSelectedCashAmount(order.total);
+                                    setCashAmountInput(order.total.toFixed(2));
+                                    setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
+                                    setIsQrPaymentMode(true);
+                                    setShowPaymentModal(true);
+                                  }} className="flex-1 py-2.5 bg-blue-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-1.5">
+                                    <CreditCard size={14} /> Mark Paid
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
+
+                {/* ── Product Sub-tab ── */}
+                {onlineOrderSubTab === 'PRODUCT' && (
+                  <div>
+                    {/* ── Online Edit Modal ── */}
+                    {onlineEditItem ? (
+                      <div>
+                        <div className="flex items-center gap-3 mb-6">
+                          <button onClick={() => { setOnlineEditItem(null); setOnlineEditTab('online'); }} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all">
+                            <ArrowLeft size={18} className="text-gray-500" />
+                          </button>
+                          <div className="flex items-center gap-3 flex-1">
+                            {onlineEditItem.image && <img src={onlineEditItem.image} alt={onlineEditItem.name} className="w-10 h-10 rounded-lg object-cover" />}
+                            <div>
+                              <h3 className="text-sm font-black dark:text-white">{onlineEditItem.name}</h3>
+                              <p className="text-[9px] text-gray-400">{onlineEditItem.category} · {currencySymbol}{onlineEditItem.price.toFixed(2)}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* In Store / Online tabs */}
+                        <div className="flex gap-0 mb-0 relative z-10">
+                          {[
+                            { key: 'instore' as const, label: 'In Store' },
+                            { key: 'online' as const, label: 'Online' },
+                          ].map(t => (
+                            <button
+                              key={t.key}
+                              onClick={() => setOnlineEditTab(t.key)}
+                              className={`px-5 py-2.5 text-xs font-bold uppercase tracking-wider border border-b-0 rounded-t-xl transition-all -mb-px ${
+                                onlineEditTab === t.key
+                                  ? 'bg-white dark:bg-gray-800 text-orange-600 dark:text-orange-400 border-gray-200 dark:border-gray-700 relative z-10'
+                                  : 'bg-gray-100 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 border-transparent hover:bg-gray-200 dark:hover:bg-gray-800/60'
+                              }`}
+                            >
+                              {t.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* In Store tab — opens full menu editor */}
+                        {onlineEditTab === 'instore' && (
+                          <div className={`border border-gray-200 dark:border-gray-700 rounded-b-2xl rounded-tr-2xl p-5`} style={{ marginTop: '-1px' }}>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Edit in-store details using the full Menu Editor.</p>
+                            <button
+                              onClick={() => {
+                                handleOpenEditModal(onlineEditItem);
+                                setOnlineEditItem(null);
+                              }}
+                              className="px-5 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center gap-1.5"
+                            >
+                              <Edit3 size={12} /> Open in Menu Editor
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Online tab — 2-column side-by-side layout */}
+                        {onlineEditTab === 'online' && (
+                          <div className="border border-gray-200 dark:border-gray-700 rounded-b-2xl rounded-t-2xl" style={{ marginTop: '-1px' }}>
+                            {/* Two-column form body */}
+                            <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-gray-200 dark:divide-gray-700">
+
+                              {/* ── LEFT: General ── */}
+                              <div className="flex-1 p-5 space-y-4">
+                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                  <Globe size={13} className="text-orange-500" /> General
+                                </h4>
+
+                                {/* Online Listing Toggle */}
+                                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border dark:border-gray-600">
+                                  <div>
+                                    <p className="text-xs font-black dark:text-white">Online Listing</p>
+                                    <p className="text-[9px] text-gray-400">Show on your online shop</p>
+                                  </div>
+                                  <button
+                                    onClick={() => setOnlineEditForm(prev => ({ ...prev, onlineDisabled: !prev.onlineDisabled }))}
+                                    className={`relative w-10 h-5 rounded-full transition-all ${onlineEditForm.onlineDisabled ? 'bg-gray-300 dark:bg-gray-600' : 'bg-green-500'}`}
+                                  >
+                                    <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${onlineEditForm.onlineDisabled ? 'left-0.5' : 'left-[22px]'}`} />
+                                  </button>
+                                </div>
+
+                                {/* Description */}
+                                <div>
+                                  <div className="flex items-center justify-between mb-1 ml-1">
+                                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Description</label>
+                                    {onlineEditItem.description && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setOnlineEditForm(prev => ({ ...prev, description: onlineEditItem.description }))}
+                                        className="text-[8px] font-black text-orange-500 hover:text-orange-600 uppercase tracking-widest flex items-center gap-1"
+                                      >
+                                        <Copy size={9} /> Copy from In-store
+                                      </button>
+                                    )}
+                                  </div>
+                                  <textarea
+                                    value={onlineEditForm.description || ''}
+                                    onChange={e => setOnlineEditForm(prev => ({ ...prev, description: e.target.value }))}
+                                    placeholder="Describe this item for online customers..."
+                                    rows={4}
+                                    className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                                  />
+                                </div>
+
+                                {/* Online Price */}
+                                <div>
+                                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Online Selling Price</label>
+                                  <p className="text-[9px] text-gray-400 mb-2 ml-1">In-store: {currencySymbol} {onlineEditItem.price.toFixed(2)}</p>
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400 select-none pointer-events-none">{currencySymbol}</span>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      value={onlineEditForm.onlinePrice ?? onlineEditItem.price}
+                                      onChange={e => setOnlineEditForm(prev => ({ ...prev, onlinePrice: parseFloat(e.target.value) || 0 }))}
+                                      className="w-full pl-12 pr-3 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* ── RIGHT: Options ── */}
+                              <div className="flex-1 p-5 space-y-4">
+                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                  <Layers size={13} className="text-orange-500" /> Options
+                                </h4>
+
+                                {/* Portion Sizes */}
+                                <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg border dark:border-gray-600 p-3">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Portion Sizes</label>
+                                    {(onlineEditItem.sizes || []).length > 0 && (
+                                      <button type="button" onClick={() => setOnlineEditForm(prev => ({ ...prev, sizes: onlineEditItem.sizes ? [...onlineEditItem.sizes] : [] }))} className="text-[8px] font-black text-orange-500 hover:text-orange-600 uppercase tracking-widest flex items-center gap-1"><Copy size={9} /> Copy from In-store</button>
+                                    )}
+                                  </div>
+                                  <div className="space-y-2">
+                                    {(onlineEditForm.sizes || []).map((s, i) => (
+                                      <div key={i} className="flex items-center gap-2">
+                                        <input type="text" value={s.name} onChange={e => { const sizes = [...(onlineEditForm.sizes || [])]; sizes[i] = { ...sizes[i], name: e.target.value }; setOnlineEditForm(prev => ({ ...prev, sizes })); }} placeholder="Size name" className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                                        <div className="relative w-20">
+                                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">{currencySymbol}</span>
+                                          <input type="number" step="0.01" value={s.price} onChange={e => { const sizes = [...(onlineEditForm.sizes || [])]; sizes[i] = { ...sizes[i], price: parseFloat(e.target.value) || 0 }; setOnlineEditForm(prev => ({ ...prev, sizes })); }} className="w-full pl-6 pr-2 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 text-right" />
+                                        </div>
+                                        <button onClick={() => { const sizes = (onlineEditForm.sizes || []).filter((_, idx) => idx !== i); setOnlineEditForm(prev => ({ ...prev, sizes })); }} className="p-1.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 size={14} /></button>
+                                      </div>
+                                    ))}
+                                    <button onClick={() => setOnlineEditForm(prev => ({ ...prev, sizes: [...(prev.sizes || []), { name: '', price: 0 }] }))} className="text-[10px] font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1 uppercase tracking-widest"><Plus size={12} /> Add Size</button>
+                                  </div>
+                                </div>
+
+                                {/* Thermal */}
+                                <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg border dark:border-gray-600 p-3">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Thermal Options</label>
+                                      {(onlineEditItem.tempOptions?.options || []).length > 0 && (
+                                        <button type="button" onClick={() => setOnlineEditForm(prev => ({ ...prev, tempOptions: onlineEditItem.tempOptions ? { ...onlineEditItem.tempOptions } : prev.tempOptions }))} className="text-[8px] font-black text-orange-500 hover:text-orange-600 uppercase tracking-widest flex items-center gap-1"><Copy size={9} /> Copy</button>
+                                      )}
+                                    </div>
+                                    <button onClick={() => { const temp = onlineEditForm.tempOptions || { enabled: false, options: [] }; setOnlineEditForm(prev => ({ ...prev, tempOptions: { ...temp, enabled: !temp.enabled } })); }} className={`relative w-9 h-5 rounded-full transition-all ${onlineEditForm.tempOptions?.enabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                                      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${onlineEditForm.tempOptions?.enabled ? 'left-[18px]' : 'left-0.5'}`} />
+                                    </button>
+                                  </div>
+                                  {onlineEditForm.tempOptions?.enabled && (
+                                    <div className="space-y-2">
+                                      {(onlineEditForm.tempOptions.options || []).map((opt, i) => (
+                                        <div key={i} className="flex items-center gap-2">
+                                          <input type="text" value={opt.name} onChange={e => { const opts = [...(onlineEditForm.tempOptions?.options || [])]; opts[i] = { ...opts[i], name: e.target.value }; setOnlineEditForm(prev => ({ ...prev, tempOptions: { ...prev.tempOptions!, options: opts } })); }} placeholder="e.g. Hot, Cold" className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                                          <div className="relative w-20">
+                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">{currencySymbol}</span>
+                                            <input type="number" step="0.01" value={opt.price} onChange={e => { const opts = [...(onlineEditForm.tempOptions?.options || [])]; opts[i] = { ...opts[i], price: parseFloat(e.target.value) || 0 }; setOnlineEditForm(prev => ({ ...prev, tempOptions: { ...prev.tempOptions!, options: opts } })); }} className="w-full pl-6 pr-2 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 text-right" />
+                                          </div>
+                                          <button onClick={() => { const opts = (onlineEditForm.tempOptions?.options || []).filter((_, idx) => idx !== i); setOnlineEditForm(prev => ({ ...prev, tempOptions: { ...prev.tempOptions!, options: opts } })); }} className="p-1.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 size={14} /></button>
+                                        </div>
+                                      ))}
+                                      <button onClick={() => { const opts = [...(onlineEditForm.tempOptions?.options || []), { name: '', price: 0 }]; setOnlineEditForm(prev => ({ ...prev, tempOptions: { ...prev.tempOptions!, options: opts } })); }} className="text-[10px] font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1 uppercase tracking-widest"><Plus size={12} /> Add Option</button>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Variants */}
+                                <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg border dark:border-gray-600 p-3">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Variant Options</label>
+                                      {(onlineEditItem.variantOptions?.options || []).length > 0 && (
+                                        <button type="button" onClick={() => setOnlineEditForm(prev => ({ ...prev, variantOptions: onlineEditItem.variantOptions ? { ...onlineEditItem.variantOptions, options: [...(onlineEditItem.variantOptions.options || [])] } : prev.variantOptions }))} className="text-[8px] font-black text-orange-500 hover:text-orange-600 uppercase tracking-widest flex items-center gap-1"><Copy size={9} /> Copy</button>
+                                      )}
+                                    </div>
+                                    <button onClick={() => { const v = onlineEditForm.variantOptions || { enabled: false, options: [] }; setOnlineEditForm(prev => ({ ...prev, variantOptions: { ...v, enabled: !v.enabled } })); }} className={`relative w-9 h-5 rounded-full transition-all ${onlineEditForm.variantOptions?.enabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                                      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${onlineEditForm.variantOptions?.enabled ? 'left-[18px]' : 'left-0.5'}`} />
+                                    </button>
+                                  </div>
+                                  {onlineEditForm.variantOptions?.enabled && (
+                                    <div className="space-y-2">
+                                      {(onlineEditForm.variantOptions.options || []).map((opt, i) => (
+                                        <div key={i} className="flex items-center gap-2">
+                                          <input type="text" value={opt.name} onChange={e => { const opts = [...(onlineEditForm.variantOptions?.options || [])]; opts[i] = { ...opts[i], name: e.target.value }; setOnlineEditForm(prev => ({ ...prev, variantOptions: { ...prev.variantOptions!, options: opts } })); }} placeholder="e.g. Spicy, BBQ" className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                                          <div className="relative w-20">
+                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">{currencySymbol}</span>
+                                            <input type="number" step="0.01" value={opt.price} onChange={e => { const opts = [...(onlineEditForm.variantOptions?.options || [])]; opts[i] = { ...opts[i], price: parseFloat(e.target.value) || 0 }; setOnlineEditForm(prev => ({ ...prev, variantOptions: { ...prev.variantOptions!, options: opts } })); }} className="w-full pl-6 pr-2 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 text-right" />
+                                          </div>
+                                          <button onClick={() => { const opts = (onlineEditForm.variantOptions?.options || []).filter((_, idx) => idx !== i); setOnlineEditForm(prev => ({ ...prev, variantOptions: { ...prev.variantOptions!, options: opts } })); }} className="p-1.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 size={14} /></button>
+                                        </div>
+                                      ))}
+                                      <button onClick={() => { const opts = [...(onlineEditForm.variantOptions?.options || []), { name: '', price: 0 }]; setOnlineEditForm(prev => ({ ...prev, variantOptions: { ...prev.variantOptions!, options: opts } })); }} className="text-[10px] font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1 uppercase tracking-widest"><Plus size={12} /> Add Variant</button>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Modifiers */}
+                                <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg border dark:border-gray-600 p-3">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Modifiers</label>
+                                    {(onlineEditItem.linkedModifiers || []).length > 0 && (
+                                      <button type="button" onClick={() => setOnlineEditForm(prev => ({ ...prev, linkedModifiers: [...(onlineEditItem.linkedModifiers || [])] }))} className="text-[8px] font-black text-orange-500 hover:text-orange-600 uppercase tracking-widest flex items-center gap-1"><Copy size={9} /> Copy from In-store</button>
+                                    )}
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                    {modifiers.map(mod => {
+                                      const isLinked = (onlineEditForm.linkedModifiers || []).includes(mod.name);
+                                      return (
+                                        <button key={mod.name} onClick={() => { const linked = onlineEditForm.linkedModifiers || []; setOnlineEditForm(prev => ({ ...prev, linkedModifiers: isLinked ? linked.filter(m => m !== mod.name) : [...linked, mod.name] })); }} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border ${isLinked ? 'bg-orange-100 text-orange-600 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800' : 'bg-white dark:bg-gray-700 text-gray-400 border-gray-200 dark:border-gray-600 hover:border-orange-300'}`}>{mod.name}</button>
+                                      );
+                                    })}
+                                    {modifiers.length === 0 && <p className="text-[9px] text-gray-400">No modifiers created yet.</p>}
+                                  </div>
+                                </div>
+
+                                {/* Add-ons */}
+                                <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg border dark:border-gray-600 p-3">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Add-on Items</label>
+                                    {(onlineEditItem.addOns || []).length > 0 && (
+                                      <button type="button" onClick={() => setOnlineEditForm(prev => ({ ...prev, addOns: (onlineEditItem.addOns || []).map(a => ({ ...a })) }))} className="text-[8px] font-black text-orange-500 hover:text-orange-600 uppercase tracking-widest flex items-center gap-1"><Copy size={9} /> Copy from In-store</button>
+                                    )}
+                                  </div>
+                                  <div className="space-y-2">
+                                    {(onlineEditForm.addOns || []).map((addon, i) => (
+                                      <div key={i} className="flex items-center gap-2 p-2 bg-white dark:bg-gray-700/30 rounded-lg">
+                                        <input type="text" value={addon.name} onChange={e => { const addOns = [...(onlineEditForm.addOns || [])]; addOns[i] = { ...addOns[i], name: e.target.value }; setOnlineEditForm(prev => ({ ...prev, addOns })); }} placeholder="Add-on name" className="flex-1 px-3 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                                        <div className="relative w-20">
+                                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">{currencySymbol}</span>
+                                          <input type="number" step="0.01" value={addon.price} onChange={e => { const addOns = [...(onlineEditForm.addOns || [])]; addOns[i] = { ...addOns[i], price: parseFloat(e.target.value) || 0 }; setOnlineEditForm(prev => ({ ...prev, addOns })); }} className="w-full pl-5 pr-1 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 text-right" />
+                                        </div>
+                                        <button onClick={() => { const addOns = (onlineEditForm.addOns || []).filter((_, idx) => idx !== i); setOnlineEditForm(prev => ({ ...prev, addOns })); }} className="p-1 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 size={13} /></button>
+                                      </div>
+                                    ))}
+                                    <button onClick={() => setOnlineEditForm(prev => ({ ...prev, addOns: [...(prev.addOns || []), { name: '', price: 0, maxQuantity: 5 }] }))} className="text-[10px] font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1 uppercase tracking-widest"><Plus size={12} /> Add Add-on</button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* ── Footer: Save / Cancel ── */}
+                            <div className="flex items-center gap-3 p-5 border-t border-gray-200 dark:border-gray-700">
+                              <button
+                                onClick={() => {
+                                  const updated: MenuItem = {
+                                    ...onlineEditItem,
+                                    description: onlineEditForm.description ?? onlineEditItem.description,
+                                    onlineDisabled: onlineEditForm.onlineDisabled ?? onlineEditItem.onlineDisabled,
+                                    onlinePrice: onlineEditForm.onlinePrice === onlineEditItem.price ? undefined : onlineEditForm.onlinePrice,
+                                    sizes: onlineEditForm.sizes,
+                                    tempOptions: onlineEditForm.tempOptions,
+                                    variantOptions: onlineEditForm.variantOptions,
+                                    linkedModifiers: onlineEditForm.linkedModifiers,
+                                    addOns: onlineEditForm.addOns,
+                                  };
+                                  onUpdateMenu?.(restaurant.id, updated);
+                                  setOnlineEditItem(null);
+                                  setOnlineFormPage('general');
+                                  toast('Online settings saved!', 'success');
+                                }}
+                                className="flex-1 px-5 py-2.5 bg-green-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-1.5"
+                              >
+                                <CheckCircle size={12} /> Save Changes
+                              </button>
+                              <button
+                                onClick={() => { setOnlineEditItem(null); setOnlineEditTab('online'); setOnlineFormPage('general'); }}
+                                className="px-4 py-2.5 bg-gray-200 dark:bg-gray-600 rounded-lg font-black text-[10px] uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500 transition-all"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                    /* ── Product List / Grid View ── */
+                    <div>
+                      {/* Toolbar */}
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                        <div className="relative flex-1 max-w-sm">
+                          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <input
+                            type="text"
+                            value={onlineProductSearch}
+                            onChange={e => setOnlineProductSearch(e.target.value)}
+                            placeholder="Search products..."
+                            className="w-full pl-9 pr-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                          />
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {/* Status filter dropdown */}
+                          <div className="relative">
+                            <select
+                              value={onlineProductStatus}
+                              onChange={e => setOnlineProductStatus(e.target.value as 'ALL' | 'ACTIVE' | 'ARCHIVED')}
+                              className="appearance-none pl-3 pr-8 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-300 outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
+                            >
+                              <option value="ALL">All Listing</option>
+                              <option value="ACTIVE">Listed</option>
+                              <option value="ARCHIVED">Unlisted</option>
+                            </select>
+                            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                          </div>
+                          {/* List / Grid toggle */}
+                          <div className="flex bg-white dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
+                            <button onClick={() => setOnlineProductView('list')} className={`p-2 rounded-lg transition-all ${onlineProductView === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={16} /></button>
+                            <button onClick={() => setOnlineProductView('grid')} className={`p-2 rounded-lg transition-all ${onlineProductView === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={16} /></button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {(() => {
+                        const filteredMenu = restaurant.menu.filter(item => {
+                          const statusMatch = onlineProductStatus === 'ALL' ? true : onlineProductStatus === 'ACTIVE' ? !item.onlineDisabled : !!item.onlineDisabled;
+                          const searchMatch = !onlineProductSearch || item.name.toLowerCase().includes(onlineProductSearch.toLowerCase()) || item.category.toLowerCase().includes(onlineProductSearch.toLowerCase());
+                          return statusMatch && searchMatch;
+                        });
+
+                        if (filteredMenu.length === 0) {
+                          return (
+                            <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-600">
+                              <Package size={32} className="mx-auto text-gray-300 mb-3" />
+                              <p className="text-sm font-black dark:text-white mb-1">No Products Found</p>
+                              <p className="text-[10px] text-gray-400">{onlineProductSearch ? 'Try a different search term.' : onlineProductStatus === 'ARCHIVED' ? 'No unlisted items found.' : 'Add items in Menu Editor to display them on your online shop.'}</p>
+                            </div>
+                          );
+                        }
+
+                        const categories = Array.from(new Set(filteredMenu.map(item => item.category))).sort();
+
+                        /* ── List View ── */
+                        if (onlineProductView === 'list') {
+                          return (
+                            <div className="overflow-x-auto">
+                              <table className="w-full">
+                                <thead>
+                                  <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                                    <th className="text-left px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Product</th>
+                                    <th className="text-left px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Category</th>
+                                    <th className="text-right px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">In-Store Price</th>
+                                    <th className="text-right px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Online Price</th>
+                                    <th className="text-center px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Online Listing</th>
+                                    <th className="text-center px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Actions</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {filteredMenu.map(item => (
+                                    <tr key={item.id} className={`border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${item.onlineDisabled ? 'opacity-50' : ''}`}>
+                                      <td className="px-4 py-2.5">
+                                        <div className="flex items-center gap-3">
+                                          {item.image ? (
+                                            <img src={item.image} alt={item.name} className="w-9 h-9 rounded-lg object-cover shrink-0" />
+                                          ) : (
+                                            <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0"><Package size={14} className="text-gray-400" /></div>
+                                          )}
+                                          <div className="min-w-0">
+                                            <p className="text-xs font-black dark:text-white truncate">{item.name}</p>
+                                            {item.description && <p className="text-[9px] text-gray-400 truncate max-w-[200px]">{item.description}</p>}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-2.5 text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase">{item.category}</td>
+                                      <td className="px-4 py-2.5 text-right text-xs font-black text-gray-500 dark:text-gray-400">{currencySymbol}{item.price.toFixed(2)}</td>
+                                      <td className="px-4 py-2.5 text-right text-xs font-black text-orange-500">{currencySymbol}{(item.onlinePrice ?? item.price).toFixed(2)}</td>
+                                      <td className="px-4 py-2.5 text-center">
+                                        <button
+                                          onClick={() => { const updated = { ...item, onlineDisabled: !item.onlineDisabled }; onUpdateMenu?.(restaurant.id, updated); }}
+                                          className={`relative w-9 h-5 rounded-full transition-all mx-auto ${item.onlineDisabled ? 'bg-gray-300 dark:bg-gray-600' : 'bg-green-500'}`}
+                                        >
+                                          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${item.onlineDisabled ? 'left-0.5' : 'left-[18px]'}`} />
+                                        </button>
+                                      </td>
+                                      <td className="px-4 py-2.5 text-center">
+                                        <button
+                                          onClick={() => {
+                                            setOnlineEditItem(item);
+                                            setOnlineEditTab('online');
+                                            setOnlineFormPage('general');
+                                            setOnlineEditForm({
+                                              description: item.description,
+                                              onlineDisabled: item.onlineDisabled,
+                                              onlinePrice: item.onlinePrice ?? item.price,
+                                              sizes: item.sizes ? [...item.sizes] : [],
+                                              tempOptions: item.tempOptions ? { ...item.tempOptions, options: item.tempOptions.options ? [...item.tempOptions.options] : [] } : { enabled: false, options: [] },
+                                              variantOptions: item.variantOptions ? { ...item.variantOptions, options: item.variantOptions.options ? [...item.variantOptions.options] : [] } : { enabled: false, options: [] },
+                                              linkedModifiers: item.linkedModifiers ? [...item.linkedModifiers] : [],
+                                              addOns: item.addOns ? [...item.addOns] : [],
+                                            });
+                                          }}
+                                          className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-all text-gray-400 hover:text-orange-500"
+                                        >
+                                          <Edit3 size={14} />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          );
+                        }
+
+                        /* ── Grid View ── */
+                        return (
+                          <div className="space-y-6">
+                            {categories.map(category => (
+                              <div key={category}>
+                                <h3 className="text-sm font-black dark:text-white uppercase tracking-widest mb-3 flex items-center gap-2">
+                                  <Tag size={14} className="text-orange-500" />
+                                  {category}
+                                </h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                  {filteredMenu.filter(item => item.category === category).map(item => (
+                                    <div key={item.id} className={`bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600 p-3 shadow-sm transition-all ${item.onlineDisabled ? 'opacity-50' : ''}`}>
+                                      <div className="flex items-center gap-3 mb-2">
+                                        {item.image ? (
+                                          <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                                        ) : (
+                                          <div className="w-12 h-12 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center shrink-0"><Package size={16} className="text-gray-400" /></div>
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-xs font-black dark:text-white truncate">{item.name}</p>
+                                          {item.description && <p className="text-[9px] text-gray-400 truncate">{item.description}</p>}
+                                          <div className="flex items-center gap-2 mt-0.5">
+                                            {item.onlinePrice != null && item.onlinePrice !== item.price ? (
+                                              <>
+                                                <p className="text-xs font-black text-gray-400 line-through">{currencySymbol}{item.price.toFixed(2)}</p>
+                                                <p className="text-xs font-black text-orange-500">{currencySymbol}{item.onlinePrice.toFixed(2)}</p>
+                                              </>
+                                            ) : (
+                                              <p className="text-xs font-black text-orange-500">{currencySymbol}{item.price.toFixed(2)}</p>
+                                            )}
+                                          </div>
+                                        </div>
+                                        {item.sizes && item.sizes.length > 0 && (
+                                          <span className="text-[8px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase">{item.sizes.length} sizes</span>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-600">
+                                        <div className="flex items-center gap-2">
+                                          <button
+                                            onClick={() => { const updated = { ...item, onlineDisabled: !item.onlineDisabled }; onUpdateMenu?.(restaurant.id, updated); }}
+                                            className={`relative w-9 h-5 rounded-full transition-all ${item.onlineDisabled ? 'bg-gray-300 dark:bg-gray-600' : 'bg-green-500'}`}
+                                          >
+                                            <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${item.onlineDisabled ? 'left-0.5' : 'left-[18px]'}`} />
+                                          </button>
+                                          <span className="text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{item.onlineDisabled ? 'Unlisted' : 'Listed'}</span>
+                                        </div>
+                                        <button
+                                          onClick={() => {
+                                            setOnlineEditItem(item);
+                                            setOnlineEditTab('online');
+                                            setOnlineFormPage('general');
+                                            setOnlineEditForm({
+                                              description: item.description,
+                                              onlineDisabled: item.onlineDisabled,
+                                              onlinePrice: item.onlinePrice ?? item.price,
+                                              sizes: item.sizes ? [...item.sizes] : [],
+                                              tempOptions: item.tempOptions ? { ...item.tempOptions, options: item.tempOptions.options ? [...item.tempOptions.options] : [] } : { enabled: false, options: [] },
+                                              variantOptions: item.variantOptions ? { ...item.variantOptions, options: item.variantOptions.options ? [...item.variantOptions.options] : [] } : { enabled: false, options: [] },
+                                              linkedModifiers: item.linkedModifiers ? [...item.linkedModifiers] : [],
+                                              addOns: item.addOns ? [...item.addOns] : [],
+                                            });
+                                          }}
+                                          className="px-3 py-1.5 bg-gray-200 dark:bg-gray-600 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-gray-300 dark:hover:bg-gray-500 transition-all flex items-center gap-1.5 text-gray-600 dark:text-gray-300"
+                                        >
+                                          <Edit3 size={11} /> Edit
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Setting Sub-tab ── */}
+                {onlineOrderSubTab === 'SETTING' && (
+                  <div className="space-y-4">
+
+                    {/* ── Delivery Options ── */}
+                    <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600 overflow-hidden">
+                      <button
+                        onClick={() => {
+                          if (!deliveryExpanded) setDeliveryDraft([...onlineDeliveryOptions]);
+                          setDeliveryExpanded(!deliveryExpanded);
+                        }}
+                        className="w-full flex items-center justify-between p-5 text-left hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Truck size={16} className="text-orange-500" />
+                          <span className="text-sm font-black dark:text-white uppercase tracking-widest">Delivery Options</span>
+                          <span className="text-[9px] px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full font-bold">
+                            {onlineDeliveryOptions.filter(o => o.enabled).length} active
+                          </span>
+                        </div>
+                        <ChevronRight size={16} className={`text-gray-400 transition-transform duration-200 ${deliveryExpanded ? 'rotate-90' : ''}`} />
+                      </button>
+
+                      {deliveryExpanded && (
+                        <div className="px-5 pb-5 border-t dark:border-gray-600">
+                          <div className="pt-4 space-y-3">
+                            {onlineDeliveryOptions.map((opt, idx) => (
+                              <div key={opt.id} className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-3">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2 flex-1">
+                                    <p className="text-xs font-black dark:text-white">{opt.type !== 'custom' ? opt.label : ''}</p>
+                                    {opt.type === 'custom' && (
+                                      <input
+                                        type="text"
+                                        value={opt.label}
+                                        onChange={e => setOnlineDeliveryOptions(prev => prev.map((o, i) => i === idx ? { ...o, label: e.target.value } : o))}
+                                        placeholder="Type name..."
+                                        className="flex-1 px-2 py-1 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                                      />
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {opt.type !== 'pickup' && (
+                                      <div className="relative">
+                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400 select-none">{currencySymbol}</span>
+                                        <input
+                                          type="number"
+                                          step="0.01"
+                                          min="0"
+                                          value={opt.fee === 0 ? '' : opt.fee}
+                                          onChange={e => setOnlineDeliveryOptions(prev => prev.map((o, i) => i === idx ? { ...o, fee: parseFloat(e.target.value) || 0 } : o))}
+                                          placeholder="0.00"
+                                          className="w-24 pl-6 pr-2 py-1.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 text-right"
+                                        />
+                                      </div>
+                                    )}
+                                    {opt.type === 'custom' && (
+                                      <button
+                                        onClick={() => setOnlineDeliveryOptions(prev => prev.filter((_, i) => i !== idx))}
+                                        className="p-1.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => setOnlineDeliveryOptions(prev => prev.map((o, i) => i === idx ? { ...o, enabled: !o.enabled } : o))}
+                                      className={`relative w-10 h-5 rounded-full transition-all ${opt.enabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                    >
+                                      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${opt.enabled ? 'left-[22px]' : 'left-0.5'}`} />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+
+                            <button
+                              onClick={() => setOnlineDeliveryOptions(prev => [...prev, { id: `custom_${Date.now()}`, type: 'custom', label: 'Custom', enabled: true, fee: 0 }])}
+                              className="w-full py-2.5 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-[10px] font-black text-gray-400 uppercase tracking-widest hover:border-orange-400 hover:text-orange-500 transition-all flex items-center justify-center gap-1.5"
+                            >
+                              <Plus size={12} /> Add New Type
+                            </button>
+                          </div>
+
+                          {/* Save / Cancel */}
+                          <div className="flex gap-2 mt-4 pt-4 border-t dark:border-gray-600">
+                            <button
+                              onClick={() => setDeliveryExpanded(false)}
+                              className="flex-1 py-2 bg-green-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-1.5"
+                            >
+                              <CheckCircle size={12} /> Save Changes
+                            </button>
+                            <button
+                              onClick={() => { setOnlineDeliveryOptions([...deliveryDraft]); setDeliveryExpanded(false); }}
+                              className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-gray-300 dark:hover:bg-gray-500 transition-all"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ── Payment Type ── */}
+                    <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600 overflow-hidden">
+                      <button
+                        onClick={() => {
+                          if (!paymentExpanded) setPaymentDraft([...onlinePaymentMethods]);
+                          setPaymentExpanded(!paymentExpanded);
+                        }}
+                        className="w-full flex items-center justify-between p-5 text-left hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <CreditCard size={16} className="text-orange-500" />
+                          <span className="text-sm font-black dark:text-white uppercase tracking-widest">Payment Type</span>
+                          <span className="text-[9px] px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full font-bold">
+                            {onlinePaymentMethods.filter(m => m.enabled).length} active
+                          </span>
+                        </div>
+                        <ChevronRight size={16} className={`text-gray-400 transition-transform duration-200 ${paymentExpanded ? 'rotate-90' : ''}`} />
+                      </button>
+
+                      {paymentExpanded && (
+                        <div className="px-5 pb-5 border-t dark:border-gray-600">
+                          <div className="pt-4 space-y-3">
+                            {onlinePaymentMethods.map((method, idx) => (
+                              <div key={method.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                                <div>
+                                  <p className="text-xs font-black dark:text-white">{method.label}</p>
+                                  {method.id === 'cod' && <p className="text-[9px] text-gray-400">Customer pays upon delivery / pickup</p>}
+                                  {method.id === 'online' && <p className="text-[9px] text-gray-400">Customer pays online before order is confirmed</p>}
+                                </div>
+                                <button
+                                  onClick={() => setOnlinePaymentMethods(prev => prev.map((m, i) => i === idx ? { ...m, enabled: !m.enabled } : m))}
+                                  className={`relative w-10 h-5 rounded-full transition-all ${method.enabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                >
+                                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${method.enabled ? 'left-[22px]' : 'left-0.5'}`} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Save / Cancel */}
+                          <div className="flex gap-2 mt-4 pt-4 border-t dark:border-gray-600">
+                            <button
+                              onClick={() => setPaymentExpanded(false)}
+                              className="flex-1 py-2 bg-green-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-1.5"
+                            >
+                              <CheckCircle size={12} /> Save Changes
+                            </button>
+                            <button
+                              onClick={() => { setOnlinePaymentMethods([...paymentDraft]); setPaymentExpanded(false); }}
+                              className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-gray-300 dark:hover:bg-gray-500 transition-all"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ── Link to Order ── */}
+                    {restaurant.slug && (
+                      <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600 p-5">
+                        <h3 className="text-sm font-black dark:text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+                          <ExternalLink size={16} className="text-orange-500" />
+                          Link to Order
+                        </h3>
+                        <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-3">
+                          <p className="text-[9px] text-gray-400 mb-2">Share this link with your customers to order online.</p>
+                          <div className="flex items-center gap-2">
+                            <code className="flex-1 text-[10px] font-mono text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-lg border dark:border-gray-600 truncate">
+                              {window.location.origin}?r={restaurant.slug}
+                            </code>
+                            <button
+                              onClick={() => {
+                                const url = `${window.location.origin}?r=${restaurant.slug}`;
+                                navigator.clipboard.writeText(url);
+                                toast('Shop link copied to clipboard!', 'success');
+                              }}
+                              className="shrink-0 px-3 py-2 bg-orange-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center gap-1.5"
+                            >
+                              <Copy size={12} /> Copy Link
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Kitchen Orders Tab */}
+          {activeTab === 'KITCHEN' && showKitchenFeature && (
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+              <div className="max-w-5xl mx-auto">
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                  <div className="flex items-center gap-4">
+                    <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Incoming Orders</h1>
+                    {lastSyncTime && (
+                      <div className="flex items-center justify-center gap-2 text-[10px] font-black px-3 py-1.5 rounded-full border transition-all duration-300 min-w-[140px] shrink-0 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400">
+                        <div className="w-1.5 h-1.5 rounded-full bg-gray-300"></div>
+                        SYNC: {lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm overflow-x-auto hide-scrollbar">
+                    <button onClick={() => setKitchenOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>ONGOING</button>
+                    <button onClick={() => setKitchenOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>SERVED</button>
+                    <button onClick={() => setKitchenOrderFilter(OrderStatus.COMPLETED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === OrderStatus.COMPLETED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>PAID</button>
+                    <button onClick={() => setKitchenOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>CANCELLED</button>
+                    <button onClick={() => setKitchenOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>ALL</button>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {kitchenFilteredOrders.length === 0 ? (
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
+                      <div className="w-16 h-16 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                        <ShoppingBag size={24} />
+                      </div>
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white uppercase tracking-tighter">Kitchen Quiet</h3>
+                      <p className="text-gray-500 dark:text-gray-400 text-xs">Waiting for incoming signals...</p>
+                    </div>
+                  ) : (
+                    kitchenFilteredOrders.map(order => (
+                      <div key={order.id} className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-start gap-6 transition-all hover:border-orange-200">
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ORDER #{order.id}</span>
+                              <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg">
+                                <Hash size={12} className="text-orange-500" />
+                                <span className="text-xs font-black">{order.tableNumber}</span>
+                              </div>
+                              {order.orderSource && (
+                                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                                  order.orderSource === 'counter' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' :
+                                  order.orderSource === 'qr_order' ? 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400' :
+                                  order.orderSource === 'online' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' :
+                                  'bg-gray-100 text-gray-500'
+                                }`}>
+                                  {order.orderSource === 'counter' ? 'Counter' : order.orderSource === 'qr_order' ? 'QR Order' : order.orderSource === 'online' ? 'Online' : order.orderSource}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Clock size={14} className="text-gray-400" />
+                              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                          </div>
+                          <div className="space-y-3">
+                            {Object.entries(
+                              groupItemsByCategory(
+                                getSortedOrderItems(
+                                  order,
+                                  userRole === 'KITCHEN' ? kitchenScopeCategories : [],
+                                ),
+                              ),
+                            ).map(([categoryName, groupedItems]) => (
+                              <div key={`${order.id}-kitchen-${categoryName}`} className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="h-px flex-1 bg-gray-100 dark:bg-gray-700" />
+                                  <span className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">{categoryName}</span>
+                                  <div className="h-px flex-1 bg-gray-100 dark:bg-gray-700" />
+                                </div>
+                                {groupedItems.map((item, idx) => (
+                                  <div key={`${order.id}-${categoryName}-${item.id}-${idx}`} className="flex justify-between items-start text-sm border-l-2 border-gray-100 dark:border-gray-700 pl-3">
+                                    <div>
+                                      <p className="font-bold text-gray-900 dark:text-white">x{item.quantity} {item.name}</p>
+                                      <div className="flex flex-wrap gap-2 mt-1">
+                                        {item.selectedSize && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">Size: {item.selectedSize}</span>}
+                                        {item.selectedTemp && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${item.selectedTemp === 'Hot' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>Temp: {item.selectedTemp}</span>}
+                                        {item.selectedOtherVariant && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">{item.selectedOtherVariant}</span>}
+                                      </div>
+                                    </div>
+                                    <span className="text-gray-500 dark:text-gray-400 font-bold">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ))}
+                          </div>
+                          {userRole === 'KITCHEN' && kitchenScopeCategories.length > 0 && (
+                            <p className="mt-2 text-[9px] text-gray-400 uppercase tracking-wider">Showing only your assigned categories.</p>
+                          )}
+                          {order.remark && (
+                            <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-lg">
+                              <div className="flex items-center gap-2 mb-1">
+                                <MessageSquare size={12} className="text-orange-500" />
+                                <span className="text-[9px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest">Special Remark</span>
+                              </div>
+                              <p className="text-xs text-gray-700 dark:text-gray-300 italic">{order.remark}</p>
+                            </div>
+                          )}
+                          <div className="mt-4 pt-4 border-t dark:border-gray-700 flex justify-between items-center">
+                            <span className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Grand Total</span>
+                            <span className="text-2xl font-black text-gray-900 dark:text-white">{currencySymbol}{order.total.toFixed(2)}</span>
+                          </div>
+                        </div>
+                        <div className="flex md:flex-col gap-2 min-w-[140px] mt-2 md:mt-0">
+                          {(isKitchenUser || isVendorUser) ? (
+                            <>
+                              {order.status === OrderStatus.PENDING && (
+                                <>
+                                  <button 
+                                    onClick={() => handleKitchenAcceptAndPrint(order.id)} 
+                                    className="flex-1 py-3 px-4 bg-orange-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg"
+                                  >
+                                    Accept {kitchenOrderSettings.autoPrint && '& Print'}
+                                  </button>
+                              
+                                  {connectedDevice && (
+                                    <button 
+                                      onClick={() => handleKitchenManualPrint(order)}
+                                      disabled={kitchenPrintingOrderId === order.id}
+                                      className="flex-1 py-3 px-4 bg-gray-600 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-gray-700 transition-all shadow-lg disabled:opacity-50"
+                                    >
+                                      {kitchenPrintingOrderId === order.id ? 'Printing...' : 'Print Only'}
+                                    </button>
+                                  )}
+                              
+                                  <button 
+                                    onClick={() => setRejectingKitchenOrderId(order.id)} 
+                                    className="flex-1 py-3 px-4 bg-red-50 text-red-500 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-100"
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              )}
+                          
+                              {order.status === OrderStatus.ONGOING && (
+                                <button 
+                                  onClick={() => {
+                                    if (onKitchenUpdateOrder) {
+                                      onKitchenUpdateOrder(order.id, OrderStatus.SERVED);
+                                    } else {
+                                      onUpdateOrder(order.id, OrderStatus.SERVED);
+                                    }
+                                  }} 
+                                  className="flex-1 py-4 px-4 bg-green-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-lg"
+                                >
+                                  <CheckCircle size={18} />
+                                  Serve Order
+                                </button>
+                              )}
+                            </>
+                          ) : (
+                            <div className={`px-4 py-3 rounded-lg font-black text-[10px] uppercase tracking-widest text-center ${
+                              order.status === OrderStatus.PENDING ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400' :
+                              order.status === OrderStatus.ONGOING ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' :
+                              order.status === OrderStatus.SERVED ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' :
+                              order.status === OrderStatus.COMPLETED ? 'bg-gray-50 text-gray-600 dark:bg-gray-900/20 dark:text-gray-400' :
+                              'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                            }`}>
+                              {order.status === OrderStatus.PENDING ? 'Waiting for Kitchen' :
+                               order.status === OrderStatus.ONGOING ? 'Preparing' :
+                               order.status === OrderStatus.SERVED ? 'Served' :
+                               order.status === OrderStatus.COMPLETED ? 'Completed' :
+                               'Cancelled'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Right Sidebar - Order Summary (Desktop) */}
+        {activeTab === 'COUNTER' && (
+          <div className={`
+            hidden lg:flex w-96 bg-white dark:bg-gray-800 border-l dark:border-gray-700 flex-col
+            transition-all duration-300 ease-in-out
+          `}>
+            {/* Sidebar header */}
+            <div className="p-4 border-b dark:border-gray-700">
+              {editingQrOrderId && (
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 mb-3">
+                  <Edit3 size={13} className="text-blue-500 shrink-0" />
+                  <span className="text-[10px] font-black text-blue-700 dark:text-blue-300 uppercase tracking-widest">Editing QR Order #{editingQrOrderId.slice(-6).toUpperCase()}</span>
+                </div>
+              )}
+                  {(showSavedBillFeature || showQrFeature) && (
+                    <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 mb-3">
+                      {showSavedBillFeature && (
+                        <button
+                          onClick={() => { if (editingQrOrderId) return; setCounterMode('SAVED_BILL'); setSelectedQrOrderForPayment(null); }}
+                          className={`relative flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                            editingQrOrderId
+                              ? 'bg-blue-500 text-white shadow-sm'
+                              : counterMode === 'SAVED_BILL' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
+                          }`}
+                        >{editingQrOrderId ? 'Edit Order' : 'Saved Bill'}
+                          {!editingQrOrderId && savedBills.length > 0 && (
+                            <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] font-black min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center">{savedBills.length}</span>
+                          )}
+                        </button>
+                      )}
+                      {!showSavedBillFeature && editingQrOrderId && (
+                        <button
+                          className="relative flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all bg-blue-500 text-white shadow-sm"
+                        >Edit Order</button>
+                      )}
+                      <button
+                        onClick={() => { if (editingQrOrderId) { setEditingQrOrderId(null); setPosCart([]); setPosRemark(''); setPosTableNo('Counter'); } setCounterMode('COUNTER_ORDER'); setSelectedQrOrderForPayment(null); }}
+                        className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                          !editingQrOrderId && counterMode === 'COUNTER_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
+                        }`}
+                      >Counter</button>
+                      {showQrFeature && (() => {
+                        const servedQrCount = orders.filter(o => o.status === OrderStatus.SERVED).length;
+                        return (
+                        <button
+                          onClick={() => { if (editingQrOrderId) { setEditingQrOrderId(null); setPosCart([]); setPosRemark(''); setPosTableNo('Counter'); } setCounterMode('QR_ORDER'); setSelectedQrOrderForPayment(null); }}
+                          className={`relative flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                            !editingQrOrderId && counterMode === 'QR_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
+                          }`}
+                        >QR Order
+                          {servedQrCount > 0 && (
+                            <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] font-black min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center">{servedQrCount}</span>
+                          )}
+                        </button>
+                        );
+                      })()}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-black dark:text-white uppercase tracking-tighter text-sm">
+                      {editingQrOrderId
+                        ? `Editing Order #${editingQrOrderId.slice(-6).toUpperCase()}`
+                        : showSavedBillFeature && counterMode === 'SAVED_BILL'
+                        ? 'Saved Bills'
+                        : showQrFeature && counterMode === 'QR_ORDER'
+                        ? (selectedQrOrderForPayment ? `Order #${selectedQrOrderForPayment.id.slice(-6).toUpperCase()}` : 'QR Order')
+                        : 'Current Order'}
+                    </h3>
+                    {!editingQrOrderId && (counterMode === 'COUNTER_ORDER' || (!showQrFeature && counterMode !== 'SAVED_BILL')) && (
+                      <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors">
+                        <Trash2 size={18} />
+                      </button>
+                    )}
+                    {showQrFeature && counterMode === 'QR_ORDER' && selectedQrOrderForPayment && (
+                      <button onClick={() => setSelectedQrOrderForPayment(null)} className="text-gray-400 hover:text-red-500 transition-colors">
+                        <X size={18} />
+                      </button>
+                    )}
+                  </div>
+            </div>
+
+            {/* Sidebar content by mode */}
+            {showSavedBillFeature && counterMode === 'SAVED_BILL' ? (
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
+                  <Receipt size={48} className="mb-4" />
+                  <p className="text-[10px] font-black uppercase tracking-widest">Select a saved bill from the left panel</p>
+                </div>
+              </div>
+            ) : showQrFeature && counterMode === 'QR_ORDER' ? (
+              <>
+                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                  {!selectedQrOrderForPayment ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
+                      <QrCode size={48} className="mb-4" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">Select a served order from the left</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
+                        <QrCode size={14} className="text-purple-500 shrink-0" />
+                        <span className="text-[10px] font-black text-purple-700 dark:text-purple-400 uppercase tracking-widest">{selectedQrOrderForPayment.tableNumber}</span>
+                      </div>
+                      {selectedQrOrderForPayment.items.map((item, idx) => (
+                        <div key={`qr-${item.id}-${idx}`} className="flex items-center gap-4">
+                          <div className="flex-1">
+                            <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                            <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toFixed(2)}</p>
+                            <div className="mt-1 space-y-0.5">
+                              {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
+                              {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Temp: {item.selectedTemp}</p>}
+                              {item.selectedOtherVariant && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.selectedOtherVariant}</p>}
+                            </div>
+                          </div>
+                          <span className="text-xs font-black dark:text-white bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-lg">x{item.quantity}</span>
+                        </div>
+                      ))}
+                      {selectedQrOrderForPayment.remark && (
+                        <div className="p-3 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-xl">
+                          <p className="text-[9px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest mb-1">Remark</p>
+                          <p className="text-xs text-gray-700 dark:text-gray-300 italic">{selectedQrOrderForPayment.remark}</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+                <div className="p-6 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
+                      <span>Subtotal</span>
+                      <span>{currencySymbol}{selectedQrOrderSubtotal.toFixed(2)}</span>
+                    </div>
+                    {selectedQrTaxLines.map(tax => (
+                      <div key={`qr-tax-${tax.id}`} className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
+                        <span>{tax.name} ({tax.percentage.toFixed(2)}%)</span>
+                        <span>{currencySymbol}{tax.amount.toFixed(2)}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
+                      <span className="uppercase">Total</span>
+                      <span className="text-orange-500">{currencySymbol}{selectedQrGrandTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Table</label>
+                        <input
+                          type="text"
+                          value={selectedQrOrderForPayment?.tableNumber ?? ''}
+                          readOnly
+                          className="w-full p-2 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded-xl text-[10px] font-black dark:text-white cursor-not-allowed opacity-80"
+                        />
+                      </div>
+                      <div className="flex-[2]">
+                        <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Remark</label>
+                        <input
+                          type="text"
+                          value={selectedQrOrderForPayment?.remark ?? ''}
+                          readOnly
+                          className="w-full p-2 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded-xl text-[10px] font-black dark:text-white cursor-not-allowed opacity-80"
+                          placeholder="No remark"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { if (selectedQrOrderForPayment) handleEditQrOrder(selectedQrOrderForPayment); }}
+                        disabled={!selectedQrOrderForPayment || isCompletingPayment}
+                        className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        <Edit3 size={14} /> Edit Order
+                      </button>
+                      <button
+                        onClick={handleQrOrderCheckout}
+                        disabled={!selectedQrOrderForPayment || isCompletingPayment}
+                        className="flex-[2] py-4 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                      >
+                        <CreditCard size={16} /> Complete Payment
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {posCart.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
+                  <ShoppingBag size={48} className="mb-4" />
+                  <p className="text-[10px] font-black uppercase tracking-widest">Cart is empty</p>
+                </div>
+              ) : (
+                posCart.map((item, idx) => (
+                    <div key={`${item.id}-${idx}`} className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                        <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toFixed(2)}</p>
+                        <div className="mt-1 space-y-0.5">
+                          {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
+                          {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Temperature: {item.selectedTemp}</p>}
+                          {item.selectedVariantOption && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Variant: {item.selectedVariantOption}</p>}
+                          {item.selectedOtherVariant && !item.selectedModifiers && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.otherVariantName ? item.otherVariantName.charAt(0).toUpperCase() + item.otherVariantName.slice(1) : 'Option'}: {item.selectedOtherVariant}</p>}
+                          {item.selectedModifiers && Object.entries(item.selectedModifiers).map(([modName, optName]) => (
+                            optName && <p key={modName} className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {modName.charAt(0).toUpperCase() + modName.slice(1)}: {optName}</p>
+                          ))}
+                          {item.selectedAddOns && item.selectedAddOns.length > 0 && (
+                            <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">
+                              • Add-ons: {item.selectedAddOns.map(addon => `${addon.name} x${addon.quantity}`).join(', ')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+                        <button onClick={() => updateQuantity(idx, -1)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all"><Minus size={12} /></button>
+                        <span className="text-[10px] font-black w-4 text-center dark:text-white">{item.quantity}</span>
+                        <button onClick={() => updateQuantity(idx, 1)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all"><Plus size={12} /></button>
+                      </div>
+                      <button onClick={() => removeFromPosCart(idx)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
+                    </div>
+                  ))
+              )}
+            </div>
+
+            <div className="p-6 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-4">
+              {showPaymentSuccess && (
+                <div className="px-3 py-2 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-300 text-[10px] font-black uppercase tracking-widest text-center">
+                  Payment Completed Successfully
+                </div>
+              )}
+
+              {!!checkoutNotice && (
+                <div className="px-3 py-2 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-300 text-[10px] font-black tracking-wide text-center">
+                  {checkoutNotice}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
+                  <span>Subtotal</span>
+                  <span>{currencySymbol}{cartTotal.toFixed(2)}</span>
+                </div>
+                {cartTaxLines.map(tax => (
+                  <div key={`cart-tax-${tax.id}`} className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
+                    <span>{tax.name} ({tax.percentage.toFixed(2)}%)</span>
+                    <span>{currencySymbol}{tax.amount.toFixed(2)}</span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
+                  <span className="uppercase">Total</span>
+                  <span className="text-orange-500">{currencySymbol}{cartGrandTotal.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {!editingQrOrderId && (
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Table</label>
+                      <input type="text" value={posTableNo} onChange={e => setPosTableNo(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" />
+                    </div>
+                    <div className="flex-[2]">
+                      <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Remark</label>
+                      <input type="text" value={posRemark} onChange={e => setPosRemark(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" placeholder="No spicy..." />
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-between pb-2">
+                  {editingQrOrderId ? (
+                    <>
+                      <button
+                        onClick={() => { setEditingQrOrderId(null); setPosCart([]); setPosRemark(''); setPosTableNo('Counter'); }}
+                        className="w-[47.5%] py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveQrOrderEdit}
+                        disabled={posCart.length === 0}
+                        className="w-[47.5%] py-4 bg-blue-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-xl shadow-blue-500/20 disabled:opacity-50 disabled:shadow-none"
+                      >
+                        Save Changes
+                      </button>
+                    </>
+                  ) : showSavedBillFeature ? (
+                    <>
+                      <button
+                        onClick={saveCurrentBill}
+                        disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
+                        className="w-[47.5%] py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                      >
+                        Saved Bill
+                      </button>
+                      <button
+                        onClick={handleCheckout}
+                        disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
+                        className="w-[47.5%] py-4 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
+                      >
+                        {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : 'Complete Payment'}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={handleCheckout}
+                      disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
+                      className="w-full py-4 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
+                    >
+                      {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : 'Complete Payment'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Mobile Floating Cart Button */}
+      {activeTab === 'COUNTER' && posCart.length > 0 && !showMobileCart && (
+        <button
+          onClick={() => setShowMobileCart(true)}
+          className="lg:hidden fixed bottom-6 right-6 z-40 bg-orange-500 text-white w-16 h-16 rounded-full shadow-2xl shadow-orange-500/40 flex items-center justify-center active:scale-95 transition-transform"
+        >
+          <ShoppingBag size={24} />
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center shadow-lg">
+            {posCart.reduce((sum, item) => sum + item.quantity, 0)}
+          </span>
+        </button>
+      )}
+
+      {/* Mobile Cart Drawer */}
+      {showMobileCart && (
+        <div className="lg:hidden fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowMobileCart(false)} />
+          <div className="absolute inset-x-0 bottom-0 bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl flex flex-col max-h-[85vh] animate-slide-up">
+            {/* Drag Handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full" />
+            </div>
+
+            {/* Cart Header */}
+            <div className="px-5 py-3 border-b dark:border-gray-700 flex items-center justify-between">
+              <h3 className="font-black dark:text-white uppercase tracking-tighter text-base">
+                Cart ({posCart.reduce((sum, item) => sum + item.quantity, 0)})
+              </h3>
+              <div className="flex items-center gap-3">
+                <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors p-1">
+                  <Trash2 size={18} />
+                </button>
+                <button onClick={() => setShowMobileCart(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1">
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Cart Items */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+              {posCart.map((item, idx) => (
+                <div key={`${item.id}-${idx}`} className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter truncate">{item.name}</h4>
+                    <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toFixed(2)}</p>
+                    <div className="mt-0.5 space-y-0.5">
+                      {item.selectedSize && <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• Size: {item.selectedSize}</p>}
+                      {item.selectedTemp && <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• Temp: {item.selectedTemp}</p>}
+                      {item.selectedVariantOption && <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• {item.selectedVariantOption}</p>}
+                      {item.selectedOtherVariant && !item.selectedModifiers && <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• {item.otherVariantName || 'Option'}: {item.selectedOtherVariant}</p>}
+                      {item.selectedModifiers && Object.entries(item.selectedModifiers).map(([modName, optName]) => (
+                        optName && <p key={modName} className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• {modName}: {optName}</p>
+                      ))}
+                      {item.selectedAddOns && item.selectedAddOns.length > 0 && (
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">
+                          • Add-ons: {item.selectedAddOns.map(addon => `${addon.name} x${addon.quantity}`).join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-white dark:bg-gray-800 p-1 rounded-lg shadow-sm shrink-0">
+                    <button onClick={() => updateQuantity(idx, -1)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-all"><Minus size={12} /></button>
+                    <span className="text-xs font-black w-5 text-center dark:text-white">{item.quantity}</span>
+                    <button onClick={() => updateQuantity(idx, 1)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-all"><Plus size={12} /></button>
+                  </div>
+                  <button onClick={() => removeFromPosCart(idx)} className="text-gray-300 hover:text-red-500 shrink-0 p-1"><Trash2 size={14} /></button>
+                </div>
+              ))}
+            </div>
+
+            {/* Cart Footer */}
+            <div className="px-5 py-4 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-3">
+              {showPaymentSuccess && (
+                <div className="px-3 py-2 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-300 text-[10px] font-black uppercase tracking-widest text-center">
+                  Payment Completed Successfully
+                </div>
+              )}
+
+              {!!checkoutNotice && (
+                <div className="px-3 py-2 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-300 text-[10px] font-black tracking-wide text-center">
+                  {checkoutNotice}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black dark:text-white uppercase tracking-widest">Total</span>
+                <span className="text-xl font-black text-orange-500">{currencySymbol}{cartGrandTotal.toFixed(2)}</span>
+              </div>
+
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <input type="text" value={posTableNo} onChange={e => setPosTableNo(e.target.value)} className="w-full p-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" placeholder="Table" />
+                </div>
+                <div className="flex-[2]">
+                  <input type="text" value={posRemark} onChange={e => setPosRemark(e.target.value)} className="w-full p-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" placeholder="Remark..." />
+                </div>
+              </div>
+
+              <button onClick={() => { setShowMobileCart(false); handleCheckout(); }} disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2">
+                <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : `Pay ${currencySymbol}${cartGrandTotal.toFixed(2)}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* Payment Modal */}
+      {showPaymentModal && pendingOrderData && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end lg:items-center justify-center lg:p-4" onClick={() => !isCompletingPayment && !showPaymentResult && setShowPaymentModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-t-3xl lg:rounded-3xl shadow-2xl w-full lg:max-w-4xl h-[90vh] lg:h-[650px] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
+            
+            {/* Payment Input View */}
+            <div className={`absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out ${showPaymentResult ? '-translate-x-full' : 'translate-x-0'}`}>
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                disabled={isCompletingPayment}
+                className="absolute top-4 right-5 z-10 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all disabled:opacity-50"
+              >
+                <X size={28} className="text-gray-400" />
+              </button>
+
+              {/* Content */}
+              <div className="flex-1 px-5 lg:px-8 pb-6 lg:pb-8 pt-[3.75rem] space-y-4 lg:space-y-6 overflow-y-auto">
+                {/* Total Amount Due - Centered */}
+                <div className="text-center space-y-2 lg:space-y-3">
+                  <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
+                  <div className="text-4xl lg:text-6xl font-black text-orange-500 tracking-tighter">
+                    {currencySymbol}{pendingOrderData.total.toFixed(2)}
+                  </div>
+                </div>
+
+                {/* Amount Received - Plain Input */}
+                <div className="space-y-3">
+                  <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Amount Received</label>
+                  <div className="flex items-center justify-center border-b-2 dark:border-gray-600 border-gray-300 focus-within:border-orange-500 dark:focus-within:border-orange-500">
+                    <span className="text-2xl font-black text-gray-600 dark:text-gray-400 pb-3">{currencySymbol}</span>
+                    <input 
+                      type="text" 
+                      inputMode="decimal"
+                      value={cashAmountInput} 
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9.]/g, '');
+                        setCashAmountInput(val);
+                        if (val === '' || val === '.') { setSelectedCashAmount(null); return; }
+                        const parsed = parseFloat(val);
+                        if (!isNaN(parsed)) setSelectedCashAmount(parsed);
+                      }}
+                      onBlur={() => {
+                        if (selectedCashAmount !== null) {
+                          const rounded = parseFloat(selectedCashAmount.toFixed(2));
+                          setSelectedCashAmount(rounded);
+                          setCashAmountInput(rounded.toFixed(2));
+                        }
+                      }}
+                      placeholder="0.00"
+                      className="flex-1 p-3 bg-transparent text-2xl font-black dark:text-white text-center focus:outline-none border-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Cash Denomination Boxes */}
+                <div className="space-y-2 lg:space-y-3">
+                  <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Quick Select</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3">
+                    {CASH_DENOMINATIONS.map((amount) => (
+                      <button
+                        key={amount}
+                        onClick={() => { setSelectedCashAmount(amount); setCashAmountInput(amount.toFixed(2)); }}
+                        className={`p-3 rounded-xl font-black text-lg uppercase tracking-widest transition-all border-2 ${
+                          selectedCashAmount === amount
+                            ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
+                        }`}
+                      >
+                        {currencySymbol} {amount.toFixed(2)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Payment Method */}
+                <div className="space-y-2 lg:space-y-3">
+                  <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
+                  <select 
+                    value={selectedPaymentType} 
+                    onChange={(e) => setSelectedPaymentType(e.target.value)}
+                    className="w-full p-3 lg:p-4 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-base lg:text-lg font-black dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
+                  >
+                    {paymentTypes.map((type) => (
+                      <option key={type.id} value={type.id}>
+                        {type.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Footer / Action Buttons */}
+              <div className="px-5 lg:px-8 py-4 lg:py-5 border-t dark:border-gray-700 flex gap-3 lg:gap-4 flex-shrink-0">
+                <button 
+                  onClick={() => setShowPaymentModal(false)} 
+                  disabled={isCompletingPayment}
+                  className="flex-1 py-2 lg:py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleConfirmPayment} 
+                  disabled={isCompletingPayment || !selectedPaymentType}
+                  className="flex-1 py-2 lg:py-3 bg-orange-500 text-white rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-1 lg:gap-3"
+                >
+                  {isCompletingPayment ? (
+                    <>
+                      <div className="w-4 h-4 lg:w-5 lg:h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard size={16} className="lg:hidden" /><CreditCard size={24} className="hidden lg:block" /> Confirm Payment
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Payment Result View */}
+            <div className={`absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out ${showPaymentResult ? 'translate-x-0' : 'translate-x-full'}`}>
+              {/* Header */}
+              <div className="px-8 py-5 border-b dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+                <h3 className="font-black dark:text-white uppercase tracking-tighter text-2xl">Payment Complete</h3>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 flex flex-col items-center justify-center p-8">
+                <div className="w-full max-w-3xl">
+                  <div className="grid grid-cols-1 sm:grid-cols-2">
+                    <div className="sm:pr-8 text-center sm:text-right sm:border-r-2 border-dotted dark:border-gray-700 pb-4 sm:pb-0">
+                      <div className="text-3xl lg:text-5xl font-black text-green-500 tracking-tighter">
+                        {currencySymbol}{(selectedCashAmount || 0).toFixed(2)}
+                      </div>
+                      <label className="block mt-2 lg:mt-3 text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Total Paid</label>
+                    </div>
+                    <div className="sm:pl-8 text-center sm:text-left border-t sm:border-t-0 border-dotted dark:border-gray-700 pt-4 sm:pt-0">
+                      <div className="text-3xl lg:text-5xl font-black text-blue-500 tracking-tighter">
+                        {currencySymbol}{Math.max(0, (selectedCashAmount || 0) - pendingOrderData.total).toFixed(2)}
+                      </div>
+                      <label className="block mt-2 lg:mt-3 text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Total Change</label>
+                    </div>
+                  </div>
+                </div>
+                <div className="w-full max-w-3xl mt-8 text-center">
+                  <p className="text-sm text-gray-400 dark:text-gray-500 italic">Please make sure all the balances are correct before completing the payment.</p>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-8 py-5 border-t dark:border-gray-700 flex-shrink-0">
+                <button
+                  onClick={finalizePaymentFlow}
+                  className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-lg uppercase tracking-wider hover:bg-orange-600 transition-all"
+                >
+                  Complete Payment
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {showSaveBillTableModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={closeSaveBillTableModal}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-[86vw] max-w-3xl h-[88vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b dark:border-gray-700 flex items-center justify-between">
+              <div>
+                <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Select Table For Saved Bill</h3>
+                <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">Tap one table based on your custom arrangement</p>
+              </div>
+              <button onClick={closeSaveBillTableModal} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all">
+                <X size={18} className="text-gray-400" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 flex-1 overflow-y-auto">
+              {/* Floor tabs in modal */}
+              {featureSettings.floorEnabled && effectiveFloorCount > 1 && (
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                  {Array.from({ length: effectiveFloorCount }, (_, i) => i + 1).map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setModalSelectedFloor(f)}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shrink-0 ${
+                        modalSelectedFloor === f
+                          ? 'bg-orange-500 text-white shadow-sm'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      Floor {f}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {tableRowsForModal.map((row, rowIdx) => (
+                <div key={`select-row-${rowIdx}`} className="grid gap-3" style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }}>
+                  {row.map((table) => {
+                    const hasPending = savedBillsByTable.has(table);
+                    const selected = selectedSaveTableNumber === table;
+                    return (
+                      <button
+                        key={table}
+                        onClick={() => setSelectedSaveTableNumber(table)}
+                        className={`p-4 rounded-lg border-2 text-left transition-all ${
+                          selected
+                            ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                            : hasPending
+                              ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20'
+                              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-orange-300'
+                        }`}
+                      >
+                        <p className="text-xs font-black uppercase tracking-widest dark:text-white">{table}</p>
+                        <p className={`text-[10px] mt-1 ${hasPending ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-400'}`}>
+                          {hasPending ? 'Has pending bill (will replace)' : 'Available'}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+
+            <div className="px-5 py-4 border-t dark:border-gray-700 flex gap-2">
+              <button
+                onClick={closeSaveBillTableModal}
+                className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmSaveBillToTable}
+                className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
+              >
+                Save Bill
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <SimpleItemOptionsModal
+        item={selectedItemForOptions}
+        restaurantId={restaurant.id}
+        modifiers={modifiers}
+        onClose={() => setSelectedItemForOptions(null)}
+        onConfirm={(item) => {
+          addToPosCart(item);
+          setSelectedItemForOptions(null);
+        }}
+      />
+
+      {/* Order Detail Popup from Report */}
+      {selectedReportOrder && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedReportOrder(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b dark:border-gray-700 flex items-center justify-between sticky top-0 bg-white dark:bg-gray-800 z-10">
+              <div>
+                <h3 className="font-black dark:text-white uppercase tracking-tighter">Order #{selectedReportOrder.id}</h3>
+                <p className="text-[9px] text-gray-400 uppercase tracking-widest mt-0.5">
+                  {new Date(selectedReportOrder.timestamp).toLocaleDateString()} {new Date(selectedReportOrder.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+              <button onClick={() => setSelectedReportOrder(null)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all">
+                <X size={18} className="text-gray-400" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Table</span>
+                <span className="text-xs font-black dark:text-white">#{selectedReportOrder.tableNumber}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Status</span>
+                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                  selectedReportOrder.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-600' :
+                  selectedReportOrder.status === OrderStatus.SERVED ? 'bg-blue-100 text-blue-600' :
+                  selectedReportOrder.status === OrderStatus.CANCELLED ? 'bg-red-100 text-red-600' :
+                  'bg-orange-100 text-orange-600'
+                }`}>
+                  {selectedReportOrder.status === OrderStatus.COMPLETED ? 'Paid' : selectedReportOrder.status === OrderStatus.SERVED ? 'Served' : selectedReportOrder.status === OrderStatus.CANCELLED ? 'Refunded' : selectedReportOrder.status}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Source</span>
+                <span className="text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">
+                  {selectedReportOrder.orderSource === 'counter' ? 'Counter' :
+                   selectedReportOrder.orderSource === 'qr_order' ? 'QR Order' :
+                   selectedReportOrder.orderSource === 'online' ? 'Online' : '-'}
+                </span>
+              </div>
+
+              <div className="border-t dark:border-gray-700 pt-3">
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Items</p>
+                <div className="space-y-2">
+                  {selectedReportOrder.items.map((item, idx) => (
+                    <div key={idx} className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs font-bold dark:text-white">{item.quantity}x {item.name}</p>
+                        {item.selectedSize && <p className="text-[9px] text-gray-400 ml-3">-Size: {item.selectedSize}</p>}
+                        {item.selectedTemp && <p className="text-[9px] text-gray-400 ml-3">-Temperature: {item.selectedTemp}</p>}
+                        {item.selectedVariantOption && <p className="text-[9px] text-gray-400 ml-3">-Variant: {item.selectedVariantOption}</p>}
+                        {item.selectedOtherVariant && !item.selectedModifiers && <p className="text-[9px] text-gray-400 ml-3">-{item.otherVariantName ? item.otherVariantName.charAt(0).toUpperCase() + item.otherVariantName.slice(1) : 'Option'}: {item.selectedOtherVariant}</p>}
+                        {item.selectedModifiers && Object.entries(item.selectedModifiers).map(([modName, optName]) => (
+                          optName && <p key={modName} className="text-[9px] text-gray-400 ml-3">-{modName.charAt(0).toUpperCase() + modName.slice(1)}: {optName}</p>
+                        ))}
+                        {item.selectedAddOns?.map((addon, aIdx) => (
+                          <p key={aIdx} className="text-[9px] text-gray-400 ml-3">-{addon.name}{addon.quantity > 1 ? ` x${addon.quantity}` : ''}</p>
+                        ))}
+                      </div>
+                      <span className="text-xs font-bold dark:text-white shrink-0 ml-2">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {selectedReportOrder.remark && (
+                <div className="border-t dark:border-gray-700 pt-3">
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Remark</p>
+                  <p className="text-xs dark:text-gray-300">{selectedReportOrder.remark}</p>
+                </div>
+              )}
+
+              <div className="border-t dark:border-gray-700 pt-3 space-y-1.5">
+                {(() => {
+                  const subtotal = selectedReportOrder.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+                  const taxLines = activeTaxEntries.map(tax => ({
+                    id: tax.id,
+                    name: tax.name,
+                    percentage: tax.percentage,
+                    amount: (subtotal * tax.percentage) / 100,
+                  }));
+                  return (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400 uppercase tracking-widest">Subtotal</span>
+                        <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{subtotal.toFixed(2)}</span>
+                      </div>
+                      {taxLines.map(tax => (
+                        <div key={tax.id} className="flex items-center justify-between">
+                          <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400">{tax.name} ({tax.percentage.toFixed(2)}%)</span>
+                          <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{tax.amount.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </>
+                  );
+                })()}
+                <div className="flex items-center justify-between pt-2 border-t dark:border-gray-700">
+                  <span className="text-sm font-black dark:text-white uppercase tracking-widest">Total</span>
+                  <span className="text-2xl font-black text-orange-500">{currencySymbol}{selectedReportOrder.total.toFixed(2)}</span>
+                </div>
+                {selectedReportOrder.amountReceived != null && (
+                  <>
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400">Received Amount</span>
+                      <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{selectedReportOrder.amountReceived.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400">Total Change</span>
+                      <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{(selectedReportOrder.changeAmount ?? Math.max(0, selectedReportOrder.amountReceived - selectedReportOrder.total)).toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {selectedReportOrder.status === OrderStatus.CANCELLED ? (
+                <div className="w-full py-3 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-xl font-black text-[10px] uppercase tracking-widest text-center">
+                  This order has been refunded
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      if (!connectedDevice) {
+                        toast('Printer is not connected. Please connect a printer to reprint.', 'warning');
+                        return;
+                      }
+                      const printRestaurant = {
+                        ...restaurant,
+                        name: receiptSettings.businessName.trim() || restaurant.name,
+                      };
+                      const orderForPrint = {
+                        id: selectedReportOrder.id,
+                        tableNumber: selectedReportOrder.tableNumber,
+                        timestamp: selectedReportOrder.timestamp,
+                        total: selectedReportOrder.total,
+                        items: selectedReportOrder.items,
+                        remark: selectedReportOrder.remark || '',
+                      };
+                      try {
+                        await printerService.printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions());
+                      } catch (err) {
+                        console.error('Reprint error:', err);
+                      }
+                      setSelectedReportOrder(null);
+                    }}
+                    className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Printer size={14} /> Reprint Receipt
+                  </button>
+                  {selectedReportOrder.status === OrderStatus.SERVED ? (
+                    <button
+                      onClick={() => {
+                        setCollectCashAmount(selectedReportOrder.total);
+                        setCollectCashAmountInput(selectedReportOrder.total.toFixed(2));
+                        setCollectPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
+                        setCollectPaymentSuccess(false);
+                        setShowCollectPaymentSidebar(true);
+                      }}
+                      className="flex-1 py-3 bg-green-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2"
+                    >
+                      <CreditCard size={14} /> Collect Payment
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setShowRefundConfirm(true)}
+                      className="flex-1 py-3 bg-red-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all flex items-center justify-center gap-2"
+                    >
+                      <RotateCcw size={14} /> Refund
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Refund Confirmation Modal */}
+              {showRefundConfirm && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={() => setShowRefundConfirm(false)}>
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+                    <div className="p-6 text-center">
+                      <div className="w-14 h-14 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <RotateCcw size={28} className="text-red-500" />
+                      </div>
+                      <h3 className="text-lg font-black dark:text-white uppercase tracking-tight mb-2">Confirm Refund</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Are you sure you want to refund Order <span className="font-bold text-gray-700 dark:text-gray-200">#{selectedReportOrder.id}</span>? This action cannot be undone.</p>
+                    </div>
+                    <div className="flex border-t dark:border-gray-700">
+                      <button
+                        onClick={() => setShowRefundConfirm(false)}
+                        className="flex-1 py-4 text-sm font-black uppercase tracking-widest text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleOrderStatusUpdate(selectedReportOrder.id, OrderStatus.CANCELLED);
+                          toast('Order has been refunded.', 'success');
+                          setShowRefundConfirm(false);
+                          setSelectedReportOrder(null);
+                        }}
+                        className="flex-1 py-4 text-sm font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all border-l dark:border-gray-700"
+                      >
+                        Refund
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Collect Payment Sidebar (slides from right) */}
+      {showCollectPaymentSidebar && selectedReportOrder && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[55] flex justify-end"
+          onClick={() => { if (!collectPaymentProcessing) { setShowCollectPaymentSidebar(false); setCollectPaymentSuccess(false); } }}
+        >
+          <div
+            className="bg-white dark:bg-gray-800 w-full max-w-md h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-300"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-5 py-4 border-b dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+              <div>
+                <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Collect Payment</h3>
+                <p className="text-[9px] text-gray-400 uppercase tracking-widest mt-0.5">Order #{selectedReportOrder.id}</p>
+              </div>
+              <button
+                onClick={() => { if (!collectPaymentProcessing) { setShowCollectPaymentSidebar(false); setCollectPaymentSuccess(false); } }}
+                disabled={collectPaymentProcessing}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all disabled:opacity-50"
+              >
+                <X size={20} className="text-gray-400" />
+              </button>
+            </div>
+
+            {!collectPaymentSuccess ? (
+              <>
+                {/* Body */}
+                <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
+                  {/* Total due */}
+                  <div className="text-center">
+                    <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Total Amount Due</p>
+                    <p className="text-5xl font-black text-orange-500 tracking-tighter">{currencySymbol}{selectedReportOrder.total.toFixed(2)}</p>
+                  </div>
+
+                  {/* Amount received */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest">Amount Received</label>
+                    <div className="flex items-center border-b-2 dark:border-gray-600 border-gray-300 focus-within:border-orange-500 dark:focus-within:border-orange-500">
+                      <span className="text-xl font-black text-gray-600 dark:text-gray-400 pb-3">{currencySymbol}</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={collectCashAmountInput}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9.]/g, '');
+                          setCollectCashAmountInput(val);
+                          if (val === '' || val === '.') { setCollectCashAmount(null); return; }
+                          const parsed = parseFloat(val);
+                          if (!isNaN(parsed)) setCollectCashAmount(parsed);
+                        }}
+                        onBlur={() => {
+                          if (collectCashAmount !== null) {
+                            const rounded = parseFloat(collectCashAmount.toFixed(2));
+                            setCollectCashAmount(rounded);
+                            setCollectCashAmountInput(rounded.toFixed(2));
+                          }
+                        }}
+                        placeholder="0.00"
+                        className="flex-1 p-3 bg-transparent text-xl font-black dark:text-white text-center focus:outline-none border-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Quick select denominations */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest">Quick Select</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {CASH_DENOMINATIONS.map((amount) => (
+                        <button
+                          key={amount}
+                          onClick={() => { setCollectCashAmount(amount); setCollectCashAmountInput(amount.toFixed(2)); }}
+                          className={`p-3 rounded-xl font-black text-base uppercase tracking-widest transition-all border-2 ${
+                            collectCashAmount === amount
+                              ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
+                          }`}
+                        >
+                          {currencySymbol} {amount.toFixed(2)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Payment method */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
+                    <select
+                      value={collectPaymentType}
+                      onChange={(e) => setCollectPaymentType(e.target.value)}
+                      className="w-full p-3 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-base font-black dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
+                    >
+                      {paymentTypes.map((type) => (
+                        <option key={type.id} value={type.id}>{type.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-5 py-4 border-t dark:border-gray-700 flex gap-3 flex-shrink-0">
+                  <button
+                    onClick={() => { setShowCollectPaymentSidebar(false); setCollectPaymentSuccess(false); }}
+                    disabled={collectPaymentProcessing}
+                    className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!collectCashAmount || collectCashAmount < selectedReportOrder.total) {
+                        toast('Amount received cannot be less than the total.', 'error');
+                        return;
+                      }
+                      if (!collectPaymentType) return;
+                      setCollectPaymentProcessing(true);
+                      const paymentName = paymentTypes.find(p => p.id === collectPaymentType)?.name || collectPaymentType;
+                      const changeAmt = Math.max(0, collectCashAmount - selectedReportOrder.total);
+                      try {
+                        onUpdateOrder(selectedReportOrder.id, OrderStatus.COMPLETED, {
+                          paymentMethod: paymentName,
+                          cashierName: cashierName || '',
+                          amountReceived: collectCashAmount,
+                          changeAmount: changeAmt,
+                        });
+                        counterOrdersCache.mergeReportOrdersCache(restaurant.id, [{
+                          id: selectedReportOrder.id,
+                          items: selectedReportOrder.items,
+                          total: selectedReportOrder.total,
+                          status: OrderStatus.COMPLETED,
+                          timestamp: selectedReportOrder.timestamp,
+                          restaurantId: restaurant.id,
+                          tableNumber: selectedReportOrder.tableNumber,
+                          remark: selectedReportOrder.remark || '',
+                          customerId: '',
+                          paymentMethod: paymentName,
+                          cashierName: cashierName || '',
+                          amountReceived: collectCashAmount,
+                          changeAmount: changeAmt,
+                          orderSource: selectedReportOrder.orderSource,
+                        }]);
+                        setCollectPaymentSuccess(true);
+                      } catch (err: any) {
+                        toast(`Payment failed: ${err?.message || 'Unknown error'}`, 'error');
+                      } finally {
+                        setCollectPaymentProcessing(false);
+                      }
+                    }}
+                    disabled={collectPaymentProcessing || !collectPaymentType || !collectCashAmount}
+                    className="flex-1 py-3 bg-green-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-green-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {collectPaymentProcessing ? (
+                      <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Processing...</>
+                    ) : (
+                      <><CreditCard size={14} /> Confirm Payment</>
+                    )}
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* Success state */
+              <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-6">
+                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                  <CheckCircle2 size={36} className="text-green-500" />
+                </div>
+                <div className="text-center">
+                  <h3 className="text-xl font-black dark:text-white uppercase tracking-tighter mb-1">Payment Complete</h3>
+                  <p className="text-xs text-gray-400 uppercase tracking-widest">Order #{selectedReportOrder.id} marked as paid</p>
+                </div>
+                <div className="w-full grid grid-cols-2 gap-4 text-center">
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                    <p className="text-2xl font-black text-green-500">{currencySymbol}{(collectCashAmount || 0).toFixed(2)}</p>
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1">Received</p>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                    <p className="text-2xl font-black text-blue-500">{currencySymbol}{Math.max(0, (collectCashAmount || 0) - selectedReportOrder.total).toFixed(2)}</p>
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1">Change</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowCollectPaymentSidebar(false);
+                    setCollectPaymentSuccess(false);
+                    setSelectedReportOrder(null);
+                    toast('Payment collected successfully.', 'success');
+                  }}
+                  className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
+                >
+                  Done
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* QR Order Rejection Modal */}
+      {rejectingQrOrderId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in fade-in duration-200">
+            <h3 className="text-lg font-black dark:text-white uppercase tracking-tighter mb-4">Reject QR Order</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Reason</label>
+                <div className="space-y-2">
+                  {['Item out of stock', 'Kitchen too busy', 'Restaurant closed early', 'Other'].map(reason => (
+                    <button
+                      key={reason}
+                      onClick={() => setQrRejectionReason(reason)}
+                      className={`w-full text-left px-4 py-3 rounded-xl border font-bold text-sm transition-all ${
+                        qrRejectionReason === reason
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                      }`}
+                    >
+                      {reason}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Note (optional)</label>
+                <textarea
+                  value={qrRejectionNote}
+                  onChange={e => setQrRejectionNote(e.target.value)}
+                  rows={2}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none text-sm font-medium dark:text-white resize-none"
+                  placeholder="Add a note..."
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => { setRejectingQrOrderId(null); setQrRejectionNote(''); }}
+                  className="flex-1 py-3 rounded-xl border dark:border-gray-600 font-black text-[10px] uppercase tracking-widest text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    onUpdateOrder(rejectingQrOrderId, OrderStatus.CANCELLED);
+                    setRejectingQrOrderId(null);
+                    setQrRejectionNote('');
+                  }}
+                  className="flex-1 py-3 rounded-xl bg-red-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all"
+                >
+                  Confirm Reject
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Kitchen Order Rejection Modal */}
+      {rejectingKitchenOrderId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in fade-in duration-200">
+            <h3 className="text-lg font-black dark:text-white uppercase tracking-tighter mb-4">Reject Kitchen Order</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Reason</label>
+                <div className="space-y-2">
+                  {REJECTION_REASONS.map(reason => (
+                    <button
+                      key={reason}
+                      onClick={() => setKitchenRejectionReason(reason)}
+                      className={`w-full text-left px-4 py-3 rounded-xl border font-bold text-sm transition-all ${
+                        kitchenRejectionReason === reason
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                      }`}
+                    >
+                      {reason}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Note (optional)</label>
+                <textarea
+                  value={kitchenRejectionNote}
+                  onChange={e => setKitchenRejectionNote(e.target.value)}
+                  rows={2}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none text-sm font-medium dark:text-white resize-none"
+                  placeholder="Add a note..."
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => { setRejectingKitchenOrderId(null); setKitchenRejectionNote(''); }}
+                  className="flex-1 py-3 rounded-xl border dark:border-gray-600 font-black text-[10px] uppercase tracking-widest text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleKitchenConfirmRejection}
+                  className="flex-1 py-3 rounded-xl bg-red-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all"
+                >
+                  Confirm Reject
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Kitchen Order Alert */}
+      {showNewOrderAlert && showKitchenFeature && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-right fade-in duration-300">
+          <div className="bg-orange-500 text-white rounded-2xl shadow-2xl px-6 py-4 flex items-center gap-4">
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+              <Coffee size={20} />
+            </div>
+            <div>
+              <p className="font-black text-sm uppercase tracking-tight">New Order!</p>
+              <p className="text-[10px] font-bold opacity-80">A new order has arrived in the kitchen</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .saved-table-scroll {
+          overflow-x: auto;
+          padding-bottom: 2px;
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .saved-table-scroll::-webkit-scrollbar {
+          display: none;
+        }
+        .saved-table-row {
+          --visible-cols: 3;
+          display: grid;
+          gap: 0.5rem;
+          width: calc((var(--total-cols) / var(--visible-cols)) * 100%);
+          grid-template-columns: repeat(var(--total-cols), minmax(0, 1fr));
+        }
+        .saved-table-cell {
+          min-width: 0;
+        }
+        .saved-table-cell-empty {
+          border: 1px dashed transparent;
+          background: transparent;
+          pointer-events: none;
+        }
+        @media (min-width: 768px) {
+          .saved-table-row {
+            --visible-cols: 4;
+          }
+        }
+        @media (min-width: 1024px) {
+          .saved-table-row {
+            --visible-cols: 5;
+          }
+        }
+        @keyframes slideLeft {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+        .animate-slide-left {
+          animation: slideLeft 0.3s ease-out;
+        }
+        @keyframes slideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        .animate-slide-up {
+          animation: slideUp 0.3s ease-out;
+        }
+      `}</style>
+
+      {/* Upgrade Plan Modal */}
+      {showUpgradeModal && (
+        <UpgradePlanModal
+          currentPlanId={vendorPlan}
+          restaurantId={restaurant.id}
+          subscription={subscription}
+          onClose={() => setShowUpgradeModal(false)}
+          onUpgraded={() => {
+            setShowUpgradeModal(false);
+            onSubscriptionUpdated?.();
+          }}
+        />
+      )}
+
+      {/* ── Profile / Account Panel ─────────────────────────────────────── */}
+      {/* Backdrop */}
+        <div
+          className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${showProfilePanel ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+          onClick={() => setShowProfilePanel(false)}
+        />
+        {/* Panel */}
+        <div className={`fixed inset-y-0 left-0 z-50 w-80 bg-white dark:bg-gray-800 shadow-2xl flex flex-col overflow-hidden transition-transform duration-300 ease-in-out ${showProfilePanel ? 'translate-x-0' : '-translate-x-full'}`}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b dark:border-gray-700">
+              <div className="flex items-center gap-2">
+                <User size={18} className="text-orange-500" />
+                <h2 className="font-black text-sm uppercase tracking-tight dark:text-white">Account & Settings</h2>
+              </div>
+              <button
+                onClick={() => setShowProfilePanel(false)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+
+              {/* ── Restaurant Logo ── */}
+              <div>
+                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">Restaurant Logo</p>
+                <div className="flex flex-col items-center gap-4">
+                  {/* Photo Frame with hover-delete */}
+                  <div
+                    className="relative cursor-pointer"
+                    onMouseEnter={() => profileLogoPreview ? setProfileLogoHovered(true) : undefined}
+                    onMouseLeave={() => setProfileLogoHovered(false)}
+                  >
+                    <div className="w-28 h-28 rounded-2xl border-2 border-gray-200 dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-700 shadow-sm">
+                      {profileLogoPreview ? (
+                        <img
+                          src={profileLogoPreview}
+                          alt="Restaurant logo"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ImagePlus size={28} className="text-gray-300 dark:text-gray-500" />
+                        </div>
+                      )}
+                    </div>
+                    {/* Hover overlay – delete */}
+                    {profileLogoHovered && profileLogoPreview && (
+                      <div className="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center">
+                        <button
+                          onClick={handleDeleteLogo}
+                          className="flex flex-col items-center gap-1 text-white hover:text-red-300 transition-colors"
+                        >
+                          <Trash2 size={20} />
+                          <span className="text-[9px] font-black uppercase tracking-widest">Remove</span>
+                        </button>
+                      </div>
+                    )}
+                    {profileLogoUploading && (
+                      <div className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center">
+                        <RotateCw size={20} className="text-white animate-spin" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 w-full">
+                    <button
+                      onClick={() => profileLogoInputRef.current?.click()}
+                      disabled={profileLogoUploading}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors disabled:opacity-50 border border-orange-200 dark:border-orange-800/40"
+                    >
+                      <Upload size={13} /> Upload
+                    </button>
+                    <button
+                      onClick={() => setProfileShowLinkInput(v => !v)}
+                      className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold rounded-lg transition-colors border ${
+                        profileShowLinkInput
+                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800/40'
+                          : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      <Link2 size={13} /> Add Link
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500">PNG or JPEG recommended</p>
+                  <input
+                    ref={profileLogoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleProfileLogoFileSelect}
+                  />
+                </div>
+
+                {/* Link Input */}
+                {profileShowLinkInput && (
+                  <div className="mt-3">
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        value={profileImageLinkInput}
+                        onChange={e => setProfileImageLinkInput(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSaveImageLink()}
+                        className="flex-1 border dark:border-gray-600 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                        placeholder="https://example.com/image.png"
+                        autoFocus
+                      />
+                      <button
+                        onClick={handleSaveImageLink}
+                        disabled={profileSaving || !profileImageLinkInput.trim()}
+                        className="px-3 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        {profileSaving ? <RotateCw size={12} className="animate-spin" /> : 'Set'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Restaurant Info ── */}
+              <div>
+                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Restaurant Info</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Restaurant Name</label>
+                    <input
+                      type="text"
+                      value={profileRestaurantName}
+                      onChange={e => setProfileRestaurantName(e.target.value)}
+                      className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      placeholder="Restaurant name"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSaveProfileInfo}
+                    disabled={profileSaving}
+                    className="w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {profileSaving ? <RotateCw size={13} className="animate-spin" /> : null}
+                    Save Info
+                  </button>
+                </div>
+              </div>
+
+              {/* ── Change Password ── */}
+              <div>
+                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Change Password</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Current Password</label>
+                    <div className="relative">
+                      <input
+                        type={profileShowCurrentPw ? 'text' : 'password'}
+                        value={profileCurrentPassword}
+                        onChange={e => setProfileCurrentPassword(e.target.value)}
+                        className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400 pr-9"
+                        placeholder="Current password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setProfileShowCurrentPw(v => !v)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                      >
+                        {profileShowCurrentPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">New Password</label>
+                    <div className="relative">
+                      <input
+                        type={profileShowNewPw ? 'text' : 'password'}
+                        value={profileNewPassword}
+                        onChange={e => setProfileNewPassword(e.target.value)}
+                        className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400 pr-9"
+                        placeholder="New password (min 6 chars)"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setProfileShowNewPw(v => !v)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                      >
+                        {profileShowNewPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Confirm New Password</label>
+                    <input
+                      type="password"
+                      value={profileConfirmPassword}
+                      onChange={e => setProfileConfirmPassword(e.target.value)}
+                      className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      placeholder="Confirm new password"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSaveProfilePassword}
+                    disabled={profileSaving}
+                    className="w-full py-2 rounded-lg bg-gray-800 dark:bg-gray-200 hover:bg-gray-700 dark:hover:bg-white text-white dark:text-gray-900 text-xs font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {profileSaving ? <RotateCw size={13} className="animate-spin" /> : <Lock size={13} />}
+                    Update Password
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* Logo Crop Modal */}
+          {profileCropFile && (
+            <ImageCropModal
+              imageFile={profileCropFile}
+              onCrop={handleProfileLogoCropped}
+              onCancel={() => setProfileCropFile(null)}
+            />
+          )}
+
+
+      {/* ─────────────────────────────────────────────────────────────────── */}
+
+      </div>
+    </div>
+  );
+};
+
+export default PosOnlyView;
