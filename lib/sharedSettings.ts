@@ -49,6 +49,7 @@ export const POS_DEFAULTS = {
     { id: 'qr', name: 'QR' },
   ],
   kitchenSettings: { autoAccept: false, autoPrint: false } as Record<string, unknown>,
+  qrOrderSettings: { autoApprove: false, autoPrint: false } as Record<string, unknown>,
   onlinePaymentMethods: [
     { id: 'cod', label: 'COD (Cash on Delivery)', enabled: true },
     { id: 'online', label: 'Online Payment', enabled: false },
@@ -64,7 +65,7 @@ export const POS_DEFAULTS = {
 const POS_OWNED_KEYS = new Set([
   'font', 'currency', 'taxes', 'printers', 'receipt', 'features',
   'paymentTypes', 'kitchenSettings', 'onlinePaymentMethods', 'onlineDeliveryOptions',
-  'qrLocationLabel',
+  'qrLocationLabel', 'qrOrderSettings',
 ]);
 
 /** Look up a restaurant's name from the localStorage cache (used inside async helpers). */
@@ -143,6 +144,15 @@ export function compressPosSettings(
     if (Object.keys(delta).length > 0) result.kitchenSettings = delta;
   }
 
+  // qrOrderSettings — only store fields that differ.
+  if (settings.qrOrderSettings && typeof settings.qrOrderSettings === 'object') {
+    const delta: Record<string, any> = {};
+    for (const [k, v] of Object.entries(settings.qrOrderSettings as Record<string, any>)) {
+      if (v !== POS_DEFAULTS.qrOrderSettings[k]) delta[k] = v;
+    }
+    if (Object.keys(delta).length > 0) result.qrOrderSettings = delta;
+  }
+
   // onlinePaymentMethods — store only if different from default.
   if (Array.isArray(settings.onlinePaymentMethods)) {
     if (JSON.stringify(settings.onlinePaymentMethods) !== JSON.stringify(POS_DEFAULTS.onlinePaymentMethods)) {
@@ -188,6 +198,10 @@ export function expandPosSettings(
     kitchenSettings: {
       ...POS_DEFAULTS.kitchenSettings,
       ...(delta.kitchenSettings && typeof delta.kitchenSettings === 'object' ? delta.kitchenSettings : {}),
+    },
+    qrOrderSettings: {
+      ...POS_DEFAULTS.qrOrderSettings,
+      ...(delta.qrOrderSettings && typeof delta.qrOrderSettings === 'object' ? delta.qrOrderSettings : {}),
     },
     onlinePaymentMethods: delta.onlinePaymentMethods ?? POS_DEFAULTS.onlinePaymentMethods,
     onlineDeliveryOptions: delta.onlineDeliveryOptions ?? POS_DEFAULTS.onlineDeliveryOptions,

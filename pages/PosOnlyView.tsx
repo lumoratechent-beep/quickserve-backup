@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters, CategoryData, ModifierData, ModifierOption, AddOnItemData, QS_DEFAULT_HUB, Subscription, PlanId, KitchenDepartment } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { uploadImage } from '../lib/storage';
-import { saveAllSettingsToDb, compressPosSettings, expandPosSettings, fetchSettingsFromServer, updateFeatureOnServer } from '../lib/sharedSettings';
+import { saveAllSettingsToDb, saveSettingsToDb, compressPosSettings, expandPosSettings, fetchSettingsFromServer, updateFeatureOnServer } from '../lib/sharedSettings';
 import * as counterOrdersCache from '../lib/counterOrdersCache';
 import printerService, { PrinterDevice, ReceiptPrintOptions } from '../services/printerService';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
@@ -321,6 +321,12 @@ const PosOnlyView: React.FC<Props> = ({
     const saved = localStorage.getItem(`kitchen_settings_${restaurant.id}`);
     return saved ? JSON.parse(saved) : { autoAccept: false, autoPrint: false };
   });
+  const [qrOrderSettings, setQrOrderSettings] = useState<{ autoApprove: boolean; autoPrint: boolean }>(() => {
+    const dbSaved = restaurant.settings?.qrOrderSettings;
+    if (dbSaved && typeof dbSaved === 'object') return { ...{ autoApprove: false, autoPrint: false }, ...dbSaved };
+    const saved = localStorage.getItem(`qr_order_settings_${restaurant.id}`);
+    return saved ? JSON.parse(saved) : { autoApprove: false, autoPrint: false };
+  });
   const [showNewOrderAlert, setShowNewOrderAlert] = useState(false);
   const [kitchenPrintingOrderId, setKitchenPrintingOrderId] = useState<string | null>(null);
   const [kitchenDivisions, setKitchenDivisions] = useState<KitchenDepartment[]>(() => normalizeKitchenDepartments(restaurant.kitchenDivisions));
@@ -389,7 +395,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [menuSearchQuery, setMenuSearchQuery] = useState('');
   const [menuSubTab, setMenuSubTab] = useState<'KITCHEN' | 'CATEGORY' | 'MODIFIER' | 'ADDON'>('KITCHEN');
   const [onlineOrderSubTab, setOnlineOrderSubTab] = useState<'INCOMING' | 'PRODUCT' | 'WALLET' | 'SETTING'>('INCOMING');
-  const [qrOrderSubTab, setQrOrderSubTab] = useState<'INCOMING' | 'SETTING'>('INCOMING');
+  const [qrOrderSubTab, setQrOrderSubTab] = useState<'INCOMING' | 'QR_GENERATOR' | 'SETTING_TAB'>('INCOMING');
   const [onlineStripeBalance, setOnlineStripeBalance] = useState<number | null>(null);
   const [isLoadingStripeBalance, setIsLoadingStripeBalance] = useState(false);
   const [onlineProductView, setOnlineProductView] = useState<'list' | 'grid'>('list');
@@ -3024,6 +3030,15 @@ const PosOnlyView: React.FC<Props> = ({
     }));
   };
 
+  const toggleQrOrderSetting = (key: 'autoApprove' | 'autoPrint') => {
+    setQrOrderSettings(prev => {
+      const updated = { ...prev, [key]: !prev[key] };
+      localStorage.setItem(`qr_order_settings_${restaurant.id}`, JSON.stringify(updated));
+      saveSettingsToDb(restaurant.id, restaurant.settings || {}, 'qrOrderSettings', updated);
+      return updated;
+    });
+  };
+
   const kitchenScopeCategories = useMemo(() => {
     const assigned = Array.isArray(userKitchenCategories)
       ? userKitchenCategories.map(v => String(v || '').trim()).filter(Boolean)
@@ -3176,6 +3191,19 @@ const PosOnlyView: React.FC<Props> = ({
     }
     kitchenPrevPendingCount.current = kitchenPendingOrders.length;
   }, [kitchenPendingOrders.length, showKitchenFeature]);
+
+  // QR order auto-approve + auto-print
+  const qrPrevPendingCount = useRef(0);
+  useEffect(() => {
+    if (!showQrFeature) return;
+    const qrPendingOrders = orders.filter(o => o.orderSource === 'qr_order' && o.status === OrderStatus.PENDING);
+    if (qrPendingOrders.length > qrPrevPendingCount.current && qrOrderSettings.autoApprove) {
+      qrPendingOrders.forEach(order => {
+        onUpdateOrder(order.id, OrderStatus.ONGOING);
+      });
+    }
+    qrPrevPendingCount.current = qrPendingOrders.length;
+  }, [orders, showQrFeature, qrOrderSettings.autoApprove]);
 
   // Persist kitchen order settings
   useEffect(() => {
@@ -4791,7 +4819,13 @@ const PosOnlyView: React.FC<Props> = ({
         ${isSidebarCollapsed ? 'lg:w-16' : 'w-64'}
       `}>
         <div className={`border-b dark:border-gray-700 flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
-          <img src={restaurant.logo} className={`rounded-lg shadow-sm ${isSidebarCollapsed ? 'w-8 h-8' : 'w-10 h-10'} flex-shrink-0`} />
+          {isSidebarCollapsed ? (
+            <button onClick={openProfilePanel} title="Account & Settings" className="rounded-lg hover:ring-2 hover:ring-orange-300 transition-all">
+              <img src={restaurant.logo} className="w-8 h-8 rounded-lg shadow-sm cursor-pointer" />
+            </button>
+          ) : (
+            <img src={restaurant.logo} className="w-10 h-10 rounded-lg shadow-sm flex-shrink-0" />
+          )}
           {!isSidebarCollapsed && (
             <>
               <div className="flex-1 min-w-0">
@@ -4845,7 +4879,7 @@ const PosOnlyView: React.FC<Props> = ({
             <button
               onClick={() => handleTabSelection('QR_ORDERS')}
               title="QR & Table Order"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2 relative' : 'justify-between px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
                 activeTab === 'QR_ORDERS'
                   ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -4856,15 +4890,15 @@ const PosOnlyView: React.FC<Props> = ({
                 {!isSidebarCollapsed && 'QR & Table Order'}
               </div>
               {!isSidebarCollapsed && (() => {
-                const pendingQr = orders.filter(o => o.status === OrderStatus.PENDING).length;
+                const pendingQr = orders.filter(o => o.orderSource === 'qr_order' && o.status === OrderStatus.PENDING).length;
                 return pendingQr > 0 ? (
                   <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">{pendingQr}</span>
                 ) : null;
               })()}
               {isSidebarCollapsed && (() => {
-                const pendingQr = orders.filter(o => o.status === OrderStatus.PENDING).length;
+                const pendingQr = orders.filter(o => o.orderSource === 'qr_order' && o.status === OrderStatus.PENDING).length;
                 return pendingQr > 0 ? (
-                  <span className="absolute top-1 right-1 bg-orange-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center">{pendingQr}</span>
+                  <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-bounce">{pendingQr}</span>
                 ) : null;
               })()}
             </button>
@@ -4874,7 +4908,7 @@ const PosOnlyView: React.FC<Props> = ({
             <button
               onClick={() => handleTabSelection('ONLINE_ORDERS')}
               title="Online Shop"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2 relative' : 'justify-between px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
                 activeTab === 'ONLINE_ORDERS'
                   ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -4884,6 +4918,18 @@ const PosOnlyView: React.FC<Props> = ({
                 <Globe size={navIconSize} />
                 {!isSidebarCollapsed && 'Online Shop'}
               </div>
+              {!isSidebarCollapsed && (() => {
+                const pendingOnline = orders.filter(o => o.orderSource === 'online' && o.status === OrderStatus.PENDING).length;
+                return pendingOnline > 0 ? (
+                  <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">{pendingOnline}</span>
+                ) : null;
+              })()}
+              {isSidebarCollapsed && (() => {
+                const pendingOnline = orders.filter(o => o.orderSource === 'online' && o.status === OrderStatus.PENDING).length;
+                return pendingOnline > 0 ? (
+                  <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-bounce">{pendingOnline}</span>
+                ) : null;
+              })()}
             </button>
           )}
 
@@ -7310,7 +7356,8 @@ const PosOnlyView: React.FC<Props> = ({
                 <div className="flex gap-0 relative">
                   {([
                     { id: 'INCOMING' as const, label: 'Incoming Orders', icon: <QrCode size={13} /> },
-                    { id: 'SETTING' as const, label: 'Setting', icon: <Settings size={13} /> },
+                    { id: 'QR_GENERATOR' as const, label: 'QR Generator', icon: <QrCode size={13} /> },
+                    { id: 'SETTING_TAB' as const, label: 'Setting', icon: <Settings size={13} /> },
                   ]).map(tab => (
                     <button
                       key={tab.id}
@@ -7593,8 +7640,8 @@ const PosOnlyView: React.FC<Props> = ({
                   </>
                 )}
 
-                {/* ── Setting Sub-tab ── */}
-                {qrOrderSubTab === 'SETTING' && (
+                {/* ── QR Generator Sub-tab ── */}
+                {qrOrderSubTab === 'QR_GENERATOR' && (
                   <div className="space-y-4">
                     {canUseQr ? (
                       renderQrGeneratorContent()
@@ -7606,6 +7653,55 @@ const PosOnlyView: React.FC<Props> = ({
                         <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* ── Setting Sub-tab ── */}
+                {qrOrderSubTab === 'SETTING_TAB' && (
+                  <div className="space-y-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 space-y-3">
+                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">QR Order Settings</p>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                          <div>
+                            <p className="text-xs font-black dark:text-white">Auto-Approve Order</p>
+                            <p className="text-[9px] text-gray-400 mt-0.5">Automatically approve incoming QR orders</p>
+                          </div>
+                          <button
+                            onClick={() => toggleQrOrderSetting('autoApprove')}
+                            className={`w-11 h-6 rounded-full transition-all relative ${qrOrderSettings.autoApprove ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                          >
+                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${qrOrderSettings.autoApprove ? 'left-6' : 'left-1'}`} />
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                          <div>
+                            <p className="text-xs font-black dark:text-white">Auto-Print Order</p>
+                            <p className="text-[9px] text-gray-400 mt-0.5">Automatically print incoming QR orders</p>
+                          </div>
+                          <button
+                            onClick={() => toggleQrOrderSetting('autoPrint')}
+                            className={`w-11 h-6 rounded-full transition-all relative ${
+                              !connectedDevice
+                                ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
+                                : qrOrderSettings.autoPrint ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                            }`}
+                            disabled={!connectedDevice}
+                          >
+                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                              !connectedDevice
+                                ? 'left-1 opacity-50'
+                                : qrOrderSettings.autoPrint ? 'left-6' : 'left-1'
+                            }`} />
+                          </button>
+                        </div>
+                        {!connectedDevice && qrOrderSettings.autoPrint && (
+                          <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl">
+                            <p className="text-[10px] text-yellow-600 dark:text-yellow-400">Auto-print enabled but no printer connected. Connect a printer to use this feature.</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -9683,12 +9779,7 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Source</span>
-                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
-                  selectedReportOrder.orderSource === 'counter' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' :
-                  selectedReportOrder.orderSource === 'qr_order' ? 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400' :
-                  selectedReportOrder.orderSource === 'online' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' :
-                  'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
-                }`}>
+                <span className="text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">
                   {selectedReportOrder.orderSource === 'counter' ? 'Counter' :
                    selectedReportOrder.orderSource === 'qr_order' ? 'QR Order' :
                    selectedReportOrder.orderSource === 'online' ? 'Online' : '-'}

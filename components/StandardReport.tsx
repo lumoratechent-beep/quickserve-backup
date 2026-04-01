@@ -288,12 +288,7 @@ const StandardReport: React.FC<Props> = ({
                     </span>
                   </td>
                   <td className="px-4 py-2">
-                    <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
-                      report.orderSource === 'counter' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' :
-                      report.orderSource === 'qr_order' ? 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400' :
-                      report.orderSource === 'online' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' :
-                      'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
-                    }`}>
+                    <span className="text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">
                       {report.orderSource === 'counter' ? 'Counter' :
                        report.orderSource === 'qr_order' ? 'QR Order' :
                        report.orderSource === 'online' ? 'Online' : '-'}

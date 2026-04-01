@@ -101,6 +101,7 @@ export interface Restaurant {
     currency?: string;
     printers?: Array<Record<string, any>>;
     kitchenSettings?: { autoAccept: boolean; autoPrint: boolean };
+    qrOrderSettings?: { autoApprove: boolean; autoPrint: boolean };
     onlineDeliveryOptions?: Array<{ id: string; type: string; label: string; enabled: boolean; fee: number }>;
     onlinePaymentMethods?: Array<{ id: string; label: string; enabled: boolean }>;
     qrLocationLabel?: string; // Custom "Serving At" label for QuickServe Hub restaurants
