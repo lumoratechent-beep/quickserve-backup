@@ -1,0 +1,17 @@
+{
+  "/AdminView": "pages/AdminView.js",
+  "/BackOffice": "pages/BackOffice.js",
+  "/_app": "pages/_app.js",
+  "/BackOfficePage": "pages/BackOfficePage.js",
+  "/CustomerView": "pages/CustomerView.js",
+  "/LandingPage": "pages/LandingPage.js",
+  "/LoginPage": "pages/LoginPage.js",
+  "/BillingPage": "pages/BillingPage.js",
+  "/OnlineShopPage": "pages/OnlineShopPage.js",
+  "/MarketingPage": "pages/MarketingPage.js",
+  "/RegisterPage": "pages/RegisterPage.js",
+  "/TableSideOrderPage": "pages/TableSideOrderPage.js",
+  "/_error": "pages/_error.js",
+  "/PosOnlyView": "pages/PosOnlyView.js",
+  "/_document": "pages/_document.js"
+}

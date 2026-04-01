@@ -274,8 +274,8 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     : 0;
 
   return (
-    <div className="flex-1 overflow-y-auto p-6">
-      <div className="max-w-6xl mx-auto space-y-10">
+    <div className="flex-1 overflow-y-auto p-4 md:p-8">
+      <div className="w-full space-y-10">
 
         {/* ── Plan ── */}
         <section>

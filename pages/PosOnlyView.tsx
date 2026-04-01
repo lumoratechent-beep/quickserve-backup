@@ -1522,13 +1522,23 @@ const PosOnlyView: React.FC<Props> = ({
 
   const handleSaveQrOrderEdit = async () => {
     if (!editingQrOrderId) return;
+    const savedOrderId = editingQrOrderId;
+    const savedItems = [...posCart];
+    const savedTotal = cartGrandTotal;
     try {
-      await supabase.from('orders').update({ items: posCart, total: cartGrandTotal }).eq('id', editingQrOrderId);
+      await supabase.from('orders').update({ items: savedItems, total: savedTotal }).eq('id', savedOrderId);
       setPosCart([]);
       setPosRemark('');
       setPosTableNo('Counter');
       setEditingQrOrderId(null);
-      setActiveTab('QR_ORDERS');
+      // Stay in counter, load updated order into QR_ORDER mode for edit/payment
+      const updatedOrder = orders.find(o => o.id === savedOrderId);
+      if (updatedOrder) {
+        setSelectedQrOrderForPayment({ ...updatedOrder, items: savedItems, total: savedTotal });
+        setCounterMode('QR_ORDER');
+      } else {
+        setActiveTab('QR_ORDERS');
+      }
     } catch (e) {
       console.error('Failed to update order items:', e);
     }
@@ -7288,8 +7298,8 @@ const PosOnlyView: React.FC<Props> = ({
 
           {/* QR Orders Tab - Document-style sub-tabs */}
           {activeTab === 'QR_ORDERS' && showQrFeature && (
-            <div className="flex-1 overflow-y-auto p-4 md:p-6">
-              <div className="max-w-7xl mx-auto w-full">
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+              <div className="w-full">
                 {/* Header */}
                 <div className="mb-5">
                   <h2 className="text-lg font-black dark:text-white uppercase tracking-tighter">QR & Table Order</h2>
@@ -7606,8 +7616,8 @@ const PosOnlyView: React.FC<Props> = ({
 
 
           {activeTab === 'ONLINE_ORDERS' && showOnlineShopFeature && (
-            <div className="flex-1 overflow-y-auto p-4 md:p-6">
-              <div className="max-w-7xl mx-auto w-full">
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+              <div className="w-full">
                 {/* Header */}
                 <div className="mb-5">
                   <h2 className="text-lg font-black dark:text-white uppercase tracking-tighter">Online Shop</h2>
