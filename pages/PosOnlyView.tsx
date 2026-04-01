@@ -305,7 +305,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [onlineOrderFilter, setOnlineOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
   const [rejectingQrOrderId, setRejectingQrOrderId] = useState<string | null>(null);
   const [viewingQrOrderDetail, setViewingQrOrderDetail] = useState<Order | null>(null);
-  const [qrOrderView, setQrOrderView] = useState<'grid' | 'list'>('grid');
+  const [qrOrderView, setQrOrderView] = useState<'grid' | 'list'>('list');
   const [editingQrOrderId, setEditingQrOrderId] = useState<string | null>(null);
   const [qrRejectionReason, setQrRejectionReason] = useState('Item out of stock');
   const [qrRejectionNote, setQrRejectionNote] = useState('');
@@ -7377,19 +7377,19 @@ const PosOnlyView: React.FC<Props> = ({
                                     <div className="flex justify-between gap-1.5">
                                       {order.status === OrderStatus.PENDING && (<><button onClick={() => setRejectingQrOrderId(order.id)} className={`${compact ? 'w-[47.5%] px-2 py-1.5 text-[9px]' : 'w-[47.5%] py-2.5 text-[10px]'} rounded-lg font-black uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all`}>Reject</button><button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className={`${compact ? 'w-[47.5%] px-2 py-1.5 text-[9px]' : 'w-[47.5%] py-2.5 text-[10px]'} bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow`}>Accept</button></>)}
                                       {order.status === OrderStatus.ONGOING && (<button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className={`${compact ? 'w-full px-3 py-1.5 text-[9px]' : 'w-full py-2.5 text-[10px]'} bg-green-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-green-600 transition-all shadow`}>Serve</button>)}
-                                      {order.status === OrderStatus.SERVED && (<button onClick={() => { setSelectedQrOrderForPayment(order); setPendingOrderData({ items: order.items, remark: order.remark, tableNumber: order.tableNumber, total: order.total }); setSelectedCashAmount(order.total); setCashAmountInput(order.total.toFixed(2)); setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : ''); setIsQrPaymentMode(true); setShowPaymentModal(true); }} className={`${compact ? 'w-full px-3 py-1.5 text-[9px]' : 'w-full py-2.5 text-[10px]'} bg-blue-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow`}>Collect Payment</button>)}
+                                      {order.status === OrderStatus.SERVED && (<button onClick={() => { setSelectedQrOrderForPayment(order); setActiveTab('COUNTER'); setCounterMode('QR_ORDER'); }} className={`${compact ? 'w-full px-3 py-1.5 text-[9px]' : 'w-full py-2.5 text-[10px]'} bg-blue-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow`}>Collect Payment</button>)}
                                       {(order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) && (<div className={`${compact ? 'w-full px-3 py-1.5 text-[9px]' : 'w-full py-2.5 text-[10px]'} rounded-lg font-black uppercase tracking-widest text-center ${order.status === OrderStatus.COMPLETED ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>{order.status}</div>)}
                                     </div>
                                   )}
                                 </>);
                                 return (
-                                  <div key={order.id} className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 border-l-4 ${borderColor} rounded-xl flex flex-col`}>
+                                  <div key={order.id} className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 border-l-4 ${borderColor} rounded-xl flex flex-col cursor-pointer hover:ring-2 hover:ring-orange-300 dark:hover:ring-orange-600 transition-all`} onClick={() => handleEditQrOrder(order)}>
                                     <div className="flex items-center justify-between px-4 pt-3 pb-1">
                                       <span className="text-xs font-bold text-gray-600 dark:text-gray-300">Items: <span className="text-gray-900 dark:text-white font-black">{totalQty}</span></span>
                                       <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400"><Clock size={10} /><span className="text-[10px]">{orderTime}</span></div>
                                     </div>
                                     <div className="px-4 pb-3">
-                                      <button onClick={() => setViewingQrOrderDetail(order)} className="text-orange-500 hover:text-orange-600 text-[11px] font-black uppercase tracking-wider transition-colors">View Order Details →</button>
+                                      <button onClick={(e) => { e.stopPropagation(); setViewingQrOrderDetail(order); }} className="text-orange-500 hover:text-orange-600 text-[11px] font-black uppercase tracking-wider transition-colors">View Order Details →</button>
                                     </div>
                                     <div className="h-px bg-gray-100 dark:bg-gray-700" />
                                     <div className="flex items-center justify-between px-4 py-3">
@@ -7402,7 +7402,7 @@ const PosOnlyView: React.FC<Props> = ({
                                       </div>
                                       <div className="text-right">{statusPill}<p className="text-lg font-black text-gray-900 dark:text-white mt-1">{currencySymbol}{order.total.toFixed(2)}</p></div>
                                     </div>
-                                    <div className="px-3 pb-3">{actionButtons()}</div>
+                                    <div className="px-3 pb-3" onClick={(e) => e.stopPropagation()}>{actionButtons()}</div>
                                   </div>
                                 );
                               })}
@@ -7439,22 +7439,22 @@ const PosOnlyView: React.FC<Props> = ({
                                           <div className="flex justify-between gap-1.5">
                                             {order.status === OrderStatus.PENDING && (<><button onClick={() => setRejectingQrOrderId(order.id)} className="w-[47.5%] px-2 py-1.5 text-[9px] rounded-lg font-black uppercase tracking-widest border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">Reject</button><button onClick={() => onUpdateOrder(order.id, OrderStatus.ONGOING)} className="w-[47.5%] px-2 py-1.5 text-[9px] bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow">Accept</button></>)}
                                             {order.status === OrderStatus.ONGOING && (<button onClick={() => onUpdateOrder(order.id, OrderStatus.SERVED)} className="w-full px-3 py-1.5 text-[9px] bg-green-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-green-600 transition-all shadow">Serve</button>)}
-                                            {order.status === OrderStatus.SERVED && (<button onClick={() => { setSelectedQrOrderForPayment(order); setPendingOrderData({ items: order.items, remark: order.remark, tableNumber: order.tableNumber, total: order.total }); setSelectedCashAmount(order.total); setCashAmountInput(order.total.toFixed(2)); setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : ''); setIsQrPaymentMode(true); setShowPaymentModal(true); }} className="w-full px-3 py-1.5 text-[9px] bg-blue-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow">Collect Payment</button>)}
+                                            {order.status === OrderStatus.SERVED && (<button onClick={() => { setSelectedQrOrderForPayment(order); setActiveTab('COUNTER'); setCounterMode('QR_ORDER'); }} className="w-full px-3 py-1.5 text-[9px] bg-blue-500 text-white rounded-lg font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow">Collect Payment</button>)}
                                             {(order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) && (<div className={`w-full px-3 py-1.5 text-[9px] rounded-lg font-black uppercase tracking-widest text-center ${order.status === OrderStatus.COMPLETED ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>{order.status}</div>)}
                                           </div>
                                         )}
                                       </>);
                                       return (
-                                        <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                                        <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer" onClick={() => handleEditQrOrder(order)}>
                                           <td className="px-5 py-3 text-center">{statusPill}</td>
                                           <td className="px-5 py-3 text-center text-[11px] font-black text-gray-800 dark:text-white uppercase">#{orderId}</td>
                                           <td className="px-5 py-3 text-center text-[10px] text-gray-600 dark:text-gray-300">Table {order.tableNumber}</td>
                                           <td className="px-5 py-3 text-center text-[10px] text-gray-500 dark:text-gray-400">{orderDate}</td>
                                           <td className="px-5 py-3 text-center text-[10px] text-gray-500 dark:text-gray-400">{orderTimeStr}</td>
                                           <td className="px-5 py-3 text-center text-[10px] text-gray-500 dark:text-gray-400">{totalQty}</td>
-                                          <td className="px-5 py-3 text-center"><button onClick={() => setViewingQrOrderDetail(order)} className="text-orange-500 hover:text-orange-600 text-[10px] font-black uppercase tracking-wider transition-colors whitespace-nowrap">View Details →</button></td>
+                                          <td className="px-5 py-3 text-center"><button onClick={(e) => { e.stopPropagation(); setViewingQrOrderDetail(order); }} className="text-orange-500 hover:text-orange-600 text-[10px] font-black uppercase tracking-wider transition-colors whitespace-nowrap">View Details →</button></td>
                                           <td className="px-5 py-3 text-center text-[10px] font-black text-gray-900 dark:text-white whitespace-nowrap">{currencySymbol}{order.total.toFixed(2)}</td>
-                                          <td className="px-5 py-3 text-center">{actionButtons(true)}</td>
+                                          <td className="px-5 py-3 text-center" onClick={(e) => e.stopPropagation()}>{actionButtons(true)}</td>
                                         </tr>
                                       );
                                     })}
@@ -7565,13 +7565,9 @@ const PosOnlyView: React.FC<Props> = ({
                                   {o.status === OrderStatus.SERVED && (
                                     <button onClick={() => {
                                       setSelectedQrOrderForPayment(o);
-                                      setPendingOrderData({ items: o.items, remark: o.remark, tableNumber: o.tableNumber, total: o.total });
-                                      setSelectedCashAmount(o.total);
-                                      setCashAmountInput(o.total.toFixed(2));
-                                      setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
-                                      setIsQrPaymentMode(true);
-                                      setShowPaymentModal(true);
                                       setViewingQrOrderDetail(null);
+                                      setActiveTab('COUNTER');
+                                      setCounterMode('QR_ORDER');
                                     }} className="w-full py-3 bg-blue-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg">
                                       Collect Payment
                                     </button>
@@ -8969,40 +8965,46 @@ const PosOnlyView: React.FC<Props> = ({
           `}>
             {/* Sidebar header */}
             <div className="p-4 border-b dark:border-gray-700">
-              {editingQrOrderId ? (
-                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+              {editingQrOrderId && (
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 mb-3">
                   <Edit3 size={13} className="text-blue-500 shrink-0" />
                   <span className="text-[10px] font-black text-blue-700 dark:text-blue-300 uppercase tracking-widest">Editing QR Order #{editingQrOrderId.slice(-6).toUpperCase()}</span>
                 </div>
-              ) : (
-                <>
+              )}
                   {(showSavedBillFeature || showQrFeature) && (
                     <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 mb-3">
                       {showSavedBillFeature && (
                         <button
-                          onClick={() => { setCounterMode('SAVED_BILL'); setSelectedQrOrderForPayment(null); }}
+                          onClick={() => { if (editingQrOrderId) return; setCounterMode('SAVED_BILL'); setSelectedQrOrderForPayment(null); }}
                           className={`relative flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
-                            counterMode === 'SAVED_BILL' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
+                            editingQrOrderId
+                              ? 'bg-blue-500 text-white shadow-sm'
+                              : counterMode === 'SAVED_BILL' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
                           }`}
-                        >Saved Bill
-                          {savedBills.length > 0 && (
+                        >{editingQrOrderId ? 'Edit Order' : 'Saved Bill'}
+                          {!editingQrOrderId && savedBills.length > 0 && (
                             <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] font-black min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center">{savedBills.length}</span>
                           )}
                         </button>
                       )}
+                      {!showSavedBillFeature && editingQrOrderId && (
+                        <button
+                          className="relative flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all bg-blue-500 text-white shadow-sm"
+                        >Edit Order</button>
+                      )}
                       <button
-                        onClick={() => { setCounterMode('COUNTER_ORDER'); setSelectedQrOrderForPayment(null); }}
+                        onClick={() => { if (editingQrOrderId) { setEditingQrOrderId(null); setPosCart([]); setPosRemark(''); setPosTableNo('Counter'); } setCounterMode('COUNTER_ORDER'); setSelectedQrOrderForPayment(null); }}
                         className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
-                          counterMode === 'COUNTER_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
+                          !editingQrOrderId && counterMode === 'COUNTER_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
                         }`}
                       >Counter</button>
                       {showQrFeature && (() => {
                         const servedQrCount = orders.filter(o => o.status === OrderStatus.SERVED).length;
                         return (
                         <button
-                          onClick={() => { setCounterMode('QR_ORDER'); setSelectedQrOrderForPayment(null); }}
+                          onClick={() => { if (editingQrOrderId) { setEditingQrOrderId(null); setPosCart([]); setPosRemark(''); setPosTableNo('Counter'); } setCounterMode('QR_ORDER'); setSelectedQrOrderForPayment(null); }}
                           className={`relative flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
-                            counterMode === 'QR_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
+                            !editingQrOrderId && counterMode === 'QR_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
                           }`}
                         >QR Order
                           {servedQrCount > 0 && (
@@ -9015,13 +9017,15 @@ const PosOnlyView: React.FC<Props> = ({
                   )}
                   <div className="flex items-center justify-between">
                     <h3 className="font-black dark:text-white uppercase tracking-tighter text-sm">
-                      {showSavedBillFeature && counterMode === 'SAVED_BILL'
+                      {editingQrOrderId
+                        ? `Editing Order #${editingQrOrderId.slice(-6).toUpperCase()}`
+                        : showSavedBillFeature && counterMode === 'SAVED_BILL'
                         ? 'Saved Bills'
                         : showQrFeature && counterMode === 'QR_ORDER'
-                        ? (selectedQrOrderForPayment ? `Order #${selectedQrOrderForPayment.id}` : 'QR Order')
+                        ? (selectedQrOrderForPayment ? `Order #${selectedQrOrderForPayment.id.slice(-6).toUpperCase()}` : 'QR Order')
                         : 'Current Order'}
                     </h3>
-                    {(counterMode === 'COUNTER_ORDER' || (!showQrFeature && counterMode !== 'SAVED_BILL')) && (
+                    {!editingQrOrderId && (counterMode === 'COUNTER_ORDER' || (!showQrFeature && counterMode !== 'SAVED_BILL')) && (
                       <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors">
                         <Trash2 size={18} />
                       </button>
@@ -9032,8 +9036,6 @@ const PosOnlyView: React.FC<Props> = ({
                       </button>
                     )}
                   </div>
-                </>
-              )}
             </div>
 
             {/* Sidebar content by mode */}
@@ -9123,19 +9125,17 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
 
                     <div className="flex gap-2">
-                      {showSavedBillFeature && (
-                        <button
-                          onClick={saveSelectedQrOrderAsBill}
-                          disabled={!selectedQrOrderForPayment || isCompletingPayment}
-                          className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
-                        >
-                          Saved Bill
-                        </button>
-                      )}
+                      <button
+                        onClick={() => { if (selectedQrOrderForPayment) handleEditQrOrder(selectedQrOrderForPayment); }}
+                        disabled={!selectedQrOrderForPayment || isCompletingPayment}
+                        className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        <Edit3 size={14} /> Edit Order
+                      </button>
                       <button
                         onClick={handleQrOrderCheckout}
                         disabled={!selectedQrOrderForPayment || isCompletingPayment}
-                        className={`${showSavedBillFeature ? 'flex-[2]' : 'flex-1'} py-4 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2`}
+                        className="flex-[2] py-4 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
                       >
                         <CreditCard size={16} /> Complete Payment
                       </button>
