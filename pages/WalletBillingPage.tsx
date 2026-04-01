@@ -24,23 +24,21 @@ const WalletBillingPage: React.FC<Props> = ({
   const [activeTab, setActiveTab] = useState<'BILLING' | 'WALLET'>('BILLING');
 
   return (
-    <div className="h-full bg-gray-50 dark:bg-gray-900 lg:p-6 lg:pb-6 flex flex-col">
-      <div className="max-w-5xl w-full mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden flex-1 flex flex-col">
-        <div className="flex-shrink-0 p-6 border-b dark:border-gray-700 bg-gradient-to-r from-orange-500/10 via-orange-400/5 to-transparent relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-orange-500/5 to-transparent"></div>
-          <div className="relative">
-            <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter">
-              Wallet & billing
-            </h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              Manage your subscription plans, payments, wallet balance, and cashout requests.
-            </p>
-          </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Header */}
+      <div className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 shadow-sm">
+        <div className="max-w-5xl mx-auto px-4 py-4">
+          <h1 className="text-xl font-black dark:text-white uppercase tracking-tighter">
+            Wallet & billing
+          </h1>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Manage your subscription plans, payments, wallet balance, and cashout requests.
+          </p>
         </div>
 
-        {/* Document-style tab bar - Same pattern as Online Shop */}
-        <div className="flex-shrink-0 px-6 pt-4">
-          <div className="flex gap-0 relative">
+        {/* Tab navigation */}
+        <div className="max-w-5xl mx-auto px-4 pb-3">
+          <div className="flex gap-2">
             {([
               { id: 'BILLING' as const, label: 'Billing', icon: <CreditCard size={13} /> },
               { id: 'WALLET' as const, label: 'Wallet', icon: <Wallet size={13} /> },
@@ -48,11 +46,10 @@ const WalletBillingPage: React.FC<Props> = ({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
-                className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
+                className={`flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-xl transition-all duration-150 whitespace-nowrap ${
                   activeTab === tab.id
-                    ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
-                    : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
+                    ? 'bg-orange-500 text-white shadow-md'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
               >
                 {tab.icon}
@@ -61,27 +58,27 @@ const WalletBillingPage: React.FC<Props> = ({
             ))}
           </div>
         </div>
+      </div>
 
-        {/* Tab content */}
-        <div className="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm mx-6 mb-6 rounded-b-2xl rounded-tr-2xl overflow-hidden">
-          <div className="h-full overflow-y-auto">
-            <div className="p-5 md:p-6">
-              {activeTab === 'BILLING' && (
-                <BillingPage
-                  restaurantId={restaurantId}
-                  subscription={subscription}
-                  onUpgradeClick={onUpgradeClick}
-                  onSubscriptionUpdated={onSubscriptionUpdated}
-                />
-              )}
+      {/* Content */}
+      <main className="max-w-5xl mx-auto px-4 py-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border dark:border-gray-700 overflow-hidden">
+          <div className="p-6">
+            {activeTab === 'BILLING' && (
+              <BillingPage
+                restaurantId={restaurantId}
+                subscription={subscription}
+                onUpgradeClick={onUpgradeClick}
+                onSubscriptionUpdated={onSubscriptionUpdated}
+              />
+            )}
 
-              {activeTab === 'WALLET' && (
-                <WalletTab restaurant={restaurant} />
-              )}
-            </div>
+            {activeTab === 'WALLET' && (
+              <WalletTab restaurant={restaurant} />
+            )}
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };
