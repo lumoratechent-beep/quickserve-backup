@@ -5411,14 +5411,15 @@ const PosOnlyView: React.FC<Props> = ({
                 {/* Sub-tab content */}
                 <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl rounded-tr-2xl">
 
-                  {/* Sub-tab controls */}
-                  <div className="flex flex-wrap items-center gap-4 mb-6">
+                  {/* Sub-tab controls — sticky toolbar */}
+                  <div className="sticky top-0 z-30 bg-white dark:bg-gray-800 -mx-5 md:-mx-6 px-5 md:px-6 py-2 border-b border-gray-100 dark:border-gray-700 space-y-2">
+                    <div className="flex flex-wrap items-center gap-3">
                     {menuSubTab === 'KITCHEN' ? (
                       <>
                         <div className="flex items-center gap-3">
-                          <div className="flex h-9 bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
-                            <button onClick={() => setMenuViewMode('grid')} className={`px-2 rounded-md transition-all ${menuViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={16} /></button>
-                            <button onClick={() => setMenuViewMode('list')} className={`px-2 rounded-md transition-all ${menuViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={16} /></button>
+                          <div className="flex h-8 bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
+                            <button onClick={() => setMenuViewMode('grid')} className={`px-2 rounded-md transition-all ${menuViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={14} /></button>
+                            <button onClick={() => setMenuViewMode('list')} className={`px-2 rounded-md transition-all ${menuViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={14} /></button>
                           </div>
                           <div className="relative">
                             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -5427,68 +5428,72 @@ const PosOnlyView: React.FC<Props> = ({
                               value={menuSearchQuery}
                               onChange={e => setMenuSearchQuery(e.target.value)}
                               placeholder="Search menu..."
-                              className="h-9 w-48 pl-9 pr-3 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                              className="h-8 w-48 pl-9 pr-3 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
                             />
                           </div>
                         </div>
                         <div className="ml-auto flex items-center gap-3">
-                          <div className="flex h-9 bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
+                          <div className="flex h-8 bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
                             <button onClick={() => setMenuStatusFilter('ACTIVE')} className={`flex items-center gap-1.5 px-3 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${menuStatusFilter === 'ACTIVE' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}><Eye size={13} /> <span className="hidden sm:inline">Active</span></button>
                             <button onClick={() => setMenuStatusFilter('ARCHIVED')} className={`flex items-center gap-1.5 px-3 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${menuStatusFilter === 'ARCHIVED' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}><Archive size={13} /> <span className="hidden sm:inline">Archived</span></button>
                           </div>
-                          <button onClick={() => handleOpenAddModal()} className="h-9 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">+ Add Item</button>
+                          <button onClick={() => handleOpenAddModal()} className="h-8 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">+ Add Item</button>
                         </div>
                       </>
                     ) : menuSubTab === 'CATEGORY' ? (
                       <>
                         <div className="flex items-center gap-3">
-                          <div className="flex h-9 bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
-                            <button onClick={() => setClassViewMode('grid')} className={`px-2 rounded-md transition-all ${classViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={16} /></button>
-                            <button onClick={() => setClassViewMode('list')} className={`px-2 rounded-md transition-all ${classViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={16} /></button>
+                          <div className="flex h-8 bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
+                            <button onClick={() => setClassViewMode('grid')} className={`px-2 rounded-md transition-all ${classViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={14} /></button>
+                            <button onClick={() => setClassViewMode('list')} className={`px-2 rounded-md transition-all ${classViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={14} /></button>
                           </div>
                         </div>
-                        <button onClick={() => setShowAddClassModal(true)} className="ml-auto h-9 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
+                        <button onClick={() => setShowAddClassModal(true)} className="ml-auto h-8 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
                           <Tag size={14} /> + New Category
                         </button>
                       </>
                     ) : menuSubTab === 'MODIFIER' ? (
                       <>
                         <div className="flex items-center gap-3">
-                          <div className="flex h-9 bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
-                            <button onClick={() => setModifierViewMode('grid')} className={`px-2 rounded-md transition-all ${modifierViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={16} /></button>
-                            <button onClick={() => setModifierViewMode('list')} className={`px-2 rounded-md transition-all ${modifierViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={16} /></button>
+                          <div className="flex h-8 bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
+                            <button onClick={() => setModifierViewMode('grid')} className={`px-2 rounded-md transition-all ${modifierViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={14} /></button>
+                            <button onClick={() => setModifierViewMode('list')} className={`px-2 rounded-md transition-all ${modifierViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={14} /></button>
                           </div>
                         </div>
-                        <button onClick={handleAddModifier} className="ml-auto h-9 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
+                        <button onClick={handleAddModifier} className="ml-auto h-8 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
                           <Coffee size={14} /> + New Modifier
                         </button>
                       </>
                     ) : (
                       <>
                         <div className="flex items-center gap-3">
-                          <div className="flex h-9 bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
-                            <button onClick={() => setAddOnViewMode('grid')} className={`px-2 rounded-md transition-all ${addOnViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={16} /></button>
-                            <button onClick={() => setAddOnViewMode('list')} className={`px-2 rounded-md transition-all ${addOnViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={16} /></button>
+                          <div className="flex h-8 bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm">
+                            <button onClick={() => setAddOnViewMode('grid')} className={`px-2 rounded-md transition-all ${addOnViewMode === 'grid' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><LayoutGrid size={14} /></button>
+                            <button onClick={() => setAddOnViewMode('list')} className={`px-2 rounded-md transition-all ${addOnViewMode === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400'}`}><List size={14} /></button>
                           </div>
                         </div>
-                        <button onClick={() => setAddOnItems(prev => [...prev, { name: '', price: 0, maxQuantity: 1, required: false }])} className="ml-auto h-9 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
+                        <button onClick={() => setAddOnItems(prev => [...prev, { name: '', price: 0, maxQuantity: 1, required: false }])} className="ml-auto h-8 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all shadow-lg flex items-center gap-2">
                           <PlusCircle size={14} /> + New Add-On
                         </button>
                       </>
+                    )}
+                    </div>
+
+                    {/* Category filter — included in sticky toolbar */}
+                    {menuSubTab === 'KITCHEN' && (
+                      <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700/30 px-3 py-1.5 border dark:border-gray-700 rounded-lg overflow-x-auto hide-scrollbar">
+                        <Filter size={14} className="text-gray-400 shrink-0" />
+                        {menuEditorCategories.map(cat => (
+                          <button key={cat} onClick={() => setMenuCategoryFilter(cat)} className={`whitespace-nowrap px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${menuCategoryFilter === cat ? 'bg-orange-100 text-orange-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}>{cat}</button>
+                        ))}
+                      </div>
                     )}
                   </div>
 
                 {menuSubTab === 'KITCHEN' && (
                   <>
-                    <div className="flex items-center gap-2 mb-6 bg-gray-50 dark:bg-gray-700/30 px-4 py-3 border dark:border-gray-700 rounded-lg overflow-x-auto hide-scrollbar sticky top-0 z-20">
-                      <Filter size={16} className="text-gray-400 shrink-0" />
-                      {menuEditorCategories.map(cat => (
-                        <button key={cat} onClick={() => setMenuCategoryFilter(cat)} className={`whitespace-nowrap px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${menuCategoryFilter === cat ? 'bg-orange-100 text-orange-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}>{cat}</button>
-                      ))}
-                    </div>
-
                     {menuViewMode === 'grid' ? (
-                      <div className="grid grid-cols-5 gap-3">
+                      <div className="grid grid-cols-5 gap-3 mt-4">
                         {currentMenu.map(item => (
                           <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden border dark:border-gray-700 hover:shadow-md transition-all group flex flex-col">
                             <div className="relative aspect-square overflow-hidden" style={!item.image && item.color ? { backgroundColor: item.color } : undefined}>
