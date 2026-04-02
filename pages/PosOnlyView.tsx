@@ -369,6 +369,7 @@ const PosOnlyView: React.FC<Props> = ({
 
   const [addonDetailView, setAddonDetailView] = useState<string | null>(null);
   const [addonDetailTab, setAddonDetailTab] = useState<'details' | 'setting'>('details');
+  const [addonFeatureTab, setAddonFeatureTab] = useState<'AVAILABLE' | 'UPCOMING'>('AVAILABLE');
   const [menuLayout, setMenuLayout] = useState<'grid-3' | 'grid-4' | 'grid-5' | 'grid-6' | 'list'>('grid-5');
   const [mobileMenuLayout, setMobileMenuLayout] = useState<'2' | '3' | 'list'>('3');
   const [flashItemId, setFlashItemId] = useState<string | null>(null);
@@ -2795,6 +2796,7 @@ const PosOnlyView: React.FC<Props> = ({
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
     if (tab !== 'ADDONS') { setAddonDetailView(null); setAddonDetailTab('details'); }
+    if (tab !== 'ADDONS') setAddonFeatureTab('AVAILABLE');
   };
 
   const handleReportsClick = () => {
@@ -7235,34 +7237,145 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
                   );
 
+                  const addonOverviewTabs = [
+                    {
+                      id: 'AVAILABLE' as const,
+                      label: 'Available Feature',
+                      icon: <Package size={13} />,
+                      count: existingAddons.length,
+                      countClassName: 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400',
+                    },
+                    {
+                      id: 'UPCOMING' as const,
+                      label: 'Upcoming Feature',
+                      icon: <Clock size={13} />,
+                      count: upcomingAddons.length,
+                      countClassName: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+                    },
+                  ];
+
+                  const activeAddonItems = addonFeatureTab === 'AVAILABLE' ? existingAddons : upcomingAddons;
+                  const activeAddonConfig = addonOverviewTabs.find(tab => tab.id === addonFeatureTab)!;
+                  const activeEmptyState = addonFeatureTab === 'AVAILABLE'
+                    ? {
+                        icon: <Package size={24} />,
+                        title: 'No Available Features',
+                        description: 'Installed and ready-to-enable features will appear here.',
+                      }
+                    : {
+                        icon: <Clock size={24} />,
+                        title: 'No Upcoming Features',
+                        description: 'New add-on releases will be listed here once scheduled.',
+                      };
+
                   return (
                     <>
-                      <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Add-on Feature</h1>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Extend your POS with additional features.</p>
+                      <div className="mb-5">
+                        <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">Add-on Feature</h1>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Extend your POS with installable tools and upcoming releases.</p>
+                      </div>
 
-                      {/* Available Features */}
-                      <div className="mb-10">
-                        <div className="flex items-center gap-3 mb-4">
-                          <h2 className="text-sm font-black dark:text-white uppercase tracking-widest">Available Features</h2>
-                          <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-[9px] font-black uppercase tracking-widest rounded-full">{existingAddons.length}</span>
+                      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4 mb-5">
+                        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 md:p-6 shadow-sm">
+                          <div className="flex items-start gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-orange-50 dark:bg-orange-900/20 text-orange-500 flex items-center justify-center shrink-0">
+                              <Package size={22} />
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 mb-2">Feature Library</p>
+                              <h2 className="text-lg font-black dark:text-white uppercase tracking-tight">Browse POS extensions in one place</h2>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 max-w-2xl leading-relaxed">
+                                Install live add-ons now, review plan availability, and keep an eye on features that are still in the pipeline.
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                          {existingAddons.map(renderAddonCard)}
+
+                        <div className="grid grid-cols-2 xl:grid-cols-1 gap-4">
+                          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 shadow-sm">
+                            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-gray-400">Available</p>
+                            <div className="mt-3 flex items-end justify-between gap-3">
+                              <div>
+                                <p className="text-2xl font-black text-gray-900 dark:text-white leading-none">{existingAddons.length}</p>
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">Ready to install or manage</p>
+                              </div>
+                              <span className="w-10 h-10 rounded-xl bg-green-50 dark:bg-green-900/20 text-green-500 flex items-center justify-center">
+                                <CheckCircle size={18} />
+                              </span>
+                            </div>
+                          </div>
+                          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 shadow-sm">
+                            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-gray-400">Upcoming</p>
+                            <div className="mt-3 flex items-end justify-between gap-3">
+                              <div>
+                                <p className="text-2xl font-black text-gray-900 dark:text-white leading-none">{upcomingAddons.length}</p>
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">Planned releases and previews</p>
+                              </div>
+                              <span className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-500 flex items-center justify-center">
+                                <Clock size={18} />
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Upcoming Features */}
-                      {upcomingAddons.length > 0 && (
-                        <div>
-                          <div className="flex items-center gap-3 mb-4">
-                            <h2 className="text-sm font-black dark:text-white uppercase tracking-widest">Upcoming Features</h2>
-                            <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase tracking-widest rounded-full">{upcomingAddons.length}</span>
+                      <div className="flex gap-0 relative">
+                        {addonOverviewTabs.map(tab => (
+                          <button
+                            key={tab.id}
+                            onClick={() => setAddonFeatureTab(tab.id)}
+                            style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                            className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
+                              addonFeatureTab === tab.id
+                                ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
+                                : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
+                            }`}
+                          >
+                            {tab.icon}
+                            <span>{tab.label}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${tab.countClassName}`}>
+                              {tab.count}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl rounded-tr-2xl">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-5">
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-gray-400 mb-2">{addonFeatureTab === 'AVAILABLE' ? 'Installable Now' : 'Roadmap Preview'}</p>
+                            <h2 className="text-lg font-black dark:text-white uppercase tracking-tight">{activeAddonConfig.label}</h2>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {addonFeatureTab === 'AVAILABLE'
+                                ? 'Manage features that are already live for your restaurant.'
+                                : 'Preview planned features and open their detail cards for more context.'}
+                            </p>
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                            {upcomingAddons.map(renderAddonCard)}
+                          <div className="inline-flex items-center gap-2 self-start px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700">
+                            <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${addonFeatureTab === 'AVAILABLE' ? 'bg-green-50 dark:bg-green-900/20 text-green-500' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-500'}`}>
+                              {activeAddonConfig.icon}
+                            </span>
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-gray-400">Total</p>
+                              <p className="text-sm font-black text-gray-900 dark:text-white">{activeAddonItems.length} feature{activeAddonItems.length === 1 ? '' : 's'}</p>
+                            </div>
                           </div>
                         </div>
-                      )}
+
+                        {activeAddonItems.length === 0 ? (
+                          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-600">
+                            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                              {activeEmptyState.icon}
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white uppercase tracking-tighter">{activeEmptyState.title}</h3>
+                            <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">{activeEmptyState.description}</p>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {activeAddonItems.map(renderAddonCard)}
+                          </div>
+                        )}
+                      </div>
                     </>
                   );
                 })()}
