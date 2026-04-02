@@ -73,11 +73,45 @@ export type PaperSize = '58mm' | '80mm';
 export type ConnectionType = 'bluetooth' | 'wifi' | 'usb';
 export type PrintDensity = 'light' | 'medium' | 'dark';
 export type PrintJobType = 'receipt' | 'kitchen';
+export type PrintMode = 'text' | 'graphic';
+export type TextSize = 1 | 2 | 3 | 4;
+export type TextFont = 'A' | 'B';
+export type TextAlignment = 'left' | 'center' | 'right';
+
+// ─── Printer Models ─────────────────────────────────────────────────────────
+
+export interface PrinterModelPreset {
+  id: string;
+  name: string;
+  brand: string;
+  paperSize: PaperSize;
+  printMode: PrintMode;
+  printWidth: number; // dots per line
+  printResolution: number; // DPI
+  initCommand: string; // hex string
+  cutterCommand: string;
+  drawerCommand: string;
+}
+
+export const PRINTER_MODELS: PrinterModelPreset[] = [
+  { id: 'epson_tm_t20ii', name: 'TM-T20II', brand: 'Epson', paperSize: '80mm', printMode: 'text', printWidth: 576, printResolution: 203, initCommand: '1B40', cutterCommand: '1D564200', drawerCommand: '1B70003C78' },
+  { id: 'epson_tm_t88v', name: 'TM-T88V', brand: 'Epson', paperSize: '80mm', printMode: 'text', printWidth: 576, printResolution: 180, initCommand: '1B40', cutterCommand: '1D564200', drawerCommand: '1B70003C78' },
+  { id: 'epson_tm_t82iii', name: 'TM-T82III', brand: 'Epson', paperSize: '80mm', printMode: 'text', printWidth: 576, printResolution: 203, initCommand: '1B40', cutterCommand: '1D564200', drawerCommand: '1B70003C78' },
+  { id: 'epson_tm_m30ii', name: 'TM-M30II', brand: 'Epson', paperSize: '80mm', printMode: 'text', printWidth: 576, printResolution: 203, initCommand: '1B40', cutterCommand: '1D564200', drawerCommand: '1B70003C78' },
+  { id: 'star_tsp143', name: 'TSP143', brand: 'Star', paperSize: '80mm', printMode: 'text', printWidth: 576, printResolution: 203, initCommand: '1B40', cutterCommand: '1B6400', drawerCommand: '1B70003C78' },
+  { id: 'star_tsp654', name: 'TSP654', brand: 'Star', paperSize: '80mm', printMode: 'text', printWidth: 576, printResolution: 203, initCommand: '1B40', cutterCommand: '1B6400', drawerCommand: '1B70003C78' },
+  { id: 'bixolon_srp350iii', name: 'SRP-350III', brand: 'Bixolon', paperSize: '80mm', printMode: 'text', printWidth: 576, printResolution: 180, initCommand: '1B40', cutterCommand: '1D564200', drawerCommand: '1B70003C78' },
+  { id: 'xprinter_xp58', name: 'XP-58', brand: 'Xprinter', paperSize: '58mm', printMode: 'text', printWidth: 384, printResolution: 203, initCommand: '1B40', cutterCommand: '1D564200', drawerCommand: '1B70003C78' },
+  { id: 'xprinter_xp80', name: 'XP-80', brand: 'Xprinter', paperSize: '80mm', printMode: 'text', printWidth: 576, printResolution: 203, initCommand: '1B40', cutterCommand: '1D564200', drawerCommand: '1B70003C78' },
+  { id: 'pos_5890k', name: 'POS-5890K', brand: 'Generic', paperSize: '58mm', printMode: 'text', printWidth: 384, printResolution: 203, initCommand: '1B40', cutterCommand: '1D564200', drawerCommand: '1B70003C78' },
+  { id: 'pos_8220', name: 'POS-8220', brand: 'Generic', paperSize: '80mm', printMode: 'text', printWidth: 576, printResolution: 203, initCommand: '1B40', cutterCommand: '1D564200', drawerCommand: '1B70003C78' },
+];
 
 /** Loyverse-style saved printer config */
 export interface SavedPrinter {
   id: string;
   name: string;
+  printerModel: string; // model ID or 'other'
   connectionType: ConnectionType;
   paperSize: PaperSize;
   printDensity: PrintDensity;
@@ -89,6 +123,13 @@ export interface SavedPrinter {
   deviceId?: string;
   deviceName?: string;
   ipAddress?: string;
+  // Advanced settings (editable when model is 'other')
+  printMode: PrintMode;
+  printWidth: number;
+  printResolution: number;
+  initCommand: string;
+  cutterCommand: string;
+  drawerCommand: string;
 }
 
 /** Receipt content configuration */
@@ -108,9 +149,21 @@ export interface ReceiptConfig {
   showTotal: boolean;
   showTaxes: boolean;
   showOrderSource: boolean;
+  showAmountReceived: boolean;
+  showChange: boolean;
   autoPrintAfterSale: boolean;
   printReceiptForRefund: boolean;
   openCashDrawerOnPayment: boolean;
+  // Text customization
+  titleSize: TextSize;
+  titleFont: TextFont;
+  titleAlignment: TextAlignment;
+  headerSize: TextSize;
+  headerFont: TextFont;
+  headerAlignment: TextAlignment;
+  footerSize: TextSize;
+  footerFont: TextFont;
+  footerAlignment: TextAlignment;
 }
 
 /** Kitchen ticket config */
@@ -138,8 +191,20 @@ export interface ReceiptPrintOptions {
   showOrderSource?: boolean;
   showCashierName?: boolean;
   cashierName?: string;
+  showAmountReceived?: boolean;
+  showChange?: boolean;
   showTaxes?: boolean;
   taxes?: Array<{ name: string; amount: number }>;
+  // Text customization
+  titleSize?: TextSize;
+  titleFont?: TextFont;
+  titleAlignment?: TextAlignment;
+  headerSize?: TextSize;
+  headerFont?: TextFont;
+  headerAlignment?: TextAlignment;
+  footerSize?: TextSize;
+  footerFont?: TextFont;
+  footerAlignment?: TextAlignment;
 }
 
 
@@ -161,9 +226,20 @@ export const DEFAULT_RECEIPT_CONFIG: ReceiptConfig = {
   showTotal: true,
   showTaxes: false,
   showOrderSource: false,
+  showAmountReceived: true,
+  showChange: true,
   autoPrintAfterSale: false,
   printReceiptForRefund: false,
   openCashDrawerOnPayment: false,
+  titleSize: 2,
+  titleFont: 'A',
+  titleAlignment: 'center',
+  headerSize: 1,
+  headerFont: 'A',
+  headerAlignment: 'center',
+  footerSize: 1,
+  footerFont: 'A',
+  footerAlignment: 'center',
 };
 
 export const DEFAULT_KITCHEN_TICKET_CONFIG: KitchenTicketConfig = {
@@ -176,6 +252,7 @@ export function createDefaultPrinter(name: string = 'Receipt Printer'): SavedPri
   return {
     id: Date.now().toString(),
     name,
+    printerModel: 'other',
     connectionType: 'bluetooth',
     paperSize: '58mm',
     printDensity: 'medium',
@@ -184,6 +261,32 @@ export function createDefaultPrinter(name: string = 'Receipt Printer'): SavedPri
     printJobs: ['receipt'],
     kitchenCategories: [],
     numberOfCopies: 1,
+    printMode: 'text',
+    printWidth: 384,
+    printResolution: 203,
+    initCommand: '1B40',
+    cutterCommand: '1D564200',
+    drawerCommand: '1B70003C78',
+  };
+}
+
+/** Apply a printer model preset to a SavedPrinter form */
+export function applyModelPreset(printer: SavedPrinter, modelId: string): SavedPrinter {
+  if (modelId === 'other') {
+    return { ...printer, printerModel: 'other' };
+  }
+  const preset = PRINTER_MODELS.find(m => m.id === modelId);
+  if (!preset) return { ...printer, printerModel: modelId };
+  return {
+    ...printer,
+    printerModel: modelId,
+    paperSize: preset.paperSize,
+    printMode: preset.printMode,
+    printWidth: preset.printWidth,
+    printResolution: preset.printResolution,
+    initCommand: preset.initCommand,
+    cutterCommand: preset.cutterCommand,
+    drawerCommand: preset.drawerCommand,
   };
 }
 
@@ -715,17 +818,28 @@ class PrinterService {
       r.init();
       if (options?.printDensity) r.density(options.printDensity);
 
-      // ── Business Name — centered, large, bold ──
-      r.align('center').bold(true).size(2, 2);
+      // ── Business Name — use title customization ──
+      const titleAlign = options?.titleAlignment || 'center';
+      const titleSz = options?.titleSize || 2;
+      const titleFnt = options?.titleFont || 'A';
+      r.align(titleAlign).bold(true).font(titleFnt).size(titleSz, titleSz);
       r.line(bizName);
-      r.normalSize().bold(false);
+      r.normalSize().bold(false).font('A');
 
       // ── Address & Phone — centered, normal ──
+      r.align(titleAlign);
       if (bizAddr) r.line(bizAddr);
       if (bizPhone) r.line(bizPhone);
 
-      // ── Custom header text ──
-      if (header) r.line(header);
+      // ── Custom header text — use header customization ──
+      if (header) {
+        const hdrAlign = options?.headerAlignment || 'center';
+        const hdrSz = options?.headerSize || 1;
+        const hdrFnt = options?.headerFont || 'A';
+        r.align(hdrAlign).font(hdrFnt).size(hdrSz, hdrSz);
+        r.line(header);
+        r.normalSize().font('A');
+      }
 
       // ── Separator ──
       r.align('left').thickSeparator();
@@ -830,15 +944,24 @@ class PrinterService {
       if (order.paymentMethod) {
         r.line(`Paid: ${this.sanitize(order.paymentMethod)}`);
       }
-      if (order.cashReceived && order.change !== undefined) {
-        r.columns2('Cash', `RM ${this.formatPrice(order.cashReceived)}`);
-        r.columns2('Change', `RM ${this.formatPrice(order.change)}`);
+      // ── Amount Received ──
+      if (options?.showAmountReceived !== false && order.amountReceived != null && Number(order.amountReceived) > 0) {
+        r.columns2('Amount Received', `RM ${this.formatPrice(order.amountReceived)}`);
+      }
+      // ── Change ──
+      if (options?.showChange !== false && order.changeAmount != null && Number(order.changeAmount) >= 0) {
+        r.columns2('Change', `RM ${this.formatPrice(order.changeAmount)}`);
       }
 
       // ── Footer ──
       r.thickSeparator();
       if (footer) {
-        r.align('center').line(footer);
+        const ftrAlign = options?.footerAlignment || 'center';
+        const ftrSz = options?.footerSize || 1;
+        const ftrFnt = options?.footerFont || 'A';
+        r.align(ftrAlign).font(ftrFnt).size(ftrSz, ftrSz);
+        r.line(footer);
+        r.normalSize().font('A');
       }
 
       // ── Feed & cut ──

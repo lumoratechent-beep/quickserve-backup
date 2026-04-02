@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Printer, Bluetooth, Plus, Trash2, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, X, Wifi, Usb, Settings, FileText, UtensilsCrossed, RotateCw } from 'lucide-react';
-import printerService, { PrinterDevice, SavedPrinter, ReceiptConfig, KitchenTicketConfig, DEFAULT_RECEIPT_CONFIG, DEFAULT_KITCHEN_TICKET_CONFIG, createDefaultPrinter } from '../services/printerService';
-import type { PaperSize, ConnectionType, PrintDensity, PrintJobType } from '../services/printerService';
+import printerService, { PrinterDevice, SavedPrinter, ReceiptConfig, KitchenTicketConfig, DEFAULT_RECEIPT_CONFIG, DEFAULT_KITCHEN_TICKET_CONFIG, createDefaultPrinter, PRINTER_MODELS, applyModelPreset } from '../services/printerService';
+import type { PaperSize, ConnectionType, PrintDensity, PrintJobType, PrintMode, TextSize, TextFont, TextAlignment } from '../services/printerService';
 
 interface Props {
   restaurantId: string;
@@ -52,6 +52,7 @@ const PrinterSettings: React.FC<Props> = ({
   const [isAddingPrinter, setIsAddingPrinter] = useState(false);
   const [editingPrinterId, setEditingPrinterId] = useState<string | null>(null);
   const [printerForm, setPrinterForm] = useState<SavedPrinter>(createDefaultPrinter());
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
   // Receipt config
   const [receiptConfig, setReceiptConfig] = useState<ReceiptConfig>(() => {
@@ -349,6 +350,10 @@ const PrinterSettings: React.FC<Props> = ({
                   <span className="text-[9px] text-gray-300">&middot;</span>
                   <span className="text-[9px] text-gray-400">{printer.paperSize}</span>
                   <span className="text-[9px] text-gray-300">&middot;</span>
+                  <span className="text-[9px] text-gray-400">
+                    {printer.printerModel === 'other' ? 'Custom' : (PRINTER_MODELS.find(m => m.id === printer.printerModel)?.name || printer.printerModel || 'Custom')}
+                  </span>
+                  <span className="text-[9px] text-gray-300">&middot;</span>
                   <span className="text-[9px] text-gray-400 capitalize">{printer.printDensity}</span>
                   {printer.autoCut && <><span className="text-[9px] text-gray-300">&middot;</span><span className="text-[9px] text-gray-400">Auto-cut</span></>}
                   {printer.cashDrawer && <><span className="text-[9px] text-gray-300">&middot;</span><span className="text-[9px] text-gray-400">Drawer</span></>}
@@ -373,7 +378,7 @@ const PrinterSettings: React.FC<Props> = ({
               <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
                 {editingPrinterId ? 'Edit Printer' : 'New Printer'}
               </p>
-              <button onClick={() => { setIsAddingPrinter(false); setEditingPrinterId(null); setPrinterForm(createDefaultPrinter()); }} className="text-gray-400 hover:text-red-500">
+              <button onClick={() => { setIsAddingPrinter(false); setEditingPrinterId(null); setPrinterForm(createDefaultPrinter()); setShowAdvancedSettings(false); }} className="text-gray-400 hover:text-red-500">
                 <X size={14} />
               </button>
             </div>
@@ -390,13 +395,41 @@ const PrinterSettings: React.FC<Props> = ({
               />
             </div>
 
+            {/* Printer Model */}
+            <div>
+              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Printer Model</label>
+              <select
+                value={printerForm.printerModel}
+                onChange={e => {
+                  const modelId = e.target.value;
+                  setPrinterForm(f => applyModelPreset(f, modelId));
+                  if (modelId === 'other') setShowAdvancedSettings(true);
+                }}
+                className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+              >
+                {Object.entries(
+                  PRINTER_MODELS.reduce<Record<string, typeof PRINTER_MODELS>>((acc, m) => {
+                    (acc[m.brand] = acc[m.brand] || []).push(m);
+                    return acc;
+                  }, {})
+                ).map(([brand, models]) => (
+                  <optgroup key={brand} label={brand}>
+                    {models.map(m => (
+                      <option key={m.id} value={m.id}>{m.name} ({m.paperSize})</option>
+                    ))}
+                  </optgroup>
+                ))}
+                <option value="other">Other (Manual Configuration)</option>
+              </select>
+            </div>
+
             {/* Connection Type */}
             <div>
-              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Connection</label>
+              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Interface</label>
               <div className="flex gap-2">
                 {([
                   { type: 'bluetooth' as ConnectionType, icon: Bluetooth, label: 'Bluetooth' },
-                  { type: 'wifi' as ConnectionType, icon: Wifi, label: 'Wi-Fi' },
+                  { type: 'wifi' as ConnectionType, icon: Wifi, label: 'Ethernet' },
                   { type: 'usb' as ConnectionType, icon: Usb, label: 'USB' },
                 ]).map(({ type, icon: Icon, label }) => (
                   <button
@@ -412,9 +445,52 @@ const PrinterSettings: React.FC<Props> = ({
                   </button>
                 ))}
               </div>
+
+              {/* Bluetooth: Scan & Pair */}
+              {printerForm.connectionType === 'bluetooth' && printerStatus !== 'connected' && isBluetoothSupported && (
+                <div className="mt-2 space-y-2">
+                  <button
+                    onClick={async () => {
+                      setIsScanning(true);
+                      setErrorMessage('');
+                      const found = await printerService.scanForPrinters();
+                      setDevices(found);
+                      setIsScanning(false);
+                      if (found.length > 0) {
+                        setPrinterForm(f => ({ ...f, deviceId: found[0].id, deviceName: found[0].name }));
+                        // Auto-connect
+                        const success = await printerService.connect(found[0].name);
+                        if (success) {
+                          setConnectedDevice(found[0]);
+                          setPrinterStatus('connected');
+                          setRealPrinterConnected(true);
+                          localStorage.setItem(`printer_${restaurantId}`, JSON.stringify(found[0]));
+                          onPrinterConnected?.(found[0]);
+                        }
+                      }
+                    }}
+                    disabled={isScanning}
+                    className="w-full py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isScanning ? (
+                      <><div className="w-3 h-3 border-2 border-white dark:border-gray-900 border-t-transparent rounded-full animate-spin" /> Scanning...</>
+                    ) : (
+                      <><Bluetooth size={12} /> Scan & Pair Bluetooth</>
+                    )}
+                  </button>
+                  {printerForm.deviceName && (
+                    <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-800">
+                      <CheckCircle2 size={12} className="text-green-500" />
+                      <span className="text-[10px] font-bold text-green-700 dark:text-green-400">{printerForm.deviceName}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Ethernet: IP Address */}
               {printerForm.connectionType === 'wifi' && (
                 <div className="mt-2">
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">IP Address</label>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Printer IP Address</label>
                   <input
                     type="text"
                     value={printerForm.ipAddress || ''}
@@ -424,16 +500,23 @@ const PrinterSettings: React.FC<Props> = ({
                   />
                 </div>
               )}
+
+              {/* USB: device selection info */}
+              {printerForm.connectionType === 'usb' && (
+                <div className="mt-2 p-2.5 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <p className="text-[9px] text-blue-600 dark:text-blue-400 font-bold">USB printers connect via system dialog. Click "Scan for Printer" above to select your USB device.</p>
+                </div>
+              )}
             </div>
 
             {/* Paper Size */}
             <div>
-              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Paper Size</label>
+              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Paper Width</label>
               <div className="flex gap-2">
                 {(['58mm', '80mm'] as PaperSize[]).map(size => (
                   <button
                     key={size}
-                    onClick={() => setPrinterForm(f => ({ ...f, paperSize: size }))}
+                    onClick={() => setPrinterForm(f => ({ ...f, paperSize: size, printWidth: size === '80mm' ? 576 : 384 }))}
                     className={`flex-1 py-2.5 rounded-lg text-[10px] font-black border transition-all ${
                       printerForm.paperSize === size
                         ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700 text-orange-600'
@@ -474,6 +557,99 @@ const PrinterSettings: React.FC<Props> = ({
               <SettingRow label="Cash Drawer" description="Cash drawer connected to this printer">
                 <Toggle enabled={printerForm.cashDrawer} onChange={v => setPrinterForm(f => ({ ...f, cashDrawer: v }))} />
               </SettingRow>
+            </div>
+
+            {/* ── Advanced Settings ── */}
+            <div className="border-t dark:border-gray-700 pt-3">
+              <button
+                onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+                className="flex items-center gap-2 w-full text-left"
+              >
+                {showAdvancedSettings ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Advanced Settings</span>
+              </button>
+
+              {showAdvancedSettings && (
+                <div className="mt-3 space-y-3">
+                  {/* Print Mode */}
+                  <div>
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Print Mode</label>
+                    <div className="flex gap-2">
+                      {(['text', 'graphic'] as PrintMode[]).map(mode => (
+                        <button
+                          key={mode}
+                          onClick={() => setPrinterForm(f => ({ ...f, printMode: mode }))}
+                          className={`flex-1 py-2 rounded-lg text-[10px] font-black capitalize border transition-all ${
+                            printerForm.printMode === mode
+                              ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700 text-orange-600'
+                              : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500'
+                          }`}
+                        >
+                          {mode}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Print Width */}
+                  <div>
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Print Width (dots)</label>
+                    <input
+                      type="number"
+                      value={printerForm.printWidth}
+                      onChange={e => setPrinterForm(f => ({ ...f, printWidth: Number(e.target.value) || 384 }))}
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                      placeholder="384 (58mm) or 576 (80mm)"
+                    />
+                  </div>
+
+                  {/* Print Resolution */}
+                  <div>
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Print Resolution (DPI)</label>
+                    <select
+                      value={printerForm.printResolution}
+                      onChange={e => setPrinterForm(f => ({ ...f, printResolution: Number(e.target.value) }))}
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                    >
+                      <option value={180}>180 DPI</option>
+                      <option value={203}>203 DPI</option>
+                      <option value={300}>300 DPI</option>
+                    </select>
+                  </div>
+
+                  {/* ESC/POS Commands */}
+                  <div>
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Initial ESC/POS Command (hex)</label>
+                    <input
+                      type="text"
+                      value={printerForm.initCommand}
+                      onChange={e => setPrinterForm(f => ({ ...f, initCommand: e.target.value.replace(/[^0-9a-fA-F]/g, '') }))}
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-mono dark:text-white"
+                      placeholder="1B40"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Cutter ESC/POS Command (hex)</label>
+                    <input
+                      type="text"
+                      value={printerForm.cutterCommand}
+                      onChange={e => setPrinterForm(f => ({ ...f, cutterCommand: e.target.value.replace(/[^0-9a-fA-F]/g, '') }))}
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-mono dark:text-white"
+                      placeholder="1D564200"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Drawer ESC/POS Command (hex)</label>
+                    <input
+                      type="text"
+                      value={printerForm.drawerCommand}
+                      onChange={e => setPrinterForm(f => ({ ...f, drawerCommand: e.target.value.replace(/[^0-9a-fA-F]/g, '') }))}
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-mono dark:text-white"
+                      placeholder="1B70003C78"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Print Jobs */}
@@ -551,7 +727,7 @@ const PrinterSettings: React.FC<Props> = ({
             {/* Actions */}
             <div className="flex gap-2 pt-2">
               <button
-                onClick={() => { setIsAddingPrinter(false); setEditingPrinterId(null); setPrinterForm(createDefaultPrinter()); }}
+                onClick={() => { setIsAddingPrinter(false); setEditingPrinterId(null); setPrinterForm(createDefaultPrinter()); setShowAdvancedSettings(false); }}
                 className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500"
               >
                 Cancel
@@ -567,7 +743,7 @@ const PrinterSettings: React.FC<Props> = ({
           </div>
         ) : (
           <button
-            onClick={() => { setIsAddingPrinter(true); setEditingPrinterId(null); setPrinterForm(createDefaultPrinter()); }}
+            onClick={() => { setIsAddingPrinter(true); setEditingPrinterId(null); setPrinterForm(createDefaultPrinter()); setShowAdvancedSettings(false); }}
             className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2 mt-3"
           >
             <Plus size={14} /> Add Printer
@@ -627,6 +803,61 @@ const PrinterSettings: React.FC<Props> = ({
         </div>
       </div>
 
+      {/* Text Customization */}
+      <div className="space-y-3 border-t dark:border-gray-700 pt-4">
+        <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Text Formatting</p>
+        {([
+          { prefix: 'title' as const, label: 'Title (Business Name)' },
+          { prefix: 'header' as const, label: 'Header Text' },
+          { prefix: 'footer' as const, label: 'Footer Text' },
+        ]).map(({ prefix, label }) => (
+          <div key={prefix} className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl space-y-2">
+            <p className="text-[9px] font-black text-gray-500 dark:text-gray-300 uppercase tracking-widest">{label}</p>
+            <div className="grid grid-cols-3 gap-2">
+              {/* Size */}
+              <div>
+                <label className="block text-[8px] font-bold text-gray-400 mb-1">Size</label>
+                <select
+                  value={receiptConfig[`${prefix}Size`]}
+                  onChange={e => updateReceiptConfig(`${prefix}Size`, Number(e.target.value) as TextSize)}
+                  className="w-full px-2 py-1.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-[10px] font-bold dark:text-white"
+                >
+                  <option value={1}>Normal</option>
+                  <option value={2}>Large</option>
+                  <option value={3}>Extra Large</option>
+                  <option value={4}>Huge</option>
+                </select>
+              </div>
+              {/* Font */}
+              <div>
+                <label className="block text-[8px] font-bold text-gray-400 mb-1">Font</label>
+                <select
+                  value={receiptConfig[`${prefix}Font`]}
+                  onChange={e => updateReceiptConfig(`${prefix}Font`, e.target.value as TextFont)}
+                  className="w-full px-2 py-1.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-[10px] font-bold dark:text-white"
+                >
+                  <option value="A">Font A (Standard)</option>
+                  <option value="B">Font B (Compact)</option>
+                </select>
+              </div>
+              {/* Alignment */}
+              <div>
+                <label className="block text-[8px] font-bold text-gray-400 mb-1">Align</label>
+                <select
+                  value={receiptConfig[`${prefix}Alignment`]}
+                  onChange={e => updateReceiptConfig(`${prefix}Alignment`, e.target.value as TextAlignment)}
+                  className="w-full px-2 py-1.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-[10px] font-bold dark:text-white"
+                >
+                  <option value="left">Left</option>
+                  <option value="center">Center</option>
+                  <option value="right">Right</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* Show/Hide Fields */}
       <div className="space-y-2 border-t dark:border-gray-700 pt-4">
         <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest mb-2">Visible Fields</p>
@@ -638,6 +869,8 @@ const PrinterSettings: React.FC<Props> = ({
           { key: 'showItems' as const, label: 'Item Details', desc: 'Show ordered items' },
           { key: 'showRemark' as const, label: 'Order Notes', desc: 'Show order remarks/notes' },
           { key: 'showTotal' as const, label: 'Total', desc: 'Show order total' },
+          { key: 'showAmountReceived' as const, label: 'Amount Received', desc: 'Show amount paid by customer' },
+          { key: 'showChange' as const, label: 'Total Change', desc: 'Show change given to customer' },
           { key: 'showTaxes' as const, label: 'Tax Breakdown', desc: 'Show tax details' },
           { key: 'showOrderSource' as const, label: 'Order Source', desc: 'Show where order came from' },
         ]).map(field => (

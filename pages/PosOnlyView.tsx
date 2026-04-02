@@ -1617,6 +1617,11 @@ const PosOnlyView: React.FC<Props> = ({
       total: pendingOrderData.total,
       items: pendingOrderData.items,
       remark: pendingOrderData.remark,
+      paymentMethod: paymentName,
+      cashierName: cashierName || '',
+      amountReceived: selectedCashAmount ?? undefined,
+      changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined,
+      orderSource: isQrPaymentMode ? (selectedQrOrderForPayment?.orderSource || 'qr_order') : 'counter',
     };
 
     // Show payment result with slide animation
@@ -2516,8 +2521,20 @@ const PosOnlyView: React.FC<Props> = ({
       autoCut: printer?.autoCut ?? true,
       showOrderSource: receiptConfig.showOrderSource,
       showCashierName: receiptConfig.showCashierName,
+      cashierName: cashierName || '',
+      showAmountReceived: receiptConfig.showAmountReceived,
+      showChange: receiptConfig.showChange,
       showTaxes: receiptConfig.showTaxes,
       taxes: taxEntries.map(t => ({ name: t.name, amount: t.percentage })),
+      titleSize: receiptConfig.titleSize,
+      titleFont: receiptConfig.titleFont,
+      titleAlignment: receiptConfig.titleAlignment,
+      headerSize: receiptConfig.headerSize,
+      headerFont: receiptConfig.headerFont,
+      headerAlignment: receiptConfig.headerAlignment,
+      footerSize: receiptConfig.footerSize,
+      footerFont: receiptConfig.footerFont,
+      footerAlignment: receiptConfig.footerAlignment,
     };
   };
 
@@ -8958,6 +8975,11 @@ const PosOnlyView: React.FC<Props> = ({
                         total: selectedReportOrder.total,
                         items: selectedReportOrder.items,
                         remark: selectedReportOrder.remark || '',
+                        paymentMethod: (selectedReportOrder as any).paymentMethod || '',
+                        cashierName: (selectedReportOrder as any).cashierName || '',
+                        amountReceived: (selectedReportOrder as any).amountReceived,
+                        changeAmount: (selectedReportOrder as any).changeAmount,
+                        orderSource: (selectedReportOrder as any).orderSource,
                       };
                       try {
                         await printerService.printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions());
