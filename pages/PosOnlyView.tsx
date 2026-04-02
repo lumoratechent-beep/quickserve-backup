@@ -5311,97 +5311,112 @@ const PosOnlyView: React.FC<Props> = ({
 
           {/* Settings Tab */}
           {activeTab === 'SETTINGS' && (
-            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+            <div className="flex-1 overflow-y-auto">
               <div className="animate-in fade-in duration-500">
-                <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Settings</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Features, printer, receipt, payment, tax, and staff configuration.</p>
 
-                {isKitchenUser && (
-                  <div className="mb-6 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 space-y-3">
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Kitchen Order Settings</p>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                {/* ── Header ── */}
+                <div className="px-4 md:px-8 pt-6 pb-0">
+                  <h1 className="text-lg md:text-xl font-semibold dark:text-white">{restaurant.name}</h1>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Manage your settings and preferences here.</p>
+                </div>
+
+                {/* ── Horizontal Tab Bar ── */}
+                <div className="px-4 md:px-8 mt-5 border-b border-gray-200 dark:border-gray-700">
+                  <nav className="flex overflow-x-auto no-scrollbar -mb-px gap-1">
+                    {(isKitchenUser
+                      ? ([
+                          { key: 'builtin' as SettingsPanel, label: 'Kitchen Orders' },
+                          { key: 'printer' as SettingsPanel, label: 'Printer' },
+                          { key: 'ux' as SettingsPanel, label: 'Display' },
+                        ])
+                      : ([
+                          { key: 'builtin' as SettingsPanel, label: 'Features' },
+                          { key: 'printer' as SettingsPanel, label: 'Printer & Receipt' },
+                          { key: 'payment' as SettingsPanel, label: 'Payment & Taxes' },
+                          { key: 'table' as SettingsPanel, label: 'Tables' },
+                          { key: 'kitchen' as SettingsPanel, label: 'Kitchen' },
+                          { key: 'qr' as SettingsPanel, label: 'QR Orders' },
+                          { key: 'staff' as SettingsPanel, label: 'Staff' },
+                          { key: 'ux' as SettingsPanel, label: 'Display' },
+                        ])
+                    ).map(tab => (
+                      <button
+                        key={tab.key}
+                        onClick={() => setSettingsPanel(tab.key)}
+                        className={`whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-all border-b-2 ${
+                          settingsPanel === tab.key
+                            ? 'border-orange-500 text-orange-600 dark:text-orange-400'
+                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-500'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </nav>
+                </div>
+
+                {/* ── Content Area ── */}
+                <div className="px-4 md:px-8 py-6">
+                  <div className="max-w-2xl">
+
+                    {/* Kitchen user: Kitchen Order Settings */}
+                    {isKitchenUser && settingsPanel === 'builtin' && (
+                      <div className="space-y-6">
                         <div>
-                          <p className="text-xs font-black dark:text-white">Auto-Accept</p>
-                          <p className="text-[9px] text-gray-400 mt-0.5">Automatically accept incoming orders</p>
+                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Kitchen Order Settings</h2>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Configure how incoming orders are handled in the kitchen.</p>
                         </div>
-                        <button
-                          onClick={() => toggleKitchenOrderSetting('autoAccept')}
-                          className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoAccept ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                        >
-                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${kitchenOrderSettings.autoAccept ? 'left-6' : 'left-1'}`} />
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                        <div>
-                          <p className="text-xs font-black dark:text-white">Auto-Print</p>
-                          <p className="text-[9px] text-gray-400 mt-0.5">Automatically print accepted orders</p>
-                        </div>
-                        <button
-                          onClick={() => toggleKitchenOrderSetting('autoPrint')}
-                          className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoPrint ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                        >
-                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${kitchenOrderSettings.autoPrint ? 'left-6' : 'left-1'}`} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* ===== MOBILE: Accordion Layout ===== */}
-                <div className="lg:hidden space-y-4">
-
-                  {/* Settings Container */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
-                    <div className="flex items-center gap-2.5 px-4 py-3 bg-emerald-50/50 dark:bg-emerald-900/10 border-b dark:border-gray-700">
-                      <Settings size={14} className="text-emerald-500" />
-                      <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Settings</p>
-                    </div>
-                    <div className="divide-y dark:divide-gray-700">
-
-                  {/* Built-in Features Accordion (moved to top of Settings) */}
-                  {!isKitchenUser && (
-                  <div>
-                    <button
-                      onClick={() => setSettingsPanel(settingsPanel === 'builtin' ? 'printer' : 'builtin')}
-                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'builtin' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
-                        <Zap size={18} className="text-amber-500" />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'builtin' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Built-in Features</p>
-                        <p className="text-[10px] text-gray-400">Auto-print, drawer, dining</p>
-                      </div>
-                      <ChevronDown size={16} className={`transition-all ${settingsPanel === 'builtin' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
-                    </button>
-                    {settingsPanel === 'builtin' && (
-                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        <div className="max-w-lg">
-                          {renderFeaturesContent()}
+                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
+                          <div className="flex items-center justify-between px-5 py-4">
+                            <div>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">Auto-Accept</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Automatically accept incoming orders</p>
+                            </div>
+                            <button
+                              onClick={() => toggleKitchenOrderSetting('autoAccept')}
+                              className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoAccept ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                            >
+                              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${kitchenOrderSettings.autoAccept ? 'left-6' : 'left-1'}`} />
+                            </button>
+                          </div>
+                          <div className="flex items-center justify-between px-5 py-4">
+                            <div>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">Auto-Print</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Automatically print accepted orders</p>
+                            </div>
+                            <button
+                              onClick={() => toggleKitchenOrderSetting('autoPrint')}
+                              className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoPrint ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                            >
+                              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${kitchenOrderSettings.autoPrint ? 'left-6' : 'left-1'}`} />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}
-                  </div>
-                  )}
 
-                  {/* Printer & Receipt Accordion */}
-                  <div>
-                    <button
-                      onClick={() => setSettingsPanel(settingsPanel === 'printer' ? 'builtin' : 'printer')}
-                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'printer' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center">
-                        <Printer size={18} className="text-orange-500" />
+                    {/* Non-kitchen: Built-in Features */}
+                    {!isKitchenUser && settingsPanel === 'builtin' && (
+                      <div className="space-y-6">
+                        <div>
+                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Built-in Features</h2>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Toggle core POS features like auto-print, cash drawer, and dining options.</p>
+                        </div>
+                        {renderFeaturesContent()}
                       </div>
-                      <div className="flex-1 text-left">
-                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'printer' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Printer & Receipt</p>
-                        <p className="text-[10px] text-gray-400">{savedPrinters.length > 0 ? `${savedPrinters.length} printer${savedPrinters.length > 1 ? 's' : ''} configured` : 'No printer configured'}</p>
-                      </div>
-                      <ChevronDown size={16} className={`transition-all ${settingsPanel === 'printer' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
-                    </button>
+                    )}
+
+                    {/* Printer & Receipt */}
                     {settingsPanel === 'printer' && (
-                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
+                      <div className="space-y-6">
+                        <div>
+                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Printer & Receipt</h2>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {savedPrinters.length > 0
+                              ? `${savedPrinters.length} printer${savedPrinters.length > 1 ? 's' : ''} configured`
+                              : 'Set up printers and customize receipt layout.'}
+                          </p>
+                        </div>
                         <PrinterSettings
                           restaurantId={restaurant.id}
                           restaurantName={restaurant.name}
@@ -5420,293 +5435,105 @@ const PosOnlyView: React.FC<Props> = ({
                         />
                       </div>
                     )}
-                  </div>
 
-                  {/* Payment Type & Taxes Accordion */}
-                  <div>
-                    <button
-                      onClick={() => setSettingsPanel(settingsPanel === 'payment' ? 'builtin' : 'payment')}
-                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'payment' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
-                        <CreditCard size={18} className="text-green-500" />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'payment' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Payment Type &amp; Taxes</p>
-                        <p className="text-[10px] text-gray-400">{paymentTypes.length} types · {taxEntries.length} configured</p>
-                      </div>
-                      <ChevronDown size={16} className={`transition-all ${settingsPanel === 'payment' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
-                    </button>
+                    {/* Payment & Taxes */}
                     {settingsPanel === 'payment' && (
-                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        <div className="max-w-lg">
-                          {renderPaymentAndTaxesContent()}
+                      <div className="space-y-6">
+                        <div>
+                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Payment Type & Taxes</h2>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{paymentTypes.length} payment type{paymentTypes.length !== 1 ? 's' : ''} · {taxEntries.length} tax{taxEntries.length !== 1 ? 'es' : ''} configured</p>
                         </div>
+                        {renderPaymentAndTaxesContent()}
                       </div>
                     )}
-                  </div>
 
-                  {/* Staff Accordion */}
-                  <div>
-                    <button
-                      onClick={() => setSettingsPanel(settingsPanel === 'staff' ? 'builtin' : 'staff')}
-                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'staff' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
-                        <Users size={18} className="text-violet-500" />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'staff' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Staff Management</p>
-                        <p className="text-[10px] text-gray-400">{staffList.length} member{staffList.length !== 1 ? 's' : ''}</p>
-                      </div>
-                      <ChevronDown size={16} className={`transition-all ${settingsPanel === 'staff' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
-                    </button>
-                    {settingsPanel === 'staff' && (
-                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        <div className="max-w-lg">
-                          {renderStaffContent()}
+                    {/* Table Management */}
+                    {settingsPanel === 'table' && (
+                      <div className="space-y-6">
+                        <div>
+                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Table Management</h2>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Configure table layout, floors, and saved-bill support.</p>
                         </div>
+                        {renderTableManagementContent()}
                       </div>
                     )}
-                  </div>
 
-                  {/* User Experience Accordion */}
-                  <div>
-                    <button
-                      onClick={() => setSettingsPanel(settingsPanel === 'ux' ? 'builtin' : 'ux')}
-                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'ux' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
-                        <Type size={18} className="text-indigo-500" />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'ux' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>User Experience</p>
-                        <p className="text-[10px] text-gray-400">{userFont} · {CURRENCY_OPTIONS.find(c => c.code === userCurrency)?.label}</p>
-                      </div>
-                      <ChevronDown size={16} className={`transition-all ${settingsPanel === 'ux' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
-                    </button>
-                    {settingsPanel === 'ux' && (
-                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        <div className="max-w-lg">
-                          {renderUXContent()}
+                    {/* Kitchen */}
+                    {settingsPanel === 'kitchen' && (
+                      <div className="space-y-6">
+                        <div>
+                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Kitchen Display</h2>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Manage kitchen departments, staff, and display settings.</p>
                         </div>
-                      </div>
-                    )}
-                  </div>
-
-                    </div>
-                  </div>
-
-                </div>
-                <div className="hidden lg:flex gap-6 min-h-[500px]">
-                  {/* Left Sidebar */}
-                  <div className="flex-1 space-y-4">
-
-                    {/* Settings Card */}
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
-                      <div className="flex items-center gap-2.5 px-4 py-3 bg-emerald-50/50 dark:bg-emerald-900/10 border-b dark:border-gray-700">
-                        <Settings size={14} className="text-emerald-500" />
-                        <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Settings</p>
-                      </div>
-
-                      {/* Built-in Features Nav (at top of Settings) */}
-                      {!isKitchenUser && (
-                      <button
-                        onClick={() => setSettingsPanel('builtin')}
-                        className={`w-full flex items-center gap-3 p-4 transition-all ${
-                          settingsPanel === 'builtin'
-                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                        }`}
-                      >
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                          settingsPanel === 'builtin' ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-gray-100 dark:bg-gray-700'
-                        }`}>
-                          <Zap size={16} className={settingsPanel === 'builtin' ? 'text-orange-500' : 'text-gray-400'} />
-                        </div>
-                        <div className="flex-1 text-left">
-                          <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'builtin' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Built-in Features</p>
-                          <p className="text-[10px] text-gray-400">Auto-print, drawer, dining</p>
-                        </div>
-                      </button>
-                      )}
-
-                      {/* Printer & Receipt Nav Item */}
-                      <button
-                        onClick={() => setSettingsPanel('printer')}
-                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-t-gray-700 ${
-                          settingsPanel === 'printer'
-                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                        }`}
-                      >
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                          settingsPanel === 'printer'
-                            ? 'bg-orange-100 dark:bg-orange-900/30'
-                            : 'bg-gray-100 dark:bg-gray-700'
-                        }`}>
-                          <Printer size={16} className={settingsPanel === 'printer' ? 'text-orange-500' : 'text-gray-400'} />
-                        </div>
-                        <div className="flex-1 text-left">
-                          <p className={`text-xs font-black uppercase tracking-wide ${
-                            settingsPanel === 'printer' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'
-                          }`}>Printer & Receipt</p>
-                          <p className="text-[10px] text-gray-400">{savedPrinters.length > 0 ? `${savedPrinters.length} printer${savedPrinters.length > 1 ? 's' : ''}` : 'No printer configured'}</p>
-                        </div>
-                      </button>
-
-                      {/* Payment Type & Taxes Nav Item */}
-                      <button
-                        onClick={() => setSettingsPanel('payment')}
-                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-t-gray-700 ${
-                          settingsPanel === 'payment'
-                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                        }`}
-                      >
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                          settingsPanel === 'payment'
-                            ? 'bg-orange-100 dark:bg-orange-900/30'
-                            : 'bg-gray-100 dark:bg-gray-700'
-                        }`}>
-                          <CreditCard size={16} className={settingsPanel === 'payment' ? 'text-orange-500' : 'text-gray-400'} />
-                        </div>
-                        <div className="flex-1 text-left">
-                          <p className={`text-xs font-black uppercase tracking-wide ${
-                            settingsPanel === 'payment' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'
-                          }`}>Payment Type &amp; Taxes</p>
-                          <p className="text-[10px] text-gray-400">{paymentTypes.length} types · {taxEntries.length} configured</p>
-                        </div>
-                      </button>
-
-                      {/* Staff Nav Item */}
-                      <button
-                        onClick={() => setSettingsPanel('staff')}
-                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-t-gray-700 ${
-                          settingsPanel === 'staff'
-                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                        }`}
-                      >
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                          settingsPanel === 'staff'
-                            ? 'bg-orange-100 dark:bg-orange-900/30'
-                            : 'bg-gray-100 dark:bg-gray-700'
-                        }`}>
-                          <Users size={16} className={settingsPanel === 'staff' ? 'text-orange-500' : 'text-gray-400'} />
-                        </div>
-                        <div className="flex-1 text-left">
-                          <p className={`text-xs font-black uppercase tracking-wide ${
-                            settingsPanel === 'staff' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'
-                          }`}>Staff Management</p>
-                          <p className="text-[10px] text-gray-400">{staffList.length} member{staffList.length !== 1 ? 's' : ''}</p>
-                        </div>
-                      </button>
-
-                      {/* User Experience Nav Item */}
-                      <button
-                        onClick={() => setSettingsPanel('ux')}
-                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-t-gray-700 ${
-                          settingsPanel === 'ux'
-                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                        }`}
-                      >
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                          settingsPanel === 'ux'
-                            ? 'bg-orange-100 dark:bg-orange-900/30'
-                            : 'bg-gray-100 dark:bg-gray-700'
-                        }`}>
-                          <Type size={16} className={settingsPanel === 'ux' ? 'text-orange-500' : 'text-gray-400'} />
-                        </div>
-                        <div className="flex-1 text-left">
-                          <p className={`text-xs font-black uppercase tracking-wide ${
-                            settingsPanel === 'ux' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'
-                          }`}>User Experience</p>
-                          <p className="text-[10px] text-gray-400">{userFont} · {CURRENCY_OPTIONS.find(c => c.code === userCurrency)?.label}</p>
-                        </div>
-                      </button>
-
-                    </div>
-                  </div>
-
-                  {/* Right Content Panel */}
-                  <div className="w-[560px] shrink-0 min-h-0 overflow-y-auto">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-6">
-                      <div className="max-w-lg">
-                        {settingsPanel === 'builtin' && renderFeaturesContent()}
-
-                        {settingsPanel === 'table' && (
-                          <div className="space-y-4">
-                            {renderTableManagementContent()}
+                        {canUseKitchen ? renderKitchenSettingsContent() : (
+                          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 text-center py-12">
+                            <Coffee size={36} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Upgrade to Pro Plus</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">Kitchen Display System requires the Pro Plus plan</p>
+                            <button onClick={() => setShowUpgradeModal(true)} className="px-5 py-2.5 bg-orange-500 text-white rounded-lg font-medium text-sm hover:bg-orange-600 transition-all">Upgrade Plan</button>
                           </div>
                         )}
+                      </div>
+                    )}
 
-                        {settingsPanel === 'kitchen' && (
-                          <div className="space-y-0">
-                            {canUseKitchen ? renderKitchenSettingsContent() : (
-                              <div className="text-center py-8">
-                                <Coffee size={36} className="mx-auto text-gray-300 mb-3" />
-                                <p className="text-sm font-black dark:text-white mb-1">Upgrade to Pro Plus</p>
-                                <p className="text-[10px] text-gray-400 mb-4">Kitchen Display System requires the Pro Plus plan</p>
-                                <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {settingsPanel === 'qr' && (
-                          <div className="space-y-4">
-                            {canUseQr ? (
-                              <>
-                                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                                  <div>
-                                    <p className="text-xs font-black dark:text-white">QR Ordering</p>
-                                    <p className="text-[9px] text-gray-400 mt-0.5">Let customers scan QR codes to order from their table</p>
-                                  </div>
-                                  <button
-                                    onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
-                                    className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                                  >
-                                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
-                                  </button>
+                    {/* QR Orders */}
+                    {settingsPanel === 'qr' && (
+                      <div className="space-y-6">
+                        <div>
+                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">QR Ordering</h2>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Let customers scan QR codes to order from their table.</p>
+                        </div>
+                        {canUseQr ? (
+                          <>
+                            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                              <div className="flex items-center justify-between px-5 py-4">
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900 dark:text-white">Enable QR Ordering</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Guests can scan and order directly</p>
                                 </div>
-                                {featureSettings.qrEnabled && renderQrGeneratorContent()}
-                              </>
-                            ) : (
-                              <div className="text-center py-8">
-                                <QrCode size={36} className="mx-auto text-gray-300 mb-3" />
-                                <p className="text-sm font-black dark:text-white mb-1">Upgrade to Pro</p>
-                                <p className="text-[10px] text-gray-400 mb-4">QR Ordering requires the Pro plan or higher</p>
-                                <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
+                                <button
+                                  onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
+                                  className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                >
+                                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
+                                </button>
                               </div>
-                            )}
+                            </div>
+                            {featureSettings.qrEnabled && renderQrGeneratorContent()}
+                          </>
+                        ) : (
+                          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 text-center py-12">
+                            <QrCode size={36} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Upgrade to Pro</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">QR Ordering requires the Pro plan or higher</p>
+                            <button onClick={() => setShowUpgradeModal(true)} className="px-5 py-2.5 bg-orange-500 text-white rounded-lg font-medium text-sm hover:bg-orange-600 transition-all">Upgrade Plan</button>
                           </div>
                         )}
-
-                        {settingsPanel === 'printer' && (
-                          <PrinterSettings
-                            restaurantId={restaurant.id}
-                            restaurantName={restaurant.name}
-                            categories={allFoodCategories}
-                            savedPrinters={savedPrinters}
-                            receiptConfig={receiptConfig}
-                            kitchenConfig={kitchenConfig}
-                            onPrintersChange={(printers) => setSavedPrinters(printers)}
-                            onReceiptConfigChange={(config) => setReceiptConfig(config)}
-                            onKitchenConfigChange={(config) => setKitchenConfig(config)}
-                            onPrinterConnected={(device) => {
-                              setConnectedDevice(device);
-                              setRealPrinterConnected(true);
-                              localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
-                            }}
-                          />
-                        )}
-                        {settingsPanel === 'payment' && renderPaymentAndTaxesContent()}
-                        {settingsPanel === 'staff' && renderStaffContent()}
-                        {settingsPanel === 'ux' && renderUXContent()}
                       </div>
-                    </div>
+                    )}
+
+                    {/* Staff */}
+                    {settingsPanel === 'staff' && (
+                      <div className="space-y-6">
+                        <div>
+                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Staff Management</h2>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{staffList.length} staff member{staffList.length !== 1 ? 's' : ''} configured</p>
+                        </div>
+                        {renderStaffContent()}
+                      </div>
+                    )}
+
+                    {/* User Experience / Display */}
+                    {settingsPanel === 'ux' && (
+                      <div className="space-y-6">
+                        <div>
+                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Display Settings</h2>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Customize font and currency display for your screen.</p>
+                        </div>
+                        {renderUXContent()}
+                      </div>
+                    )}
+
                   </div>
                 </div>
 
