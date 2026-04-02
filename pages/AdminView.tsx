@@ -2135,7 +2135,7 @@ const AdminView: React.FC<Props> = ({
                         <MapPin size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <select
                           value={announcementHub}
-                          onChange={e => setAnnouncementHub(e.target.value)}
+                          onChange={e => { setAnnouncementHub(e.target.value); setAnnouncementRestaurant('all'); }}
                           className="w-full pl-8 pr-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-xs font-bold dark:text-white outline-none appearance-none cursor-pointer"
                         >
                           <option value="all">All Hubs</option>
@@ -2153,7 +2153,7 @@ const AdminView: React.FC<Props> = ({
                           className="w-full pl-8 pr-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-xs font-bold dark:text-white outline-none appearance-none cursor-pointer"
                         >
                           <option value="all">All Restaurants</option>
-                          {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                          {(announcementHub === 'all' ? restaurants : restaurants.filter(r => r.location === announcementHub)).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                         </select>
                       </div>
                     </div>
