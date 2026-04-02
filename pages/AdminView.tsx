@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, PlatformAccess, Subscription, PlanId } from '../src/types';
 import { uploadImage } from '../lib/storage';
-import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send } from 'lucide-react';
+import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight } from 'lucide-react';
 import ImageCropModal from '../components/ImageCropModal';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
@@ -607,7 +607,7 @@ const AdminView: React.FC<Props> = ({
   onFetchStats
 }) => {
   const [activeTab, setActiveTab] = useState<'VENDORS' | 'LOCATIONS' | 'INCOME_REPORT' | 'CASHOUT' | 'SYSTEM'>('VENDORS');
-  const [incomeReportSubTab, setIncomeReportSubTab] = useState<'REPORTS' | 'INCOME'>('REPORTS');
+  const [incomeReportSubTab, setIncomeReportSubTab] = useState<'INCOME' | 'REPORTS'>('INCOME');
 
   // Cashout requests tab state
   const [adminCashouts, setAdminCashouts] = useState<any[]>([]);
@@ -769,7 +769,7 @@ const AdminView: React.FC<Props> = ({
   const [isHubSelectionModalOpen, setIsHubSelectionModalOpen] = useState(false);
 
   // Feature Images State
-  const [systemSubTab, setSystemSubTab] = useState<'STATUS' | 'FEATURE_IMAGES'>('STATUS');
+  const [systemSubTab, setSystemSubTab] = useState<'STATUS' | 'FEATURE_IMAGES' | 'ANNOUNCEMENTS'>('STATUS');
   const [showPitchDeck, setShowPitchDeck] = useState(false);
   const [featureImages, setFeatureImages] = useState<{ id: string; url: string; alt: string; crop_shape: string; display_width: number; display_height: number; sort_order: number; category: string }[]>([]);
   const [isLoadingFeatureImages, setIsLoadingFeatureImages] = useState(false);
@@ -806,6 +806,46 @@ const AdminView: React.FC<Props> = ({
     toast('Image removed', 'success');
     fetchFeatureImages();
   };
+
+  // Announcements State
+  const [announcements, setAnnouncements] = useState<{ id: string; title: string; body: string; category: string; created_at: string; is_active: boolean }[]>([]);
+  const [isLoadingAnnouncements, setIsLoadingAnnouncements] = useState(false);
+  const [announcementTitle, setAnnouncementTitle] = useState('');
+  const [announcementBody, setAnnouncementBody] = useState('');
+  const [announcementCategory, setAnnouncementCategory] = useState('general');
+
+  const fetchAnnouncements = async () => {
+    setIsLoadingAnnouncements(true);
+    const { data, error } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
+    if (!error && data) setAnnouncements(data);
+    setIsLoadingAnnouncements(false);
+  };
+
+  const createAnnouncement = async () => {
+    if (!announcementTitle.trim() || !announcementBody.trim()) { toast('Title and body are required', 'error'); return; }
+    const { error } = await supabase.from('announcements').insert({ title: announcementTitle.trim(), body: announcementBody.trim(), category: announcementCategory, is_active: true });
+    if (error) { toast('Failed to create announcement', 'error'); return; }
+    toast('Announcement published', 'success');
+    setAnnouncementTitle('');
+    setAnnouncementBody('');
+    setAnnouncementCategory('general');
+    fetchAnnouncements();
+  };
+
+  const toggleAnnouncementActive = async (id: string, currentState: boolean) => {
+    const { error } = await supabase.from('announcements').update({ is_active: !currentState }).eq('id', id);
+    if (error) { toast('Update failed', 'error'); return; }
+    fetchAnnouncements();
+  };
+
+  const deleteAnnouncement = async (id: string) => {
+    const { error } = await supabase.from('announcements').delete().eq('id', id);
+    if (error) { toast('Delete failed', 'error'); return; }
+    toast('Announcement deleted', 'success');
+    fetchAnnouncements();
+  };
+
+  useEffect(() => { if (systemSubTab === 'ANNOUNCEMENTS') fetchAnnouncements(); }, [systemSubTab]);
 
   // Reports State
   const [reportSearchQuery, setReportSearchQuery] = useState('');
@@ -1425,17 +1465,23 @@ const AdminView: React.FC<Props> = ({
         )}
 
         {activeTab === 'INCOME_REPORT' && (
-          <div>
-            {/* Sub-tab bar */}
-            <div className="px-4 md:px-8 pt-6 pb-0">
-              <div className="flex gap-0 relative mb-6">
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-4 md:p-8 pb-0 md:pb-0">
+              <div className="mb-5">
+                <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">Income & Report</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Stripe income overview and platform-wide sales analytics.</p>
+              </div>
+
+              {/* Document-style tab bar */}
+              <div className="flex gap-0 relative">
                 {([
-                  { id: 'REPORTS' as const, label: 'Sales Report', icon: <TrendingUp size={14} /> },
-                  { id: 'INCOME' as const, label: 'Stripe Income', icon: <DollarSign size={14} /> },
+                  { id: 'INCOME' as const, label: 'Stripe Income', icon: <DollarSign size={13} /> },
+                  { id: 'REPORTS' as const, label: 'Sales Report', icon: <TrendingUp size={13} /> },
                 ]).map(tab => (
                   <button
                     key={tab.id}
                     onClick={() => setIncomeReportSubTab(tab.id)}
+                    style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
                     className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
                       incomeReportSubTab === tab.id
                         ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
@@ -1446,140 +1492,260 @@ const AdminView: React.FC<Props> = ({
                   </button>
                 ))}
               </div>
-            </div>
+
+              {/* Tab content container */}
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl rounded-tr-2xl">
+
+            {incomeReportSubTab === 'INCOME' && (
+              <div className="space-y-6">
+                {/* Summary Cards */}
+                {incomeSummary && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-gray-50 dark:bg-gray-900/50 rounded-2xl border dark:border-gray-700 p-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-8 h-8 bg-green-50 dark:bg-green-900/20 rounded-lg flex items-center justify-center"><ArrowUpRight size={16} className="text-green-500" /></div>
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Gross Income</span>
+                      </div>
+                      <p className="text-xl font-black dark:text-white">RM {incomeSummary.totalGross.toFixed(2)}</p>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-900/50 rounded-2xl border dark:border-gray-700 p-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-8 h-8 bg-red-50 dark:bg-red-900/20 rounded-lg flex items-center justify-center"><ArrowDownRight size={16} className="text-red-500" /></div>
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Stripe Fees</span>
+                      </div>
+                      <p className="text-xl font-black dark:text-white">RM {incomeSummary.totalFees.toFixed(2)}</p>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-900/50 rounded-2xl border dark:border-gray-700 p-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-8 h-8 bg-orange-50 dark:bg-orange-900/20 rounded-lg flex items-center justify-center"><DollarSign size={16} className="text-orange-500" /></div>
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Net Income</span>
+                      </div>
+                      <p className="text-xl font-black text-orange-500">RM {incomeSummary.totalNet.toFixed(2)}</p>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-900/50 rounded-2xl border dark:border-gray-700 p-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-8 h-8 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-center"><Receipt size={16} className="text-blue-500" /></div>
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Transactions</span>
+                      </div>
+                      <p className="text-xl font-black dark:text-white">{incomeSummary.count}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Date Filters */}
+                <div className="flex flex-col sm:flex-row items-end gap-3">
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">From</label>
+                    <input type="date" className="px-3 py-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-xs outline-none font-bold dark:text-white" value={incomeStartDate} onChange={e => setIncomeStartDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">To</label>
+                    <input type="date" className="px-3 py-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-xs outline-none font-bold dark:text-white" value={incomeEndDate} onChange={e => setIncomeEndDate(e.target.value)} />
+                  </div>
+                  <button onClick={() => fetchIncome()} className="px-5 py-2 bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg transition-all active:scale-95 flex items-center gap-2">
+                    <Search size={14} /> Filter
+                  </button>
+                </div>
+
+                {/* Transactions Table */}
+                <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                  <table className="w-full table-fixed">
+                    <thead>
+                      <tr className="bg-gray-50 dark:bg-gray-900/50">
+                        <th className="w-[11%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Date</th>
+                        <th className="w-[16%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Restaurant</th>
+                        <th className="w-[9%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Plan</th>
+                        <th className="w-[22%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest hidden lg:table-cell">Description</th>
+                        <th className="w-[11%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Gross</th>
+                        <th className="w-[10%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest hidden md:table-cell">Fee</th>
+                        <th className="w-[11%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Net</th>
+                        <th className="w-[10%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                      {incomeLoading && incomeTransactions.length === 0 ? (
+                        <tr><td colSpan={8} className="text-center py-12 text-gray-400"><RefreshCw size={24} className="mx-auto animate-spin mb-2" /> Loading transactions…</td></tr>
+                      ) : incomeTransactions.length === 0 ? (
+                        <tr><td colSpan={8} className="text-center py-12">
+                          <FileText size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                          <p className="text-sm font-bold text-gray-400">No transactions found</p>
+                          <p className="text-xs text-gray-400 mt-1">Try adjusting the date range</p>
+                        </td></tr>
+                      ) : incomeTransactions.map(txn => (
+                        <tr key={txn.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                          <td className="px-3 py-2 text-xs font-bold dark:text-gray-300 truncate">
+                            {new Date(txn.date).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: '2-digit' })}
+                          </td>
+                          <td className="px-3 py-2 text-xs font-bold dark:text-gray-300 truncate">{txn.restaurantName}</td>
+                          <td className="px-3 py-2">
+                            {txn.planName !== '—' ? (
+                              <span className={`inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                                txn.planId === 'pro_plus' ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600' :
+                                txn.planId === 'pro' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' :
+                                'bg-gray-100 dark:bg-gray-700 text-gray-500'
+                              }`}>{txn.planName}</span>
+                            ) : <span className="text-xs text-gray-400">—</span>}
+                          </td>
+                          <td className="px-3 py-2 text-xs dark:text-gray-300 truncate hidden lg:table-cell">{txn.description}</td>
+                          <td className="px-3 py-2 text-xs font-bold dark:text-gray-300 text-right">{txn.amount.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-xs text-red-400 text-right hidden md:table-cell">-{txn.fee.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-xs font-black text-orange-500 text-right">{txn.net.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-center">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                              txn.status === 'succeeded' ? 'bg-green-50 dark:bg-green-900/20 text-green-600' :
+                              txn.status === 'failed' ? 'bg-red-50 dark:bg-red-900/20 text-red-600' :
+                              'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600'
+                            }`}>
+                              <CheckCircle2 size={10} /> {txn.status === 'succeeded' ? 'Success' : txn.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {/* Load More */}
+                  {incomeHasMore && (
+                    <div className="p-4 border-t dark:border-gray-700 text-center">
+                      <button onClick={() => fetchIncome(true)} disabled={incomeLoading} className="px-6 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-bold text-sm hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 flex items-center gap-2 mx-auto">
+                        {incomeLoading ? <><RefreshCw size={14} className="animate-spin" /> Loading…</> : 'Load More Transactions'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {incomeReportSubTab === 'REPORTS' && (
-            <div>
-            <div className="px-4 md:px-8 pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Sales Analysis</h3>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Platform-wide order history, revenue and performance metrics</p>
-              </div>
-              <div className="flex items-center gap-2 w-full md:w-auto">
-                <div className="relative w-full md:w-64">
-                  <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input 
-                    type="text" 
-                    placeholder="ID or Kitchen..." 
-                    className="w-full h-[36px] pl-10 pr-4 py-2 bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 transition-all dark:text-white"
-                    value={reportSearchQuery}
-                    onChange={e => {setReportSearchQuery(e.target.value); setCurrentPage(1);}}
-                  />
-                </div>
-                <button 
-                  onClick={handleDownloadReport} 
-                  disabled={!reportData || reportData.totalCount === 0} 
-                  className="h-[36px] px-4 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-orange-500 hover:text-white transition-all shadow-lg whitespace-nowrap"
-                >
-                  <Download size={14} /> Download report
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-2 md:p-4">
-              <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-2xl border dark:border-gray-700 mb-4 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Period selection */}
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Period Selection</label>
-                    <div className="flex items-center gap-2 bg-white dark:bg-gray-800 p-2 rounded-xl border dark:border-gray-600">
-                      <Calendar size={14} className="text-orange-500 shrink-0" />
-                      <input type="date" value={reportStart} onChange={(e) => {setReportStart(e.target.value); setCurrentPage(1);}} className="flex-1 bg-transparent border-none text-[10px] font-black dark:text-white p-0 outline-none" />
-                      <span className="text-gray-400 font-black">-</span>
-                      <input type="date" value={reportEnd} onChange={(e) => {setReportEnd(e.target.value); setCurrentPage(1);}} className="flex-1 bg-transparent border-none text-[10px] font-black dark:text-white p-0 outline-none" />
-                    </div>
+              <div className="space-y-5">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-base font-black dark:text-white uppercase tracking-tighter">Sales Analysis</h3>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Platform-wide order history, revenue and performance metrics</p>
                   </div>
-
-                  {/* Vendor Filter */}
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Filter by Kitchen</label>
-                    <div className="relative">
-                      <Store size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <select 
-                        value={reportVendor} 
-                        onChange={(e) => {setReportVendor(e.target.value); setCurrentPage(1);}}
-                        className="w-full pl-9 pr-4 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-[10px] font-black dark:text-white appearance-none cursor-pointer outline-none"
-                      >
-                        <option value="ALL">All Kitchens</option>
-                        {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                      </select>
+                  <div className="flex items-center gap-2 w-full md:w-auto">
+                    <div className="relative w-full md:w-56">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input 
+                        type="text" 
+                        placeholder="ID or Kitchen..." 
+                        className="w-full h-[34px] pl-9 pr-3 py-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 transition-all dark:text-white"
+                        value={reportSearchQuery}
+                        onChange={e => {setReportSearchQuery(e.target.value); setCurrentPage(1);}}
+                      />
                     </div>
-                  </div>
-
-                  {/* Hub Filter */}
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Filter by Hub</label>
-                    <div className="relative">
-                      <MapPin size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <select 
-                        value={reportHub} 
-                        onChange={(e) => {setReportHub(e.target.value); setCurrentPage(1);}}
-                        className="w-full pl-9 pr-4 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-[10px] font-black dark:text-white appearance-none cursor-pointer outline-none"
-                      >
-                        <option value="ALL">All Hubs</option>
-                        {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Status Filter */}
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Order Outcome</label>
-                    <div className="relative">
-                      <Filter size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <select 
-                        value={reportStatus} 
-                        onChange={(e) => {setReportStatus(e.target.value as any); setCurrentPage(1);}}
-                        className="w-full pl-9 pr-4 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-[10px] font-black dark:text-white appearance-none cursor-pointer outline-none"
-                      >
-                        <option value="ALL">All Outcomes</option>
-                        <option value={OrderStatus.COMPLETED}>Served</option>
-                        <option value={OrderStatus.PENDING}>Pending</option>
-                        <option value={OrderStatus.ONGOING}>Ongoing</option>
-                        <option value={OrderStatus.CANCELLED}>Rejected</option>
-                      </select>
-                    </div>
+                    <button 
+                      onClick={handleDownloadReport} 
+                      disabled={!reportData || reportData.totalCount === 0} 
+                      className="h-[34px] px-4 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-orange-500 hover:text-white transition-all shadow-lg whitespace-nowrap"
+                    >
+                      <Download size={14} /> Download
+                    </button>
                   </div>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 mb-4">
-                <div className="bg-white dark:bg-gray-800 p-2 md:p-3 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-                  <p className="text-gray-400 dark:text-gray-500 text-[8px] md:text-[9px] font-black mb-1 uppercase tracking-widest">Platform Revenue</p>
-                  <p className="text-lg md:text-xl font-black text-gray-900 dark:text-white tracking-tighter leading-none">
-                    RM{reportData?.summary.totalRevenue.toFixed(2) || '0.00'}
-                  </p>
-                </div>
-                <div className="bg-white dark:bg-gray-800 p-2 md:p-3 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-                  <p className="text-gray-400 dark:text-gray-500 text-[8px] md:text-[9px] font-black mb-1 uppercase tracking-widest">Filtered Orders</p>
-                  <p className="text-lg md:text-xl font-black text-gray-900 dark:text-white tracking-tighter leading-none">
-                    {reportData?.summary.orderVolume || 0}
-                  </p>
-                </div>
-                <div className="bg-white dark:bg-gray-800 p-2 md:p-3 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-                  <p className="text-gray-400 dark:text-gray-500 text-[8px] md:text-[9px] font-black mb-1 uppercase tracking-widest">Global Health</p>
-                  <p className="text-lg md:text-xl font-black text-green-500 tracking-tighter leading-none">
-                    {reportData?.summary.efficiency || 0}%
-                  </p>
-                </div>
-              </div>
+                <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border dark:border-gray-700 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {/* Period selection */}
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Period</label>
+                      <div className="flex items-center gap-2 bg-white dark:bg-gray-800 p-2 rounded-xl border dark:border-gray-600">
+                        <Calendar size={12} className="text-orange-500 shrink-0" />
+                        <input type="date" value={reportStart} onChange={(e) => {setReportStart(e.target.value); setCurrentPage(1);}} className="flex-1 bg-transparent border-none text-[10px] font-black dark:text-white p-0 outline-none" />
+                        <span className="text-gray-400 font-black text-[10px]">–</span>
+                        <input type="date" value={reportEnd} onChange={(e) => {setReportEnd(e.target.value); setCurrentPage(1);}} className="flex-1 bg-transparent border-none text-[10px] font-black dark:text-white p-0 outline-none" />
+                      </div>
+                    </div>
 
-              <h3 className="text-xs font-black dark:text-white uppercase tracking-widest mb-3 ml-1">All Order</h3>
-              <div className="rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
+                    {/* Vendor Filter */}
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Kitchen</label>
+                      <div className="relative">
+                        <Store size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <select 
+                          value={reportVendor} 
+                          onChange={(e) => {setReportVendor(e.target.value); setCurrentPage(1);}}
+                          className="w-full pl-8 pr-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-[10px] font-black dark:text-white appearance-none cursor-pointer outline-none"
+                        >
+                          <option value="ALL">All Kitchens</option>
+                          {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Hub Filter */}
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Hub</label>
+                      <div className="relative">
+                        <MapPin size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <select 
+                          value={reportHub} 
+                          onChange={(e) => {setReportHub(e.target.value); setCurrentPage(1);}}
+                          className="w-full pl-8 pr-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-[10px] font-black dark:text-white appearance-none cursor-pointer outline-none"
+                        >
+                          <option value="ALL">All Hubs</option>
+                          {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Status Filter */}
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Outcome</label>
+                      <div className="relative">
+                        <Filter size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <select 
+                          value={reportStatus} 
+                          onChange={(e) => {setReportStatus(e.target.value as any); setCurrentPage(1);}}
+                          className="w-full pl-8 pr-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-[10px] font-black dark:text-white appearance-none cursor-pointer outline-none"
+                        >
+                          <option value="ALL">All Outcomes</option>
+                          <option value={OrderStatus.COMPLETED}>Served</option>
+                          <option value={OrderStatus.PENDING}>Pending</option>
+                          <option value={OrderStatus.ONGOING}>Ongoing</option>
+                          <option value={OrderStatus.CANCELLED}>Rejected</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
+                    <p className="text-gray-400 dark:text-gray-500 text-[9px] font-black mb-1 uppercase tracking-widest">Platform Revenue</p>
+                    <p className="text-lg font-black text-gray-900 dark:text-white tracking-tighter leading-none">
+                      RM{reportData?.summary.totalRevenue.toFixed(2) || '0.00'}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
+                    <p className="text-gray-400 dark:text-gray-500 text-[9px] font-black mb-1 uppercase tracking-widest">Filtered Orders</p>
+                    <p className="text-lg font-black text-gray-900 dark:text-white tracking-tighter leading-none">
+                      {reportData?.summary.orderVolume || 0}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
+                    <p className="text-gray-400 dark:text-gray-500 text-[9px] font-black mb-1 uppercase tracking-widest">Global Health</p>
+                    <p className="text-lg font-black text-green-500 tracking-tighter leading-none">
+                      {reportData?.summary.efficiency || 0}%
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
                     <table className="w-full">
-                      <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                      <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[9px] font-black uppercase tracking-widest">
                         <tr>
-                          <th className="px-8 py-3 text-left">ID</th>
-                          <th className="px-8 py-3 text-left">Kitchen</th>
-                          <th className="px-8 py-3 text-left">Hub</th>
-                          <th className="px-8 py-3 text-left">Table No</th>
-                          <th className="px-8 py-3 text-left">Date</th>
-                          <th className="px-8 py-3 text-left">Time</th>
-                          <th className="px-8 py-3 text-left">Status</th>
-                          <th className="px-8 py-3 text-left">Payment</th>
-                          <th className="px-8 py-3 text-left">Cashier</th>
-                          <th className="px-8 py-3 text-right">Total Bill</th>
+                          <th className="px-4 py-2.5 text-left">ID</th>
+                          <th className="px-4 py-2.5 text-left">Kitchen</th>
+                          <th className="px-4 py-2.5 text-left">Hub</th>
+                          <th className="px-4 py-2.5 text-left">Table</th>
+                          <th className="px-4 py-2.5 text-left">Date</th>
+                          <th className="px-4 py-2.5 text-left">Time</th>
+                          <th className="px-4 py-2.5 text-left">Status</th>
+                          <th className="px-4 py-2.5 text-left">Payment</th>
+                          <th className="px-4 py-2.5 text-left">Cashier</th>
+                          <th className="px-4 py-2.5 text-right">Total</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y dark:divide-gray-700">
@@ -1587,222 +1753,64 @@ const AdminView: React.FC<Props> = ({
                           const res = restaurants.find(r => r.id === report.restaurantId);
                           return (
                             <tr key={report.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                              <td className="px-8 py-2.5 text-[10px] font-black dark:text-white uppercase tracking-widest">{report.id}</td>
-                              <td className="px-8 py-2.5">
+                              <td className="px-4 py-2 text-[10px] font-black dark:text-white uppercase tracking-widest">{report.id}</td>
+                              <td className="px-4 py-2">
                                  <div className="flex items-center gap-2">
                                    <img src={res?.logo} className="w-4 h-4 rounded object-cover" />
                                    <span className="text-[10px] font-black dark:text-white uppercase tracking-tight truncate max-w-[80px]">{res?.name}</span>
                                  </div>
                               </td>
-                              <td className="px-8 py-2.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">{report.locationName}</td>
-                              <td className="px-8 py-2.5 text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-widest">#{report.tableNumber}</td>
-                              <td className="px-8 py-2.5 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tighter">{new Date(report.timestamp).toLocaleDateString()}</td>
-                              <td className="px-8 py-2.5 text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase">{new Date(report.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                              <td className="px-8 py-2.5">
+                              <td className="px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">{report.locationName}</td>
+                              <td className="px-4 py-2 text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-widest">#{report.tableNumber}</td>
+                              <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tighter">{new Date(report.timestamp).toLocaleDateString()}</td>
+                              <td className="px-4 py-2 text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase">{new Date(report.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                              <td className="px-4 py-2">
                                 <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${report.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>{report.status === OrderStatus.COMPLETED ? 'Served' : report.status}</span>
                               </td>
-                              <td className="px-8 py-2.5 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">{report.paymentMethod || '-'}</td>
-                              <td className="px-8 py-2.5 text-[10px] font-black text-gray-700 dark:text-gray-300">{report.cashierName || '-'}</td>
-                              <td className="px-8 py-2.5 text-right font-black dark:text-white text-[10px]">RM{report.total.toFixed(2)}</td>
+                              <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">{report.paymentMethod || '-'}</td>
+                              <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300">{report.cashierName || '-'}</td>
+                              <td className="px-4 py-2 text-right font-black dark:text-white text-[10px]">RM{report.total.toFixed(2)}</td>
                             </tr>
                           );
                         })}
                         {paginatedReports.length === 0 && (
                           <tr>
-                            <td colSpan={10} className="py-20 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">No matching records found.</td>
+                            <td colSpan={10} className="py-16 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">No matching records found.</td>
                           </tr>
                         )}
                       </tbody>
                     </table>
+                  </div>
                 </div>
-              </div>
 
-              {/* Pagination Controls */}
-              {totalPages > 1 && (
-                <div className="mt-8 flex items-center justify-center gap-2 overflow-x-auto py-2 no-print">
-                  <button 
-                    onClick={() => setCurrentPage(1)} 
-                    disabled={currentPage === 1}
-                    className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"
-                  >
-                    <ChevronFirst size={16} />
-                  </button>
-                  <button 
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} 
-                    disabled={currentPage === 1}
-                    className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                  
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1)
-                      .filter(p => p === 1 || p === totalPages || (p >= currentPage - 2 && p <= currentPage + 2))
-                      .map((p, i, arr) => {
-                        const showEllipsis = i > 0 && p !== arr[i-1] + 1;
-                        return (
-                          <React.Fragment key={p}>
-                            {showEllipsis && <span className="text-gray-400 px-1">...</span>}
-                            <button
-                              onClick={() => setCurrentPage(p)}
-                              className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${
-                                currentPage === p 
-                                ? 'bg-orange-500 text-white shadow-lg' 
-                                : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'
-                              }`}
-                            >
-                              {p}
-                            </button>
-                          </React.Fragment>
-                        );
-                      })
-                    }
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-2 overflow-x-auto py-2 no-print">
+                    <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronFirst size={16} /></button>
+                    <button onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronLeft size={16} /></button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(p => p === 1 || p === totalPages || (p >= currentPage - 2 && p <= currentPage + 2))
+                        .map((p, i, arr) => {
+                          const showEllipsis = i > 0 && p !== arr[i-1] + 1;
+                          return (
+                            <React.Fragment key={p}>
+                              {showEllipsis && <span className="text-gray-400 px-1">...</span>}
+                              <button onClick={() => setCurrentPage(p)} className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${currentPage === p ? 'bg-orange-500 text-white shadow-lg' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>{p}</button>
+                            </React.Fragment>
+                          );
+                        })
+                      }
+                    </div>
+                    <button onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronRight size={16} /></button>
+                    <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronLast size={16} /></button>
                   </div>
-
-                  <button 
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} 
-                    disabled={currentPage === totalPages}
-                    className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"
-                  >
-                    <ChevronRight size={16} />
-                  </button>
-                  <button 
-                    onClick={() => setCurrentPage(totalPages)} 
-                    disabled={currentPage === totalPages}
-                    className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"
-                  >
-                    <ChevronLast size={16} />
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-            )}
-
-            {incomeReportSubTab === 'INCOME' && (
-          <div className="p-4 md:p-8">
-            <div className="mb-6">
-              <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Stripe Income</h3>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">All subscription payments collected via Stripe</p>
-            </div>
-
-            {/* Summary Cards */}
-            {incomeSummary && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 p-5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-8 h-8 bg-green-50 dark:bg-green-900/20 rounded-lg flex items-center justify-center"><ArrowUpRight size={16} className="text-green-500" /></div>
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Gross Income</span>
-                  </div>
-                  <p className="text-2xl font-black dark:text-white">RM {incomeSummary.totalGross.toFixed(2)}</p>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 p-5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-8 h-8 bg-red-50 dark:bg-red-900/20 rounded-lg flex items-center justify-center"><ArrowDownRight size={16} className="text-red-500" /></div>
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Stripe Fees</span>
-                  </div>
-                  <p className="text-2xl font-black dark:text-white">RM {incomeSummary.totalFees.toFixed(2)}</p>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 p-5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-8 h-8 bg-orange-50 dark:bg-orange-900/20 rounded-lg flex items-center justify-center"><DollarSign size={16} className="text-orange-500" /></div>
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Net Income</span>
-                  </div>
-                  <p className="text-2xl font-black text-orange-500">RM {incomeSummary.totalNet.toFixed(2)}</p>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 p-5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-8 h-8 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-center"><Receipt size={16} className="text-blue-500" /></div>
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Transactions</span>
-                  </div>
-                  <p className="text-2xl font-black dark:text-white">{incomeSummary.count}</p>
-                </div>
+                )}
               </div>
             )}
 
-            {/* Date Filters */}
-            <div className="flex flex-col sm:flex-row items-end gap-3 mb-6">
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">From</label>
-                <input type="date" className="px-4 py-2.5 bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-sm outline-none font-bold dark:text-white" value={incomeStartDate} onChange={e => setIncomeStartDate(e.target.value)} />
               </div>
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">To</label>
-                <input type="date" className="px-4 py-2.5 bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-sm outline-none font-bold dark:text-white" value={incomeEndDate} onChange={e => setIncomeEndDate(e.target.value)} />
-              </div>
-              <button onClick={() => fetchIncome()} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg transition-all active:scale-95 flex items-center gap-2">
-                <Search size={14} /> Filter
-              </button>
             </div>
-
-            {/* Transactions Table */}
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm bg-white dark:bg-gray-800">
-              <table className="w-full table-fixed">
-                <thead>
-                  <tr className="bg-gray-50 dark:bg-gray-900/50">
-                    <th className="w-[11%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Date</th>
-                    <th className="w-[16%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Restaurant</th>
-                    <th className="w-[9%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Plan</th>
-                    <th className="w-[22%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest hidden lg:table-cell">Description</th>
-                    <th className="w-[11%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Gross</th>
-                    <th className="w-[10%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest hidden md:table-cell">Fee</th>
-                    <th className="w-[11%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Net</th>
-                    <th className="w-[10%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                  {incomeLoading && incomeTransactions.length === 0 ? (
-                    <tr><td colSpan={8} className="text-center py-12 text-gray-400"><RefreshCw size={24} className="mx-auto animate-spin mb-2" /> Loading transactions…</td></tr>
-                  ) : incomeTransactions.length === 0 ? (
-                    <tr><td colSpan={8} className="text-center py-12">
-                      <FileText size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
-                      <p className="text-sm font-bold text-gray-400">No transactions found</p>
-                      <p className="text-xs text-gray-400 mt-1">Try adjusting the date range</p>
-                    </td></tr>
-                  ) : incomeTransactions.map(txn => (
-                    <tr key={txn.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                      <td className="px-3 py-2 text-xs font-bold dark:text-gray-300 truncate">
-                        {new Date(txn.date).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: '2-digit' })}
-                      </td>
-                      <td className="px-3 py-2 text-xs font-bold dark:text-gray-300 truncate">{txn.restaurantName}</td>
-                      <td className="px-3 py-2">
-                        {txn.planName !== '—' ? (
-                          <span className={`inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
-                            txn.planId === 'pro_plus' ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600' :
-                            txn.planId === 'pro' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' :
-                            'bg-gray-100 dark:bg-gray-700 text-gray-500'
-                          }`}>{txn.planName}</span>
-                        ) : <span className="text-xs text-gray-400">—</span>}
-                      </td>
-                      <td className="px-3 py-2 text-xs dark:text-gray-300 truncate hidden lg:table-cell">{txn.description}</td>
-                      <td className="px-3 py-2 text-xs font-bold dark:text-gray-300 text-right">{txn.amount.toFixed(2)}</td>
-                      <td className="px-3 py-2 text-xs text-red-400 text-right hidden md:table-cell">-{txn.fee.toFixed(2)}</td>
-                      <td className="px-3 py-2 text-xs font-black text-orange-500 text-right">{txn.net.toFixed(2)}</td>
-                      <td className="px-3 py-2 text-center">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
-                          txn.status === 'succeeded' ? 'bg-green-50 dark:bg-green-900/20 text-green-600' :
-                          txn.status === 'failed' ? 'bg-red-50 dark:bg-red-900/20 text-red-600' :
-                          'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600'
-                        }`}>
-                          <CheckCircle2 size={10} /> {txn.status === 'succeeded' ? 'Success' : txn.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {/* Load More */}
-              {incomeHasMore && (
-                <div className="p-4 border-t dark:border-gray-700 text-center">
-                  <button onClick={() => fetchIncome(true)} disabled={incomeLoading} className="px-6 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-bold text-sm hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 flex items-center gap-2 mx-auto">
-                    {incomeLoading ? <><RefreshCw size={14} className="animate-spin" /> Loading…</> : 'Load More Transactions'}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-            )}
           </div>
         )}
 
@@ -1949,7 +1957,7 @@ const AdminView: React.FC<Props> = ({
               <div className="flex items-center justify-between mb-5">
                 <div>
                   <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">System</h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">System status, feature images, and tools.</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">System status, feature images, announcements and tools.</p>
                 </div>
                 <button
                   onClick={() => setShowPitchDeck(true)}
@@ -1964,6 +1972,7 @@ const AdminView: React.FC<Props> = ({
                 {([
                   { id: 'STATUS' as const, label: 'System Status', icon: <Activity size={13} /> },
                   { id: 'FEATURE_IMAGES' as const, label: 'Feature Images', icon: <ImageIcon size={13} /> },
+                  { id: 'ANNOUNCEMENTS' as const, label: 'Announcements', icon: <Megaphone size={13} /> },
                 ]).map(tab => (
                   <button
                     key={tab.id}
@@ -2086,12 +2095,120 @@ const AdminView: React.FC<Props> = ({
                 })()}
               </div>
             )}
+
+            {systemSubTab === 'ANNOUNCEMENTS' && (
+              <div className="space-y-6">
+                {/* Compose New Announcement */}
+                <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl border dark:border-gray-700 p-5 space-y-4">
+                  <h3 className="text-sm font-black dark:text-white uppercase tracking-tight">Compose Announcement</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Title</label>
+                      <input
+                        type="text"
+                        placeholder="Announcement title..."
+                        value={announcementTitle}
+                        onChange={e => setAnnouncementTitle(e.target.value)}
+                        className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-xs font-bold dark:text-white outline-none focus:ring-1 focus:ring-orange-500"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Category</label>
+                      <select
+                        value={announcementCategory}
+                        onChange={e => setAnnouncementCategory(e.target.value)}
+                        className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-xs font-bold dark:text-white outline-none appearance-none cursor-pointer"
+                      >
+                        <option value="general">General</option>
+                        <option value="update">Update</option>
+                        <option value="maintenance">Maintenance</option>
+                        <option value="promotion">Promotion</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Message</label>
+                    <textarea
+                      placeholder="Write your announcement message..."
+                      value={announcementBody}
+                      onChange={e => setAnnouncementBody(e.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-xs font-bold dark:text-white outline-none focus:ring-1 focus:ring-orange-500 resize-none"
+                    />
+                  </div>
+                  <button
+                    onClick={createAnnouncement}
+                    className="px-5 py-2.5 bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg transition-all active:scale-95 flex items-center gap-2"
+                  >
+                    <Send size={13} /> Publish Announcement
+                  </button>
+                </div>
+
+                {/* Announcements List */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-black dark:text-white uppercase tracking-tight">Published Announcements</h3>
+                  {isLoadingAnnouncements ? (
+                    <div className="text-center py-8">
+                      <RefreshCw size={20} className="mx-auto animate-spin text-gray-400 mb-2" />
+                      <p className="text-xs text-gray-400 font-bold">Loading...</p>
+                    </div>
+                  ) : announcements.length === 0 ? (
+                    <div className="text-center py-12 bg-gray-50 dark:bg-gray-900/50 rounded-xl border dark:border-gray-700">
+                      <Megaphone size={32} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                      <p className="text-sm font-bold text-gray-400">No announcements yet</p>
+                      <p className="text-xs text-gray-400 mt-1">Compose one above to get started</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {announcements.map(ann => (
+                        <div key={ann.id} className={`bg-white dark:bg-gray-900/50 rounded-xl border dark:border-gray-700 p-4 transition-opacity ${!ann.is_active ? 'opacity-50' : ''}`}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="text-xs font-black dark:text-white uppercase tracking-tight truncate">{ann.title}</h4>
+                                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                                  ann.category === 'update' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' :
+                                  ann.category === 'maintenance' ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600' :
+                                  ann.category === 'promotion' ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600' :
+                                  'bg-gray-100 dark:bg-gray-700 text-gray-500'
+                                }`}>{ann.category}</span>
+                                {ann.is_active ? (
+                                  <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-600 uppercase tracking-wider">Active</span>
+                                ) : (
+                                  <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-400 uppercase tracking-wider">Inactive</span>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{ann.body}</p>
+                              <p className="text-[9px] text-gray-400 mt-2 font-bold">{new Date(ann.created_at).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                onClick={() => toggleAnnouncementActive(ann.id, ann.is_active)}
+                                className={`p-1.5 rounded-lg transition-colors ${ann.is_active ? 'text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                                title={ann.is_active ? 'Deactivate' : 'Activate'}
+                              >
+                                {ann.is_active ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
+                              </button>
+                              <button
+                                onClick={() => deleteAnnouncement(ann.id)}
+                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
               </div>
             </div>
           </div>
         )}
-
-        {/* Feature Image Crop Modal */}
         {featureCropFile && (
           <ImageCropModal
             imageFile={featureCropFile}
