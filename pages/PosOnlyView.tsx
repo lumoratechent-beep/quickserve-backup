@@ -986,6 +986,7 @@ const PosOnlyView: React.FC<Props> = ({
   // ───────────────────────────────────────────────────────────────────────
 
   const handleOpenAddModal = (initialCategory?: string) => {
+    setMenuEditorStuck(false);
     setEditingItem(null);
     const defaultCategory = initialCategory || menuEditorCategories.find(c => c !== 'All') || '';
     setFormItem({
@@ -1009,6 +1010,7 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const handleOpenEditModal = (item: MenuItem) => {
+    setMenuEditorStuck(false);
     setEditingItem(item);
     // Backward compat: if linkedModifiers is empty but otherVariantName exists, seed from old field
     const linked = item.linkedModifiers && item.linkedModifiers.length > 0
@@ -1030,6 +1032,7 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const handleCloseFormModal = () => {
+    setMenuEditorStuck(false);
     setIsFormModalOpen(false);
     setEditingItem(null);
     setFormItem({
@@ -1205,17 +1208,30 @@ const PosOnlyView: React.FC<Props> = ({
     setKitchenDivisions(normalizeKitchenDepartments(restaurant.kitchenDivisions));
   }, [restaurant.kitchenDivisions]);
 
-  // Detect when menu editor toolbar becomes stuck
   useEffect(() => {
+    if (activeTab !== 'MENU_EDITOR' || isFormModalOpen) {
+      setMenuEditorStuck(false);
+      return;
+    }
+
     const el = menuEditorStickyRef.current;
-    if (!el) return;
+    if (!el) {
+      setMenuEditorStuck(false);
+      return;
+    }
+
     const observer = new IntersectionObserver(
       ([entry]) => setMenuEditorStuck(entry.intersectionRatio < 1),
       { threshold: [1], rootMargin: '-1px 0px 0px 0px' }
     );
+
     observer.observe(el);
-    return () => observer.disconnect();
-  }, [activeTab, menuSubTab]);
+
+    return () => {
+      observer.disconnect();
+      setMenuEditorStuck(false);
+    };
+  }, [activeTab, menuSubTab, isFormModalOpen]);
 
   const areSameCartOptions = (first: CartItem, second: CartItem) => {
     const normalizeAddOns = (item: CartItem) => {
@@ -5470,10 +5486,10 @@ const PosOnlyView: React.FC<Props> = ({
                   {/* Sub-tab controls — sticky toolbar */}
                   <div
                     ref={menuEditorStickyRef}
-                    className={`sticky -top-px z-30 bg-white dark:bg-gray-800 -mt-5 md:-mt-6 pt-3 pb-2 space-y-3 transition-all duration-300 ${
+                    className={`sticky top-0 z-30 -mx-5 md:-mx-6 px-5 md:px-6 -mt-5 md:-mt-6 pt-3 pb-2 space-y-3 bg-white/95 dark:bg-gray-800/95 backdrop-blur supports-[backdrop-filter]:bg-white/85 supports-[backdrop-filter]:dark:bg-gray-800/85 transition-[box-shadow,border-color] duration-200 ${
                       menuEditorStuck
-                        ? '-mx-9 md:-mx-14 px-9 md:px-14 shadow-md rounded-none'
-                        : '-mx-5 md:-mx-6 px-5 md:px-6 rounded-tr-2xl'
+                        ? 'shadow-md border-b border-gray-200 dark:border-gray-700'
+                        : 'border-b border-transparent rounded-tr-2xl'
                     }`}
                   >
                     <div className="flex flex-wrap items-center gap-3">
@@ -5628,7 +5644,10 @@ const PosOnlyView: React.FC<Props> = ({
                                       {menuStatusFilter === 'ACTIVE' ? (
                                         <button onClick={() => handleArchiveItem(item)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"><Archive size={20} /></button>
                                       ) : (
-                                        <button onClick={() => handleRestoreItem(item)} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-all"><RotateCcw size={20} /></button>
+                                        <>
+                                          <button onClick={() => handleRestoreItem(item)} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-all" title="Restore"><RotateCcw size={20} /></button>
+                                          <button onClick={() => handlePermanentDelete(item.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all" title="Delete permanently"><Trash2 size={20} /></button>
+                                        </>
                                       )}
                                       <button onClick={() => handleOpenEditModal(item)} className="p-2 text-gray-400 hover:text-orange-500 rounded-lg transition-all"><Edit3 size={20} /></button>
                                     </div>

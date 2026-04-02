@@ -1353,7 +1353,7 @@ const App: React.FC = () => {
   };
 
   const handleDeleteMenuItem = async (restaurantId: string, itemId: string) => {
-    const { error } = await supabase.from('menu_items').delete().eq('id', itemId);
+    const { error } = await supabase.from('menu_items').delete().eq('id', itemId).eq('restaurant_id', restaurantId);
     if (!error) fetchRestaurants();
   };
 
