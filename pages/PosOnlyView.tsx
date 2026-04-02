@@ -5386,45 +5386,40 @@ const PosOnlyView: React.FC<Props> = ({
             return (
               <div className="relative flex-1 overflow-y-auto bg-gradient-to-b from-slate-50 via-white to-orange-50/40 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950">
                 <div className="mx-auto w-full max-w-[1480px] px-3 pb-8 pt-3 sm:px-5 sm:pt-5 lg:px-8 lg:pt-6">
-                  <div className="animate-in fade-in duration-500 space-y-4 lg:space-y-5">
-                    <section className="rounded-2xl border border-slate-200/80 bg-white/95 p-3 shadow-sm dark:border-gray-700/80 dark:bg-gray-800/90 sm:p-4">
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
-                        {settingsTabs.map(tab => {
-                          const Icon = tab.icon;
-                          const isActive = activeSettingsPanel === tab.key;
+                  <div className="animate-in fade-in duration-500">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-[220px_minmax(0,1fr)] lg:gap-6">
+                      <aside className="h-fit rounded-2xl border border-slate-200/80 bg-white/95 p-3 shadow-sm dark:border-gray-700/80 dark:bg-gray-800/90 md:sticky md:top-4">
+                        <p className="px-1 pb-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">Settings Nav</p>
 
-                          return (
-                            <button
-                              key={tab.key}
-                              onClick={() => setSettingsPanel(tab.key)}
-                              className={`rounded-2xl border px-3.5 py-3 text-left transition-all duration-200 ${
-                                isActive
-                                  ? 'border-orange-300 bg-orange-50/90 shadow-sm dark:border-orange-500/50 dark:bg-orange-500/10'
-                                  : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-gray-700 dark:bg-gray-800/70 dark:hover:border-gray-500 dark:hover:bg-gray-700/80'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex min-w-0 items-center gap-2.5">
-                                  <span className={`rounded-lg p-1.5 ${isActive ? 'bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-300' : 'bg-slate-100 text-slate-500 dark:bg-gray-700 dark:text-gray-300'}`}>
-                                    <Icon size={14} />
-                                  </span>
-                                  <span className={`truncate text-sm font-semibold ${isActive ? 'text-orange-700 dark:text-orange-300' : 'text-slate-700 dark:text-gray-200'}`}>
-                                    {tab.label}
-                                  </span>
+                        <div className="space-y-1.5">
+                          {settingsTabs.map(tab => {
+                            const isActive = activeSettingsPanel === tab.key;
+
+                            return (
+                              <button
+                                key={tab.key}
+                                onClick={() => setSettingsPanel(tab.key)}
+                                className={`w-full rounded-xl border px-3 py-2.5 text-left transition-all duration-200 ${
+                                  isActive
+                                    ? 'border-orange-300 bg-orange-50/90 dark:border-orange-500/50 dark:bg-orange-500/10'
+                                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-gray-700 dark:bg-gray-800/70 dark:hover:border-gray-500 dark:hover:bg-gray-700/80'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className={`w-3 text-center text-xs font-black ${isActive ? 'text-orange-500 dark:text-orange-300' : 'text-slate-300 dark:text-gray-600'}`}>{isActive ? '>' : ''}</span>
+                                  <span className={`text-sm font-semibold ${isActive ? 'text-orange-700 dark:text-orange-300' : 'text-slate-700 dark:text-gray-200'}`}>{tab.label}</span>
                                 </div>
-                                <ChevronDown size={14} className={`flex-shrink-0 transition-all duration-200 ${isActive ? 'rotate-180 text-orange-500 dark:text-orange-300' : 'text-slate-400 dark:text-gray-500'}`} />
-                              </div>
 
-                              <div className={`overflow-hidden transition-all duration-200 ${isActive ? 'mt-2 max-h-16 opacity-100' : 'mt-0 max-h-0 opacity-0'}`}>
-                                <p className="pr-5 text-xs leading-relaxed text-slate-500 dark:text-gray-400">{tab.info}</p>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </section>
+                                <div className={`overflow-hidden transition-all duration-200 ${isActive ? 'mt-1.5 max-h-16 opacity-100' : 'mt-0 max-h-0 opacity-0'}`}>
+                                  <p className="pl-5 pr-1 text-xs leading-relaxed text-slate-500 dark:text-gray-400">{tab.info}</p>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </aside>
 
-                    <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_16px_45px_-40px_rgba(15,23,42,0.7)] backdrop-blur-sm dark:border-gray-700/80 dark:bg-gray-800/90">
+                      <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_16px_45px_-40px_rgba(15,23,42,0.7)] backdrop-blur-sm dark:border-gray-700/80 dark:bg-gray-800/90">
                       <div className="border-b border-slate-200/80 px-4 py-4 dark:border-gray-700/80 sm:px-6 sm:py-5">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="flex items-start gap-3">
@@ -5539,6 +5534,7 @@ const PosOnlyView: React.FC<Props> = ({
                           )}
                         </div>
                       </section>
+                    </div>
                   </div>
                 </div>
               </div>
