@@ -88,7 +88,7 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
 // Receipt and printer configs are now managed by the PrinterSettings component
 // and the service types from printerService.ts
 
-type SettingsPanel = 'builtin' | 'printer' | 'payment' | 'staff';
+type SettingsPanel = 'builtin' | 'printer' | 'receipt' | 'payment' | 'staff';
 
 interface FeatureSettings {
   autoPrintReceipt: boolean;
@@ -5292,10 +5292,12 @@ const PosOnlyView: React.FC<Props> = ({
                       ? ([
                           { key: 'builtin' as SettingsPanel, label: 'Kitchen Orders' },
                           { key: 'printer' as SettingsPanel, label: 'Printer' },
+                          { key: 'receipt' as SettingsPanel, label: 'Receipt' },
                         ])
                       : ([
                           { key: 'builtin' as SettingsPanel, label: 'Features' },
-                          { key: 'printer' as SettingsPanel, label: 'Printer & Receipt' },
+                          { key: 'printer' as SettingsPanel, label: 'Printer' },
+                          { key: 'receipt' as SettingsPanel, label: 'Receipt' },
                           { key: 'payment' as SettingsPanel, label: 'Payment & Taxes' },
                           { key: 'staff' as SettingsPanel, label: 'Staff' },
                         ])
@@ -5317,11 +5319,11 @@ const PosOnlyView: React.FC<Props> = ({
 
                 {/* ── Content Area ── */}
                 <div className="px-4 md:px-8 py-6">
-                  <div className="max-w-5xl">
+                  <div className="w-full">
 
                     {/* Kitchen user: Kitchen Order Settings */}
                     {isKitchenUser && settingsPanel === 'builtin' && (
-                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-5 lg:gap-8">
+                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-6 lg:gap-12">
                         <div>
                           <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Kitchen Order Settings</h2>
                           <p className="text-xs text-gray-500 dark:text-gray-400">Configure how incoming orders are handled in the kitchen.</p>
@@ -5361,7 +5363,7 @@ const PosOnlyView: React.FC<Props> = ({
 
                     {/* Non-kitchen: Built-in Features */}
                     {!isKitchenUser && settingsPanel === 'builtin' && (
-                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-5 lg:gap-8">
+                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-6 lg:gap-12">
                         <div>
                           <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Built-in Features</h2>
                           <p className="text-xs text-gray-500 dark:text-gray-400">Toggle core POS features like auto-print, cash drawer, and dining options.</p>
@@ -5370,15 +5372,15 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                     )}
 
-                    {/* Printer & Receipt */}
+                    {/* Printer */}
                     {settingsPanel === 'printer' && (
-                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-5 lg:gap-8">
+                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-6 lg:gap-12">
                         <div>
-                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Printer & Receipt</h2>
+                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Printer</h2>
                           <p className="text-xs text-gray-500 dark:text-gray-400">
                             {savedPrinters.length > 0
                               ? `${savedPrinters.length} printer${savedPrinters.length > 1 ? 's' : ''} configured`
-                              : 'Set up printers and customize receipt layout.'}
+                              : 'Set up and manage your printers.'}
                           </p>
                         </div>
                         <div>
@@ -5386,6 +5388,38 @@ const PosOnlyView: React.FC<Props> = ({
                             restaurantId={restaurant.id}
                             restaurantName={restaurant.name}
                             categories={allFoodCategories}
+                            initialTab="printers"
+                            visibleTabs={['printers']}
+                            savedPrinters={savedPrinters}
+                            receiptConfig={receiptConfig}
+                            kitchenConfig={kitchenConfig}
+                            onPrintersChange={(printers) => setSavedPrinters(printers)}
+                            onReceiptConfigChange={(config) => setReceiptConfig(config)}
+                            onKitchenConfigChange={(config) => setKitchenConfig(config)}
+                            onPrinterConnected={(device) => {
+                              setConnectedDevice(device);
+                              setRealPrinterConnected(true);
+                              localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Receipt */}
+                    {settingsPanel === 'receipt' && (
+                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-6 lg:gap-12">
+                        <div>
+                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Receipt</h2>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Configure receipt content and printing behavior.</p>
+                        </div>
+                        <div>
+                          <PrinterSettings
+                            restaurantId={restaurant.id}
+                            restaurantName={restaurant.name}
+                            categories={allFoodCategories}
+                            initialTab="receipts"
+                            visibleTabs={['receipts']}
                             savedPrinters={savedPrinters}
                             receiptConfig={receiptConfig}
                             kitchenConfig={kitchenConfig}
@@ -5404,7 +5438,7 @@ const PosOnlyView: React.FC<Props> = ({
 
                     {/* Payment & Taxes */}
                     {settingsPanel === 'payment' && (
-                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-5 lg:gap-8">
+                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-6 lg:gap-12">
                         <div>
                           <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Payment Type & Taxes</h2>
                           <p className="text-xs text-gray-500 dark:text-gray-400">{paymentTypes.length} payment type{paymentTypes.length !== 1 ? 's' : ''} · {taxEntries.length} tax{taxEntries.length !== 1 ? 'es' : ''} configured</p>
@@ -5415,7 +5449,7 @@ const PosOnlyView: React.FC<Props> = ({
 
                     {/* Staff */}
                     {settingsPanel === 'staff' && (
-                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-5 lg:gap-8">
+                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-6 lg:gap-12">
                         <div>
                           <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Staff Management</h2>
                           <p className="text-xs text-gray-500 dark:text-gray-400">{staffList.length} staff member{staffList.length !== 1 ? 's' : ''} configured</p>

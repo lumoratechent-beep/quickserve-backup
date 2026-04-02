@@ -10,6 +10,8 @@ interface Props {
   savedPrinters?: SavedPrinter[];
   receiptConfig?: ReceiptConfig;
   kitchenConfig?: KitchenTicketConfig;
+  initialTab?: SettingsTab;
+  visibleTabs?: SettingsTab[];
   onPrinterConnected?: (device: PrinterDevice) => void;
   onReceiptConfigChange?: (config: ReceiptConfig) => void;
   onKitchenConfigChange?: (config: KitchenTicketConfig) => void;
@@ -25,13 +27,15 @@ const PrinterSettings: React.FC<Props> = ({
   savedPrinters: propPrinters,
   receiptConfig: propReceiptConfig,
   kitchenConfig: propKitchenConfig,
+  initialTab = 'printers',
+  visibleTabs,
   onPrinterConnected,
   onReceiptConfigChange,
   onKitchenConfigChange,
   onPrintersChange,
 }) => {
   // ─── State ──────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<SettingsTab>('printers');
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
   const [isBluetoothSupported, setIsBluetoothSupported] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
   const [devices, setDevices] = useState<PrinterDevice[]>([]);
@@ -73,7 +77,11 @@ const PrinterSettings: React.FC<Props> = ({
   // ─── Effects ────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!navigator.bluetooth) {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  useEffect(() => {
+    if (!(('bluetooth' in navigator) && (navigator as any).bluetooth)) {
       setIsBluetoothSupported(false);
       setErrorMessage('Web Bluetooth not supported. Use Chrome, Edge, or Opera.');
     }
@@ -938,28 +946,40 @@ const PrinterSettings: React.FC<Props> = ({
     { id: 'kitchen', label: 'Kitchen', icon: UtensilsCrossed },
   ];
 
+  const filteredTabs = visibleTabs && visibleTabs.length > 0
+    ? tabs.filter(tab => visibleTabs.includes(tab.id))
+    : tabs;
+
+  useEffect(() => {
+    if (filteredTabs.length === 0) return;
+    const isActiveVisible = filteredTabs.some(tab => tab.id === activeTab);
+    if (!isActiveVisible) setActiveTab(filteredTabs[0].id);
+  }, [activeTab, filteredTabs]);
+
   return (
     <div className="space-y-4">
       {/* Tab Navigation */}
-      <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
-        {tabs.map(tab => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                activeTab === tab.id
-                  ? 'bg-white dark:bg-gray-700 text-orange-600 dark:text-orange-400 shadow-sm'
-                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
-              }`}
-            >
-              <Icon size={13} />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      {filteredTabs.length > 1 && (
+        <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
+          {filteredTabs.map(tab => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                  activeTab === tab.id
+                    ? 'bg-white dark:bg-gray-700 text-orange-600 dark:text-orange-400 shadow-sm'
+                    : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                }`}
+              >
+                <Icon size={13} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Tab Content */}
       {activeTab === 'printers' && renderPrintersTab()}
