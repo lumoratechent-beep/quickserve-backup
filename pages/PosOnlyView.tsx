@@ -205,6 +205,12 @@ const getDefaultPaymentTypes = (): PaymentType[] => [
   { id: 'qr', name: 'QR' },
 ];
 
+const MENU_ITEM_PLACEHOLDER_IMAGE_PREFIX = 'https://picsum.photos/seed/';
+
+const hasRenderableMenuItemImage = (item: Pick<MenuItem, 'image' | 'color'>): boolean => (
+  Boolean(item.image) && !(Boolean(item.color) && item.image.startsWith(MENU_ITEM_PLACEHOLDER_IMAGE_PREFIX))
+);
+
 interface TaxEntry {
   id: string;
   name: string;
@@ -1074,12 +1080,14 @@ const PosOnlyView: React.FC<Props> = ({
     }
 
     const linked = formItem.linkedModifiers || [];
+    const trimmedImage = (formItem.image || '').trim();
+    const fallbackImage = formItem.color ? '' : `${MENU_ITEM_PLACEHOLDER_IMAGE_PREFIX}${encodeURIComponent(formItem.name.trim())}/300/300`;
     const payload: MenuItem = {
       id: editingItem?.id || crypto.randomUUID(),
       name: formItem.name.trim(),
       description: (formItem.description || '').trim(),
       price: Number(formItem.price || 0),
-      image: (formItem.image || '').trim() || `https://picsum.photos/seed/${encodeURIComponent(formItem.name.trim())}/300/300`,
+      image: trimmedImage || fallbackImage,
       category: formItem.category.trim(),
       isArchived: editingItem?.isArchived || false,
       sizes: (formItem.sizes || []).length > 0 ? formItem.sizes : [],
@@ -5344,9 +5352,9 @@ const PosOnlyView: React.FC<Props> = ({
                             } ${
                               menuLayout === 'list' ? 'lg:w-16 lg:h-16 lg:aspect-auto' : 'lg:aspect-square lg:w-full'
                             } rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0`}
-                            style={!item.image && item.color ? { backgroundColor: item.color } : undefined}
+                            style={!hasRenderableMenuItemImage(item) && item.color ? { backgroundColor: item.color } : undefined}
                             >
-                              {item.image ? (
+                              {hasRenderableMenuItemImage(item) ? (
                                 <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center text-white/70">
@@ -5551,8 +5559,8 @@ const PosOnlyView: React.FC<Props> = ({
                       <div className="grid grid-cols-5 gap-3 mt-4">
                         {currentMenu.map(item => (
                           <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden border dark:border-gray-700 hover:shadow-md transition-all group flex flex-col">
-                            <div className="relative aspect-square overflow-hidden" style={!item.image && item.color ? { backgroundColor: item.color } : undefined}>
-                              {item.image ? (
+                            <div className="relative aspect-square overflow-hidden" style={!hasRenderableMenuItemImage(item) && item.color ? { backgroundColor: item.color } : undefined}>
+                              {hasRenderableMenuItemImage(item) ? (
                                 <img src={item.image} className="w-full h-full object-cover" />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center text-white/50">
@@ -5600,7 +5608,7 @@ const PosOnlyView: React.FC<Props> = ({
                                 <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                                   <td className="px-4 py-3">
                                     <div className="flex items-center gap-3">
-                                      {item.image ? (
+                                      {hasRenderableMenuItemImage(item) ? (
                                         <img src={item.image} className="w-10 h-10 rounded-lg object-cover" />
                                       ) : (
                                         <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white/60" style={item.color ? { backgroundColor: item.color } : { backgroundColor: '#D1D5DB' }}>

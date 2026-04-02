@@ -45,6 +45,12 @@ const STATUS_COLORS: Record<string, string> = {
   CANCELLED: '#EF4444',
 };
 
+const MENU_ITEM_PLACEHOLDER_IMAGE_PREFIX = 'https://picsum.photos/seed/';
+
+const hasRenderableMenuItemImage = (item: Pick<MenuItem, 'image' | 'color'>): boolean => (
+  Boolean(item.image) && !(Boolean(item.color) && item.image.startsWith(MENU_ITEM_PLACEHOLDER_IMAGE_PREFIX))
+);
+
 // ─── Staff type ───
 interface StaffMember {
   id: string;
@@ -556,12 +562,14 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       return;
     }
     const linked = formItem.linkedModifiers || [];
+    const trimmedImage = (formItem.image || '').trim();
+    const fallbackImage = formItem.color ? '' : `${MENU_ITEM_PLACEHOLDER_IMAGE_PREFIX}${encodeURIComponent(formItem.name.trim())}/300/300`;
     const payload: MenuItem = {
       id: editingItem?.id || crypto.randomUUID(),
       name: formItem.name.trim(),
       description: (formItem.description || '').trim(),
       price: Number(formItem.price || 0),
-      image: (formItem.image || '').trim() || `https://picsum.photos/seed/${encodeURIComponent(formItem.name.trim())}/300/300`,
+      image: trimmedImage || fallbackImage,
       category: formItem.category.trim(),
       isArchived: formItem.isArchived || false,
       sizes: formItem.sizesEnabled ? formItem.sizes : [],
@@ -577,6 +585,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       barcode: (formItem.barcode || '').trim(),
       soldBy: formItem.soldBy || 'each',
       trackStock: formItem.trackStock || false,
+      color: formItem.color || undefined,
     };
 
     setIsSavingItem(true);
@@ -1206,7 +1215,13 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                       <tr key={item.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <img src={item.image} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100 dark:bg-gray-700 shrink-0" />
+                            {hasRenderableMenuItemImage(item) ? (
+                              <img src={item.image} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100 dark:bg-gray-700 shrink-0" />
+                            ) : (
+                              <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white/60 shrink-0" style={item.color ? { backgroundColor: item.color } : { backgroundColor: '#D1D5DB' }}>
+                                <Package size={16} />
+                              </div>
+                            )}
                             <div className="min-w-0">
                               <p className="font-bold text-sm dark:text-white truncate">{item.name}</p>
                               {item.description && <p className="text-[10px] text-gray-400 truncate max-w-[200px]">{item.description}</p>}
