@@ -13,18 +13,29 @@ export const POS_DEFAULTS = {
   currency: 'MYR',
   receipt: {
     businessName: '',        // dynamic — always overridden by restaurant.name at expand time
-    headerLine1: '',
-    headerLine2: '',
+    businessAddress: '',
+    businessPhone: '',
+    headerText: '',
+    footerText: 'Thank you! Please come again.',
+    showOrderNumber: true,
+    showCashierName: false,
     showDateTime: true,
-    showOrderId: true,
+    showCustomerName: false,
     showTableNumber: true,
     showItems: true,
     showRemark: true,
     showTotal: true,
     showTaxes: false,
-    footerLine1: 'Thank you!',
-    footerLine2: 'Please come again',
+    showOrderSource: false,
+    autoPrintAfterSale: false,
+    printReceiptForRefund: false,
+    openCashDrawerOnPayment: false,
   },
+  kitchenTicket: {
+    printLargeOrderNumber: true,
+    numberOfCopies: 1,
+    autoPrintOnNewOrder: false,
+  } as Record<string, unknown>,
   features: {
     autoPrintReceipt: false,
     autoOpenDrawer: false,
@@ -63,9 +74,9 @@ export const POS_DEFAULTS = {
 
 // Keys managed by POS settings sync — everything else (backoffice, orderCode, etc.) passes through unchanged.
 const POS_OWNED_KEYS = new Set([
-  'font', 'currency', 'taxes', 'printers', 'receipt', 'features',
+  'font', 'currency', 'taxes', 'printers', 'receipt', 'receiptConfig', 'kitchenTicket', 'features',
   'paymentTypes', 'kitchenSettings', 'onlinePaymentMethods', 'onlineDeliveryOptions',
-  'qrLocationLabel', 'qrOrderSettings',
+  'qrLocationLabel', 'qrOrderSettings', 'receiptFormatting',
 ]);
 
 /** Look up a restaurant's name from the localStorage cache (used inside async helpers). */
@@ -195,6 +206,10 @@ export function expandPosSettings(
       ...(delta.features && typeof delta.features === 'object' ? delta.features : {}),
     },
     paymentTypes: delta.paymentTypes ?? POS_DEFAULTS.paymentTypes,
+    kitchenTicket: {
+      ...POS_DEFAULTS.kitchenTicket,
+      ...(delta.kitchenTicket && typeof delta.kitchenTicket === 'object' ? delta.kitchenTicket : {}),
+    },
     kitchenSettings: {
       ...POS_DEFAULTS.kitchenSettings,
       ...(delta.kitchenSettings && typeof delta.kitchenSettings === 'object' ? delta.kitchenSettings : {}),

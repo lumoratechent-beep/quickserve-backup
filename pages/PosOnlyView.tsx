@@ -6,7 +6,9 @@ import { supabase } from '../lib/supabase';
 import { uploadImage } from '../lib/storage';
 import { saveAllSettingsToDb, saveSettingsToDb, compressPosSettings, expandPosSettings, fetchSettingsFromServer, updateFeatureOnServer } from '../lib/sharedSettings';
 import * as counterOrdersCache from '../lib/counterOrdersCache';
-import printerService, { PrinterDevice, ReceiptPrintOptions, PRINTER_PROFILES, PrinterProfile, getProfileById, ReceiptFormatting, TextAlign, CutMode } from '../services/printerService';
+import printerService, { PrinterDevice, ReceiptPrintOptions, SavedPrinter, ReceiptConfig, KitchenTicketConfig, DEFAULT_RECEIPT_CONFIG, DEFAULT_KITCHEN_TICKET_CONFIG, createDefaultPrinter } from '../services/printerService';
+import type { PaperSize } from '../services/printerService';
+import PrinterSettings from '../components/PrinterSettings';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import { toast } from '../components/Toast';
@@ -83,56 +85,10 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
     .filter(Boolean) as KitchenDepartment[];
 };
 
-interface ReceiptSettings {
-  businessName: string;
-  headerLine1: string;
-  headerLine2: string;
-  showDateTime: boolean;
-  showOrderId: boolean;
-  showTableNumber: boolean;
-  showItems: boolean;
-  showRemark: boolean;
-  showTotal: boolean;
-  showTaxes: boolean;
-  footerLine1: string;
-  footerLine2: string;
-}
+// Receipt and printer configs are now managed by the PrinterSettings component
+// and the service types from printerService.ts
 
-const getDefaultReceiptSettings = (restaurantName: string): ReceiptSettings => ({
-  businessName: restaurantName,
-  headerLine1: '',
-  headerLine2: '',
-  showDateTime: true,
-  showOrderId: true,
-  showTableNumber: true,
-  showItems: true,
-  showRemark: true,
-  showTotal: true,
-  showTaxes: false,
-  footerLine1: 'Thank you!',
-  footerLine2: 'Please come again',
-});
-
-const PRINTER_MODELS = PRINTER_PROFILES.map(p => `${p.vendor} ${p.name}`);
-
-interface SavedPrinter {
-  id: string;
-  name: string;
-  model: string;
-  connectionType: 'bluetooth' | 'ethernet';
-  ipAddress?: string;
-  paperWidth: number;
-  advancedSettings: {
-    printMode: string;
-    printWidth: number;
-    printResolution: string;
-    initCommands: string;
-    cutterCommands: string;
-    drawerCommands: string;
-  };
-  deviceId?: string;
-  deviceName?: string;
-}
+type SettingsPanel = 'builtin' | 'table' | 'kitchen' | 'qr' | 'printer' | 'payment' | 'staff' | 'ux';
 
 interface FeatureSettings {
   autoPrintReceipt: boolean;
@@ -225,8 +181,6 @@ interface OnlinePaymentMethod {
   label: string;
   enabled: boolean;
 }
-
-type SettingsPanel = 'builtin' | 'table' | 'kitchen' | 'qr' | 'printer' | 'receipt' | 'payment' | 'staff' | 'ux';
 
 const MALAYSIA_BANKS = [
   { name: 'Maybank', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Maybank_logo.svg/200px-Maybank_logo.svg.png' },
@@ -487,21 +441,33 @@ const PosOnlyView: React.FC<Props> = ({
   const [isReportLoading, setIsReportLoading] = useState(false);
   const [reportsSubMenu, setReportsSubMenu] = useState<'salesReport' | 'statistics'>('salesReport');
 
-  // Printer Settings State
-  const [isBluetoothSupported, setIsBluetoothSupported] = useState(true);
-  const [isScanning, setIsScanning] = useState(false);
-  const [devices, setDevices] = useState<PrinterDevice[]>([]);
+  // Printer Settings State (Loyverse-style)
   const [connectedDevice, setConnectedDevice] = useState<PrinterDevice | null>(null);
-  const [printerStatus, setPrinterStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
   const [realPrinterConnected, setRealPrinterConnected] = useState(false);
   const [isAutoReconnecting, setIsAutoReconnecting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [testPrintStatus, setTestPrintStatus] = useState<'idle' | 'printing' | 'success' | 'error'>('idle');
-  const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings>(() => getDefaultReceiptSettings(restaurant.name));
-  const [isSavingReceiptSettings, setIsSavingReceiptSettings] = useState(false);
-  const [receiptSettingsSaved, setReceiptSettingsSaved] = useState(false);
   const [selectedReportOrder, setSelectedReportOrder] = useState<Order | null>(null);
-  const [receiptAccordion, setReceiptAccordion] = useState({ content: true, fields: false, orderCode: false, formatting: false });
+
+  // Loyverse-style printer config
+  const [savedPrinters, setSavedPrinters] = useState<SavedPrinter[]>(() => {
+    const dbSaved = restaurant.settings?.printers;
+    if (Array.isArray(dbSaved) && dbSaved.length > 0) return dbSaved as SavedPrinter[];
+    const saved = localStorage.getItem(`printers_${restaurant.id}`);
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [receiptConfig, setReceiptConfig] = useState<ReceiptConfig>(() => {
+    const dbSaved = restaurant.settings?.receipt;
+    if (dbSaved && typeof dbSaved === 'object') return { ...DEFAULT_RECEIPT_CONFIG, businessName: restaurant.name, ...dbSaved } as ReceiptConfig;
+    const saved = localStorage.getItem(`receipt_config_${restaurant.id}`);
+    if (saved) try { return { ...DEFAULT_RECEIPT_CONFIG, businessName: restaurant.name, ...JSON.parse(saved) }; } catch {}
+    return { ...DEFAULT_RECEIPT_CONFIG, businessName: restaurant.name };
+  });
+  const [kitchenConfig, setKitchenConfig] = useState<KitchenTicketConfig>(() => {
+    const dbSaved = restaurant.settings?.kitchenTicket;
+    if (dbSaved && typeof dbSaved === 'object') return { ...DEFAULT_KITCHEN_TICKET_CONFIG, ...dbSaved } as KitchenTicketConfig;
+    const saved = localStorage.getItem(`kitchen_config_${restaurant.id}`);
+    if (saved) try { return { ...DEFAULT_KITCHEN_TICKET_CONFIG, ...JSON.parse(saved) }; } catch {}
+    return { ...DEFAULT_KITCHEN_TICKET_CONFIG };
+  });
 
   // Ordering Number Code — custom prefix for order IDs
   const [orderCode, setOrderCode] = useState<string>('');
@@ -616,39 +582,6 @@ const PosOnlyView: React.FC<Props> = ({
   const [qrLogoCropFile, setQrLogoCropFile] = useState<File | null>(null);
   const [qrLogoUploading, setQrLogoUploading] = useState<boolean>(false);
   const qrLogoInputRef = useRef<HTMLInputElement>(null);
-  // Saved printers list
-  const [savedPrinters, setSavedPrinters] = useState<SavedPrinter[]>(() => {
-    const dbSaved = restaurant.settings?.printers;
-    if (Array.isArray(dbSaved) && dbSaved.length > 0) return dbSaved as SavedPrinter[];
-    const saved = localStorage.getItem(`printers_${restaurant.id}`);
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  // Add printer form state
-  const [isAddPrinterOpen, setIsAddPrinterOpen] = useState(false);
-  const [newPrinterName, setNewPrinterName] = useState('');
-  const [newPrinterModel, setNewPrinterModel] = useState('');
-  const [newPrinterConnectionType, setNewPrinterConnectionType] = useState<'bluetooth' | 'ethernet'>('bluetooth');
-  const [newPrinterIpAddress, setNewPrinterIpAddress] = useState('');
-  const [newPrinterPaperWidth, setNewPrinterPaperWidth] = useState(58);
-  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
-  const [newPrinterAdvanced, setNewPrinterAdvanced] = useState({
-    printMode: 'Standard',
-    printWidth: 384,
-    printResolution: '203 DPI',
-    initCommands: '',
-    cutterCommands: '',
-    drawerCommands: '',
-  });
-
-  // Receipt formatting state (alignment, size, bold etc.)
-  const [receiptFormatting, setReceiptFormatting] = useState<ReceiptFormatting>(() => {
-    const dbFmt = restaurant.settings?.receiptFormatting;
-    if (dbFmt && typeof dbFmt === 'object') return dbFmt as ReceiptFormatting;
-    const saved = localStorage.getItem(`receipt_formatting_${restaurant.id}`);
-    if (saved) try { return JSON.parse(saved); } catch {}
-    return {};
-  });
 
   // Counter Orders Cache State - For local caching strategy
   const [cachedCounterOrders, setCachedCounterOrders] = useState<Order[]>(() => {
@@ -1690,11 +1623,11 @@ const PosOnlyView: React.FC<Props> = ({
     setShowPaymentResult(true);
     setIsCompletingPayment(false);
 
-    if (featureSettings.autoPrintReceipt) {
+    if (receiptConfig.autoPrintAfterSale) {
       if (connectedDevice) {
         const printRestaurant = {
           ...restaurant,
-          name: receiptSettings.businessName.trim() || restaurant.name,
+          name: receiptConfig.businessName.trim() || restaurant.name,
         };
 
         printerService
@@ -1916,7 +1849,10 @@ const PosOnlyView: React.FC<Props> = ({
         setFeatureSettings(prev => ({ ...prev, ...serverSettings.features }));
       }
       if (serverSettings.receipt && typeof serverSettings.receipt === 'object') {
-        setReceiptSettings(prev => ({ ...prev, ...serverSettings.receipt }));
+        setReceiptConfig(prev => ({ ...prev, ...serverSettings.receipt }));
+      }
+      if (serverSettings.kitchenTicket && typeof serverSettings.kitchenTicket === 'object') {
+        setKitchenConfig(prev => ({ ...prev, ...serverSettings.kitchenTicket }));
       }
       if (Array.isArray(serverSettings.paymentTypes) && serverSettings.paymentTypes.length > 0) {
         setPaymentTypes(serverSettings.paymentTypes);
@@ -2107,32 +2043,16 @@ const PosOnlyView: React.FC<Props> = ({
   }, [addOnItems, restaurant.id]);
 
   useEffect(() => {
-    if (!('bluetooth' in navigator) || !(navigator as any).bluetooth) {
-      setIsBluetoothSupported(false);
-      setErrorMessage('Web Bluetooth is not supported in this browser. Please use Chrome, Edge, or Opera.');
-    }
-  }, []);
-
-  useEffect(() => {
     const savedPrinter = localStorage.getItem(`printer_${restaurant.id}`);
     if (savedPrinter) {
       try {
         const printer = JSON.parse(savedPrinter);
         setConnectedDevice(printer);
-        // Auto-reconnect silently without browser picker
         setIsAutoReconnecting(true);
-        setPrinterStatus('connecting');
         printerService.autoReconnect(printer.name).then((success) => {
-          if (success) {
-            setPrinterStatus('connected');
-            setRealPrinterConnected(true);
-          } else {
-            setPrinterStatus('disconnected');
-            setRealPrinterConnected(false);
-          }
+          setRealPrinterConnected(success);
           setIsAutoReconnecting(false);
         }).catch(() => {
-          setPrinterStatus('disconnected');
           setRealPrinterConnected(false);
           setIsAutoReconnecting(false);
         });
@@ -2142,31 +2062,6 @@ const PosOnlyView: React.FC<Props> = ({
     }
   }, [restaurant.id]);
 
-  useEffect(() => {
-    const defaults = getDefaultReceiptSettings(restaurant.name);
-    const dbSaved = restaurant.settings?.receipt;
-    const localSaved = localStorage.getItem(`receipt_settings_${restaurant.id}`);
-
-    // Priority 1: DB (cross-device authoritative)
-    if (dbSaved && typeof dbSaved === 'object') {
-      setReceiptSettings({ ...defaults, ...dbSaved });
-      return;
-    }
-
-    // Priority 2: localStorage (same-device offline cache)
-    if (localSaved) {
-      try {
-        const parsed = JSON.parse(localSaved);
-        setReceiptSettings({ ...defaults, ...parsed });
-        return;
-      } catch (error) {
-        console.error('Failed to parse local receipt settings', error);
-      }
-    }
-
-    setReceiptSettings(defaults);
-  }, [restaurant.id, restaurant.name, restaurant.settings]);
-
   // Load order code from restaurant settings
   useEffect(() => {
     const saved = restaurant.settings?.orderCode || '';
@@ -2174,8 +2069,16 @@ const PosOnlyView: React.FC<Props> = ({
   }, [restaurant.id, restaurant.settings?.orderCode]);
 
   useEffect(() => {
-    localStorage.setItem(`receipt_settings_${restaurant.id}`, JSON.stringify(receiptSettings));
-  }, [receiptSettings, restaurant.id]);
+    localStorage.setItem(`receipt_config_${restaurant.id}`, JSON.stringify(receiptConfig));
+  }, [receiptConfig, restaurant.id]);
+
+  useEffect(() => {
+    localStorage.setItem(`kitchen_config_${restaurant.id}`, JSON.stringify(kitchenConfig));
+  }, [kitchenConfig, restaurant.id]);
+
+  useEffect(() => {
+    localStorage.setItem(`printers_${restaurant.id}`, JSON.stringify(savedPrinters));
+  }, [savedPrinters, restaurant.id]);
 
   useEffect(() => {
     localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(featureSettings));
@@ -2227,20 +2130,11 @@ const PosOnlyView: React.FC<Props> = ({
     localStorage.setItem(`ux_menuViewMode_${restaurant.id}`, menuViewMode);
   }, [menuViewMode, restaurant.id]);
 
-  useEffect(() => {
-    if (!receiptSettingsSaved) return;
-    const timer = setTimeout(() => setReceiptSettingsSaved(false), 2000);
-    return () => clearTimeout(timer);
-  }, [receiptSettingsSaved]);
-
   // Periodically check real Bluetooth printer connection status
   useEffect(() => {
     const interval = setInterval(() => {
       const connected = printerService.isConnected();
       setRealPrinterConnected(connected);
-      if (connectedDevice) {
-        setPrinterStatus(connected ? 'connected' : 'disconnected');
-      }
     }, 3000);
     return () => clearInterval(interval);
   }, [connectedDevice]);
@@ -2248,53 +2142,33 @@ const PosOnlyView: React.FC<Props> = ({
   const handlePrinterButtonClick = async () => {
     if (!connectedDevice) {
       // No saved printer - scan and connect in one go
-      if (!isBluetoothSupported) return;
       setIsAutoReconnecting(true);
-      setPrinterStatus('connecting');
       const found = await printerService.scanForPrinters();
       if (found.length > 0) {
         const device = found[0];
         const success = await printerService.connect(device.name);
         if (success) {
           setConnectedDevice(device);
-          setPrinterStatus('connected');
           setRealPrinterConnected(true);
           localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
           await supabase
             .from('restaurants')
             .update({ printer_settings: { connected: true, deviceId: device.id, deviceName: device.name } })
             .eq('id', restaurant.id);
-        } else {
-          setPrinterStatus('error');
-          setRealPrinterConnected(false);
         }
-      } else {
-        setPrinterStatus('disconnected');
       }
       setIsAutoReconnecting(false);
       return;
     }
-    if (realPrinterConnected) {
-      // Already connected - do nothing
-      return;
-    }
+    if (realPrinterConnected) return;
     // Has saved printer but disconnected - try reconnect
     setIsAutoReconnecting(true);
-    setPrinterStatus('connecting');
     const success = await printerService.autoReconnect(connectedDevice.name);
     if (success) {
-      setPrinterStatus('connected');
       setRealPrinterConnected(true);
     } else {
-      // Auto-reconnect failed, try with browser picker (requires user gesture - which this click is)
       const pickSuccess = await printerService.connect(connectedDevice.name);
-      if (pickSuccess) {
-        setPrinterStatus('connected');
-        setRealPrinterConnected(true);
-      } else {
-        setPrinterStatus('error');
-        setRealPrinterConnected(false);
-      }
+      setRealPrinterConnected(pickSuccess);
     }
     setIsAutoReconnecting(false);
   };
@@ -2469,146 +2343,6 @@ const PosOnlyView: React.FC<Props> = ({
     ));
   };
 
-  const scanForPrinters = async () => {
-    if (!isBluetoothSupported) return;
-
-    setIsScanning(true);
-    setDevices([]);
-    setErrorMessage('');
-
-    const found = await printerService.scanForPrinters();
-    setDevices(found);
-    setIsScanning(false);
-  };
-
-  const connectToPrinter = async (device: PrinterDevice) => {
-    setPrinterStatus('connecting');
-    setErrorMessage('');
-
-    const success = await printerService.connect(device.name);
-
-    if (success) {
-      setConnectedDevice(device);
-      setPrinterStatus('connected');
-      setRealPrinterConnected(true);
-      localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
-
-      await supabase
-        .from('restaurants')
-        .update({
-          printer_settings: {
-            connected: true,
-            deviceId: device.id,
-            deviceName: device.name
-          }
-        })
-        .eq('id', restaurant.id);
-    } else {
-      setPrinterStatus('error');
-      setRealPrinterConnected(false);
-      setErrorMessage('Failed to connect to printer');
-    }
-  };
-
-  const disconnectPrinter = async () => {
-    await printerService.disconnect();
-    setConnectedDevice(null);
-    setPrinterStatus('disconnected');
-    setRealPrinterConnected(false);
-    localStorage.removeItem(`printer_${restaurant.id}`);
-
-    supabase
-      .from('restaurants')
-      .update({ printer_settings: { connected: false } })
-      .eq('id', restaurant.id);
-  };
-
-  const printTestPage = async () => {
-    if (!connectedDevice) return;
-
-    setTestPrintStatus('printing');
-    setErrorMessage('');
-
-    const success = await printerService.printTestPage({
-      businessName: receiptSettings.businessName,
-    });
-
-    if (success) {
-      setTestPrintStatus('success');
-      setTimeout(() => setTestPrintStatus('idle'), 3000);
-    } else {
-      setTestPrintStatus('error');
-      setErrorMessage('Print failed');
-    }
-  };
-
-  const updateReceiptSetting = <K extends keyof ReceiptSettings>(key: K, value: ReceiptSettings[K]) => {
-    setReceiptSettings(prev => ({ ...prev, [key]: value }));
-    setReceiptSettingsSaved(false);
-  };
-
-  const saveReceiptSettings = async () => {
-    setIsSavingReceiptSettings(true);
-    try {
-      const mergedSettings = {
-        ...((restaurant as any)?.settings || {}),
-        receipt: receiptSettings,
-      };
-
-      const { error } = await supabase
-        .from('restaurants')
-        .update({ settings: compressPosSettings(mergedSettings, restaurant.name) })
-        .eq('id', restaurant.id);
-
-      if (error) {
-        console.error('Cloud save failed, using local receipt settings only:', error);
-        toast('Receipt settings saved locally. Cloud sync is unavailable right now.', 'warning');
-        setReceiptSettingsSaved(true);
-        return;
-      }
-
-      setReceiptSettingsSaved(true);
-    } catch (error: any) {
-      toast('Failed to save receipt settings: ' + error.message, 'error');
-    } finally {
-      setIsSavingReceiptSettings(false);
-    }
-  };
-
-  const handleSavePrinter = async () => {
-    if (!newPrinterName.trim() || !newPrinterModel) return;
-
-    const printer: SavedPrinter = {
-      id: Date.now().toString(),
-      name: newPrinterName.trim(),
-      model: newPrinterModel,
-      connectionType: newPrinterModel === 'Other' ? newPrinterConnectionType : 'bluetooth',
-      ipAddress: newPrinterConnectionType === 'ethernet' ? newPrinterIpAddress : undefined,
-      paperWidth: newPrinterPaperWidth,
-      advancedSettings: { ...newPrinterAdvanced },
-    };
-
-    const updated = [...savedPrinters, printer];
-    setSavedPrinters(updated);
-    localStorage.setItem(`printers_${restaurant.id}`, JSON.stringify(updated));
-
-    // Reset form
-    setNewPrinterName('');
-    setNewPrinterModel('');
-    setNewPrinterConnectionType('bluetooth');
-    setNewPrinterIpAddress('');
-    setNewPrinterPaperWidth(58);
-    setShowAdvancedSettings(false);
-    setNewPrinterAdvanced({ printMode: 'Standard', printWidth: 384, printResolution: '203 DPI', initCommands: '', cutterCommands: '', drawerCommands: '' });
-    setIsAddPrinterOpen(false);
-  };
-
-  const handleRemovePrinter = (printerId: string) => {
-    const updated = savedPrinters.filter(p => p.id !== printerId);
-    setSavedPrinters(updated);
-    localStorage.setItem(`printers_${restaurant.id}`, JSON.stringify(updated));
-  };
-
   const updateFeatureSetting = <K extends keyof FeatureSettings>(key: K, value: FeatureSettings[K]) => {
     setFeatureSettings(prev => ({ ...prev, [key]: value }));
 
@@ -2765,29 +2499,25 @@ const PosOnlyView: React.FC<Props> = ({
 
   const getReceiptPrintOptions = (): ReceiptPrintOptions => {
     const printer = savedPrinters.length > 0 ? savedPrinters[0] : null;
-    const drawerCommands = printer?.advancedSettings?.drawerCommands || '';
-
-    // Match saved printer model to a profile ID
-    const matchedProfile = printer?.model
-      ? PRINTER_PROFILES.find(p => `${p.vendor} ${p.name}` === printer.model)
-      : null;
-    const profileId = matchedProfile?.id || (printer?.paperWidth === 80 ? 'default' : 'simple');
-
     return {
-      showDateTime: receiptSettings.showDateTime,
-      showOrderId: receiptSettings.showOrderId,
-      showTableNumber: receiptSettings.showTableNumber,
-      showItems: receiptSettings.showItems,
-      showRemark: receiptSettings.showRemark,
-      showTotal: receiptSettings.showTotal,
-      headerLine1: receiptSettings.headerLine1,
-      headerLine2: receiptSettings.headerLine2,
-      footerLine1: receiptSettings.footerLine1,
-      footerLine2: receiptSettings.footerLine2,
-      drawerCommands: drawerCommands,
-      autoOpenDrawer: featureSettings.autoOpenDrawer,
-      printerProfileId: profileId,
-      formatting: receiptFormatting,
+      showDateTime: receiptConfig.showDateTime,
+      showOrderId: receiptConfig.showOrderNumber,
+      showTableNumber: receiptConfig.showTableNumber,
+      showItems: receiptConfig.showItems,
+      showRemark: receiptConfig.showRemark,
+      showTotal: receiptConfig.showTotal,
+      headerText: receiptConfig.headerText,
+      footerText: receiptConfig.footerText,
+      businessAddress: receiptConfig.businessAddress,
+      businessPhone: receiptConfig.businessPhone,
+      autoOpenDrawer: receiptConfig.openCashDrawerOnPayment,
+      paperSize: printer?.paperSize || '58mm',
+      printDensity: printer?.printDensity || 'medium',
+      autoCut: printer?.autoCut ?? true,
+      showOrderSource: receiptConfig.showOrderSource,
+      showCashierName: receiptConfig.showCashierName,
+      showTaxes: receiptConfig.showTaxes,
+      taxes: taxEntries.map(t => ({ name: t.name, amount: t.percentage })),
     };
   };
 
@@ -3193,7 +2923,8 @@ const PosOnlyView: React.FC<Props> = ({
       const bundle: Record<string, any> = {
         // Preserve existing DB keys not managed here (orderCode, flags, etc.)
         ...(restaurant.settings || {}),
-        receipt: receiptSettings,
+        receipt: receiptConfig,
+        kitchenTicket: kitchenConfig,
         features: featureSettings,
         paymentTypes,
         taxes: taxEntries,
@@ -3210,724 +2941,8 @@ const PosOnlyView: React.FC<Props> = ({
     return () => {
       if (settingsSyncTimerRef.current) clearTimeout(settingsSyncTimerRef.current);
     };
-  }, [receiptSettings, featureSettings, paymentTypes, taxEntries, userFont, userCurrency, savedPrinters, kitchenOrderSettings, onlineDeliveryOptions, onlinePaymentMethods, qrGenLocation, restaurant.id]);
+  }, [receiptConfig, kitchenConfig, featureSettings, paymentTypes, taxEntries, userFont, userCurrency, savedPrinters, kitchenOrderSettings, onlineDeliveryOptions, onlinePaymentMethods, qrGenLocation, restaurant.id]);
   // ────────────────────────────────────────────────────────────────────────────
-
-  const renderPrinterContent = () => (
-    <div className="space-y-4">
-      {/* Connection Status */}
-      <div className={`p-4 rounded-xl border transition-all ${
-        printerStatus === 'connected'
-          ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800'
-          : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-      }`}>
-        <div className="flex items-center gap-3">
-          <div className={`w-2 h-2 rounded-full ${
-            printerStatus === 'connected' ? 'bg-green-500' : printerStatus === 'connecting' ? 'bg-orange-500 animate-pulse' : 'bg-gray-300'
-          }`} />
-          <div className="flex-1">
-            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-              {printerStatus === 'connected' ? 'Connected' : printerStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
-            </p>
-            {connectedDevice && (
-              <p className="text-xs font-bold dark:text-white mt-0.5">{connectedDevice.name}</p>
-            )}
-          </div>
-          {printerStatus === 'connected' && (
-            <button onClick={disconnectPrinter} className="text-[9px] font-black text-red-500 uppercase tracking-widest hover:text-red-600">Disconnect</button>
-          )}
-        </div>
-      </div>
-
-      {/* Bluetooth Actions */}
-      {printerStatus !== 'connected' && isBluetoothSupported && (
-        <button
-          onClick={scanForPrinters}
-          disabled={isScanning}
-          className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {isScanning ? (
-            <><div className="w-3 h-3 border-2 border-white dark:border-gray-900 border-t-transparent rounded-full animate-spin" /> Scanning...</>
-          ) : (
-            <><Bluetooth size={14} /> Scan Bluetooth</>
-          )}
-        </button>
-      )}
-
-      {devices.length > 0 && printerStatus !== 'connected' && (
-        <div className="space-y-2">
-          {devices.map(device => (
-            <button
-              key={device.id}
-              onClick={() => connectToPrinter(device)}
-              className="w-full p-3 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl flex items-center justify-between hover:border-orange-500 transition-all"
-            >
-              <span className="font-bold dark:text-white text-xs">{device.name}</span>
-              <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Connect</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {printerStatus === 'connected' && (
-        <div className="flex gap-2">
-          <button
-            onClick={printTestPage}
-            disabled={testPrintStatus === 'printing'}
-            className="flex-1 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl font-black text-[9px] uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:border-orange-500 hover:text-orange-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {testPrintStatus === 'printing' ? 'Printing...' : testPrintStatus === 'success' ? (<><CheckCircle2 size={12} className="text-green-500" /> Sent!</>) : (<><Printer size={12} /> Test Print</>)}
-          </button>
-          <button
-            onClick={async () => { try { await printerService.reprintLast(); } catch (err: any) { setErrorMessage(err?.message || 'Reprint failed'); } }}
-            disabled={!printerService.hasLastReceipt()}
-            className="flex-1 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl font-black text-[9px] uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:border-orange-500 hover:text-orange-500 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
-          >
-            <RotateCw size={12} /> Reprint
-          </button>
-        </div>
-      )}
-
-      {errorMessage && (
-        <div className="p-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-200">
-          <p className="text-[9px] text-red-600 dark:text-red-400">{errorMessage}</p>
-        </div>
-      )}
-
-      {!isBluetoothSupported && (
-        <div className="text-center py-6">
-          <AlertCircle size={24} className="mx-auto text-red-400 mb-2" />
-          <p className="text-xs font-bold text-gray-500">{errorMessage || 'Bluetooth not supported'}</p>
-          <p className="text-[9px] text-gray-400 mt-1">Use Chrome, Edge, or Opera</p>
-        </div>
-      )}
-
-      {/* Divider */}
-      <div className="border-t dark:border-gray-700 pt-4">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Saved Printers</p>
-          <span className="text-[9px] font-black text-gray-300 uppercase">{savedPrinters.length}</span>
-        </div>
-
-        {savedPrinters.length === 0 && !isAddPrinterOpen && (
-          <div className="text-center py-6 border border-dashed dark:border-gray-700 rounded-xl">
-            <Printer size={20} className="mx-auto text-gray-300 mb-2" />
-            <p className="text-[10px] text-gray-400">No printers saved</p>
-          </div>
-        )}
-
-        {savedPrinters.map(printer => (
-          <div key={printer.id} className="mb-2 p-3 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-black dark:text-white">{printer.name}</p>
-                <p className="text-[10px] text-gray-400">{printer.model} &middot; {printer.paperWidth}mm &middot; {printer.connectionType}</p>
-              </div>
-              <button onClick={() => handleRemovePrinter(printer.id)} className="p-1.5 text-gray-300 hover:text-red-500 transition-colors">
-                <Trash2 size={14} />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Add Printer */}
-      {!isAddPrinterOpen ? (
-        <button
-          onClick={() => setIsAddPrinterOpen(true)}
-          className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
-        >
-          <Plus size={14} /> Add Printer
-        </button>
-      ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">New Printer</p>
-            <button onClick={() => { setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }} className="text-gray-400 hover:text-red-500">
-              <X size={14} />
-            </button>
-          </div>
-
-          <div>
-            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Name</label>
-            <input
-              type="text"
-              value={newPrinterName}
-              onChange={e => setNewPrinterName(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-              placeholder="e.g. Kitchen Printer"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Printer Model</label>
-            <select
-              value={newPrinterModel}
-              onChange={e => setNewPrinterModel(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-            >
-              <option value="">Select model...</option>
-              {PRINTER_MODELS.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </div>
-
-          {/* Connection type for "Other" model */}
-          {newPrinterModel === 'Other' && (
-            <div>
-              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Connection</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setNewPrinterConnectionType('bluetooth')}
-                  className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 border transition-all ${
-                    newPrinterConnectionType === 'bluetooth'
-                      ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 text-orange-600'
-                      : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500'
-                  }`}
-                >
-                  <Bluetooth size={12} /> Bluetooth
-                </button>
-                <button
-                  onClick={() => setNewPrinterConnectionType('ethernet')}
-                  className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 border transition-all ${
-                    newPrinterConnectionType === 'ethernet'
-                      ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 text-orange-600'
-                      : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500'
-                  }`}
-                >
-                  <Network size={12} /> Ethernet
-                </button>
-              </div>
-
-              {newPrinterConnectionType === 'ethernet' && (
-                <div className="mt-2">
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">IP Address</label>
-                  <input
-                    type="text"
-                    value={newPrinterIpAddress}
-                    onChange={e => setNewPrinterIpAddress(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                    placeholder="192.168.1.100"
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          <div>
-            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Paper Width</label>
-            <select
-              value={newPrinterPaperWidth}
-              onChange={e => setNewPrinterPaperWidth(Number(e.target.value))}
-              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-            >
-              <option value={58}>58mm</option>
-              <option value={80}>80mm</option>
-            </select>
-          </div>
-
-          {/* Advanced Settings Toggle */}
-          <button
-            onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
-            className="w-full flex items-center justify-between py-2 text-[9px] font-black text-gray-400 uppercase tracking-widest hover:text-orange-500 transition-colors"
-          >
-            Advanced Settings
-            <ChevronDown size={14} className={`transition-transform ${showAdvancedSettings ? 'rotate-180' : ''}`} />
-          </button>
-
-          {showAdvancedSettings && (
-            <div className="space-y-3 border-t dark:border-gray-700 pt-3">
-              <div>
-                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Print Mode</label>
-                <select
-                  value={newPrinterAdvanced.printMode}
-                  onChange={e => setNewPrinterAdvanced(prev => ({ ...prev, printMode: e.target.value }))}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                >
-                  <option value="Standard">Standard</option>
-                  <option value="Page Mode">Page Mode</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Print Width (dots)</label>
-                <input
-                  type="number"
-                  value={newPrinterAdvanced.printWidth}
-                  onChange={e => setNewPrinterAdvanced(prev => ({ ...prev, printWidth: Number(e.target.value) }))}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                  placeholder="384"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Print Resolution</label>
-                <select
-                  value={newPrinterAdvanced.printResolution}
-                  onChange={e => setNewPrinterAdvanced(prev => ({ ...prev, printResolution: e.target.value }))}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                >
-                  <option value="180 DPI">180 DPI</option>
-                  <option value="203 DPI">203 DPI</option>
-                  <option value="300 DPI">300 DPI</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Initial ESC/POS Commands</label>
-                <input
-                  type="text"
-                  value={newPrinterAdvanced.initCommands}
-                  onChange={e => setNewPrinterAdvanced(prev => ({ ...prev, initCommands: e.target.value }))}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white font-mono"
-                  placeholder="e.g. 0x1B 0x40"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Cutter ESC/POS Command</label>
-                <input
-                  type="text"
-                  value={newPrinterAdvanced.cutterCommands}
-                  onChange={e => setNewPrinterAdvanced(prev => ({ ...prev, cutterCommands: e.target.value }))}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white font-mono"
-                  placeholder="e.g. 0x1D 0x56 0x00"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Drawer ESC/POS Command</label>
-                <input
-                  type="text"
-                  value={newPrinterAdvanced.drawerCommands}
-                  onChange={e => setNewPrinterAdvanced(prev => ({ ...prev, drawerCommands: e.target.value }))}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white font-mono"
-                  placeholder="e.g. 0x1B 0x70 0x00"
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="flex gap-2 pt-2">
-            <button
-              onClick={() => { setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }}
-              className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-700 rounded-lg font-black uppercase text-[9px] tracking-widest text-gray-500"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSavePrinter}
-              disabled={!newPrinterName.trim() || !newPrinterModel}
-              className="flex-1 py-2.5 bg-orange-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest hover:bg-orange-600 disabled:opacity-40 transition-all"
-            >
-              Save Printer
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  const renderReceiptContent = () => (
-    <div className="space-y-4">
-      <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl overflow-hidden">
-        <button
-          onClick={() => setReceiptAccordion(prev => ({ ...prev, content: !prev.content }))}
-          className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-600/30 transition-all"
-        >
-          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Content</span>
-          <ChevronDown size={14} className={`text-gray-400 transition-transform ${receiptAccordion.content ? 'rotate-180' : ''}`} />
-        </button>
-        {receiptAccordion.content && (
-          <div className="px-4 pb-4 space-y-3 border-t dark:border-gray-600 pt-3">
-            {[
-              { key: 'businessName', label: 'Business Name', placeholder: 'Store name' },
-              { key: 'headerLine1', label: 'Header Line 1', placeholder: 'Optional' },
-              { key: 'headerLine2', label: 'Header Line 2', placeholder: 'Optional' },
-              { key: 'footerLine1', label: 'Footer Line 1', placeholder: 'Thank you!' },
-              { key: 'footerLine2', label: 'Footer Line 2', placeholder: 'Please come again' },
-            ].map(field => (
-              <div key={field.key}>
-                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">{field.label}</label>
-                <input
-                  type="text"
-                  value={receiptSettings[field.key as keyof ReceiptSettings] as string}
-                  onChange={e => updateReceiptSetting(field.key as keyof ReceiptSettings, e.target.value as any)}
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-                  placeholder={field.placeholder}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl overflow-hidden">
-        <button
-          onClick={() => setReceiptAccordion(prev => ({ ...prev, fields: !prev.fields }))}
-          className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-600/30 transition-all"
-        >
-          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Visible Fields</span>
-          <ChevronDown size={14} className={`text-gray-400 transition-transform ${receiptAccordion.fields ? 'rotate-180' : ''}`} />
-        </button>
-        {receiptAccordion.fields && (
-          <div className="px-4 pb-4 border-t dark:border-gray-600 pt-3">
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { key: 'showDateTime', label: 'Date & Time' },
-                { key: 'showOrderId', label: 'Order ID' },
-                { key: 'showTableNumber', label: 'Table Number' },
-                { key: 'showItems', label: 'Items' },
-                { key: 'showRemark', label: 'Remark' },
-                { key: 'showTotal', label: 'Total' },
-                { key: 'showTaxes', label: 'Taxes' },
-              ].map(field => (
-                <label key={field.key} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-200 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={receiptSettings[field.key as keyof ReceiptSettings] as boolean}
-                    onChange={e => updateReceiptSetting(field.key as keyof ReceiptSettings, e.target.checked as any)}
-                    className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
-                  />
-                  {field.label}
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Ordering Number Code */}
-      <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl overflow-hidden">
-        <button
-          onClick={() => setReceiptAccordion(prev => ({ ...prev, orderCode: !prev.orderCode }))}
-          className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-600/30 transition-all"
-        >
-          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Ordering Number</span>
-          <ChevronDown size={14} className={`text-gray-400 transition-transform ${receiptAccordion.orderCode ? 'rotate-180' : ''}`} />
-        </button>
-        {receiptAccordion.orderCode && (
-          <div className="px-4 pb-4 space-y-3 border-t dark:border-gray-600 pt-3">
-            <div>
-              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Order Code Prefix (2-5 characters)</label>
-              <input
-                type="text"
-                value={orderCode}
-                onChange={e => {
-                  const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 5);
-                  setOrderCode(val);
-                }}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white uppercase tracking-widest"
-                placeholder={(() => {
-                  const cleaned = restaurant.name.replace(/[^a-zA-Z\s]/g, '').trim();
-                  const words = cleaned.split(/\s+/).filter(Boolean);
-                  let code: string;
-                  if (words.length >= 3) code = words.slice(0, 3).map(w => w[0]).join('');
-                  else if (words.length === 2) code = words[0][0] + words[1].substring(0, 2);
-                  else code = (words[0] || 'QS').substring(0, 3);
-                  return code.toUpperCase().padEnd(3, 'X');
-                })()}
-                maxLength={5}
-                minLength={2}
-              />
-              <p className="text-[9px] text-gray-400 mt-1.5">
-                This prefix is used for order IDs (e.g., <span className="font-bold text-orange-500">{orderCode || (() => {
-                  const cleaned = restaurant.name.replace(/[^a-zA-Z\s]/g, '').trim();
-                  const words = cleaned.split(/\s+/).filter(Boolean);
-                  let code: string;
-                  if (words.length >= 3) code = words.slice(0, 3).map(w => w[0]).join('');
-                  else if (words.length === 2) code = words[0][0] + words[1].substring(0, 2);
-                  else code = (words[0] || 'QS').substring(0, 3);
-                  return code.toUpperCase().padEnd(3, 'X');
-                })()}0000001</span>). Each restaurant should have a unique code to avoid conflicts.
-              </p>
-            </div>
-            <button
-              onClick={async () => {
-                if (orderCode.length < 2) {
-                  toast('Order code must be at least 2 characters.', 'warning');
-                  return;
-                }
-                setIsSavingOrderCode(true);
-                try {
-                  const mergedSettings = {
-                    ...(restaurant.settings || {}),
-                    orderCode: orderCode.toUpperCase(),
-                  };
-                  const { error: orderCodeError } = await supabase
-                    .from('restaurants')
-                    .update({ settings: compressPosSettings(mergedSettings, restaurant.name) })
-                    .eq('id', restaurant.id);
-                  if (orderCodeError) {
-                    console.warn('Cloud save failed for order code:', orderCodeError.message);
-                  }
-                  localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(mergedSettings));
-                  toast('Order code saved successfully!', 'success');
-                } catch (err: any) {
-                  toast('Failed to save order code: ' + err.message, 'error');
-                } finally {
-                  setIsSavingOrderCode(false);
-                }
-              }}
-              disabled={isSavingOrderCode || orderCode.length < 2}
-              className="w-full py-2.5 bg-orange-500 text-white rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50"
-            >
-              {isSavingOrderCode ? 'Saving...' : 'Save Order Code'}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Receipt Formatting (alignment, size, bold etc.) */}
-      <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl overflow-hidden">
-        <button
-          onClick={() => setReceiptAccordion(prev => ({ ...prev, formatting: !prev.formatting }))}
-          className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-600/30 transition-all"
-        >
-          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Formatting &amp; Style</span>
-          <ChevronDown size={14} className={`text-gray-400 transition-transform ${receiptAccordion.formatting ? 'rotate-180' : ''}`} />
-        </button>
-        {receiptAccordion.formatting && (
-          <div className="px-4 pb-4 space-y-4 border-t dark:border-gray-600 pt-3">
-
-            {/* Business Name */}
-            <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Business Name</p>
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="block text-[8px] font-bold text-gray-400 mb-1">Align</label>
-                <select value={receiptFormatting.nameAlign || 'center'} onChange={e => setReceiptFormatting(f => ({ ...f, nameAlign: e.target.value as TextAlign }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
-                  <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[8px] font-bold text-gray-400 mb-1">Width</label>
-                <select value={receiptFormatting.nameWidth || 2} onChange={e => setReceiptFormatting(f => ({ ...f, nameWidth: Number(e.target.value) }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
-                  {[1,2,3,4].map(n => <option key={n} value={n}>{n}x</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[8px] font-bold text-gray-400 mb-1">Height</label>
-                <select value={receiptFormatting.nameHeight || 2} onChange={e => setReceiptFormatting(f => ({ ...f, nameHeight: Number(e.target.value) }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
-                  {[1,2,3,4].map(n => <option key={n} value={n}>{n}x</option>)}
-                </select>
-              </div>
-            </div>
-            <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
-              <input type="checkbox" checked={receiptFormatting.nameBold !== false} onChange={e => setReceiptFormatting(f => ({ ...f, nameBold: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
-              Bold
-            </label>
-
-            {/* Header / Footer */}
-            <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Header &amp; Footer</p>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[8px] font-bold text-gray-400 mb-1">Header Align</label>
-                <select value={receiptFormatting.headerAlign || 'center'} onChange={e => setReceiptFormatting(f => ({ ...f, headerAlign: e.target.value as TextAlign }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
-                  <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[8px] font-bold text-gray-400 mb-1">Footer Align</label>
-                <select value={receiptFormatting.footerAlign || 'center'} onChange={e => setReceiptFormatting(f => ({ ...f, footerAlign: e.target.value as TextAlign }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
-                  <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Total */}
-            <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Total Line</p>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
-                <input type="checkbox" checked={receiptFormatting.totalBold !== false} onChange={e => setReceiptFormatting(f => ({ ...f, totalBold: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
-                Bold Total
-              </label>
-              <div>
-                <label className="block text-[8px] font-bold text-gray-400 mb-1">Total Height</label>
-                <select value={receiptFormatting.totalHeight || 2} onChange={e => setReceiptFormatting(f => ({ ...f, totalHeight: Number(e.target.value) }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
-                  {[1,2,3,4].map(n => <option key={n} value={n}>{n}x</option>)}
-                </select>
-              </div>
-            </div>
-
-            {/* Table Number */}
-            <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Table Number</p>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
-                <input type="checkbox" checked={receiptFormatting.tableBold !== false} onChange={e => setReceiptFormatting(f => ({ ...f, tableBold: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
-                Bold Table #
-              </label>
-              <div>
-                <label className="block text-[8px] font-bold text-gray-400 mb-1">Table Height</label>
-                <select value={receiptFormatting.tableHeight || 2} onChange={e => setReceiptFormatting(f => ({ ...f, tableHeight: Number(e.target.value) }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
-                  {[1,2,3,4].map(n => <option key={n} value={n}>{n}x</option>)}
-                </select>
-              </div>
-            </div>
-
-            {/* Cut & Font */}
-            <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Cut &amp; Font</p>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[8px] font-bold text-gray-400 mb-1">Paper Cut</label>
-                <select value={receiptFormatting.cutMode || 'full'} onChange={e => setReceiptFormatting(f => ({ ...f, cutMode: e.target.value as CutMode }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
-                  <option value="full">Full Cut</option><option value="partial">Partial Cut</option><option value="none">No Cut</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[8px] font-bold text-gray-400 mb-1">Font</label>
-                <select value={receiptFormatting.font || 'A'} onChange={e => setReceiptFormatting(f => ({ ...f, font: e.target.value as 'A' | 'B' }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
-                  <option value="A">Font A (Normal)</option><option value="B">Font B (Condensed)</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Extras */}
-            <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Extras</p>
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
-                <input type="checkbox" checked={receiptFormatting.useEscPosAlignment !== false} onChange={e => setReceiptFormatting(f => ({ ...f, useEscPosAlignment: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
-                Use ESC/POS Alignment (disable if text shifts on your printer)
-              </label>
-              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
-                <input type="checkbox" checked={receiptFormatting.sectionUnderline || false} onChange={e => setReceiptFormatting(f => ({ ...f, sectionUnderline: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
-                Underline Section Headers (e.g. "Note:")
-              </label>
-              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
-                <input type="checkbox" checked={receiptFormatting.showOrderSource || false} onChange={e => setReceiptFormatting(f => ({ ...f, showOrderSource: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
-                Show Order Source (Counter / QR / Online)
-              </label>
-              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
-                <input type="checkbox" checked={receiptFormatting.reverseTotal || false} onChange={e => setReceiptFormatting(f => ({ ...f, reverseTotal: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
-                Reverse (White-on-Black) Total Line
-              </label>
-              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
-                <input type="checkbox" checked={receiptFormatting.reverseTableNumber || false} onChange={e => setReceiptFormatting(f => ({ ...f, reverseTableNumber: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
-                Reverse (White-on-Black) Table Number
-              </label>
-            </div>
-
-            {/* Line Spacing */}
-            <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Line Spacing</p>
-            <div>
-              <label className="block text-[8px] font-bold text-gray-400 mb-1">Spacing (0 = default, 1-255 dots)</label>
-              <input type="number" min={0} max={255} value={receiptFormatting.lineSpacing || 0} onChange={e => setReceiptFormatting(f => ({ ...f, lineSpacing: Number(e.target.value) }))} className="w-24 px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white" />
-            </div>
-
-            {/* QR Code & Barcode */}
-            <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">QR Code &amp; Barcode</p>
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
-                <input type="checkbox" checked={receiptFormatting.printQrCode || false} onChange={e => setReceiptFormatting(f => ({ ...f, printQrCode: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
-                Print QR Code on Receipt
-              </label>
-              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
-                <input type="checkbox" checked={receiptFormatting.printBarcode || false} onChange={e => setReceiptFormatting(f => ({ ...f, printBarcode: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
-                Print Barcode on Receipt
-              </label>
-              {receiptFormatting.printBarcode && (
-                <div className="grid grid-cols-3 gap-2 pl-6">
-                  <div>
-                    <label className="block text-[8px] font-bold text-gray-400 mb-1">Type</label>
-                    <select value={receiptFormatting.barcodeType || 'CODE128'} onChange={e => setReceiptFormatting(f => ({ ...f, barcodeType: e.target.value as any }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
-                      <option value="CODE128">CODE128</option>
-                      <option value="CODE39">CODE39</option>
-                      <option value="CODE93">CODE93</option>
-                      <option value="EAN13">EAN13</option>
-                      <option value="UPC-A">UPC-A</option>
-                      <option value="ITF">ITF</option>
-                      <option value="CODABAR">CODABAR</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-bold text-gray-400 mb-1">Height</label>
-                    <input type="number" min={1} max={255} value={receiptFormatting.barcodeHeight || 60} onChange={e => setReceiptFormatting(f => ({ ...f, barcodeHeight: Number(e.target.value) }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-bold text-gray-400 mb-1">Width</label>
-                    <select value={receiptFormatting.barcodeWidth || 3} onChange={e => setReceiptFormatting(f => ({ ...f, barcodeWidth: Number(e.target.value) }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
-                      {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}</option>)}
-                    </select>
-                  </div>
-                </div>
-              )}
-              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
-                <input type="checkbox" checked={receiptFormatting.printPdf417 || false} onChange={e => setReceiptFormatting(f => ({ ...f, printPdf417: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
-                Print PDF417 2D Barcode
-              </label>
-            </div>
-
-            {/* Logo Image */}
-            <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Logo Image</p>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <label className="flex-1 cursor-pointer py-2 px-3 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold text-gray-500 dark:text-gray-300 text-center hover:border-orange-400 transition-colors">
-                  {receiptFormatting.logoImageDataUrl ? 'Change Logo' : 'Upload Logo'}
-                  <input type="file" accept="image/png,image/jpeg,image/bmp" className="hidden" onChange={e => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    if (file.size > 512 * 1024) { toast('Logo must be under 512KB', 'error'); return; }
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                      setReceiptFormatting(f => ({ ...f, logoImageDataUrl: reader.result as string }));
-                    };
-                    reader.readAsDataURL(file);
-                  }} />
-                </label>
-                {receiptFormatting.logoImageDataUrl && (
-                  <button onClick={() => setReceiptFormatting(f => ({ ...f, logoImageDataUrl: '' }))} className="p-2 text-red-400 hover:text-red-600 text-[10px] font-bold">
-                    Remove
-                  </button>
-                )}
-              </div>
-              {receiptFormatting.logoImageDataUrl && (
-                <div className="flex items-center gap-3">
-                  <img src={receiptFormatting.logoImageDataUrl} alt="Logo preview" className="h-10 object-contain bg-white rounded border p-1" />
-                  <div>
-                    <label className="block text-[8px] font-bold text-gray-400 mb-1">Print Width (px)</label>
-                    <input type="number" min={32} max={576} value={receiptFormatting.logoWidth || 200} onChange={e => setReceiptFormatting(f => ({ ...f, logoWidth: Number(e.target.value) }))} className="w-20 px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white" />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={async () => {
-                localStorage.setItem(`receipt_formatting_${restaurant.id}`, JSON.stringify(receiptFormatting));
-                try {
-                  const mergedSettings = { ...(restaurant.settings || {}), receiptFormatting };
-                  await supabase.from('restaurants').update({ settings: compressPosSettings(mergedSettings, restaurant.name) }).eq('id', restaurant.id);
-                  toast('Formatting saved!', 'success');
-                } catch {
-                  toast('Formatting saved locally.', 'warning');
-                }
-              }}
-              className="w-full py-2.5 bg-orange-500 text-white rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-orange-600 transition-all"
-            >
-              Save Formatting
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="flex gap-2">
-        <button
-          onClick={() => setReceiptSettings(getDefaultReceiptSettings(restaurant.name))}
-          className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-700 rounded-xl font-black uppercase text-[9px] tracking-widest text-gray-500 hover:text-orange-500 transition-colors"
-        >
-          Reset
-        </button>
-        <button
-          onClick={saveReceiptSettings}
-          disabled={isSavingReceiptSettings}
-          className="flex-1 py-2.5 bg-orange-500 text-white rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50"
-        >
-          {isSavingReceiptSettings ? 'Saving...' : 'Save'}
-        </button>
-      </div>
-      {receiptSettingsSaved && (
-        <p className="text-center text-[9px] font-black text-green-500 uppercase tracking-widest">Saved successfully</p>
-      )}
-    </div>
-  );
 
   const renderStaffContent = () => (
     <div className="space-y-4">
@@ -6353,50 +5368,39 @@ const PosOnlyView: React.FC<Props> = ({
                   </div>
                   )}
 
-                  {/* Printer Accordion */}
+                  {/* Printer & Receipt Accordion */}
                   <div>
                     <button
-                      onClick={() => { setSettingsPanel(settingsPanel === 'printer' ? 'builtin' : 'printer'); setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }}
+                      onClick={() => setSettingsPanel(settingsPanel === 'printer' ? 'builtin' : 'printer')}
                       className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'printer' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
                     >
                       <div className="w-10 h-10 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center">
                         <Printer size={18} className="text-orange-500" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'printer' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Printer Setup</p>
-                        <p className="text-[10px] text-gray-400">{savedPrinters.length > 0 ? savedPrinters[0].model : 'No printer configured'}</p>
+                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'printer' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Printer & Receipt</p>
+                        <p className="text-[10px] text-gray-400">{savedPrinters.length > 0 ? `${savedPrinters.length} printer${savedPrinters.length > 1 ? 's' : ''} configured` : 'No printer configured'}</p>
                       </div>
                       <ChevronDown size={16} className={`transition-all ${settingsPanel === 'printer' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
                     </button>
                     {settingsPanel === 'printer' && (
                       <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        <div className="max-w-lg">
-                          {renderPrinterContent()}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Receipt Accordion */}
-                  <div>
-                    <button
-                      onClick={() => setSettingsPanel(settingsPanel === 'receipt' ? 'builtin' : 'receipt')}
-                      className={`w-full flex items-center gap-4 p-4 transition-all group ${settingsPanel === 'receipt' ? 'bg-orange-50/50 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
-                        <Receipt size={18} className="text-blue-500" />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className={`text-xs font-black uppercase tracking-wide ${settingsPanel === 'receipt' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'}`}>Receipt</p>
-                        <p className="text-[10px] text-gray-400">Configure receipt layout</p>
-                      </div>
-                      <ChevronDown size={16} className={`transition-all ${settingsPanel === 'receipt' ? 'rotate-180 text-orange-500' : 'text-gray-300 group-hover:text-orange-500'}`} />
-                    </button>
-                    {settingsPanel === 'receipt' && (
-                      <div className="px-4 pb-4 border-t dark:border-gray-700 pt-4">
-                        <div className="max-w-lg">
-                          {renderReceiptContent()}
-                        </div>
+                        <PrinterSettings
+                          restaurantId={restaurant.id}
+                          restaurantName={restaurant.name}
+                          categories={allFoodCategories}
+                          savedPrinters={savedPrinters}
+                          receiptConfig={receiptConfig}
+                          kitchenConfig={kitchenConfig}
+                          onPrintersChange={(printers) => setSavedPrinters(printers)}
+                          onReceiptConfigChange={(config) => setReceiptConfig(config)}
+                          onKitchenConfigChange={(config) => setKitchenConfig(config)}
+                          onPrinterConnected={(device) => {
+                            setConnectedDevice(device);
+                            setRealPrinterConnected(true);
+                            localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
+                          }}
+                        />
                       </div>
                     )}
                   </div>
@@ -6510,9 +5514,9 @@ const PosOnlyView: React.FC<Props> = ({
                       </button>
                       )}
 
-                      {/* Printer Nav Item */}
+                      {/* Printer & Receipt Nav Item */}
                       <button
-                        onClick={() => { setSettingsPanel('printer'); setIsAddPrinterOpen(false); setShowAdvancedSettings(false); }}
+                        onClick={() => setSettingsPanel('printer')}
                         className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-t-gray-700 ${
                           settingsPanel === 'printer'
                             ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
@@ -6529,32 +5533,8 @@ const PosOnlyView: React.FC<Props> = ({
                         <div className="flex-1 text-left">
                           <p className={`text-xs font-black uppercase tracking-wide ${
                             settingsPanel === 'printer' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'
-                          }`}>Printer Setup</p>
-                          <p className="text-[10px] text-gray-400">{savedPrinters.length > 0 ? savedPrinters[0].model : 'No printer configured'}</p>
-                        </div>
-                      </button>
-
-                      {/* Receipt Nav Item */}
-                      <button
-                        onClick={() => setSettingsPanel('receipt')}
-                        className={`w-full flex items-center gap-3 p-4 transition-all border-t dark:border-t-gray-700 ${
-                          settingsPanel === 'receipt'
-                            ? 'border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-900/10'
-                            : 'border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                        }`}
-                      >
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                          settingsPanel === 'receipt'
-                            ? 'bg-orange-100 dark:bg-orange-900/30'
-                            : 'bg-gray-100 dark:bg-gray-700'
-                        }`}>
-                          <Receipt size={16} className={settingsPanel === 'receipt' ? 'text-orange-500' : 'text-gray-400'} />
-                        </div>
-                        <div className="flex-1 text-left">
-                          <p className={`text-xs font-black uppercase tracking-wide ${
-                            settingsPanel === 'receipt' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-white'
-                          }`}>Receipt</p>
-                          <p className="text-[10px] text-gray-400">Configure receipt layout</p>
+                          }`}>Printer & Receipt</p>
+                          <p className="text-[10px] text-gray-400">{savedPrinters.length > 0 ? `${savedPrinters.length} printer${savedPrinters.length > 1 ? 's' : ''}` : 'No printer configured'}</p>
                         </div>
                       </button>
 
@@ -6687,8 +5667,24 @@ const PosOnlyView: React.FC<Props> = ({
                           </div>
                         )}
 
-                        {settingsPanel === 'printer' && renderPrinterContent()}
-                        {settingsPanel === 'receipt' && renderReceiptContent()}
+                        {settingsPanel === 'printer' && (
+                          <PrinterSettings
+                            restaurantId={restaurant.id}
+                            restaurantName={restaurant.name}
+                            categories={allFoodCategories}
+                            savedPrinters={savedPrinters}
+                            receiptConfig={receiptConfig}
+                            kitchenConfig={kitchenConfig}
+                            onPrintersChange={(printers) => setSavedPrinters(printers)}
+                            onReceiptConfigChange={(config) => setReceiptConfig(config)}
+                            onKitchenConfigChange={(config) => setKitchenConfig(config)}
+                            onPrinterConnected={(device) => {
+                              setConnectedDevice(device);
+                              setRealPrinterConnected(true);
+                              localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
+                            }}
+                          />
+                        )}
                         {settingsPanel === 'payment' && renderPaymentAndTaxesContent()}
                         {settingsPanel === 'staff' && renderStaffContent()}
                         {settingsPanel === 'ux' && renderUXContent()}
@@ -9953,7 +8949,7 @@ const PosOnlyView: React.FC<Props> = ({
                       }
                       const printRestaurant = {
                         ...restaurant,
-                        name: receiptSettings.businessName.trim() || restaurant.name,
+                        name: receiptConfig.businessName.trim() || restaurant.name,
                       };
                       const orderForPrint = {
                         id: selectedReportOrder.id,
