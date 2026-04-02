@@ -307,7 +307,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [onlineOrderFilter, setOnlineOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
   const [rejectingQrOrderId, setRejectingQrOrderId] = useState<string | null>(null);
   const [viewingQrOrderDetail, setViewingQrOrderDetail] = useState<Order | null>(null);
-  const [qrOrderView, setQrOrderView] = useState<'grid' | 'list'>('grid');
+  const [qrOrderView, setQrOrderView] = useState<'grid' | 'list'>('list');
   const [qrSearchQuery, setQrSearchQuery] = useState('');
   const [qrGridColumns, setQrGridColumns] = useState<2 | 3>(2);
   const [editingQrOrderId, setEditingQrOrderId] = useState<string | null>(null);
@@ -5222,19 +5222,19 @@ const PosOnlyView: React.FC<Props> = ({
                           <button
                             key={order.id}
                             onClick={() => setSelectedQrOrderForPayment(order)}
-                            className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                            className={`w-full text-left p-3 rounded-xl border-2 transition-all overflow-hidden ${
                               selectedQrOrderForPayment?.id === order.id
                                 ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/10'
                                 : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-orange-300'
                             }`}
                           >
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <QrCode size={14} className="text-orange-500" />
-                                <span className="text-xs font-black dark:text-white uppercase">{order.tableNumber}</span>
-                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">#{order.id}</span>
+                            <div className="flex items-start justify-between mb-2 gap-1">
+                              <div className="flex items-center gap-1.5 min-w-0 flex-1 flex-wrap">
+                                <QrCode size={14} className="text-orange-500 shrink-0" />
+                                <span className="text-xs font-black dark:text-white uppercase truncate">{order.tableNumber}</span>
+                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest truncate">#{order.id.slice(-7)}</span>
                               </div>
-                              <span className="text-xs font-black text-orange-500">{currencySymbol}{order.total.toFixed(2)}</span>
+                              <span className="text-xs font-black text-orange-500 shrink-0 whitespace-nowrap">{currencySymbol}{order.total.toFixed(2)}</span>
                             </div>
                             <div className="space-y-0.5">
                               {order.items.map((item, idx) => (
