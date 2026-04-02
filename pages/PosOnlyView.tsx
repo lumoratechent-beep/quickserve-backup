@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import { uploadImage } from '../lib/storage';
 import { saveAllSettingsToDb, saveSettingsToDb, compressPosSettings, expandPosSettings, fetchSettingsFromServer, updateFeatureOnServer } from '../lib/sharedSettings';
 import * as counterOrdersCache from '../lib/counterOrdersCache';
-import printerService, { PrinterDevice, ReceiptPrintOptions } from '../services/printerService';
+import printerService, { PrinterDevice, ReceiptPrintOptions, PRINTER_PROFILES, PrinterProfile, getProfileById, ReceiptFormatting, TextAlign, CutMode } from '../services/printerService';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import { toast } from '../components/Toast';
@@ -113,21 +113,7 @@ const getDefaultReceiptSettings = (restaurantName: string): ReceiptSettings => (
   footerLine2: 'Please come again',
 });
 
-const PRINTER_MODELS = [
-  'Epson TM-T20III',
-  'Epson TM-T88VI',
-  'Epson TM-M30II',
-  'Star TSP143IV',
-  'Star mC-Print3',
-  'Star SM-L200',
-  'BIXOLON SRP-350III',
-  'BIXOLON SPP-R310',
-  'Citizen CT-E651',
-  'CX58D Thermal',
-  'POS-5890K',
-  'XP-58IIH',
-  'Other',
-];
+const PRINTER_MODELS = PRINTER_PROFILES.map(p => `${p.vendor} ${p.name}`);
 
 interface SavedPrinter {
   id: string;
@@ -515,7 +501,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [isSavingReceiptSettings, setIsSavingReceiptSettings] = useState(false);
   const [receiptSettingsSaved, setReceiptSettingsSaved] = useState(false);
   const [selectedReportOrder, setSelectedReportOrder] = useState<Order | null>(null);
-  const [receiptAccordion, setReceiptAccordion] = useState({ content: true, fields: false, orderCode: false });
+  const [receiptAccordion, setReceiptAccordion] = useState({ content: true, fields: false, orderCode: false, formatting: false });
 
   // Ordering Number Code — custom prefix for order IDs
   const [orderCode, setOrderCode] = useState<string>('');
@@ -653,6 +639,15 @@ const PosOnlyView: React.FC<Props> = ({
     initCommands: '',
     cutterCommands: '',
     drawerCommands: '',
+  });
+
+  // Receipt formatting state (alignment, size, bold etc.)
+  const [receiptFormatting, setReceiptFormatting] = useState<ReceiptFormatting>(() => {
+    const dbFmt = restaurant.settings?.receiptFormatting;
+    if (dbFmt && typeof dbFmt === 'object') return dbFmt as ReceiptFormatting;
+    const saved = localStorage.getItem(`receipt_formatting_${restaurant.id}`);
+    if (saved) try { return JSON.parse(saved); } catch {}
+    return {};
   });
 
   // Counter Orders Cache State - For local caching strategy
@@ -2772,6 +2767,12 @@ const PosOnlyView: React.FC<Props> = ({
     const printer = savedPrinters.length > 0 ? savedPrinters[0] : null;
     const drawerCommands = printer?.advancedSettings?.drawerCommands || '';
 
+    // Match saved printer model to a profile ID
+    const matchedProfile = printer?.model
+      ? PRINTER_PROFILES.find(p => `${p.vendor} ${p.name}` === printer.model)
+      : null;
+    const profileId = matchedProfile?.id || (printer?.paperWidth === 80 ? 'default' : 'simple');
+
     return {
       showDateTime: receiptSettings.showDateTime,
       showOrderId: receiptSettings.showOrderId,
@@ -2784,7 +2785,9 @@ const PosOnlyView: React.FC<Props> = ({
       footerLine1: receiptSettings.footerLine1,
       footerLine2: receiptSettings.footerLine2,
       drawerCommands: drawerCommands,
-      autoOpenDrawer: featureSettings.autoOpenDrawer
+      autoOpenDrawer: featureSettings.autoOpenDrawer,
+      printerProfileId: profileId,
+      formatting: receiptFormatting,
     };
   };
 
@@ -3669,6 +3672,153 @@ const PosOnlyView: React.FC<Props> = ({
               className="w-full py-2.5 bg-orange-500 text-white rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50"
             >
               {isSavingOrderCode ? 'Saving...' : 'Save Order Code'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Receipt Formatting (alignment, size, bold etc.) */}
+      <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl overflow-hidden">
+        <button
+          onClick={() => setReceiptAccordion(prev => ({ ...prev, formatting: !prev.formatting }))}
+          className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-600/30 transition-all"
+        >
+          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Formatting &amp; Style</span>
+          <ChevronDown size={14} className={`text-gray-400 transition-transform ${receiptAccordion.formatting ? 'rotate-180' : ''}`} />
+        </button>
+        {receiptAccordion.formatting && (
+          <div className="px-4 pb-4 space-y-4 border-t dark:border-gray-600 pt-3">
+
+            {/* Business Name */}
+            <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Business Name</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-[8px] font-bold text-gray-400 mb-1">Align</label>
+                <select value={receiptFormatting.nameAlign || 'center'} onChange={e => setReceiptFormatting(f => ({ ...f, nameAlign: e.target.value as TextAlign }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
+                  <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[8px] font-bold text-gray-400 mb-1">Width</label>
+                <select value={receiptFormatting.nameWidth || 2} onChange={e => setReceiptFormatting(f => ({ ...f, nameWidth: Number(e.target.value) }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
+                  {[1,2,3,4].map(n => <option key={n} value={n}>{n}x</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[8px] font-bold text-gray-400 mb-1">Height</label>
+                <select value={receiptFormatting.nameHeight || 2} onChange={e => setReceiptFormatting(f => ({ ...f, nameHeight: Number(e.target.value) }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
+                  {[1,2,3,4].map(n => <option key={n} value={n}>{n}x</option>)}
+                </select>
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
+              <input type="checkbox" checked={receiptFormatting.nameBold !== false} onChange={e => setReceiptFormatting(f => ({ ...f, nameBold: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
+              Bold
+            </label>
+
+            {/* Header / Footer */}
+            <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Header &amp; Footer</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[8px] font-bold text-gray-400 mb-1">Header Align</label>
+                <select value={receiptFormatting.headerAlign || 'center'} onChange={e => setReceiptFormatting(f => ({ ...f, headerAlign: e.target.value as TextAlign }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
+                  <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[8px] font-bold text-gray-400 mb-1">Footer Align</label>
+                <select value={receiptFormatting.footerAlign || 'center'} onChange={e => setReceiptFormatting(f => ({ ...f, footerAlign: e.target.value as TextAlign }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
+                  <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Total */}
+            <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Total Line</p>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
+                <input type="checkbox" checked={receiptFormatting.totalBold !== false} onChange={e => setReceiptFormatting(f => ({ ...f, totalBold: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
+                Bold Total
+              </label>
+              <div>
+                <label className="block text-[8px] font-bold text-gray-400 mb-1">Total Height</label>
+                <select value={receiptFormatting.totalHeight || 2} onChange={e => setReceiptFormatting(f => ({ ...f, totalHeight: Number(e.target.value) }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
+                  {[1,2,3,4].map(n => <option key={n} value={n}>{n}x</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Table Number */}
+            <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Table Number</p>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
+                <input type="checkbox" checked={receiptFormatting.tableBold !== false} onChange={e => setReceiptFormatting(f => ({ ...f, tableBold: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
+                Bold Table #
+              </label>
+              <div>
+                <label className="block text-[8px] font-bold text-gray-400 mb-1">Table Height</label>
+                <select value={receiptFormatting.tableHeight || 2} onChange={e => setReceiptFormatting(f => ({ ...f, tableHeight: Number(e.target.value) }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
+                  {[1,2,3,4].map(n => <option key={n} value={n}>{n}x</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Cut & Font */}
+            <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Cut &amp; Font</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[8px] font-bold text-gray-400 mb-1">Paper Cut</label>
+                <select value={receiptFormatting.cutMode || 'full'} onChange={e => setReceiptFormatting(f => ({ ...f, cutMode: e.target.value as CutMode }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
+                  <option value="full">Full Cut</option><option value="partial">Partial Cut</option><option value="none">No Cut</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[8px] font-bold text-gray-400 mb-1">Font</label>
+                <select value={receiptFormatting.font || 'A'} onChange={e => setReceiptFormatting(f => ({ ...f, font: e.target.value as 'A' | 'B' }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
+                  <option value="A">Font A (Normal)</option><option value="B">Font B (Condensed)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Extras */}
+            <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Extras</p>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
+                <input type="checkbox" checked={receiptFormatting.useEscPosAlignment !== false} onChange={e => setReceiptFormatting(f => ({ ...f, useEscPosAlignment: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
+                Use ESC/POS Alignment (disable if text shifts on your printer)
+              </label>
+              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
+                <input type="checkbox" checked={receiptFormatting.sectionUnderline || false} onChange={e => setReceiptFormatting(f => ({ ...f, sectionUnderline: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
+                Underline Section Headers (e.g. "Note:")
+              </label>
+              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
+                <input type="checkbox" checked={receiptFormatting.showOrderSource || false} onChange={e => setReceiptFormatting(f => ({ ...f, showOrderSource: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
+                Show Order Source (Counter / QR / Online)
+              </label>
+              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
+                <input type="checkbox" checked={receiptFormatting.printQrCode || false} onChange={e => setReceiptFormatting(f => ({ ...f, printQrCode: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
+                Print QR Code on Receipt
+              </label>
+              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
+                <input type="checkbox" checked={receiptFormatting.printBarcode || false} onChange={e => setReceiptFormatting(f => ({ ...f, printBarcode: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
+                Print Barcode on Receipt
+              </label>
+            </div>
+
+            <button
+              onClick={async () => {
+                localStorage.setItem(`receipt_formatting_${restaurant.id}`, JSON.stringify(receiptFormatting));
+                try {
+                  const mergedSettings = { ...(restaurant.settings || {}), receiptFormatting };
+                  await supabase.from('restaurants').update({ settings: compressPosSettings(mergedSettings, restaurant.name) }).eq('id', restaurant.id);
+                  toast('Formatting saved!', 'success');
+                } catch {
+                  toast('Formatting saved locally.', 'warning');
+                }
+              }}
+              className="w-full py-2.5 bg-orange-500 text-white rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-orange-600 transition-all"
+            >
+              Save Formatting
             </button>
           </div>
         )}

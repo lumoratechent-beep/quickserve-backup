@@ -103,6 +103,7 @@ export interface Restaurant {
     onlinePaymentMethods?: Array<{ id: string; label: string; enabled: boolean }>;
     qrLocationLabel?: string; // Custom "Serving At" label for QuickServe Hub restaurants
     backoffice?: Record<string, any>;
+    receiptFormatting?: Record<string, any>; // Alignment, size, bold etc. formatting options
     imageLink?: string;
     imageDescription?: string;
   };

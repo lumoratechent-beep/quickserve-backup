@@ -1,10 +1,360 @@
 // services/printerService.ts
+// ESC/POS formatting features inspired by mike42/escpos-php capability profiles.
 
 import EscPosEncoder from 'esc-pos-encoder';
 
 export interface PrinterDevice {
   id: string;
   name: string;
+}
+
+// ─── Printer Capability Profiles ────────────────────────────────────────────
+// Modeled after escpos-php's capabilities.json — one profile per printer model.
+// Each profile declares paper width, supported features, and ESC/POS quirks.
+export interface PrinterProfile {
+  id: string;
+  vendor: string;
+  name: string;
+  /** Characters per line at normal (Font A) size */
+  columns: number;
+  /** Paper width in mm */
+  paperWidthMm: number;
+  /** Print-area width in dots (used by GS W) */
+  printWidthDots: number;
+  /** Font A supported */
+  fontA: boolean;
+  /** Font B supported (narrower) */
+  fontB: boolean;
+  /** Font C supported (some Epson models) */
+  fontC: boolean;
+  /** ESC a alignment works correctly */
+  supportsAlignment: boolean;
+  /** GS ! text scaling works */
+  supportsTextSize: boolean;
+  /** ESC E bold/emphasis */
+  supportsBold: boolean;
+  /** ESC - underline */
+  supportsUnderline: boolean;
+  /** GS B reverse colors (white on black) */
+  supportsReverse: boolean;
+  /** GS k barcode (function B) */
+  supportsBarcodeB: boolean;
+  /** GS ( k QR code */
+  supportsQrCode: boolean;
+  /** GS ( k PDF417 */
+  supportsPdf417: boolean;
+  /** GS v 0  or GS ( L  raster image printing */
+  supportsGraphics: boolean;
+  /** GS V paper cut */
+  supportsCut: boolean;
+  /** Partial cut supported */
+  supportsPartialCut: boolean;
+  /** ESC p cash drawer pulse */
+  supportsCashDrawer: boolean;
+  /** Star command set instead of Epson ESC/POS */
+  starCommands: boolean;
+  /** Notes / known quirks */
+  notes: string;
+}
+
+/** Built-in printer profiles extracted from escpos-php capabilities.json */
+export const PRINTER_PROFILES: PrinterProfile[] = [
+  // ── Generic ──
+  {
+    id: 'default', vendor: 'Generic', name: 'Default (Epson-compatible)',
+    columns: 42, paperWidthMm: 80, printWidthDots: 576,
+    fontA: true, fontB: true, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: true, supportsReverse: true, supportsBarcodeB: true,
+    supportsQrCode: true, supportsPdf417: true, supportsGraphics: true,
+    supportsCut: true, supportsPartialCut: true, supportsCashDrawer: true,
+    starCommands: false, notes: 'Generic Epson-compatible profile. Works with most 80mm printers.',
+  },
+  {
+    id: 'simple', vendor: 'Generic', name: 'Simple (58mm)',
+    columns: 32, paperWidthMm: 58, printWidthDots: 384,
+    fontA: true, fontB: false, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: true, supportsReverse: false, supportsBarcodeB: false,
+    supportsQrCode: false, supportsPdf417: false, supportsGraphics: false,
+    supportsCut: true, supportsPartialCut: false, supportsCashDrawer: false,
+    starCommands: false, notes: 'Basic 58mm thermal printer. Limited feature set.',
+  },
+  // ── Epson ──
+  {
+    id: 'TM-T88V', vendor: 'Epson', name: 'TM-T88V',
+    columns: 42, paperWidthMm: 80, printWidthDots: 576,
+    fontA: true, fontB: true, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: true, supportsReverse: true, supportsBarcodeB: true,
+    supportsQrCode: true, supportsPdf417: true, supportsGraphics: true,
+    supportsCut: true, supportsPartialCut: true, supportsCashDrawer: true,
+    starCommands: false, notes: 'Full-featured Epson thermal receipt printer.',
+  },
+  {
+    id: 'TM-T88IV', vendor: 'Epson', name: 'TM-T88IV',
+    columns: 42, paperWidthMm: 80, printWidthDots: 576,
+    fontA: true, fontB: true, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: true, supportsReverse: true, supportsBarcodeB: true,
+    supportsQrCode: false, supportsPdf417: false, supportsGraphics: true,
+    supportsCut: true, supportsPartialCut: true, supportsCashDrawer: true,
+    starCommands: false, notes: 'Older Epson model. No QR/PDF417 support.',
+  },
+  {
+    id: 'TM-T88III', vendor: 'Epson', name: 'TM-T88III',
+    columns: 42, paperWidthMm: 80, printWidthDots: 576,
+    fontA: true, fontB: true, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: true, supportsReverse: true, supportsBarcodeB: true,
+    supportsQrCode: false, supportsPdf417: false, supportsGraphics: false,
+    supportsCut: true, supportsPartialCut: true, supportsCashDrawer: true,
+    starCommands: false, notes: 'Legacy Epson. No graphics/QR support.',
+  },
+  {
+    id: 'TM-T20III', vendor: 'Epson', name: 'TM-T20III',
+    columns: 42, paperWidthMm: 80, printWidthDots: 576,
+    fontA: true, fontB: true, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: true, supportsReverse: true, supportsBarcodeB: true,
+    supportsQrCode: true, supportsPdf417: true, supportsGraphics: true,
+    supportsCut: true, supportsPartialCut: true, supportsCashDrawer: true,
+    starCommands: false, notes: 'Modern Epson entry-level thermal printer.',
+  },
+  {
+    id: 'TM-P80', vendor: 'Epson', name: 'TM-P80 (Mobile)',
+    columns: 42, paperWidthMm: 80, printWidthDots: 576,
+    fontA: true, fontB: true, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: true, supportsReverse: true, supportsBarcodeB: true,
+    supportsQrCode: true, supportsPdf417: true, supportsGraphics: true,
+    supportsCut: true, supportsPartialCut: true, supportsCashDrawer: false,
+    starCommands: false, notes: 'Epson mobile printer. No cash drawer.',
+  },
+  {
+    id: 'TM-M30II', vendor: 'Epson', name: 'TM-M30II',
+    columns: 42, paperWidthMm: 80, printWidthDots: 576,
+    fontA: true, fontB: true, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: true, supportsReverse: true, supportsBarcodeB: true,
+    supportsQrCode: true, supportsPdf417: true, supportsGraphics: true,
+    supportsCut: true, supportsPartialCut: true, supportsCashDrawer: true,
+    starCommands: false, notes: 'Compact Epson mPOS printer.',
+  },
+  {
+    id: 'TM-U220', vendor: 'Epson', name: 'TM-U220 (Impact)',
+    columns: 33, paperWidthMm: 76, printWidthDots: 384,
+    fontA: true, fontB: true, fontC: false,
+    supportsAlignment: true, supportsTextSize: false, supportsBold: true,
+    supportsUnderline: false, supportsReverse: false, supportsBarcodeB: true,
+    supportsQrCode: false, supportsPdf417: false, supportsGraphics: false,
+    supportsCut: true, supportsPartialCut: true, supportsCashDrawer: true,
+    starCommands: false, notes: 'Impact/dot-matrix kitchen printer. Very limited formatting.',
+  },
+  // ── Star Micronics ──
+  {
+    id: 'TSP143IV', vendor: 'Star Micronics', name: 'TSP143IV',
+    columns: 48, paperWidthMm: 80, printWidthDots: 576,
+    fontA: true, fontB: true, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: true, supportsReverse: true, supportsBarcodeB: true,
+    supportsQrCode: true, supportsPdf417: false, supportsGraphics: true,
+    supportsCut: true, supportsPartialCut: true, supportsCashDrawer: true,
+    starCommands: true, notes: 'Star CloudPRNT thermal. Uses Star command set.',
+  },
+  {
+    id: 'mC-Print3', vendor: 'Star Micronics', name: 'mC-Print3',
+    columns: 48, paperWidthMm: 80, printWidthDots: 576,
+    fontA: true, fontB: true, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: true, supportsReverse: true, supportsBarcodeB: true,
+    supportsQrCode: true, supportsPdf417: false, supportsGraphics: true,
+    supportsCut: true, supportsPartialCut: true, supportsCashDrawer: true,
+    starCommands: true, notes: 'Star mC-Print3 mPOS printer. Star command set.',
+  },
+  {
+    id: 'SM-L200', vendor: 'Star Micronics', name: 'SM-L200 (Mobile)',
+    columns: 32, paperWidthMm: 58, printWidthDots: 384,
+    fontA: true, fontB: true, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: true, supportsReverse: false, supportsBarcodeB: true,
+    supportsQrCode: true, supportsPdf417: false, supportsGraphics: true,
+    supportsCut: false, supportsPartialCut: false, supportsCashDrawer: false,
+    starCommands: true, notes: 'Star mobile Bluetooth printer. No cutter or drawer.',
+  },
+  // ── BIXOLON ──
+  {
+    id: 'SRP-350III', vendor: 'BIXOLON', name: 'SRP-350III',
+    columns: 42, paperWidthMm: 80, printWidthDots: 576,
+    fontA: true, fontB: true, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: true, supportsReverse: true, supportsBarcodeB: true,
+    supportsQrCode: true, supportsPdf417: true, supportsGraphics: true,
+    supportsCut: true, supportsPartialCut: true, supportsCashDrawer: true,
+    starCommands: false, notes: 'BIXOLON thermal. Epson-compatible command set.',
+  },
+  {
+    id: 'SPP-R310', vendor: 'BIXOLON', name: 'SPP-R310 (Mobile)',
+    columns: 42, paperWidthMm: 80, printWidthDots: 576,
+    fontA: true, fontB: true, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: true, supportsReverse: true, supportsBarcodeB: true,
+    supportsQrCode: true, supportsPdf417: false, supportsGraphics: true,
+    supportsCut: false, supportsPartialCut: false, supportsCashDrawer: false,
+    starCommands: false, notes: 'BIXOLON mobile Bluetooth printer.',
+  },
+  // ── Citizen ──
+  {
+    id: 'CT-E651', vendor: 'Citizen', name: 'CT-E651',
+    columns: 42, paperWidthMm: 80, printWidthDots: 576,
+    fontA: true, fontB: true, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: true, supportsReverse: true, supportsBarcodeB: true,
+    supportsQrCode: true, supportsPdf417: true, supportsGraphics: true,
+    supportsCut: true, supportsPartialCut: true, supportsCashDrawer: true,
+    starCommands: false, notes: 'Citizen thermal receipt printer. Epson ESC/POS compatible.',
+  },
+  // ── Budget/Chinese ──
+  {
+    id: 'POS-5890K', vendor: 'Zjiang', name: 'POS-5890K / POS-5890',
+    columns: 32, paperWidthMm: 58, printWidthDots: 384,
+    fontA: true, fontB: false, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: true, supportsReverse: false, supportsBarcodeB: false,
+    supportsQrCode: false, supportsPdf417: false, supportsGraphics: false,
+    supportsCut: true, supportsPartialCut: false, supportsCashDrawer: false,
+    starCommands: false, notes: 'Budget 58mm thermal. Very limited features.',
+  },
+  {
+    id: 'NT-5890K', vendor: 'Netum', name: 'NT-5890K',
+    columns: 32, paperWidthMm: 58, printWidthDots: 384,
+    fontA: true, fontB: false, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: true, supportsReverse: false, supportsBarcodeB: false,
+    supportsQrCode: false, supportsPdf417: false, supportsGraphics: false,
+    supportsCut: true, supportsPartialCut: false, supportsCashDrawer: false,
+    starCommands: false, notes: 'Budget 58mm Netum thermal printer.',
+  },
+  {
+    id: 'XP-58IIH', vendor: 'Xprinter', name: 'XP-58IIH',
+    columns: 32, paperWidthMm: 58, printWidthDots: 384,
+    fontA: true, fontB: false, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: true, supportsReverse: false, supportsBarcodeB: true,
+    supportsQrCode: false, supportsPdf417: false, supportsGraphics: false,
+    supportsCut: true, supportsPartialCut: false, supportsCashDrawer: false,
+    starCommands: false, notes: 'Budget 58mm Xprinter thermal.',
+  },
+  {
+    id: 'CX58D', vendor: 'Generic', name: 'CX58D Thermal',
+    columns: 32, paperWidthMm: 58, printWidthDots: 384,
+    fontA: true, fontB: false, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: false, supportsReverse: false, supportsBarcodeB: false,
+    supportsQrCode: false, supportsPdf417: false, supportsGraphics: false,
+    supportsCut: false, supportsPartialCut: false, supportsCashDrawer: false,
+    starCommands: false, notes: 'Very basic 58mm thermal. Minimal ESC/POS support.',
+  },
+  // ── Rongta ──
+  {
+    id: 'RP326', vendor: 'Rongta', name: 'RP326',
+    columns: 42, paperWidthMm: 80, printWidthDots: 576,
+    fontA: true, fontB: true, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: true, supportsReverse: true, supportsBarcodeB: true,
+    supportsQrCode: true, supportsPdf417: false, supportsGraphics: true,
+    supportsCut: true, supportsPartialCut: true, supportsCashDrawer: true,
+    starCommands: false, notes: 'Rongta 80mm thermal. Epson-compatible.',
+  },
+  // ── Sunmi ──
+  {
+    id: 'Sunmi-V2', vendor: 'Sunmi', name: 'Sunmi V2 (Built-in)',
+    columns: 32, paperWidthMm: 58, printWidthDots: 384,
+    fontA: true, fontB: false, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: true, supportsReverse: false, supportsBarcodeB: true,
+    supportsQrCode: true, supportsPdf417: false, supportsGraphics: true,
+    supportsCut: false, supportsPartialCut: false, supportsCashDrawer: false,
+    starCommands: false, notes: 'Sunmi POS terminal built-in printer. 58mm, no cutter.',
+  },
+  // ── PBM ──
+  {
+    id: 'P822D', vendor: 'PBM', name: 'P822D',
+    columns: 42, paperWidthMm: 80, printWidthDots: 576,
+    fontA: true, fontB: true, fontC: false,
+    supportsAlignment: true, supportsTextSize: true, supportsBold: true,
+    supportsUnderline: true, supportsReverse: false, supportsBarcodeB: true,
+    supportsQrCode: false, supportsPdf417: false, supportsGraphics: true,
+    supportsCut: true, supportsPartialCut: true, supportsCashDrawer: true,
+    starCommands: false, notes: 'PBM 80mm thermal. Partial ESC/POS.',
+  },
+];
+
+/** Lookup a profile by ID, falling back to 'simple' (58mm) or 'default' (80mm) */
+export function getProfileById(id: string): PrinterProfile {
+  return PRINTER_PROFILES.find(p => p.id === id) ||
+    PRINTER_PROFILES.find(p => p.id === 'default')!;
+}
+
+/** Get the profile that best matches a paper width */
+export function getProfileByPaperWidth(mm: number): PrinterProfile {
+  if (mm <= 58) return getProfileById('simple');
+  return getProfileById('default');
+}
+
+// ─── Receipt Formatting Options ─────────────────────────────────────────────
+export type TextAlign = 'left' | 'center' | 'right';
+export type CutMode = 'full' | 'partial' | 'none';
+
+export interface ReceiptFormatting {
+  /** Alignment for business name: left, center, right. Default: center */
+  nameAlign?: TextAlign;
+  /** Text width multiplier for business name (1-8). Default: 2 */
+  nameWidth?: number;
+  /** Text height multiplier for business name (1-8). Default: 2 */
+  nameHeight?: number;
+  /** Bold business name. Default: true */
+  nameBold?: boolean;
+  /** Alignment for header lines. Default: center */
+  headerAlign?: TextAlign;
+  /** Alignment for footer lines. Default: center */
+  footerAlign?: TextAlign;
+  /** Bold the TOTAL line. Default: true */
+  totalBold?: boolean;
+  /** Text height for TOTAL line (1-4). Default: 2 */
+  totalHeight?: number;
+  /** Bold table number. Default: true */
+  tableBold?: boolean;
+  /** Table number text height (1-4). Default: 2 */
+  tableHeight?: number;
+  /** Alignment for items. Default: left */
+  itemsAlign?: TextAlign;
+  /** Use underline for section headers (e.g. "Note:"). Default: false */
+  sectionUnderline?: boolean;
+  /** Cut mode after receipt. Default: full */
+  cutMode?: CutMode;
+  /** Lines to feed before cut. Default: 3 */
+  feedBeforeCut?: number;
+  /** Use real ESC/POS alignment commands (true) or space-padding (false). Default: true */
+  useEscPosAlignment?: boolean;
+  /** Font to use: 'A' (normal) or 'B' (condensed, more chars per line). Default: A */
+  font?: 'A' | 'B';
+  /** Separator character for full-width lines. Default: '=' */
+  separatorChar?: string;
+  /** Sub-separator character. Default: '-' */
+  subSeparatorChar?: string;
+  /** Show order source label (counter/qr/online/tableside). Default: false */
+  showOrderSource?: boolean;
+  /** Print QR code with order URL or ID at bottom. Default: false */
+  printQrCode?: boolean;
+  /** QR code content (URL or text). Only used if printQrCode is true */
+  qrCodeContent?: string;
+  /** QR code size (1-16). Default: 4 */
+  qrCodeSize?: number;
+  /** Print barcode with order ID. Default: false */
+  printBarcode?: boolean;
+  /** Barcode type. Default: CODE128 */
+  barcodeType?: 'CODE39' | 'CODE128' | 'EAN13' | 'UPC-A';
 }
 
 export interface ReceiptPrintOptions {
@@ -21,7 +371,39 @@ export interface ReceiptPrintOptions {
   footerLine2?: string;
   drawerCommands?: string;
   autoOpenDrawer?: boolean;
+  /** Printer profile ID for capability-aware printing */
+  printerProfileId?: string;
+  /** Receipt formatting options (alignment, sizes, bold, etc.) */
+  formatting?: ReceiptFormatting;
 }
+
+/** Default formatting if none specified */
+const DEFAULT_FORMATTING: Required<ReceiptFormatting> = {
+  nameAlign: 'center',
+  nameWidth: 2,
+  nameHeight: 2,
+  nameBold: true,
+  headerAlign: 'center',
+  footerAlign: 'center',
+  totalBold: true,
+  totalHeight: 2,
+  tableBold: true,
+  tableHeight: 2,
+  itemsAlign: 'left',
+  sectionUnderline: false,
+  cutMode: 'full',
+  feedBeforeCut: 3,
+  useEscPosAlignment: true,
+  font: 'A',
+  separatorChar: '=',
+  subSeparatorChar: '-',
+  showOrderSource: false,
+  printQrCode: false,
+  qrCodeContent: '',
+  qrCodeSize: 4,
+  printBarcode: false,
+  barcodeType: 'CODE128',
+};
 
 interface PrintJob {
   id: string;
@@ -34,8 +416,9 @@ interface PrintJob {
 }
 
 class PrinterService {
-  private readonly charsPerLine: number = 32;
+  private charsPerLine: number = 32;
   private readonly bleChunkSize: number = 180;
+  private activeProfile: PrinterProfile = getProfileById('simple');
   private device: BluetoothDevice | null = null;
   private server: BluetoothRemoteGATTServer | null = null;
   private service: BluetoothRemoteGATTService | null = null;
@@ -61,6 +444,29 @@ class PrinterService {
 
   constructor() {
     this.encoder = new EscPosEncoder();
+  }
+
+  // ─── Profile Management ──────────────────────────────────────────────────
+  /**
+   * Set the active printer profile. Call this after the user selects a printer model
+   * so the receipt formatter knows what features are available.
+   */
+  setProfile(profileId: string): void {
+    this.activeProfile = getProfileById(profileId);
+    this.charsPerLine = this.activeProfile.columns;
+  }
+
+  /** Set columns directly (for custom paper widths) */
+  setColumns(cols: number): void {
+    this.charsPerLine = cols;
+  }
+
+  getProfile(): PrinterProfile {
+    return this.activeProfile;
+  }
+
+  getColumns(): number {
+    return this.charsPerLine;
   }
 
   /**
@@ -614,6 +1020,25 @@ class PrinterService {
       const dateStr = this.formatDate(orderDate);
       const timeStr = this.formatTime(orderDate);
 
+      // Resolve printer profile
+      const profile = options?.printerProfileId
+        ? getProfileById(options.printerProfileId)
+        : this.activeProfile;
+      const cols = profile.columns;
+
+      // Merge formatting with defaults
+      const fmt: Required<ReceiptFormatting> = { ...DEFAULT_FORMATTING, ...(options?.formatting || {}) };
+
+      // Clamp size values
+      const nameW = Math.max(1, Math.min(8, fmt.nameWidth));
+      const nameH = Math.max(1, Math.min(8, fmt.nameHeight));
+      const totalH = Math.max(1, Math.min(4, fmt.totalHeight));
+      const tableH = Math.max(1, Math.min(4, fmt.tableHeight));
+
+      // Scaled columns for enlarged text
+      const nameScaledCols = Math.floor(cols / nameW);
+      const totalScaledCols = Math.floor(cols / 1); // width stays 1 for total
+
       // SANITIZE ALL TEXT INPUTS
       const safeRestaurantName = this.sanitizeText(restaurant?.name) || 'RESTAURANT';
       const safeOrderId = this.sanitizeText(order.id) || 'ORDER';
@@ -631,54 +1056,92 @@ class PrinterService {
       const showRemark = options?.showRemark !== false;
       const showTotal = options?.showTotal !== false;
 
-      // === FIXED STANDARD RECEIPT LAYOUT ===
-      // All lines use align('left') - centering done via space padding
-      // because ESC/POS align('center') shifts right on some printers
+      // Helper: apply alignment via real ESC/POS or space-padding fallback
+      const useReal = fmt.useEscPosAlignment && profile.supportsAlignment;
+      const applyAlign = (enc: any, align: TextAlign) => {
+        if (useReal) return enc.align(align);
+        return enc.align('left'); // fallback: we pad manually
+      };
+      const padText = (text: string, align: TextAlign, lineWidth: number): string => {
+        if (useReal) return this.truncateText(text, lineWidth);
+        const safe = this.truncateText(text, lineWidth);
+        if (align === 'center') return this.centerText(safe, lineWidth);
+        if (align === 'right') {
+          const pad = Math.max(0, lineWidth - safe.length);
+          return ' '.repeat(pad) + safe;
+        }
+        return safe;
+      };
 
-      // Company Name (centered manually, double size = 16 chars per line)
-      let receipt = this.encoder
-        .initialize()
-        .align('left')
-        .size(2, 2)
-        .line(this.centerText(this.truncateText(safeRestaurantName, 16), 16))
-        .size(1, 1);
+      // === BUILD RECEIPT ===
+      let receipt = this.encoder.initialize();
 
-      // Header lines (centered manually, normal size = 32 chars per line)
-      if (safeHeaderLine1) {
-        receipt = receipt.line(this.centerText(this.truncateText(safeHeaderLine1, this.charsPerLine), this.charsPerLine));
+      // Font selection
+      if (fmt.font === 'B' && profile.fontB) {
+        receipt = receipt.font('B');
       }
-      if (safeHeaderLine2) {
-        receipt = receipt.line(this.centerText(this.truncateText(safeHeaderLine2, this.charsPerLine), this.charsPerLine));
+
+      // ── Business Name ──
+      receipt = applyAlign(receipt, fmt.nameAlign);
+      if (fmt.nameBold && profile.supportsBold) receipt = receipt.bold(true);
+      if (profile.supportsTextSize) {
+        receipt = receipt.size(nameW, nameH);
+      }
+      receipt = receipt.line(padText(safeRestaurantName, fmt.nameAlign, nameScaledCols));
+      // Reset
+      if (profile.supportsTextSize) receipt = receipt.size(1, 1);
+      if (fmt.nameBold && profile.supportsBold) receipt = receipt.bold(false);
+
+      // ── Header lines ──
+      if (safeHeaderLine1 || safeHeaderLine2) {
+        receipt = applyAlign(receipt, fmt.headerAlign);
+        if (safeHeaderLine1) {
+          receipt = receipt.line(padText(safeHeaderLine1, fmt.headerAlign, cols));
+        }
+        if (safeHeaderLine2) {
+          receipt = receipt.line(padText(safeHeaderLine2, fmt.headerAlign, cols));
+        }
       }
 
-      // Full double separator
-      receipt = receipt
-        .align('left')
-        .line('='.repeat(32));
+      // ── Separator ──
+      receipt = applyAlign(receipt, 'left');
+      receipt = receipt.line(fmt.separatorChar.repeat(cols));
 
-      // Date (left)
+      // ── Date / Time ──
       if (showDateTime) {
         receipt = receipt.line(`${dateStr} ${timeStr}`);
       }
 
-      // Order ID (left)
+      // ── Order ID ──
       if (showOrderId) {
         receipt = receipt.line(`#${safeOrderId}`);
       }
 
-      // Space + Table No (left) - EMPHASIZED
-      if (showTableNumber && order.tableNumber) {
-        receipt = receipt
-          .line('')
-          .size(1, 2)
-          .line(safeTableNumber)
-          .size(1, 1);
+      // ── Order Source ──
+      if (fmt.showOrderSource && order.orderSource) {
+        const sourceLabel = order.orderSource === 'counter' ? 'Counter'
+          : order.orderSource === 'qr_order' ? 'QR Order'
+          : order.orderSource === 'online' ? 'Online'
+          : order.orderSource === 'tableside' ? 'Tableside'
+          : order.orderSource;
+        receipt = receipt.line(`Source: ${sourceLabel}`);
       }
 
-      // Full single separator
-      receipt = receipt.line('-'.repeat(32));
+      // ── Table Number ──
+      if (showTableNumber && order.tableNumber) {
+        receipt = receipt.line('');
+        if (fmt.tableBold && profile.supportsBold) receipt = receipt.bold(true);
+        if (profile.supportsTextSize) receipt = receipt.size(1, tableH);
+        receipt = receipt.line(safeTableNumber);
+        if (profile.supportsTextSize) receipt = receipt.size(1, 1);
+        if (fmt.tableBold && profile.supportsBold) receipt = receipt.bold(false);
+      }
 
-      // Items (left)
+      // ── Sub-separator ──
+      receipt = receipt.line(fmt.subSeparatorChar.repeat(cols));
+
+      // ── Items ──
+      receipt = applyAlign(receipt, fmt.itemsAlign);
       if (showItems && order.items && Array.isArray(order.items) && order.items.length > 0) {
         order.items.forEach((item: any) => {
           const safeItemName = this.sanitizeText(item.name) || 'ITEM';
@@ -688,7 +1151,7 @@ class PrinterService {
           // quantity x name  RM price
           const leftPart = `${quantity}x ${safeItemName}`;
           const rightPart = `RM${itemPrice}`;
-          const spaceBetween = Math.max(1, this.charsPerLine - leftPart.length - rightPart.length);
+          const spaceBetween = Math.max(1, cols - leftPart.length - rightPart.length);
           receipt = receipt.line(leftPart + ' '.repeat(spaceBetween) + rightPart);
 
           // Variants with labels
@@ -729,39 +1192,71 @@ class PrinterService {
         receipt = receipt.line(showItems ? 'No items' : 'Items hidden').line('');
       }
 
-      // Remark if present
+      // ── Remark ──
       if (showRemark && safeRemark) {
-        receipt = receipt
-          .line('-'.repeat(32))
-          .line('Note:')
-          .line(safeRemark)
-          .line('');
+        receipt = receipt.line(fmt.subSeparatorChar.repeat(cols));
+        if (fmt.sectionUnderline && profile.supportsUnderline) {
+          receipt = receipt.underline(true).line('Note:').underline(false);
+        } else {
+          receipt = receipt.line('Note:');
+        }
+        receipt = receipt.line(safeRemark).line('');
       }
 
-      // Full single separator
-      receipt = receipt.line('-'.repeat(32));
+      // ── Sub-separator ──
+      receipt = receipt.line(fmt.subSeparatorChar.repeat(cols));
 
-      // Total (left)
+      // ── Total ──
       if (showTotal) {
         const safeTotal = this.formatPrice(order.total);
+        if (fmt.totalBold && profile.supportsBold) receipt = receipt.bold(true);
+        if (profile.supportsTextSize && totalH > 1) receipt = receipt.size(1, totalH);
         receipt = receipt.line(`TOTAL: RM ${safeTotal}`);
+        if (profile.supportsTextSize && totalH > 1) receipt = receipt.size(1, 1);
+        if (fmt.totalBold && profile.supportsBold) receipt = receipt.bold(false);
       }
 
-      // Full double separator
-      receipt = receipt.line('='.repeat(32));
+      // ── Separator ──
+      receipt = receipt.line(fmt.separatorChar.repeat(cols));
 
-      // Footer lines (centered manually)
-      if (safeFooterLine1) {
-        receipt = receipt.line(this.centerText(this.truncateText(safeFooterLine1, this.charsPerLine), this.charsPerLine));
-      }
-      if (safeFooterLine2) {
-        receipt = receipt.line(this.centerText(this.truncateText(safeFooterLine2, this.charsPerLine), this.charsPerLine));
+      // ── Footer lines ──
+      if (safeFooterLine1 || safeFooterLine2) {
+        receipt = applyAlign(receipt, fmt.footerAlign);
+        if (safeFooterLine1) {
+          receipt = receipt.line(padText(safeFooterLine1, fmt.footerAlign, cols));
+        }
+        if (safeFooterLine2) {
+          receipt = receipt.line(padText(safeFooterLine2, fmt.footerAlign, cols));
+        }
       }
 
-      receipt = receipt
-        .newline()
-        .newline()
-        .cut();
+      // ── QR Code ──
+      if (fmt.printQrCode && profile.supportsQrCode) {
+        const qrContent = fmt.qrCodeContent || `#${safeOrderId}`;
+        receipt = applyAlign(receipt, 'center');
+        receipt = receipt.newline();
+        receipt = receipt.qrcode(qrContent, 1, fmt.qrCodeSize, 'l');
+        receipt = receipt.newline();
+      }
+
+      // ── Barcode ──
+      if (fmt.printBarcode && profile.supportsBarcodeB) {
+        receipt = applyAlign(receipt, 'center');
+        receipt = receipt.newline();
+        receipt = receipt.barcode(safeOrderId, fmt.barcodeType || 'code128', 60);
+        receipt = receipt.newline();
+      }
+
+      // ── Feed & Cut ──
+      receipt = receipt.align('left');
+      receipt = receipt.newline().newline();
+      if (profile.supportsCut && fmt.cutMode !== 'none') {
+        if (fmt.cutMode === 'partial' && profile.supportsPartialCut) {
+          receipt = receipt.cut('partial');
+        } else {
+          receipt = receipt.cut();
+        }
+      }
 
       const data = receipt.encode() as Uint8Array;
 
@@ -963,10 +1458,14 @@ class PrinterService {
   }
 
   /**
-   * Open the cash drawer using either custom commands or default ESC/POS command
-   * @param drawerCommands Optional custom ESC/POS commands as hex string (e.g., "1B7030304278" for standard drawer)
+   * Open the cash drawer using either custom commands or default ESC/POS command.
+   * Parameters modeled after escpos-php Printer::pulse(pin, on_ms, off_ms).
+   * @param drawerCommands Optional custom ESC/POS commands as hex string
+   * @param pin Drawer pin: 0 for pin 2, 1 for pin 5 (default 0)
+   * @param onMs Pulse ON time in milliseconds (default 120)
+   * @param offMs Pulse OFF time in milliseconds (default 240)
    */
-  async openDrawer(drawerCommands?: string): Promise<boolean> {
+  async openDrawer(drawerCommands?: string, pin: number = 0, onMs: number = 120, offMs: number = 240): Promise<boolean> {
     try {
       if (!await this.ensureConnection()) {
         throw new Error('Printer not connected');
@@ -995,9 +1494,12 @@ class PrinterService {
       }
 
       // Default ESC/POS drawer open command
-      // ESC p m t1 t2 (0x1B 0x70 0x00 0x30 0x78 or similar)
-      // Standard: 0x1B 0x70 = ESC p, followed by 0x00 (mode) and 0x30 0x78 (timing)
-      const defaultDrawerCommand = new Uint8Array([0x1B, 0x70, 0x00, 0x30, 0x78]);
+      // ESC p m t1 t2  (from escpos-php Printer::pulse)
+      // pin: 0 = pin 2, 1 = pin 5; t1/t2 in units of 2ms
+      const pinVal = Math.max(0, Math.min(1, pin));
+      const t1 = Math.max(1, Math.min(255, Math.floor(onMs / 2)));
+      const t2 = Math.max(1, Math.min(255, Math.floor(offMs / 2)));
+      const defaultDrawerCommand = new Uint8Array([0x1B, 0x70, pinVal, t1, t2]);
       await this.writeDataInChunks(defaultDrawerCommand);
       
       console.log('Drawer opened with default ESC/POS command');
