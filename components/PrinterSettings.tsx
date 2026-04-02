@@ -764,142 +764,159 @@ const PrinterSettings: React.FC<Props> = ({
   // ─── Render: Receipts Tab ──────────────────────────────────────
 
   const renderReceiptsTab = () => (
-    <div className="space-y-3">
-      {/* Business Info */}
-      <div className="space-y-3">
-        <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Business Information</p>
-        {([
-          { key: 'businessName' as const, label: 'Business Name', placeholder: 'Store name on receipt' },
-          { key: 'businessAddress' as const, label: 'Address', placeholder: 'Store address (optional)' },
-          { key: 'businessPhone' as const, label: 'Phone', placeholder: 'Contact number (optional)' },
-        ]).map(field => (
-          <div key={field.key}>
-            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">{field.label}</label>
+    <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-5 first:pt-0">
+        <div>
+          <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Business Information</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Business details shown on printed receipts.</p>
+        </div>
+        <div className="min-w-0 space-y-3">
+          {([
+            { key: 'businessName' as const, label: 'Business Name', placeholder: 'Store name on receipt' },
+            { key: 'businessAddress' as const, label: 'Address', placeholder: 'Store address (optional)' },
+            { key: 'businessPhone' as const, label: 'Phone', placeholder: 'Contact number (optional)' },
+          ]).map(field => (
+            <div key={field.key}>
+              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">{field.label}</label>
+              <input
+                type="text"
+                value={receiptConfig[field.key]}
+                onChange={e => updateReceiptConfig(field.key, e.target.value)}
+                className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                placeholder={field.placeholder}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-5">
+        <div>
+          <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Custom Text</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Optional header and footer lines on receipts.</p>
+        </div>
+        <div className="min-w-0 space-y-3">
+          <div>
+            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Header Text</label>
             <input
               type="text"
-              value={receiptConfig[field.key]}
-              onChange={e => updateReceiptConfig(field.key, e.target.value)}
+              value={receiptConfig.headerText}
+              onChange={e => updateReceiptConfig('headerText', e.target.value)}
               className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-              placeholder={field.placeholder}
+              placeholder="Printed above items (optional)"
             />
           </div>
-        ))}
-      </div>
-
-      {/* Custom Text */}
-      <div className="space-y-3 border-t dark:border-gray-700 pt-4">
-        <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Custom Text</p>
-        <div>
-          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Header Text</label>
-          <input
-            type="text"
-            value={receiptConfig.headerText}
-            onChange={e => updateReceiptConfig('headerText', e.target.value)}
-            className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-            placeholder="Printed above items (optional)"
-          />
-        </div>
-        <div>
-          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Footer Text</label>
-          <input
-            type="text"
-            value={receiptConfig.footerText}
-            onChange={e => updateReceiptConfig('footerText', e.target.value)}
-            className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-            placeholder="Thank you! Please come again."
-          />
+          <div>
+            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Footer Text</label>
+            <input
+              type="text"
+              value={receiptConfig.footerText}
+              onChange={e => updateReceiptConfig('footerText', e.target.value)}
+              className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+              placeholder="Thank you! Please come again."
+            />
+          </div>
         </div>
       </div>
 
-      {/* Text Customization */}
-      <div className="space-y-3 border-t dark:border-gray-700 pt-4">
-        <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Text Formatting</p>
-        {([
-          { prefix: 'title' as const, label: 'Title (Business Name)' },
-          { prefix: 'header' as const, label: 'Header Text' },
-          { prefix: 'footer' as const, label: 'Footer Text' },
-        ]).map(({ prefix, label }) => (
-          <div key={prefix} className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl space-y-2">
-            <p className="text-[9px] font-black text-gray-500 dark:text-gray-300 uppercase tracking-widest">{label}</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {/* Size */}
-              <div>
-                <label className="block text-[8px] font-bold text-gray-400 mb-1">Size</label>
-                <select
-                  value={receiptConfig[`${prefix}Size`]}
-                  onChange={e => updateReceiptConfig(`${prefix}Size`, Number(e.target.value) as TextSize)}
-                  className="w-full px-2 py-1.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-[10px] font-bold dark:text-white"
-                >
-                  <option value={1}>Normal</option>
-                  <option value={2}>Large</option>
-                  <option value={3}>Extra Large</option>
-                  <option value={4}>Huge</option>
-                </select>
-              </div>
-              {/* Font */}
-              <div>
-                <label className="block text-[8px] font-bold text-gray-400 mb-1">Font</label>
-                <select
-                  value={receiptConfig[`${prefix}Font`]}
-                  onChange={e => updateReceiptConfig(`${prefix}Font`, e.target.value as TextFont)}
-                  className="w-full px-2 py-1.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-[10px] font-bold dark:text-white"
-                >
-                  <option value="A">Font A (Standard)</option>
-                  <option value="B">Font B (Compact)</option>
-                </select>
-              </div>
-              {/* Alignment */}
-              <div>
-                <label className="block text-[8px] font-bold text-gray-400 mb-1">Align</label>
-                <select
-                  value={receiptConfig[`${prefix}Alignment`]}
-                  onChange={e => updateReceiptConfig(`${prefix}Alignment`, e.target.value as TextAlignment)}
-                  className="w-full px-2 py-1.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-[10px] font-bold dark:text-white"
-                >
-                  <option value="left">Left</option>
-                  <option value="center">Center</option>
-                  <option value="right">Right</option>
-                </select>
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-5">
+        <div>
+          <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Text Formatting</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Control size, font, and alignment per text block.</p>
+        </div>
+        <div className="min-w-0 space-y-3">
+          {([
+            { prefix: 'title' as const, label: 'Title (Business Name)' },
+            { prefix: 'header' as const, label: 'Header Text' },
+            { prefix: 'footer' as const, label: 'Footer Text' },
+          ]).map(({ prefix, label }) => (
+            <div key={prefix} className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl space-y-2">
+              <p className="text-[9px] font-black text-gray-500 dark:text-gray-300 uppercase tracking-widest">{label}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-[8px] font-bold text-gray-400 mb-1">Size</label>
+                  <select
+                    value={receiptConfig[`${prefix}Size`]}
+                    onChange={e => updateReceiptConfig(`${prefix}Size`, Number(e.target.value) as TextSize)}
+                    className="w-full px-2 py-1.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-[10px] font-bold dark:text-white"
+                  >
+                    <option value={1}>Normal</option>
+                    <option value={2}>Large</option>
+                    <option value={3}>Extra Large</option>
+                    <option value={4}>Huge</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[8px] font-bold text-gray-400 mb-1">Font</label>
+                  <select
+                    value={receiptConfig[`${prefix}Font`]}
+                    onChange={e => updateReceiptConfig(`${prefix}Font`, e.target.value as TextFont)}
+                    className="w-full px-2 py-1.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-[10px] font-bold dark:text-white"
+                  >
+                    <option value="A">Font A (Standard)</option>
+                    <option value="B">Font B (Compact)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[8px] font-bold text-gray-400 mb-1">Align</label>
+                  <select
+                    value={receiptConfig[`${prefix}Alignment`]}
+                    onChange={e => updateReceiptConfig(`${prefix}Alignment`, e.target.value as TextAlignment)}
+                    className="w-full px-2 py-1.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-[10px] font-bold dark:text-white"
+                  >
+                    <option value="left">Left</option>
+                    <option value="center">Center</option>
+                    <option value="right">Right</option>
+                  </select>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
-      {/* Show/Hide Fields */}
-      <div className="space-y-2 border-t dark:border-gray-700 pt-4">
-        <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest mb-2">Visible Fields</p>
-        {([
-          { key: 'showOrderNumber' as const, label: 'Order Number', desc: 'Show order number on receipt' },
-          { key: 'showCashierName' as const, label: 'Cashier Name', desc: 'Show cashier who processed the order' },
-          { key: 'showDateTime' as const, label: 'Date & Time', desc: 'Show order date and time' },
-          { key: 'showTableNumber' as const, label: 'Table Number', desc: 'Show table number' },
-          { key: 'showItems' as const, label: 'Item Details', desc: 'Show ordered items' },
-          { key: 'showRemark' as const, label: 'Order Notes', desc: 'Show order remarks/notes' },
-          { key: 'showTotal' as const, label: 'Total', desc: 'Show order total' },
-          { key: 'showAmountReceived' as const, label: 'Amount Received', desc: 'Show amount paid by customer' },
-          { key: 'showChange' as const, label: 'Total Change', desc: 'Show change given to customer' },
-          { key: 'showTaxes' as const, label: 'Tax Breakdown', desc: 'Show tax details' },
-          { key: 'showOrderSource' as const, label: 'Order Source', desc: 'Show where order came from' },
-        ]).map(field => (
-          <SettingRow key={field.key} label={field.label} description={field.desc}>
-            <Toggle enabled={receiptConfig[field.key]} onChange={v => updateReceiptConfig(field.key, v)} />
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-5">
+        <div>
+          <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Visible Fields</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Choose which details are printed on each receipt.</p>
+        </div>
+        <div className="min-w-0 space-y-2">
+          {([
+            { key: 'showOrderNumber' as const, label: 'Order Number', desc: 'Show order number on receipt' },
+            { key: 'showCashierName' as const, label: 'Cashier Name', desc: 'Show cashier who processed the order' },
+            { key: 'showDateTime' as const, label: 'Date & Time', desc: 'Show order date and time' },
+            { key: 'showTableNumber' as const, label: 'Table Number', desc: 'Show table number' },
+            { key: 'showItems' as const, label: 'Item Details', desc: 'Show ordered items' },
+            { key: 'showRemark' as const, label: 'Order Notes', desc: 'Show order remarks/notes' },
+            { key: 'showTotal' as const, label: 'Total', desc: 'Show order total' },
+            { key: 'showAmountReceived' as const, label: 'Amount Received', desc: 'Show amount paid by customer' },
+            { key: 'showChange' as const, label: 'Total Change', desc: 'Show change given to customer' },
+            { key: 'showTaxes' as const, label: 'Tax Breakdown', desc: 'Show tax details' },
+            { key: 'showOrderSource' as const, label: 'Order Source', desc: 'Show where order came from' },
+          ]).map(field => (
+            <SettingRow key={field.key} label={field.label} description={field.desc}>
+              <Toggle enabled={receiptConfig[field.key]} onChange={v => updateReceiptConfig(field.key, v)} />
+            </SettingRow>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-5 last:pb-0">
+        <div>
+          <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Printing Behavior</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Default print actions after payment and refunds.</p>
+        </div>
+        <div className="min-w-0 space-y-2">
+          <SettingRow label="Auto-Print After Sale" description="Automatically print receipt when order is completed">
+            <Toggle enabled={receiptConfig.autoPrintAfterSale} onChange={v => updateReceiptConfig('autoPrintAfterSale', v)} />
           </SettingRow>
-        ))}
-      </div>
-
-      {/* Printing Behavior */}
-      <div className="space-y-2 border-t dark:border-gray-700 pt-4">
-        <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest mb-2">Printing Behavior</p>
-        <SettingRow label="Auto-Print After Sale" description="Automatically print receipt when order is completed">
-          <Toggle enabled={receiptConfig.autoPrintAfterSale} onChange={v => updateReceiptConfig('autoPrintAfterSale', v)} />
-        </SettingRow>
-        <SettingRow label="Print Receipt for Refunds" description="Print a receipt when processing refunds">
-          <Toggle enabled={receiptConfig.printReceiptForRefund} onChange={v => updateReceiptConfig('printReceiptForRefund', v)} />
-        </SettingRow>
-        <SettingRow label="Open Cash Drawer on Payment" description="Open cash drawer when payment is received">
-          <Toggle enabled={receiptConfig.openCashDrawerOnPayment} onChange={v => updateReceiptConfig('openCashDrawerOnPayment', v)} />
-        </SettingRow>
+          <SettingRow label="Print Receipt for Refunds" description="Print a receipt when processing refunds">
+            <Toggle enabled={receiptConfig.printReceiptForRefund} onChange={v => updateReceiptConfig('printReceiptForRefund', v)} />
+          </SettingRow>
+          <SettingRow label="Open Cash Drawer on Payment" description="Open cash drawer when payment is received">
+            <Toggle enabled={receiptConfig.openCashDrawerOnPayment} onChange={v => updateReceiptConfig('openCashDrawerOnPayment', v)} />
+          </SettingRow>
+        </div>
       </div>
     </div>
   );

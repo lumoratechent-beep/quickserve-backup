@@ -3055,11 +3055,13 @@ const PosOnlyView: React.FC<Props> = ({
 
   const renderFeaturesContent = () => (
     <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
-      {/* Section header: Cashier */}
-      <div className="py-6 first:pt-0">
-        <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Cashier Options</p>
-        <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
-          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5">
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6 first:pt-0">
+        <div>
+          <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Cashier Options</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Checkout behavior and cash drawer actions.</p>
+        </div>
+        <div className="min-w-0 divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 first:pt-0">
             <div>
               <p className="text-sm font-medium text-gray-900 dark:text-white">Auto-Print Receipt</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Print automatically after checkout</p>
@@ -3073,7 +3075,7 @@ const PosOnlyView: React.FC<Props> = ({
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5">
+          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 last:pb-0">
             <div>
               <p className="text-sm font-medium text-gray-900 dark:text-white">Auto Open Drawer</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Open cash drawer after checkout</p>
@@ -3090,16 +3092,18 @@ const PosOnlyView: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Section header: Dining */}
-      <div className="py-6">
-        <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Dining Options</p>
-        <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6">
+        <div>
+          <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Dining Options</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Control available order types for customers.</p>
+        </div>
+        <div className="min-w-0 divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
           {([
             { key: 'dineInEnabled' as const, label: 'Dine-in', desc: 'Allow dine-in orders' },
             { key: 'takeawayEnabled' as const, label: 'Takeaway', desc: 'Allow takeaway orders' },
             { key: 'deliveryEnabled' as const, label: 'Delivery', desc: 'Allow delivery orders' },
           ]).map(item => (
-            <div key={item.key} className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5">
+            <div key={item.key} className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 first:pt-0 last:pb-0">
               <div>
                 <p className="text-sm font-medium text-gray-900 dark:text-white">{item.label}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{item.desc}</p>
