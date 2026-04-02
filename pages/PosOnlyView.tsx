@@ -25,7 +25,7 @@ import {
   Filter, Tag, Layers, Coffee, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeftRight, RotateCw, Wifi, WifiOff,
   Receipt, Network, Type, MessageSquare, Zap, Briefcase, PlusCircle, Puzzle,
   ArrowLeft, Star, Package, Monitor, Info, ExternalLink,
-  Tablet, Smartphone, Globe, ShoppingCart, Wallet, ArrowUpRight, ArrowDownRight, Building2, Banknote, Send, Copy, Truck, Mail,
+  Tablet, Globe, ShoppingCart, Wallet, ArrowUpRight, ArrowDownRight, Building2, Banknote, Send, Copy, Truck, Mail,
   MoreVertical, Lock, ImagePlus, EyeOff, User, Link2
 } from 'lucide-react';
 
@@ -5386,136 +5386,62 @@ const PosOnlyView: React.FC<Props> = ({
             return (
               <div className="relative flex-1 overflow-y-auto bg-gradient-to-b from-slate-50 via-white to-orange-50/40 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950">
                 <div className="mx-auto w-full max-w-[1480px] px-3 pb-8 pt-3 sm:px-5 sm:pt-5 lg:px-8 lg:pt-6">
-                  <div className="animate-in fade-in duration-500 space-y-4 lg:space-y-6">
-                    <section className="relative overflow-hidden rounded-3xl border border-slate-200/80 bg-white/90 p-4 shadow-[0_20px_65px_-45px_rgba(15,23,42,0.55)] backdrop-blur-sm dark:border-gray-700/80 dark:bg-gray-800/80 sm:p-6 lg:p-7">
-                      <div className="absolute -right-24 -top-20 h-52 w-52 rounded-full bg-orange-200/40 blur-3xl dark:bg-orange-500/10" />
-                      <div className="absolute -left-16 -bottom-24 h-56 w-56 rounded-full bg-amber-100/40 blur-3xl dark:bg-amber-500/10" />
+                  <div className="animate-in fade-in duration-500 space-y-4 lg:space-y-5">
+                    <section className="rounded-2xl border border-slate-200/80 bg-white/95 p-3 shadow-sm dark:border-gray-700/80 dark:bg-gray-800/90 sm:p-4">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                        {settingsTabs.map(tab => {
+                          const Icon = tab.icon;
+                          const isActive = activeSettingsPanel === tab.key;
 
-                      <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                        <div>
-                          <p className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-100/70 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-600 dark:border-gray-600 dark:bg-gray-700/70 dark:text-gray-300">
-                            <Settings size={12} />
-                            POS Settings Center
-                          </p>
-                          <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-3xl">{restaurant.name}</h1>
-                          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-gray-300 sm:text-[15px]">
-                            A redesigned settings workspace with clear navigation and structured controls for quick updates across features, printers, receipts, payments, and staff.
-                          </p>
-                        </div>
+                          return (
+                            <button
+                              key={tab.key}
+                              onClick={() => setSettingsPanel(tab.key)}
+                              className={`rounded-2xl border px-3.5 py-3 text-left transition-all duration-200 ${
+                                isActive
+                                  ? 'border-orange-300 bg-orange-50/90 shadow-sm dark:border-orange-500/50 dark:bg-orange-500/10'
+                                  : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-gray-700 dark:bg-gray-800/70 dark:hover:border-gray-500 dark:hover:bg-gray-700/80'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex min-w-0 items-center gap-2.5">
+                                  <span className={`rounded-lg p-1.5 ${isActive ? 'bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-300' : 'bg-slate-100 text-slate-500 dark:bg-gray-700 dark:text-gray-300'}`}>
+                                    <Icon size={14} />
+                                  </span>
+                                  <span className={`truncate text-sm font-semibold ${isActive ? 'text-orange-700 dark:text-orange-300' : 'text-slate-700 dark:text-gray-200'}`}>
+                                    {tab.label}
+                                  </span>
+                                </div>
+                                <ChevronDown size={14} className={`flex-shrink-0 transition-all duration-200 ${isActive ? 'rotate-180 text-orange-500 dark:text-orange-300' : 'text-slate-400 dark:text-gray-500'}`} />
+                              </div>
 
-                        <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                          <div className="rounded-2xl border border-slate-200 bg-white/85 px-3 py-2 text-center dark:border-gray-600 dark:bg-gray-700/70">
-                            <Monitor size={14} className="mx-auto text-slate-600 dark:text-gray-200" />
-                            <p className="mt-1 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-gray-200">Laptop</p>
-                          </div>
-                          <div className="rounded-2xl border border-slate-200 bg-white/85 px-3 py-2 text-center dark:border-gray-600 dark:bg-gray-700/70">
-                            <Tablet size={14} className="mx-auto text-slate-600 dark:text-gray-200" />
-                            <p className="mt-1 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-gray-200">Tablet</p>
-                          </div>
-                          <div className="rounded-2xl border border-slate-200 bg-white/85 px-3 py-2 text-center dark:border-gray-600 dark:bg-gray-700/70">
-                            <Smartphone size={14} className="mx-auto text-slate-600 dark:text-gray-200" />
-                            <p className="mt-1 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-gray-200">Phone</p>
-                          </div>
-                        </div>
+                              <div className={`overflow-hidden transition-all duration-200 ${isActive ? 'mt-2 max-h-16 opacity-100' : 'mt-0 max-h-0 opacity-0'}`}>
+                                <p className="pr-5 text-xs leading-relaxed text-slate-500 dark:text-gray-400">{tab.info}</p>
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
                     </section>
 
-                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-6">
-                      <aside className="space-y-3 lg:sticky lg:top-4 lg:self-start">
-                        <div className="rounded-2xl border border-slate-200/80 bg-white/95 p-3 shadow-sm dark:border-gray-700/80 dark:bg-gray-800/90">
-                          <div className="sm:hidden">
-                            <label className="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">Settings Panel</label>
-                            <div className="relative">
-                              <select
-                                value={activeSettingsPanel}
-                                onChange={(e) => setSettingsPanel(e.target.value as SettingsPanel)}
-                                className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 pr-8 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-orange-400 focus:ring-2 focus:ring-orange-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:focus:border-orange-400 dark:focus:ring-orange-500/20"
-                              >
-                                {settingsTabs.map(tab => (
-                                  <option key={tab.key} value={tab.key}>{tab.label}</option>
-                                ))}
-                              </select>
-                              <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-400" />
+                    <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_16px_45px_-40px_rgba(15,23,42,0.7)] backdrop-blur-sm dark:border-gray-700/80 dark:bg-gray-800/90">
+                      <div className="border-b border-slate-200/80 px-4 py-4 dark:border-gray-700/80 sm:px-6 sm:py-5">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex items-start gap-3">
+                            <div className="rounded-xl border border-orange-200 bg-orange-50 p-2 text-orange-600 dark:border-orange-500/40 dark:bg-orange-500/10 dark:text-orange-300">
+                              <ActiveSettingsIcon size={18} />
+                            </div>
+                            <div>
+                              <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">{activeSettingsTab.label}</h2>
+                              <p className="mt-0.5 text-sm text-slate-500 dark:text-gray-400">{activeSettingsTab.info}</p>
                             </div>
                           </div>
-
-                          <div className="hidden sm:grid grid-cols-2 gap-2 lg:hidden">
-                            {settingsTabs.map(tab => {
-                              const Icon = tab.icon;
-                              const isActive = activeSettingsPanel === tab.key;
-                              return (
-                                <button
-                                  key={tab.key}
-                                  onClick={() => setSettingsPanel(tab.key)}
-                                  className={`rounded-xl border px-3 py-3 text-left transition-all ${
-                                    isActive
-                                      ? 'border-orange-300 bg-orange-50 text-orange-700 shadow-sm dark:border-orange-500/50 dark:bg-orange-500/10 dark:text-orange-300'
-                                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-gray-600 dark:bg-gray-700/60 dark:text-gray-200 dark:hover:border-gray-500 dark:hover:bg-gray-700'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <Icon size={15} />
-                                    <span className="text-sm font-semibold leading-tight">{tab.label}</span>
-                                  </div>
-                                  <p className="mt-1 text-[10px] font-medium uppercase tracking-wider opacity-75">{tab.badge}</p>
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          <div className="hidden lg:block space-y-2">
-                            {settingsTabs.map(tab => {
-                              const Icon = tab.icon;
-                              const isActive = activeSettingsPanel === tab.key;
-                              return (
-                                <button
-                                  key={tab.key}
-                                  onClick={() => setSettingsPanel(tab.key)}
-                                  className={`w-full rounded-xl border px-3.5 py-3 text-left transition-all ${
-                                    isActive
-                                      ? 'border-orange-300 bg-orange-50 text-orange-700 shadow-sm dark:border-orange-500/50 dark:bg-orange-500/10 dark:text-orange-300'
-                                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-gray-600 dark:bg-gray-700/60 dark:text-gray-200 dark:hover:border-gray-500 dark:hover:bg-gray-700'
-                                  }`}
-                                >
-                                  <div className="flex items-start gap-2.5">
-                                    <span className="mt-0.5 rounded-lg bg-slate-100 p-1.5 text-slate-600 dark:bg-gray-700 dark:text-gray-200"><Icon size={14} /></span>
-                                    <span className="min-w-0">
-                                      <span className="block text-sm font-semibold leading-tight">{tab.label}</span>
-                                      <span className="mt-1 block text-[11px] leading-tight text-slate-500 dark:text-gray-400">{tab.info}</span>
-                                    </span>
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
+                          <span className="inline-flex w-fit items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600 dark:border-gray-600 dark:bg-gray-700/80 dark:text-gray-300">{activeSettingsTab.badge}</span>
                         </div>
-
-                        <div className="rounded-2xl border border-slate-200/80 bg-white/95 p-4 text-xs text-slate-600 shadow-sm dark:border-gray-700/80 dark:bg-gray-800/90 dark:text-gray-300">
-                          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">Current Focus</p>
-                          <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{activeSettingsTab.label}</p>
-                          <p className="mt-1 leading-relaxed text-slate-500 dark:text-gray-400">{activeSettingsTab.info}</p>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[11px] font-semibold text-orange-700 dark:border-orange-500/40 dark:bg-orange-500/10 dark:text-orange-300">{panelMetaLine}</span>
                         </div>
-                      </aside>
-
-                      <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_16px_45px_-40px_rgba(15,23,42,0.7)] backdrop-blur-sm dark:border-gray-700/80 dark:bg-gray-800/90">
-                        <div className="border-b border-slate-200/80 px-4 py-4 dark:border-gray-700/80 sm:px-6 sm:py-5">
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="flex items-start gap-3">
-                              <div className="rounded-xl border border-orange-200 bg-orange-50 p-2 text-orange-600 dark:border-orange-500/40 dark:bg-orange-500/10 dark:text-orange-300">
-                                <ActiveSettingsIcon size={18} />
-                              </div>
-                              <div>
-                                <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">{activeSettingsTab.label}</h2>
-                                <p className="mt-0.5 text-sm text-slate-500 dark:text-gray-400">{activeSettingsTab.info}</p>
-                              </div>
-                            </div>
-                            <span className="inline-flex w-fit items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600 dark:border-gray-600 dark:bg-gray-700/80 dark:text-gray-300">{activeSettingsTab.badge}</span>
-                          </div>
-                          <div className="mt-3 flex flex-wrap items-center gap-2">
-                            <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[11px] font-semibold text-orange-700 dark:border-orange-500/40 dark:bg-orange-500/10 dark:text-orange-300">{panelMetaLine}</span>
-                            <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:border-gray-600 dark:bg-gray-700/80 dark:text-gray-300">Responsive for phone, tablet, and laptop</span>
-                          </div>
-                        </div>
+                      </div>
 
                         <div className="px-4 py-4 sm:px-6 sm:py-6">
                           {isKitchenUser && activeSettingsPanel === 'builtin' && (
@@ -5613,7 +5539,6 @@ const PosOnlyView: React.FC<Props> = ({
                           )}
                         </div>
                       </section>
-                    </div>
                   </div>
                 </div>
               </div>
