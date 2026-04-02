@@ -53,6 +53,8 @@ interface Props {
   announcements?: Array<{id: string; title: string; body: string; category: string; created_at: string; is_read: boolean}>;
   announcementsLoading?: boolean;
   onMarkAnnouncementRead?: (id: string) => void;
+  onMarkAllAnnouncementsRead?: () => void;
+  onClearAnnouncements?: () => void;
   unreadMailCount?: number;
   openMailTab?: boolean;
   onMailTabOpened?: () => void;
@@ -283,6 +285,8 @@ const PosOnlyView: React.FC<Props> = ({
   announcements = [],
   announcementsLoading = false,
   onMarkAnnouncementRead,
+  onMarkAllAnnouncementsRead,
+  onClearAnnouncements,
   unreadMailCount = 0,
   openMailTab = false,
   onMailTabOpened,
@@ -7280,20 +7284,49 @@ const PosOnlyView: React.FC<Props> = ({
           {/* Mail Tab */}
           {activeTab === 'MAIL' && (
             <div className="flex-1 overflow-y-auto p-4 md:p-6">
-              <div className="max-w-7xl mx-auto w-full">
-                <div className="mb-6">
-                  <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Inbox</h1>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Announcements and updates from QuickServe.</p>
+              <div className="max-w-3xl mx-auto w-full">
+                {/* Header with actions */}
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter flex items-center gap-2">
+                      <Mail size={22} className="text-orange-500" /> Inbox
+                      {unreadMailCount > 0 && (
+                        <span className="text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full font-black">{unreadMailCount}</span>
+                      )}
+                    </h1>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Announcements and updates from QuickServe.</p>
+                  </div>
+                  {announcements.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      {unreadMailCount > 0 && (
+                        <button
+                          onClick={() => onMarkAllAnnouncementsRead?.()}
+                          className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded-xl transition-colors"
+                        >
+                          <CheckCircle2 size={13} /> Mark All Read
+                        </button>
+                      )}
+                      <button
+                        onClick={() => onClearAnnouncements?.()}
+                        className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors"
+                      >
+                        <Trash2 size={13} /> Clear
+                      </button>
+                    </div>
+                  )}
                 </div>
+
                 {announcementsLoading ? (
                   <div className="flex items-center justify-center py-32">
                     <RotateCw size={28} className="animate-spin text-gray-400" />
                   </div>
                 ) : announcements.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-32 opacity-40">
-                    <Mail size={56} className="mb-4" />
+                  <div className="flex flex-col items-center justify-center py-32">
+                    <div className="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
+                      <Mail size={36} className="text-gray-300 dark:text-gray-600" />
+                    </div>
                     <p className="text-base font-bold dark:text-gray-300">No announcements yet</p>
-                    <p className="text-sm text-gray-500 mt-1">When the admin sends updates, they will appear here.</p>
+                    <p className="text-sm text-gray-400 mt-1">When the admin sends updates, they will appear here.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -7301,29 +7334,55 @@ const PosOnlyView: React.FC<Props> = ({
                       <div
                         key={a.id}
                         onClick={() => { if (!a.is_read) onMarkAnnouncementRead?.(a.id); }}
-                        className={`p-5 rounded-2xl border transition-all cursor-pointer ${
+                        className={`p-5 rounded-2xl border transition-all cursor-pointer group ${
                           a.is_read
-                            ? 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'
-                            : 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800/40 shadow-sm'
+                            ? 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600'
+                            : 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800/40 shadow-sm hover:shadow-md'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2">
-                              {!a.is_read && <span className="w-2 h-2 bg-orange-500 rounded-full shrink-0" />}
-                              <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${
-                                a.category === 'billing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
-                                a.category === 'update' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
-                                a.category === 'maintenance' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
-                                'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                              }`}>{a.category}</span>
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            {/* Left icon */}
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                              a.category === 'billing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
+                              a.category === 'update' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
+                              a.category === 'maintenance' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
+                              a.category === 'promotion' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' :
+                              'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                            }`}>
+                              {a.category === 'billing' ? <Wallet size={18} /> :
+                               a.category === 'update' ? <Zap size={18} /> :
+                               a.category === 'maintenance' ? <AlertCircle size={18} /> :
+                               a.category === 'promotion' ? <Star size={18} /> :
+                               <Mail size={18} />}
                             </div>
-                            <h3 className={`text-base dark:text-white ${!a.is_read ? 'font-black' : 'font-semibold'}`}>{a.title}</h3>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1.5 whitespace-pre-line leading-relaxed">{a.body}</p>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                {!a.is_read && <span className="w-2 h-2 bg-orange-500 rounded-full shrink-0 animate-pulse" />}
+                                <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                                  a.category === 'billing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
+                                  a.category === 'update' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
+                                  a.category === 'maintenance' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
+                                  a.category === 'promotion' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' :
+                                  'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                                }`}>{a.category}</span>
+                                {!a.is_read && <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest">New</span>}
+                              </div>
+                              <h3 className={`text-sm dark:text-white leading-snug ${!a.is_read ? 'font-black' : 'font-semibold text-gray-700 dark:text-gray-300'}`}>{a.title}</h3>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 whitespace-pre-line leading-relaxed line-clamp-3">{a.body}</p>
+                            </div>
                           </div>
-                          <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 mt-1 whitespace-nowrap">
-                            {new Date(a.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          </span>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold whitespace-nowrap">
+                              {new Date(a.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short' })}
+                            </span>
+                            <span className="text-[9px] text-gray-300 dark:text-gray-600 font-medium">
+                              {new Date(a.created_at).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {a.is_read && (
+                              <CheckCircle2 size={14} className="text-gray-300 dark:text-gray-600 mt-1" />
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}

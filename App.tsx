@@ -398,20 +398,32 @@ const App: React.FC = () => {
     if (!rid) return;
     setAnnouncementsLoading(true);
     try {
+      // Find the restaurant's hub/location for filtering
+      const currentRes = restaurants.find(r => r.id === rid);
+      const hubName = currentRes?.location || '';
+
       const { data: items } = await supabase
         .from('announcements')
-        .select('id, title, body, category, created_at')
+        .select('id, title, body, category, created_at, hub, restaurant_id')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
       if (!items) { setAnnouncements([]); return; }
+
+      // Filter announcements by hub and restaurant targeting
+      const filtered = items.filter((a: any) => {
+        const hubMatch = a.hub === 'all' || a.hub === hubName;
+        const restMatch = a.restaurant_id === 'all' || a.restaurant_id === rid;
+        return hubMatch && restMatch;
+      });
+
       const { data: reads } = await supabase
         .from('announcement_reads')
         .select('announcement_id')
         .eq('restaurant_id', rid);
       const readIds = new Set((reads || []).map((r: any) => r.announcement_id));
-      setAnnouncements(items.map((a: any) => ({ ...a, is_read: readIds.has(a.id) })));
+      setAnnouncements(filtered.map((a: any) => ({ ...a, is_read: readIds.has(a.id) })));
     } catch { setAnnouncements([]); } finally { setAnnouncementsLoading(false); }
-  }, [currentUser?.restaurantId]);
+  }, [currentUser?.restaurantId, restaurants]);
 
   const markAnnouncementRead = async (announcementId: string) => {
     const rid = currentUser?.restaurantId;
@@ -421,6 +433,20 @@ const App: React.FC = () => {
       { onConflict: 'announcement_id,restaurant_id' }
     );
     setAnnouncements(prev => prev.map(a => a.id === announcementId ? { ...a, is_read: true } : a));
+  };
+
+  const markAllAnnouncementsRead = async () => {
+    const rid = currentUser?.restaurantId;
+    if (!rid) return;
+    const unread = announcements.filter(a => !a.is_read);
+    if (unread.length === 0) return;
+    const rows = unread.map(a => ({ announcement_id: a.id, restaurant_id: rid }));
+    await supabase.from('announcement_reads').upsert(rows, { onConflict: 'announcement_id,restaurant_id' });
+    setAnnouncements(prev => prev.map(a => ({ ...a, is_read: true })));
+  };
+
+  const clearAnnouncements = () => {
+    setAnnouncements([]);
   };
 
   const unreadMailCount = announcements.filter(a => !a.is_read).length;
@@ -2180,6 +2206,8 @@ const App: React.FC = () => {
               announcements={announcements}
               announcementsLoading={announcementsLoading}
               onMarkAnnouncementRead={markAnnouncementRead}
+              onMarkAllAnnouncementsRead={markAllAnnouncementsRead}
+              onClearAnnouncements={clearAnnouncements}
               unreadMailCount={unreadMailCount}
               openMailTab={openMailInPOS}
               onMailTabOpened={() => setOpenMailInPOS(false)}
@@ -2223,6 +2251,8 @@ const App: React.FC = () => {
                 announcements={announcements}
                 announcementsLoading={announcementsLoading}
                 onMarkAnnouncementRead={markAnnouncementRead}
+                onMarkAllAnnouncementsRead={markAllAnnouncementsRead}
+                onClearAnnouncements={clearAnnouncements}
                 unreadMailCount={unreadMailCount}
                 openMailTab={openMailInPOS}
                 onMailTabOpened={() => setOpenMailInPOS(false)}
@@ -2261,6 +2291,8 @@ const App: React.FC = () => {
                 announcements={announcements}
                 announcementsLoading={announcementsLoading}
                 onMarkAnnouncementRead={markAnnouncementRead}
+                onMarkAllAnnouncementsRead={markAllAnnouncementsRead}
+                onClearAnnouncements={clearAnnouncements}
                 unreadMailCount={unreadMailCount}
                 openMailTab={openMailInPOS}
                 onMailTabOpened={() => setOpenMailInPOS(false)}
