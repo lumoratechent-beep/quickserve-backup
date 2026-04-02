@@ -6754,7 +6754,7 @@ const PosOnlyView: React.FC<Props> = ({
 
           {/* Add-on Feature Tab */}
           {activeTab === 'ADDONS' && (
-            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+            <div className="flex-1 overflow-y-auto p-3 md:p-5 xl:p-6">
               <div className="animate-in fade-in duration-500">
                 {(() => {
                   // Add-on feature definitions
@@ -7186,25 +7186,25 @@ const PosOnlyView: React.FC<Props> = ({
                   const renderAddonCard = (addon: typeof addonFeatures[0]) => (
                     <div
                       key={addon.id}
-                      className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden hover:shadow-lg hover:border-orange-200 dark:hover:border-orange-800/50 transition-all cursor-pointer flex flex-col h-[180px]"
+                      className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 overflow-hidden hover:shadow-lg hover:border-orange-200 dark:hover:border-orange-800/50 transition-all cursor-pointer flex flex-col min-h-[156px]"
                       onClick={() => { setAddonDetailView(addon.id); setAddonDetailTab('details'); }}
                     >
                       {/* Card top */}
-                      <div className="p-5 flex items-start gap-4 flex-1 min-h-0">
-                        <div className={`w-14 h-14 rounded-xl ${addon.iconBg} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                      <div className="p-4 flex items-start gap-3 flex-1 min-h-0">
+                        <div className={`w-12 h-12 rounded-lg ${addon.iconBg} flex items-center justify-center flex-shrink-0 shadow-sm`}>
                           {addon.icon}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <p className="text-sm font-black dark:text-white truncate">{addon.name}</p>
+                            <p className="text-xs font-black dark:text-white truncate">{addon.name}</p>
                           </div>
                           <span className={`inline-block px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${addon.planColor} mb-2`}>{addon.plan} Plan</span>
-                          <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-2">{addon.shortDesc}</p>
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-2">{addon.shortDesc}</p>
                         </div>
                       </div>
 
                       {/* Card bottom */}
-                      <div className="px-5 py-3 border-t dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-between flex-shrink-0">
+                      <div className="px-4 py-2.5 border-t dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-between gap-2 flex-shrink-0">
                         <div className="flex items-center gap-3">
                           <span className="text-[9px] text-gray-400 font-bold">By {addon.author}</span>
                         </div>
@@ -7270,8 +7270,8 @@ const PosOnlyView: React.FC<Props> = ({
 
                   return (
                     <>
-                      <div className="mb-5">
-                        <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">Add-on Feature</h1>
+                      <div className="mb-4">
+                        <h1 className="text-xl md:text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">Add-on Feature</h1>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Extend your POS with installable tools and upcoming releases.</p>
                       </div>
 
@@ -7281,7 +7281,7 @@ const PosOnlyView: React.FC<Props> = ({
                             key={tab.id}
                             onClick={() => setAddonFeatureTab(tab.id)}
                             style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
-                            className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
+                            className={`flex items-center gap-2 px-4 py-2 text-[11px] font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
                               addonFeatureTab === tab.id
                                 ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
                                 : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
@@ -7296,30 +7296,30 @@ const PosOnlyView: React.FC<Props> = ({
                         ))}
                       </div>
 
-                      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl rounded-tr-2xl">
-                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-5">
+                      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-4 md:p-5 xl:p-6 rounded-b-2xl rounded-tr-2xl">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
                           <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-gray-400 mb-2">{addonFeatureTab === 'AVAILABLE' ? 'Installable Now' : 'Roadmap Preview'}</p>
-                            <h2 className="text-lg font-black dark:text-white uppercase tracking-tight">{activeAddonConfig.label}</h2>
+                            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-gray-400 mb-1.5">{addonFeatureTab === 'AVAILABLE' ? 'Installable Now' : 'Roadmap Preview'}</p>
+                            <h2 className="text-base md:text-lg font-black dark:text-white uppercase tracking-tight">{activeAddonConfig.label}</h2>
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                               {addonFeatureTab === 'AVAILABLE'
                                 ? 'Manage features that are already live for your restaurant.'
                                 : 'Preview planned features and open their detail cards for more context.'}
                             </p>
                           </div>
-                          <div className="inline-flex items-center gap-2 self-start px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700">
-                            <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${addonFeatureTab === 'AVAILABLE' ? 'bg-green-50 dark:bg-green-900/20 text-green-500' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-500'}`}>
+                          <div className="inline-flex items-center gap-2 self-start px-3 py-1.5 rounded-xl bg-gray-50 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700">
+                            <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${addonFeatureTab === 'AVAILABLE' ? 'bg-green-50 dark:bg-green-900/20 text-green-500' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-500'}`}>
                               {activeAddonConfig.icon}
                             </span>
                             <div>
                               <p className="text-[10px] font-black uppercase tracking-[0.24em] text-gray-400">Total</p>
-                              <p className="text-sm font-black text-gray-900 dark:text-white">{activeAddonItems.length} feature{activeAddonItems.length === 1 ? '' : 's'}</p>
+                              <p className="text-xs md:text-sm font-black text-gray-900 dark:text-white">{activeAddonItems.length} feature{activeAddonItems.length === 1 ? '' : 's'}</p>
                             </div>
                           </div>
                         </div>
 
                         {activeAddonItems.length === 0 ? (
-                          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-600">
+                          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-10 md:p-14 text-center border border-dashed border-gray-300 dark:border-gray-600">
                             <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
                               {activeEmptyState.icon}
                             </div>
@@ -7327,7 +7327,7 @@ const PosOnlyView: React.FC<Props> = ({
                             <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">{activeEmptyState.description}</p>
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
                             {activeAddonItems.map(renderAddonCard)}
                           </div>
                         )}
