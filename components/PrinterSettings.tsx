@@ -821,7 +821,7 @@ const PrinterSettings: React.FC<Props> = ({
         ]).map(({ prefix, label }) => (
           <div key={prefix} className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl space-y-2">
             <p className="text-[9px] font-black text-gray-500 dark:text-gray-300 uppercase tracking-widest">{label}</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {/* Size */}
               <div>
                 <label className="block text-[8px] font-bold text-gray-400 mb-1">Size</label>

@@ -5276,17 +5276,17 @@ const PosOnlyView: React.FC<Props> = ({
 
           {/* Settings Tab */}
           {activeTab === 'SETTINGS' && (
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
               <div className="animate-in fade-in duration-500">
 
                 {/* ── Header ── */}
-                <div className="px-4 md:px-8 pt-6 pb-0">
+                <div className="pt-1 pb-0">
                   <h1 className="text-lg md:text-xl font-semibold dark:text-white">{restaurant.name}</h1>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Manage your settings and preferences here.</p>
                 </div>
 
                 {/* ── Horizontal Tab Bar ── */}
-                <div className="px-4 md:px-8 mt-5 border-b border-gray-200 dark:border-gray-700">
+                <div className="mt-5 border-b border-gray-200 dark:border-gray-700">
                   <nav className="flex overflow-x-auto no-scrollbar -mb-px gap-1">
                     {(isKitchenUser
                       ? ([
@@ -5318,17 +5318,17 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {/* ── Content Area ── */}
-                <div className="px-4 md:px-8 py-6">
+                <div className="py-6">
                   <div className="w-full">
 
                     {/* Kitchen user: Kitchen Order Settings */}
                     {isKitchenUser && settingsPanel === 'builtin' && (
-                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-6 lg:gap-12">
+                      <div className="grid grid-cols-1 lg:grid-cols-[minmax(220px,_3fr)_minmax(0,_7fr)] gap-6 lg:gap-12">
                         <div>
                           <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Kitchen Order Settings</h2>
                           <p className="text-xs text-gray-500 dark:text-gray-400">Configure how incoming orders are handled in the kitchen.</p>
                         </div>
-                        <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+                        <div className="min-w-0 divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
                           <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5">
                             <div>
                               <p className="text-sm font-medium text-gray-900 dark:text-white">Auto-Accept</p>
@@ -5363,18 +5363,18 @@ const PosOnlyView: React.FC<Props> = ({
 
                     {/* Non-kitchen: Built-in Features */}
                     {!isKitchenUser && settingsPanel === 'builtin' && (
-                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-6 lg:gap-12">
+                      <div className="grid grid-cols-1 lg:grid-cols-[minmax(220px,_3fr)_minmax(0,_7fr)] gap-6 lg:gap-12">
                         <div>
                           <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Built-in Features</h2>
                           <p className="text-xs text-gray-500 dark:text-gray-400">Toggle core POS features like auto-print, cash drawer, and dining options.</p>
                         </div>
-                        <div>{renderFeaturesContent()}</div>
+                        <div className="min-w-0">{renderFeaturesContent()}</div>
                       </div>
                     )}
 
                     {/* Printer */}
                     {settingsPanel === 'printer' && (
-                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-6 lg:gap-12">
+                      <div className="grid grid-cols-1 lg:grid-cols-[minmax(220px,_3fr)_minmax(0,_7fr)] gap-6 lg:gap-12">
                         <div>
                           <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Printer</h2>
                           <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -5383,7 +5383,7 @@ const PosOnlyView: React.FC<Props> = ({
                               : 'Set up and manage your printers.'}
                           </p>
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <PrinterSettings
                             restaurantId={restaurant.id}
                             restaurantName={restaurant.name}
@@ -5408,12 +5408,12 @@ const PosOnlyView: React.FC<Props> = ({
 
                     {/* Receipt */}
                     {settingsPanel === 'receipt' && (
-                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-6 lg:gap-12">
+                      <div className="grid grid-cols-1 lg:grid-cols-[minmax(220px,_3fr)_minmax(0,_7fr)] gap-6 lg:gap-12">
                         <div>
                           <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Receipt</h2>
                           <p className="text-xs text-gray-500 dark:text-gray-400">Configure receipt content and printing behavior.</p>
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <PrinterSettings
                             restaurantId={restaurant.id}
                             restaurantName={restaurant.name}
@@ -5438,23 +5438,23 @@ const PosOnlyView: React.FC<Props> = ({
 
                     {/* Payment & Taxes */}
                     {settingsPanel === 'payment' && (
-                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-6 lg:gap-12">
+                      <div className="grid grid-cols-1 lg:grid-cols-[minmax(220px,_3fr)_minmax(0,_7fr)] gap-6 lg:gap-12">
                         <div>
                           <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Payment Type & Taxes</h2>
                           <p className="text-xs text-gray-500 dark:text-gray-400">{paymentTypes.length} payment type{paymentTypes.length !== 1 ? 's' : ''} · {taxEntries.length} tax{taxEntries.length !== 1 ? 'es' : ''} configured</p>
                         </div>
-                        <div>{renderPaymentAndTaxesContent()}</div>
+                        <div className="min-w-0">{renderPaymentAndTaxesContent()}</div>
                       </div>
                     )}
 
                     {/* Staff */}
                     {settingsPanel === 'staff' && (
-                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-6 lg:gap-12">
+                      <div className="grid grid-cols-1 lg:grid-cols-[minmax(220px,_3fr)_minmax(0,_7fr)] gap-6 lg:gap-12">
                         <div>
                           <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Staff Management</h2>
                           <p className="text-xs text-gray-500 dark:text-gray-400">{staffList.length} staff member{staffList.length !== 1 ? 's' : ''} configured</p>
                         </div>
-                        <div>{renderStaffContent()}</div>
+                        <div className="min-w-0">{renderStaffContent()}</div>
                       </div>
                     )}
 
