@@ -236,7 +236,12 @@ const PrinterSettings: React.FC<Props> = ({
   // ─── Render: Printers Tab ──────────────────────────────────────
 
   const renderPrintersTab = () => (
-    <div className="space-y-4">
+    <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8">
+      <div>
+        <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Printer Setup</p>
+        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Connect printers and manage printer profiles.</p>
+      </div>
+      <div className="min-w-0 space-y-4">
       {/* Connection Status */}
       <div className={`p-4 rounded-xl border-2 transition-all ${
         printerStatus === 'connected'
@@ -759,6 +764,7 @@ const PrinterSettings: React.FC<Props> = ({
         )}
       </div>
     </div>
+  </div>
   );
 
   // ─── Render: Receipts Tab ──────────────────────────────────────
@@ -924,33 +930,37 @@ const PrinterSettings: React.FC<Props> = ({
   // ─── Render: Kitchen Tab ───────────────────────────────────────
 
   const renderKitchenTab = () => (
-    <div className="space-y-3">
-      <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest mb-2">Kitchen Ticket Settings</p>
-
-      <SettingRow label="Large Order Number" description="Print order number in large font on kitchen tickets">
-        <Toggle enabled={kitchenConfig.printLargeOrderNumber} onChange={v => updateKitchenConfig('printLargeOrderNumber', v)} />
-      </SettingRow>
-
-      <SettingRow label="Auto-Print on New Order" description="Automatically print kitchen ticket when new order arrives">
-        <Toggle enabled={kitchenConfig.autoPrintOnNewOrder} onChange={v => updateKitchenConfig('autoPrintOnNewOrder', v)} />
-      </SettingRow>
-
+    <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8">
       <div>
-        <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Number of Copies</label>
-        <select
-          value={kitchenConfig.numberOfCopies}
-          onChange={e => updateKitchenConfig('numberOfCopies', Number(e.target.value))}
-          className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-        >
-          {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
-        </select>
+        <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Kitchen Ticket Settings</p>
+        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Configure default print behavior for kitchen tickets.</p>
       </div>
+      <div className="min-w-0 space-y-3">
+        <SettingRow label="Large Order Number" description="Print order number in large font on kitchen tickets">
+          <Toggle enabled={kitchenConfig.printLargeOrderNumber} onChange={v => updateKitchenConfig('printLargeOrderNumber', v)} />
+        </SettingRow>
 
-      {/* Info about assigning categories */}
-      <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-200 dark:border-blue-800">
-        <p className="text-[9px] text-blue-600 dark:text-blue-400 font-bold">
-          To assign menu categories to a kitchen printer, edit the printer in the Printers tab and select "Kitchen Tickets" as a print job, then choose the categories.
-        </p>
+        <SettingRow label="Auto-Print on New Order" description="Automatically print kitchen ticket when new order arrives">
+          <Toggle enabled={kitchenConfig.autoPrintOnNewOrder} onChange={v => updateKitchenConfig('autoPrintOnNewOrder', v)} />
+        </SettingRow>
+
+        <div>
+          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Number of Copies</label>
+          <select
+            value={kitchenConfig.numberOfCopies}
+            onChange={e => updateKitchenConfig('numberOfCopies', Number(e.target.value))}
+            className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+          >
+            {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+
+        {/* Info about assigning categories */}
+        <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-200 dark:border-blue-800">
+          <p className="text-[9px] text-blue-600 dark:text-blue-400 font-bold">
+            To assign menu categories to a kitchen printer, edit the printer in the Printers tab and select "Kitchen Tickets" as a print job, then choose the categories.
+          </p>
+        </div>
       </div>
     </div>
   );
