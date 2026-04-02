@@ -354,7 +354,27 @@ export interface ReceiptFormatting {
   /** Print barcode with order ID. Default: false */
   printBarcode?: boolean;
   /** Barcode type. Default: CODE128 */
-  barcodeType?: 'CODE39' | 'CODE128' | 'EAN13' | 'UPC-A';
+  barcodeType?: 'CODE39' | 'CODE128' | 'EAN13' | 'UPC-A' | 'CODE93' | 'ITF' | 'CODABAR';
+  /** Barcode height in dots (1-255). Default: 60 */
+  barcodeHeight?: number;
+  /** Barcode width multiplier (1-6). Default: 3 */
+  barcodeWidth?: number;
+  /** Reverse (white-on-black) for TOTAL line. Default: false */
+  reverseTotal?: boolean;
+  /** Reverse (white-on-black) for table number. Default: false */
+  reverseTableNumber?: boolean;
+  /** Line spacing in dots (0 = printer default ~30). 0-255. Default: 0 */
+  lineSpacing?: number;
+  /** Print PDF417 2D barcode on receipt. Default: false */
+  printPdf417?: boolean;
+  /** PDF417 content. Falls back to order ID */
+  pdf417Content?: string;
+  /** PDF417 number of columns (1-30). Default: 4 */
+  pdf417Columns?: number;
+  /** Logo image data URL (base64) to print at top of receipt */
+  logoImageDataUrl?: string;
+  /** Logo width in pixels for printing. Default: 200 */
+  logoWidth?: number;
 }
 
 export interface ReceiptPrintOptions {
@@ -403,6 +423,16 @@ const DEFAULT_FORMATTING: Required<ReceiptFormatting> = {
   qrCodeSize: 4,
   printBarcode: false,
   barcodeType: 'CODE128',
+  barcodeHeight: 60,
+  barcodeWidth: 3,
+  reverseTotal: false,
+  reverseTableNumber: false,
+  lineSpacing: 0,
+  printPdf417: false,
+  pdf417Content: '',
+  pdf417Columns: 4,
+  logoImageDataUrl: '',
+  logoWidth: 200,
 };
 
 interface PrintJob {
@@ -1012,6 +1042,40 @@ class PrinterService {
   }
 
   /**
+   * Load a base64 data URL image and return ImageData for the ESC/POS encoder.
+   * Returns null if loading fails.
+   */
+  private async loadLogoImageData(dataUrl: string, maxWidth: number): Promise<{ imageData: ImageData; width: number; height: number } | null> {
+    try {
+      return await new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          // Scale to maxWidth while maintaining aspect ratio
+          const scale = Math.min(1, maxWidth / img.width);
+          // Width must be a multiple of 8 for thermal printers
+          const w = Math.floor(img.width * scale / 8) * 8;
+          const h = Math.floor(img.height * scale);
+          if (w <= 0 || h <= 0) { resolve(null); return; }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { resolve(null); return; }
+          ctx.drawImage(img, 0, 0, w, h);
+          const imageData = ctx.getImageData(0, 0, w, h);
+          resolve({ imageData, width: w, height: h });
+        };
+        img.onerror = () => resolve(null);
+        img.src = dataUrl;
+      });
+    } catch {
+      console.warn('Failed to load logo image');
+      return null;
+    }
+  }
+
+  /**
    * Execute the actual print (extracted from printReceipt)
    */
   private async executePrint(order: any, restaurant: any, options?: ReceiptPrintOptions): Promise<boolean> {
@@ -1076,9 +1140,30 @@ class PrinterService {
       // === BUILD RECEIPT ===
       let receipt = this.encoder.initialize();
 
+      // Set line spacing (ESC 3 n) if configured
+      if (fmt.lineSpacing && fmt.lineSpacing > 0) {
+        const spacing = Math.max(0, Math.min(255, fmt.lineSpacing));
+        receipt = receipt.raw([0x1B, 0x33, spacing]);
+      }
+
       // Font selection
       if (fmt.font === 'B' && profile.fontB) {
         receipt = receipt.font('B');
+      }
+
+      // ── Logo Image ──
+      if (fmt.logoImageDataUrl && profile.supportsGraphics) {
+        try {
+          const logoMaxW = Math.max(32, Math.min(profile.printWidthDots, fmt.logoWidth || 200));
+          const logoResult = await this.loadLogoImageData(fmt.logoImageDataUrl, logoMaxW);
+          if (logoResult) {
+            receipt = applyAlign(receipt, 'center');
+            receipt = receipt.image(logoResult.imageData, logoResult.width, logoResult.height, 'threshold');
+            receipt = receipt.newline();
+          }
+        } catch (e) {
+          console.warn('Logo print failed, continuing without logo:', e);
+        }
       }
 
       // ── Business Name ──
@@ -1130,11 +1215,13 @@ class PrinterService {
       // ── Table Number ──
       if (showTableNumber && order.tableNumber) {
         receipt = receipt.line('');
+        if (fmt.reverseTableNumber && profile.supportsReverse) receipt = receipt.invert(true);
         if (fmt.tableBold && profile.supportsBold) receipt = receipt.bold(true);
         if (profile.supportsTextSize) receipt = receipt.size(1, tableH);
         receipt = receipt.line(safeTableNumber);
         if (profile.supportsTextSize) receipt = receipt.size(1, 1);
         if (fmt.tableBold && profile.supportsBold) receipt = receipt.bold(false);
+        if (fmt.reverseTableNumber && profile.supportsReverse) receipt = receipt.invert(false);
       }
 
       // ── Sub-separator ──
@@ -1209,11 +1296,13 @@ class PrinterService {
       // ── Total ──
       if (showTotal) {
         const safeTotal = this.formatPrice(order.total);
+        if (fmt.reverseTotal && profile.supportsReverse) receipt = receipt.invert(true);
         if (fmt.totalBold && profile.supportsBold) receipt = receipt.bold(true);
         if (profile.supportsTextSize && totalH > 1) receipt = receipt.size(1, totalH);
         receipt = receipt.line(`TOTAL: RM ${safeTotal}`);
         if (profile.supportsTextSize && totalH > 1) receipt = receipt.size(1, 1);
         if (fmt.totalBold && profile.supportsBold) receipt = receipt.bold(false);
+        if (fmt.reverseTotal && profile.supportsReverse) receipt = receipt.invert(false);
       }
 
       // ── Separator ──
@@ -1241,14 +1330,32 @@ class PrinterService {
 
       // ── Barcode ──
       if (fmt.printBarcode && profile.supportsBarcodeB) {
+        const barcodeH = Math.max(1, Math.min(255, fmt.barcodeHeight));
+        // Set barcode width via raw GS w command (0x1D 0x77 n, n=1-6)
+        const barcodeW = Math.max(1, Math.min(6, fmt.barcodeWidth));
         receipt = applyAlign(receipt, 'center');
         receipt = receipt.newline();
-        receipt = receipt.barcode(safeOrderId, fmt.barcodeType || 'code128', 60);
+        receipt = receipt.raw([0x1D, 0x77, barcodeW]); // GS w - set barcode width
+        receipt = receipt.barcode(safeOrderId, fmt.barcodeType || 'code128', barcodeH);
+        receipt = receipt.newline();
+      }
+
+      // ── PDF417 ──
+      if (fmt.printPdf417 && profile.supportsPdf417) {
+        const pdfContent = fmt.pdf417Content || `#${safeOrderId}`;
+        const pdfCols = Math.max(1, Math.min(30, fmt.pdf417Columns));
+        receipt = applyAlign(receipt, 'center');
+        receipt = receipt.newline();
+        receipt = receipt.pdf417(pdfContent, 3, 3, pdfCols, 1);
         receipt = receipt.newline();
       }
 
       // ── Feed & Cut ──
       receipt = receipt.align('left');
+      // Reset line spacing to default (ESC 2) if it was changed
+      if (fmt.lineSpacing && fmt.lineSpacing > 0) {
+        receipt = receipt.raw([0x1B, 0x32]);
+      }
       receipt = receipt.newline().newline();
       if (profile.supportsCut && fmt.cutMode !== 'none') {
         if (fmt.cutMode === 'partial' && profile.supportsPartialCut) {

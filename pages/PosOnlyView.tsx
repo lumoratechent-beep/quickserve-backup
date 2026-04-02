@@ -3796,6 +3796,26 @@ const PosOnlyView: React.FC<Props> = ({
                 Show Order Source (Counter / QR / Online)
               </label>
               <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
+                <input type="checkbox" checked={receiptFormatting.reverseTotal || false} onChange={e => setReceiptFormatting(f => ({ ...f, reverseTotal: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
+                Reverse (White-on-Black) Total Line
+              </label>
+              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
+                <input type="checkbox" checked={receiptFormatting.reverseTableNumber || false} onChange={e => setReceiptFormatting(f => ({ ...f, reverseTableNumber: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
+                Reverse (White-on-Black) Table Number
+              </label>
+            </div>
+
+            {/* Line Spacing */}
+            <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Line Spacing</p>
+            <div>
+              <label className="block text-[8px] font-bold text-gray-400 mb-1">Spacing (0 = default, 1-255 dots)</label>
+              <input type="number" min={0} max={255} value={receiptFormatting.lineSpacing || 0} onChange={e => setReceiptFormatting(f => ({ ...f, lineSpacing: Number(e.target.value) }))} className="w-24 px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white" />
+            </div>
+
+            {/* QR Code & Barcode */}
+            <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">QR Code &amp; Barcode</p>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
                 <input type="checkbox" checked={receiptFormatting.printQrCode || false} onChange={e => setReceiptFormatting(f => ({ ...f, printQrCode: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
                 Print QR Code on Receipt
               </label>
@@ -3803,6 +3823,70 @@ const PosOnlyView: React.FC<Props> = ({
                 <input type="checkbox" checked={receiptFormatting.printBarcode || false} onChange={e => setReceiptFormatting(f => ({ ...f, printBarcode: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
                 Print Barcode on Receipt
               </label>
+              {receiptFormatting.printBarcode && (
+                <div className="grid grid-cols-3 gap-2 pl-6">
+                  <div>
+                    <label className="block text-[8px] font-bold text-gray-400 mb-1">Type</label>
+                    <select value={receiptFormatting.barcodeType || 'CODE128'} onChange={e => setReceiptFormatting(f => ({ ...f, barcodeType: e.target.value as any }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
+                      <option value="CODE128">CODE128</option>
+                      <option value="CODE39">CODE39</option>
+                      <option value="CODE93">CODE93</option>
+                      <option value="EAN13">EAN13</option>
+                      <option value="UPC-A">UPC-A</option>
+                      <option value="ITF">ITF</option>
+                      <option value="CODABAR">CODABAR</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[8px] font-bold text-gray-400 mb-1">Height</label>
+                    <input type="number" min={1} max={255} value={receiptFormatting.barcodeHeight || 60} onChange={e => setReceiptFormatting(f => ({ ...f, barcodeHeight: Number(e.target.value) }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-[8px] font-bold text-gray-400 mb-1">Width</label>
+                    <select value={receiptFormatting.barcodeWidth || 3} onChange={e => setReceiptFormatting(f => ({ ...f, barcodeWidth: Number(e.target.value) }))} className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white">
+                      {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                </div>
+              )}
+              <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200">
+                <input type="checkbox" checked={receiptFormatting.printPdf417 || false} onChange={e => setReceiptFormatting(f => ({ ...f, printPdf417: e.target.checked }))} className="rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
+                Print PDF417 2D Barcode
+              </label>
+            </div>
+
+            {/* Logo Image */}
+            <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Logo Image</p>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <label className="flex-1 cursor-pointer py-2 px-3 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold text-gray-500 dark:text-gray-300 text-center hover:border-orange-400 transition-colors">
+                  {receiptFormatting.logoImageDataUrl ? 'Change Logo' : 'Upload Logo'}
+                  <input type="file" accept="image/png,image/jpeg,image/bmp" className="hidden" onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 512 * 1024) { toast('Logo must be under 512KB', 'error'); return; }
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      setReceiptFormatting(f => ({ ...f, logoImageDataUrl: reader.result as string }));
+                    };
+                    reader.readAsDataURL(file);
+                  }} />
+                </label>
+                {receiptFormatting.logoImageDataUrl && (
+                  <button onClick={() => setReceiptFormatting(f => ({ ...f, logoImageDataUrl: '' }))} className="p-2 text-red-400 hover:text-red-600 text-[10px] font-bold">
+                    Remove
+                  </button>
+                )}
+              </div>
+              {receiptFormatting.logoImageDataUrl && (
+                <div className="flex items-center gap-3">
+                  <img src={receiptFormatting.logoImageDataUrl} alt="Logo preview" className="h-10 object-contain bg-white rounded border p-1" />
+                  <div>
+                    <label className="block text-[8px] font-bold text-gray-400 mb-1">Print Width (px)</label>
+                    <input type="number" min={32} max={576} value={receiptFormatting.logoWidth || 200} onChange={e => setReceiptFormatting(f => ({ ...f, logoWidth: Number(e.target.value) }))} className="w-20 px-2 py-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-[10px] font-bold dark:text-white" />
+                  </div>
+                </div>
+              )}
             </div>
 
             <button
