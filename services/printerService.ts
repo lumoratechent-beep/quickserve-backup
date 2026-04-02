@@ -1,7 +1,66 @@
 // services/printerService.ts
-// Loyverse-style printer service — simplified interface, same BLE + ESC/POS core.
+// Raw ESC/POS printer service — Loyverse-style, no encoder library.
+// Uses direct ESC/POS binary commands for reliable alignment, sizing, and formatting.
 
-import EscPosEncoder from 'esc-pos-encoder';
+// ─── ESC/POS Command Constants ──────────────────────────────────────────────
+// Reference: Epson ESC/POS Application Programming Guide
+
+const ESC = 0x1B;
+const GS  = 0x1D;
+const LF  = 0x0A;
+
+/** ESC/POS commands as raw byte arrays */
+const CMD = {
+  // Printer control
+  INIT:           [ESC, 0x40],                    // ESC @     Initialize printer
+  LF:             [LF],                           // LF        Line feed
+
+  // Text alignment
+  ALIGN_LEFT:     [ESC, 0x61, 0x00],              // ESC a 0   Align left
+  ALIGN_CENTER:   [ESC, 0x61, 0x01],              // ESC a 1   Align center
+  ALIGN_RIGHT:    [ESC, 0x61, 0x02],              // ESC a 2   Align right
+
+  // Text emphasis
+  BOLD_ON:        [ESC, 0x45, 0x01],              // ESC E 1
+  BOLD_OFF:       [ESC, 0x45, 0x00],              // ESC E 0
+  UNDERLINE_ON:   [ESC, 0x2D, 0x01],              // ESC - 1
+  UNDERLINE_OFF:  [ESC, 0x2D, 0x00],              // ESC - 0
+  EMPHASIS_ON:    [ESC, 0x47, 0x01],              // ESC G 1   Double-strike
+  EMPHASIS_OFF:   [ESC, 0x47, 0x00],              // ESC G 0
+
+  // Character size — GS ! n  where n = (width-1)<<4 | (height-1)
+  SIZE_NORMAL:    [GS, 0x21, 0x00],               // 1x width, 1x height
+  SIZE_DOUBLE_H:  [GS, 0x21, 0x01],               // 1x width, 2x height
+  SIZE_DOUBLE_W:  [GS, 0x21, 0x10],               // 2x width, 1x height
+  SIZE_DOUBLE:    [GS, 0x21, 0x11],               // 2x width, 2x height
+  SIZE_TRIPLE:    [GS, 0x21, 0x22],               // 3x width, 3x height
+
+  // Font selection
+  FONT_A:         [ESC, 0x4D, 0x00],              // ESC M 0   Font A (12×24)
+  FONT_B:         [ESC, 0x4D, 0x01],              // ESC M 1   Font B (9×17)
+
+  // Paper cut
+  CUT_FULL:       [GS, 0x56, 0x00],               // GS V 0    Full cut
+  CUT_PARTIAL:    [GS, 0x56, 0x01],               // GS V 1    Partial cut
+  CUT_FEED:       [GS, 0x56, 0x42, 0x03],         // GS V B 3  Feed then partial cut
+
+  // Cash drawer
+  DRAWER_PIN2:    [ESC, 0x70, 0x00, 0x3C, 0x78],  // ESC p 0 60 120  (pin 2, 120ms on, 240ms off)
+  DRAWER_PIN5:    [ESC, 0x70, 0x01, 0x3C, 0x78],  // ESC p 1 60 120  (pin 5)
+
+  // Print density
+  DENSITY_LIGHT:  [GS, 0x7C, 0x02],               // GS | 2    Light
+  DENSITY_MEDIUM: [GS, 0x7C, 0x04],               // GS | 4    Medium (default)
+  DENSITY_DARK:   [GS, 0x7C, 0x08],               // GS | 8    Dark/Heavy
+
+  // Line spacing
+  LINE_SPACING_DEFAULT: [ESC, 0x32],               // ESC 2     Default line spacing
+  LINE_SPACING_SET:     [ESC, 0x33],               // ESC 3 n   Set to n dots (append n)
+
+  // Character code table
+  CODEPAGE_PC437: [ESC, 0x74, 0x00],              // ESC t 0   PC437 (USA)
+} as const;
+
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -83,6 +142,7 @@ export interface ReceiptPrintOptions {
   taxes?: Array<{ name: string; amount: number }>;
 }
 
+
 // ─── Defaults ───────────────────────────────────────────────────────────────
 
 export const DEFAULT_RECEIPT_CONFIG: ReceiptConfig = {
@@ -127,6 +187,168 @@ export function createDefaultPrinter(name: string = 'Receipt Printer'): SavedPri
   };
 }
 
+
+// ─── ESC/POS Receipt Builder ────────────────────────────────────────────────
+// Builds a byte buffer using raw ESC/POS commands.
+// This replaces the esc-pos-encoder library for reliable hardware alignment,
+// text sizing, and bold — exactly how Loyverse does it.
+
+class EscPosBuilder {
+  private buffer: number[] = [];
+  private columns: number;
+
+  constructor(paperSize: PaperSize = '58mm') {
+    this.columns = paperSize === '80mm' ? 48 : 32;
+  }
+
+  /** Append raw bytes */
+  raw(bytes: readonly number[]): this {
+    this.buffer.push(...bytes);
+    return this;
+  }
+
+  /** Initialize printer (reset all settings) */
+  init(): this {
+    return this.raw(CMD.INIT);
+  }
+
+  /** Set text alignment */
+  align(alignment: 'left' | 'center' | 'right'): this {
+    switch (alignment) {
+      case 'center': return this.raw(CMD.ALIGN_CENTER);
+      case 'right':  return this.raw(CMD.ALIGN_RIGHT);
+      default:       return this.raw(CMD.ALIGN_LEFT);
+    }
+  }
+
+  /** Set bold on/off */
+  bold(on: boolean): this {
+    return this.raw(on ? CMD.BOLD_ON : CMD.BOLD_OFF);
+  }
+
+  /** Set text size using GS ! n
+   *  width: 1-8, height: 1-8 (1 = normal) */
+  size(width: number, height: number): this {
+    const w = Math.max(0, Math.min(7, (width || 1) - 1));
+    const h = Math.max(0, Math.min(7, (height || 1) - 1));
+    return this.raw([GS, 0x21, (w << 4) | h]);
+  }
+
+  /** Reset to normal size */
+  normalSize(): this {
+    return this.raw(CMD.SIZE_NORMAL);
+  }
+
+  /** Set font A or B */
+  font(f: 'A' | 'B'): this {
+    return this.raw(f === 'B' ? CMD.FONT_B : CMD.FONT_A);
+  }
+
+  /** Set underline on/off */
+  underline(on: boolean): this {
+    return this.raw(on ? CMD.UNDERLINE_ON : CMD.UNDERLINE_OFF);
+  }
+
+  /** Print text without line feed */
+  text(str: string): this {
+    const bytes = this.encodeText(str);
+    this.buffer.push(...bytes);
+    return this;
+  }
+
+  /** Print text followed by line feed */
+  line(str: string): this {
+    return this.text(str).raw(CMD.LF);
+  }
+
+  /** Print empty line(s) */
+  feed(lines: number = 1): this {
+    for (let i = 0; i < lines; i++) this.raw(CMD.LF);
+    return this;
+  }
+
+  /** Print a separator line of the given character */
+  separator(char: string = '-'): this {
+    return this.line(char.repeat(this.columns));
+  }
+
+  /** Print a thick separator */
+  thickSeparator(): this {
+    return this.separator('=');
+  }
+
+  /** Print left-aligned text with right-aligned value on same line.
+   *  This uses space padding for precise column alignment. */
+  columns2(left: string, right: string): this {
+    const maxLeft = this.columns - right.length - 1;
+    const truncLeft = left.length > maxLeft ? left.substring(0, maxLeft) : left;
+    const spaces = Math.max(1, this.columns - truncLeft.length - right.length);
+    return this.line(truncLeft + ' '.repeat(spaces) + right);
+  }
+
+  /** Print 3-column row (qty, name, price) */
+  columns3(col1: string, col2: string, col3: string): this {
+    const c1 = col1.padEnd(4);
+    const maxC2 = this.columns - c1.length - col3.length - 1;
+    const c2 = col2.length > maxC2 ? col2.substring(0, maxC2) : col2;
+    const spaces = Math.max(1, this.columns - c1.length - c2.length - col3.length);
+    return this.line(c1 + c2 + ' '.repeat(spaces) + col3);
+  }
+
+  /** Set print density */
+  density(level: PrintDensity): this {
+    switch (level) {
+      case 'light': return this.raw(CMD.DENSITY_LIGHT);
+      case 'dark':  return this.raw(CMD.DENSITY_DARK);
+      default:      return this.raw(CMD.DENSITY_MEDIUM);
+    }
+  }
+
+  /** Open cash drawer (pin 2 or pin 5) */
+  openDrawer(pin: 0 | 1 = 0): this {
+    return this.raw(pin === 1 ? CMD.DRAWER_PIN5 : CMD.DRAWER_PIN2);
+  }
+
+  /** Cut paper */
+  cut(mode: 'full' | 'partial' | 'feed' = 'feed'): this {
+    switch (mode) {
+      case 'full':    return this.raw(CMD.CUT_FULL);
+      case 'partial': return this.raw(CMD.CUT_PARTIAL);
+      default:        return this.raw(CMD.CUT_FEED);
+    }
+  }
+
+  /** Encode string to bytes (ASCII-safe with fallback) */
+  private encodeText(str: string): number[] {
+    const bytes: number[] = [];
+    for (let i = 0; i < str.length; i++) {
+      const code = str.charCodeAt(i);
+      // Keep printable ASCII + common extensions
+      if (code >= 0x20 && code <= 0x7E) {
+        bytes.push(code);
+      } else if (code === 0x0A) {
+        bytes.push(0x0A); // newline
+      } else if (code >= 0xA0 && code <= 0xFF) {
+        bytes.push(code); // Latin-1 supplement
+      } else {
+        bytes.push(0x3F); // '?' for unsupported chars
+      }
+    }
+    return bytes;
+  }
+
+  /** Get the column count */
+  getColumns(): number {
+    return this.columns;
+  }
+
+  /** Build final Uint8Array */
+  encode(): Uint8Array {
+    return new Uint8Array(this.buffer);
+  }
+}
+
+
 // ─── Printer Service ────────────────────────────────────────────────────────
 
 class PrinterService {
@@ -134,18 +356,19 @@ class PrinterService {
   private server: BluetoothRemoteGATTServer | null = null;
   private service: BluetoothRemoteGATTService | null = null;
   private characteristic: BluetoothRemoteGATTCharacteristic | null = null;
-  private encoder: EscPosEncoder;
-  private readonly bleChunkSize: number = 180;
+  private readonly bleChunkSize: number = 100;
   private isPrinting: boolean = false;
   private keepAliveInterval: NodeJS.Timeout | null = null;
   private lastPrintTime: number = 0;
   private connectionPromise: Promise<boolean> | null = null;
   private disconnectRequested: boolean = false;
 
+  // Reprint support
   private lastPrintedOrder: any = null;
   private lastPrintedRestaurant: any = null;
   private lastPrintedOptions: ReceiptPrintOptions | undefined = undefined;
 
+  // Print queue
   private printQueue: Array<{
     id: string;
     order: any;
@@ -156,11 +379,16 @@ class PrinterService {
     timestamp: number;
   }> = [];
   private isProcessingQueue: boolean = false;
-  private maxQueueSize: number = 50;
+  private readonly maxQueueSize: number = 50;
 
-  constructor() {
-    this.encoder = new EscPosEncoder();
-  }
+  // BLE service UUIDs commonly used by receipt printers
+  private static readonly SERVICE_UUIDS = [
+    '000018f0-0000-1000-8000-00805f9b34fb',
+    '00001800-0000-1000-8000-00805f9b34fb',
+    '49535343-fe7d-4ae5-8fa9-9fafd205e455', // Microchip
+    'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Nordic UART
+  ];
+
 
   // ─── Connection ─────────────────────────────────────────────────────────
 
@@ -168,7 +396,7 @@ class PrinterService {
     try {
       const device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
-        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '00001800-0000-1000-8000-00805f9b34fb']
+        optionalServices: PrinterService.SERVICE_UUIDS,
       });
       return [{ id: device.id, name: device.name || 'Unknown Printer' }];
     } catch (error) {
@@ -192,7 +420,7 @@ class PrinterService {
 
       this.device = await navigator.bluetooth.requestDevice({
         filters: [{ name: deviceName }],
-        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '00001800-0000-1000-8000-00805f9b34fb']
+        optionalServices: PrinterService.SERVICE_UUIDS,
       });
 
       this.device.addEventListener('gattserverdisconnected', () => {
@@ -203,29 +431,7 @@ class PrinterService {
         }
       });
 
-      const server = await this.device.gatt?.connect();
-      if (!server) throw new Error('Failed to connect to GATT server');
-      this.server = server;
-
-      try {
-        this.service = await this.server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
-      } catch {
-        try {
-          this.service = await this.server.getPrimaryService('00001800-0000-1000-8000-00805f9b34fb');
-        } catch {
-          throw new Error('Could not find printer service');
-        }
-      }
-
-      const characteristics = await this.service.getCharacteristics();
-      for (const char of characteristics) {
-        if (char.properties.writeWithoutResponse) { this.characteristic = char; break; }
-        else if (char.properties.write) { this.characteristic = char; }
-      }
-      if (!this.characteristic) throw new Error('No writable characteristic found');
-
-      this.startKeepAlive();
-      return true;
+      return await this.connectGatt();
     } catch (error) {
       console.error('Connection error:', error);
       await this.cleanup();
@@ -233,74 +439,81 @@ class PrinterService {
     }
   }
 
+  private async connectGatt(): Promise<boolean> {
+    if (!this.device) return false;
+
+    const server = await this.device.gatt?.connect();
+    if (!server) throw new Error('Failed to connect to GATT server');
+    this.server = server;
+
+    // Try each known service UUID
+    for (const uuid of PrinterService.SERVICE_UUIDS) {
+      try {
+        this.service = await this.server.getPrimaryService(uuid);
+        break;
+      } catch { /* try next */ }
+    }
+    if (!this.service) throw new Error('No compatible printer service found');
+
+    // Find writable characteristic (prefer writeWithoutResponse for speed)
+    const characteristics = await this.service.getCharacteristics();
+    for (const char of characteristics) {
+      if (char.properties.writeWithoutResponse) {
+        this.characteristic = char;
+        break;
+      } else if (char.properties.write && !this.characteristic) {
+        this.characteristic = char;
+      }
+    }
+    if (!this.characteristic) throw new Error('No writable characteristic found');
+
+    this.startKeepAlive();
+    return true;
+  }
+
   async autoReconnect(deviceName: string): Promise<boolean> {
     if (this.isConnected()) return true;
 
     try {
       const bluetooth = (navigator as any).bluetooth;
-      if (!bluetooth || typeof bluetooth.getDevices !== 'function') return false;
+      if (!bluetooth?.getDevices) return false;
 
       const devices: BluetoothDevice[] = await bluetooth.getDevices();
       const target = devices.find((d: BluetoothDevice) => d.name === deviceName);
       if (!target) return false;
 
-      const connectToDevice = async (): Promise<boolean> => {
-        try {
-          this.device = target;
-          this.disconnectRequested = false;
+      this.device = target;
+      this.disconnectRequested = false;
 
-          this.device.addEventListener('gattserverdisconnected', () => {
-            if (!this.disconnectRequested) {
-              this.server = null;
-              this.service = null;
-              this.characteristic = null;
-            }
-          });
-
-          const server = await this.device.gatt?.connect();
-          if (!server) throw new Error('Failed to connect to GATT server');
-          this.server = server;
-
-          try {
-            this.service = await this.server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
-          } catch {
-            try {
-              this.service = await this.server.getPrimaryService('00001800-0000-1000-8000-00805f9b34fb');
-            } catch {
-              throw new Error('Could not find printer service');
-            }
-          }
-
-          const characteristics = await this.service.getCharacteristics();
-          for (const char of characteristics) {
-            if (char.properties.writeWithoutResponse) { this.characteristic = char; break; }
-            else if (char.properties.write) { this.characteristic = char; }
-          }
-          if (!this.characteristic) throw new Error('No writable characteristic found');
-
-          this.startKeepAlive();
-          return true;
-        } catch (error) {
-          console.error('Auto-reconnect GATT error:', error);
-          await this.cleanup();
-          this.device = null;
-          return false;
+      this.device.addEventListener('gattserverdisconnected', () => {
+        if (!this.disconnectRequested) {
+          this.server = null;
+          this.service = null;
+          this.characteristic = null;
         }
-      };
+      });
 
-      const directResult = await connectToDevice();
-      if (directResult) return true;
+      // Try direct GATT connection first
+      try {
+        const directResult = await this.connectGatt();
+        if (directResult) return true;
+      } catch { /* fall through to advertisement watching */ }
 
+      // Watch for BLE advertisements (background reconnect)
       if (typeof (target as any).watchAdvertisements === 'function') {
-        const abortController = new AbortController();
+        const abortCtrl = new AbortController();
         return new Promise<boolean>((resolve) => {
-          const timeout = setTimeout(() => { abortController.abort(); resolve(false); }, 5000);
+          const timeout = setTimeout(() => { abortCtrl.abort(); resolve(false); }, 5000);
           target.addEventListener('advertisementreceived', async () => {
             clearTimeout(timeout);
-            abortController.abort();
-            resolve(await connectToDevice());
+            abortCtrl.abort();
+            try {
+              resolve(await this.connectGatt());
+            } catch {
+              resolve(false);
+            }
           }, { once: true });
-          (target as any).watchAdvertisements({ signal: abortController.signal }).catch(() => {
+          (target as any).watchAdvertisements({ signal: abortCtrl.signal }).catch(() => {
             clearTimeout(timeout);
             resolve(false);
           });
@@ -317,15 +530,14 @@ class PrinterService {
   }
 
   isConnected(): boolean {
-    return this.server?.connected || false;
+    return this.server?.connected === true;
   }
 
   async disconnect() {
     this.disconnectRequested = true;
     this.stopKeepAlive();
     this.clearQueue();
-    if (this.device) this.device.removeEventListener('gattserverdisconnected', () => {});
-    try { if (this.server?.connected) await this.server.disconnect(); } catch {}
+    try { if (this.server?.connected) this.server.disconnect(); } catch {}
     await this.cleanup();
     this.device = null;
   }
@@ -334,13 +546,11 @@ class PrinterService {
     return {
       connected: this.isConnected(),
       deviceName: this.device?.name,
-      hasCharacteristic: !!this.characteristic,
       isPrinting: this.isPrinting,
-      isProcessingQueue: this.isProcessingQueue,
       queueSize: this.printQueue.length,
-      lastPrintTime: this.lastPrintTime,
     };
   }
+
 
   // ─── Keep Alive ─────────────────────────────────────────────────────────
 
@@ -354,7 +564,10 @@ class PrinterService {
   }
 
   private stopKeepAlive() {
-    if (this.keepAliveInterval) { clearInterval(this.keepAliveInterval); this.keepAliveInterval = null; }
+    if (this.keepAliveInterval) {
+      clearInterval(this.keepAliveInterval);
+      this.keepAliveInterval = null;
+    }
   }
 
   private async cleanup() {
@@ -364,116 +577,70 @@ class PrinterService {
     this.characteristic = null;
   }
 
+
   // ─── Write Helpers ──────────────────────────────────────────────────────
 
-  private async writeDataInChunks(data: Uint8Array): Promise<void> {
-    if (!this.characteristic) throw new Error('No writable characteristic found');
+  private async writeData(data: Uint8Array): Promise<void> {
+    if (!this.characteristic) throw new Error('No writable characteristic');
+
     for (let i = 0; i < data.length; i += this.bleChunkSize) {
       const chunk = data.slice(i, i + this.bleChunkSize);
-      await this.characteristic.writeValue(chunk as BufferSource);
-      await new Promise(resolve => setTimeout(resolve, 15));
+      if (this.characteristic.properties.writeWithoutResponse) {
+        await this.characteristic.writeValueWithoutResponse(chunk);
+      } else {
+        await this.characteristic.writeValueWithResponse(chunk);
+      }
+      // Small delay between chunks to avoid BLE buffer overflow
+      if (i + this.bleChunkSize < data.length) {
+        await new Promise(r => setTimeout(r, 20));
+      }
     }
-  }
-
-  private async resetPrinterFormattingState(): Promise<void> {
-    if (!this.characteristic) throw new Error('No writable characteristic found');
-    const reset = new Uint8Array([0x1B, 0x40, 0x1B, 0x61, 0x00]);
-    await this.characteristic.writeValue(reset);
-    await new Promise(resolve => setTimeout(resolve, 30));
-  }
-
-  private stripLeadingInitialize(data: Uint8Array): Uint8Array {
-    if (data.length >= 2 && data[0] === 0x1B && data[1] === 0x40) return data.slice(2);
-    return data;
-  }
-
-  private async writePreparedPayload(data: Uint8Array): Promise<void> {
-    await this.resetPrinterFormattingState();
-    await this.writeDataInChunks(this.stripLeadingInitialize(data));
   }
 
   async ensureConnection(): Promise<boolean> {
     if (this.isConnected() && this.characteristic) return true;
     if (this.device && !this.disconnectRequested) {
-      try {
-        const server = await this.device.gatt?.connect();
-        if (server) {
-          this.server = server;
-          try {
-            this.service = await this.server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
-          } catch {
-            this.service = await this.server.getPrimaryService('00001800-0000-1000-8000-00805f9b34fb');
-          }
-          if (!this.service) throw new Error('Could not find printer service');
-          const characteristics = await this.service.getCharacteristics();
-          for (const char of characteristics) {
-            if (char.properties.writeWithoutResponse || char.properties.write) {
-              this.characteristic = char;
-              break;
-            }
-          }
-          if (!this.characteristic) throw new Error('No writable characteristic found');
-          this.startKeepAlive();
-          return true;
-        }
-      } catch (error) {
-        console.error('Reconnection failed:', error);
-      }
+      try { return await this.connectGatt(); } catch { /* fall through */ }
     }
     return false;
   }
 
+
   // ─── Text Helpers ───────────────────────────────────────────────────────
 
-  private sanitizeText(text: any): string {
-    if (text === null || text === undefined) return '';
-    return String(text)
-      .replace(/[^\x20-\x7E\n\r\t\s]/g, '')
-      .replace(/[™®©]/g, '')
-      .replace(/[^\w\s\-.,!?$%&*()@#\/\\:]/g, '')
-      .trim();
+  private sanitize(text: any): string {
+    if (text == null) return '';
+    return String(text).replace(/[\x00-\x1F\x7F]/g, '').trim();
   }
 
   private formatPrice(price: any): string {
-    if (price === null || price === undefined) return '0.00';
     const num = Number(price);
     return isNaN(num) ? '0.00' : num.toFixed(2);
   }
 
-  private formatDate(date: Date): string {
-    return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+  private formatDate(d: Date): string {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
   }
 
-  private formatTime(date: Date): string {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  private formatTime(d: Date): string {
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
-  private truncateText(text: string, width: number): string {
-    const safe = this.sanitizeText(text || '');
-    return safe.length > width ? safe.slice(0, width) : safe;
-  }
-
-  private centerText(text: string, lineWidth: number): string {
-    if (text.length >= lineWidth) return text;
-    const leftPad = Math.floor((lineWidth - text.length) / 2);
-    return ' '.repeat(leftPad) + text;
-  }
-
-  private getColumns(paperSize: PaperSize): number {
-    return paperSize === '80mm' ? 42 : 32;
-  }
 
   // ─── Queue ──────────────────────────────────────────────────────────────
 
   clearQueue(): void {
-    this.printQueue.forEach(job => job.reject(new Error('Queue cleared')));
+    this.printQueue.forEach(j => j.reject(new Error('Queue cleared')));
     this.printQueue = [];
   }
 
   getQueueSize(): number { return this.printQueue.length; }
   isBusy(): boolean { return this.isPrinting || this.isProcessingQueue || this.printQueue.length > 0; }
 
-  private async processNextJob(): Promise<void> {
+  private async processQueue(): Promise<void> {
     if (this.isProcessingQueue || this.printQueue.length === 0) return;
     this.isProcessingQueue = true;
 
@@ -481,27 +648,25 @@ class PrinterService {
       const job = this.printQueue[0];
       try {
         if (!await this.ensureConnection()) throw new Error('Printer disconnected');
-        if (!this.characteristic) throw new Error('Lost connection');
-
-        const success = await this.executePrint(job.order, job.restaurant, job.options);
-        if (success) {
+        const ok = await this.executePrint(job.order, job.restaurant, job.options);
+        if (ok) {
           if (job.options?.autoOpenDrawer) await this.openDrawer();
           job.resolve(true);
         } else {
-          job.reject(new Error('Print failed'));
+          job.reject(new Error('Print execution failed'));
         }
-        this.printQueue.shift();
-        if (this.printQueue.length > 0) await new Promise(r => setTimeout(r, 2000));
-      } catch (error) {
-        job.reject(error);
-        this.printQueue.shift();
-        await new Promise(r => setTimeout(r, 3000));
+      } catch (err) {
+        job.reject(err);
       }
+      this.printQueue.shift();
+      if (this.printQueue.length > 0) await new Promise(r => setTimeout(r, 2000));
     }
+
     this.isProcessingQueue = false;
   }
 
-  // ─── Print Operations ───────────────────────────────────────────────────
+
+  // ─── Receipt Printing ───────────────────────────────────────────────────
 
   async printReceipt(order: any, restaurant: any, options?: ReceiptPrintOptions): Promise<boolean> {
     if (this.printQueue.length >= this.maxQueueSize) throw new Error('Print queue full');
@@ -516,171 +681,175 @@ class PrinterService {
         reject,
         timestamp: Date.now(),
       });
-      this.processNextJob();
+      this.processQueue();
     });
   }
 
   private async executePrint(order: any, restaurant: any, options?: ReceiptPrintOptions): Promise<boolean> {
+    this.isPrinting = true;
     try {
-      const paperSize = options?.paperSize || '58mm';
-      const cols = this.getColumns(paperSize);
-      const orderDate = new Date(order.timestamp);
-      const dateStr = this.formatDate(orderDate);
-      const timeStr = this.formatTime(orderDate);
+      if (!this.characteristic) throw new Error('No printer connection');
 
-      const safeBusinessName = this.sanitizeText(restaurant?.name) || 'RESTAURANT';
-      const safeOrderId = this.sanitizeText(order.id) || 'ORDER';
-      const safeTableNumber = this.sanitizeText(order.tableNumber) || '0';
-      const safeRemark = this.sanitizeText(order.remark);
-      const safeHeaderText = this.sanitizeText(options?.headerText || '');
-      const safeFooterText = this.sanitizeText(options?.footerText || 'Thank you! Please come again.');
-      const safeBusinessAddress = this.sanitizeText(options?.businessAddress || '');
-      const safeBusinessPhone = this.sanitizeText(options?.businessPhone || '');
+      const paperSize: PaperSize = options?.paperSize || '58mm';
+      const r = new EscPosBuilder(paperSize);
+      const cols = r.getColumns();
+      const now = new Date(order.timestamp);
 
-      const showDateTime = options?.showDateTime !== false;
-      const showOrderId = options?.showOrderId !== false;
-      const showTableNumber = options?.showTableNumber !== false;
-      const showItems = options?.showItems !== false;
+      const bizName   = this.sanitize(restaurant?.name) || 'RESTAURANT';
+      const orderId   = this.sanitize(order.id) || 'ORDER';
+      const tableNum  = this.sanitize(order.tableNumber);
+      const remark    = this.sanitize(order.remark);
+      const header    = this.sanitize(options?.headerText);
+      const footer    = this.sanitize(options?.footerText || 'Thank you! Please come again.');
+      const bizAddr   = this.sanitize(options?.businessAddress);
+      const bizPhone  = this.sanitize(options?.businessPhone);
+
+      const showDT     = options?.showDateTime !== false;
+      const showOrdId  = options?.showOrderId !== false;
+      const showTable  = options?.showTableNumber !== false;
+      const showItems  = options?.showItems !== false;
       const showRemark = options?.showRemark !== false;
-      const showTotal = options?.showTotal !== false;
+      const showTotal  = options?.showTotal !== false;
 
-      let receipt = this.encoder.initialize();
+      // ── Initialize & set density ──
+      r.init();
+      if (options?.printDensity) r.density(options.printDensity);
 
-      // ── Business Name (large, centered, bold) ──
-      receipt = receipt.align('center').bold(true).size(2, 2);
-      receipt = receipt.line(this.truncateText(safeBusinessName, Math.floor(cols / 2)));
-      receipt = receipt.size(1, 1).bold(false);
+      // ── Business Name — centered, large, bold ──
+      r.align('center').bold(true).size(2, 2);
+      r.line(bizName);
+      r.normalSize().bold(false);
 
-      // ── Business Address & Phone ──
-      if (safeBusinessAddress) receipt = receipt.line(this.truncateText(safeBusinessAddress, cols));
-      if (safeBusinessPhone) receipt = receipt.line(this.truncateText(safeBusinessPhone, cols));
+      // ── Address & Phone — centered, normal ──
+      if (bizAddr) r.line(bizAddr);
+      if (bizPhone) r.line(bizPhone);
 
-      // ── Header ──
-      if (safeHeaderText) receipt = receipt.line(this.truncateText(safeHeaderText, cols));
+      // ── Custom header text ──
+      if (header) r.line(header);
 
       // ── Separator ──
-      receipt = receipt.align('left').line('='.repeat(cols));
+      r.align('left').thickSeparator();
 
       // ── Date/Time ──
-      if (showDateTime) receipt = receipt.line(`${dateStr} ${timeStr}`);
+      if (showDT) {
+        r.columns2(this.formatDate(now), this.formatTime(now));
+      }
 
-      // ── Order ID ──
-      if (showOrderId) receipt = receipt.line(`#${safeOrderId}`);
+      // ── Order Number ──
+      if (showOrdId) {
+        r.bold(true).line(`Order #${orderId}`).bold(false);
+      }
 
       // ── Order Source ──
       if (options?.showOrderSource && order.orderSource) {
-        const sourceLabel = order.orderSource === 'counter' ? 'Counter'
+        const src = order.orderSource === 'counter' ? 'Counter'
           : order.orderSource === 'qr_order' ? 'QR Order'
           : order.orderSource === 'online' ? 'Online'
           : order.orderSource === 'tableside' ? 'Tableside'
-          : order.orderSource;
-        receipt = receipt.line(`Source: ${sourceLabel}`);
+          : this.sanitize(order.orderSource);
+        r.line(`Source: ${src}`);
       }
 
-      // ── Cashier Name ──
+      // ── Cashier ──
       if (options?.showCashierName && options.cashierName) {
-        receipt = receipt.line(`Cashier: ${this.sanitizeText(options.cashierName)}`);
+        r.line(`Cashier: ${this.sanitize(options.cashierName)}`);
       }
 
-      // ── Table Number (large, bold) ──
-      if (showTableNumber && order.tableNumber) {
-        receipt = receipt.line('');
-        receipt = receipt.bold(true).size(1, 2);
-        receipt = receipt.line(safeTableNumber);
-        receipt = receipt.size(1, 1).bold(false);
+      // ── Table Number — bold, double height ──
+      if (showTable && tableNum) {
+        r.feed(1).bold(true).size(1, 2);
+        r.line(`Table: ${tableNum}`);
+        r.normalSize().bold(false);
       }
 
-      // ── Sub-separator ──
-      receipt = receipt.line('-'.repeat(cols));
+      // ── Items header ──
+      r.separator();
 
       // ── Items ──
-      if (showItems && order.items && Array.isArray(order.items) && order.items.length > 0) {
-        order.items.forEach((item: any) => {
-          const safeItemName = this.sanitizeText(item.name) || 'ITEM';
-          const quantity = item.quantity || 1;
-          const itemPrice = this.formatPrice(item.price ? item.price * quantity : 0);
+      if (showItems && Array.isArray(order.items) && order.items.length > 0) {
+        for (const item of order.items) {
+          const name = this.sanitize(item.name) || 'Item';
+          const qty  = item.quantity || 1;
+          const price = this.formatPrice(item.price ? item.price * qty : 0);
 
-          const leftPart = `${quantity}x ${safeItemName}`;
-          const rightPart = `RM${itemPrice}`;
-          const space = Math.max(1, cols - leftPart.length - rightPart.length);
-          receipt = receipt.line(leftPart + ' '.repeat(space) + rightPart);
+          r.bold(true);
+          r.columns2(`${qty}x ${name}`, price);
+          r.bold(false);
 
-          if (item.selectedSize) {
-            const s = this.sanitizeText(item.selectedSize);
-            if (s) receipt = receipt.line(`  -Size: ${s}`);
-          }
-          if (item.selectedTemp) {
-            const s = this.sanitizeText(item.selectedTemp);
-            if (s) receipt = receipt.line(`  -Temp: ${s}`);
-          }
+          // Item options / variants
+          if (item.selectedSize)
+            r.line(`  Size: ${this.sanitize(item.selectedSize)}`);
+          if (item.selectedTemp)
+            r.line(`  Temp: ${this.sanitize(item.selectedTemp)}`);
           if (item.selectedOtherVariant) {
-            const s = this.sanitizeText(item.selectedOtherVariant);
-            const label = this.sanitizeText(item.otherVariantName) || 'Variant';
-            if (s) receipt = receipt.line(`  -${label}: ${s}`);
+            const label = this.sanitize(item.otherVariantName) || 'Option';
+            r.line(`  ${label}: ${this.sanitize(item.selectedOtherVariant)}`);
           }
-          if (item.selectedVariantOption) {
-            const s = this.sanitizeText(item.selectedVariantOption);
-            if (s) receipt = receipt.line(`  -Variant: ${s}`);
-          }
+          if (item.selectedVariantOption)
+            r.line(`  Variant: ${this.sanitize(item.selectedVariantOption)}`);
 
-          if (item.selectedAddOns && Array.isArray(item.selectedAddOns)) {
-            item.selectedAddOns.forEach((addon: any) => {
-              const addonName = this.sanitizeText(addon.name) || 'ADDON';
-              const addonQty = addon.quantity || 1;
-              receipt = receipt.line(addonQty > 1 ? `  -${addonName} x${addonQty}` : `  -${addonName}`);
-            });
+          // Add-ons
+          if (Array.isArray(item.selectedAddOns)) {
+            for (const addon of item.selectedAddOns) {
+              const an = this.sanitize(addon.name) || 'Add-on';
+              const aq = addon.quantity || 1;
+              r.line(aq > 1 ? `  + ${an} x${aq}` : `  + ${an}`);
+            }
           }
-        });
-        receipt = receipt.line('');
+        }
+        r.feed(1);
       } else {
-        receipt = receipt.line(showItems ? 'No items' : 'Items hidden').line('');
+        r.line(showItems ? 'No items' : '').feed(1);
       }
 
       // ── Remark ──
-      if (showRemark && safeRemark) {
-        receipt = receipt.line('-'.repeat(cols));
-        receipt = receipt.line('Note:');
-        receipt = receipt.line(safeRemark).line('');
+      if (showRemark && remark) {
+        r.separator();
+        r.bold(true).line('Note:').bold(false);
+        r.line(remark);
+        r.feed(1);
       }
 
       // ── Taxes ──
       if (options?.showTaxes && options.taxes && options.taxes.length > 0) {
-        receipt = receipt.line('-'.repeat(cols));
-        options.taxes.forEach(tax => {
-          const taxLabel = this.sanitizeText(tax.name);
-          const taxAmount = this.formatPrice(tax.amount);
-          const space = Math.max(1, cols - taxLabel.length - taxAmount.length);
-          receipt = receipt.line(taxLabel + ' '.repeat(space) + taxAmount);
-        });
+        r.separator();
+        for (const tax of options.taxes) {
+          r.columns2(this.sanitize(tax.name), this.formatPrice(tax.amount));
+        }
       }
 
-      // ── Sub-separator ──
-      receipt = receipt.line('-'.repeat(cols));
-
-      // ── Total (bold, large) ──
+      // ── Total — bold, double size ──
+      r.separator();
       if (showTotal) {
-        receipt = receipt.bold(true).size(1, 2);
-        receipt = receipt.line(`TOTAL: RM ${this.formatPrice(order.total)}`);
-        receipt = receipt.size(1, 1).bold(false);
+        r.bold(true).size(1, 2);
+        r.columns2('TOTAL', `RM ${this.formatPrice(order.total)}`);
+        r.normalSize().bold(false);
       }
 
-      // ── Separator ──
-      receipt = receipt.line('='.repeat(cols));
+      // ── Payment method ──
+      if (order.paymentMethod) {
+        r.line(`Paid: ${this.sanitize(order.paymentMethod)}`);
+      }
+      if (order.cashReceived && order.change !== undefined) {
+        r.columns2('Cash', `RM ${this.formatPrice(order.cashReceived)}`);
+        r.columns2('Change', `RM ${this.formatPrice(order.change)}`);
+      }
 
       // ── Footer ──
-      if (safeFooterText) {
-        receipt = receipt.align('center');
-        receipt = receipt.line(this.truncateText(safeFooterText, cols));
+      r.thickSeparator();
+      if (footer) {
+        r.align('center').line(footer);
       }
 
-      // ── Feed & Cut ──
-      receipt = receipt.align('left').newline().newline();
-      if (options?.autoCut !== false) receipt = receipt.cut();
+      // ── Feed & cut ──
+      r.align('left').feed(4);
+      if (options?.autoCut !== false) r.cut();
 
-      const data = receipt.encode() as Uint8Array;
-      await this.writePreparedPayload(data);
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // ── Send to printer ──
+      await this.writeData(r.encode());
+      await new Promise(resolve => setTimeout(resolve, 2500));
 
+      // Store for reprint
       this.lastPrintedOrder = { ...order };
       this.lastPrintedRestaurant = { ...restaurant };
       this.lastPrintedOptions = options ? { ...options } : undefined;
@@ -688,147 +857,176 @@ class PrinterService {
 
       return true;
     } catch (error) {
-      console.error('Execute print error:', error);
-      try { if (this.characteristic) await this.resetPrinterFormattingState(); } catch {}
-      return false;
-    }
-  }
-
-  async printTestPage(businessName?: string, paperSize?: PaperSize): Promise<boolean> {
-    if (this.isPrinting) {
-      return new Promise((resolve, reject) => {
-        this.printQueue.push({
-          id: `test-${Date.now()}`,
-          order: { id: 'TEST', tableNumber: 'TEST', timestamp: Date.now(), total: 0, items: [], remark: '' },
-          restaurant: { name: businessName || 'QUICKSERVE' },
-          resolve, reject, timestamp: Date.now(),
-        });
-        this.processNextJob();
-      });
-    }
-
-    this.isPrinting = true;
-    try {
-      if (!await this.ensureConnection()) throw new Error('Printer not connected');
-      if (!this.characteristic) throw new Error('No writable characteristic found');
-
-      const cols = this.getColumns(paperSize || '58mm');
-      const now = new Date();
-      const safeName = this.sanitizeText(businessName || 'QUICKSERVE') || 'QUICKSERVE';
-
-      const data = this.encoder
-        .initialize()
-        .align('center')
-        .size(2, 2)
-        .line(this.truncateText(safeName, Math.floor(cols / 2)))
-        .size(1, 1)
-        .line('')
-        .align('left')
-        .line('='.repeat(cols))
-        .align('center')
-        .line('TEST PAGE')
-        .line('')
-        .line(`${this.formatDate(now)} ${this.formatTime(now)}`)
-        .line('')
-        .line('Printer is working!')
-        .line('='.repeat(cols))
-        .align('left')
-        .newline()
-        .cut()
-        .encode() as Uint8Array;
-
-      await this.writePreparedPayload(data);
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      this.lastPrintTime = Date.now();
-      return true;
-    } catch (error) {
-      console.error('Print test page error:', error);
+      console.error('Print error:', error);
       return false;
     } finally {
       this.isPrinting = false;
     }
   }
 
-  async printKitchenTicket(order: any, restaurant: any, config?: KitchenTicketConfig, paperSize?: PaperSize): Promise<boolean> {
+
+  // ─── Test Page ──────────────────────────────────────────────────────────
+
+  async printTestPage(businessName?: string, paperSize?: PaperSize): Promise<boolean> {
+    if (!await this.ensureConnection()) throw new Error('Printer not connected');
+    if (!this.characteristic) throw new Error('No writable characteristic');
+
+    this.isPrinting = true;
     try {
-      if (!await this.ensureConnection()) throw new Error('Printer not connected');
-      if (!this.characteristic) throw new Error('No writable characteristic found');
+      const r = new EscPosBuilder(paperSize || '58mm');
+      const name = this.sanitize(businessName) || 'QUICKSERVE';
+      const now = new Date();
 
-      const cols = this.getColumns(paperSize || '58mm');
-      const orderDate = new Date(order.timestamp);
-      const safeOrderId = this.sanitizeText(order.id) || 'ORDER';
-      const safeTableNumber = this.sanitizeText(order.tableNumber) || '';
+      r.init()
+        .align('center')
+        .bold(true).size(2, 2)
+        .line(name)
+        .normalSize().bold(false)
+        .feed(1)
+        .thickSeparator()
+        .align('center')
+        .bold(true).line('PRINTER TEST')
+        .bold(false).feed(1)
+        .line(`${this.formatDate(now)} ${this.formatTime(now)}`)
+        .feed(1)
+        .line('Alignment Test:')
+        .align('left').line('LEFT')
+        .align('center').line('CENTER')
+        .align('right').line('RIGHT')
+        .feed(1)
+        .align('center')
+        .bold(true).line('Size Test:')
+        .bold(false)
+        .normalSize().line('Normal')
+        .size(1, 2).line('Tall')
+        .size(2, 1).line('Wide')
+        .size(2, 2).line('Large')
+        .normalSize()
+        .feed(1)
+        .thickSeparator()
+        .align('center')
+        .line('Printer is working!')
+        .align('left')
+        .feed(4)
+        .cut();
 
-      let ticket = this.encoder.initialize();
+      await this.writeData(r.encode());
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      this.lastPrintTime = Date.now();
+      return true;
+    } catch (error) {
+      console.error('Test page error:', error);
+      return false;
+    } finally {
+      this.isPrinting = false;
+    }
+  }
 
-      ticket = ticket.align('center').bold(true);
-      ticket = ticket.line('*** KITCHEN ORDER ***');
-      ticket = ticket.bold(false);
-      ticket = ticket.line('='.repeat(cols));
 
+  // ─── Kitchen Ticket ─────────────────────────────────────────────────────
+
+  async printKitchenTicket(
+    order: any,
+    restaurant: any,
+    config?: KitchenTicketConfig,
+    paperSize?: PaperSize,
+  ): Promise<boolean> {
+    if (!await this.ensureConnection()) throw new Error('Printer not connected');
+    if (!this.characteristic) throw new Error('No writable characteristic');
+
+    this.isPrinting = true;
+    try {
+      const r = new EscPosBuilder(paperSize || '58mm');
+      const now = new Date(order.timestamp);
+      const orderId = this.sanitize(order.id) || 'ORDER';
+      const tableNum = this.sanitize(order.tableNumber);
+
+      r.init();
+
+      // ── Header ──
+      r.align('center').bold(true);
+      r.size(1, 2).line('*** KITCHEN ***');
+      r.normalSize().bold(false);
+      r.thickSeparator();
+
+      // ── Order number ──
       if (config?.printLargeOrderNumber !== false) {
-        ticket = ticket.size(2, 2).bold(true);
-        ticket = ticket.line(`#${this.truncateText(safeOrderId, Math.floor(cols / 2))}`);
-        ticket = ticket.size(1, 1).bold(false);
+        r.align('center').bold(true).size(3, 3);
+        r.line(`#${orderId}`);
+        r.normalSize().bold(false);
       } else {
-        ticket = ticket.bold(true).line(`#${safeOrderId}`).bold(false);
+        r.align('center').bold(true).line(`#${orderId}`).bold(false);
       }
 
-      if (safeTableNumber) {
-        ticket = ticket.bold(true).size(1, 2);
-        ticket = ticket.line(`Table: ${safeTableNumber}`);
-        ticket = ticket.size(1, 1).bold(false);
+      // ── Table ──
+      if (tableNum) {
+        r.align('center').bold(true).size(2, 2);
+        r.line(`Table ${tableNum}`);
+        r.normalSize().bold(false);
       }
 
-      ticket = ticket.align('left');
-      ticket = ticket.line(`${this.formatDate(orderDate)} ${this.formatTime(orderDate)}`);
-      ticket = ticket.line('-'.repeat(cols));
+      // ── Time ──
+      r.align('left');
+      r.line(`${this.formatDate(now)} ${this.formatTime(now)}`);
+      r.separator();
 
-      if (order.items && Array.isArray(order.items)) {
-        order.items.forEach((item: any) => {
-          const name = this.sanitizeText(item.name) || 'ITEM';
+      // ── Items ──
+      if (Array.isArray(order.items)) {
+        for (const item of order.items) {
+          const name = this.sanitize(item.name) || 'Item';
           const qty = item.quantity || 1;
-          ticket = ticket.bold(true).line(`${qty}x ${name}`).bold(false);
+          r.bold(true).size(1, 2);
+          r.line(`${qty}x ${name}`);
+          r.normalSize().bold(false);
 
-          if (item.selectedSize) ticket = ticket.line(`  -Size: ${this.sanitizeText(item.selectedSize)}`);
-          if (item.selectedTemp) ticket = ticket.line(`  -Temp: ${this.sanitizeText(item.selectedTemp)}`);
+          if (item.selectedSize)
+            r.line(`  Size: ${this.sanitize(item.selectedSize)}`);
+          if (item.selectedTemp)
+            r.line(`  Temp: ${this.sanitize(item.selectedTemp)}`);
           if (item.selectedOtherVariant) {
-            const label = this.sanitizeText(item.otherVariantName) || 'Variant';
-            ticket = ticket.line(`  -${label}: ${this.sanitizeText(item.selectedOtherVariant)}`);
+            const label = this.sanitize(item.otherVariantName) || 'Option';
+            r.line(`  ${label}: ${this.sanitize(item.selectedOtherVariant)}`);
           }
-          if (item.selectedVariantOption) ticket = ticket.line(`  -Variant: ${this.sanitizeText(item.selectedVariantOption)}`);
-          if (item.selectedAddOns && Array.isArray(item.selectedAddOns)) {
-            item.selectedAddOns.forEach((addon: any) => {
-              const n = this.sanitizeText(addon.name) || 'ADDON';
+          if (item.selectedVariantOption)
+            r.line(`  Variant: ${this.sanitize(item.selectedVariantOption)}`);
+          if (Array.isArray(item.selectedAddOns)) {
+            for (const addon of item.selectedAddOns) {
+              const n = this.sanitize(addon.name) || 'Add-on';
               const q = addon.quantity || 1;
-              ticket = ticket.line(q > 1 ? `  -${n} x${q}` : `  -${n}`);
-            });
+              r.line(q > 1 ? `  + ${n} x${q}` : `  + ${n}`);
+            }
           }
-          ticket = ticket.line('');
-        });
-      }
-
-      if (order.remark) {
-        const safeRemark = this.sanitizeText(order.remark);
-        if (safeRemark) {
-          ticket = ticket.line('-'.repeat(cols));
-          ticket = ticket.bold(true).line('Note:').bold(false);
-          ticket = ticket.line(safeRemark);
+          r.feed(1);
         }
       }
 
-      ticket = ticket.line('='.repeat(cols));
-      ticket = ticket.newline().newline().cut();
+      // ── Remark ──
+      if (order.remark) {
+        const remark = this.sanitize(order.remark);
+        if (remark) {
+          r.separator();
+          r.bold(true).line('Note:').bold(false);
+          r.line(remark);
+        }
+      }
 
-      const data = ticket.encode() as Uint8Array;
-      await this.writePreparedPayload(data);
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // ── Footer ──
+      r.thickSeparator();
+      r.feed(4).cut();
+
+      await this.writeData(r.encode());
+      await new Promise(resolve => setTimeout(resolve, 2500));
       return true;
     } catch (error) {
-      console.error('Kitchen ticket print error:', error);
+      console.error('Kitchen ticket error:', error);
       return false;
+    } finally {
+      this.isPrinting = false;
     }
   }
+
+
+  // ─── Reprint & Drawer ──────────────────────────────────────────────────
 
   async reprintLast(): Promise<boolean> {
     if (!this.lastPrintedOrder || !this.lastPrintedRestaurant) {
@@ -841,16 +1039,14 @@ class PrinterService {
     return !!this.lastPrintedOrder;
   }
 
-  async openDrawer(pin: number = 0, onMs: number = 120, offMs: number = 240): Promise<boolean> {
+  async openDrawer(pin: 0 | 1 = 0): Promise<boolean> {
     try {
       if (!await this.ensureConnection()) throw new Error('Printer not connected');
-      if (!this.characteristic) throw new Error('No writable characteristic found');
+      if (!this.characteristic) throw new Error('No writable characteristic');
 
-      const pinVal = Math.max(0, Math.min(1, pin));
-      const t1 = Math.max(1, Math.min(255, Math.floor(onMs / 2)));
-      const t2 = Math.max(1, Math.min(255, Math.floor(offMs / 2)));
-      const cmd = new Uint8Array([0x1B, 0x70, pinVal, t1, t2]);
-      await this.writeDataInChunks(cmd);
+      const r = new EscPosBuilder();
+      r.openDrawer(pin);
+      await this.writeData(r.encode());
       return true;
     } catch (error) {
       console.error('Open drawer error:', error);
