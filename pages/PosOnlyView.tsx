@@ -5294,16 +5294,16 @@ const PosOnlyView: React.FC<Props> = ({
                   <nav className="flex overflow-x-auto no-scrollbar -mb-px gap-1">
                     {(isKitchenUser
                       ? ([
-                          { key: 'builtin' as SettingsPanel, label: 'Kitchen Orders' },
-                          { key: 'printer' as SettingsPanel, label: 'Printer' },
-                          { key: 'receipt' as SettingsPanel, label: 'Receipt' },
+                          { key: 'builtin' as SettingsPanel, label: 'Kitchen Orders', info: 'Configure how kitchen orders are accepted and printed.' },
+                          { key: 'printer' as SettingsPanel, label: 'Printer', info: 'Connect printers and manage printer profiles.' },
+                          { key: 'receipt' as SettingsPanel, label: 'Receipt', info: 'Configure receipt text, fields, and printing behavior.' },
                         ])
                       : ([
-                          { key: 'builtin' as SettingsPanel, label: 'Features' },
-                          { key: 'printer' as SettingsPanel, label: 'Printer' },
-                          { key: 'receipt' as SettingsPanel, label: 'Receipt' },
-                          { key: 'payment' as SettingsPanel, label: 'Payment & Taxes' },
-                          { key: 'staff' as SettingsPanel, label: 'Staff' },
+                          { key: 'builtin' as SettingsPanel, label: 'Features', info: 'Core POS behavior such as cashier and dining options.' },
+                          { key: 'printer' as SettingsPanel, label: 'Printer', info: 'Connect printers and manage printer profiles.' },
+                          { key: 'receipt' as SettingsPanel, label: 'Receipt', info: 'Configure receipt text, fields, and printing behavior.' },
+                          { key: 'payment' as SettingsPanel, label: 'Payment & Taxes', info: 'Manage payment methods and tax rules.' },
+                          { key: 'staff' as SettingsPanel, label: 'Staff', info: 'Manage staff accounts and permissions.' },
                         ])
                     ).map(tab => (
                       <button
@@ -5315,7 +5315,13 @@ const PosOnlyView: React.FC<Props> = ({
                             : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-500'
                         }`}
                       >
-                        {tab.label}
+                        <span>{tab.label}</span>
+                        <span
+                          title={tab.info}
+                          className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border border-current/40 text-[10px] leading-none opacity-80"
+                        >
+                          i
+                        </span>
                       </button>
                     ))}
                   </nav>
@@ -5327,12 +5333,7 @@ const PosOnlyView: React.FC<Props> = ({
 
                     {/* Kitchen user: Kitchen Order Settings */}
                     {isKitchenUser && settingsPanel === 'builtin' && (
-                      <div className="grid grid-cols-1 lg:grid-cols-[minmax(220px,_3fr)_minmax(0,_7fr)] gap-6 lg:gap-12">
-                        <div>
-                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Kitchen Order Settings</h2>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Configure how incoming orders are handled in the kitchen.</p>
-                        </div>
-                        <div className="min-w-0 divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+                      <div className="min-w-0 divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
                           <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5">
                             <div>
                               <p className="text-sm font-medium text-gray-900 dark:text-white">Auto-Accept</p>
@@ -5361,33 +5362,17 @@ const PosOnlyView: React.FC<Props> = ({
                               </button>
                             </div>
                           </div>
-                        </div>
                       </div>
                     )}
 
                     {/* Non-kitchen: Built-in Features */}
                     {!isKitchenUser && settingsPanel === 'builtin' && (
-                      <div className="grid grid-cols-1 lg:grid-cols-[minmax(220px,_3fr)_minmax(0,_7fr)] gap-6 lg:gap-12">
-                        <div>
-                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Built-in Features</h2>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Toggle core POS features like auto-print, cash drawer, and dining options.</p>
-                        </div>
-                        <div className="min-w-0">{renderFeaturesContent()}</div>
-                      </div>
+                      <div className="min-w-0">{renderFeaturesContent()}</div>
                     )}
 
                     {/* Printer */}
                     {settingsPanel === 'printer' && (
-                      <div className="grid grid-cols-1 lg:grid-cols-[minmax(220px,_3fr)_minmax(0,_7fr)] gap-6 lg:gap-12">
-                        <div>
-                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Printer</h2>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {savedPrinters.length > 0
-                              ? `${savedPrinters.length} printer${savedPrinters.length > 1 ? 's' : ''} configured`
-                              : 'Set up and manage your printers.'}
-                          </p>
-                        </div>
-                        <div className="min-w-0">
+                      <div className="min-w-0">
                           <PrinterSettings
                             restaurantId={restaurant.id}
                             restaurantName={restaurant.name}
@@ -5406,18 +5391,12 @@ const PosOnlyView: React.FC<Props> = ({
                               localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
                             }}
                           />
-                        </div>
                       </div>
                     )}
 
                     {/* Receipt */}
                     {settingsPanel === 'receipt' && (
-                      <div className="grid grid-cols-1 lg:grid-cols-[minmax(220px,_3fr)_minmax(0,_7fr)] gap-6 lg:gap-12">
-                        <div>
-                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Receipt</h2>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Configure receipt content and printing behavior.</p>
-                        </div>
-                        <div className="min-w-0">
+                      <div className="min-w-0">
                           <PrinterSettings
                             restaurantId={restaurant.id}
                             restaurantName={restaurant.name}
@@ -5436,30 +5415,17 @@ const PosOnlyView: React.FC<Props> = ({
                               localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
                             }}
                           />
-                        </div>
                       </div>
                     )}
 
                     {/* Payment & Taxes */}
                     {settingsPanel === 'payment' && (
-                      <div className="grid grid-cols-1 lg:grid-cols-[minmax(220px,_3fr)_minmax(0,_7fr)] gap-6 lg:gap-12">
-                        <div>
-                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Payment Type & Taxes</h2>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{paymentTypes.length} payment type{paymentTypes.length !== 1 ? 's' : ''} · {taxEntries.length} tax{taxEntries.length !== 1 ? 'es' : ''} configured</p>
-                        </div>
-                        <div className="min-w-0">{renderPaymentAndTaxesContent()}</div>
-                      </div>
+                      <div className="min-w-0">{renderPaymentAndTaxesContent()}</div>
                     )}
 
                     {/* Staff */}
                     {settingsPanel === 'staff' && (
-                      <div className="grid grid-cols-1 lg:grid-cols-[minmax(220px,_3fr)_minmax(0,_7fr)] gap-6 lg:gap-12">
-                        <div>
-                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Staff Management</h2>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{staffList.length} staff member{staffList.length !== 1 ? 's' : ''} configured</p>
-                        </div>
-                        <div className="min-w-0">{renderStaffContent()}</div>
-                      </div>
+                      <div className="min-w-0">{renderStaffContent()}</div>
                     )}
 
                   </div>
