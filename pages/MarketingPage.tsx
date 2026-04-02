@@ -86,21 +86,31 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
   const faqRef = useInView({ threshold: 0.1 });
   const ctaRef = useInView({ threshold: 0.15 });
   const footerRef = useInView({ threshold: 0.2 });
+  const addonsRef = useInView({ threshold: 0.1 });
   const laptopTilt = useTilt();
   const phoneTilt = useTilt();
 
-  const [partnerLogos, setPartnerLogos] = useState<{ url: string; alt: string; crop_shape: string; display_width: number; display_height: number }[]>([]);
+  const [partnerLogos, setPartnerLogos] = useState<{ url: string; alt: string; crop_shape: string; display_width: number; display_height: number; category: string }[]>([]);
+  const [addonImages, setAddonImages] = useState<Record<string, { url: string; alt: string; crop_shape: string; display_width: number; display_height: number }[]>>({});
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Fetch feature images for the partner carousel
+  // Fetch feature images for the partner carousel and add-on features
   useEffect(() => {
     const fetchLogos = async () => {
       const { data } = await supabase
         .from('feature_images')
-        .select('url, alt, crop_shape, display_width, display_height')
+        .select('url, alt, crop_shape, display_width, display_height, category')
         .order('sort_order');
-      if (data) setPartnerLogos(data);
+      if (data) {
+        setPartnerLogos(data.filter(d => (d.category || 'partner') === 'partner'));
+        const grouped: Record<string, typeof data> = {};
+        data.filter(d => d.category && d.category !== 'partner').forEach(d => {
+          if (!grouped[d.category]) grouped[d.category] = [];
+          grouped[d.category].push(d);
+        });
+        setAddonImages(grouped);
+      }
     };
     fetchLogos();
   }, []);
@@ -316,6 +326,65 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
                 <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-400 font-medium leading-relaxed">{f.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════ ADD-ON FEATURES ═══════════════════════ */}
+      <section ref={addonsRef.ref} className="py-24 px-6 bg-gray-50 dark:bg-gray-900/50 relative overflow-hidden">
+        <div className="absolute top-1/3 right-0 w-96 h-96 bg-orange-500/5 rounded-full blur-[120px] pointer-events-none" />
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className={`text-center mb-16 transition-all duration-700 ${addonsRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+            <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Add-on Features</span>
+            <h2 className="text-3xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Extend Your Platform</h2>
+            <p className="mt-4 text-sm md:text-base text-gray-600 dark:text-gray-400 font-medium max-w-xl mx-auto">Install powerful add-ons to customize QuickServe for your business needs.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              { id: 'backoffice', icon: <BarChart3 size={24} />, title: 'Back Office', desc: 'Sales dashboard, inventory, staff & finance management — all in one place.', accent: 'from-gray-600 to-gray-400' },
+              { id: 'table', icon: <MapPin size={24} />, title: 'Table Management', desc: 'Configurable floor plan with saved bills per table and multi-floor support.', accent: 'from-sky-500 to-sky-400' },
+              { id: 'qr', icon: <QrCode size={24} />, title: 'QR Ordering', desc: 'Customers scan, browse, and order from their phone — no app needed.', accent: 'from-violet-500 to-violet-400' },
+              { id: 'tableside', icon: <Smartphone size={24} />, title: 'Tableside Ordering', desc: 'Staff take orders at the table using any tablet device.', accent: 'from-teal-500 to-teal-400' },
+              { id: 'kitchen', icon: <ChefHat size={24} />, title: 'Kitchen Display', desc: 'Dedicated kitchen screen with department routing and auto-accept.', accent: 'from-orange-500 to-orange-400' },
+              { id: 'online-shop', icon: <Globe size={24} />, title: 'Online Shop', desc: 'Let customers order online for delivery or pickup through your branded shop.', accent: 'from-blue-500 to-blue-400' },
+            ].map((addon, i) => {
+              const images = addonImages[addon.id] || [];
+              return (
+                <div
+                  key={addon.id}
+                  className={`group relative bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-orange-500/50 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-orange-500/5 overflow-hidden ${addonsRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+                  style={{ transitionDelay: addonsRef.isInView ? `${i * 100}ms` : '0ms' }}
+                >
+                  {/* Feature image carousel / preview */}
+                  {images.length > 0 && (
+                    <div className="w-full h-40 bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                      <img src={images[0].url} alt={images[0].alt || addon.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    </div>
+                  )}
+                  <div className="p-6">
+                    <div className={`absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r ${addon.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-full`} style={images.length > 0 ? { top: '160px' } : {}} />
+                    <div className="w-10 h-10 bg-orange-50 dark:bg-orange-500/10 text-orange-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                      {addon.icon}
+                    </div>
+                    <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tight mb-2">{addon.title}</h3>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 font-medium leading-relaxed">{addon.desc}</p>
+                    {images.length > 1 && (
+                      <div className="flex items-center gap-2 mt-4 overflow-x-auto hide-scrollbar">
+                        {images.slice(1, 4).map((img, j) => (
+                          <div key={j} className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 flex-shrink-0 border border-gray-200 dark:border-gray-700">
+                            <img src={img.url} alt={img.alt} className="w-full h-full object-cover" />
+                          </div>
+                        ))}
+                        {images.length > 4 && (
+                          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest flex-shrink-0">+{images.length - 4} more</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>

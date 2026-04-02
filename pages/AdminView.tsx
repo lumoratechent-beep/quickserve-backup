@@ -606,7 +606,8 @@ const AdminView: React.FC<Props> = ({
   onFetchAllFilteredOrders,
   onFetchStats
 }) => {
-  const [activeTab, setActiveTab] = useState<'VENDORS' | 'LOCATIONS' | 'REPORTS' | 'INCOME' | 'CASHOUT' | 'SYSTEM'>('VENDORS');
+  const [activeTab, setActiveTab] = useState<'VENDORS' | 'LOCATIONS' | 'INCOME_REPORT' | 'CASHOUT' | 'SYSTEM'>('VENDORS');
+  const [incomeReportSubTab, setIncomeReportSubTab] = useState<'REPORTS' | 'INCOME'>('REPORTS');
 
   // Cashout requests tab state
   const [adminCashouts, setAdminCashouts] = useState<any[]>([]);
@@ -754,8 +755,8 @@ const AdminView: React.FC<Props> = ({
   };
 
   useEffect(() => {
-    if (activeTab === 'INCOME') fetchIncome();
-  }, [activeTab, incomeStartDate, incomeEndDate]);
+    if (activeTab === 'INCOME_REPORT' && incomeReportSubTab === 'INCOME') fetchIncome();
+  }, [activeTab, incomeReportSubTab, incomeStartDate, incomeEndDate]);
 
   // QR Modal State
   const [generatingQrHub, setGeneratingQrHub] = useState<Area | null>(null);
@@ -770,10 +771,11 @@ const AdminView: React.FC<Props> = ({
   // Feature Images State
   const [systemSubTab, setSystemSubTab] = useState<'STATUS' | 'FEATURE_IMAGES'>('STATUS');
   const [showPitchDeck, setShowPitchDeck] = useState(false);
-  const [featureImages, setFeatureImages] = useState<{ id: string; url: string; alt: string; crop_shape: string; display_width: number; display_height: number; sort_order: number }[]>([]);
+  const [featureImages, setFeatureImages] = useState<{ id: string; url: string; alt: string; crop_shape: string; display_width: number; display_height: number; sort_order: number; category: string }[]>([]);
   const [isLoadingFeatureImages, setIsLoadingFeatureImages] = useState(false);
   const [featureCropFile, setFeatureCropFile] = useState<File | null>(null);
   const featureFileRef = useRef<HTMLInputElement>(null);
+  const [featureImageCategory, setFeatureImageCategory] = useState<string>('partner');
 
   const fetchFeatureImages = async () => {
     setIsLoadingFeatureImages(true);
@@ -788,7 +790,7 @@ const AdminView: React.FC<Props> = ({
     try {
       const file = new File([blob], `feature-${Date.now()}.png`, { type: 'image/png' });
       const url = await uploadImage(file, 'quickserve', 'feature-images');
-      const { error } = await supabase.from('feature_images').insert({ url, alt: '', crop_shape: cropShape, display_width: width, display_height: height, sort_order: featureImages.length });
+      const { error } = await supabase.from('feature_images').insert({ url, alt: '', crop_shape: cropShape, display_width: width, display_height: height, sort_order: featureImages.length, category: featureImageCategory });
       if (error) throw error;
       toast('Feature image added!', 'success');
       fetchFeatureImages();
@@ -912,10 +914,10 @@ const AdminView: React.FC<Props> = ({
   };
 
   useEffect(() => {
-    if (activeTab === 'REPORTS') {
+    if (activeTab === 'INCOME_REPORT' && incomeReportSubTab === 'REPORTS') {
       fetchReport();
     }
-  }, [activeTab, reportStart, reportEnd, reportStatus, reportSearchQuery, reportVendor, reportHub, currentPage, entriesPerPage]);
+  }, [activeTab, incomeReportSubTab, reportStart, reportEnd, reportStatus, reportSearchQuery, reportVendor, reportHub, currentPage, entriesPerPage]);
 
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
   const paginatedReports = reportData?.orders || [];
@@ -1157,11 +1159,10 @@ const AdminView: React.FC<Props> = ({
           {([
             { id: 'VENDORS', label: 'Vendors', icon: Store },
             { id: 'LOCATIONS', label: 'Hubs', icon: MapPin },
-            { id: 'REPORTS', label: 'Reports', icon: TrendingUp },
-            { id: 'INCOME', label: 'Income', icon: DollarSign },
+            { id: 'INCOME_REPORT', label: 'Income & Report', icon: TrendingUp },
             { id: 'CASHOUT', label: 'Cashout', icon: Wallet },
             { id: 'SYSTEM', label: 'System', icon: Database },
-          ] as { id: 'VENDORS' | 'LOCATIONS' | 'REPORTS' | 'INCOME' | 'CASHOUT' | 'SYSTEM'; label: string; icon: React.ElementType }[]).map(item => (
+          ] as { id: 'VENDORS' | 'LOCATIONS' | 'INCOME_REPORT' | 'CASHOUT' | 'SYSTEM'; label: string; icon: React.ElementType }[]).map(item => (
             <button
               key={item.id}
               onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
@@ -1209,8 +1210,8 @@ const AdminView: React.FC<Props> = ({
             <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm">
               {activeTab === 'VENDORS' ? 'Vendors' :
                activeTab === 'LOCATIONS' ? 'Hubs' :
-               activeTab === 'REPORTS' ? 'Reports' :
-               activeTab === 'INCOME' ? 'Income' :
+               activeTab === 'INCOME_REPORT' ? 'Income & Report' :
+               activeTab === 'CASHOUT' ? 'Cashout' :
                'System'}
             </h1>
           </div>
@@ -1423,9 +1424,33 @@ const AdminView: React.FC<Props> = ({
           </div>
         )}
 
-        {activeTab === 'REPORTS' && (
+        {activeTab === 'INCOME_REPORT' && (
           <div>
-            <div className="px-4 md:px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* Sub-tab bar */}
+            <div className="px-4 md:px-8 pt-6 pb-0">
+              <div className="flex gap-0 relative mb-6">
+                {([
+                  { id: 'REPORTS' as const, label: 'Sales Report', icon: <TrendingUp size={14} /> },
+                  { id: 'INCOME' as const, label: 'Stripe Income', icon: <DollarSign size={14} /> },
+                ]).map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setIncomeReportSubTab(tab.id)}
+                    className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
+                      incomeReportSubTab === tab.id
+                        ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
+                        : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    {tab.icon} {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {incomeReportSubTab === 'REPORTS' && (
+            <div>
+            <div className="px-4 md:px-8 pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Sales Analysis</h3>
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Platform-wide order history, revenue and performance metrics</p>
@@ -1652,9 +1677,9 @@ const AdminView: React.FC<Props> = ({
               )}
             </div>
           </div>
-        )}
+            )}
 
-        {activeTab === 'INCOME' && (
+            {incomeReportSubTab === 'INCOME' && (
           <div className="p-4 md:p-8">
             <div className="mb-6">
               <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Stripe Income</h3>
@@ -1776,6 +1801,8 @@ const AdminView: React.FC<Props> = ({
                 </div>
               )}
             </div>
+          </div>
+            )}
           </div>
         )}
 
@@ -1917,76 +1944,150 @@ const AdminView: React.FC<Props> = ({
         )}
 
         {activeTab === 'SYSTEM' && (
-          <div className="p-4 md:p-8">
-            {/* Pitch Deck Button */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex gap-2">
-                {([{ id: 'STATUS', label: 'System Status', icon: <Activity size={16} /> }, { id: 'FEATURE_IMAGES', label: 'Feature Images', icon: <ImageIcon size={16} /> }] as const).map(t => (
-                <button key={t.id} onClick={() => setSystemSubTab(t.id)} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
-                  systemSubTab === t.id ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}>
-                  {t.icon} {t.label}
-                </button>
-              ))}
-              </div>
-              <button
-                onClick={() => setShowPitchDeck(true)}
-                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25"
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-4 md:p-8 pb-0 md:pb-0">
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">System</h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">System status, feature images, and tools.</p>
+                </div>
+                <button
+                  onClick={() => setShowPitchDeck(true)}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25"
               >
                 <FileText size={16} /> Pitch Deck
               </button>
-            </div>
+              </div>
+
+              {/* Document-style tab bar */}
+              <div className="flex gap-0 relative">
+                {([
+                  { id: 'STATUS' as const, label: 'System Status', icon: <Activity size={13} /> },
+                  { id: 'FEATURE_IMAGES' as const, label: 'Feature Images', icon: <ImageIcon size={13} /> },
+                ]).map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setSystemSubTab(tab.id)}
+                    style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                    className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
+                      systemSubTab === tab.id
+                        ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
+                        : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    {tab.icon} {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Sub-tab content */}
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl rounded-tr-2xl">
 
             {systemSubTab === 'STATUS' && <SystemStatusDashboard />}
 
             {systemSubTab === 'FEATURE_IMAGES' && (
               <div className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
                     <h3 className="text-lg font-black dark:text-white uppercase tracking-tight">Feature Images</h3>
-                    <p className="text-xs text-gray-400 mt-1">Logos shown in the partner carousel on the marketing page</p>
+                    <p className="text-xs text-gray-400 mt-1">Upload images for partner carousel and add-on features</p>
                   </div>
-                  <button
-                    onClick={() => featureFileRef.current?.click()}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-orange-500 text-white rounded-xl font-bold text-sm hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/25"
-                  >
-                    <Upload size={16} /> Add Image
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <select
+                      value={featureImageCategory}
+                      onChange={e => setFeatureImageCategory(e.target.value)}
+                      className="px-3 py-2.5 bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-xs font-bold dark:text-white outline-none"
+                    >
+                      <option value="partner">Partner Logos</option>
+                      <option value="backoffice">Back Office</option>
+                      <option value="table">Table Management</option>
+                      <option value="qr">QR Ordering</option>
+                      <option value="tableside">Tableside Ordering</option>
+                      <option value="kitchen">Kitchen Display</option>
+                      <option value="customer-display">Customer Display</option>
+                      <option value="online-shop">Online Shop</option>
+                    </select>
+                    <button
+                      onClick={() => featureFileRef.current?.click()}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-orange-500 text-white rounded-xl font-bold text-sm hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/25"
+                    >
+                      <Upload size={16} /> Add Image
+                    </button>
+                  </div>
                   <input type="file" ref={featureFileRef} className="hidden" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) setFeatureCropFile(f); e.target.value = ''; }} />
                 </div>
 
-                {isLoadingFeatureImages ? (
-                  <div className="text-center py-12 text-gray-400"><RefreshCw size={24} className="mx-auto animate-spin mb-2" /> Loading…</div>
-                ) : featureImages.length === 0 ? (
-                  <div className="text-center py-16 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl">
-                    <ImageIcon size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
-                    <p className="text-sm font-bold text-gray-400">No feature images yet</p>
-                    <p className="text-xs text-gray-400 mt-1">Upload partner logos to display on the landing page</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {featureImages.map((fi) => (
-                      <div key={fi.id} className="group relative bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-4 flex flex-col items-center gap-3 hover:border-orange-500/50 transition-all">
-                        <div className={`flex items-center justify-center w-full h-20 ${
-                          fi.crop_shape === 'circle' ? 'rounded-full' : 'rounded-lg'
-                        } overflow-hidden bg-white dark:bg-gray-900`}>
-                          <img src={fi.url} alt={fi.alt} className="max-h-full max-w-full object-contain" />
+                {/* Category filter tabs */}
+                <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar">
+                  {[
+                    { id: 'all', label: 'All' },
+                    { id: 'partner', label: 'Partner Logos' },
+                    { id: 'backoffice', label: 'Back Office' },
+                    { id: 'table', label: 'Table Mgmt' },
+                    { id: 'qr', label: 'QR Ordering' },
+                    { id: 'tableside', label: 'Tableside' },
+                    { id: 'kitchen', label: 'Kitchen' },
+                    { id: 'customer-display', label: 'Customer Display' },
+                    { id: 'online-shop', label: 'Online Shop' },
+                  ].map(cat => {
+                    const count = cat.id === 'all' ? featureImages.length : featureImages.filter(fi => (fi.category || 'partner') === cat.id).length;
+                    return (
+                      <button
+                        key={cat.id}
+                        onClick={() => setFeatureImageCategory(cat.id === 'all' ? 'partner' : cat.id)}
+                        className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${
+                          (cat.id === 'all' && featureImageCategory === 'partner') || featureImageCategory === cat.id
+                            ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 shadow-sm'
+                            : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        {cat.label}
+                        {count > 0 && <span className="text-[8px] bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 rounded-full px-1.5 py-0.5">{count}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {(() => {
+                  const filtered = featureImages.filter(fi => (fi.category || 'partner') === featureImageCategory);
+                  return isLoadingFeatureImages ? (
+                    <div className="text-center py-12 text-gray-400"><RefreshCw size={24} className="mx-auto animate-spin mb-2" /> Loading…</div>
+                  ) : filtered.length === 0 ? (
+                    <div className="text-center py-16 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl">
+                      <ImageIcon size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                      <p className="text-sm font-bold text-gray-400">No images in this category</p>
+                      <p className="text-xs text-gray-400 mt-1">Select a category above and click "Add Image" to upload</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                      {filtered.map((fi) => (
+                        <div key={fi.id} className="group relative bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-4 flex flex-col items-center gap-3 hover:border-orange-500/50 transition-all">
+                          <div className={`flex items-center justify-center w-full h-20 ${
+                            fi.crop_shape === 'circle' ? 'rounded-full' : 'rounded-lg'
+                          } overflow-hidden bg-white dark:bg-gray-900`}>
+                            <img src={fi.url} alt={fi.alt} className="max-h-full max-w-full object-contain" />
+                          </div>
+                          <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider text-center">
+                            {fi.display_width}×{fi.display_height} · {fi.crop_shape}
+                          </div>
+                          <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                            {fi.category || 'partner'}
+                          </span>
+                          <button
+                            onClick={() => deleteFeatureImage(fi.id)}
+                            className="absolute top-2 right-2 p-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100 dark:hover:bg-red-900/40"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
-                        <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">
-                          {fi.display_width}×{fi.display_height} · {fi.crop_shape}
-                        </div>
-                        <button
-                          onClick={() => deleteFeatureImage(fi.id)}
-                          className="absolute top-2 right-2 p-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100 dark:hover:bg-red-900/40"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             )}
+              </div>
+            </div>
           </div>
         )}
 
