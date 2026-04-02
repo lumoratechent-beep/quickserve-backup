@@ -25,7 +25,7 @@ import {
   Filter, Tag, Layers, Coffee, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeftRight, RotateCw, Wifi, WifiOff,
   Receipt, Network, Type, MessageSquare, Zap, Briefcase, PlusCircle, Puzzle,
   ArrowLeft, Star, Package, Monitor, Info, ExternalLink,
-  Tablet, Globe, ShoppingCart, Wallet, ArrowUpRight, ArrowDownRight, Building2, Banknote, Send, Copy, Truck, Mail,
+  Tablet, Smartphone, Globe, ShoppingCart, Wallet, ArrowUpRight, ArrowDownRight, Building2, Banknote, Send, Copy, Truck, Mail,
   MoreVertical, Lock, ImagePlus, EyeOff, User, Link2
 } from 'lucide-react';
 
@@ -5279,161 +5279,346 @@ const PosOnlyView: React.FC<Props> = ({
           )}
 
           {/* Settings Tab */}
-          {activeTab === 'SETTINGS' && (
-            <div className="flex-1 overflow-y-auto p-4 md:p-8">
-              <div className="animate-in fade-in duration-500">
+          {activeTab === 'SETTINGS' && (() => {
+            const settingsTabs: Array<{ key: SettingsPanel; label: string; info: string; icon: React.ElementType; badge: string }> =
+              isKitchenUser
+                ? [
+                    {
+                      key: 'builtin',
+                      label: 'Kitchen Orders',
+                      info: 'Configure how kitchen orders are accepted and printed.',
+                      icon: Coffee,
+                      badge: 'Automation'
+                    },
+                    {
+                      key: 'printer',
+                      label: 'Printer',
+                      info: 'Connect printers and manage printer profiles.',
+                      icon: Printer,
+                      badge: 'Hardware'
+                    },
+                    {
+                      key: 'receipt',
+                      label: 'Receipt',
+                      info: 'Configure receipt text, fields, and printing behavior.',
+                      icon: Receipt,
+                      badge: 'Layout'
+                    },
+                  ]
+                : [
+                    {
+                      key: 'builtin',
+                      label: 'Features',
+                      info: 'Core POS behavior such as cashier and dining options.',
+                      icon: Layers,
+                      badge: 'Core'
+                    },
+                    {
+                      key: 'printer',
+                      label: 'Printer',
+                      info: 'Connect printers and manage printer profiles.',
+                      icon: Printer,
+                      badge: 'Hardware'
+                    },
+                    {
+                      key: 'receipt',
+                      label: 'Receipt',
+                      info: 'Configure receipt text, fields, and printing behavior.',
+                      icon: Receipt,
+                      badge: 'Layout'
+                    },
+                    {
+                      key: 'payment',
+                      label: 'Payment & Taxes',
+                      info: 'Manage payment methods and tax rules.',
+                      icon: CreditCard,
+                      badge: 'Finance'
+                    },
+                    {
+                      key: 'staff',
+                      label: 'Staff',
+                      info: 'Manage staff accounts and permissions.',
+                      icon: Users,
+                      badge: 'Access'
+                    },
+                  ];
 
-                {/* ── Header ── */}
-                <div className="pt-1 pb-0">
-                  <h1 className="text-lg md:text-xl font-semibold dark:text-white">{restaurant.name}</h1>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Manage your settings and preferences here.</p>
-                </div>
+            const hasVisiblePanel = settingsTabs.some(tab => tab.key === settingsPanel);
+            const activeSettingsPanel = hasVisiblePanel ? settingsPanel : settingsTabs[0].key;
+            const activeSettingsTab = settingsTabs.find(tab => tab.key === activeSettingsPanel) || settingsTabs[0];
+            const ActiveSettingsIcon = activeSettingsTab.icon;
 
-                {/* ── Horizontal Tab Bar ── */}
-                <div className="mt-5 border-b border-gray-200 dark:border-gray-700">
-                  <nav className="flex overflow-x-auto no-scrollbar -mb-px gap-1">
-                    {(isKitchenUser
-                      ? ([
-                          { key: 'builtin' as SettingsPanel, label: 'Kitchen Orders', info: 'Configure how kitchen orders are accepted and printed.' },
-                          { key: 'printer' as SettingsPanel, label: 'Printer', info: 'Connect printers and manage printer profiles.' },
-                          { key: 'receipt' as SettingsPanel, label: 'Receipt', info: 'Configure receipt text, fields, and printing behavior.' },
-                        ])
-                      : ([
-                          { key: 'builtin' as SettingsPanel, label: 'Features', info: 'Core POS behavior such as cashier and dining options.' },
-                          { key: 'printer' as SettingsPanel, label: 'Printer', info: 'Connect printers and manage printer profiles.' },
-                          { key: 'receipt' as SettingsPanel, label: 'Receipt', info: 'Configure receipt text, fields, and printing behavior.' },
-                          { key: 'payment' as SettingsPanel, label: 'Payment & Taxes', info: 'Manage payment methods and tax rules.' },
-                          { key: 'staff' as SettingsPanel, label: 'Staff', info: 'Manage staff accounts and permissions.' },
-                        ])
-                    ).map(tab => (
-                      <button
-                        key={tab.key}
-                        onClick={() => setSettingsPanel(tab.key)}
-                        className={`whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-all border-b-2 ${
-                          settingsPanel === tab.key
-                            ? 'border-orange-500 text-orange-600 dark:text-orange-400'
-                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-500'
-                        }`}
-                      >
-                        <span>{tab.label}</span>
-                        <span
-                          title={tab.info}
-                          className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border border-current/40 text-[10px] leading-none opacity-80"
-                        >
-                          i
-                        </span>
-                      </button>
-                    ))}
-                  </nav>
-                </div>
+            const enabledFeatureCount = [
+              featureSettings.autoPrintReceipt,
+              featureSettings.autoOpenDrawer,
+              featureSettings.dineInEnabled,
+              featureSettings.takeawayEnabled,
+              featureSettings.deliveryEnabled,
+              featureSettings.savedBillEnabled,
+              featureSettings.tableManagementEnabled,
+              featureSettings.floorEnabled,
+              featureSettings.customerDisplayEnabled,
+              featureSettings.kitchenEnabled,
+              featureSettings.qrEnabled,
+              featureSettings.tablesideOrderingEnabled,
+              featureSettings.onlineShopEnabled,
+            ].filter(Boolean).length;
 
-                {/* ── Content Area ── */}
-                <div className="py-6">
-                  <div className="w-full">
+            const panelMetaLine = (() => {
+              switch (activeSettingsPanel) {
+                case 'builtin':
+                  return isKitchenUser
+                    ? `${kitchenOrderSettings.autoAccept ? 'Auto-accept enabled' : 'Auto-accept disabled'} · ${kitchenOrderSettings.autoPrint ? 'Auto-print enabled' : 'Auto-print disabled'}`
+                    : `${enabledFeatureCount} feature toggle${enabledFeatureCount !== 1 ? 's' : ''} enabled`;
+                case 'printer':
+                  return `${savedPrinters.length} printer profile${savedPrinters.length !== 1 ? 's' : ''} configured`;
+                case 'receipt':
+                  return `${receiptConfig.autoPrintAfterSale ? 'Auto-print after sale enabled' : 'Manual print after sale'} · ${receiptConfig.businessPhone ? 'Business phone shown' : 'Business phone not set'}`;
+                case 'payment':
+                  return `${paymentTypes.length} payment type${paymentTypes.length !== 1 ? 's' : ''} · ${taxEntries.length} tax rule${taxEntries.length !== 1 ? 's' : ''}`;
+                case 'staff':
+                  return `${staffList.length} staff account${staffList.length !== 1 ? 's' : ''} managed in this outlet`;
+                default:
+                  return '';
+              }
+            })();
 
-                    {/* Kitchen user: Kitchen Order Settings */}
-                    {isKitchenUser && settingsPanel === 'builtin' && (
-                      <div className="min-w-0 divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
-                          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5">
-                            <div>
-                              <p className="text-sm font-medium text-gray-900 dark:text-white">Auto-Accept</p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Automatically accept incoming orders</p>
-                            </div>
-                            <div className="flex items-center">
-                              <button
-                                onClick={() => toggleKitchenOrderSetting('autoAccept')}
-                                className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoAccept ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+            return (
+              <div className="relative flex-1 overflow-y-auto bg-gradient-to-b from-slate-50 via-white to-orange-50/40 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950">
+                <div className="mx-auto w-full max-w-[1480px] px-3 pb-8 pt-3 sm:px-5 sm:pt-5 lg:px-8 lg:pt-6">
+                  <div className="animate-in fade-in duration-500 space-y-4 lg:space-y-6">
+                    <section className="relative overflow-hidden rounded-3xl border border-slate-200/80 bg-white/90 p-4 shadow-[0_20px_65px_-45px_rgba(15,23,42,0.55)] backdrop-blur-sm dark:border-gray-700/80 dark:bg-gray-800/80 sm:p-6 lg:p-7">
+                      <div className="absolute -right-24 -top-20 h-52 w-52 rounded-full bg-orange-200/40 blur-3xl dark:bg-orange-500/10" />
+                      <div className="absolute -left-16 -bottom-24 h-56 w-56 rounded-full bg-amber-100/40 blur-3xl dark:bg-amber-500/10" />
+
+                      <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                        <div>
+                          <p className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-100/70 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-600 dark:border-gray-600 dark:bg-gray-700/70 dark:text-gray-300">
+                            <Settings size={12} />
+                            POS Settings Center
+                          </p>
+                          <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-3xl">{restaurant.name}</h1>
+                          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-gray-300 sm:text-[15px]">
+                            A redesigned settings workspace with clear navigation and structured controls for quick updates across features, printers, receipts, payments, and staff.
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                          <div className="rounded-2xl border border-slate-200 bg-white/85 px-3 py-2 text-center dark:border-gray-600 dark:bg-gray-700/70">
+                            <Monitor size={14} className="mx-auto text-slate-600 dark:text-gray-200" />
+                            <p className="mt-1 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-gray-200">Laptop</p>
+                          </div>
+                          <div className="rounded-2xl border border-slate-200 bg-white/85 px-3 py-2 text-center dark:border-gray-600 dark:bg-gray-700/70">
+                            <Tablet size={14} className="mx-auto text-slate-600 dark:text-gray-200" />
+                            <p className="mt-1 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-gray-200">Tablet</p>
+                          </div>
+                          <div className="rounded-2xl border border-slate-200 bg-white/85 px-3 py-2 text-center dark:border-gray-600 dark:bg-gray-700/70">
+                            <Smartphone size={14} className="mx-auto text-slate-600 dark:text-gray-200" />
+                            <p className="mt-1 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-gray-200">Phone</p>
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-6">
+                      <aside className="space-y-3 lg:sticky lg:top-4 lg:self-start">
+                        <div className="rounded-2xl border border-slate-200/80 bg-white/95 p-3 shadow-sm dark:border-gray-700/80 dark:bg-gray-800/90">
+                          <div className="sm:hidden">
+                            <label className="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">Settings Panel</label>
+                            <div className="relative">
+                              <select
+                                value={activeSettingsPanel}
+                                onChange={(e) => setSettingsPanel(e.target.value as SettingsPanel)}
+                                className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 pr-8 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-orange-400 focus:ring-2 focus:ring-orange-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:focus:border-orange-400 dark:focus:ring-orange-500/20"
                               >
-                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${kitchenOrderSettings.autoAccept ? 'left-6' : 'left-1'}`} />
-                              </button>
+                                {settingsTabs.map(tab => (
+                                  <option key={tab.key} value={tab.key}>{tab.label}</option>
+                                ))}
+                              </select>
+                              <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-400" />
                             </div>
                           </div>
-                          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5">
-                            <div>
-                              <p className="text-sm font-medium text-gray-900 dark:text-white">Auto-Print</p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Automatically print accepted orders</p>
-                            </div>
-                            <div className="flex items-center">
-                              <button
-                                onClick={() => toggleKitchenOrderSetting('autoPrint')}
-                                className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoPrint ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                              >
-                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${kitchenOrderSettings.autoPrint ? 'left-6' : 'left-1'}`} />
-                              </button>
-                            </div>
+
+                          <div className="hidden sm:grid grid-cols-2 gap-2 lg:hidden">
+                            {settingsTabs.map(tab => {
+                              const Icon = tab.icon;
+                              const isActive = activeSettingsPanel === tab.key;
+                              return (
+                                <button
+                                  key={tab.key}
+                                  onClick={() => setSettingsPanel(tab.key)}
+                                  className={`rounded-xl border px-3 py-3 text-left transition-all ${
+                                    isActive
+                                      ? 'border-orange-300 bg-orange-50 text-orange-700 shadow-sm dark:border-orange-500/50 dark:bg-orange-500/10 dark:text-orange-300'
+                                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-gray-600 dark:bg-gray-700/60 dark:text-gray-200 dark:hover:border-gray-500 dark:hover:bg-gray-700'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Icon size={15} />
+                                    <span className="text-sm font-semibold leading-tight">{tab.label}</span>
+                                  </div>
+                                  <p className="mt-1 text-[10px] font-medium uppercase tracking-wider opacity-75">{tab.badge}</p>
+                                </button>
+                              );
+                            })}
                           </div>
-                      </div>
-                    )}
 
-                    {/* Non-kitchen: Built-in Features */}
-                    {!isKitchenUser && settingsPanel === 'builtin' && (
-                      <div className="min-w-0">{renderFeaturesContent()}</div>
-                    )}
+                          <div className="hidden lg:block space-y-2">
+                            {settingsTabs.map(tab => {
+                              const Icon = tab.icon;
+                              const isActive = activeSettingsPanel === tab.key;
+                              return (
+                                <button
+                                  key={tab.key}
+                                  onClick={() => setSettingsPanel(tab.key)}
+                                  className={`w-full rounded-xl border px-3.5 py-3 text-left transition-all ${
+                                    isActive
+                                      ? 'border-orange-300 bg-orange-50 text-orange-700 shadow-sm dark:border-orange-500/50 dark:bg-orange-500/10 dark:text-orange-300'
+                                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-gray-600 dark:bg-gray-700/60 dark:text-gray-200 dark:hover:border-gray-500 dark:hover:bg-gray-700'
+                                  }`}
+                                >
+                                  <div className="flex items-start gap-2.5">
+                                    <span className="mt-0.5 rounded-lg bg-slate-100 p-1.5 text-slate-600 dark:bg-gray-700 dark:text-gray-200"><Icon size={14} /></span>
+                                    <span className="min-w-0">
+                                      <span className="block text-sm font-semibold leading-tight">{tab.label}</span>
+                                      <span className="mt-1 block text-[11px] leading-tight text-slate-500 dark:text-gray-400">{tab.info}</span>
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
 
-                    {/* Printer */}
-                    {settingsPanel === 'printer' && (
-                      <div className="min-w-0">
-                          <PrinterSettings
-                            restaurantId={restaurant.id}
-                            restaurantName={restaurant.name}
-                            categories={allFoodCategories}
-                            initialTab="printers"
-                            visibleTabs={['printers']}
-                            savedPrinters={savedPrinters}
-                            receiptConfig={receiptConfig}
-                            kitchenConfig={kitchenConfig}
-                            onPrintersChange={(printers) => setSavedPrinters(printers)}
-                            onReceiptConfigChange={(config) => setReceiptConfig(config)}
-                            onKitchenConfigChange={(config) => setKitchenConfig(config)}
-                            onPrinterConnected={(device) => {
-                              setConnectedDevice(device);
-                              setRealPrinterConnected(true);
-                              localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
-                            }}
-                          />
-                      </div>
-                    )}
+                        <div className="rounded-2xl border border-slate-200/80 bg-white/95 p-4 text-xs text-slate-600 shadow-sm dark:border-gray-700/80 dark:bg-gray-800/90 dark:text-gray-300">
+                          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">Current Focus</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{activeSettingsTab.label}</p>
+                          <p className="mt-1 leading-relaxed text-slate-500 dark:text-gray-400">{activeSettingsTab.info}</p>
+                        </div>
+                      </aside>
 
-                    {/* Receipt */}
-                    {settingsPanel === 'receipt' && (
-                      <div className="min-w-0">
-                          <PrinterSettings
-                            restaurantId={restaurant.id}
-                            restaurantName={restaurant.name}
-                            categories={allFoodCategories}
-                            initialTab="receipts"
-                            visibleTabs={['receipts']}
-                            savedPrinters={savedPrinters}
-                            receiptConfig={receiptConfig}
-                            kitchenConfig={kitchenConfig}
-                            onPrintersChange={(printers) => setSavedPrinters(printers)}
-                            onReceiptConfigChange={(config) => setReceiptConfig(config)}
-                            onKitchenConfigChange={(config) => setKitchenConfig(config)}
-                            onPrinterConnected={(device) => {
-                              setConnectedDevice(device);
-                              setRealPrinterConnected(true);
-                              localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
-                            }}
-                          />
-                      </div>
-                    )}
+                      <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_16px_45px_-40px_rgba(15,23,42,0.7)] backdrop-blur-sm dark:border-gray-700/80 dark:bg-gray-800/90">
+                        <div className="border-b border-slate-200/80 px-4 py-4 dark:border-gray-700/80 sm:px-6 sm:py-5">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="flex items-start gap-3">
+                              <div className="rounded-xl border border-orange-200 bg-orange-50 p-2 text-orange-600 dark:border-orange-500/40 dark:bg-orange-500/10 dark:text-orange-300">
+                                <ActiveSettingsIcon size={18} />
+                              </div>
+                              <div>
+                                <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">{activeSettingsTab.label}</h2>
+                                <p className="mt-0.5 text-sm text-slate-500 dark:text-gray-400">{activeSettingsTab.info}</p>
+                              </div>
+                            </div>
+                            <span className="inline-flex w-fit items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600 dark:border-gray-600 dark:bg-gray-700/80 dark:text-gray-300">{activeSettingsTab.badge}</span>
+                          </div>
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[11px] font-semibold text-orange-700 dark:border-orange-500/40 dark:bg-orange-500/10 dark:text-orange-300">{panelMetaLine}</span>
+                            <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:border-gray-600 dark:bg-gray-700/80 dark:text-gray-300">Responsive for phone, tablet, and laptop</span>
+                          </div>
+                        </div>
 
-                    {/* Payment & Taxes */}
-                    {settingsPanel === 'payment' && (
-                      <div className="min-w-0">{renderPaymentAndTaxesContent()}</div>
-                    )}
+                        <div className="px-4 py-4 sm:px-6 sm:py-6">
+                          {isKitchenUser && activeSettingsPanel === 'builtin' && (
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-gray-700 dark:bg-gray-900/30">
+                                  <div className="mb-3">
+                                    <p className="text-sm font-semibold text-slate-900 dark:text-white">Auto-Accept</p>
+                                    <p className="mt-0.5 text-xs text-slate-500 dark:text-gray-400">Automatically accept incoming kitchen orders.</p>
+                                  </div>
+                                  <button
+                                    onClick={() => toggleKitchenOrderSetting('autoAccept')}
+                                    className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoAccept ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                  >
+                                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${kitchenOrderSettings.autoAccept ? 'left-6' : 'left-1'}`} />
+                                  </button>
+                                </div>
 
-                    {/* Staff */}
-                    {settingsPanel === 'staff' && (
-                      <div className="min-w-0">{renderStaffContent()}</div>
-                    )}
+                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-gray-700 dark:bg-gray-900/30">
+                                  <div className="mb-3">
+                                    <p className="text-sm font-semibold text-slate-900 dark:text-white">Auto-Print</p>
+                                    <p className="mt-0.5 text-xs text-slate-500 dark:text-gray-400">Automatically print accepted kitchen orders.</p>
+                                  </div>
+                                  <button
+                                    onClick={() => toggleKitchenOrderSetting('autoPrint')}
+                                    className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoPrint ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                  >
+                                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${kitchenOrderSettings.autoPrint ? 'left-6' : 'left-1'}`} />
+                                  </button>
+                                </div>
+                              </div>
 
+                              <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300">
+                                These automation toggles update instantly and apply to incoming kitchen workflow across this device profile.
+                              </div>
+                            </div>
+                          )}
+
+                          {!isKitchenUser && activeSettingsPanel === 'builtin' && (
+                            <div className="min-w-0">{renderFeaturesContent()}</div>
+                          )}
+
+                          {activeSettingsPanel === 'printer' && (
+                            <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-slate-50/70 p-3 dark:border-gray-700/70 dark:bg-gray-900/30 sm:p-4">
+                              <PrinterSettings
+                                restaurantId={restaurant.id}
+                                restaurantName={restaurant.name}
+                                categories={allFoodCategories}
+                                initialTab="printers"
+                                visibleTabs={['printers']}
+                                savedPrinters={savedPrinters}
+                                receiptConfig={receiptConfig}
+                                kitchenConfig={kitchenConfig}
+                                onPrintersChange={(printers) => setSavedPrinters(printers)}
+                                onReceiptConfigChange={(config) => setReceiptConfig(config)}
+                                onKitchenConfigChange={(config) => setKitchenConfig(config)}
+                                onPrinterConnected={(device) => {
+                                  setConnectedDevice(device);
+                                  setRealPrinterConnected(true);
+                                  localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
+                                }}
+                              />
+                            </div>
+                          )}
+
+                          {activeSettingsPanel === 'receipt' && (
+                            <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-slate-50/70 p-3 dark:border-gray-700/70 dark:bg-gray-900/30 sm:p-4">
+                              <PrinterSettings
+                                restaurantId={restaurant.id}
+                                restaurantName={restaurant.name}
+                                categories={allFoodCategories}
+                                initialTab="receipts"
+                                visibleTabs={['receipts']}
+                                savedPrinters={savedPrinters}
+                                receiptConfig={receiptConfig}
+                                kitchenConfig={kitchenConfig}
+                                onPrintersChange={(printers) => setSavedPrinters(printers)}
+                                onReceiptConfigChange={(config) => setReceiptConfig(config)}
+                                onKitchenConfigChange={(config) => setKitchenConfig(config)}
+                                onPrinterConnected={(device) => {
+                                  setConnectedDevice(device);
+                                  setRealPrinterConnected(true);
+                                  localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
+                                }}
+                              />
+                            </div>
+                          )}
+
+                          {activeSettingsPanel === 'payment' && (
+                            <div className="min-w-0">{renderPaymentAndTaxesContent()}</div>
+                          )}
+
+                          {activeSettingsPanel === 'staff' && (
+                            <div className="min-w-0">{renderStaffContent()}</div>
+                          )}
+                        </div>
+                      </section>
+                    </div>
                   </div>
                 </div>
-
               </div>
-            </div>
-          )}
+            );
+          })()}
 
         {showAddClassModal && (
           <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
