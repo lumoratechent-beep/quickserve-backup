@@ -2971,8 +2971,8 @@ const PosOnlyView: React.FC<Props> = ({
       ) : (
         <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700 mb-5">
           {staffList.map((staff: any, idx: number) => (
-            <div key={idx} className="flex items-center justify-between py-4">
-              <div className="pr-4">
+            <div key={idx} className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-4">
+              <div>
                 <p className="text-sm font-medium text-gray-900 dark:text-white">{staff.username}</p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
@@ -2989,7 +2989,7 @@ const PosOnlyView: React.FC<Props> = ({
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex items-center justify-end gap-1">
                 <button
                   onClick={() => handleEditStaff(staff, idx)}
                   className="p-2 text-gray-400 hover:text-orange-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"
@@ -3019,106 +3019,114 @@ const PosOnlyView: React.FC<Props> = ({
 
   const renderUXContent = () => (
     <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-5 first:pt-0">
-        <div className="sm:pr-8">
+      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 first:pt-0">
+        <div>
           <p className="text-sm font-medium text-gray-900 dark:text-white">Font Family</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">This only applies to your screen</p>
         </div>
-        <select
-          value={userFont}
-          onChange={e => setUserFont(e.target.value)}
-          className="w-full sm:w-56 shrink-0 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
-          style={{ fontFamily: `'${userFont}', sans-serif` }}
-        >
-          {FONT_OPTIONS.map(f => <option key={f} value={f} style={{ fontFamily: `'${f}', sans-serif` }}>{f}</option>)}
-        </select>
+        <div className="flex items-center">
+          <select
+            value={userFont}
+            onChange={e => setUserFont(e.target.value)}
+            className="w-full sm:w-56 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
+            style={{ fontFamily: `'${userFont}', sans-serif` }}
+          >
+            {FONT_OPTIONS.map(f => <option key={f} value={f} style={{ fontFamily: `'${f}', sans-serif` }}>{f}</option>)}
+          </select>
+        </div>
       </div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-5 last:pb-0">
-        <div className="sm:pr-8">
+      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 last:pb-0">
+        <div>
           <p className="text-sm font-medium text-gray-900 dark:text-white">Currency</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Currency symbol shown on prices</p>
         </div>
-        <select
-          value={userCurrency}
-          onChange={e => setUserCurrency(e.target.value)}
-          className="w-full sm:w-56 shrink-0 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
-        >
-          {CURRENCY_OPTIONS.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
-        </select>
+        <div className="flex items-center">
+          <select
+            value={userCurrency}
+            onChange={e => setUserCurrency(e.target.value)}
+            className="w-full sm:w-56 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
+          >
+            {CURRENCY_OPTIONS.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+          </select>
+        </div>
       </div>
     </div>
   );
 
   const renderFeaturesContent = () => (
     <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
-      {/* Section: Cashier */}
-      <div className="py-5 first:pt-0">
-        <p className="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">Cashier Options</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Configure automatic behaviors after checkout.</p>
+      {/* Section header: Cashier */}
+      <div className="py-6 first:pt-0">
+        <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Cashier Options</p>
         <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
-          <div className="flex items-center justify-between py-4">
-            <div className="pr-8">
+          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5">
+            <div>
               <p className="text-sm font-medium text-gray-900 dark:text-white">Auto-Print Receipt</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Print automatically after checkout</p>
             </div>
-            <button
-              onClick={() => updateFeatureSetting('autoPrintReceipt', !featureSettings.autoPrintReceipt)}
-              className={`shrink-0 w-11 h-6 rounded-full transition-all relative ${featureSettings.autoPrintReceipt ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-            >
-              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.autoPrintReceipt ? 'left-6' : 'left-1'}`} />
-            </button>
+            <div className="flex items-center">
+              <button
+                onClick={() => updateFeatureSetting('autoPrintReceipt', !featureSettings.autoPrintReceipt)}
+                className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.autoPrintReceipt ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.autoPrintReceipt ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
           </div>
-          <div className="flex items-center justify-between py-4">
-            <div className="pr-8">
+          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5">
+            <div>
               <p className="text-sm font-medium text-gray-900 dark:text-white">Auto Open Drawer</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Open cash drawer after checkout</p>
             </div>
-            <button
-              onClick={() => updateFeatureSetting('autoOpenDrawer', !featureSettings.autoOpenDrawer)}
-              className={`shrink-0 w-11 h-6 rounded-full transition-all relative ${featureSettings.autoOpenDrawer ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-            >
-              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.autoOpenDrawer ? 'left-6' : 'left-1'}`} />
-            </button>
+            <div className="flex items-center">
+              <button
+                onClick={() => updateFeatureSetting('autoOpenDrawer', !featureSettings.autoOpenDrawer)}
+                className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.autoOpenDrawer ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.autoOpenDrawer ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Section: Dining */}
-      <div className="py-5">
-        <p className="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">Dining Options</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Choose which order types your POS supports.</p>
+      {/* Section header: Dining */}
+      <div className="py-6">
+        <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Dining Options</p>
         <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
           {([
             { key: 'dineInEnabled' as const, label: 'Dine-in', desc: 'Allow dine-in orders' },
             { key: 'takeawayEnabled' as const, label: 'Takeaway', desc: 'Allow takeaway orders' },
             { key: 'deliveryEnabled' as const, label: 'Delivery', desc: 'Allow delivery orders' },
           ]).map(item => (
-            <div key={item.key} className="flex items-center justify-between py-4">
-              <div className="pr-8">
+            <div key={item.key} className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5">
+              <div>
                 <p className="text-sm font-medium text-gray-900 dark:text-white">{item.label}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{item.desc}</p>
               </div>
-              <button
-                onClick={() => updateFeatureSetting(item.key, !featureSettings[item.key])}
-                className={`shrink-0 w-11 h-6 rounded-full transition-all relative ${featureSettings[item.key] ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-              >
-                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings[item.key] ? 'left-6' : 'left-1'}`} />
-              </button>
+              <div className="flex items-center">
+                <button
+                  onClick={() => updateFeatureSetting(item.key, !featureSettings[item.key])}
+                  className={`w-11 h-6 rounded-full transition-all relative ${featureSettings[item.key] ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings[item.key] ? 'left-6' : 'left-1'}`} />
+                </button>
+              </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Section: Display */}
-      <div className="py-5 last:pb-0">
-        <div className="flex items-center justify-between">
-          <div className="pr-8">
-            <p className="text-sm font-medium text-gray-900 dark:text-white">Customer Display</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Enable external customer-facing display</p>
-          </div>
+      {/* Customer Display */}
+      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-6 last:pb-0">
+        <div>
+          <p className="text-sm font-medium text-gray-900 dark:text-white">Customer Display</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Enable external customer-facing display</p>
+        </div>
+        <div className="flex items-center">
           <button
             onClick={() => updateFeatureSetting('customerDisplayEnabled', !featureSettings.customerDisplayEnabled)}
-            className={`shrink-0 w-11 h-6 rounded-full transition-all relative ${featureSettings.customerDisplayEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+            className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.customerDisplayEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
           >
             <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.customerDisplayEnabled ? 'left-6' : 'left-1'}`} />
           </button>
@@ -3130,37 +3138,39 @@ const PosOnlyView: React.FC<Props> = ({
   const renderTableManagementContent = () => (
     <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
       {/* Saved Bill toggle */}
-      <div className="flex items-center justify-between py-5 first:pt-0">
-        <div className="pr-8">
+      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 first:pt-0">
+        <div>
           <p className="text-sm font-medium text-gray-900 dark:text-white">Saved Bill & Table Management</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Allow counter to save pending bills by table</p>
         </div>
-        <button
-          onClick={() => {
-            setFeatureSettings(prev => {
-              const nextEnabled = !prev.savedBillEnabled;
-              return {
-                ...prev,
-                savedBillEnabled: nextEnabled,
-                tableManagementEnabled: nextEnabled,
-              };
-            });
-          }}
-          className={`shrink-0 w-11 h-6 rounded-full transition-all relative ${featureSettings.savedBillEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-        >
-          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.savedBillEnabled ? 'left-6' : 'left-1'}`} />
-        </button>
+        <div className="flex items-center">
+          <button
+            onClick={() => {
+              setFeatureSettings(prev => {
+                const nextEnabled = !prev.savedBillEnabled;
+                return {
+                  ...prev,
+                  savedBillEnabled: nextEnabled,
+                  tableManagementEnabled: nextEnabled,
+                };
+              });
+            }}
+            className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.savedBillEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+          >
+            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.savedBillEnabled ? 'left-6' : 'left-1'}`} />
+          </button>
+        </div>
       </div>
 
       {/* Table Layout */}
       <div className="py-5">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div className="sm:pr-8">
+        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8">
+          <div>
             <p className="text-sm font-medium text-gray-900 dark:text-white">Table Layout</p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Set total tables and columns — rows are calculated automatically</p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Rows: {Math.ceil((parsePositiveIntegerDraft(tableCountDraft) ?? featureSettings.tableCount) / (parsePositiveIntegerDraft(tableColumnsDraft) ?? featureSettings.tableColumns))} (auto-calculated)</p>
           </div>
-          <div className={`flex gap-3 shrink-0 transition-opacity ${featureSettings.savedBillEnabled ? '' : 'opacity-50 pointer-events-none'}`}>
+          <div className={`flex gap-3 transition-opacity ${featureSettings.savedBillEnabled ? '' : 'opacity-50 pointer-events-none'}`}>
             <div>
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Tables</label>
               <input
@@ -3210,44 +3220,48 @@ const PosOnlyView: React.FC<Props> = ({
       </div>
 
       {/* Floor Management */}
-      <div className="flex items-center justify-between py-5">
-        <div className="pr-8">
+      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5">
+        <div>
           <p className="text-sm font-medium text-gray-900 dark:text-white">Enable Floors</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Organize tables by floor level (max 5 floors)</p>
         </div>
-        <button
-          onClick={() => {
-            setFeatureSettings(prev => ({
-              ...prev,
-              floorEnabled: !prev.floorEnabled,
-              floorCount: !prev.floorEnabled ? (prev.floorCount || 1) : prev.floorCount,
-            }));
-            setSelectedFloor(1);
-            setModalSelectedFloor(1);
-          }}
-          disabled={!featureSettings.savedBillEnabled}
-          className={`shrink-0 w-11 h-6 rounded-full transition-all relative ${featureSettings.floorEnabled && featureSettings.savedBillEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'} ${!featureSettings.savedBillEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.floorEnabled && featureSettings.savedBillEnabled ? 'left-6' : 'left-1'}`} />
-        </button>
+        <div className="flex items-center">
+          <button
+            onClick={() => {
+              setFeatureSettings(prev => ({
+                ...prev,
+                floorEnabled: !prev.floorEnabled,
+                floorCount: !prev.floorEnabled ? (prev.floorCount || 1) : prev.floorCount,
+              }));
+              setSelectedFloor(1);
+              setModalSelectedFloor(1);
+            }}
+            disabled={!featureSettings.savedBillEnabled}
+            className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.floorEnabled && featureSettings.savedBillEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'} ${!featureSettings.savedBillEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.floorEnabled && featureSettings.savedBillEnabled ? 'left-6' : 'left-1'}`} />
+          </button>
+        </div>
       </div>
 
       {/* Floor count input */}
       {featureSettings.floorEnabled && featureSettings.savedBillEnabled && (
         <div className="py-5 last:pb-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="sm:pr-8">
+          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8">
+            <div>
               <p className="text-sm font-medium text-gray-900 dark:text-white">Number of Floors</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Each floor has {featureSettings.tableCount} tables. Labels: <span className="font-semibold text-orange-500">F1-1</span>, <span className="font-semibold text-orange-500">F2-1</span>, etc.</p>
             </div>
-            <input
-              type="number"
-              min={1}
-              max={5}
-              value={floorCountDraft}
-              onChange={e => setFloorCountDraft(e.target.value)}
-              className="w-24 shrink-0 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
-            />
+            <div className="flex items-center">
+              <input
+                type="number"
+                min={1}
+                max={5}
+                value={floorCountDraft}
+                onChange={e => setFloorCountDraft(e.target.value)}
+                className="w-24 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
+              />
+            </div>
           </div>
 
           {floorCountDraft !== String(featureSettings.floorCount || 1) && (
@@ -3276,17 +3290,19 @@ const PosOnlyView: React.FC<Props> = ({
     return (
       <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
         {/* Enable/Disable Toggle */}
-        <div className="flex items-center justify-between py-5 first:pt-0">
-          <div className="pr-8">
+        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 first:pt-0">
+          <div>
             <p className="text-sm font-medium text-gray-900 dark:text-white">Kitchen Display System</p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Route orders to kitchen screens with department support</p>
           </div>
-          <button
-            onClick={() => updateFeatureSetting('kitchenEnabled', !featureSettings.kitchenEnabled)}
-            className={`shrink-0 w-11 h-6 rounded-full transition-all relative ${featureSettings.kitchenEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-          >
-            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.kitchenEnabled ? 'left-6' : 'left-1'}`} />
-          </button>
+          <div className="flex items-center">
+            <button
+              onClick={() => updateFeatureSetting('kitchenEnabled', !featureSettings.kitchenEnabled)}
+              className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.kitchenEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+            >
+              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.kitchenEnabled ? 'left-6' : 'left-1'}`} />
+            </button>
+          </div>
         </div>
 
         {featureSettings.kitchenEnabled && (
@@ -3436,11 +3452,15 @@ const PosOnlyView: React.FC<Props> = ({
       ) : (
         <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700 mb-4">
           {paymentTypes.map(pt => (
-            <div key={pt.id} className="flex items-center justify-between py-3">
-              <p className="text-sm font-medium text-gray-900 dark:text-white">{pt.name}</p>
-              <button onClick={() => handleRemovePaymentType(pt.id)} className="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50">
-                <Trash2 size={15} />
-              </button>
+            <div key={pt.id} className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-3">
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{pt.name}</p>
+              </div>
+              <div className="flex items-center">
+                <button onClick={() => handleRemovePaymentType(pt.id)} className="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50">
+                  <Trash2 size={15} />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -3476,12 +3496,12 @@ const PosOnlyView: React.FC<Props> = ({
       ) : (
         <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700 mb-4">
           {taxEntries.map(tax => (
-            <div key={tax.id} className="flex items-center justify-between py-4">
-              <div className="pr-4">
+            <div key={tax.id} className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-4">
+              <div>
                 <p className="text-sm font-medium text-gray-900 dark:text-white">{tax.name} ({tax.percentage}%)</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{tax.applyToItems ? 'Applied to items' : 'Not applied to items'}</p>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleToggleTaxApply(tax.id)}
                   className={`w-11 h-6 rounded-full transition-all relative ${tax.applyToItems ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
@@ -5302,7 +5322,7 @@ const PosOnlyView: React.FC<Props> = ({
 
                 {/* ── Content Area ── */}
                 <div className="px-4 md:px-8 py-6">
-                  <div className="max-w-3xl">
+                  <div className="max-w-5xl">
 
                     {/* Kitchen user: Kitchen Order Settings */}
                     {isKitchenUser && settingsPanel === 'builtin' && (
@@ -5311,30 +5331,34 @@ const PosOnlyView: React.FC<Props> = ({
                           <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Kitchen Order Settings</h2>
                           <p className="text-xs text-gray-500 dark:text-gray-400">Configure how incoming orders are handled in the kitchen.</p>
                         </div>
-                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
-                          <div className="flex items-center justify-between px-5 py-4">
+                        <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+                          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5">
                             <div>
                               <p className="text-sm font-medium text-gray-900 dark:text-white">Auto-Accept</p>
                               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Automatically accept incoming orders</p>
                             </div>
-                            <button
-                              onClick={() => toggleKitchenOrderSetting('autoAccept')}
-                              className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoAccept ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                            >
-                              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${kitchenOrderSettings.autoAccept ? 'left-6' : 'left-1'}`} />
-                            </button>
+                            <div className="flex items-center">
+                              <button
+                                onClick={() => toggleKitchenOrderSetting('autoAccept')}
+                                className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoAccept ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                              >
+                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${kitchenOrderSettings.autoAccept ? 'left-6' : 'left-1'}`} />
+                              </button>
+                            </div>
                           </div>
-                          <div className="flex items-center justify-between px-5 py-4">
+                          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5">
                             <div>
                               <p className="text-sm font-medium text-gray-900 dark:text-white">Auto-Print</p>
                               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Automatically print accepted orders</p>
                             </div>
-                            <button
-                              onClick={() => toggleKitchenOrderSetting('autoPrint')}
-                              className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoPrint ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                            >
-                              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${kitchenOrderSettings.autoPrint ? 'left-6' : 'left-1'}`} />
-                            </button>
+                            <div className="flex items-center">
+                              <button
+                                onClick={() => toggleKitchenOrderSetting('autoPrint')}
+                                className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoPrint ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                              >
+                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${kitchenOrderSettings.autoPrint ? 'left-6' : 'left-1'}`} />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
