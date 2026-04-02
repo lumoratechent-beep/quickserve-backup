@@ -416,12 +416,18 @@ const App: React.FC = () => {
         return hubMatch && restMatch;
       });
 
+      // Filter out announcements cleared by the user
+      const clearedAt = localStorage.getItem(`qs_mail_cleared_${rid}`);
+      const visibleItems = clearedAt
+        ? filtered.filter((a: any) => new Date(a.created_at) > new Date(clearedAt))
+        : filtered;
+
       const { data: reads } = await supabase
         .from('announcement_reads')
         .select('announcement_id')
         .eq('restaurant_id', rid);
       const readIds = new Set((reads || []).map((r: any) => r.announcement_id));
-      setAnnouncements(filtered.map((a: any) => ({ ...a, is_read: readIds.has(a.id) })));
+      setAnnouncements(visibleItems.map((a: any) => ({ ...a, is_read: readIds.has(a.id) })));
     } catch { setAnnouncements([]); } finally { setAnnouncementsLoading(false); }
   }, [currentUser?.restaurantId, restaurants]);
 
@@ -445,7 +451,17 @@ const App: React.FC = () => {
     setAnnouncements(prev => prev.map(a => ({ ...a, is_read: true })));
   };
 
-  const clearAnnouncements = () => {
+  const clearAnnouncements = async () => {
+    // Mark all as read first, then store cleared timestamp so they don't reappear
+    const rid = currentUser?.restaurantId;
+    if (rid) {
+      const unread = announcements.filter(a => !a.is_read);
+      if (unread.length > 0) {
+        const rows = unread.map(a => ({ announcement_id: a.id, restaurant_id: rid }));
+        await supabase.from('announcement_reads').upsert(rows, { onConflict: 'announcement_id,restaurant_id' });
+      }
+      localStorage.setItem(`qs_mail_cleared_${rid}`, new Date().toISOString());
+    }
     setAnnouncements([]);
   };
 

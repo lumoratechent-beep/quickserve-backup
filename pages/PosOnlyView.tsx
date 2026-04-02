@@ -7283,18 +7283,18 @@ const PosOnlyView: React.FC<Props> = ({
 
           {/* Mail Tab */}
           {activeTab === 'MAIL' && (
-            <div className="flex-1 overflow-y-auto p-4 md:p-6">
-              <div className="max-w-3xl mx-auto w-full">
-                {/* Header with actions */}
-                <div className="flex items-center justify-between mb-6">
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+              <div className="w-full">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-5">
                   <div>
-                    <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter flex items-center gap-2">
-                      <Mail size={22} className="text-orange-500" /> Inbox
+                    <h2 className="text-lg font-black dark:text-white uppercase tracking-tighter flex items-center gap-2">
+                      <Mail size={18} className="text-orange-500" /> Inbox
                       {unreadMailCount > 0 && (
-                        <span className="text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full font-black">{unreadMailCount}</span>
+                        <span className="text-[10px] bg-orange-500 text-white px-2 py-0.5 rounded-full font-black">{unreadMailCount} new</span>
                       )}
-                    </h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Announcements and updates from QuickServe.</p>
+                    </h2>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Announcements and updates from QuickServe.</p>
                   </div>
                   {announcements.length > 0 && (
                     <div className="flex items-center gap-2">
@@ -7310,7 +7310,7 @@ const PosOnlyView: React.FC<Props> = ({
                         onClick={() => onClearAnnouncements?.()}
                         className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors"
                       >
-                        <Trash2 size={13} /> Clear
+                        <Trash2 size={13} /> Clear All
                       </button>
                     </div>
                   )}
@@ -7329,60 +7329,61 @@ const PosOnlyView: React.FC<Props> = ({
                     <p className="text-sm text-gray-400 mt-1">When the admin sends updates, they will appear here.</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 overflow-hidden divide-y dark:divide-gray-700">
                     {announcements.map(a => (
                       <div
                         key={a.id}
                         onClick={() => { if (!a.is_read) onMarkAnnouncementRead?.(a.id); }}
-                        className={`p-5 rounded-2xl border transition-all cursor-pointer group ${
+                        className={`px-5 py-4 transition-all cursor-pointer flex items-start gap-4 ${
                           a.is_read
-                            ? 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600'
-                            : 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800/40 shadow-sm hover:shadow-md'
+                            ? 'hover:bg-gray-50 dark:hover:bg-gray-750'
+                            : 'bg-orange-50/60 dark:bg-orange-900/10 hover:bg-orange-50 dark:hover:bg-orange-900/15'
                         }`}
                       >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex items-start gap-3 flex-1 min-w-0">
-                            {/* Left icon */}
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                        {/* Category icon */}
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                          a.category === 'billing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
+                          a.category === 'update' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
+                          a.category === 'maintenance' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
+                          a.category === 'promotion' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' :
+                          'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                        }`}>
+                          {a.category === 'billing' ? <Wallet size={16} /> :
+                           a.category === 'update' ? <Zap size={16} /> :
+                           a.category === 'maintenance' ? <AlertCircle size={16} /> :
+                           a.category === 'promotion' ? <Star size={16} /> :
+                           <Mail size={16} />}
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            {!a.is_read && <span className="w-2 h-2 bg-orange-500 rounded-full shrink-0" />}
+                            <h3 className={`text-sm truncate ${!a.is_read ? 'font-black dark:text-white' : 'font-semibold text-gray-700 dark:text-gray-300'}`}>{a.title}</h3>
+                            <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0 ${
                               a.category === 'billing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
                               a.category === 'update' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
                               a.category === 'maintenance' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
                               a.category === 'promotion' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' :
                               'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                            }`}>
-                              {a.category === 'billing' ? <Wallet size={18} /> :
-                               a.category === 'update' ? <Zap size={18} /> :
-                               a.category === 'maintenance' ? <AlertCircle size={18} /> :
-                               a.category === 'promotion' ? <Star size={18} /> :
-                               <Mail size={18} />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                {!a.is_read && <span className="w-2 h-2 bg-orange-500 rounded-full shrink-0 animate-pulse" />}
-                                <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                                  a.category === 'billing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
-                                  a.category === 'update' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
-                                  a.category === 'maintenance' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
-                                  a.category === 'promotion' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' :
-                                  'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                                }`}>{a.category}</span>
-                                {!a.is_read && <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest">New</span>}
-                              </div>
-                              <h3 className={`text-sm dark:text-white leading-snug ${!a.is_read ? 'font-black' : 'font-semibold text-gray-700 dark:text-gray-300'}`}>{a.title}</h3>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 whitespace-pre-line leading-relaxed line-clamp-3">{a.body}</p>
-                            </div>
+                            }`}>{a.category}</span>
                           </div>
-                          <div className="flex flex-col items-end gap-1 shrink-0">
-                            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold whitespace-nowrap">
-                              {new Date(a.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short' })}
-                            </span>
-                            <span className="text-[9px] text-gray-300 dark:text-gray-600 font-medium">
-                              {new Date(a.created_at).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                            {a.is_read && (
-                              <CheckCircle2 size={14} className="text-gray-300 dark:text-gray-600 mt-1" />
-                            )}
-                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 whitespace-pre-line leading-relaxed line-clamp-2">{a.body}</p>
+                        </div>
+
+                        {/* Date & status */}
+                        <div className="flex flex-col items-end gap-0.5 shrink-0 text-right">
+                          <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold whitespace-nowrap">
+                            {new Date(a.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short' })}
+                          </span>
+                          <span className="text-[9px] text-gray-300 dark:text-gray-600">
+                            {new Date(a.created_at).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          {a.is_read ? (
+                            <CheckCircle2 size={12} className="text-gray-300 dark:text-gray-600 mt-1" />
+                          ) : (
+                            <span className="text-[8px] font-black text-orange-500 uppercase mt-1">New</span>
+                          )}
                         </div>
                       </div>
                     ))}
