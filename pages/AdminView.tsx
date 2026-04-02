@@ -808,11 +808,13 @@ const AdminView: React.FC<Props> = ({
   };
 
   // Announcements State
-  const [announcements, setAnnouncements] = useState<{ id: string; title: string; body: string; category: string; created_at: string; is_active: boolean }[]>([]);
+  const [announcements, setAnnouncements] = useState<{ id: string; title: string; body: string; category: string; created_at: string; is_active: boolean; hub: string; restaurant_id: string }[]>([]);
   const [isLoadingAnnouncements, setIsLoadingAnnouncements] = useState(false);
   const [announcementTitle, setAnnouncementTitle] = useState('');
   const [announcementBody, setAnnouncementBody] = useState('');
   const [announcementCategory, setAnnouncementCategory] = useState('general');
+  const [announcementHub, setAnnouncementHub] = useState('all');
+  const [announcementRestaurant, setAnnouncementRestaurant] = useState('all');
 
   const fetchAnnouncements = async () => {
     setIsLoadingAnnouncements(true);
@@ -823,12 +825,14 @@ const AdminView: React.FC<Props> = ({
 
   const createAnnouncement = async () => {
     if (!announcementTitle.trim() || !announcementBody.trim()) { toast('Title and body are required', 'error'); return; }
-    const { error } = await supabase.from('announcements').insert({ title: announcementTitle.trim(), body: announcementBody.trim(), category: announcementCategory, is_active: true });
+    const { error } = await supabase.from('announcements').insert({ title: announcementTitle.trim(), body: announcementBody.trim(), category: announcementCategory, is_active: true, hub: announcementHub, restaurant_id: announcementRestaurant });
     if (error) { toast('Failed to create announcement', 'error'); return; }
     toast('Announcement published', 'success');
     setAnnouncementTitle('');
     setAnnouncementBody('');
     setAnnouncementCategory('general');
+    setAnnouncementHub('all');
+    setAnnouncementRestaurant('all');
     fetchAnnouncements();
   };
 
@@ -2125,6 +2129,34 @@ const AdminView: React.FC<Props> = ({
                         <option value="promotion">Promotion</option>
                       </select>
                     </div>
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Target Hub</label>
+                      <div className="relative">
+                        <MapPin size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <select
+                          value={announcementHub}
+                          onChange={e => setAnnouncementHub(e.target.value)}
+                          className="w-full pl-8 pr-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-xs font-bold dark:text-white outline-none appearance-none cursor-pointer"
+                        >
+                          <option value="all">All Hubs</option>
+                          {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Target Restaurant</label>
+                      <div className="relative">
+                        <Store size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <select
+                          value={announcementRestaurant}
+                          onChange={e => setAnnouncementRestaurant(e.target.value)}
+                          className="w-full pl-8 pr-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-xl text-xs font-bold dark:text-white outline-none appearance-none cursor-pointer"
+                        >
+                          <option value="all">All Restaurants</option>
+                          {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Message</label>
@@ -2179,7 +2211,15 @@ const AdminView: React.FC<Props> = ({
                                 )}
                               </div>
                               <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{ann.body}</p>
-                              <p className="text-[9px] text-gray-400 mt-2 font-bold">{new Date(ann.created_at).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                <p className="text-[9px] text-gray-400 font-bold">{new Date(ann.created_at).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                                <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                                  <MapPin size={8} /> {ann.hub === 'all' ? 'All Hubs' : ann.hub}
+                                </span>
+                                <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                                  <Store size={8} /> {ann.restaurant_id === 'all' ? 'All Restaurants' : (restaurants.find(r => r.id === ann.restaurant_id)?.name || ann.restaurant_id)}
+                                </span>
+                              </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               <button
