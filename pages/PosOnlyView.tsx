@@ -2962,20 +2962,20 @@ const PosOnlyView: React.FC<Props> = ({
   // ────────────────────────────────────────────────────────────────────────────
 
   const renderStaffContent = () => (
-    <div className="space-y-4">
+    <div>
       {staffList.length === 0 ? (
-        <div className="text-center py-10 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-dashed dark:border-gray-600">
-          <Users size={24} className="mx-auto text-gray-300 mb-2" />
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest font-black">No staff added yet</p>
+        <div className="text-center py-12 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl mb-5">
+          <Users size={28} className="mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+          <p className="text-sm text-gray-400 dark:text-gray-500">No staff added yet</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700 mb-5">
           {staffList.map((staff: any, idx: number) => (
-            <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-              <div>
-                <p className="text-xs font-black dark:text-white">{staff.username}</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+            <div key={idx} className="flex items-center justify-between py-4">
+              <div className="pr-4">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{staff.username}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                     staff.role === 'KITCHEN' 
                       ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
                       : staff.role === 'ORDER_TAKER'
@@ -2983,24 +2983,24 @@ const PosOnlyView: React.FC<Props> = ({
                         : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
                   }`}>{staff.role === 'KITCHEN' ? 'Kitchen' : staff.role === 'ORDER_TAKER' ? 'Order Taker' : 'Cashier'}</span>
                   {staff.role === 'KITCHEN' && (
-                    <span className="text-[9px] text-gray-400">
-                      Departments: {staff.kitchen_categories && staff.kitchen_categories.length > 0 ? staff.kitchen_categories.join(', ') : 'General Kitchen'}
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                      {staff.kitchen_categories && staff.kitchen_categories.length > 0 ? staff.kitchen_categories.join(', ') : 'General Kitchen'}
                     </span>
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 ml-3">
+              <div className="flex items-center gap-1 shrink-0">
                 <button
                   onClick={() => handleEditStaff(staff, idx)}
-                  className="p-2 text-gray-300 hover:text-orange-500 transition-colors"
+                  className="p-2 text-gray-400 hover:text-orange-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"
                 >
-                  <Edit3 size={14} />
+                  <Edit3 size={15} />
                 </button>
                 <button
                   onClick={() => handleRemoveStaff(staff, idx)}
-                  className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                  className="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"
                 >
-                  <Trash2 size={14} />
+                  <Trash2 size={15} />
                 </button>
               </div>
             </div>
@@ -3010,141 +3010,117 @@ const PosOnlyView: React.FC<Props> = ({
 
       <button
         onClick={() => openAddStaffModal()}
-        className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
+        className="w-full py-2.5 bg-orange-500 text-white rounded-lg font-medium text-sm hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
       >
-        <UserPlus size={14} /> Add Staff Member
+        <UserPlus size={15} /> Add Staff Member
       </button>
     </div>
   );
 
   const renderUXContent = () => (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Font Family</label>
+    <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-5 first:pt-0">
+        <div className="sm:pr-8">
+          <p className="text-sm font-medium text-gray-900 dark:text-white">Font Family</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">This only applies to your screen</p>
+        </div>
         <select
           value={userFont}
           onChange={e => setUserFont(e.target.value)}
-          className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+          className="w-full sm:w-56 shrink-0 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
           style={{ fontFamily: `'${userFont}', sans-serif` }}
         >
           {FONT_OPTIONS.map(f => <option key={f} value={f} style={{ fontFamily: `'${f}', sans-serif` }}>{f}</option>)}
         </select>
-        <p className="text-[9px] text-gray-400 mt-1.5">This only applies to your screen</p>
       </div>
-      <div>
-        <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Currency</label>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-5 last:pb-0">
+        <div className="sm:pr-8">
+          <p className="text-sm font-medium text-gray-900 dark:text-white">Currency</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Currency symbol shown on prices</p>
+        </div>
         <select
           value={userCurrency}
           onChange={e => setUserCurrency(e.target.value)}
-          className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+          className="w-full sm:w-56 shrink-0 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
         >
           {CURRENCY_OPTIONS.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
         </select>
-        <p className="text-[9px] text-gray-400 mt-1.5">Currency symbol shown on prices</p>
       </div>
     </div>
   );
 
   const renderFeaturesContent = () => (
-    <div className="space-y-4">
-      <div className="rounded-xl border dark:border-gray-700 overflow-hidden">
-        <button
-          onClick={() => setBuiltInFeatureSections(prev => ({ ...prev, cashier: !prev.cashier }))}
-          className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all"
-        >
-          <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Cashier Option</p>
-          <ChevronDown size={14} className={`text-gray-400 transition-all ${builtInFeatureSections.cashier ? 'rotate-180' : ''}`} />
-        </button>
-        {builtInFeatureSections.cashier && (
-          <div className="space-y-2 p-3 bg-white dark:bg-gray-800">
-            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-              <div>
-                <p className="text-xs font-black dark:text-white">Auto-Print Receipt</p>
-                <p className="text-[9px] text-gray-400 mt-0.5">Print automatically after checkout</p>
-              </div>
-              <button
-                onClick={() => updateFeatureSetting('autoPrintReceipt', !featureSettings.autoPrintReceipt)}
-                className={`w-11 h-6 rounded-full transition-all relative ${
-                  featureSettings.autoPrintReceipt ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-                }`}
-              >
-                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                  featureSettings.autoPrintReceipt ? 'left-6' : 'left-1'
-                }`} />
-              </button>
+    <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+      {/* Section: Cashier */}
+      <div className="py-5 first:pt-0">
+        <p className="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">Cashier Options</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Configure automatic behaviors after checkout.</p>
+        <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+          <div className="flex items-center justify-between py-4">
+            <div className="pr-8">
+              <p className="text-sm font-medium text-gray-900 dark:text-white">Auto-Print Receipt</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Print automatically after checkout</p>
             </div>
-
-            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-              <div>
-                <p className="text-xs font-black dark:text-white">Auto Open Drawer</p>
-                <p className="text-[9px] text-gray-400 mt-0.5">Open cash drawer after checkout</p>
-              </div>
-              <button
-                onClick={() => updateFeatureSetting('autoOpenDrawer', !featureSettings.autoOpenDrawer)}
-                className={`w-11 h-6 rounded-full transition-all relative ${
-                  featureSettings.autoOpenDrawer ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-                }`}
-              >
-                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                  featureSettings.autoOpenDrawer ? 'left-6' : 'left-1'
-                }`} />
-              </button>
-            </div>
+            <button
+              onClick={() => updateFeatureSetting('autoPrintReceipt', !featureSettings.autoPrintReceipt)}
+              className={`shrink-0 w-11 h-6 rounded-full transition-all relative ${featureSettings.autoPrintReceipt ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+            >
+              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.autoPrintReceipt ? 'left-6' : 'left-1'}`} />
+            </button>
           </div>
-        )}
+          <div className="flex items-center justify-between py-4">
+            <div className="pr-8">
+              <p className="text-sm font-medium text-gray-900 dark:text-white">Auto Open Drawer</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Open cash drawer after checkout</p>
+            </div>
+            <button
+              onClick={() => updateFeatureSetting('autoOpenDrawer', !featureSettings.autoOpenDrawer)}
+              className={`shrink-0 w-11 h-6 rounded-full transition-all relative ${featureSettings.autoOpenDrawer ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+            >
+              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.autoOpenDrawer ? 'left-6' : 'left-1'}`} />
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="rounded-xl border dark:border-gray-700 overflow-hidden">
-        <button
-          onClick={() => setBuiltInFeatureSections(prev => ({ ...prev, dining: !prev.dining }))}
-          className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all"
-        >
-          <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Dining Option</p>
-          <ChevronDown size={14} className={`text-gray-400 transition-all ${builtInFeatureSections.dining ? 'rotate-180' : ''}`} />
-        </button>
-        {builtInFeatureSections.dining && (
-          <div className="space-y-2 p-3 bg-white dark:bg-gray-800">
-            {([
-              { key: 'dineInEnabled' as const, label: 'Dine-in', desc: 'Allow dine-in orders' },
-              { key: 'takeawayEnabled' as const, label: 'Takeaway', desc: 'Allow takeaway orders' },
-              { key: 'deliveryEnabled' as const, label: 'Delivery', desc: 'Allow delivery orders' },
-            ]).map(item => (
-              <div key={item.key} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-                <div>
-                  <p className="text-xs font-black dark:text-white">{item.label}</p>
-                  <p className="text-[9px] text-gray-400 mt-0.5">{item.desc}</p>
-                </div>
-                <button
-                  onClick={() => updateFeatureSetting(item.key, !featureSettings[item.key])}
-                  className={`w-11 h-6 rounded-full transition-all relative ${
-                    featureSettings[item.key] ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-                  }`}
-                >
-                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                    featureSettings[item.key] ? 'left-6' : 'left-1'
-                  }`} />
-                </button>
+      {/* Section: Dining */}
+      <div className="py-5">
+        <p className="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">Dining Options</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Choose which order types your POS supports.</p>
+        <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+          {([
+            { key: 'dineInEnabled' as const, label: 'Dine-in', desc: 'Allow dine-in orders' },
+            { key: 'takeawayEnabled' as const, label: 'Takeaway', desc: 'Allow takeaway orders' },
+            { key: 'deliveryEnabled' as const, label: 'Delivery', desc: 'Allow delivery orders' },
+          ]).map(item => (
+            <div key={item.key} className="flex items-center justify-between py-4">
+              <div className="pr-8">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{item.label}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{item.desc}</p>
               </div>
-            ))}
-          </div>
-        )}
+              <button
+                onClick={() => updateFeatureSetting(item.key, !featureSettings[item.key])}
+                className={`shrink-0 w-11 h-6 rounded-full transition-all relative ${featureSettings[item.key] ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings[item.key] ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="border-t dark:border-gray-700 pt-4">
-        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-          <div>
-            <p className="text-xs font-black dark:text-white">Customer Display</p>
-            <p className="text-[9px] text-gray-400 mt-0.5">Enable external customer-facing display</p>
+      {/* Section: Display */}
+      <div className="py-5 last:pb-0">
+        <div className="flex items-center justify-between">
+          <div className="pr-8">
+            <p className="text-sm font-medium text-gray-900 dark:text-white">Customer Display</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Enable external customer-facing display</p>
           </div>
           <button
             onClick={() => updateFeatureSetting('customerDisplayEnabled', !featureSettings.customerDisplayEnabled)}
-            className={`w-11 h-6 rounded-full transition-all relative ${
-              featureSettings.customerDisplayEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-            }`}
+            className={`shrink-0 w-11 h-6 rounded-full transition-all relative ${featureSettings.customerDisplayEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
           >
-            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-              featureSettings.customerDisplayEnabled ? 'left-6' : 'left-1'
-            }`} />
+            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.customerDisplayEnabled ? 'left-6' : 'left-1'}`} />
           </button>
         </div>
       </div>
@@ -3152,11 +3128,12 @@ const PosOnlyView: React.FC<Props> = ({
   );
 
   const renderTableManagementContent = () => (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-        <div>
-          <p className="text-xs font-black dark:text-white">Saved Bill & Table Management</p>
-          <p className="text-[9px] text-gray-400 mt-0.5">Allow counter to save pending bills by table</p>
+    <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+      {/* Saved Bill toggle */}
+      <div className="flex items-center justify-between py-5 first:pt-0">
+        <div className="pr-8">
+          <p className="text-sm font-medium text-gray-900 dark:text-white">Saved Bill & Table Management</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Allow counter to save pending bills by table</p>
         </div>
         <button
           onClick={() => {
@@ -3169,80 +3146,74 @@ const PosOnlyView: React.FC<Props> = ({
               };
             });
           }}
-          className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.savedBillEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+          className={`shrink-0 w-11 h-6 rounded-full transition-all relative ${featureSettings.savedBillEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
         >
-          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.savedBillEnabled ? 'left-6' : 'left-1'}`} />
+          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.savedBillEnabled ? 'left-6' : 'left-1'}`} />
         </button>
       </div>
 
-      <div className={`space-y-3 p-4 rounded-xl border transition-all ${
-        featureSettings.savedBillEnabled
-          ? 'bg-gray-50 dark:bg-gray-700/30 border-gray-200 dark:border-gray-700'
-          : 'bg-gray-200 dark:bg-gray-900/40 border-gray-300 dark:border-gray-800 opacity-80'
-      }`}>
-        <div>
-          <p className="text-xs font-black dark:text-white">Table Layout</p>
-          <p className="text-[9px] text-gray-400 mt-0.5">Set total tables and columns — rows are calculated automatically</p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Tables</label>
-            <input
-              type="number"
-              min={1}
-              value={tableCountDraft}
-              disabled={!featureSettings.savedBillEnabled}
-              onChange={e => setTableCountDraft(e.target.value)}
-              className="w-full px-2 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white disabled:bg-gray-300 disabled:dark:bg-gray-800/70 disabled:text-gray-500 disabled:cursor-not-allowed"
-            />
+      {/* Table Layout */}
+      <div className="py-5">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div className="sm:pr-8">
+            <p className="text-sm font-medium text-gray-900 dark:text-white">Table Layout</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Set total tables and columns — rows are calculated automatically</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Rows: {Math.ceil((parsePositiveIntegerDraft(tableCountDraft) ?? featureSettings.tableCount) / (parsePositiveIntegerDraft(tableColumnsDraft) ?? featureSettings.tableColumns))} (auto-calculated)</p>
           </div>
-          <div>
-            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Columns</label>
-            <input
-              type="number"
-              min={1}
-              max={20}
-              value={tableColumnsDraft}
-              disabled={!featureSettings.savedBillEnabled}
-              onChange={e => setTableColumnsDraft(e.target.value)}
-              className="w-full px-2 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white disabled:bg-gray-300 disabled:dark:bg-gray-800/70 disabled:text-gray-500 disabled:cursor-not-allowed"
-            />
+          <div className={`flex gap-3 shrink-0 transition-opacity ${featureSettings.savedBillEnabled ? '' : 'opacity-50 pointer-events-none'}`}>
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Tables</label>
+              <input
+                type="number"
+                min={1}
+                value={tableCountDraft}
+                disabled={!featureSettings.savedBillEnabled}
+                onChange={e => setTableCountDraft(e.target.value)}
+                className="w-24 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors disabled:bg-gray-100 disabled:dark:bg-gray-800/70 disabled:text-gray-400 disabled:cursor-not-allowed"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Columns</label>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={tableColumnsDraft}
+                disabled={!featureSettings.savedBillEnabled}
+                onChange={e => setTableColumnsDraft(e.target.value)}
+                className="w-24 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors disabled:bg-gray-100 disabled:dark:bg-gray-800/70 disabled:text-gray-400 disabled:cursor-not-allowed"
+              />
+            </div>
           </div>
         </div>
-
-        <p className="text-[9px] text-orange-400 font-bold">
-          Max 4 columns shown per page — if you set more than 4 columns, the table view will paginate and you can swipe or tap the dots to navigate.
-        </p>
 
         {(tableCountDraft !== String(featureSettings.tableCount) ||
           tableColumnsDraft !== String(featureSettings.tableColumns) ||
           (featureSettings.floorEnabled && floorCountDraft !== String(featureSettings.floorCount || 1))) && (
-          <div className="flex items-center justify-end gap-2 pt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="flex items-center justify-end gap-2 mt-3 animate-in fade-in slide-in-from-top-1 duration-200">
             <button
               onClick={resetTableManagementDraft}
               disabled={!featureSettings.savedBillEnabled}
-              className="px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleSaveTableManagementChanges}
               disabled={!featureSettings.savedBillEnabled}
-              className="px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest bg-green-500 text-white hover:bg-green-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-orange-500 text-white hover:bg-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Save Changes
             </button>
           </div>
         )}
-        <p className="text-[9px] text-gray-400">Rows are auto-calculated: {Math.ceil((parsePositiveIntegerDraft(tableCountDraft) ?? featureSettings.tableCount) / (parsePositiveIntegerDraft(tableColumnsDraft) ?? featureSettings.tableColumns))} row(s) based on current values.</p>
       </div>
 
       {/* Floor Management */}
-      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-        <div>
-          <p className="text-xs font-black dark:text-white">Enable Floors</p>
-          <p className="text-[9px] text-gray-400 mt-0.5">Organize tables by floor level (max 5 floors)</p>
+      <div className="flex items-center justify-between py-5">
+        <div className="pr-8">
+          <p className="text-sm font-medium text-gray-900 dark:text-white">Enable Floors</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Organize tables by floor level (max 5 floors)</p>
         </div>
         <button
           onClick={() => {
@@ -3255,42 +3226,41 @@ const PosOnlyView: React.FC<Props> = ({
             setModalSelectedFloor(1);
           }}
           disabled={!featureSettings.savedBillEnabled}
-          className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.floorEnabled && featureSettings.savedBillEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'} ${!featureSettings.savedBillEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={`shrink-0 w-11 h-6 rounded-full transition-all relative ${featureSettings.floorEnabled && featureSettings.savedBillEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'} ${!featureSettings.savedBillEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.floorEnabled && featureSettings.savedBillEnabled ? 'left-6' : 'left-1'}`} />
+          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.floorEnabled && featureSettings.savedBillEnabled ? 'left-6' : 'left-1'}`} />
         </button>
       </div>
 
+      {/* Floor count input */}
       {featureSettings.floorEnabled && featureSettings.savedBillEnabled && (
-        <div className={`space-y-3 p-4 rounded-xl border transition-all bg-gray-50 dark:bg-gray-700/30 border-gray-200 dark:border-gray-700`}>
-          <div>
-            <p className="text-xs font-black dark:text-white">Number of Floors</p>
-            <p className="text-[9px] text-gray-400 mt-0.5">Each floor will have the same table layout ({featureSettings.tableCount} tables per floor)</p>
-          </div>
-          <div className="w-32">
-            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Floors (1-5)</label>
+        <div className="py-5 last:pb-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="sm:pr-8">
+              <p className="text-sm font-medium text-gray-900 dark:text-white">Number of Floors</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Each floor has {featureSettings.tableCount} tables. Labels: <span className="font-semibold text-orange-500">F1-1</span>, <span className="font-semibold text-orange-500">F2-1</span>, etc.</p>
+            </div>
             <input
               type="number"
               min={1}
               max={5}
               value={floorCountDraft}
               onChange={e => setFloorCountDraft(e.target.value)}
-              className="w-full px-2 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+              className="w-24 shrink-0 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
             />
           </div>
-          <p className="text-[9px] text-gray-400">Tables will be labeled as <span className="font-black text-orange-500">F1-1</span>, <span className="font-black text-orange-500">F1-2</span>, <span className="font-black text-orange-500">F2-1</span>, etc.</p>
 
           {floorCountDraft !== String(featureSettings.floorCount || 1) && (
-            <div className="flex items-center justify-end gap-2 pt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="flex items-center justify-end gap-2 mt-3 animate-in fade-in slide-in-from-top-1 duration-200">
               <button
                 onClick={() => setFloorCountDraft(String(featureSettings.floorCount || 1))}
-                className="px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300"
+                className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveFloorChanges}
-                className="px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest bg-green-500 text-white hover:bg-green-600 transition-all"
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-orange-500 text-white hover:bg-orange-600 transition-all"
               >
                 Save Changes
               </button>
@@ -3304,27 +3274,27 @@ const PosOnlyView: React.FC<Props> = ({
   const renderKitchenSettingsContent = () => {
     const kitchenStaff = staffList.filter((s: any) => s.role === 'KITCHEN');
     return (
-      <>
+      <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
         {/* Enable/Disable Toggle */}
-        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-          <div>
-            <p className="text-xs font-black dark:text-white">Kitchen Display System</p>
-            <p className="text-[9px] text-gray-400 mt-0.5">Route orders to kitchen screens with department support</p>
+        <div className="flex items-center justify-between py-5 first:pt-0">
+          <div className="pr-8">
+            <p className="text-sm font-medium text-gray-900 dark:text-white">Kitchen Display System</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Route orders to kitchen screens with department support</p>
           </div>
           <button
             onClick={() => updateFeatureSetting('kitchenEnabled', !featureSettings.kitchenEnabled)}
-            className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.kitchenEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+            className={`shrink-0 w-11 h-6 rounded-full transition-all relative ${featureSettings.kitchenEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
           >
-            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.kitchenEnabled ? 'left-6' : 'left-1'}`} />
+            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.kitchenEnabled ? 'left-6' : 'left-1'}`} />
           </button>
         </div>
 
         {featureSettings.kitchenEnabled && (
           <>
             {/* Departments / Divisions */}
-            <div className="pt-3">
-              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Departments</p>
-              <p className="text-[9px] text-gray-400 mb-2">Create kitchen departments to route specific categories to specific screens.</p>
+            <div className="py-5">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">Departments</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Create kitchen departments to route specific categories to specific screens.</p>
               {kitchenDivisions.length > 0 && (
                 <div className="space-y-2 mb-2">
                   {kitchenDivisions.map(dep => (
@@ -3344,44 +3314,44 @@ const PosOnlyView: React.FC<Props> = ({
                                   setRenameDepartmentValue('');
                                 }
                               }}
-                              className="flex-1 px-2 py-1 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-[10px] font-black dark:text-white uppercase tracking-widest"
+                              className="flex-1 px-2 py-1 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-medium dark:text-white"
                             />
-                            <button onClick={() => handleRenameDivision(dep.name, renameDepartmentValue)} className="p-1.5 text-green-500 hover:bg-green-50 rounded-lg transition-colors"><CheckCircle2 size={14} /></button>
-                            <button onClick={() => { setRenamingDepartment(null); setRenameDepartmentValue(''); }} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><X size={14} /></button>
+                            <button onClick={() => handleRenameDivision(dep.name, renameDepartmentValue)} className="p-1.5 text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"><CheckCircle2 size={14} /></button>
+                            <button onClick={() => { setRenamingDepartment(null); setRenameDepartmentValue(''); }} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><X size={14} /></button>
                           </div>
                         ) : (
                           <>
-                            <p className="text-[10px] font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">{dep.name}</p>
+                            <p className="text-sm font-semibold text-orange-600 dark:text-orange-400">{dep.name}</p>
                             <div className="flex items-center gap-1">
                               <button
                                 onClick={() => {
                                   setRenamingDepartment(dep.name);
                                   setRenameDepartmentValue(dep.name);
                                 }}
-                                className="p-1.5 text-gray-400 hover:text-orange-500 transition-colors"
+                                className="p-1.5 text-gray-400 hover:text-orange-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"
                               >
-                                <Edit3 size={13} />
+                                <Edit3 size={14} />
                               </button>
-                              <button onClick={() => handleRemoveDivision(dep.name)} className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={13} /></button>
+                              <button onClick={() => handleRemoveDivision(dep.name)} className="p-1.5 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"><Trash2 size={14} /></button>
                             </div>
                           </>
                         )}
                       </div>
 
-                      <p className="text-[8px] text-gray-400 mt-1 mb-1 leading-tight uppercase tracking-wider font-bold">Categories:</p>
-                      <div className="flex flex-wrap gap-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 mb-1.5">Categories:</p>
+                      <div className="flex flex-wrap gap-1.5">
                         {allFoodCategories.length === 0 ? (
-                          <span className="text-[9px] text-gray-400 italic">No categories yet.</span>
+                          <span className="text-xs text-gray-400 italic">No categories yet.</span>
                         ) : allFoodCategories.map(categoryName => {
                           const selected = dep.categories.includes(categoryName);
                           return (
                             <button
                               key={`${dep.name}-${categoryName}`}
                               onClick={() => handleToggleDivisionCategory(dep.name, categoryName)}
-                              className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wide transition-all ${
+                              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
                                 selected
                                   ? 'bg-orange-500 text-white shadow-sm'
-                                  : 'bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 hover:bg-orange-100 dark:hover:bg-orange-900/30 hover:text-orange-600'
+                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 hover:bg-orange-100 dark:hover:bg-orange-900/30 hover:text-orange-600'
                               }`}
                             >
                               {selected && <span className="mr-0.5">✓</span>}{categoryName}
@@ -3400,76 +3370,76 @@ const PosOnlyView: React.FC<Props> = ({
                   onChange={e => setNewDivisionName(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') handleAddDivision(); }}
                   placeholder="e.g. Grill, Pastry, Drinks..."
-                  className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                  className="flex-1 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
                 />
                 <button
                   onClick={handleAddDivision}
-                  className="px-4 py-2 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
+                  className="px-4 py-2.5 bg-orange-500 text-white rounded-lg font-medium text-sm hover:bg-orange-600 transition-all"
                 >
-                  <Plus size={14} />
+                  <Plus size={16} />
                 </button>
               </div>
             </div>
 
             {/* Kitchen Staff */}
-            <div className="pt-3 mt-3">
-              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Kitchen Staff</p>
-              <p className="text-[9px] text-gray-400 mb-2">Staff assigned to kitchen role can access the Kitchen Display.</p>
+            <div className="py-5 last:pb-0">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">Kitchen Staff</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Staff assigned to kitchen role can access the Kitchen Display.</p>
               {kitchenStaff.length > 0 ? (
-                <div className="space-y-2 mb-3">
+                <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700 mb-4">
                   {kitchenStaff.map((staff: any, idx: number) => (
-                    <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                    <div key={idx} className="flex items-center justify-between py-3">
                       <div>
-                        <p className="text-xs font-black dark:text-white">{staff.username}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">Kitchen</span>
-                          <span className="text-[9px] text-gray-400">
-                            Departments: {staff.kitchen_categories && staff.kitchen_categories.length > 0 ? staff.kitchen_categories.join(', ') : 'General Kitchen'}
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{staff.username}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">Kitchen</span>
+                          <span className="text-xs text-gray-400 dark:text-gray-500">
+                            {staff.kitchen_categories && staff.kitchen_categories.length > 0 ? staff.kitchen_categories.join(', ') : 'General Kitchen'}
                           </span>
                         </div>
                       </div>
                       <button
                         onClick={() => handleRemoveStaff(staff, staffList.indexOf(staff))}
-                        className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                        className="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={15} />
                       </button>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-6 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-dashed dark:border-gray-600 mb-3">
-                  <Users size={20} className="mx-auto text-gray-300 mb-2" />
-                  <p className="text-[9px] text-gray-400 uppercase tracking-widest font-black">No kitchen staff yet</p>
+                <div className="text-center py-8 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl mb-4">
+                  <Users size={24} className="mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+                  <p className="text-sm text-gray-400 dark:text-gray-500">No kitchen staff yet</p>
                 </div>
               )}
               <button
                 onClick={() => openAddStaffModal('KITCHEN')}
-                className="w-full py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-orange-500 text-white rounded-lg font-medium text-sm hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
               >
-                <UserPlus size={14} /> Add Kitchen Staff
+                <UserPlus size={15} /> Add Kitchen Staff
               </button>
             </div>
           </>
         )}
-      </>
+      </div>
     );
   };
 
   const renderPaymentTypesContent = () => (
-    <div className="space-y-4">
+    <div>
       {paymentTypes.length === 0 ? (
-        <div className="text-center py-10 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-dashed dark:border-gray-600">
-          <CreditCard size={24} className="mx-auto text-gray-300 mb-2" />
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest font-black">No payment types</p>
+        <div className="text-center py-8 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl mb-4">
+          <CreditCard size={24} className="mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+          <p className="text-sm text-gray-400 dark:text-gray-500">No payment types</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700 mb-4">
           {paymentTypes.map(pt => (
-            <div key={pt.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-              <p className="text-xs font-black dark:text-white">{pt.name}</p>
-              <button onClick={() => handleRemovePaymentType(pt.id)} className="p-2 text-gray-300 hover:text-red-500 transition-colors">
-                <Trash2 size={14} />
+            <div key={pt.id} className="flex items-center justify-between py-3">
+              <p className="text-sm font-medium text-gray-900 dark:text-white">{pt.name}</p>
+              <button onClick={() => handleRemovePaymentType(pt.id)} className="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50">
+                <Trash2 size={15} />
               </button>
             </div>
           ))}
@@ -3481,83 +3451,80 @@ const PosOnlyView: React.FC<Props> = ({
           type="text"
           value={newPaymentTypeName}
           onChange={e => setNewPaymentTypeName(e.target.value)}
-          className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+          className="flex-1 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
           placeholder="e.g. CREDIT CARD"
           onKeyDown={e => e.key === 'Enter' && handleAddPaymentType()}
         />
         <button
           onClick={handleAddPaymentType}
           disabled={!newPaymentTypeName.trim()}
-          className="px-4 py-2 bg-orange-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 disabled:opacity-40 transition-all flex items-center gap-1.5"
+          className="px-4 py-2.5 bg-orange-500 text-white rounded-lg font-medium text-sm hover:bg-orange-600 disabled:opacity-40 transition-all flex items-center gap-1.5"
         >
-          <Plus size={14} /> Add
+          <Plus size={15} /> Add
         </button>
       </div>
     </div>
   );
 
   const renderTaxesContent = () => (
-    <div className="space-y-4">
+    <div>
       {taxEntries.length === 0 ? (
-        <div className="text-center py-10 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-dashed dark:border-gray-600">
-          <Tag size={24} className="mx-auto text-gray-300 mb-2" />
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest font-black">No taxes configured</p>
+        <div className="text-center py-8 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl mb-4">
+          <Tag size={24} className="mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+          <p className="text-sm text-gray-400 dark:text-gray-500">No taxes configured</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700 mb-4">
           {taxEntries.map(tax => (
-            <div key={tax.id} className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-black dark:text-white">{tax.name} ({tax.percentage}%)</p>
-                  <p className="text-[9px] text-gray-400">{tax.applyToItems ? 'Applied to items' : 'Not applied to items'}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleToggleTaxApply(tax.id)}
-                    className={`w-11 h-6 rounded-full transition-all relative ${
-                      tax.applyToItems ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-                    }`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                      tax.applyToItems ? 'left-6' : 'left-1'
-                    }`} />
-                  </button>
-                  <button onClick={() => handleRemoveTaxEntry(tax.id)} className="p-2 text-gray-300 hover:text-red-500 transition-colors">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
+            <div key={tax.id} className="flex items-center justify-between py-4">
+              <div className="pr-4">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{tax.name} ({tax.percentage}%)</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{tax.applyToItems ? 'Applied to items' : 'Not applied to items'}</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => handleToggleTaxApply(tax.id)}
+                  className={`w-11 h-6 rounded-full transition-all relative ${tax.applyToItems ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${tax.applyToItems ? 'left-6' : 'left-1'}`} />
+                </button>
+                <button onClick={() => handleRemoveTaxEntry(tax.id)} className="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50">
+                  <Trash2 size={15} />
+                </button>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 space-y-3">
-        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Add Tax</p>
-        <div>
-          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Name</label>
-          <input
-            type="text"
-            value={newTaxName}
-            onChange={e => setNewTaxName(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-            placeholder="e.g. GST, SST"
-          />
+      {/* Add Tax Form */}
+      <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-3">
+        <p className="text-sm font-semibold text-gray-900 dark:text-white">Add Tax</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Name</label>
+            <input
+              type="text"
+              value={newTaxName}
+              onChange={e => setNewTaxName(e.target.value)}
+              className="w-full px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
+              placeholder="e.g. GST, SST"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Percentage</label>
+            <input
+              type="number"
+              value={newTaxPercentage}
+              onChange={e => setNewTaxPercentage(e.target.value)}
+              className="w-full px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
+              placeholder="e.g. 6"
+              min="0"
+              step="0.01"
+            />
+          </div>
         </div>
-        <div>
-          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Percentage</label>
-          <input
-            type="number"
-            value={newTaxPercentage}
-            onChange={e => setNewTaxPercentage(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-            placeholder="e.g. 6"
-            min="0"
-            step="0.01"
-          />
-        </div>
-        <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 dark:text-gray-200 cursor-pointer">
+        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
           <input
             type="checkbox"
             checked={newTaxApplyToItems}
@@ -3569,50 +3536,28 @@ const PosOnlyView: React.FC<Props> = ({
         <button
           onClick={handleAddTaxEntry}
           disabled={!newTaxName.trim() || !newTaxPercentage}
-          className="w-full py-2.5 bg-orange-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest hover:bg-orange-600 disabled:opacity-40 transition-all flex items-center justify-center gap-1.5"
+          className="w-full py-2.5 bg-orange-500 text-white rounded-lg font-medium text-sm hover:bg-orange-600 disabled:opacity-40 transition-all flex items-center justify-center gap-1.5"
         >
-          <Plus size={14} /> Add Tax
+          <Plus size={15} /> Add Tax
         </button>
       </div>
     </div>
   );
 
   const renderPaymentAndTaxesContent = () => (
-    <div className="space-y-5">
-      <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl overflow-hidden">
-        <button
-          onClick={() => setPaymentTaxAccordion(prev => ({ ...prev, paymentTypes: !prev.paymentTypes }))}
-          className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-600/30 transition-all"
-        >
-          <div className="text-left">
-            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Payment Type</p>
-            <p className="text-[10px] text-gray-400 mt-1">{paymentTypes.length} types</p>
-          </div>
-          <ChevronDown size={14} className={`text-gray-400 transition-transform ${paymentTaxAccordion.paymentTypes ? 'rotate-180' : ''}`} />
-        </button>
-        {paymentTaxAccordion.paymentTypes && (
-          <div className="px-4 pb-4 border-t dark:border-gray-600 pt-3">
-            {renderPaymentTypesContent()}
-          </div>
-        )}
+    <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+      {/* Payment Types Section */}
+      <div className="py-5 first:pt-0">
+        <p className="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">Payment Types</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{paymentTypes.length} payment type{paymentTypes.length !== 1 ? 's' : ''} configured</p>
+        {renderPaymentTypesContent()}
       </div>
 
-      <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl overflow-hidden">
-        <button
-          onClick={() => setPaymentTaxAccordion(prev => ({ ...prev, taxes: !prev.taxes }))}
-          className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-600/30 transition-all"
-        >
-          <div className="text-left">
-            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Taxes</p>
-            <p className="text-[10px] text-gray-400 mt-1">{taxEntries.length} configured</p>
-          </div>
-          <ChevronDown size={14} className={`text-gray-400 transition-transform ${paymentTaxAccordion.taxes ? 'rotate-180' : ''}`} />
-        </button>
-        {paymentTaxAccordion.taxes && (
-          <div className="px-4 pb-4 border-t dark:border-gray-600 pt-3">
-            {renderTaxesContent()}
-          </div>
-        )}
+      {/* Taxes Section */}
+      <div className="py-5 last:pb-0">
+        <p className="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">Taxes</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{taxEntries.length} tax{taxEntries.length !== 1 ? 'es' : ''} configured</p>
+        {renderTaxesContent()}
       </div>
     </div>
   );
@@ -5357,7 +5302,7 @@ const PosOnlyView: React.FC<Props> = ({
 
                 {/* ── Content Area ── */}
                 <div className="px-4 md:px-8 py-6">
-                  <div className="max-w-2xl">
+                  <div className="max-w-3xl">
 
                     {/* Kitchen user: Kitchen Order Settings */}
                     {isKitchenUser && settingsPanel === 'builtin' && (
