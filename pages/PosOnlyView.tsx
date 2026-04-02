@@ -88,7 +88,7 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
 // Receipt and printer configs are now managed by the PrinterSettings component
 // and the service types from printerService.ts
 
-type SettingsPanel = 'builtin' | 'table' | 'kitchen' | 'qr' | 'printer' | 'payment' | 'staff' | 'ux';
+type SettingsPanel = 'builtin' | 'printer' | 'payment' | 'staff';
 
 interface FeatureSettings {
   autoPrintReceipt: boolean;
@@ -5292,17 +5292,12 @@ const PosOnlyView: React.FC<Props> = ({
                       ? ([
                           { key: 'builtin' as SettingsPanel, label: 'Kitchen Orders' },
                           { key: 'printer' as SettingsPanel, label: 'Printer' },
-                          { key: 'ux' as SettingsPanel, label: 'Display' },
                         ])
                       : ([
                           { key: 'builtin' as SettingsPanel, label: 'Features' },
                           { key: 'printer' as SettingsPanel, label: 'Printer & Receipt' },
                           { key: 'payment' as SettingsPanel, label: 'Payment & Taxes' },
-                          { key: 'table' as SettingsPanel, label: 'Tables' },
-                          { key: 'kitchen' as SettingsPanel, label: 'Kitchen' },
-                          { key: 'qr' as SettingsPanel, label: 'QR Orders' },
                           { key: 'staff' as SettingsPanel, label: 'Staff' },
-                          { key: 'ux' as SettingsPanel, label: 'Display' },
                         ])
                     ).map(tab => (
                       <button
@@ -5326,7 +5321,7 @@ const PosOnlyView: React.FC<Props> = ({
 
                     {/* Kitchen user: Kitchen Order Settings */}
                     {isKitchenUser && settingsPanel === 'builtin' && (
-                      <div className="space-y-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-5 lg:gap-8">
                         <div>
                           <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Kitchen Order Settings</h2>
                           <p className="text-xs text-gray-500 dark:text-gray-400">Configure how incoming orders are handled in the kitchen.</p>
@@ -5366,18 +5361,18 @@ const PosOnlyView: React.FC<Props> = ({
 
                     {/* Non-kitchen: Built-in Features */}
                     {!isKitchenUser && settingsPanel === 'builtin' && (
-                      <div className="space-y-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-5 lg:gap-8">
                         <div>
                           <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Built-in Features</h2>
                           <p className="text-xs text-gray-500 dark:text-gray-400">Toggle core POS features like auto-print, cash drawer, and dining options.</p>
                         </div>
-                        {renderFeaturesContent()}
+                        <div>{renderFeaturesContent()}</div>
                       </div>
                     )}
 
                     {/* Printer & Receipt */}
                     {settingsPanel === 'printer' && (
-                      <div className="space-y-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-5 lg:gap-8">
                         <div>
                           <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Printer & Receipt</h2>
                           <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -5386,120 +5381,46 @@ const PosOnlyView: React.FC<Props> = ({
                               : 'Set up printers and customize receipt layout.'}
                           </p>
                         </div>
-                        <PrinterSettings
-                          restaurantId={restaurant.id}
-                          restaurantName={restaurant.name}
-                          categories={allFoodCategories}
-                          savedPrinters={savedPrinters}
-                          receiptConfig={receiptConfig}
-                          kitchenConfig={kitchenConfig}
-                          onPrintersChange={(printers) => setSavedPrinters(printers)}
-                          onReceiptConfigChange={(config) => setReceiptConfig(config)}
-                          onKitchenConfigChange={(config) => setKitchenConfig(config)}
-                          onPrinterConnected={(device) => {
-                            setConnectedDevice(device);
-                            setRealPrinterConnected(true);
-                            localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
-                          }}
-                        />
+                        <div>
+                          <PrinterSettings
+                            restaurantId={restaurant.id}
+                            restaurantName={restaurant.name}
+                            categories={allFoodCategories}
+                            savedPrinters={savedPrinters}
+                            receiptConfig={receiptConfig}
+                            kitchenConfig={kitchenConfig}
+                            onPrintersChange={(printers) => setSavedPrinters(printers)}
+                            onReceiptConfigChange={(config) => setReceiptConfig(config)}
+                            onKitchenConfigChange={(config) => setKitchenConfig(config)}
+                            onPrinterConnected={(device) => {
+                              setConnectedDevice(device);
+                              setRealPrinterConnected(true);
+                              localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
+                            }}
+                          />
+                        </div>
                       </div>
                     )}
 
                     {/* Payment & Taxes */}
                     {settingsPanel === 'payment' && (
-                      <div className="space-y-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-5 lg:gap-8">
                         <div>
                           <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Payment Type & Taxes</h2>
                           <p className="text-xs text-gray-500 dark:text-gray-400">{paymentTypes.length} payment type{paymentTypes.length !== 1 ? 's' : ''} · {taxEntries.length} tax{taxEntries.length !== 1 ? 'es' : ''} configured</p>
                         </div>
-                        {renderPaymentAndTaxesContent()}
-                      </div>
-                    )}
-
-                    {/* Table Management */}
-                    {settingsPanel === 'table' && (
-                      <div className="space-y-6">
-                        <div>
-                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Table Management</h2>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Configure table layout, floors, and saved-bill support.</p>
-                        </div>
-                        {renderTableManagementContent()}
-                      </div>
-                    )}
-
-                    {/* Kitchen */}
-                    {settingsPanel === 'kitchen' && (
-                      <div className="space-y-6">
-                        <div>
-                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Kitchen Display</h2>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Manage kitchen departments, staff, and display settings.</p>
-                        </div>
-                        {canUseKitchen ? renderKitchenSettingsContent() : (
-                          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 text-center py-12">
-                            <Coffee size={36} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
-                            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Upgrade to Pro Plus</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">Kitchen Display System requires the Pro Plus plan</p>
-                            <button onClick={() => setShowUpgradeModal(true)} className="px-5 py-2.5 bg-orange-500 text-white rounded-lg font-medium text-sm hover:bg-orange-600 transition-all">Upgrade Plan</button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* QR Orders */}
-                    {settingsPanel === 'qr' && (
-                      <div className="space-y-6">
-                        <div>
-                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">QR Ordering</h2>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Let customers scan QR codes to order from their table.</p>
-                        </div>
-                        {canUseQr ? (
-                          <>
-                            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-                              <div className="flex items-center justify-between px-5 py-4">
-                                <div>
-                                  <p className="text-sm font-medium text-gray-900 dark:text-white">Enable QR Ordering</p>
-                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Guests can scan and order directly</p>
-                                </div>
-                                <button
-                                  onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
-                                  className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                                >
-                                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
-                                </button>
-                              </div>
-                            </div>
-                            {featureSettings.qrEnabled && renderQrGeneratorContent()}
-                          </>
-                        ) : (
-                          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 text-center py-12">
-                            <QrCode size={36} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
-                            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Upgrade to Pro</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">QR Ordering requires the Pro plan or higher</p>
-                            <button onClick={() => setShowUpgradeModal(true)} className="px-5 py-2.5 bg-orange-500 text-white rounded-lg font-medium text-sm hover:bg-orange-600 transition-all">Upgrade Plan</button>
-                          </div>
-                        )}
+                        <div>{renderPaymentAndTaxesContent()}</div>
                       </div>
                     )}
 
                     {/* Staff */}
                     {settingsPanel === 'staff' && (
-                      <div className="space-y-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-5 lg:gap-8">
                         <div>
                           <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Staff Management</h2>
                           <p className="text-xs text-gray-500 dark:text-gray-400">{staffList.length} staff member{staffList.length !== 1 ? 's' : ''} configured</p>
                         </div>
-                        {renderStaffContent()}
-                      </div>
-                    )}
-
-                    {/* User Experience / Display */}
-                    {settingsPanel === 'ux' && (
-                      <div className="space-y-6">
-                        <div>
-                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Display Settings</h2>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Customize font and currency display for your screen.</p>
-                        </div>
-                        {renderUXContent()}
+                        <div>{renderStaffContent()}</div>
                       </div>
                     )}
 
