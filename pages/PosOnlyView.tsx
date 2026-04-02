@@ -7275,50 +7275,6 @@ const PosOnlyView: React.FC<Props> = ({
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Extend your POS with installable tools and upcoming releases.</p>
                       </div>
 
-                      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4 mb-5">
-                        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 md:p-6 shadow-sm">
-                          <div className="flex items-start gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-orange-50 dark:bg-orange-900/20 text-orange-500 flex items-center justify-center shrink-0">
-                              <Package size={22} />
-                            </div>
-                            <div>
-                              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 mb-2">Feature Library</p>
-                              <h2 className="text-lg font-black dark:text-white uppercase tracking-tight">Browse POS extensions in one place</h2>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 max-w-2xl leading-relaxed">
-                                Install live add-ons now, review plan availability, and keep an eye on features that are still in the pipeline.
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 xl:grid-cols-1 gap-4">
-                          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 shadow-sm">
-                            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-gray-400">Available</p>
-                            <div className="mt-3 flex items-end justify-between gap-3">
-                              <div>
-                                <p className="text-2xl font-black text-gray-900 dark:text-white leading-none">{existingAddons.length}</p>
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">Ready to install or manage</p>
-                              </div>
-                              <span className="w-10 h-10 rounded-xl bg-green-50 dark:bg-green-900/20 text-green-500 flex items-center justify-center">
-                                <CheckCircle size={18} />
-                              </span>
-                            </div>
-                          </div>
-                          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 shadow-sm">
-                            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-gray-400">Upcoming</p>
-                            <div className="mt-3 flex items-end justify-between gap-3">
-                              <div>
-                                <p className="text-2xl font-black text-gray-900 dark:text-white leading-none">{upcomingAddons.length}</p>
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">Planned releases and previews</p>
-                              </div>
-                              <span className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-500 flex items-center justify-center">
-                                <Clock size={18} />
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
                       <div className="flex gap-0 relative">
                         {addonOverviewTabs.map(tab => (
                           <button
