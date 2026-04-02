@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, PlatformAccess, QS_DEFAULT_HUB, Subscription, KitchenDepartment, OrderSource } from './src/types';
+import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, QS_DEFAULT_HUB, Subscription, KitchenDepartment, OrderSource } from './src/types';
 import CustomerView from './pages/CustomerView';
 import AdminView from './pages/AdminView';
 import PosOnlyView from './pages/PosOnlyView';
@@ -554,7 +554,6 @@ const App: React.FC = () => {
         location: res.location_name, 
         created_at: res.created_at,
         isOnline: res.is_online === true || res.is_online === null,
-        platformAccess: (res.platform_access as PlatformAccess) || 'pos_and_kitchen',
         slug: res.slug || '',
         kitchenDivisions: normalizeKitchenDepartments(res.kitchen_divisions),
         kitchenEnabled: res.kitchen_enabled === true,
@@ -1358,7 +1357,7 @@ const App: React.FC = () => {
     if (!error) fetchRestaurants();
   };
 
-  // --- VENDOR & HUB HANDLERS (UPDATED with platformAccess) ---
+  // --- VENDOR & HUB HANDLERS ---
   const handleAddVendor = async (user: User, restaurant: Restaurant): Promise<string | null> => {
     const userId = crypto.randomUUID();
     const resId = crypto.randomUUID();
@@ -1374,7 +1373,6 @@ const App: React.FC = () => {
         location_name: restaurant.location, 
         is_online: true,
         settings: {},
-        platform_access: restaurant.platformAccess || 'pos_and_kitchen',
         slug: restaurant.slug || null
       });
       
@@ -1455,7 +1453,6 @@ const App: React.FC = () => {
       name: restaurant.name, 
       logo: restaurant.logo, 
       location_name: restaurant.location,
-      platform_access: restaurant.platformAccess,
       slug: restaurant.slug || null
     };
     if (user.isActive === false) {

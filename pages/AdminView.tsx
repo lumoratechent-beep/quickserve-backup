@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, PlatformAccess, Subscription, PlanId } from '../src/types';
+import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, Subscription, PlanId } from '../src/types';
 import { uploadImage } from '../lib/storage';
 import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight } from 'lucide-react';
 import ImageCropModal from '../components/ImageCropModal';
@@ -693,7 +693,6 @@ const AdminView: React.FC<Props> = ({
     email: '',
     phone: '',
     logo: '',
-    platformAccess: 'pos_and_kitchen' as PlatformAccess,
     slug: '',
     planId: 'basic' as PlanId
   });
@@ -1010,7 +1009,6 @@ const AdminView: React.FC<Props> = ({
         email: user.email || '',
         phone: user.phone || '',
         logo: res.logo,
-        platformAccess: res.platformAccess || 'pos_and_kitchen',
         slug: autoSlug,
         planId: (subscriptions[res.id]?.plan_id as PlanId) || 'basic'
       });
@@ -1034,7 +1032,6 @@ const AdminView: React.FC<Props> = ({
       email: '', 
       phone: '', 
       logo: '',
-      platformAccess: 'pos_and_kitchen',
       slug: '',
       planId: 'basic' as PlanId
     });
@@ -1081,8 +1078,6 @@ const AdminView: React.FC<Props> = ({
         vendorId: editingVendor?.user.id || '', 
         location: formVendor.location, 
         menu: editingVendor?.res.menu || [],
-        // Derive platformAccess from plan selection
-        platformAccess: (formVendor.planId === 'pro_plus' ? 'pos_and_kitchen' : formVendor.planId === 'pro' ? 'pos_and_qr' : 'pos_only') as PlatformAccess,
         slug: formVendor.slug || undefined
       };
       
@@ -1098,8 +1093,8 @@ const AdminView: React.FC<Props> = ({
       // Upsert subscription with selected plan
       const restaurantId = resPayload.id || editingVendor?.res.id;
       if (restaurantId) {
-        const planAccess: PlatformAccess = formVendor.planId === 'pro_plus' ? 'pos_and_kitchen' : formVendor.planId === 'pro' ? 'pos_and_qr' : 'pos_only';
-        await supabase.from('restaurants').update({ platform_access: planAccess }).eq('id', restaurantId);
+        const kitchenEnabled = formVendor.planId === 'pro_plus';
+        await supabase.from('restaurants').update({ kitchen_enabled: kitchenEnabled }).eq('id', restaurantId);
         const { data: existingSub } = await supabase.from('subscriptions').select('id').eq('restaurant_id', restaurantId).single();
         if (existingSub) {
           await supabase.from('subscriptions').update({ plan_id: formVendor.planId, updated_at: new Date().toISOString() }).eq('restaurant_id', restaurantId);

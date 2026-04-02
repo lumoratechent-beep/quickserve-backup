@@ -4,9 +4,6 @@ export const QS_DEFAULT_HUB = 'QuickServe Hub';
 
 export type Role = 'CUSTOMER' | 'VENDOR' | 'ADMIN' | 'CASHIER' | 'KITCHEN' | 'ORDER_TAKER';
 
-// Platform access type
-export type PlatformAccess = 'pos_and_kitchen' | 'pos_only' | 'pos_and_qr';
-
 export enum OrderStatus {
   PENDING = 'PENDING',
   ONGOING = 'ONGOING',
@@ -112,7 +109,6 @@ export interface Restaurant {
   categories?: CategoryData[];
   modifiers?: ModifierData[];
   addOnItems?: AddOnItemData[];
-  platformAccess?: PlatformAccess; // Added for restaurant-based access control
   slug?: string; // Short URL identifier e.g. 'burger-palace'
   kitchenDivisions?: KitchenDepartment[];
   kitchenEnabled?: boolean; // Whether the Kitchen Display System is enabled

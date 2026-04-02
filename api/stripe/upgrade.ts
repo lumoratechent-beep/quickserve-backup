@@ -23,10 +23,10 @@ const PLAN_ANNUAL_PRICE_MAP: Record<string, string> = {
   pro_plus: process.env.STRIPE_PRICE_PRO_PLUS_ANNUAL || '',
 };
 
-const PLAN_PLATFORM_MAP: Record<string, { platformAccess: string; kitchenEnabled: boolean }> = {
-  basic: { platformAccess: 'pos_only', kitchenEnabled: false },
-  pro: { platformAccess: 'pos_and_qr', kitchenEnabled: false },
-  pro_plus: { platformAccess: 'pos_and_qr', kitchenEnabled: true },
+const PLAN_KITCHEN_MAP: Record<string, { kitchenEnabled: boolean }> = {
+  basic: { kitchenEnabled: false },
+  pro: { kitchenEnabled: false },
+  pro_plus: { kitchenEnabled: true },
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -95,11 +95,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Update restaurant features based on new plan
-    if (PLAN_PLATFORM_MAP[newPlanId]) {
-      const { platformAccess, kitchenEnabled } = PLAN_PLATFORM_MAP[newPlanId];
+    if (PLAN_KITCHEN_MAP[newPlanId]) {
+      const { kitchenEnabled } = PLAN_KITCHEN_MAP[newPlanId];
       const { error: resError } = await supabase
         .from('restaurants')
-        .update({ platform_access: platformAccess, kitchen_enabled: kitchenEnabled })
+        .update({ kitchen_enabled: kitchenEnabled })
         .eq('id', restaurantId);
 
       if (resError) {

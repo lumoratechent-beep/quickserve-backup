@@ -12,10 +12,10 @@ const supabase = createClient(
   supabaseServiceKey
 );
 
-const PLAN_PLATFORM_MAP: Record<string, { platformAccess: string; kitchenEnabled: boolean }> = {
-  basic: { platformAccess: 'pos_only', kitchenEnabled: false },
-  pro: { platformAccess: 'pos_and_qr', kitchenEnabled: false },
-  pro_plus: { platformAccess: 'pos_and_qr', kitchenEnabled: true },
+const PLAN_KITCHEN_MAP: Record<string, { kitchenEnabled: boolean }> = {
+  basic: { kitchenEnabled: false },
+  pro: { kitchenEnabled: false },
+  pro_plus: { kitchenEnabled: true },
 };
 
 // Vercel requires raw body for Stripe signature verification
@@ -198,11 +198,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // Update restaurant features based on plan
-        if (shouldUpdateFeaturesNow && planId && PLAN_PLATFORM_MAP[planId]) {
-          const { platformAccess, kitchenEnabled } = PLAN_PLATFORM_MAP[planId];
+        if (shouldUpdateFeaturesNow && planId && PLAN_KITCHEN_MAP[planId]) {
+          const { kitchenEnabled } = PLAN_KITCHEN_MAP[planId];
           await supabase
             .from('restaurants')
-            .update({ platform_access: platformAccess, kitchen_enabled: kitchenEnabled })
+            .update({ kitchen_enabled: kitchenEnabled })
             .eq('id', restaurantId);
         }
         break;
@@ -247,11 +247,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .eq('restaurant_id', restaurantId);
 
         // Update restaurant features based on plan
-        if (planId && PLAN_PLATFORM_MAP[planId]) {
-          const { platformAccess, kitchenEnabled } = PLAN_PLATFORM_MAP[planId];
+        if (planId && PLAN_KITCHEN_MAP[planId]) {
+          const { kitchenEnabled } = PLAN_KITCHEN_MAP[planId];
           await supabase
             .from('restaurants')
-            .update({ platform_access: platformAccess, kitchen_enabled: kitchenEnabled })
+            .update({ kitchen_enabled: kitchenEnabled })
             .eq('id', restaurantId);
         }
         break;

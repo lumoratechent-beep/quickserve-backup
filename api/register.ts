@@ -51,13 +51,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(409).json({ error: 'An account with this email already exists.' });
     }
 
-    // Determine platform access based on plan
-    let platformAccess = 'pos_only';
     let kitchenEnabled = false;
-    if (planId === 'pro') {
-      platformAccess = 'pos_and_qr';
-    } else if (planId === 'pro_plus') {
-      platformAccess = 'pos_and_qr';
+    if (planId === 'pro_plus') {
       kitchenEnabled = true;
     }
 
@@ -71,7 +66,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         location_name: 'QuickServe Hub',
         is_online: true,
         settings: {},
-        platform_access: platformAccess,
         kitchen_enabled: kitchenEnabled,
         slug: null,
       })

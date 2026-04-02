@@ -2808,6 +2808,7 @@ const PosOnlyView: React.FC<Props> = ({
   // --- Kitchen Feature Logic ---
   // Plan-based feature gating
   const vendorPlan: PlanId = subscription?.plan_id || 'basic';
+  const vendorPlanLabel = vendorPlan === 'pro_plus' ? 'Plan: Pro Plus' : vendorPlan === 'pro' ? 'Plan: Pro' : 'Plan: Basic';
   const canUseQr = vendorPlan === 'pro' || vendorPlan === 'pro_plus';
   const canUseKitchen = vendorPlan === 'pro_plus';
   const canUseSavedBill = vendorPlan === 'basic' || vendorPlan === 'pro' || vendorPlan === 'pro_plus';
@@ -4769,7 +4770,7 @@ const PosOnlyView: React.FC<Props> = ({
             <>
               <div className="flex-1 min-w-0">
                 <h2 className="font-black dark:text-white text-sm uppercase tracking-tight leading-tight truncate">{restaurant.name}</h2>
-                <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest">{showKitchenFeature && showQrFeature ? 'POS + Kitchen + QR' : showKitchenFeature ? 'POS + Kitchen' : showQrFeature ? 'POS + QR' : 'POS Terminal'}</p>
+                <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest">{vendorPlanLabel}</p>
               </div>
               <button
                 onClick={openProfilePanel}

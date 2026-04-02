@@ -203,10 +203,8 @@ async function startServer() {
         .from('users').select('id').eq('email', email).single();
       if (existingEmail) return res.status(409).json({ error: 'An account with this email already exists.' });
 
-      let platformAccess = 'pos_only';
       let kitchenEnabled = false;
-      if (planId === 'pro') platformAccess = 'pos_and_qr';
-      else if (planId === 'pro_plus') { platformAccess = 'pos_and_qr'; kitchenEnabled = true; }
+      if (planId === 'pro_plus') { kitchenEnabled = true; }
 
       const { data: restaurant, error: restError } = await supabase
         .from('restaurants')
@@ -217,7 +215,6 @@ async function startServer() {
           location_name: 'QuickServe Hub',
           is_online: true,
           settings: {},
-          platform_access: platformAccess,
           kitchen_enabled: kitchenEnabled,
           slug: null,
         })

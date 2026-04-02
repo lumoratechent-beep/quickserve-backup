@@ -432,10 +432,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { restaurantId: reconcileRestId } = req.body || {};
         if (!reconcileRestId) return res.status(400).json({ error: 'restaurantId is required.' });
 
-        const PLAN_PLATFORM_MAP: Record<string, { platformAccess: string; kitchenEnabled: boolean }> = {
-          basic: { platformAccess: 'pos_only', kitchenEnabled: false },
-          pro: { platformAccess: 'pos_and_qr', kitchenEnabled: false },
-          pro_plus: { platformAccess: 'pos_and_qr', kitchenEnabled: true },
+        const PLAN_KITCHEN_MAP: Record<string, { kitchenEnabled: boolean }> = {
+          basic: { kitchenEnabled: false },
+          pro: { kitchenEnabled: false },
+          pro_plus: { kitchenEnabled: true },
         };
 
         const { data: reconcileSub, error: reconcileSubErr } = await supabase
@@ -486,15 +486,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           reconcilePlan = reconcileSub.pending_plan_id;
         }
 
-        if (!reconcilePlan || !PLAN_PLATFORM_MAP[reconcilePlan]) {
+        if (!reconcilePlan || !PLAN_KITCHEN_MAP[reconcilePlan]) {
           return res.status(400).json({ error: 'Invalid plan in subscription.' });
         }
 
-        const target = PLAN_PLATFORM_MAP[reconcilePlan];
+        const target = PLAN_KITCHEN_MAP[reconcilePlan];
 
         const { data: reconcileRest, error: reconcileRestErr } = await supabase
           .from('restaurants')
-          .select('platform_access, kitchen_enabled')
+          .select('kitchen_enabled')
           .eq('id', reconcileRestId)
           .single();
 
@@ -502,9 +502,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(404).json({ error: 'Restaurant not found.' });
         }
 
-        const alreadyApplied =
-          reconcileRest.platform_access === target.platformAccess &&
-          reconcileRest.kitchen_enabled === target.kitchenEnabled;
+        const alreadyApplied = reconcileRest.kitchen_enabled === target.kitchenEnabled;
 
         if (alreadyApplied) {
           return res.status(200).json({ updated: false, reason: 'already_synced' });
@@ -512,7 +510,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const { error: reconcileUpdateErr } = await supabase
           .from('restaurants')
-          .update({ platform_access: target.platformAccess, kitchen_enabled: target.kitchenEnabled })
+          .update({ kitchen_enabled: target.kitchenEnabled })
           .eq('id', reconcileRestId);
 
         if (reconcileUpdateErr) {
