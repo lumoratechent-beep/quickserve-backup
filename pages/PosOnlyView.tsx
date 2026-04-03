@@ -3574,18 +3574,22 @@ const PosOnlyView: React.FC<Props> = ({
 
   const renderPaymentAndTaxesContent = () => (
     <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
-      {/* Payment Types Section */}
-      <div className="py-5 first:pt-0">
-        <p className="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">Payment Types</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{paymentTypes.length} payment type{paymentTypes.length !== 1 ? 's' : ''} configured</p>
-        {renderPaymentTypesContent()}
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6 first:pt-0">
+        <div>
+          <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Payment Types</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Manage accepted payment methods for checkout.</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">{paymentTypes.length} payment type{paymentTypes.length !== 1 ? 's' : ''} configured</p>
+        </div>
+        <div className="min-w-0">{renderPaymentTypesContent()}</div>
       </div>
 
-      {/* Taxes Section */}
-      <div className="py-5 last:pb-0">
-        <p className="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">Taxes</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{taxEntries.length} tax{taxEntries.length !== 1 ? 'es' : ''} configured</p>
-        {renderTaxesContent()}
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6 last:pb-0">
+        <div>
+          <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Taxes</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Set tax rules and choose whether each tax applies to items.</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">{taxEntries.length} tax{taxEntries.length !== 1 ? 'es' : ''} configured</p>
+        </div>
+        <div className="min-w-0">{renderTaxesContent()}</div>
       </div>
     </div>
   );
@@ -5312,7 +5316,7 @@ const PosOnlyView: React.FC<Props> = ({
                 : [
                     {
                       key: 'builtin',
-                      label: 'Features',
+                      label: 'Build in Features.',
                       info: 'Core POS behavior such as cashier and dining options.',
                       icon: Layers,
                       badge: 'Core'
@@ -5390,7 +5394,7 @@ const PosOnlyView: React.FC<Props> = ({
               <div className="relative flex-1 overflow-y-auto bg-gradient-to-b from-slate-50 via-white to-orange-50/40 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950">
                 <div className="mx-auto w-full max-w-[1480px] px-3 pb-8 pt-3 sm:px-5 sm:pt-5 lg:px-8 lg:pt-6">
                   <div className="animate-in fade-in duration-500">
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-[240px_minmax(0,1fr)] lg:gap-6">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-[300px_minmax(0,1fr)] lg:gap-6">
                       <aside className="h-fit rounded-2xl border border-slate-200/80 bg-white/95 p-3 shadow-sm dark:border-gray-700/80 dark:bg-gray-800/90 md:sticky md:top-4">
                         <p className="px-1 pb-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">Settings Nav</p>
 
