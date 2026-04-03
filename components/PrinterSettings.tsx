@@ -58,12 +58,30 @@ const PrinterSettings: React.FC<Props> = ({
   const [printerForm, setPrinterForm] = useState<SavedPrinter>(createDefaultPrinter());
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
+  const normalizeReceiptConfig = (config: Partial<ReceiptConfig> | null | undefined): ReceiptConfig => {
+    const legacyAddress = typeof (config as (Partial<ReceiptConfig> & { businessAddress?: string }) | null | undefined)?.businessAddress === 'string'
+      ? (config as (Partial<ReceiptConfig> & { businessAddress?: string })).businessAddress
+      : '';
+
+    return {
+      ...DEFAULT_RECEIPT_CONFIG,
+      businessName: restaurantName,
+      ...(config || {}),
+      businessAddressLine1: config?.businessAddressLine1 || legacyAddress || '',
+      businessAddressLine2: config?.businessAddressLine2 || '',
+    };
+  };
+
   // Receipt config
   const [receiptConfig, setReceiptConfig] = useState<ReceiptConfig>(() => {
-    if (propReceiptConfig) return propReceiptConfig;
+    if (propReceiptConfig) return normalizeReceiptConfig(propReceiptConfig);
     const saved = localStorage.getItem(`receipt_config_${restaurantId}`);
-    if (saved) try { return { ...DEFAULT_RECEIPT_CONFIG, ...JSON.parse(saved) }; } catch {}
-    return { ...DEFAULT_RECEIPT_CONFIG, businessName: restaurantName };
+    if (saved) {
+      try {
+        return normalizeReceiptConfig(JSON.parse(saved));
+      } catch {}
+    }
+    return normalizeReceiptConfig({ businessName: restaurantName });
   });
 
   // Kitchen ticket config
@@ -779,7 +797,8 @@ const PrinterSettings: React.FC<Props> = ({
         <div className="min-w-0 space-y-3">
           {([
             { key: 'businessName' as const, label: 'Business Name', placeholder: 'Store name on receipt' },
-            { key: 'businessAddress' as const, label: 'Address', placeholder: 'Store address (optional)' },
+            { key: 'businessAddressLine1' as const, label: 'Address Line 1', placeholder: 'Street address (optional)' },
+            { key: 'businessAddressLine2' as const, label: 'Address Line 2', placeholder: 'Suite, unit, city, state (optional)' },
             { key: 'businessPhone' as const, label: 'Phone', placeholder: 'Contact number (optional)' },
           ]).map(field => (
             <div key={field.key}>

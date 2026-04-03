@@ -135,7 +135,8 @@ export interface SavedPrinter {
 /** Receipt content configuration */
 export interface ReceiptConfig {
   businessName: string;
-  businessAddress: string;
+  businessAddressLine1: string;
+  businessAddressLine2: string;
   businessPhone: string;
   headerText: string;
   footerText: string;
@@ -182,7 +183,9 @@ export interface ReceiptPrintOptions {
   showTotal?: boolean;
   headerText?: string;
   footerText?: string;
-  businessAddress?: string;
+  businessAddressLine1?: string;
+  businessAddressLine2?: string;
+  businessAddress?: string; // legacy single-line address fallback
   businessPhone?: string;
   autoOpenDrawer?: boolean;
   paperSize?: PaperSize;
@@ -212,7 +215,8 @@ export interface ReceiptPrintOptions {
 
 export const DEFAULT_RECEIPT_CONFIG: ReceiptConfig = {
   businessName: '',
-  businessAddress: '',
+  businessAddressLine1: '',
+  businessAddressLine2: '',
   businessPhone: '',
   headerText: '',
   footerText: 'Thank you! Please come again.',
@@ -804,7 +808,8 @@ class PrinterService {
       const remark    = this.sanitize(order.remark);
       const header    = this.sanitize(options?.headerText);
       const footer    = this.sanitize(options?.footerText || 'Thank you! Please come again.');
-      const bizAddr   = this.sanitize(options?.businessAddress);
+      const bizAddrLine1 = this.sanitize(options?.businessAddressLine1 || options?.businessAddress);
+      const bizAddrLine2 = this.sanitize(options?.businessAddressLine2);
       const bizPhone  = this.sanitize(options?.businessPhone);
 
       const showDT     = options?.showDateTime !== false;
@@ -828,7 +833,8 @@ class PrinterService {
 
       // ── Address & Phone — centered, normal ──
       r.align(titleAlign);
-      if (bizAddr) r.line(bizAddr);
+      if (bizAddrLine1) r.line(bizAddrLine1);
+      if (bizAddrLine2) r.line(bizAddrLine2);
       if (bizPhone) r.line(bizPhone);
 
       // ── Custom header text — use header customization ──

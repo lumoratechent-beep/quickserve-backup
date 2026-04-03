@@ -454,12 +454,31 @@ const PosOnlyView: React.FC<Props> = ({
     const saved = localStorage.getItem(`printers_${restaurant.id}`);
     return saved ? JSON.parse(saved) : [];
   });
+
+  const normalizeReceiptConfig = (config: Partial<ReceiptConfig> | null | undefined): ReceiptConfig => {
+    const legacyAddress = typeof (config as (Partial<ReceiptConfig> & { businessAddress?: string }) | null | undefined)?.businessAddress === 'string'
+      ? (config as (Partial<ReceiptConfig> & { businessAddress?: string })).businessAddress
+      : '';
+
+    return {
+      ...DEFAULT_RECEIPT_CONFIG,
+      businessName: restaurant.name,
+      ...(config || {}),
+      businessAddressLine1: config?.businessAddressLine1 || legacyAddress || '',
+      businessAddressLine2: config?.businessAddressLine2 || '',
+    };
+  };
+
   const [receiptConfig, setReceiptConfig] = useState<ReceiptConfig>(() => {
     const dbSaved = restaurant.settings?.receipt;
-    if (dbSaved && typeof dbSaved === 'object') return { ...DEFAULT_RECEIPT_CONFIG, businessName: restaurant.name, ...dbSaved } as ReceiptConfig;
+    if (dbSaved && typeof dbSaved === 'object') return normalizeReceiptConfig(dbSaved as Partial<ReceiptConfig>);
     const saved = localStorage.getItem(`receipt_config_${restaurant.id}`);
-    if (saved) try { return { ...DEFAULT_RECEIPT_CONFIG, businessName: restaurant.name, ...JSON.parse(saved) }; } catch {}
-    return { ...DEFAULT_RECEIPT_CONFIG, businessName: restaurant.name };
+    if (saved) {
+      try {
+        return normalizeReceiptConfig(JSON.parse(saved));
+      } catch {}
+    }
+    return normalizeReceiptConfig({ businessName: restaurant.name });
   });
   const [kitchenConfig, setKitchenConfig] = useState<KitchenTicketConfig>(() => {
     const dbSaved = restaurant.settings?.kitchenTicket;
@@ -1854,7 +1873,7 @@ const PosOnlyView: React.FC<Props> = ({
         setFeatureSettings(prev => ({ ...prev, ...serverSettings.features }));
       }
       if (serverSettings.receipt && typeof serverSettings.receipt === 'object') {
-        setReceiptConfig(prev => ({ ...prev, ...serverSettings.receipt }));
+        setReceiptConfig(prev => normalizeReceiptConfig({ ...prev, ...serverSettings.receipt }));
       }
       if (serverSettings.kitchenTicket && typeof serverSettings.kitchenTicket === 'object') {
         setKitchenConfig(prev => ({ ...prev, ...serverSettings.kitchenTicket }));
@@ -2513,7 +2532,8 @@ const PosOnlyView: React.FC<Props> = ({
       showTotal: receiptConfig.showTotal,
       headerText: receiptConfig.headerText,
       footerText: receiptConfig.footerText,
-      businessAddress: receiptConfig.businessAddress,
+      businessAddressLine1: receiptConfig.businessAddressLine1,
+      businessAddressLine2: receiptConfig.businessAddressLine2,
       businessPhone: receiptConfig.businessPhone,
       autoOpenDrawer: receiptConfig.openCashDrawerOnPayment,
       paperSize: printer?.paperSize || '58mm',
@@ -3066,7 +3086,7 @@ const PosOnlyView: React.FC<Props> = ({
               <p className="text-sm font-medium text-gray-900 dark:text-white">Auto-Print Receipt</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Print automatically after checkout</p>
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center justify-end">
               <button
                 onClick={() => updateFeatureSetting('autoPrintReceipt', !featureSettings.autoPrintReceipt)}
                 className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.autoPrintReceipt ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
@@ -3080,7 +3100,7 @@ const PosOnlyView: React.FC<Props> = ({
               <p className="text-sm font-medium text-gray-900 dark:text-white">Auto Open Drawer</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Open cash drawer after checkout</p>
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center justify-end">
               <button
                 onClick={() => updateFeatureSetting('autoOpenDrawer', !featureSettings.autoOpenDrawer)}
                 className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.autoOpenDrawer ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
@@ -3108,7 +3128,7 @@ const PosOnlyView: React.FC<Props> = ({
                 <p className="text-sm font-medium text-gray-900 dark:text-white">{item.label}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{item.desc}</p>
               </div>
-              <div className="flex items-center">
+              <div className="flex items-center justify-end">
                 <button
                   onClick={() => updateFeatureSetting(item.key, !featureSettings[item.key])}
                   className={`w-11 h-6 rounded-full transition-all relative ${featureSettings[item.key] ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
@@ -3118,22 +3138,6 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
             </div>
           ))}
-        </div>
-      </div>
-
-      {/* Customer Display */}
-      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-6 last:pb-0">
-        <div>
-          <p className="text-sm font-medium text-gray-900 dark:text-white">Customer Display</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Enable external customer-facing display</p>
-        </div>
-        <div className="flex items-center">
-          <button
-            onClick={() => updateFeatureSetting('customerDisplayEnabled', !featureSettings.customerDisplayEnabled)}
-            className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.customerDisplayEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-          >
-            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.customerDisplayEnabled ? 'left-6' : 'left-1'}`} />
-          </button>
         </div>
       </div>
     </div>
@@ -5357,7 +5361,6 @@ const PosOnlyView: React.FC<Props> = ({
               featureSettings.savedBillEnabled,
               featureSettings.tableManagementEnabled,
               featureSettings.floorEnabled,
-              featureSettings.customerDisplayEnabled,
               featureSettings.kitchenEnabled,
               featureSettings.qrEnabled,
               featureSettings.tablesideOrderingEnabled,

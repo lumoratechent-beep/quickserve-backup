@@ -13,7 +13,8 @@ export const POS_DEFAULTS = {
   currency: 'MYR',
   receipt: {
     businessName: '',        // dynamic — always overridden by restaurant.name at expand time
-    businessAddress: '',
+    businessAddressLine1: '',
+    businessAddressLine2: '',
     businessPhone: '',
     headerText: '',
     footerText: 'Thank you! Please come again.',
@@ -201,6 +202,13 @@ export function expandPosSettings(
   delta: Record<string, any>,
   restaurantName: string,
 ): Record<string, any> {
+  const receiptDelta = delta.receipt && typeof delta.receipt === 'object'
+    ? (delta.receipt as Record<string, any>)
+    : {};
+  const legacyAddress = typeof receiptDelta.businessAddress === 'string'
+    ? receiptDelta.businessAddress
+    : '';
+
   return {
     ...delta,
     font: delta.font ?? POS_DEFAULTS.font,
@@ -210,7 +218,9 @@ export function expandPosSettings(
     receipt: {
       ...POS_DEFAULTS.receipt,
       businessName: restaurantName,
-      ...(delta.receipt && typeof delta.receipt === 'object' ? delta.receipt : {}),
+      ...receiptDelta,
+      businessAddressLine1: receiptDelta.businessAddressLine1 ?? legacyAddress,
+      businessAddressLine2: receiptDelta.businessAddressLine2 ?? POS_DEFAULTS.receipt.businessAddressLine2,
     },
     features: {
       ...POS_DEFAULTS.features,
