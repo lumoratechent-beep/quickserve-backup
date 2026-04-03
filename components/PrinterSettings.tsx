@@ -905,7 +905,7 @@ const PrinterSettings: React.FC<Props> = ({
           <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Visible Fields</p>
           <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Choose which details are printed on each receipt.</p>
         </div>
-        <div className="min-w-0 space-y-2">
+        <div className="min-w-0 divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
           {([
             { key: 'showOrderNumber' as const, label: 'Order Number', desc: 'Show order number on receipt' },
             { key: 'showCashierName' as const, label: 'Cashier Name', desc: 'Show cashier who processed the order' },
@@ -919,9 +919,20 @@ const PrinterSettings: React.FC<Props> = ({
             { key: 'showTaxes' as const, label: 'Tax Breakdown', desc: 'Show tax details' },
             { key: 'showOrderSource' as const, label: 'Order Source', desc: 'Show where order came from' },
           ]).map(field => (
-            <SettingRow key={field.key} label={field.label} description={field.desc}>
-              <Toggle enabled={receiptConfig[field.key]} onChange={v => updateReceiptConfig(field.key, v)} />
-            </SettingRow>
+            <div key={field.key} className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 first:pt-0 last:pb-0">
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{field.label}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{field.desc}</p>
+              </div>
+              <div className="flex items-center justify-end">
+                <button
+                  onClick={() => updateReceiptConfig(field.key, !receiptConfig[field.key])}
+                  className={`w-11 h-6 rounded-full transition-all relative ${receiptConfig[field.key] ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${receiptConfig[field.key] ? 'left-6' : 'left-1'}`} />
+                </button>
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -931,16 +942,39 @@ const PrinterSettings: React.FC<Props> = ({
           <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Printing Behavior</p>
           <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Default print actions after payment and refunds.</p>
         </div>
-        <div className="min-w-0 space-y-2">
-          <SettingRow label="Auto-Print After Sale" description="Automatically print receipt when order is completed">
-            <Toggle enabled={receiptConfig.autoPrintAfterSale} onChange={v => updateReceiptConfig('autoPrintAfterSale', v)} />
-          </SettingRow>
-          <SettingRow label="Print Receipt for Refunds" description="Print a receipt when processing refunds">
-            <Toggle enabled={receiptConfig.printReceiptForRefund} onChange={v => updateReceiptConfig('printReceiptForRefund', v)} />
-          </SettingRow>
-          <SettingRow label="Open Cash Drawer on Payment" description="Open cash drawer when payment is received">
-            <Toggle enabled={receiptConfig.openCashDrawerOnPayment} onChange={v => updateReceiptConfig('openCashDrawerOnPayment', v)} />
-          </SettingRow>
+        <div className="min-w-0 divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+          {([
+            {
+              key: 'autoPrintAfterSale' as const,
+              label: 'Auto-Print After Sale',
+              desc: 'Automatically print receipt when order is completed',
+            },
+            {
+              key: 'printReceiptForRefund' as const,
+              label: 'Print Receipt for Refunds',
+              desc: 'Print a receipt when processing refunds',
+            },
+            {
+              key: 'openCashDrawerOnPayment' as const,
+              label: 'Open Cash Drawer on Payment',
+              desc: 'Open cash drawer when payment is received',
+            },
+          ]).map(field => (
+            <div key={field.key} className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 first:pt-0 last:pb-0">
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{field.label}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{field.desc}</p>
+              </div>
+              <div className="flex items-center justify-end">
+                <button
+                  onClick={() => updateReceiptConfig(field.key, !receiptConfig[field.key])}
+                  className={`w-11 h-6 rounded-full transition-all relative ${receiptConfig[field.key] ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${receiptConfig[field.key] ? 'left-6' : 'left-1'}`} />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
