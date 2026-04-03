@@ -140,12 +140,52 @@ const REJECTION_REASONS = [
 interface PaymentType {
   id: string;
   name: string;
+  enabled: boolean;
 }
 
-const getDefaultPaymentTypes = (): PaymentType[] => [
-  { id: 'cash', name: 'CASH' },
+const DEFAULT_PAYMENT_TYPES = [
+  { id: 'cash', name: 'Cash' },
   { id: 'qr', name: 'QR' },
-];
+  { id: 'card', name: 'Card' },
+] as const;
+
+const NON_REMOVABLE_PAYMENT_TYPE_IDS = new Set<string>(DEFAULT_PAYMENT_TYPES.map((type) => type.id));
+
+const getDefaultPaymentTypes = (): PaymentType[] => (
+  DEFAULT_PAYMENT_TYPES.map((type) => ({ ...type, enabled: true }))
+);
+
+const normalizePaymentTypes = (types: unknown): PaymentType[] => {
+  const source = Array.isArray(types) ? types : [];
+  const uniqueById = new Map<string, PaymentType>();
+
+  source.forEach((item) => {
+    if (!item || typeof item !== 'object') return;
+    const candidate = item as Partial<PaymentType>;
+    const id = typeof candidate.id === 'string' ? candidate.id.trim() : '';
+    const name = typeof candidate.name === 'string' ? candidate.name.trim() : '';
+    if (!id || !name || uniqueById.has(id)) return;
+
+    uniqueById.set(id, {
+      id,
+      name,
+      enabled: typeof candidate.enabled === 'boolean' ? candidate.enabled : true,
+    });
+  });
+
+  const defaults = DEFAULT_PAYMENT_TYPES.map((type) => ({
+    id: type.id,
+    name: type.name,
+    enabled: uniqueById.get(type.id)?.enabled ?? true,
+  }));
+
+  const customTypes = Array.from(uniqueById.values()).filter((type) => !NON_REMOVABLE_PAYMENT_TYPE_IDS.has(type.id));
+  return [...defaults, ...customTypes];
+};
+
+const getFirstEnabledPaymentTypeId = (types: PaymentType[]): string => {
+  return types.find((type) => type.enabled)?.id || '';
+};
 
 const MENU_ITEM_PLACEHOLDER_IMAGE_PREFIX = 'https://picsum.photos/seed/';
 
@@ -572,9 +612,14 @@ const PosOnlyView: React.FC<Props> = ({
   // Payment types
   const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>(() => {
     const dbSaved = restaurant.settings?.paymentTypes;
-    if (Array.isArray(dbSaved) && dbSaved.length > 0) return dbSaved;
+    if (Array.isArray(dbSaved)) return normalizePaymentTypes(dbSaved);
     const saved = localStorage.getItem(`payment_types_${restaurant.id}`);
-    return saved ? JSON.parse(saved) : getDefaultPaymentTypes();
+    if (saved) {
+      try {
+        return normalizePaymentTypes(JSON.parse(saved));
+      } catch {}
+    }
+    return getDefaultPaymentTypes();
   });
   const [newPaymentTypeName, setNewPaymentTypeName] = useState('');
 
@@ -624,6 +669,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [collectCashAmountInput, setCollectCashAmountInput] = useState<string>('');
   const [collectCashAmount, setCollectCashAmount] = useState<number | null>(null);
   const [collectPaymentType, setCollectPaymentType] = useState<string>('');
+  const enabledPaymentTypes = useMemo(() => paymentTypes.filter((type) => type.enabled), [paymentTypes]);
 
   const CASH_DENOMINATIONS = [10, 20, 50, 100];
 
@@ -1490,7 +1536,7 @@ const PosOnlyView: React.FC<Props> = ({
     
     setSelectedCashAmount(cartGrandTotal);
     setCashAmountInput(cartGrandTotal.toFixed(2));
-    setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
+    setSelectedPaymentType(getFirstEnabledPaymentTypeId(paymentTypes));
     setIsQrPaymentMode(false);
     setShowPaymentModal(true);
   };
@@ -1543,7 +1589,7 @@ const PosOnlyView: React.FC<Props> = ({
     });
     setSelectedCashAmount(selectedQrGrandTotal);
     setCashAmountInput(selectedQrGrandTotal.toFixed(2));
-    setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
+    setSelectedPaymentType(getFirstEnabledPaymentTypeId(paymentTypes));
     setIsQrPaymentMode(true);
     setShowPaymentModal(true);
   };
@@ -1878,8 +1924,8 @@ const PosOnlyView: React.FC<Props> = ({
       if (serverSettings.kitchenTicket && typeof serverSettings.kitchenTicket === 'object') {
         setKitchenConfig(prev => ({ ...prev, ...serverSettings.kitchenTicket }));
       }
-      if (Array.isArray(serverSettings.paymentTypes) && serverSettings.paymentTypes.length > 0) {
-        setPaymentTypes(serverSettings.paymentTypes);
+      if (Array.isArray(serverSettings.paymentTypes)) {
+        setPaymentTypes(normalizePaymentTypes(serverSettings.paymentTypes));
       }
       if (Array.isArray(serverSettings.taxes)) {
         setTaxEntries(serverSettings.taxes);
@@ -2111,6 +2157,16 @@ const PosOnlyView: React.FC<Props> = ({
   useEffect(() => {
     localStorage.setItem(`payment_types_${restaurant.id}`, JSON.stringify(paymentTypes));
   }, [paymentTypes, restaurant.id]);
+
+  useEffect(() => {
+    if (selectedPaymentType && enabledPaymentTypes.some((type) => type.id === selectedPaymentType)) return;
+    setSelectedPaymentType(getFirstEnabledPaymentTypeId(enabledPaymentTypes));
+  }, [enabledPaymentTypes, selectedPaymentType]);
+
+  useEffect(() => {
+    if (collectPaymentType && enabledPaymentTypes.some((type) => type.id === collectPaymentType)) return;
+    setCollectPaymentType(getFirstEnabledPaymentTypeId(enabledPaymentTypes));
+  }, [enabledPaymentTypes, collectPaymentType]);
 
   useEffect(() => {
     localStorage.setItem(`taxes_${restaurant.id}`, JSON.stringify(taxEntries));
@@ -2488,12 +2544,18 @@ const PosOnlyView: React.FC<Props> = ({
     const newType: PaymentType = {
       id: Date.now().toString(),
       name: newPaymentTypeName.trim().toUpperCase(),
+      enabled: true,
     };
     setPaymentTypes(prev => [...prev, newType]);
     setNewPaymentTypeName('');
   };
 
+  const handleTogglePaymentType = (id: string) => {
+    setPaymentTypes(prev => prev.map(pt => pt.id === id ? { ...pt, enabled: !pt.enabled } : pt));
+  };
+
   const handleRemovePaymentType = (id: string) => {
+    if (NON_REMOVABLE_PAYMENT_TYPE_IDS.has(id)) return;
     setPaymentTypes(prev => prev.filter(pt => pt.id !== id));
   };
 
@@ -3460,13 +3522,24 @@ const PosOnlyView: React.FC<Props> = ({
       ) : (
         <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700 mb-4">
           {paymentTypes.map(pt => (
-            <div key={pt.id} className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-3">
+            <div key={pt.id} className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-4">
               <div>
                 <p className="text-sm font-medium text-gray-900 dark:text-white">{pt.name}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  {NON_REMOVABLE_PAYMENT_TYPE_IDS.has(pt.id) ? 'Built-in method' : 'Custom method'} · {pt.enabled ? 'Enabled' : 'Disabled'}
+                </p>
               </div>
-              <div className="flex items-center">
-                <button onClick={() => handleRemovePaymentType(pt.id)} className="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50">
-                  <Trash2 size={15} />
+              <div className="flex items-center justify-end gap-2">
+                {!NON_REMOVABLE_PAYMENT_TYPE_IDS.has(pt.id) && (
+                  <button onClick={() => handleRemovePaymentType(pt.id)} className="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50">
+                    <Trash2 size={15} />
+                  </button>
+                )}
+                <button
+                  onClick={() => handleTogglePaymentType(pt.id)}
+                  className={`w-11 h-6 rounded-full transition-all relative ${pt.enabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${pt.enabled ? 'left-6' : 'left-1'}`} />
                 </button>
               </div>
             </div>
@@ -3509,15 +3582,15 @@ const PosOnlyView: React.FC<Props> = ({
                 <p className="text-sm font-medium text-gray-900 dark:text-white">{tax.name} ({tax.percentage}%)</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{tax.applyToItems ? 'Applied to items' : 'Not applied to items'}</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-end gap-2">
+                <button onClick={() => handleRemoveTaxEntry(tax.id)} className="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50">
+                  <Trash2 size={15} />
+                </button>
                 <button
                   onClick={() => handleToggleTaxApply(tax.id)}
                   className={`w-11 h-6 rounded-full transition-all relative ${tax.applyToItems ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
                 >
                   <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${tax.applyToItems ? 'left-6' : 'left-1'}`} />
-                </button>
-                <button onClick={() => handleRemoveTaxEntry(tax.id)} className="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50">
-                  <Trash2 size={15} />
                 </button>
               </div>
             </div>
@@ -7104,7 +7177,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     });
                                     setSelectedCashAmount(order.total);
                                     setCashAmountInput(order.total.toFixed(2));
-                                    setSelectedPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
+                                    setSelectedPaymentType(getFirstEnabledPaymentTypeId(paymentTypes));
                                     setIsQrPaymentMode(true);
                                     setShowPaymentModal(true);
                                   }} className="flex-1 py-2.5 bg-blue-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-1.5">
@@ -8501,7 +8574,7 @@ const PosOnlyView: React.FC<Props> = ({
                     onChange={(e) => setSelectedPaymentType(e.target.value)}
                     className="w-full p-3 lg:p-4 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-base lg:text-lg font-black dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
                   >
-                    {paymentTypes.map((type) => (
+                    {enabledPaymentTypes.map((type) => (
                       <option key={type.id} value={type.id}>
                         {type.name}
                       </option>
@@ -8831,7 +8904,7 @@ const PosOnlyView: React.FC<Props> = ({
                       onClick={() => {
                         setCollectCashAmount(selectedReportOrder.total);
                         setCollectCashAmountInput(selectedReportOrder.total.toFixed(2));
-                        setCollectPaymentType(paymentTypes.length > 0 ? paymentTypes[0].id : '');
+                        setCollectPaymentType(getFirstEnabledPaymentTypeId(paymentTypes));
                         setCollectPaymentSuccess(false);
                         setShowCollectPaymentSidebar(true);
                       }}
@@ -8980,7 +9053,7 @@ const PosOnlyView: React.FC<Props> = ({
                       onChange={(e) => setCollectPaymentType(e.target.value)}
                       className="w-full p-3 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-base font-black dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
                     >
-                      {paymentTypes.map((type) => (
+                      {enabledPaymentTypes.map((type) => (
                         <option key={type.id} value={type.id}>{type.name}</option>
                       ))}
                     </select>
