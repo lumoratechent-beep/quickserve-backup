@@ -167,6 +167,12 @@ export interface ReceiptConfig {
   footerAlignment: TextAlignment;
 }
 
+/** Order-list content configuration (prep list). */
+export interface OrderListConfig extends ReceiptConfig {
+  showItemPrice: boolean;
+  showPaymentMethod: boolean;
+}
+
 /** Kitchen ticket config */
 export interface KitchenTicketConfig {
   printLargeOrderNumber: boolean;
@@ -179,8 +185,10 @@ export interface ReceiptPrintOptions {
   showOrderId?: boolean;
   showTableNumber?: boolean;
   showItems?: boolean;
+  showItemPrice?: boolean;
   showRemark?: boolean;
   showTotal?: boolean;
+  showPaymentMethod?: boolean;
   headerText?: string;
   footerText?: string;
   businessAddressLine1?: string;
@@ -244,6 +252,17 @@ export const DEFAULT_RECEIPT_CONFIG: ReceiptConfig = {
   footerSize: 1,
   footerFont: 'A',
   footerAlignment: 'center',
+};
+
+export const DEFAULT_ORDER_LIST_CONFIG: OrderListConfig = {
+  ...DEFAULT_RECEIPT_CONFIG,
+  footerText: '',
+  showTotal: false,
+  showTaxes: false,
+  showAmountReceived: false,
+  showChange: false,
+  showItemPrice: false,
+  showPaymentMethod: false,
 };
 
 export const DEFAULT_KITCHEN_TICKET_CONFIG: KitchenTicketConfig = {
@@ -816,8 +835,10 @@ class PrinterService {
       const showOrdId  = options?.showOrderId !== false;
       const showTable  = options?.showTableNumber !== false;
       const showItems  = options?.showItems !== false;
+      const showItemPrice = options?.showItemPrice !== false;
       const showRemark = options?.showRemark !== false;
       const showTotal  = options?.showTotal !== false;
+      const showPaymentMethod = options?.showPaymentMethod !== false;
 
       // ── Initialize & set density ──
       r.init();
@@ -890,10 +911,15 @@ class PrinterService {
         for (const item of order.items) {
           const name = this.sanitize(item.name) || 'Item';
           const qty  = item.quantity || 1;
-          const price = this.formatPrice(item.price ? item.price * qty : 0);
+          const lineLabel = `${qty}x ${name}`;
 
           r.bold(true);
-          r.columns2(`${qty}x ${name}`, price);
+          if (showItemPrice) {
+            const price = this.formatPrice(item.price ? item.price * qty : 0);
+            r.columns2(lineLabel, price);
+          } else {
+            r.line(lineLabel);
+          }
           r.bold(false);
 
           // Item options / variants
@@ -947,7 +973,7 @@ class PrinterService {
       }
 
       // ── Payment method ──
-      if (order.paymentMethod) {
+      if (showPaymentMethod && order.paymentMethod) {
         r.line(`Paid: ${this.sanitize(order.paymentMethod)}`);
       }
       // ── Amount Received ──

@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import { uploadImage } from '../lib/storage';
 import { saveAllSettingsToDb, saveSettingsToDb, compressPosSettings, expandPosSettings, fetchSettingsFromServer, updateFeatureOnServer } from '../lib/sharedSettings';
 import * as counterOrdersCache from '../lib/counterOrdersCache';
-import printerService, { PrinterDevice, ReceiptPrintOptions, SavedPrinter, ReceiptConfig, KitchenTicketConfig, DEFAULT_RECEIPT_CONFIG, DEFAULT_KITCHEN_TICKET_CONFIG, createDefaultPrinter } from '../services/printerService';
+import printerService, { PrinterDevice, ReceiptPrintOptions, SavedPrinter, ReceiptConfig, OrderListConfig, KitchenTicketConfig, DEFAULT_RECEIPT_CONFIG, DEFAULT_ORDER_LIST_CONFIG, DEFAULT_KITCHEN_TICKET_CONFIG, createDefaultPrinter } from '../services/printerService';
 import type { PaperSize } from '../services/printerService';
 import PrinterSettings from '../components/PrinterSettings';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
@@ -509,6 +509,20 @@ const PosOnlyView: React.FC<Props> = ({
     };
   };
 
+  const normalizeOrderListConfig = (config: Partial<OrderListConfig> | null | undefined): OrderListConfig => {
+    const legacyAddress = typeof (config as (Partial<OrderListConfig> & { businessAddress?: string }) | null | undefined)?.businessAddress === 'string'
+      ? (config as (Partial<OrderListConfig> & { businessAddress?: string })).businessAddress
+      : '';
+
+    return {
+      ...DEFAULT_ORDER_LIST_CONFIG,
+      businessName: restaurant.name,
+      ...(config || {}),
+      businessAddressLine1: config?.businessAddressLine1 || legacyAddress || '',
+      businessAddressLine2: config?.businessAddressLine2 || '',
+    };
+  };
+
   const [receiptConfig, setReceiptConfig] = useState<ReceiptConfig>(() => {
     const dbSaved = restaurant.settings?.receipt;
     if (dbSaved && typeof dbSaved === 'object') return normalizeReceiptConfig(dbSaved as Partial<ReceiptConfig>);
@@ -520,6 +534,19 @@ const PosOnlyView: React.FC<Props> = ({
     }
     return normalizeReceiptConfig({ businessName: restaurant.name });
   });
+
+  const [orderListConfig, setOrderListConfig] = useState<OrderListConfig>(() => {
+    const dbSaved = restaurant.settings?.orderList;
+    if (dbSaved && typeof dbSaved === 'object') return normalizeOrderListConfig(dbSaved as Partial<OrderListConfig>);
+    const saved = localStorage.getItem(`order_list_config_${restaurant.id}`);
+    if (saved) {
+      try {
+        return normalizeOrderListConfig(JSON.parse(saved));
+      } catch {}
+    }
+    return normalizeOrderListConfig({ businessName: restaurant.name });
+  });
+
   const [kitchenConfig, setKitchenConfig] = useState<KitchenTicketConfig>(() => {
     const dbSaved = restaurant.settings?.kitchenTicket;
     if (dbSaved && typeof dbSaved === 'object') return { ...DEFAULT_KITCHEN_TICKET_CONFIG, ...dbSaved } as KitchenTicketConfig;
@@ -1921,6 +1948,9 @@ const PosOnlyView: React.FC<Props> = ({
       if (serverSettings.receipt && typeof serverSettings.receipt === 'object') {
         setReceiptConfig(prev => normalizeReceiptConfig({ ...prev, ...serverSettings.receipt }));
       }
+      if (serverSettings.orderList && typeof serverSettings.orderList === 'object') {
+        setOrderListConfig(prev => normalizeOrderListConfig({ ...prev, ...serverSettings.orderList }));
+      }
       if (serverSettings.kitchenTicket && typeof serverSettings.kitchenTicket === 'object') {
         setKitchenConfig(prev => ({ ...prev, ...serverSettings.kitchenTicket }));
       }
@@ -2141,6 +2171,10 @@ const PosOnlyView: React.FC<Props> = ({
   useEffect(() => {
     localStorage.setItem(`receipt_config_${restaurant.id}`, JSON.stringify(receiptConfig));
   }, [receiptConfig, restaurant.id]);
+
+  useEffect(() => {
+    localStorage.setItem(`order_list_config_${restaurant.id}`, JSON.stringify(orderListConfig));
+  }, [orderListConfig, restaurant.id]);
 
   useEffect(() => {
     localStorage.setItem(`kitchen_config_${restaurant.id}`, JSON.stringify(kitchenConfig));
@@ -2620,6 +2654,44 @@ const PosOnlyView: React.FC<Props> = ({
     };
   };
 
+  const getOrderListPrintOptions = (): ReceiptPrintOptions => {
+    const printer = savedPrinters.length > 0 ? savedPrinters[0] : null;
+    return {
+      showDateTime: orderListConfig.showDateTime,
+      showOrderId: orderListConfig.showOrderNumber,
+      showTableNumber: orderListConfig.showTableNumber,
+      showItems: orderListConfig.showItems,
+      showItemPrice: orderListConfig.showItemPrice,
+      showRemark: orderListConfig.showRemark,
+      showTotal: orderListConfig.showTotal,
+      showPaymentMethod: orderListConfig.showPaymentMethod,
+      headerText: orderListConfig.headerText,
+      footerText: orderListConfig.footerText,
+      businessAddressLine1: orderListConfig.businessAddressLine1,
+      businessAddressLine2: orderListConfig.businessAddressLine2,
+      businessPhone: orderListConfig.businessPhone,
+      autoOpenDrawer: false,
+      paperSize: printer?.paperSize || '58mm',
+      printDensity: printer?.printDensity || 'medium',
+      autoCut: printer?.autoCut ?? true,
+      showOrderSource: orderListConfig.showOrderSource,
+      showCashierName: orderListConfig.showCashierName,
+      cashierName: cashierName || '',
+      showAmountReceived: false,
+      showChange: false,
+      showTaxes: false,
+      titleSize: orderListConfig.titleSize,
+      titleFont: orderListConfig.titleFont,
+      titleAlignment: orderListConfig.titleAlignment,
+      headerSize: orderListConfig.headerSize,
+      headerFont: orderListConfig.headerFont,
+      headerAlignment: orderListConfig.headerAlignment,
+      footerSize: orderListConfig.footerSize,
+      footerFont: orderListConfig.footerFont,
+      footerAlignment: orderListConfig.footerAlignment,
+    };
+  };
+
   const handleDownloadReport = async () => {
     const allOrders = await fetchReport(true) as Order[];
     if (!allOrders || allOrders.length === 0) return;
@@ -2751,7 +2823,11 @@ const PosOnlyView: React.FC<Props> = ({
           remark: freshOrder.remark || ''
         };
 
-        const printSuccess = await printerService.printReceipt(orderToPrint, restaurant);
+        const printRestaurant = {
+          ...restaurant,
+          name: orderListConfig.businessName.trim() || restaurant.name,
+        };
+        const printSuccess = await printerService.printReceipt(orderToPrint, printRestaurant, getOrderListPrintOptions());
         if (!printSuccess) {
           toast('Failed to queue print job. Please try again.', 'error');
         }
@@ -2792,7 +2868,11 @@ const PosOnlyView: React.FC<Props> = ({
         remark: freshOrder.remark || ''
       };
 
-      const success = await printerService.printReceipt(orderToPrint, restaurant);
+      const printRestaurant = {
+        ...restaurant,
+        name: orderListConfig.businessName.trim() || restaurant.name,
+      };
+      const success = await printerService.printReceipt(orderToPrint, printRestaurant, getOrderListPrintOptions());
       if (success) {
         toast('Order printed successfully!', 'success');
       } else {
@@ -3023,6 +3103,7 @@ const PosOnlyView: React.FC<Props> = ({
         // Preserve existing DB keys not managed here (orderCode, flags, etc.)
         ...(restaurant.settings || {}),
         receipt: receiptConfig,
+        orderList: orderListConfig,
         kitchenTicket: kitchenConfig,
         features: featureSettings,
         paymentTypes,
@@ -3040,7 +3121,7 @@ const PosOnlyView: React.FC<Props> = ({
     return () => {
       if (settingsSyncTimerRef.current) clearTimeout(settingsSyncTimerRef.current);
     };
-  }, [receiptConfig, kitchenConfig, featureSettings, paymentTypes, taxEntries, userFont, userCurrency, savedPrinters, kitchenOrderSettings, onlineDeliveryOptions, onlinePaymentMethods, qrGenLocation, restaurant.id]);
+  }, [receiptConfig, orderListConfig, kitchenConfig, featureSettings, paymentTypes, taxEntries, userFont, userCurrency, savedPrinters, kitchenOrderSettings, onlineDeliveryOptions, onlinePaymentMethods, qrGenLocation, restaurant.id]);
   // ────────────────────────────────────────────────────────────────────────────
 
   const renderStaffContent = () => (
@@ -5569,9 +5650,11 @@ const PosOnlyView: React.FC<Props> = ({
                                 visibleTabs={['printers']}
                                 savedPrinters={savedPrinters}
                                 receiptConfig={receiptConfig}
+                                orderListConfig={orderListConfig}
                                 kitchenConfig={kitchenConfig}
                                 onPrintersChange={(printers) => setSavedPrinters(printers)}
                                 onReceiptConfigChange={(config) => setReceiptConfig(config)}
+                                onOrderListConfigChange={(config) => setOrderListConfig(config)}
                                 onKitchenConfigChange={(config) => setKitchenConfig(config)}
                                 onPrinterConnected={(device) => {
                                   setConnectedDevice(device);
@@ -5589,12 +5672,14 @@ const PosOnlyView: React.FC<Props> = ({
                                 restaurantName={restaurant.name}
                                 categories={allFoodCategories}
                                 initialTab="receipts"
-                                visibleTabs={['receipts']}
+                                visibleTabs={['receipts', 'orderList']}
                                 savedPrinters={savedPrinters}
                                 receiptConfig={receiptConfig}
+                                orderListConfig={orderListConfig}
                                 kitchenConfig={kitchenConfig}
                                 onPrintersChange={(printers) => setSavedPrinters(printers)}
                                 onReceiptConfigChange={(config) => setReceiptConfig(config)}
+                                onOrderListConfigChange={(config) => setOrderListConfig(config)}
                                 onKitchenConfigChange={(config) => setKitchenConfig(config)}
                                 onPrinterConnected={(device) => {
                                   setConnectedDevice(device);

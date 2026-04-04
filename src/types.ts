@@ -91,6 +91,7 @@ export interface Restaurant {
     orderCode?: string; // 2-5 char prefix for order IDs, unique per restaurant
     // Cross-device persisted settings
     receipt?: Record<string, any>;
+    orderList?: Record<string, any>;
     features?: Record<string, any>;
     paymentTypes?: Array<{ id: string; name: string }>;
     taxes?: Array<{ id: string; name: string; percentage: number; applyToItems: boolean }>;

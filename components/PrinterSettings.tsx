@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Printer, Bluetooth, Plus, Trash2, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, X, Wifi, Usb, Settings, FileText, UtensilsCrossed, RotateCw } from 'lucide-react';
-import printerService, { PrinterDevice, SavedPrinter, ReceiptConfig, KitchenTicketConfig, DEFAULT_RECEIPT_CONFIG, DEFAULT_KITCHEN_TICKET_CONFIG, createDefaultPrinter, PRINTER_MODELS, applyModelPreset } from '../services/printerService';
+import { Printer, Bluetooth, Plus, Trash2, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, X, Wifi, Usb, Settings, FileText, UtensilsCrossed, RotateCw, ListOrdered } from 'lucide-react';
+import printerService, { PrinterDevice, SavedPrinter, ReceiptConfig, OrderListConfig, KitchenTicketConfig, DEFAULT_RECEIPT_CONFIG, DEFAULT_ORDER_LIST_CONFIG, DEFAULT_KITCHEN_TICKET_CONFIG, createDefaultPrinter, PRINTER_MODELS, applyModelPreset } from '../services/printerService';
 import type { PaperSize, ConnectionType, PrintDensity, PrintJobType, PrintMode, TextSize, TextFont, TextAlignment } from '../services/printerService';
 
 interface Props {
@@ -9,16 +9,18 @@ interface Props {
   categories?: string[];
   savedPrinters?: SavedPrinter[];
   receiptConfig?: ReceiptConfig;
+  orderListConfig?: OrderListConfig;
   kitchenConfig?: KitchenTicketConfig;
   initialTab?: SettingsTab;
   visibleTabs?: SettingsTab[];
   onPrinterConnected?: (device: PrinterDevice) => void;
   onReceiptConfigChange?: (config: ReceiptConfig) => void;
+  onOrderListConfigChange?: (config: OrderListConfig) => void;
   onKitchenConfigChange?: (config: KitchenTicketConfig) => void;
   onPrintersChange?: (printers: SavedPrinter[]) => void;
 }
 
-type SettingsTab = 'printers' | 'receipts' | 'kitchen';
+type SettingsTab = 'printers' | 'receipts' | 'orderList' | 'kitchen';
 
 const PrinterSettings: React.FC<Props> = ({
   restaurantId,
@@ -26,11 +28,13 @@ const PrinterSettings: React.FC<Props> = ({
   categories = [],
   savedPrinters: propPrinters,
   receiptConfig: propReceiptConfig,
+  orderListConfig: propOrderListConfig,
   kitchenConfig: propKitchenConfig,
   initialTab = 'printers',
   visibleTabs,
   onPrinterConnected,
   onReceiptConfigChange,
+  onOrderListConfigChange,
   onKitchenConfigChange,
   onPrintersChange,
 }) => {
@@ -38,7 +42,6 @@ const PrinterSettings: React.FC<Props> = ({
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
   const [isBluetoothSupported, setIsBluetoothSupported] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
-  const [devices, setDevices] = useState<PrinterDevice[]>([]);
   const [connectedDevice, setConnectedDevice] = useState<PrinterDevice | null>(null);
   const [printerStatus, setPrinterStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
   const [realPrinterConnected, setRealPrinterConnected] = useState(false);
@@ -72,6 +75,20 @@ const PrinterSettings: React.FC<Props> = ({
     };
   };
 
+  const normalizeOrderListConfig = (config: Partial<OrderListConfig> | null | undefined): OrderListConfig => {
+    const legacyAddress = typeof (config as (Partial<OrderListConfig> & { businessAddress?: string }) | null | undefined)?.businessAddress === 'string'
+      ? (config as (Partial<OrderListConfig> & { businessAddress?: string })).businessAddress
+      : '';
+
+    return {
+      ...DEFAULT_ORDER_LIST_CONFIG,
+      businessName: restaurantName,
+      ...(config || {}),
+      businessAddressLine1: config?.businessAddressLine1 || legacyAddress || '',
+      businessAddressLine2: config?.businessAddressLine2 || '',
+    };
+  };
+
   // Receipt config
   const [receiptConfig, setReceiptConfig] = useState<ReceiptConfig>(() => {
     if (propReceiptConfig) return normalizeReceiptConfig(propReceiptConfig);
@@ -82,6 +99,18 @@ const PrinterSettings: React.FC<Props> = ({
       } catch {}
     }
     return normalizeReceiptConfig({ businessName: restaurantName });
+  });
+
+  // Order-list config
+  const [orderListConfig, setOrderListConfig] = useState<OrderListConfig>(() => {
+    if (propOrderListConfig) return normalizeOrderListConfig(propOrderListConfig);
+    const saved = localStorage.getItem(`order_list_config_${restaurantId}`);
+    if (saved) {
+      try {
+        return normalizeOrderListConfig(JSON.parse(saved));
+      } catch {}
+    }
+    return normalizeOrderListConfig({ businessName: restaurantName });
   });
 
   // Kitchen ticket config
@@ -134,32 +163,6 @@ const PrinterSettings: React.FC<Props> = ({
   }, [connectedDevice]);
 
   // ─── Printer Actions ───────────────────────────────────────────
-
-  const handleScan = async () => {
-    setIsScanning(true);
-    setDevices([]);
-    setErrorMessage('');
-    const found = await printerService.scanForPrinters();
-    setDevices(found);
-    setIsScanning(false);
-  };
-
-  const handleConnect = async (device: PrinterDevice) => {
-    setPrinterStatus('connecting');
-    setErrorMessage('');
-    const success = await printerService.connect(device.name);
-    if (success) {
-      setConnectedDevice(device);
-      setPrinterStatus('connected');
-      setRealPrinterConnected(true);
-      localStorage.setItem(`printer_${restaurantId}`, JSON.stringify(device));
-      onPrinterConnected?.(device);
-    } else {
-      setPrinterStatus('error');
-      setRealPrinterConnected(false);
-      setErrorMessage('Failed to connect to printer');
-    }
-  };
 
   const handleDisconnect = async () => {
     await printerService.disconnect();
@@ -221,6 +224,13 @@ const PrinterSettings: React.FC<Props> = ({
     onReceiptConfigChange?.(updated);
   };
 
+  const updateOrderListConfig = <K extends keyof OrderListConfig>(key: K, value: OrderListConfig[K]) => {
+    const updated = { ...orderListConfig, [key]: value };
+    setOrderListConfig(updated);
+    localStorage.setItem(`order_list_config_${restaurantId}`, JSON.stringify(updated));
+    onOrderListConfigChange?.(updated);
+  };
+
   const updateKitchenConfig = <K extends keyof KitchenTicketConfig>(key: K, value: KitchenTicketConfig[K]) => {
     const updated = { ...kitchenConfig, [key]: value };
     setKitchenConfig(updated);
@@ -260,78 +270,38 @@ const PrinterSettings: React.FC<Props> = ({
         <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Connect printers and manage printer profiles.</p>
       </div>
       <div className="min-w-0 space-y-4">
-      {/* Connection Status */}
-      <div className={`p-4 rounded-xl border-2 transition-all ${
-        printerStatus === 'connected'
-          ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800'
-          : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-      }`}>
-        <div className="flex items-center gap-3">
-          <div className={`w-2.5 h-2.5 rounded-full ${
-            printerStatus === 'connected' ? 'bg-green-500' : printerStatus === 'connecting' ? 'bg-orange-500 animate-pulse' : 'bg-gray-300'
-          }`} />
-          <div className="flex-1">
-            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-              {printerStatus === 'connected' ? 'Connected' : printerStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
-            </p>
-            {connectedDevice && <p className="text-xs font-bold dark:text-white mt-0.5">{connectedDevice.name}</p>}
-          </div>
-          {printerStatus === 'connected' && (
-            <button onClick={handleDisconnect} className="text-[9px] font-black text-red-500 uppercase tracking-widest hover:text-red-600">
-              Disconnect
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Scan + Connect */}
-      {printerStatus !== 'connected' && isBluetoothSupported && (
-        <button
-          onClick={handleScan}
-          disabled={isScanning}
-          className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {isScanning ? (
-            <><div className="w-3 h-3 border-2 border-white dark:border-gray-900 border-t-transparent rounded-full animate-spin" /> Scanning...</>
-          ) : (
-            <><Bluetooth size={14} /> Scan for Printer</>
-          )}
-        </button>
-      )}
-
-      {devices.length > 0 && printerStatus !== 'connected' && (
-        <div className="space-y-2">
-          {devices.map(device => (
-            <button
-              key={device.id}
-              onClick={() => handleConnect(device)}
-              className="w-full p-3 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl flex items-center justify-between hover:border-orange-500 transition-all"
-            >
-              <span className="font-bold dark:text-white text-xs">{device.name}</span>
-              <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Connect</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Test Print & Reprint */}
       {printerStatus === 'connected' && (
-        <div className="flex gap-2">
-          <button
-            onClick={handleTestPrint}
-            disabled={testPrintStatus === 'printing'}
-            className="flex-1 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl font-black text-[9px] uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:border-orange-500 hover:text-orange-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {testPrintStatus === 'printing' ? 'Printing...' : testPrintStatus === 'success' ? (<><CheckCircle2 size={12} className="text-green-500" /> Sent!</>) : (<><Printer size={12} /> Test Print</>)}
-          </button>
-          <button
-            onClick={async () => { try { await printerService.reprintLast(); } catch (err: any) { setErrorMessage(err?.message || 'Reprint failed'); } }}
-            disabled={!printerService.hasLastReceipt()}
-            className="flex-1 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl font-black text-[9px] uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:border-orange-500 hover:text-orange-500 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
-          >
-            <RotateCw size={12} /> Reprint
-          </button>
-        </div>
+        <>
+          <div className="p-4 rounded-xl border-2 transition-all bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800">
+            <div className="flex items-center gap-3">
+              <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+              <div className="flex-1">
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Connected</p>
+                {connectedDevice && <p className="text-xs font-bold dark:text-white mt-0.5">{connectedDevice.name}</p>}
+              </div>
+              <button onClick={handleDisconnect} className="text-[9px] font-black text-red-500 uppercase tracking-widest hover:text-red-600">
+                Disconnect
+              </button>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={handleTestPrint}
+              disabled={testPrintStatus === 'printing'}
+              className="flex-1 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl font-black text-[9px] uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:border-orange-500 hover:text-orange-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {testPrintStatus === 'printing' ? 'Printing...' : testPrintStatus === 'success' ? (<><CheckCircle2 size={12} className="text-green-500" /> Sent!</>) : (<><Printer size={12} /> Test Print</>)}
+            </button>
+            <button
+              onClick={async () => { try { await printerService.reprintLast(); } catch (err: any) { setErrorMessage(err?.message || 'Reprint failed'); } }}
+              disabled={!printerService.hasLastReceipt()}
+              className="flex-1 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl font-black text-[9px] uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:border-orange-500 hover:text-orange-500 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+            >
+              <RotateCw size={12} /> Reprint
+            </button>
+          </div>
+        </>
       )}
 
       {!isBluetoothSupported && (
@@ -485,7 +455,6 @@ const PrinterSettings: React.FC<Props> = ({
                       setIsScanning(true);
                       setErrorMessage('');
                       const found = await printerService.scanForPrinters();
-                      setDevices(found);
                       setIsScanning(false);
                       if (found.length > 0) {
                         setPrinterForm(f => ({ ...f, deviceId: found[0].id, deviceName: found[0].name }));
@@ -535,7 +504,7 @@ const PrinterSettings: React.FC<Props> = ({
               {/* USB: device selection info */}
               {printerForm.connectionType === 'usb' && (
                 <div className="mt-2 p-2.5 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <p className="text-[9px] text-blue-600 dark:text-blue-400 font-bold">USB printers connect via system dialog. Click "Scan for Printer" above to select your USB device.</p>
+                  <p className="text-[9px] text-blue-600 dark:text-blue-400 font-bold">USB printers connect via your system dialog. Select your USB device when prompted by the browser.</p>
                 </div>
               )}
             </div>
@@ -980,6 +949,159 @@ const PrinterSettings: React.FC<Props> = ({
     </div>
   );
 
+  // ─── Render: Order List Tab ───────────────────────────────────
+
+  const renderOrderListTab = () => (
+    <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-5 first:pt-0">
+        <div>
+          <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Business Information</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Business details shown on printed order lists.</p>
+        </div>
+        <div className="min-w-0 space-y-3">
+          {([
+            { key: 'businessName' as const, label: 'Business Name', placeholder: 'Store name on order list' },
+            { key: 'businessAddressLine1' as const, label: 'Address Line 1', placeholder: 'Street address (optional)' },
+            { key: 'businessAddressLine2' as const, label: 'Address Line 2', placeholder: 'Suite, unit, city, state (optional)' },
+            { key: 'businessPhone' as const, label: 'Phone', placeholder: 'Contact number (optional)' },
+          ]).map(field => (
+            <div key={field.key}>
+              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">{field.label}</label>
+              <input
+                type="text"
+                value={orderListConfig[field.key]}
+                onChange={e => updateOrderListConfig(field.key, e.target.value)}
+                className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+                placeholder={field.placeholder}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-5">
+        <div>
+          <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Custom Text</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Optional header and footer lines on order lists.</p>
+        </div>
+        <div className="min-w-0 space-y-3">
+          <div>
+            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Header Text</label>
+            <input
+              type="text"
+              value={orderListConfig.headerText}
+              onChange={e => updateOrderListConfig('headerText', e.target.value)}
+              className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+              placeholder="Printed above items (optional)"
+            />
+          </div>
+          <div>
+            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Footer Text</label>
+            <input
+              type="text"
+              value={orderListConfig.footerText}
+              onChange={e => updateOrderListConfig('footerText', e.target.value)}
+              className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
+              placeholder="Optional footer note"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-5">
+        <div>
+          <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Text Formatting</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Control size, font, and alignment per text block.</p>
+        </div>
+        <div className="min-w-0 space-y-3">
+          {([
+            { prefix: 'title' as const, label: 'Title (Business Name)' },
+            { prefix: 'header' as const, label: 'Header Text' },
+            { prefix: 'footer' as const, label: 'Footer Text' },
+          ]).map(({ prefix, label }) => (
+            <div key={prefix} className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl space-y-2">
+              <p className="text-[9px] font-black text-gray-500 dark:text-gray-300 uppercase tracking-widest">{label}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-[8px] font-bold text-gray-400 mb-1">Size</label>
+                  <select
+                    value={orderListConfig[`${prefix}Size`]}
+                    onChange={e => updateOrderListConfig(`${prefix}Size`, Number(e.target.value) as TextSize)}
+                    className="w-full px-2 py-1.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-[10px] font-bold dark:text-white"
+                  >
+                    <option value={1}>Normal</option>
+                    <option value={2}>Large</option>
+                    <option value={3}>Extra Large</option>
+                    <option value={4}>Huge</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[8px] font-bold text-gray-400 mb-1">Font</label>
+                  <select
+                    value={orderListConfig[`${prefix}Font`]}
+                    onChange={e => updateOrderListConfig(`${prefix}Font`, e.target.value as TextFont)}
+                    className="w-full px-2 py-1.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-[10px] font-bold dark:text-white"
+                  >
+                    <option value="A">Font A (Standard)</option>
+                    <option value="B">Font B (Compact)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[8px] font-bold text-gray-400 mb-1">Align</label>
+                  <select
+                    value={orderListConfig[`${prefix}Alignment`]}
+                    onChange={e => updateOrderListConfig(`${prefix}Alignment`, e.target.value as TextAlignment)}
+                    className="w-full px-2 py-1.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded text-[10px] font-bold dark:text-white"
+                  >
+                    <option value="left">Left</option>
+                    <option value="center">Center</option>
+                    <option value="right">Right</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-5 last:pb-0">
+        <div>
+          <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Visible Fields</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Control what your kitchen/prep team sees on the order list.</p>
+        </div>
+        <div className="min-w-0 divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+          {([
+            { key: 'showOrderNumber' as const, label: 'Order Number', desc: 'Show order number on order list' },
+            { key: 'showDateTime' as const, label: 'Date & Time', desc: 'Show order date and time' },
+            { key: 'showTableNumber' as const, label: 'Table Number', desc: 'Show table number' },
+            { key: 'showItems' as const, label: 'Item Details', desc: 'Show ordered items' },
+            { key: 'showItemPrice' as const, label: 'Item Price', desc: 'Show item prices on each line' },
+            { key: 'showRemark' as const, label: 'Order Notes', desc: 'Show order remarks/notes' },
+            { key: 'showCashierName' as const, label: 'Cashier Name', desc: 'Show cashier name if available' },
+            { key: 'showOrderSource' as const, label: 'Order Source', desc: 'Show where order came from' },
+            { key: 'showTotal' as const, label: 'Total', desc: 'Show grand total amount' },
+            { key: 'showPaymentMethod' as const, label: 'Payment Method', desc: 'Show payment method details' },
+          ]).map(field => (
+            <div key={field.key} className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 first:pt-0 last:pb-0">
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{field.label}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{field.desc}</p>
+              </div>
+              <div className="flex items-center justify-end">
+                <button
+                  onClick={() => updateOrderListConfig(field.key, !orderListConfig[field.key])}
+                  className={`w-11 h-6 rounded-full transition-all relative ${orderListConfig[field.key] ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${orderListConfig[field.key] ? 'left-6' : 'left-1'}`} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   // ─── Render: Kitchen Tab ───────────────────────────────────────
 
   const renderKitchenTab = () => (
@@ -1023,6 +1145,7 @@ const PrinterSettings: React.FC<Props> = ({
   const tabs: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
     { id: 'printers', label: 'Printers', icon: Printer },
     { id: 'receipts', label: 'Receipts', icon: FileText },
+    { id: 'orderList', label: 'Order List', icon: ListOrdered },
     { id: 'kitchen', label: 'Kitchen', icon: UtensilsCrossed },
   ];
 
@@ -1064,6 +1187,7 @@ const PrinterSettings: React.FC<Props> = ({
       {/* Tab Content */}
       {activeTab === 'printers' && renderPrintersTab()}
       {activeTab === 'receipts' && renderReceiptsTab()}
+      {activeTab === 'orderList' && renderOrderListTab()}
       {activeTab === 'kitchen' && renderKitchenTab()}
     </div>
   );

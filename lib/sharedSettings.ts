@@ -43,6 +43,40 @@ export const POS_DEFAULTS = {
     footerFont: 'A',
     footerAlignment: 'center',
   },
+  orderList: {
+    businessName: '',        // dynamic — always overridden by restaurant.name at expand time
+    businessAddressLine1: '',
+    businessAddressLine2: '',
+    businessPhone: '',
+    headerText: '',
+    footerText: '',
+    showOrderNumber: true,
+    showCashierName: false,
+    showDateTime: true,
+    showCustomerName: false,
+    showTableNumber: true,
+    showItems: true,
+    showItemPrice: false,
+    showRemark: true,
+    showTotal: false,
+    showTaxes: false,
+    showOrderSource: false,
+    showAmountReceived: false,
+    showChange: false,
+    showPaymentMethod: false,
+    autoPrintAfterSale: false,
+    printReceiptForRefund: false,
+    openCashDrawerOnPayment: false,
+    titleSize: 2,
+    titleFont: 'A',
+    titleAlignment: 'center',
+    headerSize: 1,
+    headerFont: 'A',
+    headerAlignment: 'center',
+    footerSize: 1,
+    footerFont: 'A',
+    footerAlignment: 'center',
+  },
   kitchenTicket: {
     printLargeOrderNumber: true,
     numberOfCopies: 1,
@@ -86,7 +120,7 @@ export const POS_DEFAULTS = {
 
 // Keys managed by POS settings sync — everything else (backoffice, orderCode, etc.) passes through unchanged.
 const POS_OWNED_KEYS = new Set([
-  'font', 'currency', 'taxes', 'printers', 'receipt', 'receiptConfig', 'kitchenTicket', 'features',
+  'font', 'currency', 'taxes', 'printers', 'receipt', 'orderList', 'receiptConfig', 'kitchenTicket', 'features',
   'paymentTypes', 'kitchenSettings', 'onlinePaymentMethods', 'onlineDeliveryOptions',
   'qrLocationLabel', 'qrOrderSettings', 'receiptFormatting',
 ]);
@@ -140,6 +174,19 @@ export function compressPosSettings(
       if (r[key] !== undefined && r[key] !== d[key]) delta[key] = r[key];
     }
     if (Object.keys(delta).length > 0) result.receipt = delta;
+  }
+
+  // orderList — only store fields that differ from defaults.
+  if (settings.orderList && typeof settings.orderList === 'object') {
+    const delta: Record<string, any> = {};
+    const r = settings.orderList as Record<string, any>;
+    const d = POS_DEFAULTS.orderList as Record<string, any>;
+    if (r.businessName !== undefined && r.businessName !== restaurantName) delta.businessName = r.businessName;
+    for (const key of Object.keys(d)) {
+      if (key === 'businessName') continue;
+      if (r[key] !== undefined && r[key] !== d[key]) delta[key] = r[key];
+    }
+    if (Object.keys(delta).length > 0) result.orderList = delta;
   }
 
   // features — only store fields that differ from defaults.
@@ -208,6 +255,12 @@ export function expandPosSettings(
   const legacyAddress = typeof receiptDelta.businessAddress === 'string'
     ? receiptDelta.businessAddress
     : '';
+  const orderListDelta = delta.orderList && typeof delta.orderList === 'object'
+    ? (delta.orderList as Record<string, any>)
+    : {};
+  const orderListLegacyAddress = typeof orderListDelta.businessAddress === 'string'
+    ? orderListDelta.businessAddress
+    : '';
 
   return {
     ...delta,
@@ -221,6 +274,13 @@ export function expandPosSettings(
       ...receiptDelta,
       businessAddressLine1: receiptDelta.businessAddressLine1 ?? legacyAddress,
       businessAddressLine2: receiptDelta.businessAddressLine2 ?? POS_DEFAULTS.receipt.businessAddressLine2,
+    },
+    orderList: {
+      ...POS_DEFAULTS.orderList,
+      businessName: restaurantName,
+      ...orderListDelta,
+      businessAddressLine1: orderListDelta.businessAddressLine1 ?? orderListLegacyAddress,
+      businessAddressLine2: orderListDelta.businessAddressLine2 ?? POS_DEFAULTS.orderList.businessAddressLine2,
     },
     features: {
       ...POS_DEFAULTS.features,
