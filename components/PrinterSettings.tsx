@@ -888,12 +888,12 @@ const PrinterSettings: React.FC<Props> = ({
             { key: 'showTaxes' as const, label: 'Tax Breakdown', desc: 'Show tax details' },
             { key: 'showOrderSource' as const, label: 'Order Source', desc: 'Show where order came from' },
           ]).map(field => (
-            <div key={field.key} className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 first:pt-0 last:pb-0">
-              <div>
+            <div key={field.key} className="flex flex-col gap-3 py-5 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-gray-900 dark:text-white">{field.label}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{field.desc}</p>
               </div>
-              <div className="flex items-center justify-end">
+              <div className="flex items-center self-end sm:self-auto shrink-0">
                 <button
                   onClick={() => updateReceiptConfig(field.key, !receiptConfig[field.key])}
                   className={`w-11 h-6 rounded-full transition-all relative ${receiptConfig[field.key] ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
@@ -929,12 +929,12 @@ const PrinterSettings: React.FC<Props> = ({
               desc: 'Open cash drawer when payment is received',
             },
           ]).map(field => (
-            <div key={field.key} className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 first:pt-0 last:pb-0">
-              <div>
+            <div key={field.key} className="flex flex-col gap-3 py-5 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-gray-900 dark:text-white">{field.label}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{field.desc}</p>
               </div>
-              <div className="flex items-center justify-end">
+              <div className="flex items-center self-end sm:self-auto shrink-0">
                 <button
                   onClick={() => updateReceiptConfig(field.key, !receiptConfig[field.key])}
                   className={`w-11 h-6 rounded-full transition-all relative ${receiptConfig[field.key] ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
@@ -1082,12 +1082,12 @@ const PrinterSettings: React.FC<Props> = ({
             { key: 'showTotal' as const, label: 'Total', desc: 'Show grand total amount' },
             { key: 'showPaymentMethod' as const, label: 'Payment Method', desc: 'Show payment method details' },
           ]).map(field => (
-            <div key={field.key} className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 first:pt-0 last:pb-0">
-              <div>
+            <div key={field.key} className="flex flex-col gap-3 py-5 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-gray-900 dark:text-white">{field.label}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{field.desc}</p>
               </div>
-              <div className="flex items-center justify-end">
+              <div className="flex items-center self-end sm:self-auto shrink-0">
                 <button
                   onClick={() => updateOrderListConfig(field.key, !orderListConfig[field.key])}
                   className={`w-11 h-6 rounded-full transition-all relative ${orderListConfig[field.key] ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}

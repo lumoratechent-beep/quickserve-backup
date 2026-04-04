@@ -88,7 +88,7 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
 // Receipt and printer configs are now managed by the PrinterSettings component
 // and the service types from printerService.ts
 
-type SettingsPanel = 'builtin' | 'printer' | 'receipt' | 'payment' | 'staff';
+type SettingsPanel = 'builtin' | 'printer' | 'receipt' | 'orderList' | 'payment' | 'staff';
 
 interface FeatureSettings {
   autoPrintReceipt: boolean;
@@ -5466,6 +5466,13 @@ const PosOnlyView: React.FC<Props> = ({
                       icon: Receipt,
                       badge: 'Layout'
                     },
+                    {
+                      key: 'orderList',
+                      label: 'Order List',
+                      info: 'Configure prep list fields and visibility for kitchen-ready printouts.',
+                      icon: List,
+                      badge: 'Prep'
+                    },
                   ]
                 : [
                     {
@@ -5488,6 +5495,13 @@ const PosOnlyView: React.FC<Props> = ({
                       info: 'Configure receipt text, fields, and printing behavior.',
                       icon: Receipt,
                       badge: 'Layout'
+                    },
+                    {
+                      key: 'orderList',
+                      label: 'Order List',
+                      info: 'Configure prep list fields and visibility for kitchen-ready printouts.',
+                      icon: List,
+                      badge: 'Prep'
                     },
                     {
                       key: 'payment',
@@ -5535,6 +5549,8 @@ const PosOnlyView: React.FC<Props> = ({
                   return `${savedPrinters.length} printer profile${savedPrinters.length !== 1 ? 's' : ''} configured`;
                 case 'receipt':
                   return `${receiptConfig.autoPrintAfterSale ? 'Auto-print after sale enabled' : 'Manual print after sale'} · ${receiptConfig.businessPhone ? 'Business phone shown' : 'Business phone not set'}`;
+                case 'orderList':
+                  return `${orderListConfig.showItemPrice ? 'Item prices shown' : 'Item prices hidden'} · ${orderListConfig.showPaymentMethod ? 'Payment method shown' : 'Payment method hidden'}`;
                 case 'payment':
                   return `${paymentTypes.length} payment type${paymentTypes.length !== 1 ? 's' : ''} · ${taxEntries.length} tax rule${taxEntries.length !== 1 ? 's' : ''}`;
                 case 'staff':
@@ -5672,7 +5688,32 @@ const PosOnlyView: React.FC<Props> = ({
                                 restaurantName={restaurant.name}
                                 categories={allFoodCategories}
                                 initialTab="receipts"
-                                visibleTabs={['receipts', 'orderList']}
+                                visibleTabs={['receipts']}
+                                savedPrinters={savedPrinters}
+                                receiptConfig={receiptConfig}
+                                orderListConfig={orderListConfig}
+                                kitchenConfig={kitchenConfig}
+                                onPrintersChange={(printers) => setSavedPrinters(printers)}
+                                onReceiptConfigChange={(config) => setReceiptConfig(config)}
+                                onOrderListConfigChange={(config) => setOrderListConfig(config)}
+                                onKitchenConfigChange={(config) => setKitchenConfig(config)}
+                                onPrinterConnected={(device) => {
+                                  setConnectedDevice(device);
+                                  setRealPrinterConnected(true);
+                                  localStorage.setItem(`printer_${restaurant.id}`, JSON.stringify(device));
+                                }}
+                              />
+                            </div>
+                          )}
+
+                          {activeSettingsPanel === 'orderList' && (
+                            <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-slate-50/70 p-3 dark:border-gray-700/70 dark:bg-gray-900/30 sm:p-4">
+                              <PrinterSettings
+                                restaurantId={restaurant.id}
+                                restaurantName={restaurant.name}
+                                categories={allFoodCategories}
+                                initialTab="orderList"
+                                visibleTabs={['orderList']}
                                 savedPrinters={savedPrinters}
                                 receiptConfig={receiptConfig}
                                 orderListConfig={orderListConfig}
