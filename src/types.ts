@@ -145,6 +145,7 @@ export interface Order {
   customerId: string;
   restaurantId: string;
   tableNumber?: string;
+  diningType?: string;
   locationName?: string;
   remark?: string;
   rejectionReason?: string;

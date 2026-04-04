@@ -9,6 +9,7 @@ export interface OfflineOrder {
   customer_id: string;
   restaurant_id: string;
   table_number: string;
+  dining_type?: string;
   location_name: string;
   remark: string;
   payment_method?: string;

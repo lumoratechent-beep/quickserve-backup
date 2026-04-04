@@ -34,7 +34,7 @@ interface Props {
   orders: Order[];
   onUpdateOrder: (orderId: string, status: OrderStatus, paymentDetails?: { paymentMethod?: string; cashierName?: string; amountReceived?: number; changeAmount?: number }) => void;
   onKitchenUpdateOrder?: (orderId: string, status: OrderStatus, rejectionReason?: string, rejectionNote?: string) => void;
-  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string, paymentMethod?: string, cashierName?: string, amountReceived?: number) => Promise<string>;
+  onPlaceOrder: (items: CartItem[], remark: string, tableNumber: string, diningType?: string, paymentMethod?: string, cashierName?: string, amountReceived?: number) => Promise<string>;
   onUpdateMenu?: (restaurantId: string, updatedItem: MenuItem) => void | Promise<void>;
   onAddMenuItem?: (restaurantId: string, newItem: MenuItem) => void | Promise<void>;
   onPermanentDeleteMenuItem?: (restaurantId: string, itemId: string) => void | Promise<void>;
@@ -205,6 +205,7 @@ interface SavedBillEntry {
   items: CartItem[];
   remark: string;
   tableNumber: string;
+  diningType?: string;
   createdAt: number;
 }
 
@@ -363,6 +364,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [posCart, setPosCart] = useState<CartItem[]>([]);
   const [posRemark, setPosRemark] = useState('');
   const [posTableNo, setPosTableNo] = useState('Counter');
+  const [posDiningType, setPosDiningType] = useState('Dine-in');
   const [savedBills, setSavedBills] = useState<SavedBillEntry[]>(() => {
     const saved = localStorage.getItem(`saved_bills_${restaurant.id}`);
     return saved ? JSON.parse(saved) : [];
@@ -697,6 +699,13 @@ const PosOnlyView: React.FC<Props> = ({
   const [collectCashAmount, setCollectCashAmount] = useState<number | null>(null);
   const [collectPaymentType, setCollectPaymentType] = useState<string>('');
   const enabledPaymentTypes = useMemo(() => paymentTypes.filter((type) => type.enabled), [paymentTypes]);
+  const availableDiningOptions = useMemo(() => {
+    const options: string[] = [];
+    if (featureSettings.dineInEnabled) options.push('Dine-in');
+    if (featureSettings.takeawayEnabled) options.push('Takeaway');
+    if (featureSettings.deliveryEnabled) options.push('Delivery');
+    return options.length > 0 ? options : ['Dine-in'];
+  }, [featureSettings.dineInEnabled, featureSettings.takeawayEnabled, featureSettings.deliveryEnabled]);
 
   const CASH_DENOMINATIONS = [10, 20, 50, 100];
 
@@ -1490,6 +1499,7 @@ const PosOnlyView: React.FC<Props> = ({
           items: posCart,
           remark: posRemark,
           tableNumber: targetTable,
+          diningType: posDiningType,
           createdAt: now,
         }
       : (selectedQrOrderForPayment
@@ -1498,6 +1508,7 @@ const PosOnlyView: React.FC<Props> = ({
               items: selectedQrOrderForPayment.items,
               remark: selectedQrOrderForPayment.remark ?? '',
               tableNumber: targetTable,
+              diningType: selectedQrOrderForPayment.diningType,
               createdAt: now,
             }
           : null);
@@ -1514,6 +1525,7 @@ const PosOnlyView: React.FC<Props> = ({
       setPosCart([]);
       setPosRemark('');
       setPosTableNo('Counter');
+      setPosDiningType(availableDiningOptions[0]);
     } else {
       setSelectedQrOrderForPayment(null);
     }
@@ -1534,6 +1546,7 @@ const PosOnlyView: React.FC<Props> = ({
     setPosCart(selectedBill.items);
     setPosRemark(selectedBill.remark);
     setPosTableNo(selectedBill.tableNumber);
+    setPosDiningType(selectedBill.diningType || availableDiningOptions[0]);
     setActiveSavedBillTable(tableNumber);
     setCounterMode('COUNTER_ORDER');
     toast(`${tableNumber} bill loaded into counter.`, 'success');
@@ -1558,6 +1571,7 @@ const PosOnlyView: React.FC<Props> = ({
       items: posCart,
       remark: posRemark,
       tableNumber: posTableNo,
+      diningType: posDiningType,
       total: cartGrandTotal,
     });
     
@@ -1572,6 +1586,7 @@ const PosOnlyView: React.FC<Props> = ({
     setPosCart(order.items as CartItem[]);
     setPosTableNo(order.tableNumber || 'Counter');
     setPosRemark(order.remark || '');
+    setPosDiningType(order.diningType || availableDiningOptions[0]);
     setEditingQrOrderId(order.id);
     setViewingQrOrderDetail(null);
     setActiveTab('COUNTER');
@@ -1592,6 +1607,7 @@ const PosOnlyView: React.FC<Props> = ({
       setPosCart([]);
       setPosRemark('');
       setPosTableNo('Counter');
+      setPosDiningType(availableDiningOptions[0]);
       setEditingQrOrderId(null);
       // Stay in counter, load updated order into QR_ORDER mode for edit/payment
       const updatedOrder = orders.find(o => o.id === savedOrderId);
@@ -1612,6 +1628,7 @@ const PosOnlyView: React.FC<Props> = ({
       items: selectedQrOrderForPayment.items,
       remark: selectedQrOrderForPayment.remark,
       tableNumber: selectedQrOrderForPayment.tableNumber,
+      diningType: selectedQrOrderForPayment.diningType,
       total: selectedQrGrandTotal,
     });
     setSelectedCashAmount(selectedQrGrandTotal);
@@ -1663,6 +1680,7 @@ const PosOnlyView: React.FC<Props> = ({
         timestamp: selectedQrOrderForPayment.timestamp,
         restaurantId: restaurant.id,
         tableNumber: selectedQrOrderForPayment.tableNumber,
+        diningType: selectedQrOrderForPayment.diningType,
         remark: selectedQrOrderForPayment.remark || '',
         customerId: '',
         paymentMethod: paymentName,
@@ -1674,7 +1692,15 @@ const PosOnlyView: React.FC<Props> = ({
     } else {
       // Counter order — place a new order in DB
       try {
-        actualOrderId = await onPlaceOrder(pendingOrderData.items, pendingOrderData.remark, pendingOrderData.tableNumber, paymentName, cashierName, selectedCashAmount ?? undefined);
+        actualOrderId = await onPlaceOrder(
+          pendingOrderData.items,
+          pendingOrderData.remark,
+          pendingOrderData.tableNumber,
+          pendingOrderData.diningType,
+          paymentName,
+          cashierName,
+          selectedCashAmount ?? undefined
+        );
       } catch (error: any) {
         console.error('Order placement error:', error);
         toast(`Failed to place order: ${error?.message || 'Unknown error'}`, 'error');
@@ -1691,6 +1717,7 @@ const PosOnlyView: React.FC<Props> = ({
         timestamp: nowTs,
         restaurantId: restaurant.id,
         tableNumber: pendingOrderData.tableNumber,
+        diningType: pendingOrderData.diningType,
         remark: pendingOrderData.remark || '',
         customerId: '',
         paymentMethod: paymentName,
@@ -1705,6 +1732,7 @@ const PosOnlyView: React.FC<Props> = ({
     const orderForPrint = {
       id: actualOrderId,
       tableNumber: pendingOrderData.tableNumber,
+      diningType: pendingOrderData.diningType,
       timestamp: isQrPaymentMode && selectedQrOrderForPayment ? selectedQrOrderForPayment.timestamp : nowTs,
       total: pendingOrderData.total,
       items: pendingOrderData.items,
@@ -1763,6 +1791,7 @@ const PosOnlyView: React.FC<Props> = ({
       setPosCart([]);
       setPosRemark('');
       setPosTableNo('Counter');
+      setPosDiningType(availableDiningOptions[0]);
       setShowPaymentSuccess(true);
       setTimeout(() => {
         setShowPaymentSuccess(false);
@@ -2012,6 +2041,7 @@ const PosOnlyView: React.FC<Props> = ({
                 timestamp: order.timestamp,
                 restaurant_id: order.restaurantId,
                 table_number: order.tableNumber,
+                dining_type: order.diningType || null,
                 location_name: order.locationName || '',
                 customer_id: order.customerId || '',
                 remark: order.remark || '',
@@ -2201,6 +2231,11 @@ const PosOnlyView: React.FC<Props> = ({
     if (collectPaymentType && enabledPaymentTypes.some((type) => type.id === collectPaymentType)) return;
     setCollectPaymentType(getFirstEnabledPaymentTypeId(enabledPaymentTypes));
   }, [enabledPaymentTypes, collectPaymentType]);
+
+  useEffect(() => {
+    if (availableDiningOptions.includes(posDiningType)) return;
+    setPosDiningType(availableDiningOptions[0]);
+  }, [availableDiningOptions, posDiningType]);
 
   useEffect(() => {
     localStorage.setItem(`taxes_${restaurant.id}`, JSON.stringify(taxEntries));
@@ -7299,6 +7334,7 @@ const PosOnlyView: React.FC<Props> = ({
                                       items: order.items,
                                       remark: order.remark,
                                       tableNumber: order.tableNumber,
+                                      diningType: order.diningType,
                                       total: order.total,
                                     });
                                     setSelectedCashAmount(order.total);
@@ -8225,7 +8261,7 @@ const PosOnlyView: React.FC<Props> = ({
                         >Edit Order</button>
                       )}
                       <button
-                        onClick={() => { if (editingQrOrderId) { setEditingQrOrderId(null); setPosCart([]); setPosRemark(''); setPosTableNo('Counter'); } setCounterMode('COUNTER_ORDER'); setSelectedQrOrderForPayment(null); }}
+                        onClick={() => { if (editingQrOrderId) { setEditingQrOrderId(null); setPosCart([]); setPosRemark(''); setPosTableNo('Counter'); setPosDiningType(availableDiningOptions[0]); } setCounterMode('COUNTER_ORDER'); setSelectedQrOrderForPayment(null); }}
                         className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
                           !editingQrOrderId && counterMode === 'COUNTER_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
                         }`}
@@ -8234,7 +8270,7 @@ const PosOnlyView: React.FC<Props> = ({
                         const servedQrCount = orders.filter(o => o.status === OrderStatus.SERVED).length;
                         return (
                         <button
-                          onClick={() => { if (editingQrOrderId) { setEditingQrOrderId(null); setPosCart([]); setPosRemark(''); setPosTableNo('Counter'); } setCounterMode('QR_ORDER'); setSelectedQrOrderForPayment(null); }}
+                          onClick={() => { if (editingQrOrderId) { setEditingQrOrderId(null); setPosCart([]); setPosRemark(''); setPosTableNo('Counter'); setPosDiningType(availableDiningOptions[0]); } setCounterMode('QR_ORDER'); setSelectedQrOrderForPayment(null); }}
                           className={`relative flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
                             !editingQrOrderId && counterMode === 'QR_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
                           }`}
@@ -8453,8 +8489,12 @@ const PosOnlyView: React.FC<Props> = ({
                       <input type="text" value={posTableNo} onChange={e => setPosTableNo(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" />
                     </div>
                     <div className="flex-[2]">
-                      <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Remark</label>
-                      <input type="text" value={posRemark} onChange={e => setPosRemark(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" placeholder="No spicy..." />
+                      <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Dining Option</label>
+                      <select value={posDiningType} onChange={e => setPosDiningType(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white">
+                        {availableDiningOptions.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                 )}
@@ -8463,7 +8503,7 @@ const PosOnlyView: React.FC<Props> = ({
                   {editingQrOrderId ? (
                     <>
                       <button
-                        onClick={() => { setEditingQrOrderId(null); setPosCart([]); setPosRemark(''); setPosTableNo('Counter'); }}
+                        onClick={() => { setEditingQrOrderId(null); setPosCart([]); setPosRemark(''); setPosTableNo('Counter'); setPosDiningType(availableDiningOptions[0]); }}
                         className="w-[47.5%] py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
                       >
                         Cancel
@@ -8605,7 +8645,11 @@ const PosOnlyView: React.FC<Props> = ({
                   <input type="text" value={posTableNo} onChange={e => setPosTableNo(e.target.value)} className="w-full p-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" placeholder="Table" />
                 </div>
                 <div className="flex-[2]">
-                  <input type="text" value={posRemark} onChange={e => setPosRemark(e.target.value)} className="w-full p-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" placeholder="Remark..." />
+                  <select value={posDiningType} onChange={e => setPosDiningType(e.target.value)} className="w-full p-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white">
+                    {availableDiningOptions.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -8706,6 +8750,22 @@ const PosOnlyView: React.FC<Props> = ({
                       </option>
                     ))}
                   </select>
+                </div>
+
+                {/* Remark */}
+                <div className="space-y-2 lg:space-y-3">
+                  <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Remark</label>
+                  <textarea
+                    value={pendingOrderData.remark || ''}
+                    onChange={(e) => {
+                      const nextRemark = e.target.value;
+                      setPendingOrderData((prev: any) => ({ ...(prev || {}), remark: nextRemark }));
+                      setPosRemark(nextRemark);
+                    }}
+                    rows={3}
+                    placeholder="Optional order note"
+                    className="w-full p-3 lg:p-4 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-sm lg:text-base font-semibold dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500 resize-none"
+                  />
                 </div>
               </div>
 
@@ -9220,6 +9280,7 @@ const PosOnlyView: React.FC<Props> = ({
                           timestamp: selectedReportOrder.timestamp,
                           restaurantId: restaurant.id,
                           tableNumber: selectedReportOrder.tableNumber,
+                          diningType: selectedReportOrder.diningType,
                           remark: selectedReportOrder.remark || '',
                           customerId: '',
                           paymentMethod: paymentName,

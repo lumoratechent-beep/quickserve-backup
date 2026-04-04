@@ -679,6 +679,7 @@ const App: React.FC = () => {
               customerId: o.customer_id, 
               restaurantId: o.restaurant_id,
               tableNumber: o.table_number, 
+              diningType: o.dining_type || undefined,
               locationName: o.location_name,
               remark: o.remark, 
               rejectionReason: o.rejection_reason, 
@@ -757,6 +758,7 @@ const App: React.FC = () => {
           customerId: o.customer_id,
           restaurantId: o.restaurant_id,
           tableNumber: o.table_number,
+          diningType: o.dining_type || undefined,
           locationName: o.location_name,
           remark: o.remark,
           rejectionReason: o.rejection_reason,
@@ -924,6 +926,7 @@ const App: React.FC = () => {
           customerId: o.customer_id, 
           restaurantId: o.restaurant_id,
           tableNumber: o.table_number, 
+          diningType: o.dining_type || undefined,
           locationName: o.location_name,
           remark: o.remark, 
           rejectionReason: o.rejection_reason, 
@@ -981,6 +984,7 @@ const App: React.FC = () => {
                 status: incomingStatus,
                 rejectionReason: o.rejection_reason,
                 rejectionNote: o.rejection_note,
+                diningType: o.dining_type ?? existing.diningType,
                 paymentMethod: o.payment_method ?? existing.paymentMethod,
                 cashierName: o.cashier_name ?? existing.cashierName,
                 amountReceived: o.amount_received != null ? Number(o.amount_received) : existing.amountReceived,
@@ -1113,15 +1117,16 @@ const App: React.FC = () => {
         status: OrderStatus.PENDING, timestamp: Date.now(), customer_id: 'guest_user',
         restaurant_id: rid, table_number: sessionTable || 'N/A', location_name: sessionLocation || QS_DEFAULT_HUB,
         remark: remark,
+        dining_type: 'Dine-in',
         order_source: 'qr_order'
       });
       orderIds.push(orderId);
     }
 
     let { error } = await supabase.from('orders').insert(ordersToInsert);
-    if (error && (error.code === 'PGRST204' || (error.message || '').includes('order_source'))) {
-      console.warn('order_source column missing – retrying QR batch without it');
-      const stripped = ordersToInsert.map(({ order_source, ...rest }: any) => rest);
+    if (error && (error.code === 'PGRST204' || (error.message || '').includes('order_source') || (error.message || '').includes('dining_type'))) {
+      console.warn('Optional order columns missing – retrying QR batch without order_source/dining_type');
+      const stripped = ordersToInsert.map(({ order_source, dining_type, ...rest }: any) => rest);
       ({ error } = await supabase.from('orders').insert(stripped));
     }
     if (error) toast("Placement Error: " + error.message, 'error');
@@ -1661,14 +1666,14 @@ const App: React.FC = () => {
     };
 
   /**
-   * Insert a single order row, falling back without order_source if the column
-   * doesn't exist yet (PGRST204 – schema cache miss after a pending migration).
+   * Insert a single order row, falling back without optional columns if the
+   * schema cache doesn't yet include them.
    */
   const insertOrderSafe = async (row: Record<string, unknown>): Promise<{ error: any }> => {
     const { error } = await supabase.from('orders').insert([row]);
-    if (error && (error.code === 'PGRST204' || (error.message || '').includes('order_source'))) {
-      console.warn('order_source column missing – retrying without it');
-      const { order_source, ...rowWithout } = row;
+    if (error && (error.code === 'PGRST204' || (error.message || '').includes('order_source') || (error.message || '').includes('dining_type'))) {
+      console.warn('Optional order columns missing – retrying without order_source/dining_type');
+      const { order_source, dining_type, ...rowWithout } = row;
       return supabase.from('orders').insert([rowWithout]);
     }
     return { error };
@@ -1744,6 +1749,7 @@ const App: React.FC = () => {
             customer_id: offlineOrder.customer_id,
             restaurant_id: offlineOrder.restaurant_id,
             table_number: offlineOrder.table_number,
+            dining_type: offlineOrder.dining_type ?? null,
             location_name: offlineOrder.location_name,
             remark: offlineOrder.remark,
             payment_method: offlineOrder.payment_method,
@@ -1785,7 +1791,7 @@ const App: React.FC = () => {
     setPendingOfflineOrdersCount(offlineQueue.getUnsyncedOrders().length);
   };
 
-  const placePosOrder = async (items: CartItem[], remark: string, tableNumber: string, paymentMethod?: string, cashierName?: string, amountReceived?: number): Promise<string> => {
+  const placePosOrder = async (items: CartItem[], remark: string, tableNumber: string, diningType?: string, paymentMethod?: string, cashierName?: string, amountReceived?: number): Promise<string> => {
     if (items.length === 0 || !currentUser?.restaurantId) return '';
     
     const res = restaurants.find(r => r.id === currentUser.restaurantId);
@@ -1816,6 +1822,7 @@ const App: React.FC = () => {
         customer_id: 'pos_user',
         restaurant_id: currentUser.restaurantId,
         table_number: tableNumber,
+        dining_type: diningType,
         location_name: res?.location || 'Unspecified',
         remark,
         payment_method: paymentMethod,
@@ -1889,6 +1896,7 @@ const App: React.FC = () => {
         customer_id: 'pos_user',
         restaurant_id: currentUser.restaurantId,
         table_number: tableNumber,
+        dining_type: diningType,
         location_name: res?.location || 'Unspecified',
         remark,
         payment_method: paymentMethod,
@@ -1917,6 +1925,7 @@ const App: React.FC = () => {
       customer_id: 'pos_user',
       restaurant_id: currentUser.restaurantId,
       table_number: tableNumber,
+      dining_type: diningType || null,
       location_name: res?.location || 'Unspecified',
       remark: remark,
       payment_method: paymentMethod || null,
@@ -1939,6 +1948,7 @@ const App: React.FC = () => {
         customer_id: 'pos_user',
         restaurant_id: currentUser.restaurantId,
         table_number: tableNumber,
+        dining_type: diningType,
         location_name: res?.location || 'Unspecified',
         remark,
         payment_method: paymentMethod,
@@ -1993,6 +2003,7 @@ const App: React.FC = () => {
       customer_id: 'tableside_user',
       restaurant_id: currentUser.restaurantId,
       table_number: orderData.tableNumber,
+      dining_type: 'Dine-in',
       location_name: res?.location || 'Unspecified',
       remark: orderData.remark,
       cashier_name: currentUser.username,

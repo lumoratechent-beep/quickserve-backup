@@ -158,6 +158,7 @@ async function startServer() {
           customerId: o.customer_id,
           restaurantId: o.restaurant_id,
           tableNumber: o.table_number,
+          diningType: o.dining_type,
           locationName: o.location_name,
           remark: o.remark,
           rejectionReason: o.rejection_reason,

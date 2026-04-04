@@ -103,6 +103,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         customerId: o.customer_id,
         restaurantId: o.restaurant_id,
         tableNumber: o.table_number,
+        diningType: o.dining_type || undefined,
         locationName: o.location_name,
         remark: o.remark,
         rejectionReason: o.rejection_reason,
