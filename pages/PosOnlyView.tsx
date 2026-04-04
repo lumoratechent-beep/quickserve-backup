@@ -710,7 +710,15 @@ const PosOnlyView: React.FC<Props> = ({
     return availableDiningOptions.includes('Dine-in') ? 'Dine-in' : availableDiningOptions[0];
   }, [availableDiningOptions]);
 
-  const CASH_DENOMINATIONS = [10, 20, 50, 100];
+  const QUICK_SELECT_ADDITIONS = [5, 10, 20, 50];
+  const paymentQuickSelectAmounts = useMemo(() => {
+    const totalDue = typeof pendingOrderData?.total === 'number' ? pendingOrderData.total : 0;
+    return QUICK_SELECT_ADDITIONS.map((addition) => parseFloat((totalDue + addition).toFixed(2)));
+  }, [pendingOrderData?.total]);
+  const collectQuickSelectAmounts = useMemo(() => {
+    const totalDue = typeof selectedReportOrder?.total === 'number' ? selectedReportOrder.total : 0;
+    return QUICK_SELECT_ADDITIONS.map((addition) => parseFloat((totalDue + addition).toFixed(2)));
+  }, [selectedReportOrder?.total]);
 
   const handleRemoveStaff = async (staff: any, index: number) => {
     const updated = staffList.filter((_: any, idx: number) => idx !== index);
@@ -8724,9 +8732,9 @@ const PosOnlyView: React.FC<Props> = ({
                 <div className="space-y-2 lg:space-y-3">
                   <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Quick Select</label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3">
-                    {CASH_DENOMINATIONS.map((amount) => (
+                    {paymentQuickSelectAmounts.map((amount, index) => (
                       <button
-                        key={amount}
+                        key={`pay-quick-${index}-${amount}`}
                         onClick={() => { setSelectedCashAmount(amount); setCashAmountInput(amount.toFixed(2)); }}
                         className={`p-3 rounded-xl font-black text-lg uppercase tracking-widest transition-all border-2 ${
                           selectedCashAmount === amount
@@ -9223,9 +9231,9 @@ const PosOnlyView: React.FC<Props> = ({
                   <div className="space-y-2">
                     <label className="block text-xs font-black text-gray-400 uppercase tracking-widest">Quick Select</label>
                     <div className="grid grid-cols-2 gap-2">
-                      {CASH_DENOMINATIONS.map((amount) => (
+                      {collectQuickSelectAmounts.map((amount, index) => (
                         <button
-                          key={amount}
+                          key={`collect-quick-${index}-${amount}`}
                           onClick={() => { setCollectCashAmount(amount); setCollectCashAmountInput(amount.toFixed(2)); }}
                           className={`p-3 rounded-xl font-black text-base uppercase tracking-widest transition-all border-2 ${
                             collectCashAmount === amount
