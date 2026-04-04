@@ -255,6 +255,7 @@ const StandardReport: React.FC<Props> = ({
                 <th className="px-4 py-3 text-left">Time</th>
                 <th className="px-4 py-3 text-left">Status</th>
                 <th className="px-4 py-3 text-left">Source</th>
+                <th className="px-4 py-3 text-left">Dining Option</th>
                 <th className="px-4 py-3 text-left">Payment</th>
                 <th className="px-4 py-3 text-left">Cashier</th>
                 <th className="px-4 py-3 text-right">Bill</th>
@@ -294,6 +295,9 @@ const StandardReport: React.FC<Props> = ({
                        report.orderSource === 'tableside' ? 'Tableside' :
                        report.orderSource === 'online' ? 'Online' : '-'}
                     </span>
+                  </td>
+                  <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">
+                    {report.diningType || '-'}
                   </td>
                   <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">{report.paymentMethod || '-'}</td>
                   <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300">{report.cashierName || '-'}</td>
