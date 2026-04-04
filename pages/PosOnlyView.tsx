@@ -710,16 +710,43 @@ const PosOnlyView: React.FC<Props> = ({
     return availableDiningOptions.includes('Dine-in') ? 'Dine-in' : availableDiningOptions[0];
   }, [availableDiningOptions]);
 
-  const QUICK_SELECT_ADDITIONS = [5, 10, 20, 50];
+  const roundUpToUnit = (amount: number, unit: number) => Math.ceil(amount / unit) * unit;
+  const getCashQuickSelectAmounts = (rawTotal: number) => {
+    const total = Math.max(0, rawTotal || 0);
+    const hasCents = Math.abs(total - Math.round(total)) > 0.0001;
+    const nearestPractical = total <= 0 ? 5 : hasCents ? roundUpToUnit(total, 5) : Math.ceil(total);
+    const nearestTen = roundUpToUnit(total, 10);
+    const tier2 = nearestTen > nearestPractical ? nearestTen : nearestPractical + 10;
+    const tier3 = total <= 50 ? 50 : total <= 100 ? 100 : roundUpToUnit(total, 50);
+    const tier4 = total <= 100 ? 100 : roundUpToUnit(total, 100);
+
+    const suggestions: number[] = [];
+    const pushUnique = (value: number) => {
+      const normalized = Math.max(0, Math.round(value));
+      if (!suggestions.includes(normalized)) suggestions.push(normalized);
+    };
+
+    pushUnique(nearestPractical);
+    pushUnique(tier2);
+    pushUnique(tier3);
+    pushUnique(tier4);
+
+    while (suggestions.length < 4) {
+      const last = suggestions[suggestions.length - 1] ?? nearestPractical;
+      const next = last < 100 ? last + 10 : last + 50;
+      pushUnique(next);
+    }
+
+    return suggestions.slice(0, 4);
+  };
+
   const paymentQuickSelectAmounts = useMemo(() => {
     const totalDue = typeof pendingOrderData?.total === 'number' ? pendingOrderData.total : 0;
-    const baseRinggit = Math.floor(totalDue);
-    return QUICK_SELECT_ADDITIONS.map((addition) => baseRinggit + addition);
+    return getCashQuickSelectAmounts(totalDue);
   }, [pendingOrderData?.total]);
   const collectQuickSelectAmounts = useMemo(() => {
     const totalDue = typeof selectedReportOrder?.total === 'number' ? selectedReportOrder.total : 0;
-    const baseRinggit = Math.floor(totalDue);
-    return QUICK_SELECT_ADDITIONS.map((addition) => baseRinggit + addition);
+    return getCashQuickSelectAmounts(totalDue);
   }, [selectedReportOrder?.total]);
 
   const handleRemoveStaff = async (staff: any, index: number) => {
