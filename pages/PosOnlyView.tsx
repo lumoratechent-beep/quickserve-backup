@@ -8706,7 +8706,7 @@ const PosOnlyView: React.FC<Props> = ({
       {/* Payment Modal */}
       {showPaymentModal && pendingOrderData && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end lg:items-center justify-center lg:p-4" onClick={() => !isCompletingPayment && !showPaymentResult && setShowPaymentModal(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-t-3xl lg:rounded-3xl shadow-2xl w-full lg:max-w-4xl h-[98vh] lg:h-[760px] lg:max-h-[96vh] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-t-3xl lg:rounded-3xl shadow-2xl w-full lg:max-w-4xl h-[100dvh] lg:h-[900px] lg:max-h-[99dvh] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
             
             {/* Payment Input View */}
             <div className={`absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out ${showPaymentResult ? '-translate-x-full' : 'translate-x-0'}`}>
@@ -8719,7 +8719,7 @@ const PosOnlyView: React.FC<Props> = ({
               </button>
 
               {/* Content */}
-              <div className="flex-1 px-5 lg:px-8 pb-6 lg:pb-8 pt-[3.75rem] space-y-4 lg:space-y-6">
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 lg:px-8 pb-6 lg:pb-8 pt-[3.75rem] space-y-4 lg:space-y-6">
                 {/* Total Amount Due - Centered */}
                 <div className="text-center space-y-2 lg:space-y-3">
                   <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
@@ -8811,7 +8811,7 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
 
               {/* Footer / Action Buttons */}
-              <div className="px-5 lg:px-8 py-4 lg:py-5 border-t dark:border-gray-700 flex gap-3 lg:gap-4 flex-shrink-0">
+              <div className="px-5 lg:px-8 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:py-5 border-t dark:border-gray-700 flex gap-3 lg:gap-4 flex-shrink-0">
                 <button 
                   onClick={() => setShowPaymentModal(false)} 
                   disabled={isCompletingPayment}
