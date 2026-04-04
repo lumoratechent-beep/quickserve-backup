@@ -713,11 +713,13 @@ const PosOnlyView: React.FC<Props> = ({
   const QUICK_SELECT_ADDITIONS = [5, 10, 20, 50];
   const paymentQuickSelectAmounts = useMemo(() => {
     const totalDue = typeof pendingOrderData?.total === 'number' ? pendingOrderData.total : 0;
-    return QUICK_SELECT_ADDITIONS.map((addition) => parseFloat((totalDue + addition).toFixed(2)));
+    const baseRinggit = Math.floor(totalDue);
+    return QUICK_SELECT_ADDITIONS.map((addition) => baseRinggit + addition);
   }, [pendingOrderData?.total]);
   const collectQuickSelectAmounts = useMemo(() => {
     const totalDue = typeof selectedReportOrder?.total === 'number' ? selectedReportOrder.total : 0;
-    return QUICK_SELECT_ADDITIONS.map((addition) => parseFloat((totalDue + addition).toFixed(2)));
+    const baseRinggit = Math.floor(totalDue);
+    return QUICK_SELECT_ADDITIONS.map((addition) => baseRinggit + addition);
   }, [selectedReportOrder?.total]);
 
   const handleRemoveStaff = async (staff: any, index: number) => {
@@ -8677,7 +8679,7 @@ const PosOnlyView: React.FC<Props> = ({
       {/* Payment Modal */}
       {showPaymentModal && pendingOrderData && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end lg:items-center justify-center lg:p-4" onClick={() => !isCompletingPayment && !showPaymentResult && setShowPaymentModal(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-t-3xl lg:rounded-3xl shadow-2xl w-full lg:max-w-4xl h-[94vh] lg:h-[760px] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-t-3xl lg:rounded-3xl shadow-2xl w-full lg:max-w-4xl h-[98vh] lg:h-[760px] lg:max-h-[96vh] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
             
             {/* Payment Input View */}
             <div className={`absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out ${showPaymentResult ? '-translate-x-full' : 'translate-x-0'}`}>
