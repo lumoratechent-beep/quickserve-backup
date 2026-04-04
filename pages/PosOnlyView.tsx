@@ -8669,7 +8669,7 @@ const PosOnlyView: React.FC<Props> = ({
       {/* Payment Modal */}
       {showPaymentModal && pendingOrderData && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end lg:items-center justify-center lg:p-4" onClick={() => !isCompletingPayment && !showPaymentResult && setShowPaymentModal(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-t-3xl lg:rounded-3xl shadow-2xl w-full lg:max-w-6xl h-[92vh] lg:h-[760px] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-t-3xl lg:rounded-3xl shadow-2xl w-full lg:max-w-4xl h-[94vh] lg:h-[760px] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
             
             {/* Payment Input View */}
             <div className={`absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out ${showPaymentResult ? '-translate-x-full' : 'translate-x-0'}`}>
@@ -8682,112 +8682,94 @@ const PosOnlyView: React.FC<Props> = ({
               </button>
 
               {/* Content */}
-              <div className="flex-1 px-5 lg:px-10 pb-6 lg:pb-8 pt-[3.75rem] lg:pt-[4.25rem] overflow-y-auto lg:overflow-hidden">
-                <div className="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-[1.15fr_0.85fr] lg:gap-8 lg:h-full">
-                  <div className="space-y-4 lg:space-y-6">
-                    {/* Total Amount Due */}
-                    <div className="text-center lg:text-left space-y-2 lg:space-y-3">
-                      <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
-                      <div className="text-4xl lg:text-7xl font-black text-orange-500 tracking-tighter">
-                        {currencySymbol}{pendingOrderData.total.toFixed(2)}
-                      </div>
-                    </div>
-
-                    {/* Amount Received */}
-                    <div className="space-y-3">
-                      <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Amount Received</label>
-                      <div className="flex items-center justify-center border-b-2 dark:border-gray-600 border-gray-300 focus-within:border-orange-500 dark:focus-within:border-orange-500">
-                        <span className="text-2xl lg:text-3xl font-black text-gray-600 dark:text-gray-400 pb-3">{currencySymbol}</span>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={cashAmountInput}
-                          onChange={(e) => {
-                            const val = e.target.value.replace(/[^0-9.]/g, '');
-                            setCashAmountInput(val);
-                            if (val === '' || val === '.') { setSelectedCashAmount(null); return; }
-                            const parsed = parseFloat(val);
-                            if (!isNaN(parsed)) setSelectedCashAmount(parsed);
-                          }}
-                          onBlur={() => {
-                            if (selectedCashAmount !== null) {
-                              const rounded = parseFloat(selectedCashAmount.toFixed(2));
-                              setSelectedCashAmount(rounded);
-                              setCashAmountInput(rounded.toFixed(2));
-                            }
-                          }}
-                          placeholder="0.00"
-                          className="flex-1 p-3 bg-transparent text-2xl lg:text-3xl font-black dark:text-white text-center focus:outline-none border-none"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Quick Select */}
-                    <div className="space-y-2 lg:space-y-3">
-                      <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Quick Select</label>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3">
-                        {CASH_DENOMINATIONS.map((amount) => (
-                          <button
-                            key={amount}
-                            onClick={() => { setSelectedCashAmount(amount); setCashAmountInput(amount.toFixed(2)); }}
-                            className={`p-3 rounded-xl font-black text-base lg:text-lg uppercase tracking-widest transition-all border-2 ${
-                              selectedCashAmount === amount
-                                ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
-                                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
-                            }`}
-                          >
-                            {currencySymbol} {amount.toFixed(2)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+              <div className="flex-1 px-5 lg:px-8 pb-6 lg:pb-8 pt-[3.75rem] space-y-4 lg:space-y-6">
+                {/* Total Amount Due - Centered */}
+                <div className="text-center space-y-2 lg:space-y-3">
+                  <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
+                  <div className="text-4xl lg:text-6xl font-black text-orange-500 tracking-tighter">
+                    {currencySymbol}{pendingOrderData.total.toFixed(2)}
                   </div>
+                </div>
 
-                  <div className="space-y-4 lg:space-y-5">
-                    <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 p-4 space-y-2">
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Order Summary</p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Table</span>
-                        <span className="text-xs font-black text-gray-800 dark:text-white">{pendingOrderData.tableNumber || '-'}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Dining</span>
-                        <span className="text-xs font-black text-gray-800 dark:text-white uppercase">{pendingOrderData.diningType || '-'}</span>
-                      </div>
-                    </div>
+                {/* Amount Received - Plain Input */}
+                <div className="space-y-3">
+                  <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Amount Received</label>
+                  <div className="flex items-center justify-center border-b-2 dark:border-gray-600 border-gray-300 focus-within:border-orange-500 dark:focus-within:border-orange-500">
+                    <span className="text-2xl font-black text-gray-600 dark:text-gray-400 pb-3">{currencySymbol}</span>
+                    <input 
+                      type="text" 
+                      inputMode="decimal"
+                      value={cashAmountInput} 
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9.]/g, '');
+                        setCashAmountInput(val);
+                        if (val === '' || val === '.') { setSelectedCashAmount(null); return; }
+                        const parsed = parseFloat(val);
+                        if (!isNaN(parsed)) setSelectedCashAmount(parsed);
+                      }}
+                      onBlur={() => {
+                        if (selectedCashAmount !== null) {
+                          const rounded = parseFloat(selectedCashAmount.toFixed(2));
+                          setSelectedCashAmount(rounded);
+                          setCashAmountInput(rounded.toFixed(2));
+                        }
+                      }}
+                      placeholder="0.00"
+                      className="flex-1 p-3 bg-transparent text-2xl font-black dark:text-white text-center focus:outline-none border-none"
+                    />
+                  </div>
+                </div>
 
-                    {/* Payment Method */}
-                    <div className="space-y-2 lg:space-y-3">
-                      <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
-                      <select
-                        value={selectedPaymentType}
-                        onChange={(e) => setSelectedPaymentType(e.target.value)}
-                        className="w-full p-3 lg:p-4 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-base lg:text-lg font-black dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
+                {/* Cash Denomination Boxes */}
+                <div className="space-y-2 lg:space-y-3">
+                  <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Quick Select</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3">
+                    {CASH_DENOMINATIONS.map((amount) => (
+                      <button
+                        key={amount}
+                        onClick={() => { setSelectedCashAmount(amount); setCashAmountInput(amount.toFixed(2)); }}
+                        className={`p-3 rounded-xl font-black text-lg uppercase tracking-widest transition-all border-2 ${
+                          selectedCashAmount === amount
+                            ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
+                        }`}
                       >
-                        {enabledPaymentTypes.map((type) => (
-                          <option key={type.id} value={type.id}>
-                            {type.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Remark */}
-                    <div className="space-y-2 lg:space-y-3">
-                      <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Remark</label>
-                      <textarea
-                        value={pendingOrderData.remark || ''}
-                        onChange={(e) => {
-                          const nextRemark = e.target.value;
-                          setPendingOrderData((prev: any) => ({ ...(prev || {}), remark: nextRemark }));
-                          setPosRemark(nextRemark);
-                        }}
-                        rows={5}
-                        placeholder="Optional order note"
-                        className="w-full p-3 lg:p-4 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-sm lg:text-base font-semibold dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500 resize-none"
-                      />
-                    </div>
+                        {currencySymbol} {amount.toFixed(2)}
+                      </button>
+                    ))}
                   </div>
+                </div>
+
+                {/* Payment Method */}
+                <div className="space-y-2 lg:space-y-3">
+                  <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
+                  <select 
+                    value={selectedPaymentType} 
+                    onChange={(e) => setSelectedPaymentType(e.target.value)}
+                    className="w-full p-3 lg:p-4 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-base lg:text-lg font-black dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
+                  >
+                    {enabledPaymentTypes.map((type) => (
+                      <option key={type.id} value={type.id}>
+                        {type.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Remark */}
+                <div className="space-y-2 lg:space-y-3">
+                  <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Remark</label>
+                  <textarea
+                    value={pendingOrderData.remark || ''}
+                    onChange={(e) => {
+                      const nextRemark = e.target.value;
+                      setPendingOrderData((prev: any) => ({ ...(prev || {}), remark: nextRemark }));
+                      setPosRemark(nextRemark);
+                    }}
+                    rows={3}
+                    placeholder="Optional order note"
+                    className="w-full p-3 lg:p-4 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-sm lg:text-base font-semibold dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500 resize-none"
+                  />
                 </div>
               </div>
 
