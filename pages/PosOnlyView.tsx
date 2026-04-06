@@ -26,7 +26,7 @@ import {
   Receipt, Network, Type, MessageSquare, Zap, Briefcase, PlusCircle, Puzzle,
   ArrowLeft, Star, Package, Monitor, Info, ExternalLink,
   Tablet, Globe, ShoppingCart, Wallet, ArrowUpRight, ArrowDownRight, Building2, Banknote, Send, Copy, Truck, Mail,
-  MoreVertical, Lock, ImagePlus, EyeOff, User, Link2, UtensilsCrossed
+  MoreVertical, Lock, ImagePlus, EyeOff, User, Link2
 } from 'lucide-react';
 
 interface Props {
@@ -1818,6 +1818,23 @@ const PosOnlyView: React.FC<Props> = ({
           });
       } else {
         setCheckoutNotice('Order saved. Auto-print is enabled but no printer is connected.');
+      }
+    } else if (receiptConfig.openCashDrawerOnPayment) {
+      if (connectedDevice) {
+        printerService
+          .openDrawer()
+          .then((drawerSuccess) => {
+            if (!drawerSuccess) {
+              setCheckoutNotice('Order saved. Cash drawer could not be opened.');
+            }
+          })
+          .catch((drawerError: any) => {
+            console.error('Cash drawer open error:', drawerError);
+            const errorMsg = drawerError?.message || 'Failed to open cash drawer';
+            setCheckoutNotice(`Order saved. ${errorMsg}`);
+          });
+      } else {
+        setCheckoutNotice('Order saved. Cash drawer is enabled but no printer is connected.');
       }
     }
   };
@@ -4856,7 +4873,7 @@ const PosOnlyView: React.FC<Props> = ({
                                 <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center text-white/70">
-                                  <UtensilsCrossed size={20} />
+                                  <Coffee size={28} />
                                 </div>
                               )}
                             </div>
@@ -5062,7 +5079,7 @@ const PosOnlyView: React.FC<Props> = ({
                                 <img src={item.image} className="w-full h-full object-cover" />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center text-white/50">
-                                  <UtensilsCrossed size={28} />
+                                  <Coffee size={36} />
                                 </div>
                               )}
                               <div className="absolute top-2 right-2 flex gap-1">
@@ -5110,7 +5127,7 @@ const PosOnlyView: React.FC<Props> = ({
                                         <img src={item.image} className="w-10 h-10 rounded-lg object-cover" />
                                       ) : (
                                         <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white/60" style={{ backgroundColor: getMenuItemTileBackground(item) }}>
-                                          <UtensilsCrossed size={16} />
+                                          <Coffee size={20} />
                                         </div>
                                       )}
                                       <div>

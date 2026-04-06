@@ -320,9 +320,8 @@ const PrinterSettings: React.FC<Props> = ({
 
       {/* ── Saved Printers List ── */}
       <div className="border-t dark:border-gray-700 pt-4">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center mb-3">
           <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Printers</p>
-          <span className="text-[9px] font-black text-gray-300">{savedPrinters.length}</span>
         </div>
 
         {savedPrinters.length === 0 && !isAddingPrinter && (
