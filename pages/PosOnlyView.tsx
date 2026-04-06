@@ -5680,7 +5680,7 @@ const PosOnlyView: React.FC<Props> = ({
                   <div className="animate-in fade-in duration-500">
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-[300px_minmax(0,1fr)] lg:gap-6">
                       <aside className="h-fit rounded-2xl border border-slate-200/80 bg-white/95 p-3 shadow-sm dark:border-gray-700/80 dark:bg-gray-800/90 md:sticky md:top-4">
-                        <p className="px-1 pb-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">Settings Nav</p>
+                        <p className="px-1 pb-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">General Setting</p>
 
                         <div className="space-y-1.5">
                           {settingsTabs.map(tab => {
@@ -5708,6 +5708,22 @@ const PosOnlyView: React.FC<Props> = ({
                             );
                           })}
                         </div>
+
+                        {!isKitchenUser && (
+                          <div className="mt-3 border-t border-slate-200/80 pt-3 dark:border-gray-700/80">
+                            <p className="px-1 pb-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">Add-on Feature Setting</p>
+                            <button
+                              onClick={() => handleTabSelection('ADDONS')}
+                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 dark:border-gray-700 dark:bg-gray-800/70 dark:hover:border-gray-500 dark:hover:bg-gray-700/80"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="w-3 text-center text-xs font-black text-slate-300 dark:text-gray-600" />
+                                <span className="text-sm font-semibold text-slate-700 dark:text-gray-200">Add-on Feature</span>
+                              </div>
+                              <p className="mt-1.5 pl-5 pr-1 text-xs leading-relaxed text-slate-500 dark:text-gray-400">Configure installed add-on modules and discover new feature packs.</p>
+                            </button>
+                          </div>
+                        )}
                       </aside>
 
                       <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_16px_45px_-40px_rgba(15,23,42,0.7)] backdrop-blur-sm dark:border-gray-700/80 dark:bg-gray-800/90">
