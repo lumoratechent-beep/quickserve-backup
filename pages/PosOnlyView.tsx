@@ -26,7 +26,7 @@ import {
   Receipt, Network, Type, MessageSquare, Zap, Briefcase, PlusCircle, Puzzle,
   ArrowLeft, Star, Package, Monitor, Info, ExternalLink,
   Tablet, Globe, ShoppingCart, Wallet, ArrowUpRight, ArrowDownRight, Building2, Banknote, Send, Copy, Truck, Mail,
-  MoreVertical, Lock, ImagePlus, EyeOff, User, Link2
+  MoreVertical, Lock, ImagePlus, EyeOff, User, Link2, UtensilsCrossed
 } from 'lucide-react';
 
 interface Props {
@@ -187,10 +187,16 @@ const getFirstEnabledPaymentTypeId = (types: PaymentType[]): string => {
   return types.find((type) => type.enabled)?.id || '';
 };
 
+// Legacy placeholder URLs that were previously auto-generated for items without images.
 const MENU_ITEM_PLACEHOLDER_IMAGE_PREFIX = 'https://picsum.photos/seed/';
+const MENU_ITEM_DEFAULT_TILE_COLOR = '#D1D5DB';
 
-const hasRenderableMenuItemImage = (item: Pick<MenuItem, 'image' | 'color'>): boolean => (
-  Boolean(item.image) && !(Boolean(item.color) && item.image.startsWith(MENU_ITEM_PLACEHOLDER_IMAGE_PREFIX))
+const hasRenderableMenuItemImage = (item: Pick<MenuItem, 'image'>): boolean => (
+  Boolean(item.image) && !item.image.startsWith(MENU_ITEM_PLACEHOLDER_IMAGE_PREFIX)
+);
+
+const getMenuItemTileBackground = (item: Pick<MenuItem, 'image' | 'color'>): string => (
+  item.color || MENU_ITEM_DEFAULT_TILE_COLOR
 );
 
 interface TaxEntry {
@@ -1153,13 +1159,16 @@ const PosOnlyView: React.FC<Props> = ({
 
     const linked = formItem.linkedModifiers || [];
     const trimmedImage = (formItem.image || '').trim();
-    const fallbackImage = formItem.color ? '' : `${MENU_ITEM_PLACEHOLDER_IMAGE_PREFIX}${encodeURIComponent(formItem.name.trim())}/300/300`;
+    const hasCustomImage = Boolean(trimmedImage) && !trimmedImage.startsWith(MENU_ITEM_PLACEHOLDER_IMAGE_PREFIX);
+    const resolvedTileColor = hasCustomImage
+      ? (formItem.color || undefined)
+      : (formItem.color || MENU_ITEM_DEFAULT_TILE_COLOR);
     const payload: MenuItem = {
       id: editingItem?.id || crypto.randomUUID(),
       name: formItem.name.trim(),
       description: (formItem.description || '').trim(),
       price: Number(formItem.price || 0),
-      image: trimmedImage || fallbackImage,
+      image: hasCustomImage ? trimmedImage : '',
       category: formItem.category.trim(),
       isArchived: editingItem?.isArchived || false,
       sizes: (formItem.sizes || []).length > 0 ? formItem.sizes : [],
@@ -1176,7 +1185,7 @@ const PosOnlyView: React.FC<Props> = ({
       barcode: (formItem.barcode || '').trim(),
       soldBy: formItem.soldBy || 'each',
       trackStock: formItem.trackStock || false,
-      color: formItem.color || undefined,
+      color: resolvedTileColor,
     };
 
     setIsSavingMenuItem(true);
@@ -4841,13 +4850,13 @@ const PosOnlyView: React.FC<Props> = ({
                             } ${
                               menuLayout === 'list' ? 'lg:w-16 lg:h-16 lg:aspect-auto' : 'lg:aspect-square lg:w-full'
                             } rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0`}
-                            style={!hasRenderableMenuItemImage(item) && item.color ? { backgroundColor: item.color } : undefined}
+                            style={!hasRenderableMenuItemImage(item) ? { backgroundColor: getMenuItemTileBackground(item) } : undefined}
                             >
                               {hasRenderableMenuItemImage(item) ? (
                                 <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center text-white/70">
-                                  <ShoppingBag size={20} />
+                                  <UtensilsCrossed size={20} />
                                 </div>
                               )}
                             </div>
@@ -5048,12 +5057,12 @@ const PosOnlyView: React.FC<Props> = ({
                       <div className="grid grid-cols-5 gap-3 mt-4">
                         {currentMenu.map(item => (
                           <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden border dark:border-gray-700 hover:shadow-md transition-all group flex flex-col">
-                            <div className="relative aspect-square overflow-hidden" style={!hasRenderableMenuItemImage(item) && item.color ? { backgroundColor: item.color } : undefined}>
+                            <div className="relative aspect-square overflow-hidden" style={!hasRenderableMenuItemImage(item) ? { backgroundColor: getMenuItemTileBackground(item) } : undefined}>
                               {hasRenderableMenuItemImage(item) ? (
                                 <img src={item.image} className="w-full h-full object-cover" />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center text-white/50">
-                                  <ShoppingBag size={28} />
+                                  <UtensilsCrossed size={28} />
                                 </div>
                               )}
                               <div className="absolute top-2 right-2 flex gap-1">
@@ -5100,8 +5109,8 @@ const PosOnlyView: React.FC<Props> = ({
                                       {hasRenderableMenuItemImage(item) ? (
                                         <img src={item.image} className="w-10 h-10 rounded-lg object-cover" />
                                       ) : (
-                                        <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white/60" style={item.color ? { backgroundColor: item.color } : { backgroundColor: '#D1D5DB' }}>
-                                          <ShoppingBag size={16} />
+                                        <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white/60" style={{ backgroundColor: getMenuItemTileBackground(item) }}>
+                                          <UtensilsCrossed size={16} />
                                         </div>
                                       )}
                                       <div>
@@ -5405,8 +5414,8 @@ const PosOnlyView: React.FC<Props> = ({
                                   <span className="font-bold text-gray-500 uppercase">Price</span>
                                   <input
                                     type="number"
-                                    value={addon.price || ''}
-                                    onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, price: parseFloat(e.target.value) || 0 }; setAddOnItems(updated); }}
+                                    value={addon.price === 0 || addon.price === undefined ? '' : addon.price}
+                                    onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, price: e.target.value === '' ? 0 : Number(e.target.value) }; setAddOnItems(updated); }}
                                     placeholder="0.00"
                                     className="w-20 text-right font-black text-orange-500 bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-orange-500 outline-none text-[10px]"
                                     step="0.01"
@@ -5417,8 +5426,14 @@ const PosOnlyView: React.FC<Props> = ({
                                   <span className="font-bold text-gray-500 uppercase">Max Qty</span>
                                   <input
                                     type="number"
-                                    value={addon.maxQuantity}
-                                    onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, maxQuantity: parseInt(e.target.value) || 1 }; setAddOnItems(updated); }}
+                                    value={addon.maxQuantity && addon.maxQuantity > 0 ? addon.maxQuantity : ''}
+                                    onChange={e => {
+                                      const nextValue = e.target.value;
+                                      const updated = [...addOnItems];
+                                      updated[index] = { ...addon, maxQuantity: nextValue === '' ? 0 : Math.max(1, parseInt(nextValue, 10) || 0) };
+                                      setAddOnItems(updated);
+                                    }}
+                                    placeholder="No limit"
                                     className="w-16 text-right font-black text-gray-700 dark:text-gray-300 bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-orange-500 outline-none text-[10px]"
                                     min="1"
                                   />
@@ -5459,8 +5474,8 @@ const PosOnlyView: React.FC<Props> = ({
                                   <span className="text-[9px] font-bold text-gray-400">{currencySymbol}</span>
                                   <input
                                     type="number"
-                                    value={addon.price || ''}
-                                    onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, price: parseFloat(e.target.value) || 0 }; setAddOnItems(updated); }}
+                                    value={addon.price === 0 || addon.price === undefined ? '' : addon.price}
+                                    onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, price: e.target.value === '' ? 0 : Number(e.target.value) }; setAddOnItems(updated); }}
                                     placeholder="0.00"
                                     className="w-16 text-right font-black text-orange-500 bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-orange-500 outline-none text-xs"
                                     step="0.01"
@@ -5472,8 +5487,14 @@ const PosOnlyView: React.FC<Props> = ({
                                   <span className="text-[9px] font-bold text-gray-400 uppercase">Max:</span>
                                   <input
                                     type="number"
-                                    value={addon.maxQuantity}
-                                    onChange={e => { const updated = [...addOnItems]; updated[index] = { ...addon, maxQuantity: parseInt(e.target.value) || 1 }; setAddOnItems(updated); }}
+                                    value={addon.maxQuantity && addon.maxQuantity > 0 ? addon.maxQuantity : ''}
+                                    onChange={e => {
+                                      const nextValue = e.target.value;
+                                      const updated = [...addOnItems];
+                                      updated[index] = { ...addon, maxQuantity: nextValue === '' ? 0 : Math.max(1, parseInt(nextValue, 10) || 0) };
+                                      setAddOnItems(updated);
+                                    }}
+                                    placeholder="No limit"
                                     className="w-12 text-right font-black text-gray-700 dark:text-gray-300 bg-transparent border-b border-dashed border-gray-300 dark:border-gray-600 focus:border-orange-500 outline-none text-xs"
                                     min="1"
                                   />

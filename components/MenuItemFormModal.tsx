@@ -976,8 +976,8 @@ const MenuItemFormModal: React.FC<Props> = ({
                     <input
                       type="number"
                       step="0.01"
-                      value={addon.price}
-                      onChange={(e) => handleAddOnChange(idx, 'price', parseFloat(e.target.value) || 0)}
+                      value={addon.price === 0 || addon.price === undefined ? '' : addon.price}
+                      onChange={(e) => handleAddOnChange(idx, 'price', e.target.value === '' ? 0 : Number(e.target.value))}
                       placeholder="2.00"
                       className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
                     />
@@ -990,8 +990,12 @@ const MenuItemFormModal: React.FC<Props> = ({
                     <input
                       type="number"
                       min="1"
-                      value={addon.maxQuantity}
-                      onChange={(e) => handleAddOnChange(idx, 'maxQuantity', parseInt(e.target.value) || 1)}
+                      value={addon.maxQuantity && addon.maxQuantity > 0 ? addon.maxQuantity : ''}
+                      onChange={(e) => {
+                        const nextValue = e.target.value;
+                        handleAddOnChange(idx, 'maxQuantity', nextValue === '' ? 0 : Math.max(1, parseInt(nextValue, 10) || 0));
+                      }}
+                      placeholder="No limit"
                       className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white"
                     />
                   </div>

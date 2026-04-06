@@ -70,10 +70,16 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
   if (!item) return null;
   if (typeof document === 'undefined') return null;
 
+  const getAddOnMaxQuantity = (addOn: AddOnItem): number => (
+    typeof addOn.maxQuantity === 'number' && addOn.maxQuantity > 0
+      ? addOn.maxQuantity
+      : Number.POSITIVE_INFINITY
+  );
+
   // Handle add-on quantity changes
   const changeAddOnQuantity = (addOn: AddOnItem, delta: number) => {
     const current = selectedAddOns[addOn.name] || { name: addOn.name, price: addOn.price, quantity: 0 };
-    const nextQuantity = Math.max(0, Math.min(addOn.maxQuantity || 99, current.quantity + delta));
+    const nextQuantity = Math.max(0, Math.min(getAddOnMaxQuantity(addOn), current.quantity + delta));
 
     if (nextQuantity === 0) {
       setSelectedAddOns(prev => {
@@ -284,6 +290,7 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
               <div className="space-y-2">
                 {addOns.map((addOn: any, idx) => {
                   const quantity = selectedAddOns[addOn.name]?.quantity || 0;
+                  const maxQuantity = getAddOnMaxQuantity(addOn);
                   return (
                     <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                       <div>
@@ -302,7 +309,7 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
                         <button
                           onClick={() => changeAddOnQuantity(addOn, 1)}
                           className="p-1.5 bg-white dark:bg-gray-800 rounded-lg text-gray-500 hover:bg-orange-500 hover:text-white transition-all"
-                          disabled={quantity >= (addOn.maxQuantity || 99)}
+                          disabled={quantity >= maxQuantity}
                         >
                           <Plus size={14} />
                         </button>
