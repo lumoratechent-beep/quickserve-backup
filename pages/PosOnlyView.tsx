@@ -1438,6 +1438,16 @@ const PosOnlyView: React.FC<Props> = ({
   const selectedQrTaxTotal = useMemo(() => selectedQrTaxLines.reduce((sum, tax) => sum + tax.amount, 0), [selectedQrTaxLines]);
   const selectedQrGrandTotal = useMemo(() => selectedQrOrderSubtotal + selectedQrTaxTotal, [selectedQrOrderSubtotal, selectedQrTaxTotal]);
 
+  const getItemsSubtotal = (items: CartItem[]): number => {
+    return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  };
+
+  const getItemsGrandTotal = (items: CartItem[]): number => {
+    const subtotal = getItemsSubtotal(items);
+    const taxAmount = activeTaxEntries.reduce((sum, tax) => sum + ((subtotal * tax.percentage) / 100), 0);
+    return subtotal + taxAmount;
+  };
+
   const effectiveTableCount = Math.max(1, Number(featureSettings.tableCount) || 1);
   const effectiveTableCols = Math.min(20, Math.max(1, Number(featureSettings.tableColumns) || 1));
   const effectiveTableRows = Math.ceil(effectiveTableCount / effectiveTableCols);
@@ -1509,6 +1519,33 @@ const PosOnlyView: React.FC<Props> = ({
     });
     return map;
   }, [savedBills]);
+
+  const selectedSavedBillEntry = useMemo(() => {
+    if (!activeSavedBillTable) return null;
+    return savedBillsByTable.get(activeSavedBillTable) ?? null;
+  }, [activeSavedBillTable, savedBillsByTable]);
+
+  const selectedSavedBillSubtotal = useMemo(() => {
+    if (!selectedSavedBillEntry) return 0;
+    return getItemsSubtotal(selectedSavedBillEntry.items);
+  }, [selectedSavedBillEntry]);
+
+  const selectedSavedBillTaxLines = useMemo(() => {
+    return activeTaxEntries.map(tax => ({
+      id: tax.id,
+      name: tax.name,
+      percentage: tax.percentage,
+      amount: (selectedSavedBillSubtotal * tax.percentage) / 100,
+    }));
+  }, [activeTaxEntries, selectedSavedBillSubtotal]);
+
+  const selectedSavedBillTaxTotal = useMemo(() => {
+    return selectedSavedBillTaxLines.reduce((sum, tax) => sum + tax.amount, 0);
+  }, [selectedSavedBillTaxLines]);
+
+  const selectedSavedBillGrandTotal = useMemo(() => {
+    return selectedSavedBillSubtotal + selectedSavedBillTaxTotal;
+  }, [selectedSavedBillSubtotal, selectedSavedBillTaxTotal]);
 
   const getFloorFromTableLabel = (tableNumber: string): number => {
     if (!featureSettings.floorEnabled || effectiveFloorCount <= 1) return 1;
@@ -1654,6 +1691,23 @@ const PosOnlyView: React.FC<Props> = ({
     startSaveBillFlow('COUNTER');
   };
 
+  const handleSavedBillCheckout = () => {
+    if (!selectedSavedBillEntry || isCompletingPayment) return;
+
+    setPendingOrderData({
+      items: selectedSavedBillEntry.items,
+      remark: selectedSavedBillEntry.remark,
+      tableNumber: selectedSavedBillEntry.tableNumber,
+      diningType: selectedSavedBillEntry.diningType || preferredDiningOption,
+      total: selectedSavedBillGrandTotal,
+    });
+    setSelectedCashAmount(selectedSavedBillGrandTotal);
+    setCashAmountInput(selectedSavedBillGrandTotal.toFixed(2));
+    setSelectedPaymentType(getFirstEnabledPaymentTypeId(paymentTypes));
+    setIsQrPaymentMode(false);
+    setShowPaymentModal(true);
+  };
+
   const loadSavedBill = (tableNumber: string) => {
     const selectedBill = savedBillsByTable.get(tableNumber);
     if (!selectedBill) return;
@@ -1665,13 +1719,6 @@ const PosOnlyView: React.FC<Props> = ({
     setActiveSavedBillTable(tableNumber);
     setCounterMode('COUNTER_ORDER');
     toast(`${tableNumber} bill loaded into counter.`, 'success');
-  };
-
-  const deleteSavedBill = (tableNumber: string) => {
-    clearSavedBillByTable(tableNumber);
-    if (activeSavedBillTable === tableNumber) {
-      setActiveSavedBillTable(null);
-    }
   };
 
   const saveSelectedQrOrderAsBill = () => {
@@ -4710,10 +4757,18 @@ const PosOnlyView: React.FC<Props> = ({
                               const tableBill = savedBillsByTable.get(table);
                               const hasPending = !!tableBill;
                               const isActiveTable = activeSavedBillTable === table;
+                              const tableItemCount = tableBill?.items.length ?? 0;
+                              const tableGrandTotal = tableBill ? getItemsGrandTotal(tableBill.items) : 0;
                               return (
-                                <div
+                                <button
+                                  type="button"
                                   key={table}
-                                  className={`saved-table-cell rounded-xl border p-3 transition-all ${
+                                  disabled={!hasPending}
+                                  onClick={() => {
+                                    if (!hasPending) return;
+                                    setActiveSavedBillTable(table);
+                                  }}
+                                  className={`saved-table-cell h-[96px] rounded-xl border p-3 transition-all text-left flex flex-col justify-between ${
                                     isActiveTable
                                       ? 'border-orange-600 bg-orange-100 dark:bg-orange-900/30 shadow-[0_0_0_1px_rgba(234,88,12,0.5),0_0_20px_rgba(234,88,12,0.35)]'
                                       :
@@ -4722,36 +4777,14 @@ const PosOnlyView: React.FC<Props> = ({
                                       : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 opacity-70'
                                   }`}
                                 >
-                                  <div className="flex items-center justify-between gap-2">
-                                    <p className="text-[10px] font-black uppercase tracking-widest dark:text-white">{table}</p>
-                                    <span className={`text-[8px] font-black uppercase tracking-widest ${hasPending ? 'text-orange-500' : 'text-gray-400'}`}>
-                                      {hasPending ? 'Pending' : 'Empty'}
-                                    </span>
-                                  </div>
-                                  {hasPending ? (
-                                    <>
-                                      <p className="mt-1 text-[9px] text-gray-500 dark:text-gray-300 line-clamp-1">
-                                        {tableBill.items.length} items · {currencySymbol}{(tableBill.items.reduce((sum, item) => sum + item.price * item.quantity, 0) + activeTaxEntries.reduce((sum, tax) => sum + ((tableBill.items.reduce((sub, item) => sub + item.price * item.quantity, 0) * tax.percentage) / 100), 0)).toFixed(2)}
-                                      </p>
-                                      <div className="mt-2 flex gap-1">
-                                        <button
-                                          onClick={() => loadSavedBill(table)}
-                                          className="flex-1 py-1.5 bg-orange-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 transition-all"
-                                        >
-                                          Load
-                                        </button>
-                                        <button
-                                          onClick={() => deleteSavedBill(table)}
-                                          className="px-2 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
-                                        >
-                                          Del
-                                        </button>
-                                      </div>
-                                    </>
-                                  ) : (
-                                    <div className="mt-2 text-[9px] text-gray-400">No pending bill</div>
-                                  )}
-                                </div>
+                                  <p className="text-[10px] font-black uppercase tracking-widest dark:text-white line-clamp-1">{table}</p>
+                                  <p className={`text-[9px] font-black uppercase tracking-widest ${hasPending ? 'text-orange-500' : 'text-gray-400'}`}>
+                                    {hasPending ? 'Pending' : 'Available'}
+                                  </p>
+                                  <p className="text-[9px] text-gray-500 dark:text-gray-300 line-clamp-1">
+                                    {hasPending ? `${tableItemCount} ${tableItemCount === 1 ? 'item' : 'items'} ${currencySymbol}${tableGrandTotal.toFixed(2)}` : `0 item ${currencySymbol}0.00`}
+                                  </p>
+                                </button>
                               );
                             })}
                           </div>
@@ -8469,12 +8502,88 @@ const PosOnlyView: React.FC<Props> = ({
 
             {/* Sidebar content by mode */}
             {showSavedBillFeature && counterMode === 'SAVED_BILL' ? (
-              <div className="flex-1 overflow-y-auto p-6">
-                <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
-                  <Receipt size={48} className="mb-4" />
-                  <p className="text-[10px] font-black uppercase tracking-widest">Select a saved bill from the left panel</p>
+              <>
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {!selectedSavedBillEntry ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
+                    <Receipt size={48} className="mb-4" />
+                    <p className="text-[10px] font-black uppercase tracking-widest">Select a pending table from the left panel</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 dark:bg-orange-900/20 rounded-xl">
+                      <Receipt size={14} className="text-orange-500 shrink-0" />
+                      <span className="text-[10px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest">{selectedSavedBillEntry.tableNumber}</span>
+                    </div>
+                    {selectedSavedBillEntry.items.map((item, idx) => (
+                      <div key={`saved-${item.id}-${idx}`} className="flex items-center gap-4">
+                        <div className="flex-1">
+                          <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                          <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toFixed(2)}</p>
+                          <div className="mt-1 space-y-0.5">
+                            {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
+                            {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Temperature: {item.selectedTemp}</p>}
+                            {item.selectedVariantOption && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Variant: {item.selectedVariantOption}</p>}
+                            {item.selectedOtherVariant && !item.selectedModifiers && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {item.otherVariantName ? item.otherVariantName.charAt(0).toUpperCase() + item.otherVariantName.slice(1) : 'Option'}: {item.selectedOtherVariant}</p>}
+                            {item.selectedModifiers && Object.entries(item.selectedModifiers).map(([modName, optName]) => (
+                              optName && <p key={modName} className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {modName.charAt(0).toUpperCase() + modName.slice(1)}: {optName}</p>
+                            ))}
+                            {item.selectedAddOns && item.selectedAddOns.length > 0 && (
+                              <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">
+                                • Add-ons: {item.selectedAddOns.map(addon => `${addon.name} x${addon.quantity}`).join(', ')}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-xs font-black dark:text-white bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-lg">x{item.quantity}</span>
+                      </div>
+                    ))}
+                    {selectedSavedBillEntry.remark && (
+                      <div className="p-3 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20 rounded-xl">
+                        <p className="text-[9px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest mb-1">Remark</p>
+                        <p className="text-xs text-gray-700 dark:text-gray-300 italic">{selectedSavedBillEntry.remark}</p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="p-6 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
+                    <span>Subtotal</span>
+                    <span>{currencySymbol}{selectedSavedBillSubtotal.toFixed(2)}</span>
+                  </div>
+                  {selectedSavedBillTaxLines.map(tax => (
+                    <div key={`saved-tax-${tax.id}`} className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
+                      <span>{tax.name} ({tax.percentage.toFixed(2)}%)</span>
+                      <span>{currencySymbol}{tax.amount.toFixed(2)}</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
+                    <span className="uppercase">Total</span>
+                    <span className="text-orange-500">{currencySymbol}{selectedSavedBillGrandTotal.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { if (activeSavedBillTable) loadSavedBill(activeSavedBillTable); }}
+                    disabled={!selectedSavedBillEntry || isCompletingPayment}
+                    className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                  >
+                    Edit Bill
+                  </button>
+                  <button
+                    onClick={handleSavedBillCheckout}
+                    disabled={!selectedSavedBillEntry || isCompletingPayment}
+                    className="flex-[2] py-4 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
+                  >
+                    Complete Payment
+                  </button>
                 </div>
               </div>
+              </>
             ) : showQrFeature && counterMode === 'QR_ORDER' ? (
               <>
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
