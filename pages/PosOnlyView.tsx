@@ -187,6 +187,12 @@ const getFirstEnabledPaymentTypeId = (types: PaymentType[]): string => {
   return types.find((type) => type.enabled)?.id || '';
 };
 
+const getPreferredPaymentTypeId = (types: PaymentType[]): string => {
+  const cashType = types.find((type) => type.enabled && type.id.toLowerCase() === 'cash');
+  if (cashType) return cashType.id;
+  return getFirstEnabledPaymentTypeId(types);
+};
+
 // Legacy placeholder URLs that were previously auto-generated for items without images.
 const MENU_ITEM_PLACEHOLDER_IMAGE_PREFIX = 'https://picsum.photos/seed/';
 const MENU_ITEM_DEFAULT_TILE_COLOR = '#D1D5DB';
@@ -708,6 +714,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [collectCashAmount, setCollectCashAmount] = useState<number | null>(null);
   const [collectPaymentType, setCollectPaymentType] = useState<string>('');
   const enabledPaymentTypes = useMemo(() => paymentTypes.filter((type) => type.enabled), [paymentTypes]);
+  const paymentMethodButtons = useMemo(() => enabledPaymentTypes.slice(0, 3), [enabledPaymentTypes]);
   const availableDiningOptions = useMemo(() => {
     const options: string[] = [];
     if (featureSettings.dineInEnabled) options.push('Dine-in');
@@ -1703,7 +1710,7 @@ const PosOnlyView: React.FC<Props> = ({
     });
     setSelectedCashAmount(selectedSavedBillGrandTotal);
     setCashAmountInput(selectedSavedBillGrandTotal.toFixed(2));
-    setSelectedPaymentType(getFirstEnabledPaymentTypeId(paymentTypes));
+    setSelectedPaymentType(getPreferredPaymentTypeId(paymentTypes));
     setIsQrPaymentMode(false);
     setShowPaymentModal(true);
   };
@@ -1739,7 +1746,7 @@ const PosOnlyView: React.FC<Props> = ({
     
     setSelectedCashAmount(cartGrandTotal);
     setCashAmountInput(cartGrandTotal.toFixed(2));
-    setSelectedPaymentType(getFirstEnabledPaymentTypeId(paymentTypes));
+    setSelectedPaymentType(getPreferredPaymentTypeId(paymentTypes));
     setIsQrPaymentMode(false);
     setShowPaymentModal(true);
   };
@@ -1795,7 +1802,7 @@ const PosOnlyView: React.FC<Props> = ({
     });
     setSelectedCashAmount(selectedQrGrandTotal);
     setCashAmountInput(selectedQrGrandTotal.toFixed(2));
-    setSelectedPaymentType(getFirstEnabledPaymentTypeId(paymentTypes));
+    setSelectedPaymentType(getPreferredPaymentTypeId(paymentTypes));
     setIsQrPaymentMode(true);
     setShowPaymentModal(true);
   };
@@ -2403,7 +2410,7 @@ const PosOnlyView: React.FC<Props> = ({
 
   useEffect(() => {
     if (selectedPaymentType && enabledPaymentTypes.some((type) => type.id === selectedPaymentType)) return;
-    setSelectedPaymentType(getFirstEnabledPaymentTypeId(enabledPaymentTypes));
+    setSelectedPaymentType(getPreferredPaymentTypeId(enabledPaymentTypes));
   }, [enabledPaymentTypes, selectedPaymentType]);
 
   useEffect(() => {
@@ -8443,7 +8450,7 @@ const PosOnlyView: React.FC<Props> = ({
                               ? 'bg-blue-500 text-white shadow-sm'
                               : counterMode === 'SAVED_BILL' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
                           }`}
-                        >{editingQrOrderId ? 'Edit Order' : 'Saved Bill'}
+                        >{editingQrOrderId ? 'Edit Order' : 'Save Bill'}
                           {!editingQrOrderId && savedBills.length > 0 && (
                             <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] font-black min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center">{savedBills.length}</span>
                           )}
@@ -8485,6 +8492,8 @@ const PosOnlyView: React.FC<Props> = ({
                         ? 'Saved Bills'
                         : showQrFeature && counterMode === 'QR_ORDER'
                         ? (selectedQrOrderForPayment ? `Order #${selectedQrOrderForPayment.id.slice(-6).toUpperCase()}` : 'QR Order')
+                        : activeSavedBillTable && counterMode === 'COUNTER_ORDER' && posTableNo === activeSavedBillTable
+                        ? `Editing Order Table #${activeSavedBillTable}`
                         : 'Current Order'}
                     </h3>
                     {!editingQrOrderId && (counterMode === 'COUNTER_ORDER' || (!showQrFeature && counterMode !== 'SAVED_BILL')) && (
@@ -8800,7 +8809,7 @@ const PosOnlyView: React.FC<Props> = ({
                         disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
                         className="w-[47.5%] py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
                       >
-                        Saved Bill
+                        Save Bill
                       </button>
                       <button
                         onClick={handleCheckout}
@@ -9016,17 +9025,27 @@ const PosOnlyView: React.FC<Props> = ({
                 {/* Payment Method */}
                 <div className="space-y-2 lg:space-y-3">
                   <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
-                  <select 
-                    value={selectedPaymentType} 
-                    onChange={(e) => setSelectedPaymentType(e.target.value)}
-                    className="w-full p-3 lg:p-4 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-base lg:text-lg font-black dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
-                  >
-                    {enabledPaymentTypes.map((type) => (
-                      <option key={type.id} value={type.id}>
-                        {type.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="grid grid-cols-3 gap-2 lg:gap-3">
+                    {Array.from({ length: 3 }, (_, index) => {
+                      const type = paymentMethodButtons[index];
+                      if (!type) return <div key={`payment-method-empty-${index}`} aria-hidden="true" />;
+                      const selected = selectedPaymentType === type.id;
+                      return (
+                        <button
+                          key={type.id}
+                          type="button"
+                          onClick={() => setSelectedPaymentType(type.id)}
+                          className={`py-3 lg:py-3.5 rounded-xl border-2 text-sm lg:text-base font-black uppercase tracking-widest transition-all ${
+                            selected
+                              ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
+                              : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
+                          }`}
+                        >
+                          {type.name}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Remark */}
@@ -9039,9 +9058,9 @@ const PosOnlyView: React.FC<Props> = ({
                       setPendingOrderData((prev: any) => ({ ...(prev || {}), remark: nextRemark }));
                       setPosRemark(nextRemark);
                     }}
-                    rows={3}
+                    rows={2}
                     placeholder="Optional order note"
-                    className="w-full p-3 lg:p-4 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-sm lg:text-base font-semibold dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500 resize-none"
+                    className="w-full p-2.5 lg:p-3 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-sm lg:text-base font-semibold dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500 resize-none"
                   />
                 </div>
               </div>
