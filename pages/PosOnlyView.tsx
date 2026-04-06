@@ -113,14 +113,14 @@ interface FeatureSettings {
 const getDefaultFeatureSettings = (): FeatureSettings => ({
   autoPrintReceipt: false,
   autoOpenDrawer: false,
-  dineInEnabled: false,
-  takeawayEnabled: false,
+  dineInEnabled: true,
+  takeawayEnabled: true,
   deliveryEnabled: false,
   savedBillEnabled: false,
   tableManagementEnabled: false,
-  tableCount: 12,
-  tableRows: 3,
-  tableColumns: 4,
+  tableCount: 20,
+  tableRows: 4,
+  tableColumns: 5,
   floorEnabled: false,
   floorCount: 1,
   customerDisplayEnabled: false,
@@ -638,9 +638,9 @@ const PosOnlyView: React.FC<Props> = ({
     }
     return defaults;
   });
-  const [tableCountDraft, setTableCountDraft] = useState<string>('12');
-  const [tableRowsDraft, setTableRowsDraft] = useState<string>('3');
-  const [tableColumnsDraft, setTableColumnsDraft] = useState<string>('4');
+  const [tableCountDraft, setTableCountDraft] = useState<string>('20');
+  const [tableRowsDraft, setTableRowsDraft] = useState<string>('4');
+  const [tableColumnsDraft, setTableColumnsDraft] = useState<string>('5');
   const [floorCountDraft, setFloorCountDraft] = useState<string>(String(featureSettings.floorCount || 1));
   const [tableColPage, setTableColPage] = useState(0);
   const [selectedFloor, setSelectedFloor] = useState(1);
@@ -4677,12 +4677,12 @@ const PosOnlyView: React.FC<Props> = ({
                         </div>
                       )}
                       {(() => {
-                        const COLS_PER_PAGE = 4;
+                        const COLS_PER_PAGE = 5;
                         const totalColPages = Math.ceil(effectiveTableCols / COLS_PER_PAGE);
                         const safePage = Math.min(tableColPage, Math.max(0, totalColPages - 1));
                         const colStart = safePage * COLS_PER_PAGE;
                         // Always use COLS_PER_PAGE columns for consistent cell width,
-                        // unless total cols < 4 (then shrink to fit)
+                        // unless total cols < 5 (then shrink to fit)
                         const gridCols = Math.min(COLS_PER_PAGE, effectiveTableCols);
                         const colsThisPage = Math.min(COLS_PER_PAGE, effectiveTableCols - colStart);
                         return (
