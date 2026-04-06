@@ -215,6 +215,8 @@ interface SavedBillEntry {
   createdAt: number;
 }
 
+type TableModalMode = 'SAVE_BILL' | 'COUNTER_PICK';
+
 interface OnlineDeliveryOption {
   id: string;
   type: 'pickup' | 'lalamove' | 'postage' | 'custom';
@@ -378,6 +380,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [activeSavedBillTable, setActiveSavedBillTable] = useState<string | null>(null);
   const [showSaveBillTableModal, setShowSaveBillTableModal] = useState(false);
   const [pendingSaveBillSource, setPendingSaveBillSource] = useState<'COUNTER' | 'QR' | null>(null);
+  const [tableModalMode, setTableModalMode] = useState<TableModalMode | null>(null);
   const [selectedSaveTableNumber, setSelectedSaveTableNumber] = useState<string>('');
   const [menuSearch, setMenuSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
@@ -1507,42 +1510,25 @@ const PosOnlyView: React.FC<Props> = ({
     return map;
   }, [savedBills]);
 
-  const startSaveBillFlow = (source: 'COUNTER' | 'QR') => {
-    if (source === 'COUNTER' && posCart.length === 0) {
-      toast('Cart is empty. Add items before saving bill.', 'warning');
-      return;
-    }
-    if (source === 'QR' && !selectedQrOrderForPayment) {
-      toast('Select a QR order first.', 'warning');
-      return;
-    }
-
-    const defaultTable = source === 'COUNTER'
-      ? (posTableNo?.trim() || tableLabels[0] || 'Table 1')
-      : (selectedQrOrderForPayment?.tableNumber ?? 'Table 1');
-
-    setPendingSaveBillSource(source);
-    setSelectedSaveTableNumber(defaultTable);
-    setModalSelectedFloor(1);
-    setShowSaveBillTableModal(true);
+  const getFloorFromTableLabel = (tableNumber: string): number => {
+    if (!featureSettings.floorEnabled || effectiveFloorCount <= 1) return 1;
+    const match = /^F(\d+)-/i.exec(tableNumber.trim());
+    if (!match) return 1;
+    const floor = Number(match[1]);
+    if (!Number.isInteger(floor)) return 1;
+    return Math.min(Math.max(floor, 1), effectiveFloorCount);
   };
 
-  const closeSaveBillTableModal = () => {
-    setShowSaveBillTableModal(false);
-    setPendingSaveBillSource(null);
+  const isCounterTableValue = (tableNumber: string): boolean => {
+    const normalized = tableNumber.trim().toLowerCase();
+    return normalized === '' || normalized === 'counter';
   };
 
-  const clearSavedBillByTable = (tableNumber: string) => {
-    setSavedBills(prev => prev.filter(bill => bill.tableNumber !== tableNumber));
-  };
-
-  const confirmSaveBillToTable = () => {
-    if (!pendingSaveBillSource) return;
-
-    const targetTable = selectedSaveTableNumber || tableLabels[0] || 'Table 1';
+  const saveBillToTable = (source: 'COUNTER' | 'QR', tableNumber: string): boolean => {
+    const targetTable = tableNumber.trim() || tableLabels[0] || 'Table 1';
     const now = Date.now();
 
-    const entry: SavedBillEntry | null = pendingSaveBillSource === 'COUNTER'
+    const entry: SavedBillEntry | null = source === 'COUNTER'
       ? {
           id: `${now}`,
           items: posCart,
@@ -1562,7 +1548,7 @@ const PosOnlyView: React.FC<Props> = ({
             }
           : null);
 
-    if (!entry) return;
+    if (!entry) return false;
 
     setSavedBills(prev => {
       const withoutSameTable = prev.filter(bill => bill.tableNumber !== targetTable);
@@ -1570,7 +1556,7 @@ const PosOnlyView: React.FC<Props> = ({
     });
     setActiveSavedBillTable(targetTable);
 
-    if (pendingSaveBillSource === 'COUNTER') {
+    if (source === 'COUNTER') {
       setPosCart([]);
       setPosRemark('');
       setPosTableNo('Counter');
@@ -1580,8 +1566,88 @@ const PosOnlyView: React.FC<Props> = ({
     }
 
     setCounterMode('SAVED_BILL');
-    closeSaveBillTableModal();
     toast(`Bill saved to ${targetTable}.`, 'success');
+    return true;
+  };
+
+  const openSaveBillTableModal = (source: 'COUNTER' | 'QR', preferredTable?: string) => {
+    const fallbackTable = tableLabels[0] || 'Table 1';
+    const defaultTable = preferredTable?.trim() || fallbackTable;
+    setTableModalMode('SAVE_BILL');
+    setPendingSaveBillSource(source);
+    setSelectedSaveTableNumber(defaultTable);
+    setModalSelectedFloor(getFloorFromTableLabel(defaultTable));
+    setShowSaveBillTableModal(true);
+  };
+
+  const openCounterTablePicker = () => {
+    const fallbackTable = tableLabels[0] || 'Table 1';
+    const defaultTable = !isCounterTableValue(posTableNo) ? posTableNo.trim() : fallbackTable;
+    setTableModalMode('COUNTER_PICK');
+    setPendingSaveBillSource(null);
+    setSelectedSaveTableNumber(defaultTable);
+    setModalSelectedFloor(getFloorFromTableLabel(defaultTable));
+    setShowSaveBillTableModal(true);
+  };
+
+  const startSaveBillFlow = (source: 'COUNTER' | 'QR') => {
+    if (source === 'COUNTER' && posCart.length === 0) {
+      toast('Cart is empty. Add items before saving bill.', 'warning');
+      return;
+    }
+    if (source === 'QR' && !selectedQrOrderForPayment) {
+      toast('Select a QR order first.', 'warning');
+      return;
+    }
+
+    if (source === 'COUNTER') {
+      const currentCounterTable = posTableNo?.trim() || '';
+      if (!isCounterTableValue(currentCounterTable)) {
+        saveBillToTable('COUNTER', currentCounterTable);
+        return;
+      }
+      openSaveBillTableModal('COUNTER', tableLabels[0] || 'Table 1');
+      return;
+    }
+
+    const defaultTable = selectedQrOrderForPayment?.tableNumber?.trim() || tableLabels[0] || 'Table 1';
+    openSaveBillTableModal('QR', defaultTable);
+  };
+
+  const closeSaveBillTableModal = () => {
+    setShowSaveBillTableModal(false);
+    setPendingSaveBillSource(null);
+    setTableModalMode(null);
+  };
+
+  const clearSavedBillByTable = (tableNumber: string) => {
+    setSavedBills(prev => prev.filter(bill => bill.tableNumber !== tableNumber));
+  };
+
+  const handleSaveBillModalTableClick = (tableNumber: string) => {
+    setSelectedSaveTableNumber(tableNumber);
+
+    if (tableModalMode === 'COUNTER_PICK') {
+      setPosTableNo(tableNumber);
+      closeSaveBillTableModal();
+      toast(`Table set to ${tableNumber}.`, 'success');
+    }
+  };
+
+  const confirmSaveBillToTable = () => {
+    const targetTable = selectedSaveTableNumber || tableLabels[0] || 'Table 1';
+
+    if (tableModalMode === 'COUNTER_PICK') {
+      setPosTableNo(targetTable);
+      closeSaveBillTableModal();
+      toast(`Table set to ${targetTable}.`, 'success');
+      return;
+    }
+
+    if (!pendingSaveBillSource) return;
+    const isSaved = saveBillToTable(pendingSaveBillSource, targetTable);
+    if (!isSaved) return;
+    closeSaveBillTableModal();
   };
 
   const saveCurrentBill = () => {
@@ -8581,7 +8647,14 @@ const PosOnlyView: React.FC<Props> = ({
                   <div className="flex gap-2">
                     <div className="flex-1">
                       <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Table</label>
-                      <input type="text" value={posTableNo} onChange={e => setPosTableNo(e.target.value)} className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" />
+                      <button
+                        type="button"
+                        onClick={openCounterTablePicker}
+                        className="w-full p-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white text-left flex items-center justify-between hover:border-orange-300 dark:hover:border-orange-500 transition-all"
+                      >
+                        <span>{posTableNo || 'Counter'}</span>
+                        <ChevronDown size={14} className="text-gray-400" />
+                      </button>
                     </div>
                     <div className="flex-[2]">
                       <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Dining Option</label>
@@ -8942,8 +9015,12 @@ const PosOnlyView: React.FC<Props> = ({
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-[86vw] max-w-3xl h-[88vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b dark:border-gray-700 flex items-center justify-between">
               <div>
-                <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Select Table For Saved Bill</h3>
-                <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">Tap one table based on your custom arrangement</p>
+                <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">
+                  {tableModalMode === 'COUNTER_PICK' ? 'Select Table For Counter Order' : 'Select Table For Saved Bill'}
+                </h3>
+                <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">
+                  {tableModalMode === 'COUNTER_PICK' ? 'Tap one table to set for counter order' : 'Tap one table based on your custom arrangement'}
+                </p>
               </div>
               <button onClick={closeSaveBillTableModal} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all">
                 <X size={18} className="text-gray-400" />
@@ -8970,15 +9047,23 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               )}
               {tableRowsForModal.map((row, rowIdx) => (
-                <div key={`select-row-${rowIdx}`} className="grid gap-3" style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }}>
-                  {row.map((table) => {
+                <div
+                  key={`select-row-${rowIdx}`}
+                  className="grid gap-3"
+                  style={{ gridTemplateColumns: `repeat(${effectiveTableCols}, minmax(0, 1fr))` }}
+                >
+                  {Array.from({ length: effectiveTableCols }, (_, colIdx) => {
+                    const table = row[colIdx];
+                    if (!table) {
+                      return <div key={`select-empty-${rowIdx}-${colIdx}`} aria-hidden="true" />;
+                    }
                     const hasPending = savedBillsByTable.has(table);
                     const selected = selectedSaveTableNumber === table;
                     return (
                       <button
                         key={table}
-                        onClick={() => setSelectedSaveTableNumber(table)}
-                        className={`p-4 rounded-lg border-2 text-left transition-all ${
+                        onClick={() => handleSaveBillModalTableClick(table)}
+                        className={`h-[84px] p-4 rounded-lg border-2 text-left transition-all flex flex-col justify-between ${
                           selected
                             ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
                             : hasPending
@@ -9006,9 +9091,10 @@ const PosOnlyView: React.FC<Props> = ({
               </button>
               <button
                 onClick={confirmSaveBillToTable}
-                className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
+                disabled={!selectedSaveTableNumber}
+                className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Save Bill
+                {tableModalMode === 'COUNTER_PICK' ? 'Use Selected Table' : 'Save Bill'}
               </button>
             </div>
           </div>
