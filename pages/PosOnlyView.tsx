@@ -8493,7 +8493,7 @@ const PosOnlyView: React.FC<Props> = ({
                         : showQrFeature && counterMode === 'QR_ORDER'
                         ? (selectedQrOrderForPayment ? `Order #${selectedQrOrderForPayment.id.slice(-6).toUpperCase()}` : 'QR Order')
                         : activeSavedBillTable && counterMode === 'COUNTER_ORDER' && posTableNo === activeSavedBillTable
-                        ? `Editing Order Table #${activeSavedBillTable}`
+                        ? `Editing Saved Bill: ${activeSavedBillTable}`
                         : 'Current Order'}
                     </h3>
                     {!editingQrOrderId && (counterMode === 'COUNTER_ORDER' || (!showQrFeature && counterMode !== 'SAVED_BILL')) && (
