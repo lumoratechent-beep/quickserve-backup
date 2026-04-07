@@ -768,7 +768,7 @@ const AdminView: React.FC<Props> = ({
   const [isHubSelectionModalOpen, setIsHubSelectionModalOpen] = useState(false);
 
   // Feature Images State
-  const [systemSubTab, setSystemSubTab] = useState<'STATUS' | 'FEATURE_IMAGES' | 'ANNOUNCEMENTS' | 'JOIN_TEAM'>('STATUS');
+  const [systemSubTab, setSystemSubTab] = useState<'STATUS' | 'FEATURE_IMAGES' | 'ANNOUNCEMENTS' | 'JOIN_TEAM' | 'TEAM_MEMBERS'>('STATUS');
   const [showPitchDeck, setShowPitchDeck] = useState(false);
   const [featureImages, setFeatureImages] = useState<{ id: string; url: string; alt: string; crop_shape: string; display_width: number; display_height: number; sort_order: number; category: string }[]>([]);
   const [isLoadingFeatureImages, setIsLoadingFeatureImages] = useState(false);
@@ -827,6 +827,30 @@ const AdminView: React.FC<Props> = ({
     created_at: string;
   }[]>([]);
   const [isLoadingJoinTeamApplications, setIsLoadingJoinTeamApplications] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string; role: string; photo_url: string | null; sort_order: number }[]>([]);
+  const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false);
+  const [uploadingTeamMemberId, setUploadingTeamMemberId] = useState<string | null>(null);
+
+  const fetchTeamMembers = async () => {
+    setIsLoadingTeamMembers(true);
+    const { data, error } = await supabase.from('team_members').select('id, name, role, photo_url, sort_order').order('sort_order');
+    if (!error && data) setTeamMembers(data);
+    setIsLoadingTeamMembers(false);
+  };
+
+  const handleTeamMemberPhotoUpload = async (memberId: string, file: File) => {
+    setUploadingTeamMemberId(memberId);
+    try {
+      const url = await uploadImage(file, 'quickserve', 'team-photos');
+      const { error } = await supabase.from('team_members').update({ photo_url: url }).eq('id', memberId);
+      if (error) throw error;
+      toast('Photo updated!', 'success');
+      fetchTeamMembers();
+    } catch (err: any) {
+      toast(err.message || 'Upload failed', 'error');
+    }
+    setUploadingTeamMemberId(null);
+  };
 
   const fetchAnnouncements = async () => {
     setIsLoadingAnnouncements(true);
@@ -873,6 +897,7 @@ const AdminView: React.FC<Props> = ({
 
   useEffect(() => { if (systemSubTab === 'ANNOUNCEMENTS') fetchAnnouncements(); }, [systemSubTab]);
   useEffect(() => { if (systemSubTab === 'JOIN_TEAM') fetchJoinTeamApplications(); }, [systemSubTab]);
+  useEffect(() => { if (systemSubTab === 'TEAM_MEMBERS') fetchTeamMembers(); }, [systemSubTab]);
 
   // Reports State
   const [reportSearchQuery, setReportSearchQuery] = useState('');
@@ -1997,6 +2022,7 @@ const AdminView: React.FC<Props> = ({
                   { id: 'FEATURE_IMAGES' as const, label: 'Feature Images', icon: <ImageIcon size={13} /> },
                   { id: 'ANNOUNCEMENTS' as const, label: 'Announcements', icon: <Megaphone size={13} /> },
                   { id: 'JOIN_TEAM' as const, label: 'Join Team Forms', icon: <Users size={13} /> },
+                  { id: 'TEAM_MEMBERS' as const, label: 'Team Members', icon: <Users size={13} /> },
                 ]).map(tab => (
                   <button
                     key={tab.id}
@@ -2317,6 +2343,76 @@ const AdminView: React.FC<Props> = ({
                             <p className="text-[9px] mt-2 text-gray-400 uppercase font-black tracking-wider">{application.source || 'marketing_page'}</p>
                           </div>
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {systemSubTab === 'TEAM_MEMBERS' && (
+              <div className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-black dark:text-white uppercase tracking-tight">Team Members</h3>
+                    <p className="text-xs text-gray-400 mt-1">Upload or update the photo shown on the marketing page for each team member.</p>
+                  </div>
+                  <button
+                    onClick={fetchTeamMembers}
+                    className="px-4 py-2 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-colors flex items-center gap-2"
+                  >
+                    <RefreshCw size={12} /> Refresh
+                  </button>
+                </div>
+
+                {isLoadingTeamMembers ? (
+                  <div className="text-center py-10">
+                    <RefreshCw size={20} className="mx-auto animate-spin text-gray-400 mb-2" />
+                    <p className="text-xs font-bold text-gray-400">Loading team members...</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {teamMembers.map((member) => (
+                      <div key={member.id} className="bg-white dark:bg-gray-900/50 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 flex flex-col items-center gap-3 text-center">
+                        {member.photo_url ? (
+                          <img
+                            src={member.photo_url}
+                            alt={member.name}
+                            className="w-20 h-20 rounded-full object-cover border-2 border-orange-500/30"
+                          />
+                        ) : (
+                          <div className="w-20 h-20 rounded-full bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-200 dark:border-orange-800 flex items-center justify-center">
+                            <span className="text-orange-500 font-black text-2xl">{member.name.charAt(0)}</span>
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tight">{member.name}</p>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-0.5">{member.role}</p>
+                        </div>
+                        <label className="w-full cursor-pointer">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={uploadingTeamMemberId === member.id}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleTeamMemberPhotoUpload(member.id, file);
+                              e.target.value = '';
+                            }}
+                          />
+                          <div className={`w-full px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 ${
+                            uploadingTeamMemberId === member.id
+                              ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
+                              : 'bg-orange-500 text-white hover:bg-orange-600 cursor-pointer'
+                          }`}>
+                            {uploadingTeamMemberId === member.id ? (
+                              <><RefreshCw size={11} className="animate-spin" /> Uploading...</>
+                            ) : (
+                              <><ImageIcon size={11} /> {member.photo_url ? 'Change Photo' : 'Upload Photo'}</>
+                            )}
+                          </div>
+                        </label>
                       </div>
                     ))}
                   </div>

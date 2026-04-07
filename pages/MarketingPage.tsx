@@ -103,8 +103,17 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
   });
   const [isSubmittingJoinForm, setIsSubmittingJoinForm] = useState(false);
   const [joinFormFeedback, setJoinFormFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string; role: string; photo_url: string | null; sort_order: number }[]>([]);
 
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    const fetchTeam = async () => {
+      const { data } = await supabase.from('team_members').select('id, name, role, photo_url, sort_order').order('sort_order');
+      if (data) setTeamMembers(data);
+    };
+    fetchTeam();
+  }, []);
 
   // Fetch feature images for the partner carousel and add-on features
   useEffect(() => {
@@ -908,21 +917,26 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
             <div className={`bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-6 md:p-8 transition-all duration-700 ${companyRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
               <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight mb-5">Our Team</h3>
               <div className="space-y-4">
-                {[
-                  { name: 'CHAELS STANLLY', role: 'Software Developer Team Lead' },
-                  { name: 'Wan Mohamed Fawwaz Bin Wan Farid', role: 'Product Test Partner' },
-                  { name: 'Natasha devona', role: 'System Support' },
-                ].map((member, index) => (
-                  <div key={member.name} className="flex items-start gap-3 p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/70 border border-gray-100 dark:border-gray-700">
-                    <div className="w-7 h-7 rounded-full bg-orange-500 text-white text-xs font-black flex items-center justify-center shrink-0">{index + 1}</div>
+                {teamMembers.map((member) => (
+                  <div key={member.id} className="flex items-center gap-4 p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/70 border border-gray-100 dark:border-gray-700">
+                    {member.photo_url ? (
+                      <img
+                        src={member.photo_url}
+                        alt={member.name}
+                        className="w-12 h-12 rounded-full object-cover shrink-0 border-2 border-orange-500/30"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-200 dark:border-orange-800 flex items-center justify-center shrink-0">
+                        <span className="text-orange-500 font-black text-sm">{member.name.charAt(0)}</span>
+                      </div>
+                    )}
                     <div>
                       <p className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tight">{member.name}</p>
-                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mt-1">{member.role}</p>
+                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mt-0.5">{member.role}</p>
                     </div>
                   </div>
                 ))}
               </div>
-              <p className="mt-4 text-[11px] font-bold text-gray-500 dark:text-gray-400">Team photos will be added by admin from the admin page.</p>
             </div>
 
             <div className={`bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-6 md:p-8 transition-all duration-700 delay-100 ${companyRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
