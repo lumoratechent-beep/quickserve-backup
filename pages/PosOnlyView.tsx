@@ -3029,14 +3029,21 @@ const PosOnlyView: React.FC<Props> = ({
   const canUseQr = vendorPlan === 'pro' || vendorPlan === 'pro_plus';
   const canUseKitchen = vendorPlan === 'pro_plus';
   const canUseSavedBill = vendorPlan === 'basic' || vendorPlan === 'pro' || vendorPlan === 'pro_plus';
-  const showQrFeature = canUseQr && (showQrOrders || featureSettings.qrEnabled);
+  const showQrOrderingFeature = canUseQr && (showQrOrders || featureSettings.qrEnabled);
   const showKitchenFeature = canUseKitchen && featureSettings.kitchenEnabled;
   const showSavedBillFeature = canUseSavedBill && featureSettings.savedBillEnabled;
   const showTablesideFeature = canUseQr && featureSettings.tablesideOrderingEnabled;
+  const showQrFeature = showQrOrderingFeature || showTablesideFeature;
   const showOnlineShopFeature = canUseQr && featureSettings.onlineShopEnabled;
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const isKitchenUser = userRole === 'KITCHEN';
   const isVendorUser = userRole === 'VENDOR';
+
+  useEffect(() => {
+    if (qrOrderSubTab === 'SETTING_TAB' && !showQrOrderingFeature) {
+      setQrOrderSubTab('INCOMING');
+    }
+  }, [qrOrderSubTab, showQrOrderingFeature]);
 
   // Sidebar nav item count – used to auto-scale spacing so the menu never needs to scroll
   const sidebarNavItemCount = isKitchenUser
@@ -3360,7 +3367,7 @@ const PosOnlyView: React.FC<Props> = ({
   // QR order auto-approve + auto-print
   const qrPrevPendingCount = useRef(0);
   useEffect(() => {
-    if (!showQrFeature) return;
+    if (!showQrOrderingFeature) return;
     const qrPendingOrders = orders.filter(o => (o.orderSource === 'qr_order' || o.orderSource === 'tableside') && o.status === OrderStatus.PENDING);
     if (qrPendingOrders.length > qrPrevPendingCount.current && qrOrderSettings.autoApprove) {
       qrPendingOrders.forEach(order => {
@@ -3368,7 +3375,7 @@ const PosOnlyView: React.FC<Props> = ({
       });
     }
     qrPrevPendingCount.current = qrPendingOrders.length;
-  }, [orders, showQrFeature, qrOrderSettings.autoApprove]);
+  }, [orders, showQrOrderingFeature, qrOrderSettings.autoApprove]);
 
   // Persist kitchen order settings
   useEffect(() => {
@@ -7215,7 +7222,7 @@ const PosOnlyView: React.FC<Props> = ({
                 {/* Header */}
                 <div className="mb-5">
                   <h2 className="text-lg font-black dark:text-white uppercase tracking-tighter">QR & Table Order</h2>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Manage incoming orders from QR scan customers.</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Manage incoming QR scan and tableside orders.</p>
                 </div>
 
                 {/* Document-style tab bar */}
@@ -7223,7 +7230,7 @@ const PosOnlyView: React.FC<Props> = ({
                   {([
                     { id: 'INCOMING' as const, label: 'Incoming Orders', icon: <QrCode size={13} /> },
                     { id: 'QR_GENERATOR' as const, label: 'QR Generator', icon: <QrCode size={13} /> },
-                    { id: 'SETTING_TAB' as const, label: 'Setting', icon: <Settings size={13} /> },
+                    ...(showQrOrderingFeature ? [{ id: 'SETTING_TAB' as const, label: 'Setting', icon: <Settings size={13} /> }] : []),
                   ]).map(tab => (
                     <button
                       key={tab.id}
@@ -7523,7 +7530,7 @@ const PosOnlyView: React.FC<Props> = ({
                 )}
 
                 {/* ── Setting Sub-tab ── */}
-                {qrOrderSubTab === 'SETTING_TAB' && (
+                {qrOrderSubTab === 'SETTING_TAB' && showQrOrderingFeature && (
                   <div className="space-y-4">
                     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 space-y-3">
                       <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">QR Order Settings</p>
