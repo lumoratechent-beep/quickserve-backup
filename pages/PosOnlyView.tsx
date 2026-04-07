@@ -223,6 +223,15 @@ interface SavedBillEntry {
 
 type TableModalMode = 'SAVE_BILL' | 'COUNTER_PICK';
 
+type AddonActionKind = 'install' | 'uninstall';
+type AddonActionPhase = 'running' | 'done';
+
+interface AddonActionState {
+  addonId: string;
+  kind: AddonActionKind;
+  phase: AddonActionPhase;
+}
+
 interface OnlineDeliveryOption {
   id: string;
   type: 'pickup' | 'lalamove' | 'postage' | 'custom';
@@ -371,6 +380,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [addonDetailView, setAddonDetailView] = useState<string | null>(null);
   const [addonDetailTab, setAddonDetailTab] = useState<'details' | 'setting'>('details');
   const [addonFeatureTab, setAddonFeatureTab] = useState<'AVAILABLE' | 'UPCOMING'>('AVAILABLE');
+  const [addonActionState, setAddonActionState] = useState<AddonActionState | null>(null);
   const [menuLayout, setMenuLayout] = useState<'grid-3' | 'grid-4' | 'grid-5' | 'grid-6' | 'list'>('grid-5');
   const [mobileMenuLayout, setMobileMenuLayout] = useState<'2' | '3' | 'list'>('3');
   const [flashItemId, setFlashItemId] = useState<string | null>(null);
@@ -2676,6 +2686,58 @@ const PosOnlyView: React.FC<Props> = ({
         ? { ...modifier, required: !modifier.required }
         : modifier
     ));
+  };
+
+  const isAddonActionRunning = (addonId: string, kind: AddonActionKind): boolean => (
+    addonActionState?.addonId === addonId
+      && addonActionState.kind === kind
+      && addonActionState.phase === 'running'
+  );
+
+  const isAddonActionDone = (addonId: string, kind: AddonActionKind): boolean => (
+    addonActionState?.addonId === addonId
+      && addonActionState.kind === kind
+      && addonActionState.phase === 'done'
+  );
+
+  const runAddonActionWithEffect = async (
+    addonId: string,
+    addonName: string,
+    kind: AddonActionKind,
+    action: (() => void | Promise<void>) | null | undefined,
+  ) => {
+    if (!action) return;
+    if (isAddonActionRunning(addonId, kind)) return;
+
+    const minimumRunningDuration = 700;
+    const startedAt = Date.now();
+    setAddonActionState({ addonId, kind, phase: 'running' });
+
+    try {
+      await Promise.resolve(action());
+    } catch (error) {
+      console.error(`Failed to ${kind} ${addonName}:`, error);
+      toast(`Failed to ${kind} ${addonName}.`, 'error');
+      setAddonActionState(null);
+      return;
+    }
+
+    const elapsed = Date.now() - startedAt;
+    const waitMs = Math.max(0, minimumRunningDuration - elapsed);
+
+    setTimeout(() => {
+      setAddonActionState((prev) => {
+        if (!prev || prev.addonId !== addonId || prev.kind !== kind) return prev;
+        return { ...prev, phase: 'done' };
+      });
+    }, waitMs);
+
+    setTimeout(() => {
+      setAddonActionState((prev) => {
+        if (!prev || prev.addonId !== addonId || prev.kind !== kind || prev.phase !== 'done') return prev;
+        return null;
+      });
+    }, waitMs + 900);
   };
 
   const updateFeatureSetting = <K extends keyof FeatureSettings>(key: K, value: FeatureSettings[K]) => {
@@ -6526,6 +6588,11 @@ const PosOnlyView: React.FC<Props> = ({
 
                   // ── Detail View ──
                   if (selectedAddon) {
+                    const selectedAddonInstalling = isAddonActionRunning(selectedAddon.id, 'install');
+                    const selectedAddonUninstalling = isAddonActionRunning(selectedAddon.id, 'uninstall');
+                    const selectedAddonInstallDone = isAddonActionDone(selectedAddon.id, 'install');
+                    const selectedAddonUninstallDone = isAddonActionDone(selectedAddon.id, 'uninstall');
+
                     return (
                       <div className="animate-in fade-in duration-300">
                         <button
@@ -6560,11 +6627,31 @@ const PosOnlyView: React.FC<Props> = ({
                                     </button>
                                     {selectedAddon.onUninstall && (
                                       <button
-                                        onClick={() => { if (confirm(`Are you sure you want to uninstall ${selectedAddon.name}? This will disable the feature.`)) { selectedAddon.onUninstall!(); } }}
-                                        className="px-5 py-2.5 bg-red-50 dark:bg-red-900/20 text-red-500 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-red-100 dark:hover:bg-red-900/30 transition-all flex items-center gap-2"
+                                        onClick={() => {
+                                          if (selectedAddonUninstalling) return;
+                                          if (confirm(`Are you sure you want to uninstall ${selectedAddon.name}? This will disable the feature.`)) {
+                                            void runAddonActionWithEffect(selectedAddon.id, selectedAddon.name, 'uninstall', selectedAddon.onUninstall);
+                                          }
+                                        }}
+                                        disabled={selectedAddonUninstalling}
+                                        className="px-5 py-2.5 bg-red-50 dark:bg-red-900/20 text-red-500 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-red-100 dark:hover:bg-red-900/30 transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                                       >
-                                        <Trash2 size={14} />
-                                        Uninstall
+                                        {selectedAddonUninstalling ? (
+                                          <>
+                                            <RotateCw size={14} className="animate-spin" />
+                                            Uninstalling...
+                                          </>
+                                        ) : selectedAddonUninstallDone ? (
+                                          <>
+                                            <CheckCircle2 size={14} />
+                                            Uninstalled
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Trash2 size={14} />
+                                            Uninstall
+                                          </>
+                                        )}
                                       </button>
                                     )}
                                     </>
@@ -6574,10 +6661,25 @@ const PosOnlyView: React.FC<Props> = ({
                                     </span>
                                   ) : selectedAddon.canInstall ? (
                                     <button
-                                      onClick={selectedAddon.onInstall}
-                                      className="px-6 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all"
+                                      onClick={() => {
+                                        void runAddonActionWithEffect(selectedAddon.id, selectedAddon.name, 'install', selectedAddon.onInstall);
+                                      }}
+                                      disabled={selectedAddonInstalling}
+                                      className="px-6 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
                                     >
-                                      Install
+                                      {selectedAddonInstalling ? (
+                                        <span className="inline-flex items-center gap-2">
+                                          <RotateCw size={14} className="animate-spin" />
+                                          Installing Package...
+                                        </span>
+                                      ) : selectedAddonInstallDone ? (
+                                        <span className="inline-flex items-center gap-2">
+                                          <CheckCircle2 size={14} />
+                                          Installed
+                                        </span>
+                                      ) : (
+                                        'Install'
+                                      )}
                                     </button>
                                   ) : (
                                     <button
@@ -6588,6 +6690,34 @@ const PosOnlyView: React.FC<Props> = ({
                                     </button>
                                   )}
                                 </div>
+                                {(selectedAddonInstalling || selectedAddonUninstalling || selectedAddonInstallDone || selectedAddonUninstallDone) && (
+                                  <div
+                                    className={`mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-widest ${
+                                      selectedAddonInstalling || selectedAddonUninstalling
+                                        ? 'bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800'
+                                        : selectedAddonInstallDone
+                                          ? 'bg-green-50 text-green-600 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
+                                          : 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800'
+                                    }`}
+                                  >
+                                    {selectedAddonInstalling || selectedAddonUninstalling ? (
+                                      <RotateCw size={12} className="animate-spin" />
+                                    ) : selectedAddonInstallDone ? (
+                                      <CheckCircle2 size={12} />
+                                    ) : (
+                                      <Trash2 size={12} />
+                                    )}
+                                    <span>
+                                      {selectedAddonInstalling
+                                        ? `Installing package: ${selectedAddon.name}...`
+                                        : selectedAddonUninstalling
+                                          ? `Uninstalling package: ${selectedAddon.name}...`
+                                          : selectedAddonInstallDone
+                                            ? `${selectedAddon.name} installed`
+                                            : `${selectedAddon.name} uninstalled`}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -6680,10 +6810,25 @@ const PosOnlyView: React.FC<Props> = ({
                                   <p className="text-xs text-gray-400 mb-6 max-w-sm mx-auto">Please install <span className="font-black text-gray-600 dark:text-gray-300">{selectedAddon.name}</span> in order to manage its settings and configuration.</p>
                                   {selectedAddon.canInstall ? (
                                     <button
-                                      onClick={selectedAddon.onInstall}
-                                      className="px-6 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all"
+                                      onClick={() => {
+                                        void runAddonActionWithEffect(selectedAddon.id, selectedAddon.name, 'install', selectedAddon.onInstall);
+                                      }}
+                                      disabled={selectedAddonInstalling}
+                                      className="px-6 py-2.5 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
                                     >
-                                      Install Now
+                                      {selectedAddonInstalling ? (
+                                        <span className="inline-flex items-center gap-2">
+                                          <RotateCw size={14} className="animate-spin" />
+                                          Installing Package...
+                                        </span>
+                                      ) : selectedAddonInstallDone ? (
+                                        <span className="inline-flex items-center gap-2">
+                                          <CheckCircle2 size={14} />
+                                          Installed
+                                        </span>
+                                      ) : (
+                                        'Install Now'
+                                      )}
                                     </button>
                                   ) : (
                                     <button
@@ -6727,59 +6872,79 @@ const PosOnlyView: React.FC<Props> = ({
                   const existingAddons = addonFeatures.filter(a => !(a as any).isComingSoon);
                   const upcomingAddons = addonFeatures.filter(a => (a as any).isComingSoon);
 
-                  const renderAddonCard = (addon: typeof addonFeatures[0]) => (
-                    <div
-                      key={addon.id}
-                      className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 overflow-hidden hover:shadow-lg hover:border-orange-200 dark:hover:border-orange-800/50 transition-all cursor-pointer flex flex-col min-h-[156px]"
-                      onClick={() => { setAddonDetailView(addon.id); setAddonDetailTab('details'); }}
-                    >
-                      {/* Card top */}
-                      <div className="p-4 flex items-start gap-3 flex-1 min-h-0">
-                        <div className={`w-12 h-12 rounded-lg ${addon.iconBg} flex items-center justify-center flex-shrink-0 shadow-sm`}>
-                          {addon.icon}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="text-xs font-black dark:text-white truncate">{addon.name}</p>
-                          </div>
-                          <span className={`inline-block px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${addon.planColor} mb-2`}>{addon.plan} Plan</span>
-                          <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-2">{addon.shortDesc}</p>
-                        </div>
-                      </div>
+                  const renderAddonCard = (addon: typeof addonFeatures[0]) => {
+                    const addonInstalling = isAddonActionRunning(addon.id, 'install');
+                    const addonInstallDone = isAddonActionDone(addon.id, 'install');
 
-                      {/* Card bottom */}
-                      <div className="px-4 py-2.5 border-t dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-between gap-2 flex-shrink-0">
-                        <div className="flex items-center gap-3">
-                          <span className="text-[9px] text-gray-400 font-bold">By {addon.author}</span>
+                    return (
+                      <div
+                        key={addon.id}
+                        className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 overflow-hidden hover:shadow-lg hover:border-orange-200 dark:hover:border-orange-800/50 transition-all cursor-pointer flex flex-col min-h-[156px]"
+                        onClick={() => { setAddonDetailView(addon.id); setAddonDetailTab('details'); }}
+                      >
+                        {/* Card top */}
+                        <div className="p-4 flex items-start gap-3 flex-1 min-h-0">
+                          <div className={`w-12 h-12 rounded-lg ${addon.iconBg} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                            {addon.icon}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="text-xs font-black dark:text-white truncate">{addon.name}</p>
+                            </div>
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${addon.planColor} mb-2`}>{addon.plan} Plan</span>
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-2">{addon.shortDesc}</p>
+                          </div>
                         </div>
-                        <div onClick={e => e.stopPropagation()}>
-                          {addon.isInstalled ? (
-                            <span className="px-3 py-1 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-lg text-[9px] font-black uppercase tracking-widest">
-                              Installed
-                            </span>
-                          ) : (addon as any).isComingSoon ? (
-                            <span className="px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 rounded-lg text-[9px] font-black uppercase tracking-widest">
-                              Coming Soon
-                            </span>
-                          ) : addon.canInstall ? (
-                            <button
-                              onClick={addon.onInstall}
-                              className="px-3 py-1 bg-orange-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow hover:bg-orange-600 transition-all"
-                            >
-                              Install
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => setShowUpgradeModal(true)}
-                              className="px-3 py-1 bg-orange-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow hover:bg-orange-600 transition-all"
-                            >
-                              Upgrade
-                            </button>
-                          )}
+
+                        {/* Card bottom */}
+                        <div className="px-4 py-2.5 border-t dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-between gap-2 flex-shrink-0">
+                          <div className="flex items-center gap-3">
+                            <span className="text-[9px] text-gray-400 font-bold">By {addon.author}</span>
+                          </div>
+                          <div onClick={e => e.stopPropagation()}>
+                            {addon.isInstalled ? (
+                              <span className="px-3 py-1 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                                Installed
+                              </span>
+                            ) : (addon as any).isComingSoon ? (
+                              <span className="px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                                Coming Soon
+                              </span>
+                            ) : addon.canInstall ? (
+                              <button
+                                onClick={() => {
+                                  void runAddonActionWithEffect(addon.id, addon.name, 'install', addon.onInstall);
+                                }}
+                                disabled={addonInstalling}
+                                className="px-3 py-1 bg-orange-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow hover:bg-orange-600 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                              >
+                                {addonInstalling ? (
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <RotateCw size={11} className="animate-spin" />
+                                    Installing...
+                                  </span>
+                                ) : addonInstallDone ? (
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <CheckCircle2 size={11} />
+                                    Installed
+                                  </span>
+                                ) : (
+                                  'Install'
+                                )}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => setShowUpgradeModal(true)}
+                                className="px-3 py-1 bg-orange-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow hover:bg-orange-600 transition-all"
+                              >
+                                Upgrade
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
+                    );
+                  };
 
                   const addonOverviewTabs = [
                     {
