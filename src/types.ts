@@ -100,6 +100,7 @@ export interface Restaurant {
     printers?: Array<Record<string, any>>;
     kitchenSettings?: { autoAccept: boolean; autoPrint: boolean };
     qrOrderSettings?: { autoApprove: boolean; autoPrint: boolean };
+    tablesideOrderSettings?: { autoApprove: boolean; autoPrint: boolean };
     kitchenTicket?: Record<string, any>;
     onlineDeliveryOptions?: Array<{ id: string; type: string; label: string; enabled: boolean; fee: number }>;
     onlinePaymentMethods?: Array<{ id: string; label: string; enabled: boolean }>;
