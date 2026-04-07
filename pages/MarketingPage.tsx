@@ -65,11 +65,12 @@ const FaqItem: React.FC<{ q: string; a: string; isOpen: boolean; onClick: () => 
 interface Props {
   onGetStarted: () => void;
   onLogin: () => void;
+  onCompany: () => void;
   isDarkMode?: boolean;
   onToggleDark?: () => void;
 }
 
-const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onToggleDark }) => {
+const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, isDarkMode, onToggleDark }) => {
   const [mounted, setMounted] = useState(false);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -84,7 +85,6 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
   const trustRef = useInView({ threshold: 0.15 });
   const testimonialsRef = useInView({ threshold: 0.1 });
   const faqRef = useInView({ threshold: 0.1 });
-  const companyRef = useInView({ threshold: 0.1 });
   const ctaRef = useInView({ threshold: 0.15 });
   const footerRef = useInView({ threshold: 0.2 });
   const addonsRef = useInView({ threshold: 0.1 });
@@ -93,27 +93,8 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
 
   const [partnerLogos, setPartnerLogos] = useState<{ url: string; alt: string; crop_shape: string; display_width: number; display_height: number; category: string }[]>([]);
   const [addonImages, setAddonImages] = useState<Record<string, { url: string; alt: string; crop_shape: string; display_width: number; display_height: number }[]>>({});
-  const [joinForm, setJoinForm] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    role: '',
-    experience: '',
-    message: '',
-  });
-  const [isSubmittingJoinForm, setIsSubmittingJoinForm] = useState(false);
-  const [joinFormFeedback, setJoinFormFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string; role: string; photo_url: string | null; sort_order: number }[]>([]);
 
   useEffect(() => { setMounted(true); }, []);
-
-  useEffect(() => {
-    const fetchTeam = async () => {
-      const { data } = await supabase.from('team_members').select('id, name, role, photo_url, sort_order').order('sort_order');
-      if (data) setTeamMembers(data);
-    };
-    fetchTeam();
-  }, []);
 
   // Fetch feature images for the partner carousel and add-on features
   useEffect(() => {
@@ -145,46 +126,6 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
     { q: 'What happens after the free trial?', a: 'Your selected plan activates automatically. You can change or cancel your plan at any time from the billing page.' },
   ];
 
-  const handleJoinFormChange = (field: 'fullName' | 'email' | 'phone' | 'role' | 'experience' | 'message', value: string) => {
-    setJoinForm(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleJoinTeamSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (isSubmittingJoinForm) return;
-
-    setIsSubmittingJoinForm(true);
-    setJoinFormFeedback(null);
-
-    const { error } = await supabase.from('join_team_applications').insert({
-      full_name: joinForm.fullName.trim(),
-      email: joinForm.email.trim(),
-      phone: joinForm.phone.trim() || null,
-      desired_role: joinForm.role.trim(),
-      experience_summary: joinForm.experience.trim() || null,
-      message: joinForm.message.trim() || null,
-      source: 'marketing_page',
-      status: 'new',
-    });
-
-    if (error) {
-      setJoinFormFeedback({ type: 'error', message: 'Unable to submit your application. Please try again.' });
-      setIsSubmittingJoinForm(false);
-      return;
-    }
-
-    setJoinForm({
-      fullName: '',
-      email: '',
-      phone: '',
-      role: '',
-      experience: '',
-      message: '',
-    });
-    setJoinFormFeedback({ type: 'success', message: 'Application received. Our team will review and contact you soon.' });
-    setIsSubmittingJoinForm(false);
-  };
-
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 font-sans selection:bg-orange-100 selection:text-orange-900 overflow-x-hidden">
       {/* Navigation */}
@@ -209,7 +150,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
               <a href="#mockup" className="hover:text-orange-500 transition-colors">Preview</a>
               <a href="#pricing" className="hover:text-orange-500 transition-colors">Pricing</a>
               <a href="#faq" className="hover:text-orange-500 transition-colors">FAQ</a>
-              <a href="#company" className="hover:text-orange-500 transition-colors">Company</a>
+              <button onClick={onCompany} className="hover:text-orange-500 transition-colors">Company</button>
             </div>
             {/* Spacer for mobile */}
             <div className="flex-1 md:hidden" />
@@ -238,7 +179,6 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
                 { href: '#mockup', label: 'Preview' },
                 { href: '#pricing', label: 'Pricing' },
                 { href: '#faq', label: 'FAQ' },
-                { href: '#company', label: 'Company' },
               ].map((link) => (
                 <a
                   key={link.href}
@@ -249,6 +189,12 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
                   {link.label}
                 </a>
               ))}
+              <button
+                onClick={() => { setMobileMenuOpen(false); onCompany(); }}
+                className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-[0.15em] hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-800 rounded-xl transition-all"
+              >
+                Company
+              </button>
             </div>
           </div>
         </div>
@@ -867,141 +813,6 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, isDarkMode, onT
                 inView={faqRef.isInView}
               />
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════ COMPANY + TEAM + JOIN FORM ═══════════════════════ */}
-      <section id="company" ref={companyRef.ref} className="py-24 px-6 bg-gray-50 dark:bg-gray-900/50 relative overflow-hidden">
-        <div className="absolute top-0 left-1/3 w-[500px] h-[500px] bg-orange-500/10 rounded-full blur-[140px] pointer-events-none" />
-        <div className="max-w-7xl mx-auto relative z-10">
-          <div className={`text-center mb-12 transition-all duration-700 ${companyRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-            <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Our Company</span>
-            <h2 className="text-3xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Powered by Lumora Tech</h2>
-            <p className="mt-4 text-sm md:text-base text-gray-600 dark:text-gray-400 font-medium max-w-3xl mx-auto">
-              Lumora Tech (JR0174591U) - Empowering Technology, Enabling Growth
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <div className={`lg:col-span-2 bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-6 md:p-8 transition-all duration-700 ${companyRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-              <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight mb-4">About Us</h3>
-              <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-medium">
-                <p>Founded in 2021, Lumora Tech began as a small in house service driven by passion and technical expertise. Over the years, we have grown into a trusted provider of device solutions, including smartphone repairs, sales, trade ins, Chromebooks, laptops, and screen protection.</p>
-                <p>Today, we are taking our first step into digital systems with the launch of QuickServe, our all in one restaurant management platform. Built for modern F&B businesses, QuickServe combines QR ordering, table management, kitchen display systems, and staff POS into one seamless and easy to use solution. No expensive hardware. No hidden fees. Go live in minutes.</p>
-                <p>As industries continue to evolve, we are committed to growing alongside businesses by delivering innovative yet affordable technology. QuickServe marks the beginning of our journey in building smarter systems that simplify operations and create new opportunities.</p>
-                <p>At Lumora Tech, we believe technology should be reliable, accessible, and cost effective. Our mission is to remove barriers to adoption and deliver solutions that create real impact for businesses and communities.</p>
-                <p>With a strong focus on customer satisfaction, innovation, and long term partnerships, Lumora Tech is dedicated to delivering technology that truly works for you.</p>
-              </div>
-            </div>
-
-            <div className={`bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-6 transition-all duration-700 delay-100 ${companyRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-              <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight mb-4">Connect</h3>
-              <a
-                href="https://www.linkedin.com/company/lumora-tech/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm font-black text-orange-600 dark:text-orange-400 hover:text-orange-500 transition-colors"
-              >
-                <Globe size={16} /> LinkedIn / Company Logo
-              </a>
-              <p className="mt-3 text-xs text-gray-500 dark:text-gray-400 font-medium">The company logo is linked from the official Lumora Tech LinkedIn profile.</p>
-              <div className="mt-6 p-4 rounded-2xl bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/30">
-                <p className="text-[10px] font-black uppercase tracking-widest text-orange-500 mb-1">Company Registration</p>
-                <p className="text-sm font-bold text-gray-800 dark:text-gray-200">JR0174591U</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className={`bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-6 md:p-8 transition-all duration-700 ${companyRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-              <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight mb-5">Our Team</h3>
-              <div className="space-y-4">
-                {teamMembers.map((member) => (
-                  <div key={member.id} className="flex items-center gap-4 p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/70 border border-gray-100 dark:border-gray-700">
-                    {member.photo_url ? (
-                      <img
-                        src={member.photo_url}
-                        alt={member.name}
-                        className="w-12 h-12 rounded-full object-cover shrink-0 border-2 border-orange-500/30"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-200 dark:border-orange-800 flex items-center justify-center shrink-0">
-                        <span className="text-orange-500 font-black text-sm">{member.name.charAt(0)}</span>
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tight">{member.name}</p>
-                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mt-0.5">{member.role}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className={`bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-6 md:p-8 transition-all duration-700 delay-100 ${companyRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-              <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight mb-1">Join Our Team</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-5">Submit your details and our admin team can review your application.</p>
-              <form className="space-y-3" onSubmit={handleJoinTeamSubmit}>
-                <input
-                  required
-                  type="text"
-                  placeholder="Full name"
-                  value={joinForm.fullName}
-                  onChange={(e) => handleJoinFormChange('fullName', e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                />
-                <input
-                  required
-                  type="email"
-                  placeholder="Email"
-                  value={joinForm.email}
-                  onChange={(e) => handleJoinFormChange('email', e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                />
-                <input
-                  type="text"
-                  placeholder="Phone number"
-                  value={joinForm.phone}
-                  onChange={(e) => handleJoinFormChange('phone', e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                />
-                <input
-                  required
-                  type="text"
-                  placeholder="Role you are applying for"
-                  value={joinForm.role}
-                  onChange={(e) => handleJoinFormChange('role', e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                />
-                <textarea
-                  rows={3}
-                  placeholder="Experience summary"
-                  value={joinForm.experience}
-                  onChange={(e) => handleJoinFormChange('experience', e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500 resize-none"
-                />
-                <textarea
-                  rows={3}
-                  placeholder="Additional message"
-                  value={joinForm.message}
-                  onChange={(e) => handleJoinFormChange('message', e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500 resize-none"
-                />
-                <button
-                  type="submit"
-                  disabled={isSubmittingJoinForm}
-                  className="w-full px-4 py-3 rounded-xl bg-orange-500 text-white font-black text-[11px] uppercase tracking-widest hover:bg-orange-600 transition-all disabled:opacity-60"
-                >
-                  {isSubmittingJoinForm ? 'Submitting...' : 'Submit Application'}
-                </button>
-                {joinFormFeedback && (
-                  <p className={`text-xs font-bold ${joinFormFeedback.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
-                    {joinFormFeedback.message}
-                  </p>
-                )}
-              </form>
-            </div>
           </div>
         </div>
       </section>

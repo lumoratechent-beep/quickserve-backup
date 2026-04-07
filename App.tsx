@@ -6,6 +6,7 @@ import PosOnlyView from './pages/PosOnlyView';
 import BackOfficePage from './pages/BackOfficePage';
 import LoginPage from './pages/LoginPage';
 import MarketingPage from './pages/MarketingPage';
+import CompanyPage from './pages/CompanyPage';
 import RegisterPage from './pages/RegisterPage';
 import OnlineShopPage from './pages/OnlineShopPage';
 import TableSideOrderPage from './pages/TableSideOrderPage';
@@ -254,7 +255,7 @@ const App: React.FC = () => {
   const [stripeRedirect] = useState(() => stripeRedirectRef.current());
 
   const [onlineShopSlug, setOnlineShopSlug] = useState<string | null>(null);
-  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS' | 'BACK_OFFICE' | 'ONLINE_SHOP'>(() => {
+  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS' | 'BACK_OFFICE' | 'ONLINE_SHOP' | 'COMPANY'>(() => {
     const savedView = localStorage.getItem('qs_view') as any;
     
     // Handle Stripe payment redirect
@@ -2057,7 +2058,11 @@ const App: React.FC = () => {
   }
 
   if (view === 'MARKETING') {
-    return <MarketingPage onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
+    return <MarketingPage onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} onCompany={() => setView('COMPANY')} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
+  }
+
+  if (view === 'COMPANY') {
+    return <CompanyPage onBack={() => setView('MARKETING')} onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
   }
 
   if (view === 'BACK_OFFICE' && currentRole === 'VENDOR' && activeVendorRes) {
