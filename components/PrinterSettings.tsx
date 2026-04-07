@@ -319,7 +319,7 @@ const PrinterSettings: React.FC<Props> = ({
       )}
 
       {/* ── Saved Printers List ── */}
-      <div className="border-t dark:border-gray-700 pt-4">
+      <div className="pt-4">
         <div className="flex items-center mb-3">
           <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Printers</p>
         </div>

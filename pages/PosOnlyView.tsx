@@ -8450,7 +8450,7 @@ const PosOnlyView: React.FC<Props> = ({
                               ? 'bg-blue-500 text-white shadow-sm'
                               : counterMode === 'SAVED_BILL' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
                           }`}
-                        >{editingQrOrderId ? 'Edit Order' : 'Save Bill'}
+                        >{editingQrOrderId ? 'Edit Order' : 'SAVED BILL'}
                           {!editingQrOrderId && savedBills.length > 0 && (
                             <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] font-black min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center">{savedBills.length}</span>
                           )}
