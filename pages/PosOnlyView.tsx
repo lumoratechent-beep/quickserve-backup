@@ -381,6 +381,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [addonDetailTab, setAddonDetailTab] = useState<'details' | 'setting'>('details');
   const [addonFeatureTab, setAddonFeatureTab] = useState<'AVAILABLE' | 'UPCOMING'>('AVAILABLE');
   const [addonActionState, setAddonActionState] = useState<AddonActionState | null>(null);
+  const [addonPendingUninstallId, setAddonPendingUninstallId] = useState<string | null>(null);
   const [menuLayout, setMenuLayout] = useState<'grid-3' | 'grid-4' | 'grid-5' | 'grid-6' | 'list'>('grid-5');
   const [mobileMenuLayout, setMobileMenuLayout] = useState<'2' | '3' | 'list'>('3');
   const [flashItemId, setFlashItemId] = useState<string | null>(null);
@@ -2739,6 +2740,10 @@ const PosOnlyView: React.FC<Props> = ({
       });
     }, waitMs + 900);
   };
+
+  useEffect(() => {
+    setAddonPendingUninstallId(null);
+  }, [addonDetailView]);
 
   const updateFeatureSetting = <K extends keyof FeatureSettings>(key: K, value: FeatureSettings[K]) => {
     setFeatureSettings(prev => ({ ...prev, [key]: value }));
@@ -6592,11 +6597,12 @@ const PosOnlyView: React.FC<Props> = ({
                     const selectedAddonUninstalling = isAddonActionRunning(selectedAddon.id, 'uninstall');
                     const selectedAddonInstallDone = isAddonActionDone(selectedAddon.id, 'install');
                     const selectedAddonUninstallDone = isAddonActionDone(selectedAddon.id, 'uninstall');
+                    const selectedAddonAwaitingUninstallConfirm = addonPendingUninstallId === selectedAddon.id;
 
                     return (
                       <div className="animate-in fade-in duration-300">
                         <button
-                          onClick={() => { setAddonDetailView(null); setAddonDetailTab('details'); }}
+                          onClick={() => { setAddonDetailView(null); setAddonDetailTab('details'); setAddonPendingUninstallId(null); }}
                           className="flex items-center gap-2 text-sm font-bold text-gray-500 dark:text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 transition-colors mb-6"
                         >
                           <ArrowLeft size={18} />
@@ -6626,33 +6632,64 @@ const PosOnlyView: React.FC<Props> = ({
                                       {selectedAddon.installLabel || 'Installed'}
                                     </button>
                                     {selectedAddon.onUninstall && (
-                                      <button
-                                        onClick={() => {
-                                          if (selectedAddonUninstalling) return;
-                                          if (confirm(`Are you sure you want to uninstall ${selectedAddon.name}? This will disable the feature.`)) {
-                                            void runAddonActionWithEffect(selectedAddon.id, selectedAddon.name, 'uninstall', selectedAddon.onUninstall);
-                                          }
-                                        }}
-                                        disabled={selectedAddonUninstalling}
-                                        className="px-5 py-2.5 bg-red-50 dark:bg-red-900/20 text-red-500 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-red-100 dark:hover:bg-red-900/30 transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                                      >
-                                        {selectedAddonUninstalling ? (
-                                          <>
-                                            <RotateCw size={14} className="animate-spin" />
-                                            Uninstalling...
-                                          </>
-                                        ) : selectedAddonUninstallDone ? (
-                                          <>
-                                            <CheckCircle2 size={14} />
-                                            Uninstalled
-                                          </>
-                                        ) : (
-                                          <>
-                                            <Trash2 size={14} />
-                                            Uninstall
-                                          </>
-                                        )}
-                                      </button>
+                                      selectedAddonAwaitingUninstallConfirm ? (
+                                        <div className="flex items-center gap-2">
+                                          <button
+                                            onClick={() => {
+                                              if (selectedAddonUninstalling) return;
+                                              setAddonPendingUninstallId(null);
+                                              void runAddonActionWithEffect(selectedAddon.id, selectedAddon.name, 'uninstall', selectedAddon.onUninstall);
+                                            }}
+                                            disabled={selectedAddonUninstalling}
+                                            className="px-5 py-2.5 bg-red-500 text-white border border-red-600 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                          >
+                                            {selectedAddonUninstalling ? (
+                                              <>
+                                                <RotateCw size={14} className="animate-spin" />
+                                                Uninstalling...
+                                              </>
+                                            ) : (
+                                              <>
+                                                <Trash2 size={14} />
+                                                Confirm Uninstall
+                                              </>
+                                            )}
+                                          </button>
+                                          <button
+                                            onClick={() => setAddonPendingUninstallId(null)}
+                                            disabled={selectedAddonUninstalling}
+                                            className="px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                                          >
+                                            Cancel
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <button
+                                          onClick={() => {
+                                            if (selectedAddonUninstalling) return;
+                                            setAddonPendingUninstallId(selectedAddon.id);
+                                          }}
+                                          disabled={selectedAddonUninstalling}
+                                          className="px-5 py-2.5 bg-red-50 dark:bg-red-900/20 text-red-500 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-red-100 dark:hover:bg-red-900/30 transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                        >
+                                          {selectedAddonUninstalling ? (
+                                            <>
+                                              <RotateCw size={14} className="animate-spin" />
+                                              Uninstalling...
+                                            </>
+                                          ) : selectedAddonUninstallDone ? (
+                                            <>
+                                              <CheckCircle2 size={14} />
+                                              Uninstalled
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Trash2 size={14} />
+                                              Uninstall
+                                            </>
+                                          )}
+                                        </button>
+                                      )
                                     )}
                                     </>
                                   ) : (selectedAddon as any).isComingSoon ? (
@@ -6689,35 +6726,35 @@ const PosOnlyView: React.FC<Props> = ({
                                       Upgrade to {selectedAddon.plan}
                                     </button>
                                   )}
-                                </div>
-                                {(selectedAddonInstalling || selectedAddonUninstalling || selectedAddonInstallDone || selectedAddonUninstallDone) && (
-                                  <div
-                                    className={`mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-widest ${
-                                      selectedAddonInstalling || selectedAddonUninstalling
-                                        ? 'bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800'
-                                        : selectedAddonInstallDone
-                                          ? 'bg-green-50 text-green-600 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
-                                          : 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800'
-                                    }`}
-                                  >
-                                    {selectedAddonInstalling || selectedAddonUninstalling ? (
-                                      <RotateCw size={12} className="animate-spin" />
-                                    ) : selectedAddonInstallDone ? (
-                                      <CheckCircle2 size={12} />
-                                    ) : (
-                                      <Trash2 size={12} />
-                                    )}
-                                    <span>
-                                      {selectedAddonInstalling
-                                        ? `Installing package: ${selectedAddon.name}...`
-                                        : selectedAddonUninstalling
-                                          ? `Uninstalling package: ${selectedAddon.name}...`
+                                  {(selectedAddonInstalling || selectedAddonUninstalling || selectedAddonInstallDone || selectedAddonUninstallDone) && (
+                                    <span
+                                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-widest ${
+                                        selectedAddonInstalling || selectedAddonUninstalling
+                                          ? 'bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800'
                                           : selectedAddonInstallDone
-                                            ? `${selectedAddon.name} installed`
-                                            : `${selectedAddon.name} uninstalled`}
+                                            ? 'bg-green-50 text-green-600 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
+                                            : 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800'
+                                      }`}
+                                    >
+                                      {selectedAddonInstalling || selectedAddonUninstalling ? (
+                                        <RotateCw size={12} className="animate-spin" />
+                                      ) : selectedAddonInstallDone ? (
+                                        <CheckCircle2 size={12} />
+                                      ) : (
+                                        <Trash2 size={12} />
+                                      )}
+                                      <span>
+                                        {selectedAddonInstalling
+                                          ? `Installing package: ${selectedAddon.name}...`
+                                          : selectedAddonUninstalling
+                                            ? `Uninstalling package: ${selectedAddon.name}...`
+                                            : selectedAddonInstallDone
+                                              ? `${selectedAddon.name} installed`
+                                              : `${selectedAddon.name} uninstalled`}
+                                      </span>
                                     </span>
-                                  </div>
-                                )}
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
