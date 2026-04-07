@@ -768,7 +768,7 @@ const AdminView: React.FC<Props> = ({
   const [isHubSelectionModalOpen, setIsHubSelectionModalOpen] = useState(false);
 
   // Feature Images State
-  const [systemSubTab, setSystemSubTab] = useState<'STATUS' | 'FEATURE_IMAGES' | 'ANNOUNCEMENTS'>('STATUS');
+  const [systemSubTab, setSystemSubTab] = useState<'STATUS' | 'FEATURE_IMAGES' | 'ANNOUNCEMENTS' | 'JOIN_TEAM'>('STATUS');
   const [showPitchDeck, setShowPitchDeck] = useState(false);
   const [featureImages, setFeatureImages] = useState<{ id: string; url: string; alt: string; crop_shape: string; display_width: number; display_height: number; sort_order: number; category: string }[]>([]);
   const [isLoadingFeatureImages, setIsLoadingFeatureImages] = useState(false);
@@ -814,12 +814,35 @@ const AdminView: React.FC<Props> = ({
   const [announcementCategory, setAnnouncementCategory] = useState('general');
   const [announcementHub, setAnnouncementHub] = useState('all');
   const [announcementRestaurant, setAnnouncementRestaurant] = useState('all');
+  const [joinTeamApplications, setJoinTeamApplications] = useState<{
+    id: string;
+    full_name: string;
+    email: string;
+    phone: string | null;
+    desired_role: string;
+    experience_summary: string | null;
+    message: string | null;
+    source: string | null;
+    status: string;
+    created_at: string;
+  }[]>([]);
+  const [isLoadingJoinTeamApplications, setIsLoadingJoinTeamApplications] = useState(false);
 
   const fetchAnnouncements = async () => {
     setIsLoadingAnnouncements(true);
     const { data, error } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
     if (!error && data) setAnnouncements(data);
     setIsLoadingAnnouncements(false);
+  };
+
+  const fetchJoinTeamApplications = async () => {
+    setIsLoadingJoinTeamApplications(true);
+    const { data, error } = await supabase
+      .from('join_team_applications')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (!error && data) setJoinTeamApplications(data);
+    setIsLoadingJoinTeamApplications(false);
   };
 
   const createAnnouncement = async () => {
@@ -849,6 +872,7 @@ const AdminView: React.FC<Props> = ({
   };
 
   useEffect(() => { if (systemSubTab === 'ANNOUNCEMENTS') fetchAnnouncements(); }, [systemSubTab]);
+  useEffect(() => { if (systemSubTab === 'JOIN_TEAM') fetchJoinTeamApplications(); }, [systemSubTab]);
 
   // Reports State
   const [reportSearchQuery, setReportSearchQuery] = useState('');
@@ -1972,6 +1996,7 @@ const AdminView: React.FC<Props> = ({
                   { id: 'STATUS' as const, label: 'System Status', icon: <Activity size={13} /> },
                   { id: 'FEATURE_IMAGES' as const, label: 'Feature Images', icon: <ImageIcon size={13} /> },
                   { id: 'ANNOUNCEMENTS' as const, label: 'Announcements', icon: <Megaphone size={13} /> },
+                  { id: 'JOIN_TEAM' as const, label: 'Join Team Forms', icon: <Users size={13} /> },
                 ]).map(tab => (
                   <button
                     key={tab.id}
@@ -2238,6 +2263,64 @@ const AdminView: React.FC<Props> = ({
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {systemSubTab === 'JOIN_TEAM' && (
+              <div className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-black dark:text-white uppercase tracking-tight">Join Team Submissions</h3>
+                    <p className="text-xs text-gray-400 mt-1">Applications submitted from the marketing page form.</p>
+                  </div>
+                  <button
+                    onClick={fetchJoinTeamApplications}
+                    className="px-4 py-2 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-colors flex items-center gap-2"
+                  >
+                    <RefreshCw size={12} /> Refresh
+                  </button>
+                </div>
+
+                {isLoadingJoinTeamApplications ? (
+                  <div className="text-center py-10">
+                    <RefreshCw size={20} className="mx-auto animate-spin text-gray-400 mb-2" />
+                    <p className="text-xs font-bold text-gray-400">Loading submissions...</p>
+                  </div>
+                ) : joinTeamApplications.length === 0 ? (
+                  <div className="text-center py-12 bg-gray-50 dark:bg-gray-900/50 rounded-xl border dark:border-gray-700">
+                    <Users size={32} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                    <p className="text-sm font-bold text-gray-400">No form submissions yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {joinTeamApplications.map((application) => (
+                      <div key={application.id} className="bg-white dark:bg-gray-900/50 rounded-xl border dark:border-gray-700 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <h4 className="text-sm font-black dark:text-white uppercase tracking-tight">{application.full_name}</h4>
+                              <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 uppercase tracking-wider">{application.status || 'new'}</span>
+                            </div>
+                            <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">{application.email}</p>
+                            {application.phone && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{application.phone}</p>}
+                            <p className="text-xs text-gray-700 dark:text-gray-300 font-medium mt-2"><span className="font-black">Role:</span> {application.desired_role}</p>
+                            {application.experience_summary && (
+                              <p className="text-xs text-gray-700 dark:text-gray-300 mt-1 leading-relaxed"><span className="font-black">Experience:</span> {application.experience_summary}</p>
+                            )}
+                            {application.message && (
+                              <p className="text-xs text-gray-700 dark:text-gray-300 mt-1 leading-relaxed"><span className="font-black">Message:</span> {application.message}</p>
+                            )}
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-[10px] text-gray-400 font-bold">{new Date(application.created_at).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                            <p className="text-[10px] text-gray-400 font-bold">{new Date(application.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                            <p className="text-[9px] mt-2 text-gray-400 uppercase font-black tracking-wider">{application.source || 'marketing_page'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
               </div>
