@@ -150,7 +150,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, isDa
               <a href="#mockup" className="hover:text-orange-500 transition-colors">Preview</a>
               <a href="#pricing" className="hover:text-orange-500 transition-colors">Pricing</a>
               <a href="#faq" className="hover:text-orange-500 transition-colors">FAQ</a>
-              <button onClick={onCompany} className="hover:text-orange-500 transition-colors">Company</button>
+              <button onClick={onCompany} className="hover:text-orange-500 transition-colors">OUR COMPANY</button>
             </div>
             {/* Spacer for mobile */}
             <div className="flex-1 md:hidden" />
@@ -193,7 +193,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, isDa
                 onClick={() => { setMobileMenuOpen(false); onCompany(); }}
                 className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-[0.15em] hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-800 rounded-xl transition-all"
               >
-                Company
+                OUR COMPANY
               </button>
             </div>
           </div>
@@ -869,7 +869,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, isDa
               <div className="w-1 h-1 bg-white/20 rounded-full hidden sm:block" />
               <div className="flex items-center gap-2 text-white/50 text-sm font-bold">
                 <ShieldCheck size={16} className="text-orange-500" />
-                hello@quickserve.my
+                lumoratech.ent@gmail.com
               </div>
               <div className="w-1 h-1 bg-white/20 rounded-full hidden sm:block" />
               <a

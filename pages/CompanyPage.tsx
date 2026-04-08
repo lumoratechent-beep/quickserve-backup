@@ -74,7 +74,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 font-sans overflow-x-hidden">
       {/* ── NAV ── */}
-      <nav className="sticky top-0 z-50 bg-white/90 dark:bg-gray-950/90 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800">
+      <nav className="sticky top-0 z-50 bg-white/90 dark:bg-gray-950/90 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center gap-4">
           <button
             onClick={onBack}
@@ -111,7 +111,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
       </nav>
 
       {/* ── HERO ── */}
-      <div ref={heroRef.ref} className="relative bg-gradient-to-br from-gray-950 to-gray-900 py-24 px-6 overflow-hidden">
+      <div ref={heroRef.ref} className="relative bg-gradient-to-b from-gray-950 via-gray-900 to-gray-900 py-24 px-6 overflow-hidden">
         <div className="absolute top-0 right-1/4 w-[600px] h-[400px] bg-orange-500/15 rounded-full blur-[160px] pointer-events-none" />
         <div className={`max-w-4xl mx-auto text-center relative z-10 transition-all duration-700 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-4 block">Our Company</span>
@@ -144,7 +144,8 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
       </div>
 
       {/* ── ABOUT ── */}
-      <section className="py-20 px-6 bg-white dark:bg-gray-950">
+      <section className="relative py-20 px-6 overflow-hidden bg-gradient-to-b from-[#f7f7f4] via-[#f5f4f0] to-[#f3f2ef] dark:from-[#141920] dark:via-[#151b22] dark:to-[#161d25]">
+        <div className="pointer-events-none absolute inset-x-0 -top-16 h-20 bg-gradient-to-b from-transparent to-[#f7f7f4] dark:to-[#141920]" />
         <div ref={aboutRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${aboutRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 bg-gray-50 dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-6 md:p-8">
@@ -177,7 +178,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 font-medium">
                     <ShieldCheck size={14} className="text-orange-500 shrink-0" />
-                    hello@quickserve.my
+                    lumoratech.ent@gmail.com
                   </div>
                 </div>
               </div>
@@ -192,7 +193,8 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
       </section>
 
       {/* ── TEAM ── */}
-      <section className="py-20 px-6 bg-gray-50 dark:bg-gray-900/50">
+      <section className="relative py-20 px-6 overflow-hidden bg-gradient-to-b from-[#f4f3ef] via-[#f2f2ee] to-[#f1f1ed] dark:from-[#161d25] dark:via-[#171f28] dark:to-[#18212a]">
+        <div className="pointer-events-none absolute inset-x-0 -top-16 h-20 bg-gradient-to-b from-transparent to-[#f4f3ef] dark:to-[#161d25]" />
         <div ref={teamRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${teamRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           <div className="text-center mb-10">
             <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Our People</span>
@@ -230,7 +232,8 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
       </section>
 
       {/* ── LOCATION / MAP ── */}
-      <section className="py-20 px-6 bg-white dark:bg-gray-950">
+      <section className="relative py-20 px-6 overflow-hidden bg-gradient-to-b from-[#f2f2ee] via-[#f1f1ed] to-[#efefeb] dark:from-[#18212a] dark:via-[#19232c] dark:to-[#1a252f]">
+        <div className="pointer-events-none absolute inset-x-0 -top-16 h-20 bg-gradient-to-b from-transparent to-[#f2f2ee] dark:to-[#18212a]" />
         <div ref={mapRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${mapRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           <div className="text-center mb-10">
             <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Where To Find Us</span>
@@ -246,8 +249,8 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                 </div>
                 <p className="text-xs font-black text-orange-500 uppercase tracking-widest mb-1">Address</p>
                 <p className="text-sm font-bold text-gray-800 dark:text-gray-200 leading-relaxed">
-                  Lumora Tech<br />
-                  Malaysia
+                  Lumora Tech Ent.<br />
+                  Jalan Juruanalisis UI/35, Seksyen U1, 40150 Shah Alam, Selangor
                 </p>
               </div>
               <a
@@ -264,11 +267,14 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
             <div className="lg:col-span-2 rounded-3xl overflow-hidden border border-gray-200 dark:border-gray-800 h-80">
               <iframe
                 title="Lumora Tech Location"
-                src="https://maps.google.com/maps?q=Lumora+Tech&output=embed&z=16"
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3984.049003914267!2d101.56005191126862!3d3.0815952535497564!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31cc4d2289f72555%3A0x932d7efba279d7fb!2sLumora%20Tech%20Ent.!5e0!3m2!1sen!2smy!4v1775634323783!5m2!1sen!2smy"
+                width="600"
+                height="450"
+                style={{ border: 0 }}
                 className="w-full h-full border-0"
+                allowFullScreen
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
-                allowFullScreen
               />
             </div>
           </div>
@@ -289,7 +295,8 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
       </section>
 
       {/* ── JOIN OUR TEAM ── */}
-      <section className="py-20 px-6 bg-gray-50 dark:bg-gray-900/50">
+      <section className="relative py-20 px-6 overflow-hidden bg-gradient-to-b from-[#f0f0ec] via-[#efefeb] to-[#eeedea] dark:from-[#1a252f] dark:via-[#1b2732] dark:to-[#1c2834]">
+        <div className="pointer-events-none absolute inset-x-0 -top-16 h-20 bg-gradient-to-b from-transparent to-[#f0f0ec] dark:to-[#1a252f]" />
         <div ref={joinRef.ref} className={`max-w-3xl mx-auto transition-all duration-700 ${joinRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           <div className="text-center mb-10">
             <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Careers</span>
@@ -366,7 +373,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
       </section>
 
       {/* ── FOOTER ── */}
-      <footer className="py-10 px-6 bg-gray-950 border-t border-gray-800 text-center">
+      <footer className="py-10 px-6 bg-gray-950 text-center">
         <button
           onClick={onBack}
           className="inline-flex items-center gap-2 mb-6 text-[11px] font-black text-gray-400 uppercase tracking-widest hover:text-orange-500 transition-colors"
