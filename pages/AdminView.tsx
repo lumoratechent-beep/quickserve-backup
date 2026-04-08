@@ -834,6 +834,7 @@ const AdminView: React.FC<Props> = ({
   const [newTeamMemberRole, setNewTeamMemberRole] = useState('');
   const [newTeamMemberSortOrder, setNewTeamMemberSortOrder] = useState('0');
   const [newTeamMemberPhotoFile, setNewTeamMemberPhotoFile] = useState<File | null>(null);
+  const [newTeamMemberCropFile, setNewTeamMemberCropFile] = useState<File | null>(null);
   const [isCreatingTeamMember, setIsCreatingTeamMember] = useState(false);
 
   const isTeamMembersTableMissing = (error: any) => {
@@ -922,6 +923,13 @@ const AdminView: React.FC<Props> = ({
     setNewTeamMemberPhotoFile(null);
     await fetchTeamMembers();
     setIsCreatingTeamMember(false);
+  };
+
+  const handleNewTeamMemberPhotoCropped = async (blob: Blob) => {
+    const file = new File([blob], `team-member-${Date.now()}.png`, { type: 'image/png' });
+    setNewTeamMemberPhotoFile(file);
+    setNewTeamMemberCropFile(null);
+    toast('Cropped photo ready', 'success');
   };
 
   const fetchAnnouncements = async () => {
@@ -2468,7 +2476,11 @@ const AdminView: React.FC<Props> = ({
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => setNewTeamMemberPhotoFile(e.target.files?.[0] || null)}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) setNewTeamMemberCropFile(file);
+                          e.target.value = '';
+                        }}
                       />
                     </label>
                     <button
@@ -2480,6 +2492,18 @@ const AdminView: React.FC<Props> = ({
                       {isCreatingTeamMember ? <><RefreshCw size={11} className="animate-spin" /> Adding...</> : <><Plus size={11} /> Add Member</>}
                     </button>
                   </div>
+                  {newTeamMemberPhotoFile && (
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/30 px-3 py-2.5">
+                      <p className="text-[11px] font-bold text-orange-700 dark:text-orange-300 truncate">Photo ready: {newTeamMemberPhotoFile.name}</p>
+                      <button
+                        type="button"
+                        onClick={() => setNewTeamMemberPhotoFile(null)}
+                        className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-red-500 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {isLoadingTeamMembers ? (
@@ -2545,6 +2569,14 @@ const AdminView: React.FC<Props> = ({
             imageFile={featureCropFile}
             onCrop={handleFeatureImageCropped}
             onCancel={() => setFeatureCropFile(null)}
+          />
+        )}
+
+        {newTeamMemberCropFile && (
+          <ImageCropModal
+            imageFile={newTeamMemberCropFile}
+            onCrop={handleNewTeamMemberPhotoCropped}
+            onCancel={() => setNewTeamMemberCropFile(null)}
           />
         )}
 

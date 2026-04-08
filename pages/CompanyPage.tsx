@@ -119,7 +119,6 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
   ];
 
   const activeValueData = valueTabs.find((tab) => tab.id === activeValue) ?? valueTabs[0];
-  const selectedMember = teamMembers.find((member) => member.id === selectedMemberId) ?? teamMembers[0];
 
   useEffect(() => {
     setMounted(true);
@@ -192,11 +191,11 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
               <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-8 sm:h-9 hidden dark:block" />
             </div>
             <div className="hidden md:flex items-center gap-8 text-[11px] font-bold text-gray-700 dark:text-gray-400 uppercase tracking-[0.15em] mx-auto">
+              <button onClick={onBack} className="hover:text-orange-500 transition-colors">Home</button>
               <a href="#about" className="hover:text-orange-500 transition-colors">About</a>
               <a href="#team" className="hover:text-orange-500 transition-colors">Team</a>
               <a href="#location" className="hover:text-orange-500 transition-colors">Location</a>
               <a href="#careers" className="hover:text-orange-500 transition-colors">Careers</a>
-              <button onClick={onBack} className="hover:text-orange-500 transition-colors">Back</button>
             </div>
             <div className="flex-1 md:hidden" />
             <div className="flex items-center gap-2 sm:gap-3">
@@ -219,11 +218,24 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
           <div className={`md:hidden overflow-hidden transition-all duration-300 ${mobileMenuOpen ? 'max-h-64 mt-2' : 'max-h-0'}`}>
             <div className="flex flex-col gap-1 px-3 py-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg shadow-black/5">
               {[
+                { type: 'button', label: 'Home' },
                 { href: '#about', label: 'About' },
                 { href: '#team', label: 'Team' },
                 { href: '#location', label: 'Location' },
                 { href: '#careers', label: 'Careers' },
               ].map((link) => (
+                'type' in link ? (
+                  <button
+                    key={link.label}
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onBack();
+                    }}
+                    className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-[0.15em] hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-800 rounded-xl transition-all"
+                  >
+                    {link.label}
+                  </button>
+                ) : (
                 <a
                   key={link.href}
                   href={link.href}
@@ -232,16 +244,8 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                 >
                   {link.label}
                 </a>
+                )
               ))}
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onBack();
-                }}
-                className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-[0.15em] hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-800 rounded-xl transition-all"
-              >
-                Back
-              </button>
             </div>
           </div>
         </div>
@@ -395,72 +399,57 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
           </div>
 
           {teamMembers.length > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-              <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {teamMembers.map((member, idx) => (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5 items-start">
+              {teamMembers.map((member, idx) => {
+                const isSelected = selectedMemberId === member.id;
+                const isRightEdge = idx % 3 === 2;
+
+                return (
                   <button
                     key={member.id}
                     type="button"
-                    onClick={() => setSelectedMemberId(member.id)}
-                    className={`text-left rounded-3xl border p-4 sm:p-5 transition-all ${selectedMemberId === member.id ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:-translate-y-0.5 hover:shadow-md'}`}
+                    onClick={() => setSelectedMemberId((current) => current === member.id ? null : member.id)}
+                    className={`text-left rounded-3xl border p-4 sm:p-5 transition-all duration-300 ${isSelected ? 'lg:col-span-2 border-orange-400 bg-orange-50 dark:bg-orange-900/20 shadow-lg shadow-orange-500/10' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:-translate-y-0.5 hover:shadow-md'}`}
                     style={{ transitionDelay: `${idx * 70}ms` }}
                   >
-                    <div className="flex items-center gap-3">
-                      {member.photo_url ? (
-                        <img
-                          src={member.photo_url}
-                          alt={member.name}
-                          className="w-14 h-14 rounded-2xl object-cover border border-orange-200 dark:border-orange-800"
-                        />
-                      ) : (
-                        <div className="w-14 h-14 rounded-2xl bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 flex items-center justify-center">
-                          <span className="text-orange-500 font-black text-xl">{member.name.charAt(0)}</span>
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-sm font-black uppercase text-gray-900 dark:text-white">{member.name}</p>
-                        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mt-0.5">{member.role}</p>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              <div className="lg:col-span-2 rounded-3xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 flex flex-col justify-between">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">Team Highlight</p>
-                  {selectedMember ? (
-                    <>
-                      <div className="mt-4 flex items-center gap-3">
-                        {selectedMember.photo_url ? (
+                    <div className={`flex flex-col gap-4 ${isSelected ? `lg:flex-row ${isRightEdge ? 'lg:flex-row-reverse' : ''} lg:items-start` : ''}`}>
+                      <div className={`flex items-center gap-3 ${isSelected ? 'lg:w-[16rem] lg:shrink-0' : ''}`}>
+                        {member.photo_url ? (
                           <img
-                            src={selectedMember.photo_url}
-                            alt={selectedMember.name}
-                            className="w-16 h-16 rounded-2xl object-cover border border-orange-200 dark:border-orange-800"
+                            src={member.photo_url}
+                            alt={member.name}
+                            className={`${isSelected ? 'w-20 h-20 sm:w-24 sm:h-24 rounded-3xl' : 'w-14 h-14 rounded-2xl'} object-cover border border-orange-200 dark:border-orange-800`}
                           />
                         ) : (
-                          <div className="w-16 h-16 rounded-2xl bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 flex items-center justify-center">
-                            <span className="text-orange-500 font-black text-2xl">{selectedMember.name.charAt(0)}</span>
+                          <div className={`${isSelected ? 'w-20 h-20 sm:w-24 sm:h-24 rounded-3xl' : 'w-14 h-14 rounded-2xl'} bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 flex items-center justify-center`}>
+                            <span className={`${isSelected ? 'text-3xl' : 'text-xl'} text-orange-500 font-black`}>{member.name.charAt(0)}</span>
                           </div>
                         )}
                         <div>
-                          <p className="text-lg font-black uppercase">{selectedMember.name}</p>
-                          <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">{selectedMember.role}</p>
+                          <p className="text-sm sm:text-base font-black uppercase text-gray-900 dark:text-white">{member.name}</p>
+                          <p className="text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 mt-0.5">{member.role}</p>
                         </div>
                       </div>
-                      <p className="mt-5 text-sm text-gray-600 dark:text-gray-300 leading-relaxed font-medium">
-                        Our team combines technical execution and real-world business understanding to deliver stable product experiences.
-                      </p>
-                    </>
-                  ) : (
-                    <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Select a team member to see details.</p>
-                  )}
-                </div>
-                <div className="mt-6 rounded-2xl bg-gray-100 dark:bg-gray-800 p-4">
-                  <p className="text-[10px] uppercase tracking-widest text-gray-500 dark:text-gray-300 font-black">Collaboration Style</p>
-                  <p className="mt-1 text-sm font-bold">Fast iteration, practical feedback, and customer-focused decisions.</p>
-                </div>
-              </div>
+
+                      {isSelected && (
+                        <div className="flex-1 lg:min-w-0">
+                          <div className="rounded-2xl bg-white/70 dark:bg-gray-950/40 border border-orange-200/70 dark:border-orange-900/40 p-4 sm:p-5">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">Collaboration Style</p>
+                            <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-medium">
+                              Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.
+                            </p>
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              <span className="px-3 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 text-[10px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400">Customer Focused</span>
+                              <span className="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-300">Fast Iteration</span>
+                              <span className="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-300">Operational Mindset</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-10 text-gray-400 text-sm font-medium">Loading team...</div>
