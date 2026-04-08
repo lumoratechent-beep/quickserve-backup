@@ -130,6 +130,20 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
   ];
 
   const activeValueData = valueTabs.find((tab) => tab.id === activeValue) ?? valueTabs[0];
+  const teamRows = (() => {
+    const totalMembers = teamMembers.length;
+
+    if (totalMembers <= 3) return [teamMembers];
+    if (totalMembers === 4) return [teamMembers.slice(0, 2), teamMembers.slice(2, 4)];
+    if (totalMembers === 5) return [teamMembers.slice(0, 3), teamMembers.slice(3, 5)];
+    if (totalMembers === 6) return [teamMembers.slice(0, 3), teamMembers.slice(3, 6)];
+
+    const rows: typeof teamMembers[] = [];
+    for (let index = 0; index < totalMembers; index += 3) {
+      rows.push(teamMembers.slice(index, index + 3));
+    }
+    return rows;
+  })();
 
   useEffect(() => {
     setMounted(true);
@@ -405,61 +419,73 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
           </div>
 
           {teamMembers.length > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5 items-start">
-              {teamMembers.map((member, idx) => {
-                const isSelected = selectedMemberId === member.id;
-                const isRightEdge = idx % 3 === 2;
+            <div className="space-y-4 lg:space-y-5">
+              {teamRows.map((row, rowIndex) => {
+                const rowLength = row.length;
+                const rowGridClass = rowLength === 1
+                  ? 'grid grid-cols-1 max-w-xl mx-auto'
+                  : rowLength === 2
+                    ? 'grid grid-cols-1 md:grid-cols-2 max-w-5xl mx-auto'
+                    : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
 
                 return (
-                  <button
-                    key={member.id}
-                    type="button"
-                    onClick={() => setSelectedMemberId((current) => current === member.id ? null : member.id)}
-                    className={`text-left rounded-3xl border p-4 sm:p-5 transition-all duration-300 ${isSelected ? 'lg:col-span-2 border-orange-400 bg-orange-50 dark:bg-orange-900/20 shadow-lg shadow-orange-500/10' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:-translate-y-0.5 hover:shadow-md'}`}
-                    style={{ transitionDelay: `${idx * 70}ms` }}
-                  >
-                    <div className={`flex flex-col gap-4 ${isSelected ? `lg:flex-row ${isRightEdge ? 'lg:flex-row-reverse' : ''} lg:items-start` : ''}`}>
-                      <div className={`flex items-center gap-3 ${isSelected ? 'lg:w-[16rem] lg:shrink-0' : ''}`}>
-                        {member.photo_url ? (
-                          <img
-                            src={member.photo_url}
-                            alt={member.name}
-                            className={`${isSelected ? 'w-20 h-20 sm:w-24 sm:h-24 rounded-3xl' : 'w-14 h-14 rounded-2xl'} object-cover border border-orange-200 dark:border-orange-800`}
-                          />
-                        ) : (
-                          <div className={`${isSelected ? 'w-20 h-20 sm:w-24 sm:h-24 rounded-3xl' : 'w-14 h-14 rounded-2xl'} bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 flex items-center justify-center`}>
-                            <span className={`${isSelected ? 'text-3xl' : 'text-xl'} text-orange-500 font-black`}>{member.name.charAt(0)}</span>
-                          </div>
-                        )}
-                        <div>
-                          <p className="text-sm sm:text-base font-black uppercase text-gray-900 dark:text-white">{member.name}</p>
-                          <p className="text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 mt-0.5">{member.role}</p>
-                        </div>
-                      </div>
+                  <div key={`row-${rowIndex}`} className={`${rowGridClass} gap-4 lg:gap-5 items-start`}>
+                    {row.map((member, memberIndex) => {
+                      const isSelected = selectedMemberId === member.id;
+                      const isRightEdge = memberIndex === rowLength - 1;
 
-                      {isSelected && (
-                        <div className="flex-1 lg:min-w-0">
-                          <div className="rounded-2xl bg-white/70 dark:bg-gray-950/40 border border-orange-200/70 dark:border-orange-900/40 p-4 sm:p-5">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">Collaboration Style</p>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">{member.collaboration_header || 'Collaboration Style'}</p>
-                            <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-medium">
-                              {member.collaboration_description || 'Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.'}
-                            </p>
-                            <div className="mt-4 flex flex-wrap gap-2">
-                              {[member.trait_one || 'Customer Focused', member.trait_two || 'Fast Iteration', member.trait_three || 'Operational Mindset'].map((trait, traitIdx) => (
-                                <span
-                                  key={`${member.id}-${traitIdx}-${trait}`}
-                                  className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${traitIdx === 0 ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'}`}
-                                >
-                                  {trait}
-                                </span>
-                              ))}
+                      return (
+                        <button
+                          key={member.id}
+                          type="button"
+                          onClick={() => setSelectedMemberId((current) => current === member.id ? null : member.id)}
+                          className={`text-left rounded-3xl border p-4 sm:p-5 transition-all duration-300 ${isSelected ? 'md:col-span-2 border-orange-400 bg-orange-50 dark:bg-orange-900/20 shadow-lg shadow-orange-500/10' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:-translate-y-0.5 hover:shadow-md'}`}
+                          style={{ transitionDelay: `${(rowIndex * 3 + memberIndex) * 70}ms` }}
+                        >
+                          <div className={`flex flex-col gap-4 ${isSelected ? `lg:flex-row ${isRightEdge ? 'lg:flex-row-reverse' : ''} lg:items-start` : ''}`}>
+                            <div className={`flex items-center gap-3 ${isSelected ? 'lg:w-[16rem] lg:shrink-0' : ''}`}>
+                              {member.photo_url ? (
+                                <img
+                                  src={member.photo_url}
+                                  alt={member.name}
+                                  className={`${isSelected ? 'w-20 h-20 sm:w-24 sm:h-24 rounded-3xl' : 'w-14 h-14 rounded-2xl'} object-cover border border-orange-200 dark:border-orange-800`}
+                                />
+                              ) : (
+                                <div className={`${isSelected ? 'w-20 h-20 sm:w-24 sm:h-24 rounded-3xl' : 'w-14 h-14 rounded-2xl'} bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 flex items-center justify-center`}>
+                                  <span className={`${isSelected ? 'text-3xl' : 'text-xl'} text-orange-500 font-black`}>{member.name.charAt(0)}</span>
+                                </div>
+                              )}
+                              <div>
+                                <p className="text-sm sm:text-base font-black uppercase text-gray-900 dark:text-white">{member.name}</p>
+                                <p className="text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 mt-0.5">{member.role}</p>
+                              </div>
                             </div>
+
+                            {isSelected && (
+                              <div className="flex-1 lg:min-w-0">
+                                <div className="rounded-2xl bg-white/70 dark:bg-gray-950/40 border border-orange-200/70 dark:border-orange-900/40 p-4 sm:p-5">
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">{member.collaboration_header || 'Collaboration Style'}</p>
+                                  <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-medium">
+                                    {member.collaboration_description || 'Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.'}
+                                  </p>
+                                  <div className="mt-4 flex flex-wrap gap-2">
+                                    {[member.trait_one || 'Customer Focused', member.trait_two || 'Fast Iteration', member.trait_three || 'Operational Mindset'].map((trait, traitIdx) => (
+                                      <span
+                                        key={`${member.id}-${traitIdx}-${trait}`}
+                                        className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${traitIdx === 0 ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'}`}
+                                      >
+                                        {trait}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  </button>
+                        </button>
+                      );
+                    })}
+                  </div>
                 );
               })}
             </div>

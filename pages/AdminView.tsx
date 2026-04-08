@@ -2570,6 +2570,7 @@ const AdminView: React.FC<Props> = ({
 
                 <div className="bg-white dark:bg-gray-900/50 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 sm:p-5">
                   <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">Add Team Member</p>
+                  <p className="text-xs text-gray-400 mb-3">Display order controls the sequence shown on the company page. Lower numbers appear first.</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                     <input
                       type="text"
@@ -2587,7 +2588,7 @@ const AdminView: React.FC<Props> = ({
                     />
                     <input
                       type="number"
-                      placeholder="Sort order"
+                      placeholder="Display order"
                       value={newTeamMemberSortOrder}
                       onChange={(e) => setNewTeamMemberSortOrder(e.target.value)}
                       className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
@@ -2703,6 +2704,7 @@ const AdminView: React.FC<Props> = ({
                           />
                           <input
                             type="number"
+                            placeholder="Display order"
                             value={teamMemberDrafts[member.id]?.sortOrder || '0'}
                             onChange={(e) => updateTeamMemberDraft(member.id, 'sortOrder', e.target.value)}
                             className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
