@@ -830,6 +830,10 @@ const AdminView: React.FC<Props> = ({
   const [teamMembers, setTeamMembers] = useState<{ id: string; name: string; role: string; photo_url: string | null; sort_order: number }[]>([]);
   const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false);
   const [uploadingTeamMemberId, setUploadingTeamMemberId] = useState<string | null>(null);
+  const [newTeamMemberName, setNewTeamMemberName] = useState('');
+  const [newTeamMemberRole, setNewTeamMemberRole] = useState('');
+  const [newTeamMemberSortOrder, setNewTeamMemberSortOrder] = useState('0');
+  const [isCreatingTeamMember, setIsCreatingTeamMember] = useState(false);
 
   const fetchTeamMembers = async () => {
     setIsLoadingTeamMembers(true);
@@ -850,6 +854,36 @@ const AdminView: React.FC<Props> = ({
       toast(err.message || 'Upload failed', 'error');
     }
     setUploadingTeamMemberId(null);
+  };
+
+  const createTeamMember = async () => {
+    if (!newTeamMemberName.trim() || !newTeamMemberRole.trim()) {
+      toast('Name and role are required', 'error');
+      return;
+    }
+
+    const parsedSortOrder = Number.parseInt(newTeamMemberSortOrder, 10);
+    const safeSortOrder = Number.isNaN(parsedSortOrder) ? 0 : parsedSortOrder;
+
+    setIsCreatingTeamMember(true);
+    const { error } = await supabase.from('team_members').insert({
+      name: newTeamMemberName.trim(),
+      role: newTeamMemberRole.trim(),
+      sort_order: safeSortOrder,
+    });
+
+    if (error) {
+      toast(error.message || 'Failed to add team member', 'error');
+      setIsCreatingTeamMember(false);
+      return;
+    }
+
+    toast('Team member added', 'success');
+    setNewTeamMemberName('');
+    setNewTeamMemberRole('');
+    setNewTeamMemberSortOrder('0');
+    await fetchTeamMembers();
+    setIsCreatingTeamMember(false);
   };
 
   const fetchAnnouncements = async () => {
@@ -2355,7 +2389,7 @@ const AdminView: React.FC<Props> = ({
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-base font-black dark:text-white uppercase tracking-tight">Team Members</h3>
-                    <p className="text-xs text-gray-400 mt-1">Upload or update the photo shown on the marketing page for each team member.</p>
+                    <p className="text-xs text-gray-400 mt-1">Add team members, then upload or update photos shown on the marketing page.</p>
                   </div>
                   <button
                     onClick={fetchTeamMembers}
@@ -2363,6 +2397,41 @@ const AdminView: React.FC<Props> = ({
                   >
                     <RefreshCw size={12} /> Refresh
                   </button>
+                </div>
+
+                <div className="bg-white dark:bg-gray-900/50 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 sm:p-5">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">Add Team Member</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Full name"
+                      value={newTeamMemberName}
+                      onChange={(e) => setNewTeamMemberName(e.target.value)}
+                      className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Role"
+                      value={newTeamMemberRole}
+                      onChange={(e) => setNewTeamMemberRole(e.target.value)}
+                      className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Sort order"
+                      value={newTeamMemberSortOrder}
+                      onChange={(e) => setNewTeamMemberSortOrder(e.target.value)}
+                      className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={createTeamMember}
+                      disabled={isCreatingTeamMember}
+                      className="px-4 py-2.5 rounded-xl bg-orange-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-colors disabled:opacity-60 inline-flex items-center justify-center gap-2"
+                    >
+                      {isCreatingTeamMember ? <><RefreshCw size={11} className="animate-spin" /> Adding...</> : <><Plus size={11} /> Add Member</>}
+                    </button>
+                  </div>
                 </div>
 
                 {isLoadingTeamMembers ? (

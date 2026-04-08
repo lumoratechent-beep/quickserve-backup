@@ -253,20 +253,6 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                 </a>
               </div>
 
-              <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
-                  <p className="text-[10px] uppercase tracking-widest text-gray-300 font-black">Founded</p>
-                  <p className="text-2xl text-white font-black mt-1">2021</p>
-                </div>
-                <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
-                  <p className="text-[10px] uppercase tracking-widest text-gray-300 font-black">Focus</p>
-                  <p className="text-2xl text-white font-black mt-1">F and B Tech</p>
-                </div>
-                <div className="rounded-2xl border border-white/15 bg-white/10 p-4 col-span-2 sm:col-span-1">
-                  <p className="text-[10px] uppercase tracking-widest text-gray-300 font-black">Market</p>
-                  <p className="text-2xl text-white font-black mt-1">Malaysia</p>
-                </div>
-              </div>
             </div>
 
             <div className="lg:col-span-2">
@@ -501,7 +487,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
       </section>
 
       <section className="relative py-16 sm:py-20 px-4 sm:px-6 overflow-hidden bg-gradient-to-b from-[#ebeae5] via-[#e9e8e3] to-[#e7e6e1] dark:from-[#1a2936] dark:via-[#1b2a38] dark:to-[#1c2b3a]">
-        <div ref={joinRef.ref} className={`max-w-5xl mx-auto transition-all duration-700 ${joinRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+        <div ref={joinRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${joinRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           <div className="text-center mb-8 sm:mb-10">
             <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Careers</span>
             <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tighter">Join Our Team</h2>
