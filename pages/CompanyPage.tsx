@@ -66,7 +66,18 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
   const mapRef = useInView();
   const joinRef = useInView();
 
-  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string; role: string; photo_url: string | null; sort_order: number }[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{
+    id: string;
+    name: string;
+    role: string;
+    photo_url: string | null;
+    sort_order: number;
+    collaboration_header: string | null;
+    collaboration_description: string | null;
+    trait_one: string | null;
+    trait_two: string | null;
+    trait_three: string | null;
+  }[]>([]);
   const [joinForm, setJoinForm] = useState({ fullName: '', email: '', phone: '', role: '', experience: '', message: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -126,15 +137,10 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
-    supabase.from('team_members').select('id, name, role, photo_url, sort_order').order('sort_order').then(({ data }) => {
+    supabase.from('team_members').select('id, name, role, photo_url, sort_order, collaboration_header, collaboration_description, trait_one, trait_two, trait_three').order('sort_order').then(({ data }) => {
       if (data) setTeamMembers(data);
     });
   }, []);
-
-  useEffect(() => {
-    if (!teamMembers.length || selectedMemberId) return;
-    setSelectedMemberId(teamMembers[0].id);
-  }, [teamMembers, selectedMemberId]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -191,7 +197,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
               <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-8 sm:h-9 hidden dark:block" />
             </div>
             <div className="hidden md:flex items-center gap-8 text-[11px] font-bold text-gray-700 dark:text-gray-400 uppercase tracking-[0.15em] mx-auto">
-              <button onClick={onBack} className="hover:text-orange-500 transition-colors">Home</button>
+              <button onClick={onBack} className="hover:text-orange-500 transition-colors">HOME</button>
               <a href="#about" className="hover:text-orange-500 transition-colors">About</a>
               <a href="#team" className="hover:text-orange-500 transition-colors">Team</a>
               <a href="#location" className="hover:text-orange-500 transition-colors">Location</a>
@@ -218,7 +224,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
           <div className={`md:hidden overflow-hidden transition-all duration-300 ${mobileMenuOpen ? 'max-h-64 mt-2' : 'max-h-0'}`}>
             <div className="flex flex-col gap-1 px-3 py-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg shadow-black/5">
               {[
-                { type: 'button', label: 'Home' },
+                { type: 'button', label: 'HOME' },
                 { href: '#about', label: 'About' },
                 { href: '#team', label: 'Team' },
                 { href: '#location', label: 'Location' },
@@ -435,13 +441,19 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                         <div className="flex-1 lg:min-w-0">
                           <div className="rounded-2xl bg-white/70 dark:bg-gray-950/40 border border-orange-200/70 dark:border-orange-900/40 p-4 sm:p-5">
                             <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">Collaboration Style</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">{member.collaboration_header || 'Collaboration Style'}</p>
                             <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-medium">
-                              Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.
+                              {member.collaboration_description || 'Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.'}
                             </p>
                             <div className="mt-4 flex flex-wrap gap-2">
-                              <span className="px-3 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 text-[10px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400">Customer Focused</span>
-                              <span className="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-300">Fast Iteration</span>
-                              <span className="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-300">Operational Mindset</span>
+                              {[member.trait_one || 'Customer Focused', member.trait_two || 'Fast Iteration', member.trait_three || 'Operational Mindset'].map((trait, traitIdx) => (
+                                <span
+                                  key={`${member.id}-${traitIdx}-${trait}`}
+                                  className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${traitIdx === 0 ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'}`}
+                                >
+                                  {trait}
+                                </span>
+                              ))}
                             </div>
                           </div>
                         </div>

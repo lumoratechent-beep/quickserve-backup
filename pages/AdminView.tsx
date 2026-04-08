@@ -827,15 +827,43 @@ const AdminView: React.FC<Props> = ({
     created_at: string;
   }[]>([]);
   const [isLoadingJoinTeamApplications, setIsLoadingJoinTeamApplications] = useState(false);
-  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string; role: string; photo_url: string | null; sort_order: number }[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{
+    id: string;
+    name: string;
+    role: string;
+    photo_url: string | null;
+    sort_order: number;
+    collaboration_header: string | null;
+    collaboration_description: string | null;
+    trait_one: string | null;
+    trait_two: string | null;
+    trait_three: string | null;
+  }[]>([]);
   const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false);
   const [uploadingTeamMemberId, setUploadingTeamMemberId] = useState<string | null>(null);
+  const [editingTeamMemberId, setEditingTeamMemberId] = useState<string | null>(null);
+  const [teamMemberCropTargetId, setTeamMemberCropTargetId] = useState<string | null>(null);
   const [newTeamMemberName, setNewTeamMemberName] = useState('');
   const [newTeamMemberRole, setNewTeamMemberRole] = useState('');
   const [newTeamMemberSortOrder, setNewTeamMemberSortOrder] = useState('0');
   const [newTeamMemberPhotoFile, setNewTeamMemberPhotoFile] = useState<File | null>(null);
   const [newTeamMemberCropFile, setNewTeamMemberCropFile] = useState<File | null>(null);
+  const [newTeamMemberCollaborationHeader, setNewTeamMemberCollaborationHeader] = useState('Collaboration Style');
+  const [newTeamMemberCollaborationDescription, setNewTeamMemberCollaborationDescription] = useState('Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.');
+  const [newTeamMemberTraitOne, setNewTeamMemberTraitOne] = useState('Customer Focused');
+  const [newTeamMemberTraitTwo, setNewTeamMemberTraitTwo] = useState('Fast Iteration');
+  const [newTeamMemberTraitThree, setNewTeamMemberTraitThree] = useState('Operational Mindset');
   const [isCreatingTeamMember, setIsCreatingTeamMember] = useState(false);
+  const [teamMemberDrafts, setTeamMemberDrafts] = useState<Record<string, {
+    name: string;
+    role: string;
+    sortOrder: string;
+    collaborationHeader: string;
+    collaborationDescription: string;
+    traitOne: string;
+    traitTwo: string;
+    traitThree: string;
+  }>>({});
 
   const isTeamMembersTableMissing = (error: any) => {
     const message = String(error?.message || '').toLowerCase();
@@ -844,7 +872,7 @@ const AdminView: React.FC<Props> = ({
 
   const fetchTeamMembers = async () => {
     setIsLoadingTeamMembers(true);
-    const { data, error } = await supabase.from('team_members').select('id, name, role, photo_url, sort_order').order('sort_order');
+    const { data, error } = await supabase.from('team_members').select('id, name, role, photo_url, sort_order, collaboration_header, collaboration_description, trait_one, trait_two, trait_three').order('sort_order');
     if (error) {
       if (isTeamMembersTableMissing(error)) {
         toast('Missing table: public.team_members. Run the latest Supabase migration and refresh.', 'error');
@@ -855,7 +883,19 @@ const AdminView: React.FC<Props> = ({
       setIsLoadingTeamMembers(false);
       return;
     }
-    if (data) setTeamMembers(data);
+    if (data) {
+      setTeamMembers(data);
+      setTeamMemberDrafts(Object.fromEntries(data.map((member) => [member.id, {
+        name: member.name,
+        role: member.role,
+        sortOrder: String(member.sort_order ?? 0),
+        collaborationHeader: member.collaboration_header || 'Collaboration Style',
+        collaborationDescription: member.collaboration_description || 'Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.',
+        traitOne: member.trait_one || 'Customer Focused',
+        traitTwo: member.trait_two || 'Fast Iteration',
+        traitThree: member.trait_three || 'Operational Mindset',
+      }])));
+    }
     setIsLoadingTeamMembers(false);
   };
 
@@ -904,6 +944,11 @@ const AdminView: React.FC<Props> = ({
       role: newTeamMemberRole.trim(),
       sort_order: safeSortOrder,
       photo_url: photoUrl,
+      collaboration_header: newTeamMemberCollaborationHeader.trim() || 'Collaboration Style',
+      collaboration_description: newTeamMemberCollaborationDescription.trim() || 'Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.',
+      trait_one: newTeamMemberTraitOne.trim() || 'Customer Focused',
+      trait_two: newTeamMemberTraitTwo.trim() || 'Fast Iteration',
+      trait_three: newTeamMemberTraitThree.trim() || 'Operational Mindset',
     });
 
     if (error) {
@@ -921,6 +966,11 @@ const AdminView: React.FC<Props> = ({
     setNewTeamMemberRole('');
     setNewTeamMemberSortOrder('0');
     setNewTeamMemberPhotoFile(null);
+    setNewTeamMemberCollaborationHeader('Collaboration Style');
+    setNewTeamMemberCollaborationDescription('Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.');
+    setNewTeamMemberTraitOne('Customer Focused');
+    setNewTeamMemberTraitTwo('Fast Iteration');
+    setNewTeamMemberTraitThree('Operational Mindset');
     await fetchTeamMembers();
     setIsCreatingTeamMember(false);
   };
@@ -930,6 +980,79 @@ const AdminView: React.FC<Props> = ({
     setNewTeamMemberPhotoFile(file);
     setNewTeamMemberCropFile(null);
     toast('Cropped photo ready', 'success');
+  };
+
+  const updateTeamMemberDraft = (memberId: string, field: keyof typeof teamMemberDrafts[string], value: string) => {
+    setTeamMemberDrafts((prev) => ({
+      ...prev,
+      [memberId]: {
+        ...prev[memberId],
+        [field]: value,
+      },
+    }));
+  };
+
+  const saveTeamMember = async (memberId: string) => {
+    const draft = teamMemberDrafts[memberId];
+    if (!draft || !draft.name.trim() || !draft.role.trim()) {
+      toast('Name and role are required', 'error');
+      return;
+    }
+
+    setEditingTeamMemberId(memberId);
+    const parsedSortOrder = Number.parseInt(draft.sortOrder, 10);
+    const safeSortOrder = Number.isNaN(parsedSortOrder) ? 0 : parsedSortOrder;
+
+    const { error } = await supabase.from('team_members').update({
+      name: draft.name.trim(),
+      role: draft.role.trim(),
+      sort_order: safeSortOrder,
+      collaboration_header: draft.collaborationHeader.trim() || 'Collaboration Style',
+      collaboration_description: draft.collaborationDescription.trim() || 'Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.',
+      trait_one: draft.traitOne.trim() || 'Customer Focused',
+      trait_two: draft.traitTwo.trim() || 'Fast Iteration',
+      trait_three: draft.traitThree.trim() || 'Operational Mindset',
+    }).eq('id', memberId);
+
+    if (error) {
+      if (isTeamMembersTableMissing(error)) {
+        toast('Missing table: public.team_members. Run the latest Supabase migration and refresh.', 'error');
+      } else {
+        toast(error.message || 'Failed to update team member', 'error');
+      }
+      setEditingTeamMemberId(null);
+      return;
+    }
+
+    toast('Team member updated', 'success');
+    await fetchTeamMembers();
+    setEditingTeamMemberId(null);
+  };
+
+  const handleTeamMemberPhotoCropped = async (blob: Blob) => {
+    if (!teamMemberCropTargetId) {
+      setNewTeamMemberCropFile(null);
+      return;
+    }
+
+    setUploadingTeamMemberId(teamMemberCropTargetId);
+    try {
+      const file = new File([blob], `team-member-${Date.now()}.png`, { type: 'image/png' });
+      const url = await uploadImage(file, 'quickserve', 'team-photos');
+      const { error } = await supabase.from('team_members').update({ photo_url: url }).eq('id', teamMemberCropTargetId);
+      if (error) throw error;
+      toast('Photo updated!', 'success');
+      await fetchTeamMembers();
+    } catch (err: any) {
+      if (isTeamMembersTableMissing(err)) {
+        toast('Missing table: public.team_members. Run the latest Supabase migration and refresh.', 'error');
+      } else {
+        toast(err.message || 'Upload failed', 'error');
+      }
+    }
+    setUploadingTeamMemberId(null);
+    setTeamMemberCropTargetId(null);
+    setNewTeamMemberCropFile(null);
   };
 
   const fetchAnnouncements = async () => {
@@ -2492,6 +2615,45 @@ const AdminView: React.FC<Props> = ({
                       {isCreatingTeamMember ? <><RefreshCw size={11} className="animate-spin" /> Adding...</> : <><Plus size={11} /> Add Member</>}
                     </button>
                   </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
+                    <input
+                      type="text"
+                      placeholder="Collaboration header"
+                      value={newTeamMemberCollaborationHeader}
+                      onChange={(e) => setNewTeamMemberCollaborationHeader(e.target.value)}
+                      className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                    />
+                    <textarea
+                      rows={3}
+                      placeholder="Collaboration description"
+                      value={newTeamMemberCollaborationDescription}
+                      onChange={(e) => setNewTeamMemberCollaborationDescription(e.target.value)}
+                      className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500 resize-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                    <input
+                      type="text"
+                      placeholder="Trait 1"
+                      value={newTeamMemberTraitOne}
+                      onChange={(e) => setNewTeamMemberTraitOne(e.target.value)}
+                      className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Trait 2"
+                      value={newTeamMemberTraitTwo}
+                      onChange={(e) => setNewTeamMemberTraitTwo(e.target.value)}
+                      className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Trait 3"
+                      value={newTeamMemberTraitThree}
+                      onChange={(e) => setNewTeamMemberTraitThree(e.target.value)}
+                      className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                    />
+                  </div>
                   {newTeamMemberPhotoFile && (
                     <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/30 px-3 py-2.5">
                       <p className="text-[11px] font-bold text-orange-700 dark:text-orange-300 truncate">Photo ready: {newTeamMemberPhotoFile.name}</p>
@@ -2514,21 +2676,69 @@ const AdminView: React.FC<Props> = ({
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {teamMembers.map((member) => (
-                      <div key={member.id} className="bg-white dark:bg-gray-900/50 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 flex flex-col items-center gap-3 text-center">
+                      <div key={member.id} className="bg-white dark:bg-gray-900/50 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 flex flex-col gap-4">
                         {member.photo_url ? (
                           <img
                             src={member.photo_url}
                             alt={member.name}
-                            className="w-20 h-20 rounded-full object-cover border-2 border-orange-500/30"
+                            className="w-20 h-20 rounded-full object-cover border-2 border-orange-500/30 mx-auto"
                           />
                         ) : (
-                          <div className="w-20 h-20 rounded-full bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-200 dark:border-orange-800 flex items-center justify-center">
+                          <div className="w-20 h-20 rounded-full bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-200 dark:border-orange-800 flex items-center justify-center mx-auto">
                             <span className="text-orange-500 font-black text-2xl">{member.name.charAt(0)}</span>
                           </div>
                         )}
-                        <div>
-                          <p className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tight">{member.name}</p>
-                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-0.5">{member.role}</p>
+                        <div className="grid grid-cols-1 gap-3">
+                          <input
+                            type="text"
+                            value={teamMemberDrafts[member.id]?.name || ''}
+                            onChange={(e) => updateTeamMemberDraft(member.id, 'name', e.target.value)}
+                            className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                          />
+                          <input
+                            type="text"
+                            value={teamMemberDrafts[member.id]?.role || ''}
+                            onChange={(e) => updateTeamMemberDraft(member.id, 'role', e.target.value)}
+                            className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                          />
+                          <input
+                            type="number"
+                            value={teamMemberDrafts[member.id]?.sortOrder || '0'}
+                            onChange={(e) => updateTeamMemberDraft(member.id, 'sortOrder', e.target.value)}
+                            className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                          />
+                          <input
+                            type="text"
+                            value={teamMemberDrafts[member.id]?.collaborationHeader || ''}
+                            onChange={(e) => updateTeamMemberDraft(member.id, 'collaborationHeader', e.target.value)}
+                            className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                          />
+                          <textarea
+                            rows={3}
+                            value={teamMemberDrafts[member.id]?.collaborationDescription || ''}
+                            onChange={(e) => updateTeamMemberDraft(member.id, 'collaborationDescription', e.target.value)}
+                            className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500 resize-none"
+                          />
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                            <input
+                              type="text"
+                              value={teamMemberDrafts[member.id]?.traitOne || ''}
+                              onChange={(e) => updateTeamMemberDraft(member.id, 'traitOne', e.target.value)}
+                              className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                            />
+                            <input
+                              type="text"
+                              value={teamMemberDrafts[member.id]?.traitTwo || ''}
+                              onChange={(e) => updateTeamMemberDraft(member.id, 'traitTwo', e.target.value)}
+                              className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                            />
+                            <input
+                              type="text"
+                              value={teamMemberDrafts[member.id]?.traitThree || ''}
+                              onChange={(e) => updateTeamMemberDraft(member.id, 'traitThree', e.target.value)}
+                              className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                            />
+                          </div>
                         </div>
                         <label className="w-full cursor-pointer">
                           <input
@@ -2538,7 +2748,10 @@ const AdminView: React.FC<Props> = ({
                             disabled={uploadingTeamMemberId === member.id}
                             onChange={(e) => {
                               const file = e.target.files?.[0];
-                              if (file) handleTeamMemberPhotoUpload(member.id, file);
+                              if (file) {
+                                setTeamMemberCropTargetId(member.id);
+                                setNewTeamMemberCropFile(file);
+                              }
                               e.target.value = '';
                             }}
                           />
@@ -2554,6 +2767,14 @@ const AdminView: React.FC<Props> = ({
                             )}
                           </div>
                         </label>
+                        <button
+                          type="button"
+                          onClick={() => saveTeamMember(member.id)}
+                          disabled={editingTeamMemberId === member.id}
+                          className="w-full px-4 py-2.5 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-colors disabled:opacity-60 inline-flex items-center justify-center gap-2"
+                        >
+                          {editingTeamMemberId === member.id ? <><RefreshCw size={11} className="animate-spin" /> Saving...</> : 'Save Changes'}
+                        </button>
                       </div>
                     ))}
                   </div>
