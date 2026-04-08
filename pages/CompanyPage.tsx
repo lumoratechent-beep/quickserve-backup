@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Globe,
   ArrowLeft,
+  ArrowUpRight,
   Sun,
   Moon,
   MapPin,
   MessageSquare,
   ShieldCheck,
   ExternalLink,
+  Star,
   Sparkles,
-  Cpu,
-  Rocket,
-  Users,
   ChevronRight,
   Menu,
   X,
+  Globe,
+  Users,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -61,10 +61,13 @@ type ValueTab = {
 
 const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetStarted, onLogin }) => {
   const heroRef = useInView();
+  const statsRef = useInView();
   const aboutRef = useInView();
   const teamRef = useInView();
+  const showcaseRef = useInView();
   const mapRef = useInView();
   const joinRef = useInView();
+  const reviewsRef = useInView();
 
   const [teamMembers, setTeamMembers] = useState<{
     id: string;
@@ -82,28 +85,10 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [activeValue, setActiveValue] = useState<'mission' | 'vision' | 'promise'>('mission');
-  const [activeSpotlight, setActiveSpotlight] = useState(0);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const spotlightCards = [
-    {
-      icon: <Rocket size={16} />,
-      title: 'Fast Launch',
-      text: 'Set up your digital ordering workflow in minutes with low setup friction.',
-    },
-    {
-      icon: <Cpu size={16} />,
-      title: 'Practical Systems',
-      text: 'QuickServe is designed for daily operations, not complicated dashboards.',
-    },
-    {
-      icon: <Users size={16} />,
-      title: 'Human Support',
-      text: 'Real team guidance from onboarding to optimization as your business grows.',
-    },
-  ];
+  const [hoveredStat, setHoveredStat] = useState<number | null>(null);
 
   const valueTabs: ValueTab[] = [
     {
@@ -130,20 +115,31 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
   ];
 
   const activeValueData = valueTabs.find((tab) => tab.id === activeValue) ?? valueTabs[0];
-  const teamRows = (() => {
-    const totalMembers = teamMembers.length;
 
-    if (totalMembers <= 3) return [teamMembers];
-    if (totalMembers === 4) return [teamMembers.slice(0, 2), teamMembers.slice(2, 4)];
-    if (totalMembers === 5) return [teamMembers.slice(0, 3), teamMembers.slice(3, 5)];
-    if (totalMembers === 6) return [teamMembers.slice(0, 3), teamMembers.slice(3, 6)];
+  const stats = [
+    { value: 'JR0174591U', label: 'SSM Registration', sublabel: 'Malaysia' },
+    { value: 'All-in-One', label: 'POS Platform', sublabel: 'F&B Operations' },
+    { value: 'QR + POS', label: 'Ordering System', sublabel: 'Multi-Channel' },
+    { value: '24/7', label: 'System Uptime', sublabel: 'Cloud Based' },
+  ];
 
-    const rows: typeof teamMembers[] = [];
-    for (let index = 0; index < totalMembers; index += 3) {
-      rows.push(teamMembers.slice(index, index + 3));
-    }
-    return rows;
-  })();
+  const reviews = [
+    {
+      text: 'QuickServe simplified our entire ordering workflow. Setup was fast and the team has been incredibly responsive to our feedback.',
+      author: 'Restaurant Owner',
+      rating: 5,
+    },
+    {
+      text: "The all-in-one POS system handles everything from QR ordering to kitchen display. It's exactly what our growing F&B business needed.",
+      author: 'F&B Manager',
+      rating: 5,
+    },
+    {
+      text: "Lumora Tech's commitment to practical solutions shows in every feature. Transparent pricing and reliable uptime — consistently great.",
+      author: 'Operations Lead',
+      rating: 5,
+    },
+  ];
 
   useEffect(() => {
     setMounted(true);
@@ -151,17 +147,14 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
-    supabase.from('team_members').select('id, name, role, photo_url, sort_order, collaboration_header, collaboration_description, trait_one, trait_two, trait_three').order('sort_order').then(({ data }) => {
-      if (data) setTeamMembers(data);
-    });
+    supabase
+      .from('team_members')
+      .select('id, name, role, photo_url, sort_order, collaboration_header, collaboration_description, trait_one, trait_two, trait_three')
+      .order('sort_order')
+      .then(({ data }) => {
+        if (data) setTeamMembers(data);
+      });
   }, []);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setActiveSpotlight((prev) => (prev + 1) % spotlightCards.length);
-    }, 4200);
-    return () => window.clearInterval(timer);
-  }, [spotlightCards.length]);
 
   const handleChange = (field: keyof typeof joinForm, value: string) => {
     setJoinForm((prev) => ({ ...prev, [field]: value }));
@@ -196,214 +189,266 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f8f5] dark:bg-[#0f131a] font-sans overflow-x-hidden text-gray-900 dark:text-white pt-20 sm:pt-24">
+    <div className="min-h-screen bg-white dark:bg-[#0b1120] font-sans overflow-x-hidden text-gray-900 dark:text-white">
+
+      {/* ── NAVIGATION ── */}
       <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${mounted ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
-        <div className="mx-auto max-w-7xl px-3 sm:px-6">
-          <div className="mt-4 flex items-center h-14 sm:h-16 px-3 sm:px-6 bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg shadow-black/5">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3">
+          <div className="flex items-center h-14 px-4 sm:px-6 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-full border border-gray-200/60 dark:border-gray-700/50 shadow-lg shadow-black/[0.03]">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-orange-50 dark:hover:bg-gray-700 hover:text-orange-500 transition-all mr-2"
+              className="md:hidden p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all mr-2"
             >
               {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
+
             <div className="flex items-center gap-2">
-              <img src="/LOGO/9.png" alt="QuickServe" className="h-8 sm:h-9 dark:hidden" />
-              <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-8 sm:h-9 hidden dark:block" />
+              <img src="/LOGO/9.png" alt="QuickServe" className="h-8 dark:hidden" />
+              <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-8 hidden dark:block" />
             </div>
-            <div className="hidden md:flex items-center gap-8 text-[11px] font-bold text-gray-700 dark:text-gray-400 uppercase tracking-[0.15em] mx-auto">
-              <button onClick={onBack} className="hover:text-orange-500 transition-colors">HOME</button>
-              <a href="#about" className="hover:text-orange-500 transition-colors">About</a>
-              <a href="#team" className="hover:text-orange-500 transition-colors">Team</a>
-              <a href="#location" className="hover:text-orange-500 transition-colors">Location</a>
-              <a href="#careers" className="hover:text-orange-500 transition-colors">Careers</a>
+
+            <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-500 dark:text-gray-400 mx-auto">
+              <button onClick={onBack} className="hover:text-gray-900 dark:hover:text-white transition-colors">Home</button>
+              <a href="#about" className="text-gray-900 dark:text-white font-semibold">About</a>
+              <a href="#team" className="hover:text-gray-900 dark:hover:text-white transition-colors">Team</a>
+              <a href="#location" className="hover:text-gray-900 dark:hover:text-white transition-colors">Location</a>
+              <a href="#careers" className="hover:text-gray-900 dark:hover:text-white transition-colors">Careers</a>
             </div>
+
             <div className="flex-1 md:hidden" />
-            <div className="flex items-center gap-2 sm:gap-3">
+
+            <div className="flex items-center gap-2">
               <button
                 onClick={onToggleDark}
-                className="p-2 sm:p-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-orange-50 dark:hover:bg-gray-700 hover:text-orange-500 transition-all"
-                title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+                className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
+                title={isDarkMode ? 'Light mode' : 'Dark mode'}
               >
                 {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
               </button>
               <button
                 onClick={onLogin}
-                className="px-3 sm:px-5 py-2 sm:py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] sm:text-[11px] uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all hover:scale-105"
+                className="hidden sm:block text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors px-3"
               >
-                Login
+                Log in
+              </button>
+              <button
+                onClick={onGetStarted}
+                className="px-5 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full text-sm font-semibold hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all"
+              >
+                Started for Free
               </button>
             </div>
           </div>
 
-          <div className={`md:hidden overflow-hidden transition-all duration-300 ${mobileMenuOpen ? 'max-h-64 mt-2' : 'max-h-0'}`}>
-            <div className="flex flex-col gap-1 px-3 py-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg shadow-black/5">
-              {[
-                { type: 'button', label: 'HOME' },
-                { href: '#about', label: 'About' },
-                { href: '#team', label: 'Team' },
-                { href: '#location', label: 'Location' },
-                { href: '#careers', label: 'Careers' },
-              ].map((link) => (
-                'type' in link ? (
-                  <button
-                    key={link.label}
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      onBack();
-                    }}
-                    className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-[0.15em] hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-800 rounded-xl transition-all"
-                  >
-                    {link.label}
-                  </button>
-                ) : (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="px-4 py-2.5 text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-[0.15em] hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-800 rounded-xl transition-all"
-                >
-                  {link.label}
-                </a>
-                )
-              ))}
+          {/* Mobile menu */}
+          <div className={`md:hidden overflow-hidden transition-all duration-300 ${mobileMenuOpen ? 'max-h-72 mt-2' : 'max-h-0'}`}>
+            <div className="flex flex-col gap-1 p-3 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-gray-200/60 dark:border-gray-700/50 shadow-lg">
+              <button onClick={() => { setMobileMenuOpen(false); onBack(); }} className="px-4 py-2.5 text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-orange-500 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-all">
+                Home
+              </button>
+              {['#about|About', '#team|Team', '#location|Location', '#careers|Careers'].map((item) => {
+                const [href, label] = item.split('|');
+                return (
+                  <a key={href} href={href} onClick={() => setMobileMenuOpen(false)} className="px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-orange-500 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-all">
+                    {label}
+                  </a>
+                );
+              })}
+              <button onClick={() => { setMobileMenuOpen(false); onLogin(); }} className="px-4 py-2.5 text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-orange-500 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-all sm:hidden">
+                Log in
+              </button>
             </div>
           </div>
         </div>
       </nav>
 
-      <section
-        ref={heroRef.ref}
-        className="relative px-4 sm:px-6 pt-12 sm:pt-16 pb-16 sm:pb-20 overflow-hidden bg-[radial-gradient(circle_at_20%_20%,rgba(251,146,60,0.22),transparent_45%),radial-gradient(circle_at_80%_15%,rgba(16,185,129,0.18),transparent_40%),linear-gradient(180deg,#171a21_0%,#11141b_100%)]"
-      >
-        <div className="absolute -left-24 top-24 w-72 h-72 rounded-full bg-orange-500/20 blur-[110px] pointer-events-none" />
-        <div className="absolute -right-16 bottom-8 w-64 h-64 rounded-full bg-teal-500/20 blur-[110px] pointer-events-none" />
-
-        <div className={`max-w-7xl mx-auto relative z-10 transition-all duration-700 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-10 items-start">
-            <div className="lg:col-span-3">
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-orange-300 text-[10px] font-black uppercase tracking-[0.25em]">
-                <Sparkles size={12} /> Built by Lumora Tech
-              </span>
-              <h1 className="mt-5 text-4xl sm:text-5xl lg:text-6xl font-black text-white uppercase tracking-tight leading-[0.95]">
-                Systems That
-                <br className="hidden sm:block" />
-                Move Businesses Forward
-              </h1>
-              <p className="mt-5 max-w-2xl text-sm sm:text-base text-gray-300 font-medium leading-relaxed">
-                Lumora Tech (JR0174591U) builds practical technology for ambitious teams. We started in device solutions and are now expanding with QuickServe, a modern all-in-one platform for F and B operations.
-              </p>
-
-              <div className="mt-7 flex flex-wrap items-center gap-3">
-                <button
-                  onClick={onGetStarted}
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-black uppercase tracking-widest transition-all"
-                >
-                  Launch QuickServe <ChevronRight size={13} />
-                </button>
-                <a
-                  href="https://www.linkedin.com/company/lumora-tech/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-white/20 text-white text-[11px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
-                >
-                  <Globe size={13} /> LinkedIn
-                </a>
-                <a
-                  href="https://wa.me/601154036303?text=Hello%2C%20I%20am%20interested%20to%20know%20about%20Lumora%20Tech"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-white/20 text-white text-[11px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
-                >
-                  <MessageSquare size={13} /> WhatsApp
-                </a>
+      {/* ── HERO ── */}
+      <section ref={heroRef.ref} className="pt-36 sm:pt-40 pb-20 sm:pb-28 px-4 sm:px-6">
+        <div className={`max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center transition-all duration-700 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <div>
+            <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight leading-[1.08]">
+              Fuel Your{' '}
+              <span className="text-orange-500 italic">Business</span>
+              <br />
+              with Advanced Tech
+            </h1>
+            <p className="mt-6 text-base sm:text-lg text-gray-500 dark:text-gray-400 max-w-lg leading-relaxed">
+              Leverage the power of advanced technology to streamline operations and drive growth. Stay ahead with innovative solutions built for the future.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-4">
+              <button
+                onClick={onGetStarted}
+                className="inline-flex items-center gap-2 px-7 py-3.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full font-semibold text-sm hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all hover:shadow-lg hover:shadow-orange-500/25"
+              >
+                Get Started for Free
+              </button>
+              <div className="flex items-center gap-2">
+                <Star size={18} className="fill-yellow-400 text-yellow-400" />
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">4.5</span>
               </div>
-
             </div>
+            <div className="mt-10 flex items-center gap-3">
+              <div className="flex -space-x-2">
+                {teamMembers.slice(0, 3).map((m) =>
+                  m.photo_url ? (
+                    <img key={m.id} src={m.photo_url} alt="" className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-900 object-cover" />
+                  ) : (
+                    <div key={m.id} className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-900 bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-xs font-bold text-orange-500">
+                      {m.name.charAt(0)}
+                    </div>
+                  ),
+                )}
+              </div>
+              {teamMembers.length > 0 && <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">Built by the Lumora team</span>}
+            </div>
+          </div>
 
-            <div className="lg:col-span-2">
-              <div className="rounded-3xl border border-white/15 bg-white/10 p-5 sm:p-6 backdrop-blur-md">
-                <p className="text-[10px] uppercase tracking-widest text-orange-300 font-black">Spotlight</p>
-                <h3 className="mt-2 text-xl text-white font-black uppercase">How We Work</h3>
-                <div className="mt-4 space-y-3">
-                  {spotlightCards.map((card, idx) => (
-                    <button
-                      key={card.title}
-                      type="button"
-                      onClick={() => setActiveSpotlight(idx)}
-                      className={`w-full text-left rounded-2xl border p-4 transition-all ${activeSpotlight === idx ? 'border-orange-300 bg-orange-500/20 text-white' : 'border-white/15 bg-black/20 text-gray-300 hover:bg-white/10'}`}
-                    >
-                      <p className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-widest">
-                        {card.icon} {card.title}
-                      </p>
-                      <p className="mt-2 text-xs leading-relaxed font-medium">{card.text}</p>
-                    </button>
-                  ))}
+          <div className="relative">
+            <div className="rounded-3xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900 aspect-[4/3] shadow-2xl shadow-black/10 flex items-center justify-center">
+              <div className="text-center p-8">
+                <img src="/LOGO/9.png" alt="QuickServe" className="h-14 sm:h-16 mx-auto mb-4 dark:hidden" />
+                <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-14 sm:h-16 mx-auto mb-4 hidden dark:block" />
+                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">All-in-One F&B Platform</p>
+              </div>
+            </div>
+            {teamMembers.length > 0 && (
+              <div className="absolute -bottom-4 left-6 sm:left-10 bg-white dark:bg-gray-800 rounded-2xl px-5 py-3 shadow-xl shadow-black/10 border border-gray-100 dark:border-gray-700 flex items-center gap-3">
+                <div className="flex -space-x-1.5">
+                  {teamMembers.slice(0, 2).map((m) =>
+                    m.photo_url ? (
+                      <img key={`badge-${m.id}`} src={m.photo_url} alt="" className="w-7 h-7 rounded-full border-2 border-white dark:border-gray-800 object-cover" />
+                    ) : (
+                      <div key={`badge-${m.id}`} className="w-7 h-7 rounded-full border-2 border-white dark:border-gray-800 bg-orange-100 flex items-center justify-center text-[10px] font-bold text-orange-500">
+                        {m.name.charAt(0)}
+                      </div>
+                    ),
+                  )}
                 </div>
+                <span className="text-sm font-bold text-gray-900 dark:text-white">Lumora Team</span>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </section>
 
-      <section id="about" className="relative py-16 sm:py-20 px-4 sm:px-6 overflow-hidden bg-gradient-to-b from-[#f6f5f1] via-[#f4f3ee] to-[#f1f1ec] dark:from-[#141920] dark:via-[#151c24] dark:to-[#16202a]">
+      {/* ── STATS ── */}
+      <section ref={statsRef.ref} className="py-20 px-4 sm:px-6 border-t border-gray-100 dark:border-gray-800/50">
+        <div className={`max-w-7xl mx-auto transition-all duration-700 delay-100 ${statsRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+            <div>
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight">
+                Empowering your
+                <br />
+                success <span className="text-orange-500 italic">with our</span>
+                <br />
+                solutions
+              </h2>
+            </div>
+            <div className="grid grid-cols-2 gap-8">
+              {stats.map((stat, idx) => (
+                <div
+                  key={idx}
+                  className="group cursor-default"
+                  onMouseEnter={() => setHoveredStat(idx)}
+                  onMouseLeave={() => setHoveredStat(null)}
+                >
+                  <p className={`text-2xl sm:text-3xl font-extrabold transition-colors duration-300 ${hoveredStat === idx ? 'text-orange-500' : 'text-gray-900 dark:text-white'}`}>
+                    {stat.value}
+                  </p>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-1">{stat.label}</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">{stat.sublabel}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="mt-16 max-w-3xl">
+            <p className="text-base sm:text-lg text-gray-500 dark:text-gray-400 leading-relaxed">
+              Struggling to stay organized? Our users found the perfect solution with QuickServe. By simplifying ordering and boosting team collaboration, they&apos;ve achieved more in less time.{' '}
+              <span className="text-gray-900 dark:text-white font-semibold">Join businesses who&apos;ve transformed chaos into productivity.</span>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── DISCOVER / ABOUT ── */}
+      <section id="about" className="py-20 px-4 sm:px-6 bg-gray-50/80 dark:bg-gray-900/30">
         <div ref={aboutRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${aboutRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="rounded-3xl border border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-[#0f141b]/80 p-6 sm:p-8">
-              <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em]">About Lumora</p>
-              <h2 className="mt-3 text-3xl font-black uppercase tracking-tight">From Repair Services To Smart Operations</h2>
-              <div className="mt-5 space-y-4 text-sm leading-relaxed text-gray-700 dark:text-gray-300 font-medium">
+          <div className="text-center mb-14">
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+              Discover our <span className="text-orange-500 italic">QuickServe</span>
+            </h2>
+            <p className="mt-4 text-gray-500 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed">
+              Unleash the full potential of your F&B business with QuickServe. Organize, collaborate, and achieve more with ease.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="rounded-3xl bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 p-7 sm:p-9 hover:shadow-xl hover:shadow-black/[0.04] transition-all duration-500">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-50 dark:bg-orange-950/30 text-orange-500 text-xs font-semibold mb-5">
+                <Sparkles size={14} /> About Lumora
+              </div>
+              <h3 className="text-2xl font-extrabold tracking-tight">From Repair Services to Smart Operations</h3>
+              <div className="mt-5 space-y-4 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                 <p>Lumora Tech started as a trusted device service provider and grew through consistency, technical depth, and customer trust.</p>
                 <p>Today, with QuickServe, we are bringing the same practical approach into restaurant operations through QR ordering, table workflows, kitchen display support, and staff POS in one connected system.</p>
                 <p>Our direction is simple: practical products, transparent pricing, and a long-term commitment to customer growth.</p>
               </div>
-              <div className="mt-6 rounded-2xl bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/40 p-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">Company Registration</p>
-                <p className="text-2xl font-black mt-1 text-gray-900 dark:text-white">JR0174591U</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold mt-1">SSM Registered - Malaysia</p>
+              <div className="mt-6 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50 p-5">
+                <p className="text-xs font-semibold uppercase tracking-wider text-orange-500 mb-1">Company Registration</p>
+                <p className="text-2xl font-extrabold text-gray-900 dark:text-white">JR0174591U</p>
+                <p className="text-xs text-gray-500 mt-1">SSM Registered — Malaysia</p>
               </div>
             </div>
 
-            <div className="rounded-3xl border border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-[#0f141b]/80 p-5 sm:p-6">
-              <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em]">Core Values</p>
-              <div className="mt-4 grid grid-cols-3 gap-2">
+            <div className="rounded-3xl bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 p-7 sm:p-9 hover:shadow-xl hover:shadow-black/[0.04] transition-all duration-500">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-50 dark:bg-orange-950/30 text-orange-500 text-xs font-semibold mb-5">
+                <ShieldCheck size={14} /> Core Values
+              </div>
+              <div className="flex gap-2 mb-6">
                 {valueTabs.map((tab) => (
                   <button
                     key={tab.id}
-                    type="button"
                     onClick={() => setActiveValue(tab.id)}
-                    className={`rounded-xl py-2 px-3 text-[10px] font-black uppercase tracking-widest transition-all ${activeValue === tab.id ? 'bg-orange-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-300 hover:text-orange-500'}`}
+                    className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${
+                      activeValue === tab.id
+                        ? 'bg-orange-500 text-white shadow-md shadow-orange-500/25'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                    }`}
                   >
                     {tab.title}
                   </button>
                 ))}
               </div>
 
-              <div className="mt-5 rounded-2xl border border-gray-200 dark:border-gray-800 bg-gradient-to-br from-white to-orange-50 dark:from-[#131a23] dark:to-[#1b2530] p-5 min-h-52">
-                <h3 className="text-xl font-black uppercase tracking-tight">{activeValueData.headline}</h3>
-                <p className="mt-3 text-sm text-gray-600 dark:text-gray-300 leading-relaxed font-medium">{activeValueData.description}</p>
-                <div className="mt-4 space-y-2">
+              <div className="rounded-2xl bg-gradient-to-br from-gray-50 to-white dark:from-gray-800/50 dark:to-gray-900 border border-gray-100 dark:border-gray-800 p-6 min-h-[220px]">
+                <h3 className="text-xl font-extrabold tracking-tight">{activeValueData.headline}</h3>
+                <p className="mt-3 text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{activeValueData.description}</p>
+                <div className="mt-5 space-y-2.5">
                   {activeValueData.points.map((point) => (
-                    <p key={point} className="text-xs font-bold text-gray-700 dark:text-gray-200 inline-flex items-center gap-2">
-                      <ShieldCheck size={14} className="text-orange-500" /> {point}
-                    </p>
+                    <div key={point} className="flex items-center gap-2.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <div className="w-5 h-5 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
+                        <ShieldCheck size={12} className="text-orange-500" />
+                      </div>
+                      {point}
+                    </div>
                   ))}
                 </div>
               </div>
 
-              <div className="mt-5 flex flex-wrap gap-2">
+              <div className="mt-6 flex flex-wrap gap-3">
                 <a
                   href="https://www.linkedin.com/company/lumora-tech/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-[10px] font-black uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full text-sm font-semibold hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all"
                 >
-                  <Globe size={13} /> Follow Updates
+                  <Globe size={14} /> Follow Updates
                 </a>
                 <a
                   href="mailto:lumoratech.ent@gmail.com"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 text-[10px] font-black uppercase tracking-widest hover:border-orange-400 hover:text-orange-500 transition-all"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:border-orange-400 hover:text-orange-500 transition-all"
                 >
-                  <MessageSquare size={13} /> Contact Us
+                  <MessageSquare size={14} /> Contact Us
                 </a>
               </div>
             </div>
@@ -411,121 +456,217 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
         </div>
       </section>
 
-      <section id="team" className="relative py-16 sm:py-20 px-4 sm:px-6 overflow-hidden bg-gradient-to-b from-[#f1f1ec] via-[#efefea] to-[#edede8] dark:from-[#16202a] dark:via-[#17222d] dark:to-[#182530]">
+      {/* ── PRODUCT SHOWCASE ── */}
+      <section ref={showcaseRef.ref} className="py-20 px-4 sm:px-6">
+        <div className={`max-w-7xl mx-auto transition-all duration-700 ${showcaseRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <div className="relative rounded-[2rem] overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 min-h-[360px] sm:min-h-[420px] flex items-center justify-center group cursor-pointer" onClick={onGetStarted}>
+            <p className="text-7xl sm:text-8xl lg:text-9xl font-black text-white/[0.06] uppercase tracking-tighter select-none">QuickServe</p>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/90 group-hover:bg-white flex items-center justify-center shadow-2xl shadow-black/20 transition-all group-hover:scale-110 mx-auto">
+                  <ChevronRight size={28} className="text-gray-900 ml-1" />
+                </div>
+                <p className="mt-4 text-sm font-semibold text-white/70">Explore Platform</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── TEAM ── */}
+      <section id="team" className="py-20 px-4 sm:px-6">
         <div ref={teamRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${teamRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="text-center mb-8 sm:mb-10">
-            <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Our Team</span>
-            <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tighter">People Behind The Product</h2>
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-12">
+            <div>
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+                The Faces of <span className="text-orange-500 italic">Innovation</span>
+              </h2>
+              <p className="mt-3 text-gray-500 dark:text-gray-400 max-w-lg">
+                Meet the team behind QuickServe — driven by innovation, committed to your success.
+              </p>
+            </div>
           </div>
 
           {teamMembers.length > 0 ? (
-            <div className="space-y-4 lg:space-y-5">
-              {teamRows.map((row, rowIndex) => {
-                const rowLength = row.length;
-                const rowGridClass = rowLength === 1
-                  ? 'grid grid-cols-1 max-w-xl mx-auto'
-                  : rowLength === 2
-                    ? 'grid grid-cols-1 md:grid-cols-2 max-w-5xl mx-auto'
-                    : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+              {teamMembers.map((member, idx) => {
+                const isSelected = selectedMemberId === member.id;
 
                 return (
-                  <div key={`row-${rowIndex}`} className={`${rowGridClass} gap-4 lg:gap-5 items-start`}>
-                    {row.map((member, memberIndex) => {
-                      const isSelected = selectedMemberId === member.id;
-                      const isRightEdge = memberIndex === rowLength - 1;
+                  <div
+                    key={member.id}
+                    className={`transition-all duration-500 ${isSelected ? 'sm:col-span-2 lg:col-span-2' : ''}`}
+                    style={{ transitionDelay: `${idx * 80}ms` }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMemberId((c) => (c === member.id ? null : member.id))}
+                      className="w-full text-left group"
+                    >
+                      <div className={`flex ${isSelected ? 'flex-col sm:flex-row gap-6' : 'flex-col'}`}>
+                        {/* Photo */}
+                        <div className={`rounded-3xl overflow-hidden bg-gray-100 dark:bg-gray-800 ${isSelected ? 'sm:w-72 sm:flex-shrink-0 aspect-[3/4]' : 'aspect-[3/4]'}`}>
+                          {member.photo_url ? (
+                            <img
+                              src={member.photo_url}
+                              alt={member.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/20 dark:to-orange-900/10">
+                              <span className="text-7xl font-black text-orange-300 dark:text-orange-700 select-none">{member.name.charAt(0)}</span>
+                            </div>
+                          )}
+                        </div>
 
-                      return (
-                        <button
-                          key={member.id}
-                          type="button"
-                          onClick={() => setSelectedMemberId((current) => current === member.id ? null : member.id)}
-                          className={`text-left rounded-3xl border p-4 sm:p-5 transition-all duration-300 ${isSelected ? 'md:col-span-2 border-orange-400 bg-orange-50 dark:bg-orange-900/20 shadow-lg shadow-orange-500/10' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:-translate-y-0.5 hover:shadow-md'}`}
-                          style={{ transitionDelay: `${(rowIndex * 3 + memberIndex) * 70}ms` }}
-                        >
-                          <div className={`flex flex-col gap-4 ${isSelected ? `lg:flex-row ${isRightEdge ? 'lg:flex-row-reverse' : ''} lg:items-start` : ''}`}>
-                            <div className={`flex items-center gap-3 ${isSelected ? 'lg:w-[16rem] lg:shrink-0' : ''}`}>
-                              {member.photo_url ? (
-                                <img
-                                  src={member.photo_url}
-                                  alt={member.name}
-                                  className={`${isSelected ? 'w-20 h-20 sm:w-24 sm:h-24 rounded-3xl' : 'w-14 h-14 rounded-2xl'} object-cover border border-orange-200 dark:border-orange-800`}
-                                />
-                              ) : (
-                                <div className={`${isSelected ? 'w-20 h-20 sm:w-24 sm:h-24 rounded-3xl' : 'w-14 h-14 rounded-2xl'} bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 flex items-center justify-center`}>
-                                  <span className={`${isSelected ? 'text-3xl' : 'text-xl'} text-orange-500 font-black`}>{member.name.charAt(0)}</span>
-                                </div>
-                              )}
-                              <div>
-                                <p className="text-sm sm:text-base font-black uppercase text-gray-900 dark:text-white">{member.name}</p>
-                                <p className="text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 mt-0.5">{member.role}</p>
+                        {/* Info */}
+                        <div className={isSelected ? 'flex-1' : ''}>
+                          <div className="flex items-center justify-between mt-4 px-1">
+                            <div>
+                              <p className="font-bold text-gray-900 dark:text-white text-base">{member.name}</p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{member.role}</p>
+                            </div>
+                            <div
+                              className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${
+                                isSelected
+                                  ? 'bg-orange-500 text-white rotate-45'
+                                  : 'bg-gray-100 dark:bg-gray-800 text-gray-400 group-hover:bg-orange-500 group-hover:text-white'
+                              }`}
+                            >
+                              <ArrowUpRight size={16} />
+                            </div>
+                          </div>
+
+                          {isSelected && (
+                            <div className="mt-5 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50 p-5">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-orange-500 mb-2">
+                                {member.collaboration_header || 'Collaboration Style'}
+                              </p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                                {member.collaboration_description ||
+                                  'Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.'}
+                              </p>
+                              <div className="mt-4 flex flex-wrap gap-2">
+                                {[member.trait_one || 'Customer Focused', member.trait_two || 'Fast Iteration', member.trait_three || 'Operational Mindset'].map(
+                                  (trait, traitIdx) => (
+                                    <span
+                                      key={`${member.id}-${traitIdx}`}
+                                      className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
+                                        traitIdx === 0
+                                          ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
+                                          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
+                                      }`}
+                                    >
+                                      {trait}
+                                    </span>
+                                  ),
+                                )}
                               </div>
                             </div>
-
-                            {isSelected && (
-                              <div className="flex-1 lg:min-w-0">
-                                <div className="rounded-2xl bg-white/70 dark:bg-gray-950/40 border border-orange-200/70 dark:border-orange-900/40 p-4 sm:p-5">
-                                  <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">{member.collaboration_header || 'Collaboration Style'}</p>
-                                  <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-medium">
-                                    {member.collaboration_description || 'Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.'}
-                                  </p>
-                                  <div className="mt-4 flex flex-wrap gap-2">
-                                    {[member.trait_one || 'Customer Focused', member.trait_two || 'Fast Iteration', member.trait_three || 'Operational Mindset'].map((trait, traitIdx) => (
-                                      <span
-                                        key={`${member.id}-${traitIdx}-${trait}`}
-                                        className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${traitIdx === 0 ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'}`}
-                                      >
-                                        {trait}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
+                          )}
+                        </div>
+                      </div>
+                    </button>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <div className="text-center py-10 text-gray-400 text-sm font-medium">Loading team...</div>
+            <div className="text-center py-16 text-gray-400 text-sm font-medium">Loading team...</div>
           )}
         </div>
       </section>
 
-      <section id="location" className="relative py-16 sm:py-20 px-4 sm:px-6 overflow-hidden bg-gradient-to-b from-[#edede8] via-[#ecebe6] to-[#ebeae5] dark:from-[#182530] dark:via-[#192733] dark:to-[#1a2936]">
+      {/* ── LOVED BY TEAMS ── */}
+      <section ref={reviewsRef.ref} className="py-20 px-4 sm:px-6 border-t border-gray-100 dark:border-gray-800/50">
+        <div className={`max-w-7xl mx-auto transition-all duration-700 ${reviewsRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-12">
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+              Loved by <span className="text-orange-500 italic">teams</span> around
+              <br className="hidden sm:block" /> the world
+            </h2>
+            <div className="flex items-center gap-2 sm:ml-auto">
+              <div className="flex -space-x-1.5">
+                {teamMembers.slice(0, 3).map((m) =>
+                  m.photo_url ? (
+                    <img key={`rev-${m.id}`} src={m.photo_url} alt="" className="w-7 h-7 rounded-full border-2 border-white dark:border-[#0b1120] object-cover" />
+                  ) : (
+                    <div key={`rev-${m.id}`} className="w-7 h-7 rounded-full border-2 border-white dark:border-[#0b1120] bg-orange-100 flex items-center justify-center text-[10px] font-bold text-orange-500">
+                      {m.name.charAt(0)}
+                    </div>
+                  ),
+                )}
+              </div>
+              {teamMembers.length > 0 && <span className="text-sm text-gray-500 font-medium">Trusted by teams</span>}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {reviews.map((review, idx) => (
+              <div
+                key={idx}
+                className="rounded-3xl bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 p-6 hover:shadow-xl hover:shadow-black/[0.04] transition-all duration-500 hover:-translate-y-1"
+              >
+                <div className="flex gap-0.5 mb-4">
+                  {Array.from({ length: review.rating }).map((_, i) => (
+                    <Star key={i} size={14} className="fill-yellow-400 text-yellow-400" />
+                  ))}
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{review.text}</p>
+                <div className="mt-5 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xs font-bold text-gray-500">{review.author.charAt(0)}</div>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{review.author}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── LOCATION ── */}
+      <section id="location" className="py-20 px-4 sm:px-6 bg-gray-50/80 dark:bg-gray-900/30">
         <div ref={mapRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${mapRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="text-center mb-8 sm:mb-10">
-            <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Visit Us</span>
-            <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tighter">Our Location</h2>
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+              Our <span className="text-orange-500 italic">Location</span>
+            </h2>
+            <p className="mt-3 text-gray-500 dark:text-gray-400">Visit us or get in touch anytime.</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-6 flex flex-col justify-between">
+            <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200/80 dark:border-gray-800 p-7 flex flex-col justify-between hover:shadow-xl hover:shadow-black/[0.04] transition-all duration-500">
               <div>
-                <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-orange-50 dark:bg-orange-950/30 flex items-center justify-center mb-5">
                   <MapPin size={22} className="text-orange-500" />
                 </div>
-                <p className="text-xs font-black text-orange-500 uppercase tracking-widest mb-1">Address</p>
-                <p className="text-sm font-bold text-gray-800 dark:text-gray-200 leading-relaxed">
+                <p className="text-xs font-semibold uppercase tracking-wider text-orange-500 mb-2">Address</p>
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-relaxed">
                   Lumora Tech Ent.
                   <br />
                   Jalan Juruanalisis UI/35, Seksyen U1, 40150 Shah Alam, Selangor
                 </p>
               </div>
-              <a
-                href="https://maps.app.goo.gl/LbvPzsx9y69htbkCA"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-6 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-orange-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
-              >
-                <ExternalLink size={12} /> Open in Google Maps
-              </a>
+              <div className="mt-6 space-y-3">
+                <a
+                  href="https://maps.app.goo.gl/LbvPzsx9y69htbkCA"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-full bg-orange-500 text-white font-semibold text-sm hover:bg-orange-600 transition-all hover:shadow-lg hover:shadow-orange-500/25"
+                >
+                  <ExternalLink size={14} /> Open in Google Maps
+                </a>
+                <a
+                  href="https://wa.me/601154036303?text=Hello%2C%20I%20am%20interested%20to%20know%20about%20Lumora%20Tech"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-full border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:border-orange-400 hover:text-orange-500 transition-all"
+                >
+                  <MessageSquare size={14} /> WhatsApp Us
+                </a>
+              </div>
             </div>
 
-            <div className="lg:col-span-2 rounded-3xl overflow-hidden border border-gray-200 dark:border-gray-800 h-80 sm:h-96">
+            <div className="lg:col-span-2 rounded-3xl overflow-hidden border border-gray-200/80 dark:border-gray-800 h-80 sm:h-96 hover:shadow-xl transition-all duration-500">
               <iframe
                 title="Lumora Tech Location"
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3984.049003914267!2d101.56005191126862!3d3.0815952535497564!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31cc4d2289f72555%3A0x932d7efba279d7fb!2sLumora%20Tech%20Ent.!5e0!3m2!1sen!2smy!4v1775634323783!5m2!1sen!2smy"
@@ -540,13 +681,13 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
             </div>
           </div>
 
-          <p className="mt-4 text-center text-xs text-gray-500 dark:text-gray-400 font-semibold">
+          <p className="mt-4 text-center text-xs text-gray-400 font-medium">
             Map not loading?{' '}
             <a
               href="https://maps.app.goo.gl/LbvPzsx9y69htbkCA"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-orange-500 hover:underline font-bold"
+              className="text-orange-500 hover:underline font-semibold"
             >
               Click here to open in Google Maps
             </a>
@@ -554,39 +695,43 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
         </div>
       </section>
 
-      <section id="careers" className="relative py-16 sm:py-20 px-4 sm:px-6 overflow-hidden bg-gradient-to-b from-[#ebeae5] via-[#e9e8e3] to-[#e7e6e1] dark:from-[#1a2936] dark:via-[#1b2a38] dark:to-[#1c2b3a]">
+      {/* ── CAREERS ── */}
+      <section id="careers" className="py-20 px-4 sm:px-6">
         <div ref={joinRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${joinRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="text-center mb-8 sm:mb-10">
-            <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Careers</span>
-            <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tighter">Join Our Team</h2>
-            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400 font-medium">Share your profile and we will review your application.</p>
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+              Join Our <span className="text-orange-500 italic">Team</span>
+            </h2>
+            <p className="mt-3 text-gray-500 dark:text-gray-400">Share your profile and we will review your application.</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1 rounded-3xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
-              <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">What We Look For</p>
-              <ul className="mt-4 space-y-3 text-sm text-gray-700 dark:text-gray-300 font-medium">
-                <li className="inline-flex items-start gap-2">
-                  <ShieldCheck size={15} className="text-orange-500 mt-0.5" /> Ownership and accountability
-                </li>
-                <li className="inline-flex items-start gap-2">
-                  <ShieldCheck size={15} className="text-orange-500 mt-0.5" /> Customer-first thinking
-                </li>
-                <li className="inline-flex items-start gap-2">
-                  <ShieldCheck size={15} className="text-orange-500 mt-0.5" /> Strong execution pace
-                </li>
+            <div className="rounded-3xl bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 p-7 hover:shadow-xl hover:shadow-black/[0.04] transition-all duration-500">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-50 dark:bg-orange-950/30 text-orange-500 text-xs font-semibold mb-5">
+                <Users size={14} /> Culture
+              </div>
+              <h3 className="text-lg font-extrabold mb-4">What We Look For</h3>
+              <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
+                {['Ownership and accountability', 'Customer-first thinking', 'Strong execution pace'].map((item) => (
+                  <li key={item} className="flex items-start gap-2.5">
+                    <div className="w-5 h-5 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <ShieldCheck size={12} className="text-orange-500" />
+                    </div>
+                    {item}
+                  </li>
+                ))}
               </ul>
               <a
                 href="https://wa.me/601154036303?text=Hello%2C%20I%20want%20to%20know%20about%20joining%20Lumora%20Tech"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-6 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-[10px] font-black uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all"
+                className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full text-sm font-semibold hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all"
               >
-                <MessageSquare size={12} /> Ask About Openings
+                <MessageSquare size={14} /> Ask About Openings
               </a>
             </div>
 
-            <div className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-6 md:p-8">
+            <div className="lg:col-span-2 rounded-3xl bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 p-7 sm:p-9 hover:shadow-xl hover:shadow-black/[0.04] transition-all duration-500">
               <form className="space-y-4" onSubmit={handleSubmit}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <input
@@ -595,7 +740,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                     placeholder="Full name"
                     value={joinForm.fullName}
                     onChange={(e) => handleChange('fullName', e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm font-medium dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all"
                   />
                   <input
                     required
@@ -603,7 +748,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                     placeholder="Email address"
                     value={joinForm.email}
                     onChange={(e) => handleChange('email', e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm font-medium dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all"
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -612,7 +757,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                     placeholder="Phone number"
                     value={joinForm.phone}
                     onChange={(e) => handleChange('phone', e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm font-medium dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all"
                   />
                   <input
                     required
@@ -620,7 +765,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                     placeholder="Role you are applying for"
                     value={joinForm.role}
                     onChange={(e) => handleChange('role', e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm font-medium dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all"
                   />
                 </div>
                 <textarea
@@ -628,24 +773,24 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                   placeholder="Experience summary"
                   value={joinForm.experience}
                   onChange={(e) => handleChange('experience', e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500 resize-none"
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm font-medium dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all resize-none"
                 />
                 <textarea
                   rows={3}
                   placeholder="Additional message (optional)"
                   value={joinForm.message}
                   onChange={(e) => handleChange('message', e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500 resize-none"
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm font-medium dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all resize-none"
                 />
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full px-4 py-3 rounded-xl bg-orange-500 text-white font-black text-[11px] uppercase tracking-widest hover:bg-orange-600 transition-all disabled:opacity-60"
+                  className="w-full px-4 py-3.5 rounded-full bg-orange-500 text-white font-semibold text-sm hover:bg-orange-600 transition-all disabled:opacity-60 hover:shadow-lg hover:shadow-orange-500/25"
                 >
                   {isSubmitting ? 'Submitting...' : 'Submit Application'}
                 </button>
                 {feedback && (
-                  <p className={`text-xs font-bold text-center ${feedback.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
+                  <p className={`text-xs font-semibold text-center ${feedback.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
                     {feedback.message}
                   </p>
                 )}
@@ -655,14 +800,17 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
         </div>
       </section>
 
-      <footer className="py-10 px-4 sm:px-6 bg-gray-950 text-center">
-        <button
-          onClick={onBack}
-          className="inline-flex items-center gap-2 mb-6 text-[11px] font-black text-gray-400 uppercase tracking-widest hover:text-orange-500 transition-colors"
-        >
-          <ArrowLeft size={12} /> Back to QuickServe
-        </button>
-        <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em]">&copy; 2026 Lumora Tech (JR0174591U). All Rights Reserved.</p>
+      {/* ── FOOTER ── */}
+      <footer className="py-12 px-4 sm:px-6 bg-gray-950">
+        <div className="max-w-7xl mx-auto text-center">
+          <button
+            onClick={onBack}
+            className="inline-flex items-center gap-2 mb-6 text-sm font-semibold text-gray-400 hover:text-orange-500 transition-colors"
+          >
+            <ArrowLeft size={14} /> Back to QuickServe
+          </button>
+          <p className="text-xs text-white/30 font-medium tracking-wide">&copy; 2026 Lumora Tech (JR0174591U). All Rights Reserved.</p>
+        </div>
       </footer>
     </div>
   );
