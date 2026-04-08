@@ -61,7 +61,7 @@ type ValueTab = {
 
 const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetStarted, onLogin }) => {
   const heroRef = useInView();
-  const statsRef = useInView();
+
   const aboutRef = useInView();
   const teamRef = useInView();
   const showcaseRef = useInView();
@@ -88,7 +88,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [hoveredStat, setHoveredStat] = useState<number | null>(null);
+
 
   const valueTabs: ValueTab[] = [
     {
@@ -116,12 +116,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
 
   const activeValueData = valueTabs.find((tab) => tab.id === activeValue) ?? valueTabs[0];
 
-  const stats = [
-    { value: 'JR0174591U', label: 'SSM Registration', sublabel: 'Malaysia' },
-    { value: 'All-in-One', label: 'POS Platform', sublabel: 'F&B Operations' },
-    { value: 'QR + POS', label: 'Ordering System', sublabel: 'Multi-Channel' },
-    { value: '24/7', label: 'System Uptime', sublabel: 'Cloud Based' },
-  ];
+
 
   const reviews = [
     {
@@ -331,44 +326,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
         </div>
       </section>
 
-      {/* ── STATS ── */}
-      <section ref={statsRef.ref} className="py-20 px-4 sm:px-6 border-t border-gray-100 dark:border-gray-800/50">
-        <div className={`max-w-7xl mx-auto transition-all duration-700 delay-100 ${statsRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-            <div>
-              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight">
-                Empowering your
-                <br />
-                success <span className="text-orange-500 italic">with our</span>
-                <br />
-                solutions
-              </h2>
-            </div>
-            <div className="grid grid-cols-2 gap-8">
-              {stats.map((stat, idx) => (
-                <div
-                  key={idx}
-                  className="group cursor-default"
-                  onMouseEnter={() => setHoveredStat(idx)}
-                  onMouseLeave={() => setHoveredStat(null)}
-                >
-                  <p className={`text-2xl sm:text-3xl font-extrabold transition-colors duration-300 ${hoveredStat === idx ? 'text-orange-500' : 'text-gray-900 dark:text-white'}`}>
-                    {stat.value}
-                  </p>
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-1">{stat.label}</p>
-                  <p className="text-[11px] text-gray-400 mt-0.5">{stat.sublabel}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="mt-16 max-w-3xl">
-            <p className="text-base sm:text-lg text-gray-500 dark:text-gray-400 leading-relaxed">
-              Struggling to stay organized? Our users found the perfect solution with QuickServe. By simplifying ordering and boosting team collaboration, they&apos;ve achieved more in less time.{' '}
-              <span className="text-gray-900 dark:text-white font-semibold">Join businesses who&apos;ve transformed chaos into productivity.</span>
-            </p>
-          </div>
-        </div>
-      </section>
+
 
       {/* ── DISCOVER / ABOUT ── */}
       <section id="about" className="py-20 px-4 sm:px-6 bg-gray-50/80 dark:bg-gray-900/30">
