@@ -13,6 +13,8 @@ import {
   Rocket,
   Users,
   ChevronRight,
+  Menu,
+  X,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -71,6 +73,8 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
   const [activeValue, setActiveValue] = useState<'mission' | 'vision' | 'promise'>('mission');
   const [activeSpotlight, setActiveSpotlight] = useState(0);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const spotlightCards = [
     {
@@ -116,6 +120,10 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
 
   const activeValueData = valueTabs.find((tab) => tab.id === activeValue) ?? valueTabs[0];
   const selectedMember = teamMembers.find((member) => member.id === selectedMemberId) ?? teamMembers[0];
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
@@ -169,40 +177,73 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f8f5] dark:bg-[#0f131a] font-sans overflow-x-hidden text-gray-900 dark:text-white">
-      <nav className="sticky top-0 z-50 border-b border-white/60 dark:border-gray-800/80 bg-[#f8f8f5]/90 dark:bg-[#0f131a]/90 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-3 sm:gap-4">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-colors"
-          >
-            <ArrowLeft size={14} /> Back
-          </button>
-          <div className="flex items-center gap-2 ml-1 sm:ml-2">
-            <img src="/LOGO/9.png" alt="QuickServe" className="h-6 sm:h-7 dark:hidden" />
-            <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-6 sm:h-7 hidden dark:block" />
-          </div>
-          <div className="flex-1" />
-          {onToggleDark && (
+    <div className="min-h-screen bg-[#f8f8f5] dark:bg-[#0f131a] font-sans overflow-x-hidden text-gray-900 dark:text-white pt-20 sm:pt-24">
+      <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${mounted ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
+        <div className="mx-auto max-w-7xl px-3 sm:px-6">
+          <div className="mt-4 flex items-center h-14 sm:h-16 px-3 sm:px-6 bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg shadow-black/5">
             <button
-              onClick={onToggleDark}
-              className="p-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:text-orange-500 transition-all"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-orange-50 dark:hover:bg-gray-700 hover:text-orange-500 transition-all mr-2"
             >
-              {isDarkMode ? <Sun size={15} /> : <Moon size={15} />}
+              {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
-          )}
-          <button
-            onClick={onLogin}
-            className="hidden sm:inline-flex px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all"
-          >
-            Login
-          </button>
-          <button
-            onClick={onGetStarted}
-            className="px-3 sm:px-4 py-2 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
-          >
-            Get Started
-          </button>
+            <div className="flex items-center gap-2">
+              <img src="/LOGO/9.png" alt="QuickServe" className="h-8 sm:h-9 dark:hidden" />
+              <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-8 sm:h-9 hidden dark:block" />
+            </div>
+            <div className="hidden md:flex items-center gap-8 text-[11px] font-bold text-gray-700 dark:text-gray-400 uppercase tracking-[0.15em] mx-auto">
+              <a href="#about" className="hover:text-orange-500 transition-colors">About</a>
+              <a href="#team" className="hover:text-orange-500 transition-colors">Team</a>
+              <a href="#location" className="hover:text-orange-500 transition-colors">Location</a>
+              <a href="#careers" className="hover:text-orange-500 transition-colors">Careers</a>
+              <button onClick={onBack} className="hover:text-orange-500 transition-colors">Back</button>
+            </div>
+            <div className="flex-1 md:hidden" />
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                onClick={onToggleDark}
+                className="p-2 sm:p-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-orange-50 dark:hover:bg-gray-700 hover:text-orange-500 transition-all"
+                title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+              </button>
+              <button
+                onClick={onLogin}
+                className="px-3 sm:px-5 py-2 sm:py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] sm:text-[11px] uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all hover:scale-105"
+              >
+                Login
+              </button>
+            </div>
+          </div>
+
+          <div className={`md:hidden overflow-hidden transition-all duration-300 ${mobileMenuOpen ? 'max-h-64 mt-2' : 'max-h-0'}`}>
+            <div className="flex flex-col gap-1 px-3 py-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg shadow-black/5">
+              {[
+                { href: '#about', label: 'About' },
+                { href: '#team', label: 'Team' },
+                { href: '#location', label: 'Location' },
+                { href: '#careers', label: 'Careers' },
+              ].map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-4 py-2.5 text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-[0.15em] hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-800 rounded-xl transition-all"
+                >
+                  {link.label}
+                </a>
+              ))}
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onBack();
+                }}
+                className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-[0.15em] hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-gray-800 rounded-xl transition-all"
+              >
+                Back
+              </button>
+            </div>
+          </div>
         </div>
       </nav>
 
@@ -280,7 +321,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
         </div>
       </section>
 
-      <section className="relative py-16 sm:py-20 px-4 sm:px-6 overflow-hidden bg-gradient-to-b from-[#f6f5f1] via-[#f4f3ee] to-[#f1f1ec] dark:from-[#141920] dark:via-[#151c24] dark:to-[#16202a]">
+      <section id="about" className="relative py-16 sm:py-20 px-4 sm:px-6 overflow-hidden bg-gradient-to-b from-[#f6f5f1] via-[#f4f3ee] to-[#f1f1ec] dark:from-[#141920] dark:via-[#151c24] dark:to-[#16202a]">
         <div ref={aboutRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${aboutRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="rounded-3xl border border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-[#0f141b]/80 p-6 sm:p-8">
@@ -346,7 +387,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
         </div>
       </section>
 
-      <section className="relative py-16 sm:py-20 px-4 sm:px-6 overflow-hidden bg-gradient-to-b from-[#f1f1ec] via-[#efefea] to-[#edede8] dark:from-[#16202a] dark:via-[#17222d] dark:to-[#182530]">
+      <section id="team" className="relative py-16 sm:py-20 px-4 sm:px-6 overflow-hidden bg-gradient-to-b from-[#f1f1ec] via-[#efefea] to-[#edede8] dark:from-[#16202a] dark:via-[#17222d] dark:to-[#182530]">
         <div ref={teamRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${teamRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           <div className="text-center mb-8 sm:mb-10">
             <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Our Team</span>
@@ -427,7 +468,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
         </div>
       </section>
 
-      <section className="relative py-16 sm:py-20 px-4 sm:px-6 overflow-hidden bg-gradient-to-b from-[#edede8] via-[#ecebe6] to-[#ebeae5] dark:from-[#182530] dark:via-[#192733] dark:to-[#1a2936]">
+      <section id="location" className="relative py-16 sm:py-20 px-4 sm:px-6 overflow-hidden bg-gradient-to-b from-[#edede8] via-[#ecebe6] to-[#ebeae5] dark:from-[#182530] dark:via-[#192733] dark:to-[#1a2936]">
         <div ref={mapRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${mapRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           <div className="text-center mb-8 sm:mb-10">
             <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Visit Us</span>
@@ -486,7 +527,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
         </div>
       </section>
 
-      <section className="relative py-16 sm:py-20 px-4 sm:px-6 overflow-hidden bg-gradient-to-b from-[#ebeae5] via-[#e9e8e3] to-[#e7e6e1] dark:from-[#1a2936] dark:via-[#1b2a38] dark:to-[#1c2b3a]">
+      <section id="careers" className="relative py-16 sm:py-20 px-4 sm:px-6 overflow-hidden bg-gradient-to-b from-[#ebeae5] via-[#e9e8e3] to-[#e7e6e1] dark:from-[#1a2936] dark:via-[#1b2a38] dark:to-[#1c2b3a]">
         <div ref={joinRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${joinRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           <div className="text-center mb-8 sm:mb-10">
             <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Careers</span>

@@ -833,12 +833,28 @@ const AdminView: React.FC<Props> = ({
   const [newTeamMemberName, setNewTeamMemberName] = useState('');
   const [newTeamMemberRole, setNewTeamMemberRole] = useState('');
   const [newTeamMemberSortOrder, setNewTeamMemberSortOrder] = useState('0');
+  const [newTeamMemberPhotoFile, setNewTeamMemberPhotoFile] = useState<File | null>(null);
   const [isCreatingTeamMember, setIsCreatingTeamMember] = useState(false);
+
+  const isTeamMembersTableMissing = (error: any) => {
+    const message = String(error?.message || '').toLowerCase();
+    return error?.code === 'PGRST205' || message.includes("could not find the table 'public.team_members'");
+  };
 
   const fetchTeamMembers = async () => {
     setIsLoadingTeamMembers(true);
     const { data, error } = await supabase.from('team_members').select('id, name, role, photo_url, sort_order').order('sort_order');
-    if (!error && data) setTeamMembers(data);
+    if (error) {
+      if (isTeamMembersTableMissing(error)) {
+        toast('Missing table: public.team_members. Run the latest Supabase migration and refresh.', 'error');
+      } else {
+        toast(error.message || 'Failed to load team members', 'error');
+      }
+      setTeamMembers([]);
+      setIsLoadingTeamMembers(false);
+      return;
+    }
+    if (data) setTeamMembers(data);
     setIsLoadingTeamMembers(false);
   };
 
@@ -851,7 +867,11 @@ const AdminView: React.FC<Props> = ({
       toast('Photo updated!', 'success');
       fetchTeamMembers();
     } catch (err: any) {
-      toast(err.message || 'Upload failed', 'error');
+      if (isTeamMembersTableMissing(err)) {
+        toast('Missing table: public.team_members. Run the latest Supabase migration and refresh.', 'error');
+      } else {
+        toast(err.message || 'Upload failed', 'error');
+      }
     }
     setUploadingTeamMemberId(null);
   };
@@ -866,14 +886,31 @@ const AdminView: React.FC<Props> = ({
     const safeSortOrder = Number.isNaN(parsedSortOrder) ? 0 : parsedSortOrder;
 
     setIsCreatingTeamMember(true);
+
+    let photoUrl: string | null = null;
+    if (newTeamMemberPhotoFile) {
+      try {
+        photoUrl = await uploadImage(newTeamMemberPhotoFile, 'quickserve', 'team-photos');
+      } catch (err: any) {
+        toast(err?.message || 'Photo upload failed', 'error');
+        setIsCreatingTeamMember(false);
+        return;
+      }
+    }
+
     const { error } = await supabase.from('team_members').insert({
       name: newTeamMemberName.trim(),
       role: newTeamMemberRole.trim(),
       sort_order: safeSortOrder,
+      photo_url: photoUrl,
     });
 
     if (error) {
-      toast(error.message || 'Failed to add team member', 'error');
+      if (isTeamMembersTableMissing(error)) {
+        toast('Missing table: public.team_members. Run the latest Supabase migration and refresh.', 'error');
+      } else {
+        toast(error.message || 'Failed to add team member', 'error');
+      }
       setIsCreatingTeamMember(false);
       return;
     }
@@ -882,6 +919,7 @@ const AdminView: React.FC<Props> = ({
     setNewTeamMemberName('');
     setNewTeamMemberRole('');
     setNewTeamMemberSortOrder('0');
+    setNewTeamMemberPhotoFile(null);
     await fetchTeamMembers();
     setIsCreatingTeamMember(false);
   };
@@ -2401,7 +2439,7 @@ const AdminView: React.FC<Props> = ({
 
                 <div className="bg-white dark:bg-gray-900/50 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 sm:p-5">
                   <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">Add Team Member</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                     <input
                       type="text"
                       placeholder="Full name"
@@ -2423,10 +2461,20 @@ const AdminView: React.FC<Props> = ({
                       onChange={(e) => setNewTeamMemberSortOrder(e.target.value)}
                       className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
                     />
+                    <label className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-bold text-gray-500 dark:text-gray-300 flex items-center justify-between gap-2 cursor-pointer hover:border-orange-400 transition-colors">
+                      <span className="truncate">{newTeamMemberPhotoFile ? newTeamMemberPhotoFile.name : 'Choose image (optional)'}</span>
+                      <span className="inline-flex items-center gap-1 text-orange-500 shrink-0"><Upload size={12} /> Upload</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => setNewTeamMemberPhotoFile(e.target.files?.[0] || null)}
+                      />
+                    </label>
                     <button
                       type="button"
                       onClick={createTeamMember}
-                      disabled={isCreatingTeamMember}
+                      disabled={isCreatingTeamMember || !newTeamMemberName.trim() || !newTeamMemberRole.trim()}
                       className="px-4 py-2.5 rounded-xl bg-orange-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-colors disabled:opacity-60 inline-flex items-center justify-center gap-2"
                     >
                       {isCreatingTeamMember ? <><RefreshCw size={11} className="animate-spin" /> Adding...</> : <><Plus size={11} /> Add Member</>}
