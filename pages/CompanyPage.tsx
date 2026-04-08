@@ -1,19 +1,43 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Globe, ArrowLeft, Sun, Moon, MapPin, MessageSquare, ShieldCheck, ExternalLink } from 'lucide-react';
+import {
+  Globe,
+  ArrowLeft,
+  Sun,
+  Moon,
+  MapPin,
+  MessageSquare,
+  ShieldCheck,
+  ExternalLink,
+  Sparkles,
+  Cpu,
+  Rocket,
+  Users,
+  ChevronRight,
+} from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const useInView = (options?: IntersectionObserverInit) => {
   const ref = useRef<HTMLDivElement>(null);
   const [isInView, setIsInView] = useState(false);
+
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) { setIsInView(true); observer.disconnect(); }
-    }, { threshold: 0.1, ...options });
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsInView(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1, ...options },
+    );
+
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+
   return { ref, isInView };
 };
 
@@ -24,6 +48,14 @@ interface Props {
   onGetStarted: () => void;
   onLogin: () => void;
 }
+
+type ValueTab = {
+  id: 'mission' | 'vision' | 'promise';
+  title: string;
+  headline: string;
+  description: string;
+  points: string[];
+};
 
 const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetStarted, onLogin }) => {
   const heroRef = useInView();
@@ -36,6 +68,54 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
   const [joinForm, setJoinForm] = useState({ fullName: '', email: '', phone: '', role: '', experience: '', message: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [activeValue, setActiveValue] = useState<'mission' | 'vision' | 'promise'>('mission');
+  const [activeSpotlight, setActiveSpotlight] = useState(0);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+
+  const spotlightCards = [
+    {
+      icon: <Rocket size={16} />,
+      title: 'Fast Launch',
+      text: 'Set up your digital ordering workflow in minutes with low setup friction.',
+    },
+    {
+      icon: <Cpu size={16} />,
+      title: 'Practical Systems',
+      text: 'QuickServe is designed for daily operations, not complicated dashboards.',
+    },
+    {
+      icon: <Users size={16} />,
+      title: 'Human Support',
+      text: 'Real team guidance from onboarding to optimization as your business grows.',
+    },
+  ];
+
+  const valueTabs: ValueTab[] = [
+    {
+      id: 'mission',
+      title: 'Mission',
+      headline: 'Technology that removes barriers for businesses.',
+      description: 'Our focus is affordable, reliable systems that help teams do their best work every day.',
+      points: ['Simple onboarding', 'Transparent pricing', 'Operational reliability'],
+    },
+    {
+      id: 'vision',
+      title: 'Vision',
+      headline: 'Build smarter local businesses through practical digital tools.',
+      description: 'We believe digital transformation should feel empowering, not overwhelming.',
+      points: ['Local-first innovation', 'Scalable architecture', 'Long-term partnerships'],
+    },
+    {
+      id: 'promise',
+      title: 'Promise',
+      headline: 'Stay responsive, honest, and committed to impact.',
+      description: 'Every release and every support interaction should create clear value for our customers.',
+      points: ['Faster issue response', 'Product-led improvement', 'Customer-centric decisions'],
+    },
+  ];
+
+  const activeValueData = valueTabs.find((tab) => tab.id === activeValue) ?? valueTabs[0];
+  const selectedMember = teamMembers.find((member) => member.id === selectedMemberId) ?? teamMembers[0];
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
@@ -44,14 +124,29 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
     });
   }, []);
 
-  const handleChange = (field: keyof typeof joinForm, value: string) =>
-    setJoinForm(prev => ({ ...prev, [field]: value }));
+  useEffect(() => {
+    if (!teamMembers.length || selectedMemberId) return;
+    setSelectedMemberId(teamMembers[0].id);
+  }, [teamMembers, selectedMemberId]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActiveSpotlight((prev) => (prev + 1) % spotlightCards.length);
+    }, 4200);
+    return () => window.clearInterval(timer);
+  }, [spotlightCards.length]);
+
+  const handleChange = (field: keyof typeof joinForm, value: string) => {
+    setJoinForm((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (isSubmitting) return;
+
     setIsSubmitting(true);
     setFeedback(null);
+
     const { error } = await supabase.from('join_team_applications').insert({
       full_name: joinForm.fullName.trim(),
       email: joinForm.email.trim(),
@@ -62,29 +157,30 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
       source: 'company_page',
       status: 'new',
     });
+
     if (error) {
       setFeedback({ type: 'error', message: 'Unable to submit your application. Please try again.' });
     } else {
       setJoinForm({ fullName: '', email: '', phone: '', role: '', experience: '', message: '' });
       setFeedback({ type: 'success', message: 'Application received. Our team will review and contact you soon.' });
     }
+
     setIsSubmitting(false);
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 font-sans overflow-x-hidden">
-      {/* ── NAV ── */}
-      <nav className="sticky top-0 z-50 bg-white/90 dark:bg-gray-950/90 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center gap-4">
+    <div className="min-h-screen bg-[#f8f8f5] dark:bg-[#0f131a] font-sans overflow-x-hidden text-gray-900 dark:text-white">
+      <nav className="sticky top-0 z-50 border-b border-white/60 dark:border-gray-800/80 bg-[#f8f8f5]/90 dark:bg-[#0f131a]/90 backdrop-blur-xl">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-3 sm:gap-4">
           <button
             onClick={onBack}
-            className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-colors"
+            className="flex items-center gap-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-colors"
           >
             <ArrowLeft size={14} /> Back
           </button>
-          <div className="flex items-center gap-2 ml-2">
-            <img src="/LOGO/9.png" alt="QuickServe" className="h-7 dark:hidden" />
-            <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-7 hidden dark:block" />
+          <div className="flex items-center gap-2 ml-1 sm:ml-2">
+            <img src="/LOGO/9.png" alt="QuickServe" className="h-6 sm:h-7 dark:hidden" />
+            <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-6 sm:h-7 hidden dark:block" />
           </div>
           <div className="flex-1" />
           {onToggleDark && (
@@ -97,133 +193,247 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
           )}
           <button
             onClick={onLogin}
-            className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all"
+            className="hidden sm:inline-flex px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all"
           >
             Login
           </button>
           <button
             onClick={onGetStarted}
-            className="px-4 py-2 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
+            className="px-3 sm:px-4 py-2 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
           >
             Get Started
           </button>
         </div>
       </nav>
 
-      {/* ── HERO ── */}
-      <div ref={heroRef.ref} className="relative bg-gradient-to-b from-gray-950 via-gray-900 to-gray-900 py-24 px-6 overflow-hidden">
-        <div className="absolute top-0 right-1/4 w-[600px] h-[400px] bg-orange-500/15 rounded-full blur-[160px] pointer-events-none" />
-        <div className={`max-w-4xl mx-auto text-center relative z-10 transition-all duration-700 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-4 block">Our Company</span>
-          <h1 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter leading-none mb-6">
-            Powered by<br />
-            <span className="text-orange-500">Lumora Tech</span>
-          </h1>
-          <p className="text-sm md:text-base text-gray-400 font-medium max-w-2xl mx-auto leading-relaxed">
-            Lumora Tech (JR0174591U) — Empowering Technology, Enabling Growth
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-4 mt-8">
-            <a
-              href="https://www.linkedin.com/company/lumora-tech/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-orange-500 text-white text-[11px] font-black uppercase tracking-widest transition-all"
-            >
-              <Globe size={13} /> LinkedIn
-            </a>
-            <a
-              href="https://wa.me/601154036303?text=Hello%2C%20I%20am%20interested%20to%20know%20about%20Lumora%20Tech"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-orange-500 text-white text-[11px] font-black uppercase tracking-widest transition-all"
-            >
-              <MessageSquare size={13} /> WhatsApp
-            </a>
-          </div>
-        </div>
-      </div>
+      <section
+        ref={heroRef.ref}
+        className="relative px-4 sm:px-6 pt-12 sm:pt-16 pb-16 sm:pb-20 overflow-hidden bg-[radial-gradient(circle_at_20%_20%,rgba(251,146,60,0.22),transparent_45%),radial-gradient(circle_at_80%_15%,rgba(16,185,129,0.18),transparent_40%),linear-gradient(180deg,#171a21_0%,#11141b_100%)]"
+      >
+        <div className="absolute -left-24 top-24 w-72 h-72 rounded-full bg-orange-500/20 blur-[110px] pointer-events-none" />
+        <div className="absolute -right-16 bottom-8 w-64 h-64 rounded-full bg-teal-500/20 blur-[110px] pointer-events-none" />
 
-      {/* ── ABOUT ── */}
-      <section className="relative py-20 px-6 overflow-hidden bg-gradient-to-b from-[#f7f7f4] via-[#f5f4f0] to-[#f3f2ef] dark:from-[#141920] dark:via-[#151b22] dark:to-[#161d25]">
-        <div className="pointer-events-none absolute inset-x-0 -top-16 h-20 bg-gradient-to-b from-transparent to-[#f7f7f4] dark:to-[#141920]" />
-        <div ref={aboutRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${aboutRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-gray-50 dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-6 md:p-8">
-              <span className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">About Us</span>
-              <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight mb-5">Who We Are</h2>
-              <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-medium">
-                <p>Founded in 2021, Lumora Tech began as a small in house service driven by passion and technical expertise. Over the years, we have grown into a trusted provider of device solutions, including smartphone repairs, sales, trade ins, Chromebooks, laptops, and screen protection.</p>
-                <p>Today, we are taking our first step into digital systems with the launch of QuickServe, our all in one restaurant management platform. Built for modern F&B businesses, QuickServe combines QR ordering, table management, kitchen display systems, and staff POS into one seamless and easy to use solution. No expensive hardware. No hidden fees. Go live in minutes.</p>
-                <p>As industries continue to evolve, we are committed to growing alongside businesses by delivering innovative yet affordable technology. QuickServe marks the beginning of our journey in building smarter systems that simplify operations and create new opportunities.</p>
-                <p>At Lumora Tech, we believe technology should be reliable, accessible, and cost effective. Our mission is to remove barriers to adoption and deliver solutions that create real impact for businesses and communities.</p>
-                <p>With a strong focus on customer satisfaction, innovation, and long term partnerships, Lumora Tech is dedicated to delivering technology that truly works for you.</p>
-              </div>
-            </div>
+        <div className={`max-w-7xl mx-auto relative z-10 transition-all duration-700 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-10 items-start">
+            <div className="lg:col-span-3">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-orange-300 text-[10px] font-black uppercase tracking-[0.25em]">
+                <Sparkles size={12} /> Built by Lumora Tech
+              </span>
+              <h1 className="mt-5 text-4xl sm:text-5xl lg:text-6xl font-black text-white uppercase tracking-tight leading-[0.95]">
+                Systems That
+                <br className="hidden sm:block" />
+                Move Businesses Forward
+              </h1>
+              <p className="mt-5 max-w-2xl text-sm sm:text-base text-gray-300 font-medium leading-relaxed">
+                Lumora Tech (JR0174591U) builds practical technology for ambitious teams. We started in device solutions and are now expanding with QuickServe, a modern all-in-one platform for F and B operations.
+              </p>
 
-            <div className="flex flex-col gap-4">
-              <div className="bg-gray-50 dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-6">
-                <span className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Connect</span>
+              <div className="mt-7 flex flex-wrap items-center gap-3">
+                <button
+                  onClick={onGetStarted}
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-black uppercase tracking-widest transition-all"
+                >
+                  Launch QuickServe <ChevronRight size={13} />
+                </button>
                 <a
                   href="https://www.linkedin.com/company/lumora-tech/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm font-black text-orange-600 dark:text-orange-400 hover:text-orange-500 transition-colors"
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-white/20 text-white text-[11px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
                 >
-                  <Globe size={15} /> Lumora Tech on LinkedIn
+                  <Globe size={13} /> LinkedIn
                 </a>
-                <div className="mt-5 space-y-3">
-                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 font-medium">
-                    <MessageSquare size={14} className="text-orange-500 shrink-0" />
-                    +60 11-5403 6303
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 font-medium">
-                    <ShieldCheck size={14} className="text-orange-500 shrink-0" />
-                    lumoratech.ent@gmail.com
-                  </div>
+                <a
+                  href="https://wa.me/601154036303?text=Hello%2C%20I%20am%20interested%20to%20know%20about%20Lumora%20Tech"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-white/20 text-white text-[11px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                >
+                  <MessageSquare size={13} /> WhatsApp
+                </a>
+              </div>
+
+              <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
+                  <p className="text-[10px] uppercase tracking-widest text-gray-300 font-black">Founded</p>
+                  <p className="text-2xl text-white font-black mt-1">2021</p>
+                </div>
+                <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
+                  <p className="text-[10px] uppercase tracking-widest text-gray-300 font-black">Focus</p>
+                  <p className="text-2xl text-white font-black mt-1">F and B Tech</p>
+                </div>
+                <div className="rounded-2xl border border-white/15 bg-white/10 p-4 col-span-2 sm:col-span-1">
+                  <p className="text-[10px] uppercase tracking-widest text-gray-300 font-black">Market</p>
+                  <p className="text-2xl text-white font-black mt-1">Malaysia</p>
                 </div>
               </div>
-              <div className="bg-orange-50 dark:bg-orange-900/20 rounded-3xl border border-orange-100 dark:border-orange-900/30 p-6">
-                <p className="text-[10px] font-black uppercase tracking-widest text-orange-500 mb-1">Company Registration</p>
-                <p className="text-xl font-black text-gray-800 dark:text-gray-200">JR0174591U</p>
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-1">SSM Registered · Malaysia</p>
+            </div>
+
+            <div className="lg:col-span-2">
+              <div className="rounded-3xl border border-white/15 bg-white/10 p-5 sm:p-6 backdrop-blur-md">
+                <p className="text-[10px] uppercase tracking-widest text-orange-300 font-black">Spotlight</p>
+                <h3 className="mt-2 text-xl text-white font-black uppercase">How We Work</h3>
+                <div className="mt-4 space-y-3">
+                  {spotlightCards.map((card, idx) => (
+                    <button
+                      key={card.title}
+                      type="button"
+                      onClick={() => setActiveSpotlight(idx)}
+                      className={`w-full text-left rounded-2xl border p-4 transition-all ${activeSpotlight === idx ? 'border-orange-300 bg-orange-500/20 text-white' : 'border-white/15 bg-black/20 text-gray-300 hover:bg-white/10'}`}
+                    >
+                      <p className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-widest">
+                        {card.icon} {card.title}
+                      </p>
+                      <p className="mt-2 text-xs leading-relaxed font-medium">{card.text}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── TEAM ── */}
-      <section className="relative py-20 px-6 overflow-hidden bg-gradient-to-b from-[#f4f3ef] via-[#f2f2ee] to-[#f1f1ed] dark:from-[#161d25] dark:via-[#171f28] dark:to-[#18212a]">
-        <div className="pointer-events-none absolute inset-x-0 -top-16 h-20 bg-gradient-to-b from-transparent to-[#f4f3ef] dark:to-[#161d25]" />
+      <section className="relative py-16 sm:py-20 px-4 sm:px-6 overflow-hidden bg-gradient-to-b from-[#f6f5f1] via-[#f4f3ee] to-[#f1f1ec] dark:from-[#141920] dark:via-[#151c24] dark:to-[#16202a]">
+        <div ref={aboutRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${aboutRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="rounded-3xl border border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-[#0f141b]/80 p-6 sm:p-8">
+              <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em]">About Lumora</p>
+              <h2 className="mt-3 text-3xl font-black uppercase tracking-tight">From Repair Services To Smart Operations</h2>
+              <div className="mt-5 space-y-4 text-sm leading-relaxed text-gray-700 dark:text-gray-300 font-medium">
+                <p>Lumora Tech started as a trusted device service provider and grew through consistency, technical depth, and customer trust.</p>
+                <p>Today, with QuickServe, we are bringing the same practical approach into restaurant operations through QR ordering, table workflows, kitchen display support, and staff POS in one connected system.</p>
+                <p>Our direction is simple: practical products, transparent pricing, and a long-term commitment to customer growth.</p>
+              </div>
+              <div className="mt-6 rounded-2xl bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/40 p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">Company Registration</p>
+                <p className="text-2xl font-black mt-1 text-gray-900 dark:text-white">JR0174591U</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold mt-1">SSM Registered - Malaysia</p>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-[#0f141b]/80 p-5 sm:p-6">
+              <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em]">Core Values</p>
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                {valueTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveValue(tab.id)}
+                    className={`rounded-xl py-2 px-3 text-[10px] font-black uppercase tracking-widest transition-all ${activeValue === tab.id ? 'bg-orange-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-300 hover:text-orange-500'}`}
+                  >
+                    {tab.title}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-gray-200 dark:border-gray-800 bg-gradient-to-br from-white to-orange-50 dark:from-[#131a23] dark:to-[#1b2530] p-5 min-h-52">
+                <h3 className="text-xl font-black uppercase tracking-tight">{activeValueData.headline}</h3>
+                <p className="mt-3 text-sm text-gray-600 dark:text-gray-300 leading-relaxed font-medium">{activeValueData.description}</p>
+                <div className="mt-4 space-y-2">
+                  {activeValueData.points.map((point) => (
+                    <p key={point} className="text-xs font-bold text-gray-700 dark:text-gray-200 inline-flex items-center gap-2">
+                      <ShieldCheck size={14} className="text-orange-500" /> {point}
+                    </p>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                <a
+                  href="https://www.linkedin.com/company/lumora-tech/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-[10px] font-black uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all"
+                >
+                  <Globe size={13} /> Follow Updates
+                </a>
+                <a
+                  href="mailto:lumoratech.ent@gmail.com"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 text-[10px] font-black uppercase tracking-widest hover:border-orange-400 hover:text-orange-500 transition-all"
+                >
+                  <MessageSquare size={13} /> Contact Us
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="relative py-16 sm:py-20 px-4 sm:px-6 overflow-hidden bg-gradient-to-b from-[#f1f1ec] via-[#efefea] to-[#edede8] dark:from-[#16202a] dark:via-[#17222d] dark:to-[#182530]">
         <div ref={teamRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${teamRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="text-center mb-10">
-            <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Our People</span>
-            <h2 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Meet The Team</h2>
+          <div className="text-center mb-8 sm:mb-10">
+            <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Our Team</span>
+            <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tighter">People Behind The Product</h2>
           </div>
 
           {teamMembers.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {teamMembers.map((member, idx) => (
-                <div
-                  key={member.id}
-                  className={`bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-6 flex flex-col items-center text-center transition-all duration-700`}
-                  style={{ transitionDelay: `${idx * 80}ms` }}
-                >
-                  {member.photo_url ? (
-                    <img
-                      src={member.photo_url}
-                      alt={member.name}
-                      className="w-24 h-24 rounded-full object-cover border-4 border-orange-500/20 mb-4"
-                    />
-                  ) : (
-                    <div className="w-24 h-24 rounded-full bg-orange-100 dark:bg-orange-900/30 border-4 border-orange-200 dark:border-orange-800 flex items-center justify-center mb-4">
-                      <span className="text-orange-500 font-black text-3xl">{member.name.charAt(0)}</span>
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+              <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {teamMembers.map((member, idx) => (
+                  <button
+                    key={member.id}
+                    type="button"
+                    onClick={() => setSelectedMemberId(member.id)}
+                    className={`text-left rounded-3xl border p-4 sm:p-5 transition-all ${selectedMemberId === member.id ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:-translate-y-0.5 hover:shadow-md'}`}
+                    style={{ transitionDelay: `${idx * 70}ms` }}
+                  >
+                    <div className="flex items-center gap-3">
+                      {member.photo_url ? (
+                        <img
+                          src={member.photo_url}
+                          alt={member.name}
+                          className="w-14 h-14 rounded-2xl object-cover border border-orange-200 dark:border-orange-800"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 rounded-2xl bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 flex items-center justify-center">
+                          <span className="text-orange-500 font-black text-xl">{member.name.charAt(0)}</span>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-black uppercase text-gray-900 dark:text-white">{member.name}</p>
+                        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mt-0.5">{member.role}</p>
+                      </div>
                     </div>
+                  </button>
+                ))}
+              </div>
+
+              <div className="lg:col-span-2 rounded-3xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 flex flex-col justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">Team Highlight</p>
+                  {selectedMember ? (
+                    <>
+                      <div className="mt-4 flex items-center gap-3">
+                        {selectedMember.photo_url ? (
+                          <img
+                            src={selectedMember.photo_url}
+                            alt={selectedMember.name}
+                            className="w-16 h-16 rounded-2xl object-cover border border-orange-200 dark:border-orange-800"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 rounded-2xl bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 flex items-center justify-center">
+                            <span className="text-orange-500 font-black text-2xl">{selectedMember.name.charAt(0)}</span>
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-lg font-black uppercase">{selectedMember.name}</p>
+                          <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">{selectedMember.role}</p>
+                        </div>
+                      </div>
+                      <p className="mt-5 text-sm text-gray-600 dark:text-gray-300 leading-relaxed font-medium">
+                        Our team combines technical execution and real-world business understanding to deliver stable product experiences.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Select a team member to see details.</p>
                   )}
-                  <p className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tight">{member.name}</p>
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-1">{member.role}</p>
                 </div>
-              ))}
+                <div className="mt-6 rounded-2xl bg-gray-100 dark:bg-gray-800 p-4">
+                  <p className="text-[10px] uppercase tracking-widest text-gray-500 dark:text-gray-300 font-black">Collaboration Style</p>
+                  <p className="mt-1 text-sm font-bold">Fast iteration, practical feedback, and customer-focused decisions.</p>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="text-center py-10 text-gray-400 text-sm font-medium">Loading team...</div>
@@ -231,25 +441,23 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
         </div>
       </section>
 
-      {/* ── LOCATION / MAP ── */}
-      <section className="relative py-20 px-6 overflow-hidden bg-gradient-to-b from-[#f2f2ee] via-[#f1f1ed] to-[#efefeb] dark:from-[#18212a] dark:via-[#19232c] dark:to-[#1a252f]">
-        <div className="pointer-events-none absolute inset-x-0 -top-16 h-20 bg-gradient-to-b from-transparent to-[#f2f2ee] dark:to-[#18212a]" />
+      <section className="relative py-16 sm:py-20 px-4 sm:px-6 overflow-hidden bg-gradient-to-b from-[#edede8] via-[#ecebe6] to-[#ebeae5] dark:from-[#182530] dark:via-[#192733] dark:to-[#1a2936]">
         <div ref={mapRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${mapRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="text-center mb-10">
-            <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Where To Find Us</span>
-            <h2 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Our Location</h2>
+          <div className="text-center mb-8 sm:mb-10">
+            <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Visit Us</span>
+            <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tighter">Our Location</h2>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Info card */}
-            <div className="bg-gray-50 dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-6 flex flex-col justify-between">
+            <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-6 flex flex-col justify-between">
               <div>
                 <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center mb-4">
                   <MapPin size={22} className="text-orange-500" />
                 </div>
                 <p className="text-xs font-black text-orange-500 uppercase tracking-widest mb-1">Address</p>
                 <p className="text-sm font-bold text-gray-800 dark:text-gray-200 leading-relaxed">
-                  Lumora Tech Ent.<br />
+                  Lumora Tech Ent.
+                  <br />
                   Jalan Juruanalisis UI/35, Seksyen U1, 40150 Shah Alam, Selangor
                 </p>
               </div>
@@ -263,8 +471,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
               </a>
             </div>
 
-            {/* Map embed */}
-            <div className="lg:col-span-2 rounded-3xl overflow-hidden border border-gray-200 dark:border-gray-800 h-80">
+            <div className="lg:col-span-2 rounded-3xl overflow-hidden border border-gray-200 dark:border-gray-800 h-80 sm:h-96">
               <iframe
                 title="Lumora Tech Location"
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3984.049003914267!2d101.56005191126862!3d3.0815952535497564!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31cc4d2289f72555%3A0x932d7efba279d7fb!2sLumora%20Tech%20Ent.!5e0!3m2!1sen!2smy!4v1775634323783!5m2!1sen!2smy"
@@ -279,8 +486,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
             </div>
           </div>
 
-          {/* Fallback note with direct link */}
-          <p className="mt-4 text-center text-xs text-gray-400 font-medium">
+          <p className="mt-4 text-center text-xs text-gray-500 dark:text-gray-400 font-semibold">
             Map not loading?{' '}
             <a
               href="https://maps.app.goo.gl/LbvPzsx9y69htbkCA"
@@ -294,86 +500,108 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
         </div>
       </section>
 
-      {/* ── JOIN OUR TEAM ── */}
-      <section className="relative py-20 px-6 overflow-hidden bg-gradient-to-b from-[#f0f0ec] via-[#efefeb] to-[#eeedea] dark:from-[#1a252f] dark:via-[#1b2732] dark:to-[#1c2834]">
-        <div className="pointer-events-none absolute inset-x-0 -top-16 h-20 bg-gradient-to-b from-transparent to-[#f0f0ec] dark:to-[#1a252f]" />
-        <div ref={joinRef.ref} className={`max-w-3xl mx-auto transition-all duration-700 ${joinRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="text-center mb-10">
+      <section className="relative py-16 sm:py-20 px-4 sm:px-6 overflow-hidden bg-gradient-to-b from-[#ebeae5] via-[#e9e8e3] to-[#e7e6e1] dark:from-[#1a2936] dark:via-[#1b2a38] dark:to-[#1c2b3a]">
+        <div ref={joinRef.ref} className={`max-w-5xl mx-auto transition-all duration-700 ${joinRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <div className="text-center mb-8 sm:mb-10">
             <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Careers</span>
-            <h2 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Join Our Team</h2>
-            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400 font-medium">Submit your details and our team will review your application.</p>
+            <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tighter">Join Our Team</h2>
+            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400 font-medium">Share your profile and we will review your application.</p>
           </div>
 
-          <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-6 md:p-8">
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <input
-                  required
-                  type="text"
-                  placeholder="Full name"
-                  value={joinForm.fullName}
-                  onChange={(e) => handleChange('fullName', e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                />
-                <input
-                  required
-                  type="email"
-                  placeholder="Email address"
-                  value={joinForm.email}
-                  onChange={(e) => handleChange('email', e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <input
-                  type="text"
-                  placeholder="Phone number"
-                  value={joinForm.phone}
-                  onChange={(e) => handleChange('phone', e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                />
-                <input
-                  required
-                  type="text"
-                  placeholder="Role you are applying for"
-                  value={joinForm.role}
-                  onChange={(e) => handleChange('role', e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                />
-              </div>
-              <textarea
-                rows={3}
-                placeholder="Experience summary"
-                value={joinForm.experience}
-                onChange={(e) => handleChange('experience', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500 resize-none"
-              />
-              <textarea
-                rows={3}
-                placeholder="Additional message (optional)"
-                value={joinForm.message}
-                onChange={(e) => handleChange('message', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500 resize-none"
-              />
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full px-4 py-3 rounded-xl bg-orange-500 text-white font-black text-[11px] uppercase tracking-widest hover:bg-orange-600 transition-all disabled:opacity-60"
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-1 rounded-3xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+              <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">What We Look For</p>
+              <ul className="mt-4 space-y-3 text-sm text-gray-700 dark:text-gray-300 font-medium">
+                <li className="inline-flex items-start gap-2">
+                  <ShieldCheck size={15} className="text-orange-500 mt-0.5" /> Ownership and accountability
+                </li>
+                <li className="inline-flex items-start gap-2">
+                  <ShieldCheck size={15} className="text-orange-500 mt-0.5" /> Customer-first thinking
+                </li>
+                <li className="inline-flex items-start gap-2">
+                  <ShieldCheck size={15} className="text-orange-500 mt-0.5" /> Strong execution pace
+                </li>
+              </ul>
+              <a
+                href="https://wa.me/601154036303?text=Hello%2C%20I%20want%20to%20know%20about%20joining%20Lumora%20Tech"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-6 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-[10px] font-black uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all"
               >
-                {isSubmitting ? 'Submitting...' : 'Submit Application'}
-              </button>
-              {feedback && (
-                <p className={`text-xs font-bold text-center ${feedback.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
-                  {feedback.message}
-                </p>
-              )}
-            </form>
+                <MessageSquare size={12} /> Ask About Openings
+              </a>
+            </div>
+
+            <div className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-6 md:p-8">
+              <form className="space-y-4" onSubmit={handleSubmit}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <input
+                    required
+                    type="text"
+                    placeholder="Full name"
+                    value={joinForm.fullName}
+                    onChange={(e) => handleChange('fullName', e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                  />
+                  <input
+                    required
+                    type="email"
+                    placeholder="Email address"
+                    value={joinForm.email}
+                    onChange={(e) => handleChange('email', e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <input
+                    type="text"
+                    placeholder="Phone number"
+                    value={joinForm.phone}
+                    onChange={(e) => handleChange('phone', e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                  />
+                  <input
+                    required
+                    type="text"
+                    placeholder="Role you are applying for"
+                    value={joinForm.role}
+                    onChange={(e) => handleChange('role', e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                  />
+                </div>
+                <textarea
+                  rows={3}
+                  placeholder="Experience summary"
+                  value={joinForm.experience}
+                  onChange={(e) => handleChange('experience', e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500 resize-none"
+                />
+                <textarea
+                  rows={3}
+                  placeholder="Additional message (optional)"
+                  value={joinForm.message}
+                  onChange={(e) => handleChange('message', e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500 resize-none"
+                />
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full px-4 py-3 rounded-xl bg-orange-500 text-white font-black text-[11px] uppercase tracking-widest hover:bg-orange-600 transition-all disabled:opacity-60"
+                >
+                  {isSubmitting ? 'Submitting...' : 'Submit Application'}
+                </button>
+                {feedback && (
+                  <p className={`text-xs font-bold text-center ${feedback.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
+                    {feedback.message}
+                  </p>
+                )}
+              </form>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── FOOTER ── */}
-      <footer className="py-10 px-6 bg-gray-950 text-center">
+      <footer className="py-10 px-4 sm:px-6 bg-gray-950 text-center">
         <button
           onClick={onBack}
           className="inline-flex items-center gap-2 mb-6 text-[11px] font-black text-gray-400 uppercase tracking-widest hover:text-orange-500 transition-colors"
