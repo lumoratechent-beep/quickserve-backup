@@ -854,6 +854,8 @@ const AdminView: React.FC<Props> = ({
   const [newTeamMemberTraitTwo, setNewTeamMemberTraitTwo] = useState('Fast Iteration');
   const [newTeamMemberTraitThree, setNewTeamMemberTraitThree] = useState('Operational Mindset');
   const [isCreatingTeamMember, setIsCreatingTeamMember] = useState(false);
+  const [showAddMemberForm, setShowAddMemberForm] = useState(false);
+  const [expandedTeamMemberId, setExpandedTeamMemberId] = useState<string | null>(null);
   const [teamMemberDrafts, setTeamMemberDrafts] = useState<Record<string, {
     name: string;
     role: string;
@@ -924,7 +926,7 @@ const AdminView: React.FC<Props> = ({
     }
 
     const parsedSortOrder = Number.parseInt(newTeamMemberSortOrder, 10);
-    const safeSortOrder = Number.isNaN(parsedSortOrder) ? 0 : parsedSortOrder;
+    const safeSortOrder = Number.isNaN(parsedSortOrder) || parsedSortOrder < 0 ? 0 : parsedSortOrder;
 
     setIsCreatingTeamMember(true);
 
@@ -971,6 +973,7 @@ const AdminView: React.FC<Props> = ({
     setNewTeamMemberTraitOne('Customer Focused');
     setNewTeamMemberTraitTwo('Fast Iteration');
     setNewTeamMemberTraitThree('Operational Mindset');
+    setShowAddMemberForm(false);
     await fetchTeamMembers();
     setIsCreatingTeamMember(false);
   };
@@ -1001,7 +1004,7 @@ const AdminView: React.FC<Props> = ({
 
     setEditingTeamMemberId(memberId);
     const parsedSortOrder = Number.parseInt(draft.sortOrder, 10);
-    const safeSortOrder = Number.isNaN(parsedSortOrder) ? 0 : parsedSortOrder;
+    const safeSortOrder = Number.isNaN(parsedSortOrder) || parsedSortOrder < 0 ? 0 : parsedSortOrder;
 
     const { error } = await supabase.from('team_members').update({
       name: draft.name.trim(),
@@ -1027,6 +1030,22 @@ const AdminView: React.FC<Props> = ({
     toast('Team member updated', 'success');
     await fetchTeamMembers();
     setEditingTeamMemberId(null);
+    setExpandedTeamMemberId(null);
+  };
+
+  const deleteTeamMember = async (memberId: string) => {
+    const { error } = await supabase.from('team_members').delete().eq('id', memberId);
+    if (error) {
+      if (isTeamMembersTableMissing(error)) {
+        toast('Missing table: public.team_members. Run the latest Supabase migration and refresh.', 'error');
+      } else {
+        toast(error.message || 'Failed to delete team member', 'error');
+      }
+      return;
+    }
+    toast('Team member deleted', 'success');
+    if (expandedTeamMemberId === memberId) setExpandedTeamMemberId(null);
+    await fetchTeamMembers();
   };
 
   const handleTeamMemberPhotoCropped = async (blob: Blob) => {
@@ -2558,116 +2577,150 @@ const AdminView: React.FC<Props> = ({
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-base font-black dark:text-white uppercase tracking-tight">Team Members</h3>
-                    <p className="text-xs text-gray-400 mt-1">Add team members, then upload or update photos shown on the marketing page.</p>
+                    <p className="text-xs text-gray-400 mt-1">Manage team members shown on the marketing page.</p>
                   </div>
-                  <button
-                    onClick={fetchTeamMembers}
-                    className="px-4 py-2 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-colors flex items-center gap-2"
-                  >
-                    <RefreshCw size={12} /> Refresh
-                  </button>
-                </div>
-
-                <div className="bg-white dark:bg-gray-900/50 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 sm:p-5">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">Add Team Member</p>
-                  <p className="text-xs text-gray-400 mb-3">Display order controls the sequence shown on the company page. Lower numbers appear first.</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                    <input
-                      type="text"
-                      placeholder="Full name"
-                      value={newTeamMemberName}
-                      onChange={(e) => setNewTeamMemberName(e.target.value)}
-                      className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Role"
-                      value={newTeamMemberRole}
-                      onChange={(e) => setNewTeamMemberRole(e.target.value)}
-                      className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Display order"
-                      value={newTeamMemberSortOrder}
-                      onChange={(e) => setNewTeamMemberSortOrder(e.target.value)}
-                      className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                    />
-                    <label className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-bold text-gray-500 dark:text-gray-300 flex items-center justify-between gap-2 cursor-pointer hover:border-orange-400 transition-colors">
-                      <span className="truncate">{newTeamMemberPhotoFile ? newTeamMemberPhotoFile.name : 'Choose image (optional)'}</span>
-                      <span className="inline-flex items-center gap-1 text-orange-500 shrink-0"><Upload size={12} /> Upload</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) setNewTeamMemberCropFile(file);
-                          e.target.value = '';
-                        }}
-                      />
-                    </label>
+                  <div className="flex items-center gap-2">
                     <button
-                      type="button"
-                      onClick={createTeamMember}
-                      disabled={isCreatingTeamMember || !newTeamMemberName.trim() || !newTeamMemberRole.trim()}
-                      className="px-4 py-2.5 rounded-xl bg-orange-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-colors disabled:opacity-60 inline-flex items-center justify-center gap-2"
+                      onClick={() => {
+                        setShowAddMemberForm(true);
+                        setNewTeamMemberName('');
+                        setNewTeamMemberRole('');
+                        setNewTeamMemberSortOrder('0');
+                        setNewTeamMemberPhotoFile(null);
+                        setNewTeamMemberCollaborationHeader('Collaboration Style');
+                        setNewTeamMemberCollaborationDescription('Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.');
+                        setNewTeamMemberTraitOne('Customer Focused');
+                        setNewTeamMemberTraitTwo('Fast Iteration');
+                        setNewTeamMemberTraitThree('Operational Mindset');
+                      }}
+                      className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-colors flex items-center gap-2"
                     >
-                      {isCreatingTeamMember ? <><RefreshCw size={11} className="animate-spin" /> Adding...</> : <><Plus size={11} /> Add Member</>}
+                      <Plus size={12} /> Add Member
+                    </button>
+                    <button
+                      onClick={fetchTeamMembers}
+                      className="px-4 py-2 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-colors flex items-center gap-2"
+                    >
+                      <RefreshCw size={12} /> Refresh
                     </button>
                   </div>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
-                    <input
-                      type="text"
-                      placeholder="Collaboration header"
-                      value={newTeamMemberCollaborationHeader}
-                      onChange={(e) => setNewTeamMemberCollaborationHeader(e.target.value)}
-                      className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                    />
-                    <textarea
-                      rows={3}
-                      placeholder="Collaboration description"
-                      value={newTeamMemberCollaborationDescription}
-                      onChange={(e) => setNewTeamMemberCollaborationDescription(e.target.value)}
-                      className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500 resize-none"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
-                    <input
-                      type="text"
-                      placeholder="Trait 1"
-                      value={newTeamMemberTraitOne}
-                      onChange={(e) => setNewTeamMemberTraitOne(e.target.value)}
-                      className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Trait 2"
-                      value={newTeamMemberTraitTwo}
-                      onChange={(e) => setNewTeamMemberTraitTwo(e.target.value)}
-                      className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Trait 3"
-                      value={newTeamMemberTraitThree}
-                      onChange={(e) => setNewTeamMemberTraitThree(e.target.value)}
-                      className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                    />
-                  </div>
-                  {newTeamMemberPhotoFile && (
-                    <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/30 px-3 py-2.5">
-                      <p className="text-[11px] font-bold text-orange-700 dark:text-orange-300 truncate">Photo ready: {newTeamMemberPhotoFile.name}</p>
+                </div>
+
+                {showAddMemberForm && (
+                  <div className="bg-white dark:bg-gray-900/50 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 sm:p-5">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">New Team Member</p>
+                    <p className="text-xs text-gray-400 mb-3">Display order controls the sequence shown on the company page. Lower numbers appear first.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <input
+                        type="text"
+                        placeholder="Full name"
+                        value={newTeamMemberName}
+                        onChange={(e) => setNewTeamMemberName(e.target.value)}
+                        className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Role"
+                        value={newTeamMemberRole}
+                        onChange={(e) => setNewTeamMemberRole(e.target.value)}
+                        className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="Display order"
+                        value={newTeamMemberSortOrder}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '' || Number(val) >= 0) setNewTeamMemberSortOrder(val);
+                        }}
+                        className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                      />
+                      <label className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-bold text-gray-500 dark:text-gray-300 flex items-center justify-between gap-2 cursor-pointer hover:border-orange-400 transition-colors">
+                        <span className="truncate">{newTeamMemberPhotoFile ? newTeamMemberPhotoFile.name : 'Choose image (optional)'}</span>
+                        <span className="inline-flex items-center gap-1 text-orange-500 shrink-0"><Upload size={12} /> Upload</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) setNewTeamMemberCropFile(file);
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
+                      <input
+                        type="text"
+                        placeholder="Collaboration header"
+                        value={newTeamMemberCollaborationHeader}
+                        onChange={(e) => setNewTeamMemberCollaborationHeader(e.target.value)}
+                        className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                      />
+                      <textarea
+                        rows={3}
+                        placeholder="Collaboration description"
+                        value={newTeamMemberCollaborationDescription}
+                        onChange={(e) => setNewTeamMemberCollaborationDescription(e.target.value)}
+                        className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500 resize-none"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                      <input
+                        type="text"
+                        placeholder="Trait 1"
+                        value={newTeamMemberTraitOne}
+                        onChange={(e) => setNewTeamMemberTraitOne(e.target.value)}
+                        className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Trait 2"
+                        value={newTeamMemberTraitTwo}
+                        onChange={(e) => setNewTeamMemberTraitTwo(e.target.value)}
+                        className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Trait 3"
+                        value={newTeamMemberTraitThree}
+                        onChange={(e) => setNewTeamMemberTraitThree(e.target.value)}
+                        className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                      />
+                    </div>
+                    {newTeamMemberPhotoFile && (
+                      <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/30 px-3 py-2.5">
+                        <p className="text-[11px] font-bold text-orange-700 dark:text-orange-300 truncate">Photo ready: {newTeamMemberPhotoFile.name}</p>
+                        <button
+                          type="button"
+                          onClick={() => setNewTeamMemberPhotoFile(null)}
+                          className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-red-500 transition-colors"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 mt-4">
                       <button
                         type="button"
-                        onClick={() => setNewTeamMemberPhotoFile(null)}
-                        className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-red-500 transition-colors"
+                        onClick={createTeamMember}
+                        disabled={isCreatingTeamMember || !newTeamMemberName.trim() || !newTeamMemberRole.trim()}
+                        className="px-5 py-2.5 rounded-xl bg-orange-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-colors disabled:opacity-60 inline-flex items-center justify-center gap-2"
                       >
-                        Remove
+                        {isCreatingTeamMember ? <><RefreshCw size={11} className="animate-spin" /> Adding...</> : 'Save Changes'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddMemberForm(false)}
+                        className="px-5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 font-black text-[10px] uppercase tracking-widest hover:border-red-400 hover:text-red-500 transition-colors"
+                      >
+                        Cancel
                       </button>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {isLoadingTeamMembers ? (
                   <div className="text-center py-10">
@@ -2676,109 +2729,180 @@ const AdminView: React.FC<Props> = ({
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {teamMembers.map((member) => (
+                    {teamMembers.map((member) => {
+                      const isExpanded = expandedTeamMemberId === member.id;
+                      return (
                       <div key={member.id} className="bg-white dark:bg-gray-900/50 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 flex flex-col gap-4">
-                        {member.photo_url ? (
-                          <img
-                            src={member.photo_url}
-                            alt={member.name}
-                            className="w-20 h-20 rounded-full object-cover border-2 border-orange-500/30 mx-auto"
-                          />
-                        ) : (
-                          <div className="w-20 h-20 rounded-full bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-200 dark:border-orange-800 flex items-center justify-center mx-auto">
-                            <span className="text-orange-500 font-black text-2xl">{member.name.charAt(0)}</span>
+                        {/* Collapsed view: image, name, role, edit/delete buttons */}
+                        <div className="flex items-center gap-3">
+                          {member.photo_url ? (
+                            <img
+                              src={member.photo_url}
+                              alt={member.name}
+                              className="w-12 h-12 rounded-full object-cover border-2 border-orange-500/30 shrink-0"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-200 dark:border-orange-800 flex items-center justify-center shrink-0">
+                              <span className="text-orange-500 font-black text-lg">{member.name.charAt(0)}</span>
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{member.name}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{member.role}</p>
                           </div>
-                        )}
-                        <div className="grid grid-cols-1 gap-3">
-                          <input
-                            type="text"
-                            value={teamMemberDrafts[member.id]?.name || ''}
-                            onChange={(e) => updateTeamMemberDraft(member.id, 'name', e.target.value)}
-                            className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                          />
-                          <input
-                            type="text"
-                            value={teamMemberDrafts[member.id]?.role || ''}
-                            onChange={(e) => updateTeamMemberDraft(member.id, 'role', e.target.value)}
-                            className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                          />
-                          <input
-                            type="number"
-                            placeholder="Display order"
-                            value={teamMemberDrafts[member.id]?.sortOrder || '0'}
-                            onChange={(e) => updateTeamMemberDraft(member.id, 'sortOrder', e.target.value)}
-                            className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                          />
-                          <input
-                            type="text"
-                            value={teamMemberDrafts[member.id]?.collaborationHeader || ''}
-                            onChange={(e) => updateTeamMemberDraft(member.id, 'collaborationHeader', e.target.value)}
-                            className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                          />
-                          <textarea
-                            rows={3}
-                            value={teamMemberDrafts[member.id]?.collaborationDescription || ''}
-                            onChange={(e) => updateTeamMemberDraft(member.id, 'collaborationDescription', e.target.value)}
-                            className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500 resize-none"
-                          />
-                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                            <input
-                              type="text"
-                              value={teamMemberDrafts[member.id]?.traitOne || ''}
-                              onChange={(e) => updateTeamMemberDraft(member.id, 'traitOne', e.target.value)}
-                              className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                            />
-                            <input
-                              type="text"
-                              value={teamMemberDrafts[member.id]?.traitTwo || ''}
-                              onChange={(e) => updateTeamMemberDraft(member.id, 'traitTwo', e.target.value)}
-                              className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                            />
-                            <input
-                              type="text"
-                              value={teamMemberDrafts[member.id]?.traitThree || ''}
-                              onChange={(e) => updateTeamMemberDraft(member.id, 'traitThree', e.target.value)}
-                              className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                            />
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setExpandedTeamMemberId(isExpanded ? null : member.id)}
+                              className="p-2 rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+                              title="Edit"
+                            >
+                              <Edit3 size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteTeamMember(member.id)}
+                              className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 size={14} />
+                            </button>
                           </div>
                         </div>
-                        <label className="w-full cursor-pointer">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            disabled={uploadingTeamMemberId === member.id}
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                setTeamMemberCropTargetId(member.id);
-                                setNewTeamMemberCropFile(file);
-                              }
-                              e.target.value = '';
-                            }}
-                          />
-                          <div className={`w-full px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 ${
-                            uploadingTeamMemberId === member.id
-                              ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
-                              : 'bg-orange-500 text-white hover:bg-orange-600 cursor-pointer'
-                          }`}>
-                            {uploadingTeamMemberId === member.id ? (
-                              <><RefreshCw size={11} className="animate-spin" /> Uploading...</>
-                            ) : (
-                              <><ImageIcon size={11} /> {member.photo_url ? 'Change Photo' : 'Upload Photo'}</>
-                            )}
+
+                        {/* Expanded edit form */}
+                        {isExpanded && (
+                          <div className="grid grid-cols-1 gap-3 border-t border-gray-100 dark:border-gray-700/50 pt-4">
+                            <input
+                              type="text"
+                              placeholder="Full name"
+                              value={teamMemberDrafts[member.id]?.name || ''}
+                              onChange={(e) => updateTeamMemberDraft(member.id, 'name', e.target.value)}
+                              className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Role"
+                              value={teamMemberDrafts[member.id]?.role || ''}
+                              onChange={(e) => updateTeamMemberDraft(member.id, 'role', e.target.value)}
+                              className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                            />
+                            <input
+                              type="number"
+                              min="0"
+                              placeholder="Display order"
+                              value={teamMemberDrafts[member.id]?.sortOrder || '0'}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '' || Number(val) >= 0) updateTeamMemberDraft(member.id, 'sortOrder', val);
+                              }}
+                              className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Collaboration header"
+                              value={teamMemberDrafts[member.id]?.collaborationHeader || ''}
+                              onChange={(e) => updateTeamMemberDraft(member.id, 'collaborationHeader', e.target.value)}
+                              className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                            />
+                            <textarea
+                              rows={3}
+                              placeholder="Collaboration description"
+                              value={teamMemberDrafts[member.id]?.collaborationDescription || ''}
+                              onChange={(e) => updateTeamMemberDraft(member.id, 'collaborationDescription', e.target.value)}
+                              className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500 resize-none"
+                            />
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                              <input
+                                type="text"
+                                placeholder="Trait 1"
+                                value={teamMemberDrafts[member.id]?.traitOne || ''}
+                                onChange={(e) => updateTeamMemberDraft(member.id, 'traitOne', e.target.value)}
+                                className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                              />
+                              <input
+                                type="text"
+                                placeholder="Trait 2"
+                                value={teamMemberDrafts[member.id]?.traitTwo || ''}
+                                onChange={(e) => updateTeamMemberDraft(member.id, 'traitTwo', e.target.value)}
+                                className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                              />
+                              <input
+                                type="text"
+                                placeholder="Trait 3"
+                                value={teamMemberDrafts[member.id]?.traitThree || ''}
+                                onChange={(e) => updateTeamMemberDraft(member.id, 'traitThree', e.target.value)}
+                                className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
+                              />
+                            </div>
+                            <label className="w-full cursor-pointer">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                disabled={uploadingTeamMemberId === member.id}
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    setTeamMemberCropTargetId(member.id);
+                                    setNewTeamMemberCropFile(file);
+                                  }
+                                  e.target.value = '';
+                                }}
+                              />
+                              <div className={`w-full px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 ${
+                                uploadingTeamMemberId === member.id
+                                  ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
+                                  : 'bg-orange-500 text-white hover:bg-orange-600 cursor-pointer'
+                              }`}>
+                                {uploadingTeamMemberId === member.id ? (
+                                  <><RefreshCw size={11} className="animate-spin" /> Uploading...</>
+                                ) : (
+                                  <><ImageIcon size={11} /> {member.photo_url ? 'Change Photo' : 'Upload Photo'}</>
+                                )}
+                              </div>
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => saveTeamMember(member.id)}
+                                disabled={editingTeamMemberId === member.id}
+                                className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-colors disabled:opacity-60 inline-flex items-center justify-center gap-2"
+                              >
+                                {editingTeamMemberId === member.id ? <><RefreshCw size={11} className="animate-spin" /> Saving...</> : 'Save Changes'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setExpandedTeamMemberId(null);
+                                  // Reset draft to original values
+                                  const original = teamMembers.find((m) => m.id === member.id);
+                                  if (original) {
+                                    setTeamMemberDrafts((prev) => ({
+                                      ...prev,
+                                      [member.id]: {
+                                        name: original.name,
+                                        role: original.role,
+                                        sortOrder: String(original.sort_order ?? 0),
+                                        collaborationHeader: original.collaboration_header || 'Collaboration Style',
+                                        collaborationDescription: original.collaboration_description || 'Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.',
+                                        traitOne: original.trait_one || 'Customer Focused',
+                                        traitTwo: original.trait_two || 'Fast Iteration',
+                                        traitThree: original.trait_three || 'Operational Mindset',
+                                      },
+                                    }));
+                                  }
+                                }}
+                                className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 font-black text-[10px] uppercase tracking-widest hover:border-red-400 hover:text-red-500 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
                           </div>
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => saveTeamMember(member.id)}
-                          disabled={editingTeamMemberId === member.id}
-                          className="w-full px-4 py-2.5 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-colors disabled:opacity-60 inline-flex items-center justify-center gap-2"
-                        >
-                          {editingTeamMemberId === member.id ? <><RefreshCw size={11} className="animate-spin" /> Saving...</> : 'Save Changes'}
-                        </button>
+                        )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -2798,8 +2922,8 @@ const AdminView: React.FC<Props> = ({
         {newTeamMemberCropFile && (
           <ImageCropModal
             imageFile={newTeamMemberCropFile}
-            onCrop={handleNewTeamMemberPhotoCropped}
-            onCancel={() => setNewTeamMemberCropFile(null)}
+            onCrop={teamMemberCropTargetId ? handleTeamMemberPhotoCropped : handleNewTeamMemberPhotoCropped}
+            onCancel={() => { setNewTeamMemberCropFile(null); setTeamMemberCropTargetId(null); }}
           />
         )}
 
