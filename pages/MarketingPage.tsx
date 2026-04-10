@@ -285,14 +285,14 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, isDa
           const repeatCount = Math.max(2, Math.ceil(20 / partnerLogos.length));
           const repeatedLogos = Array.from({ length: repeatCount * 2 }, () => partnerLogos).flat();
           return (
-          <div className="max-w-[55%] mx-auto relative">
+          <div className="max-w-full sm:max-w-[55%] mx-auto relative">
             {/* Fade edges */}
-            <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-white dark:from-gray-950 to-transparent z-10 pointer-events-none" />
-            <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-white dark:from-gray-950 to-transparent z-10 pointer-events-none" />
+            <div className="absolute left-0 top-0 bottom-0 w-10 sm:w-16 bg-gradient-to-r from-white dark:from-gray-950 to-transparent z-10 pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-10 sm:w-16 bg-gradient-to-l from-white dark:from-gray-950 to-transparent z-10 pointer-events-none" />
             <div className="overflow-hidden py-6 -my-6">
-              <div className="partner-carousel-track flex items-center gap-12 w-max">
+              <div className="partner-carousel-track flex items-center gap-4 sm:gap-12 w-max">
                 {repeatedLogos.map((p, i) => (
-                  <button key={i} className={`flex-shrink-0 flex items-center justify-center w-20 h-12 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 hover:scale-125 hover:border hover:border-orange-500/40 hover:shadow-lg hover:shadow-orange-500/10 rounded-xl transition-all duration-500 focus:grayscale-0 focus:opacity-100 focus:scale-125 focus:border focus:border-orange-500/40 focus:shadow-lg focus:shadow-orange-500/10 focus:outline-none ${p.crop_shape === 'circle' ? 'rounded-full overflow-hidden' : ''}`}>
+                  <button key={i} className={`flex-shrink-0 flex items-center justify-center w-16 h-10 sm:w-20 sm:h-12 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 hover:scale-125 hover:border hover:border-orange-500/40 hover:shadow-lg hover:shadow-orange-500/10 rounded-xl transition-all duration-500 focus:grayscale-0 focus:opacity-100 focus:scale-125 focus:border focus:border-orange-500/40 focus:shadow-lg focus:shadow-orange-500/10 focus:outline-none ${p.crop_shape === 'circle' ? 'rounded-full overflow-hidden' : ''}`}>
                     <img src={p.url} alt={p.alt} className="max-h-full max-w-full object-contain pointer-events-none" />
                   </button>
                 ))}
@@ -311,27 +311,27 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, isDa
             <h2 className="text-2xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Everything You Need</h2>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+          <div className="grid grid-cols-3 gap-2 sm:gap-5">
             {[
-              { icon: <QrCode size={24} />, title: 'QR Ordering', desc: 'Customers scan a table QR code, browse your menu, and order directly from their phone. No app install needed.', accent: 'from-orange-500 to-amber-500' },
-              { icon: <MapPin size={24} />, title: 'Table Management', desc: 'Multiple areas, multiple tables. Manage your floor layout, track table status, and organise dine-in flow effortlessly.', accent: 'from-yellow-500 to-orange-500' },
-              { icon: <ChefHat size={24} />, title: 'Kitchen Display System', desc: 'Orders hit the kitchen screen the moment they are placed. No tickets, no shouting — just a clear live queue by department.', accent: 'from-orange-500 to-red-500' },
-              { icon: <Users size={24} />, title: 'Staff POS & Ordering', desc: 'Waitstaff can place and manage orders from any device at the table. Counter orders and takeaways supported too.', accent: 'from-amber-500 to-orange-500' },
-              { icon: <BarChart3 size={24} />, title: 'Smart Analytics', desc: 'Daily sales, item performance, peak-hour insights, and full order reports — all in one back-office dashboard.', accent: 'from-orange-600 to-orange-400' },
-              { icon: <Zap size={24} />, title: '5-Min Setup', desc: 'No hardware needed. Register, upload your menu, print QR codes, and you\'re live. Works on any device with a browser.', accent: 'from-orange-400 to-yellow-500' },
+              { icon: <QrCode className="w-4 h-4 sm:w-6 sm:h-6" />, title: 'QR Ordering', desc: 'Customers scan a table QR code, browse your menu, and order directly from their phone. No app install needed.', accent: 'from-orange-500 to-amber-500' },
+              { icon: <MapPin className="w-4 h-4 sm:w-6 sm:h-6" />, title: 'Table Management', desc: 'Multiple areas, multiple tables. Manage your floor layout, track table status, and organise dine-in flow effortlessly.', accent: 'from-yellow-500 to-orange-500' },
+              { icon: <ChefHat className="w-4 h-4 sm:w-6 sm:h-6" />, title: 'Kitchen Display System', desc: 'Orders hit the kitchen screen the moment they are placed. No tickets, no shouting — just a clear live queue by department.', accent: 'from-orange-500 to-red-500' },
+              { icon: <Users className="w-4 h-4 sm:w-6 sm:h-6" />, title: 'Staff POS & Ordering', desc: 'Waitstaff can place and manage orders from any device at the table. Counter orders and takeaways supported too.', accent: 'from-amber-500 to-orange-500' },
+              { icon: <BarChart3 className="w-4 h-4 sm:w-6 sm:h-6" />, title: 'Smart Analytics', desc: 'Daily sales, item performance, peak-hour insights, and full order reports — all in one back-office dashboard.', accent: 'from-orange-600 to-orange-400' },
+              { icon: <Zap className="w-4 h-4 sm:w-6 sm:h-6" />, title: '5-Min Setup', desc: 'No hardware needed. Register, upload your menu, print QR codes, and you\'re live. Works on any device with a browser.', accent: 'from-orange-400 to-yellow-500' },
             ].map((f, i) => (
               <div
                 key={i}
-                className={`group relative p-4 sm:p-7 bg-white dark:bg-gray-900 rounded-2xl sm:rounded-3xl border border-gray-100 dark:border-gray-800 hover:border-orange-500/50 transition-all duration-500 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-orange-500/5 ${featuresRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+                className={`group relative p-2.5 sm:p-7 bg-white dark:bg-gray-900 rounded-xl sm:rounded-3xl border border-gray-100 dark:border-gray-800 hover:border-orange-500/50 transition-all duration-500 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-orange-500/5 ${featuresRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
                 style={{ transitionDelay: featuresRef.isInView ? `${i * 80}ms` : '0ms' }}
               >
                 {/* Gradient line on top */}
                 <div className={`absolute top-0 left-4 right-4 sm:left-8 sm:right-8 h-[2px] bg-gradient-to-r ${f.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-full`} />
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-50 dark:bg-orange-500/10 text-orange-500 rounded-xl sm:rounded-2xl flex items-center justify-center mb-3 sm:mb-5 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                <div className="w-7 h-7 sm:w-12 sm:h-12 bg-orange-50 dark:bg-orange-500/10 text-orange-500 rounded-lg sm:rounded-2xl flex items-center justify-center mb-2 sm:mb-5 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
                   {f.icon}
                 </div>
-                <h3 className="text-sm sm:text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight mb-1 sm:mb-2">{f.title}</h3>
-                <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-400 font-medium leading-relaxed">{f.desc}</p>
+                <h3 className="text-[10px] sm:text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight mb-1 sm:mb-2 leading-tight">{f.title}</h3>
+                <p className="text-[8px] sm:text-sm text-gray-700 dark:text-gray-400 font-medium leading-snug sm:leading-relaxed line-clamp-3 sm:line-clamp-none">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -747,15 +747,15 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, isDa
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-8 mt-16">
+          <div className="flex items-center justify-center gap-4 sm:gap-8 mt-10 sm:mt-16">
             {[
               { icon: <ShieldCheck size={18} />, text: 'SST Compliant' },
               { icon: <Globe size={18} />, text: 'Local Support' },
               { icon: <Wifi size={18} />, text: 'Works Offline' },
             ].map((b, i) => (
-              <div key={i} className={`flex items-center gap-2.5 transition-all duration-500 ${trustRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: `${300 + i * 100}ms` }}>
-                <span className="text-orange-500">{b.icon}</span>
-                <span className="text-[11px] font-black uppercase tracking-widest text-white/60">{b.text}</span>
+              <div key={i} className={`flex items-center gap-1.5 sm:gap-2.5 transition-all duration-500 ${trustRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: `${300 + i * 100}ms` }}>
+                <span className="text-orange-500 [&>svg]:w-3.5 [&>svg]:h-3.5 sm:[&>svg]:w-[18px] sm:[&>svg]:h-[18px]">{b.icon}</span>
+                <span className="text-[8px] sm:text-[11px] font-black uppercase tracking-wider sm:tracking-widest text-white/60 whitespace-nowrap">{b.text}</span>
               </div>
             ))}
           </div>
@@ -787,30 +787,30 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, isDa
       </section>
 
       {/* ═══════════════════════ FINAL CTA ═══════════════════════ */}
-      <section ref={ctaRef.ref} className="py-24 px-6 relative overflow-hidden">
+      <section ref={ctaRef.ref} className="py-14 sm:py-24 px-4 sm:px-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-orange-500 to-orange-600" />
         <div className="absolute inset-0 marketing-grid-bg opacity-10 pointer-events-none" />
         <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-[100px] pointer-events-none" />
 
         <div className={`max-w-3xl mx-auto text-center relative z-10 transition-all duration-700 ${ctaRef.isInView ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'}`}>
-          <h2 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tighter mb-6 leading-tight">
+          <h2 className="text-2xl sm:text-3xl md:text-5xl font-black text-white uppercase tracking-tighter mb-4 sm:mb-6 leading-tight">
             Ready to Modernize<br />Your Restaurant?
           </h2>
-          <p className="text-white/80 font-medium text-lg mb-10 max-w-lg mx-auto">
+          <p className="text-white/80 font-medium text-sm sm:text-lg mb-6 sm:mb-10 max-w-lg mx-auto">
             Join hundreds of Malaysian restaurants already using QuickServe. Start your free {TRIAL_DAYS}-day trial today.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-row items-center justify-center gap-2.5 sm:gap-4">
             <button
               onClick={onGetStarted}
-              className="group w-full sm:w-auto px-10 py-5 bg-white text-orange-600 rounded-2xl font-black text-lg shadow-2xl shadow-black/20 hover:bg-gray-50 hover:scale-105 transition-all flex items-center justify-center gap-3"
+              className="group flex-1 sm:flex-initial min-w-0 px-4 sm:px-10 py-3 sm:py-5 bg-white text-orange-600 rounded-xl sm:rounded-2xl font-black text-xs sm:text-lg shadow-2xl shadow-black/20 hover:bg-gray-50 hover:scale-105 transition-all flex items-center justify-center gap-1.5 sm:gap-3 whitespace-nowrap"
             >
-              Start Free Trial <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+              Start Free Trial <ArrowRight size={14} className="shrink-0 group-hover:translate-x-1 transition-transform sm:hidden" /><ArrowRight size={20} className="shrink-0 group-hover:translate-x-1 transition-transform hidden sm:block" />
             </button>
             <a
               href="https://wa.me/601154036303?text=Hello%2C%20I%20am%20interested%20to%20know%20about%20the%20QuickServe%20QR%20system"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full sm:w-auto px-10 py-5 bg-white/20 text-white rounded-2xl font-black text-lg hover:bg-white/30 hover:scale-105 transition-all flex items-center justify-center gap-2 backdrop-blur-sm border border-white/20"
+              className="flex-1 sm:flex-initial min-w-0 px-4 sm:px-10 py-3 sm:py-5 bg-white/20 text-white rounded-xl sm:rounded-2xl font-black text-xs sm:text-lg hover:bg-white/30 hover:scale-105 transition-all flex items-center justify-center gap-1.5 sm:gap-2 backdrop-blur-sm border border-white/20 whitespace-nowrap"
             >
               <MessageSquare size={18} /> WhatsApp Us
             </a>
