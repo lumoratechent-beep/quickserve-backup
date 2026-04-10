@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft,
-  ArrowUpRight,
+
   Sun,
   Moon,
   MapPin,
@@ -75,17 +75,12 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
     role: string;
     photo_url: string | null;
     sort_order: number;
-    collaboration_header: string | null;
-    collaboration_description: string | null;
-    trait_one: string | null;
-    trait_two: string | null;
-    trait_three: string | null;
   }[]>([]);
   const [joinForm, setJoinForm] = useState({ fullName: '', email: '', phone: '', role: '', experience: '', message: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [activeValue, setActiveValue] = useState<'mission' | 'vision' | 'promise'>('mission');
-  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -144,7 +139,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
     window.scrollTo({ top: 0 });
     supabase
       .from('team_members')
-      .select('id, name, role, photo_url, sort_order, collaboration_header, collaboration_description, trait_one, trait_two, trait_three')
+      .select('id, name, role, photo_url, sort_order')
       .order('sort_order')
       .then(({ data }) => {
         if (data) setTeamMembers(data);
@@ -447,87 +442,36 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
 
           {teamMembers.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-              {teamMembers.map((member, idx) => {
-                const isSelected = selectedMemberId === member.id;
-
-                return (
+              {teamMembers.map((member, idx) => (
                   <div
                     key={member.id}
-                    className={`transition-all duration-500 ${isSelected ? 'sm:col-span-2 lg:col-span-2' : ''}`}
+                    className="transition-all duration-500"
                     style={{ transitionDelay: `${idx * 80}ms` }}
                   >
-                    <button
-                      type="button"
-                      onClick={() => setSelectedMemberId((c) => (c === member.id ? null : member.id))}
-                      className="w-full text-left group"
-                    >
-                      <div className={`flex ${isSelected ? 'flex-col sm:flex-row gap-6' : 'flex-col'}`}>
-                        {/* Photo */}
-                        <div className={`rounded-3xl overflow-hidden bg-gray-100 dark:bg-gray-800 ${isSelected ? 'sm:w-72 sm:flex-shrink-0 aspect-[3/4]' : 'aspect-[3/4]'}`}>
-                          {member.photo_url ? (
-                            <img
-                              src={member.photo_url}
-                              alt={member.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/20 dark:to-orange-900/10">
-                              <span className="text-7xl font-black text-orange-300 dark:text-orange-700 select-none">{member.name.charAt(0)}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Info */}
-                        <div className={isSelected ? 'flex-1' : ''}>
-                          <div className="flex items-center justify-between mt-4 px-1">
-                            <div>
-                              <p className="font-bold text-gray-900 dark:text-white text-base">{member.name}</p>
-                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{member.role}</p>
-                            </div>
-                            <div
-                              className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${
-                                isSelected
-                                  ? 'bg-orange-500 text-white rotate-45'
-                                  : 'bg-gray-100 dark:bg-gray-800 text-gray-400 group-hover:bg-orange-500 group-hover:text-white'
-                              }`}
-                            >
-                              <ArrowUpRight size={16} />
-                            </div>
+                    <div className="group">
+                      {/* Photo */}
+                      <div className="rounded-3xl overflow-hidden bg-gray-100 dark:bg-gray-800 aspect-[4/5]">
+                        {member.photo_url ? (
+                          <img
+                            src={member.photo_url}
+                            alt={member.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/20 dark:to-orange-900/10">
+                            <span className="text-7xl font-black text-orange-300 dark:text-orange-700 select-none">{member.name.charAt(0)}</span>
                           </div>
-
-                          {isSelected && (
-                            <div className="mt-5 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50 p-5">
-                              <p className="text-xs font-semibold uppercase tracking-wider text-orange-500 mb-2">
-                                {member.collaboration_header || 'Collaboration Style'}
-                              </p>
-                              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                                {member.collaboration_description ||
-                                  'Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.'}
-                              </p>
-                              <div className="mt-4 flex flex-wrap gap-2">
-                                {[member.trait_one || 'Customer Focused', member.trait_two || 'Fast Iteration', member.trait_three || 'Operational Mindset'].map(
-                                  (trait, traitIdx) => (
-                                    <span
-                                      key={`${member.id}-${traitIdx}`}
-                                      className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
-                                        traitIdx === 0
-                                          ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
-                                          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
-                                      }`}
-                                    >
-                                      {trait}
-                                    </span>
-                                  ),
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                        )}
                       </div>
-                    </button>
+
+                      {/* Info */}
+                      <div className="mt-4 px-1">
+                        <p className="font-bold text-gray-900 dark:text-white text-base">{member.name}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{member.role}</p>
+                      </div>
+                    </div>
                   </div>
-                );
-              })}
+              ))}
             </div>
           ) : (
             <div className="text-center py-16 text-gray-400 text-sm font-medium">Loading team...</div>

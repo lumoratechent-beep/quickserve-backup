@@ -833,11 +833,6 @@ const AdminView: React.FC<Props> = ({
     role: string;
     photo_url: string | null;
     sort_order: number;
-    collaboration_header: string | null;
-    collaboration_description: string | null;
-    trait_one: string | null;
-    trait_two: string | null;
-    trait_three: string | null;
   }[]>([]);
   const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false);
   const [uploadingTeamMemberId, setUploadingTeamMemberId] = useState<string | null>(null);
@@ -848,11 +843,6 @@ const AdminView: React.FC<Props> = ({
   const [newTeamMemberSortOrder, setNewTeamMemberSortOrder] = useState('0');
   const [newTeamMemberPhotoFile, setNewTeamMemberPhotoFile] = useState<File | null>(null);
   const [newTeamMemberCropFile, setNewTeamMemberCropFile] = useState<File | null>(null);
-  const [newTeamMemberCollaborationHeader, setNewTeamMemberCollaborationHeader] = useState('Collaboration Style');
-  const [newTeamMemberCollaborationDescription, setNewTeamMemberCollaborationDescription] = useState('Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.');
-  const [newTeamMemberTraitOne, setNewTeamMemberTraitOne] = useState('Customer Focused');
-  const [newTeamMemberTraitTwo, setNewTeamMemberTraitTwo] = useState('Fast Iteration');
-  const [newTeamMemberTraitThree, setNewTeamMemberTraitThree] = useState('Operational Mindset');
   const [isCreatingTeamMember, setIsCreatingTeamMember] = useState(false);
   const [showAddMemberForm, setShowAddMemberForm] = useState(false);
   const [expandedTeamMemberId, setExpandedTeamMemberId] = useState<string | null>(null);
@@ -860,11 +850,6 @@ const AdminView: React.FC<Props> = ({
     name: string;
     role: string;
     sortOrder: string;
-    collaborationHeader: string;
-    collaborationDescription: string;
-    traitOne: string;
-    traitTwo: string;
-    traitThree: string;
   }>>({});
 
   const isTeamMembersTableMissing = (error: any) => {
@@ -874,7 +859,7 @@ const AdminView: React.FC<Props> = ({
 
   const fetchTeamMembers = async () => {
     setIsLoadingTeamMembers(true);
-    const { data, error } = await supabase.from('team_members').select('id, name, role, photo_url, sort_order, collaboration_header, collaboration_description, trait_one, trait_two, trait_three').order('sort_order');
+    const { data, error } = await supabase.from('team_members').select('id, name, role, photo_url, sort_order').order('sort_order');
     if (error) {
       if (isTeamMembersTableMissing(error)) {
         toast('Missing table: public.team_members. Run the latest Supabase migration and refresh.', 'error');
@@ -891,11 +876,6 @@ const AdminView: React.FC<Props> = ({
         name: member.name,
         role: member.role,
         sortOrder: String(member.sort_order ?? 0),
-        collaborationHeader: member.collaboration_header || 'Collaboration Style',
-        collaborationDescription: member.collaboration_description || 'Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.',
-        traitOne: member.trait_one || 'Customer Focused',
-        traitTwo: member.trait_two || 'Fast Iteration',
-        traitThree: member.trait_three || 'Operational Mindset',
       }])));
     }
     setIsLoadingTeamMembers(false);
@@ -946,11 +926,6 @@ const AdminView: React.FC<Props> = ({
       role: newTeamMemberRole.trim(),
       sort_order: safeSortOrder,
       photo_url: photoUrl,
-      collaboration_header: newTeamMemberCollaborationHeader.trim() || 'Collaboration Style',
-      collaboration_description: newTeamMemberCollaborationDescription.trim() || 'Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.',
-      trait_one: newTeamMemberTraitOne.trim() || 'Customer Focused',
-      trait_two: newTeamMemberTraitTwo.trim() || 'Fast Iteration',
-      trait_three: newTeamMemberTraitThree.trim() || 'Operational Mindset',
     });
 
     if (error) {
@@ -968,11 +943,6 @@ const AdminView: React.FC<Props> = ({
     setNewTeamMemberRole('');
     setNewTeamMemberSortOrder('0');
     setNewTeamMemberPhotoFile(null);
-    setNewTeamMemberCollaborationHeader('Collaboration Style');
-    setNewTeamMemberCollaborationDescription('Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.');
-    setNewTeamMemberTraitOne('Customer Focused');
-    setNewTeamMemberTraitTwo('Fast Iteration');
-    setNewTeamMemberTraitThree('Operational Mindset');
     setShowAddMemberForm(false);
     await fetchTeamMembers();
     setIsCreatingTeamMember(false);
@@ -1010,11 +980,6 @@ const AdminView: React.FC<Props> = ({
       name: draft.name.trim(),
       role: draft.role.trim(),
       sort_order: safeSortOrder,
-      collaboration_header: draft.collaborationHeader.trim() || 'Collaboration Style',
-      collaboration_description: draft.collaborationDescription.trim() || 'Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.',
-      trait_one: draft.traitOne.trim() || 'Customer Focused',
-      trait_two: draft.traitTwo.trim() || 'Fast Iteration',
-      trait_three: draft.traitThree.trim() || 'Operational Mindset',
     }).eq('id', memberId);
 
     if (error) {
@@ -2587,12 +2552,7 @@ const AdminView: React.FC<Props> = ({
                         setNewTeamMemberRole('');
                         setNewTeamMemberSortOrder('0');
                         setNewTeamMemberPhotoFile(null);
-                        setNewTeamMemberCollaborationHeader('Collaboration Style');
-                        setNewTeamMemberCollaborationDescription('Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.');
-                        setNewTeamMemberTraitOne('Customer Focused');
-                        setNewTeamMemberTraitTwo('Fast Iteration');
-                        setNewTeamMemberTraitThree('Operational Mindset');
-                      }}
+                      }}}
                       className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-colors flex items-center gap-2"
                     >
                       <Plus size={12} /> Add Member
@@ -2650,45 +2610,6 @@ const AdminView: React.FC<Props> = ({
                           }}
                         />
                       </label>
-                    </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
-                      <input
-                        type="text"
-                        placeholder="Collaboration header"
-                        value={newTeamMemberCollaborationHeader}
-                        onChange={(e) => setNewTeamMemberCollaborationHeader(e.target.value)}
-                        className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                      />
-                      <textarea
-                        rows={3}
-                        placeholder="Collaboration description"
-                        value={newTeamMemberCollaborationDescription}
-                        onChange={(e) => setNewTeamMemberCollaborationDescription(e.target.value)}
-                        className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500 resize-none"
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
-                      <input
-                        type="text"
-                        placeholder="Trait 1"
-                        value={newTeamMemberTraitOne}
-                        onChange={(e) => setNewTeamMemberTraitOne(e.target.value)}
-                        className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Trait 2"
-                        value={newTeamMemberTraitTwo}
-                        onChange={(e) => setNewTeamMemberTraitTwo(e.target.value)}
-                        className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Trait 3"
-                        value={newTeamMemberTraitThree}
-                        onChange={(e) => setNewTeamMemberTraitThree(e.target.value)}
-                        className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                      />
                     </div>
                     {newTeamMemberPhotoFile && (
                       <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/30 px-3 py-2.5">
@@ -2798,43 +2719,6 @@ const AdminView: React.FC<Props> = ({
                               }}
                               className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
                             />
-                            <input
-                              type="text"
-                              placeholder="Collaboration header"
-                              value={teamMemberDrafts[member.id]?.collaborationHeader || ''}
-                              onChange={(e) => updateTeamMemberDraft(member.id, 'collaborationHeader', e.target.value)}
-                              className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                            />
-                            <textarea
-                              rows={3}
-                              placeholder="Collaboration description"
-                              value={teamMemberDrafts[member.id]?.collaborationDescription || ''}
-                              onChange={(e) => updateTeamMemberDraft(member.id, 'collaborationDescription', e.target.value)}
-                              className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500 resize-none"
-                            />
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                              <input
-                                type="text"
-                                placeholder="Trait 1"
-                                value={teamMemberDrafts[member.id]?.traitOne || ''}
-                                onChange={(e) => updateTeamMemberDraft(member.id, 'traitOne', e.target.value)}
-                                className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                              />
-                              <input
-                                type="text"
-                                placeholder="Trait 2"
-                                value={teamMemberDrafts[member.id]?.traitTwo || ''}
-                                onChange={(e) => updateTeamMemberDraft(member.id, 'traitTwo', e.target.value)}
-                                className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                              />
-                              <input
-                                type="text"
-                                placeholder="Trait 3"
-                                value={teamMemberDrafts[member.id]?.traitThree || ''}
-                                onChange={(e) => updateTeamMemberDraft(member.id, 'traitThree', e.target.value)}
-                                className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium dark:text-white outline-none focus:border-orange-500"
-                              />
-                            </div>
                             <label className="w-full cursor-pointer">
                               <input
                                 type="file"
@@ -2884,11 +2768,6 @@ const AdminView: React.FC<Props> = ({
                                         name: original.name,
                                         role: original.role,
                                         sortOrder: String(original.sort_order ?? 0),
-                                        collaborationHeader: original.collaboration_header || 'Collaboration Style',
-                                        collaborationDescription: original.collaboration_description || 'Our team combines technical execution, responsive support, and practical product thinking to build reliable experiences for growing businesses.',
-                                        traitOne: original.trait_one || 'Customer Focused',
-                                        traitTwo: original.trait_two || 'Fast Iteration',
-                                        traitThree: original.trait_three || 'Operational Mindset',
                                       },
                                     }));
                                   }
