@@ -3884,6 +3884,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </button>
               </div>
             </div>
+            </div>
 
             {/* Kitchen Staff */}
             <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6">
