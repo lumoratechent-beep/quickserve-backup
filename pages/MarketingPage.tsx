@@ -49,15 +49,15 @@ const useTilt = () => {
 // FAQ Accordion item
 const FaqItem: React.FC<{ q: string; a: string; isOpen: boolean; onClick: () => void; delay: string; inView: boolean }> = ({ q, a, isOpen, onClick, delay, inView }) => (
   <div
-    className={`border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden transition-all duration-500 hover:border-orange-500/50 ${inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+    className={`border border-gray-200 dark:border-gray-700 rounded-xl sm:rounded-2xl overflow-hidden transition-all duration-500 hover:border-orange-500/50 ${inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
     style={{ transitionDelay: inView ? delay : '0ms' }}
   >
-    <button onClick={onClick} className="w-full flex items-center justify-between p-6 text-left group">
-      <span className="font-bold text-gray-900 dark:text-white pr-4">{q}</span>
-      <ChevronDown size={20} className={`text-orange-500 shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+    <button onClick={onClick} className="w-full flex items-center justify-between px-4 py-3 sm:p-6 text-left group">
+      <span className="font-bold text-xs sm:text-base text-gray-900 dark:text-white pr-3 sm:pr-4">{q}</span>
+      <ChevronDown size={16} className={`text-orange-500 shrink-0 transition-transform duration-300 sm:w-5 sm:h-5 ${isOpen ? 'rotate-180' : ''}`} />
     </button>
-    <div className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-48 pb-6 px-6' : 'max-h-0'}`}>
-      <p className="text-gray-700 dark:text-gray-400 font-medium text-sm leading-relaxed">{a}</p>
+    <div className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-48 pb-3 px-4 sm:pb-6 sm:px-6' : 'max-h-0'}`}>
+      <p className="text-gray-700 dark:text-gray-400 font-medium text-[11px] sm:text-sm leading-relaxed">{a}</p>
     </div>
   </div>
 );
@@ -376,7 +376,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, isDa
                       {addon.icon}
                     </div>
                     <h3 className="text-[10px] sm:text-sm font-black text-gray-900 dark:text-white uppercase tracking-tight mb-1 sm:mb-2 leading-tight">{addon.title}</h3>
-                    <p className="text-[9px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium leading-relaxed hidden sm:block">{addon.desc}</p>
+                    <p className="text-[8px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium leading-snug sm:leading-relaxed line-clamp-3 sm:line-clamp-none">{addon.desc}</p>
                     {images.length > 1 && (
                       <div className="hidden sm:flex items-center gap-2 mt-4 overflow-x-auto hide-scrollbar">
                         {images.slice(1, 4).map((img, j) => (
@@ -533,47 +533,32 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, isDa
               </div>
             ))}
           </div>
-          {/* Mobile carousel */}
+          {/* Mobile scrollable carousel */}
           <div className="md:hidden">
-            <div className="relative overflow-hidden -mx-6">
-              <div
-                className="flex transition-transform duration-500 ease-in-out"
-                style={{ transform: `translateX(-${testimonialIdx * 100}%)` }}
-              >
-                {[
-                  { name: 'Ahmad R.', biz: 'Nasi Lemak Corner, KL', text: "Setup took me 3 minutes. The next day I already had customers ordering from their phones. Incredible value for the price.", avatar: 'A' },
-                  { name: 'Mei Ling T.', biz: 'Bubble Tea House, PJ', text: "We cut our wait times by half. Customers love scanning QR and ordering without waiting. Our staff is happier too.", avatar: 'M' },
-                  { name: 'Raj K.', biz: 'Mamak Express, Penang', text: "I tried 3 other POS systems before QuickServe. This is the only one that's actually affordable for a small restaurant.", avatar: 'R' },
-                ].map((t, i) => (
-                  <div
-                    key={i}
-                    className="flex-shrink-0 w-full px-6 pb-4"
-                  >
-                    <div className="p-6 bg-white dark:bg-gray-800/50 rounded-3xl border border-gray-100 dark:border-gray-800">
-                      <div className="flex gap-1 mb-4">
-                        {[...Array(5)].map((_, j) => <Star key={j} size={14} className="fill-orange-400 text-orange-400" />)}
-                      </div>
-                      <p className="text-gray-700 dark:text-gray-300 font-medium text-sm leading-relaxed mb-6">"{t.text}"</p>
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-orange-500 text-white rounded-full flex items-center justify-center font-black text-sm">{t.avatar}</div>
-                        <div>
-                          <div className="font-bold text-sm text-gray-900 dark:text-white">{t.name}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">{t.biz}</div>
-                        </div>
+            <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 pb-4 hide-scrollbar">
+              {[
+                { name: 'Ahmad R.', biz: 'Nasi Lemak Corner, KL', text: "Setup took me 3 minutes. The next day I already had customers ordering from their phones. Incredible value for the price.", avatar: 'A' },
+                { name: 'Mei Ling T.', biz: 'Bubble Tea House, PJ', text: "We cut our wait times by half. Customers love scanning QR and ordering without waiting. Our staff is happier too.", avatar: 'M' },
+                { name: 'Raj K.', biz: 'Mamak Express, Penang', text: "I tried 3 other POS systems before QuickServe. This is the only one that's actually affordable for a small restaurant.", avatar: 'R' },
+              ].map((t, i) => (
+                <div
+                  key={i}
+                  className="flex-shrink-0 w-[75vw] snap-center"
+                >
+                  <div className="p-4 bg-white dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-800">
+                    <div className="flex gap-0.5 mb-3">
+                      {[...Array(5)].map((_, j) => <Star key={j} size={12} className="fill-orange-400 text-orange-400" />)}
+                    </div>
+                    <p className="text-gray-700 dark:text-gray-300 font-medium text-xs leading-relaxed mb-4">"{t.text}"</p>
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 bg-orange-500 text-white rounded-full flex items-center justify-center font-black text-[10px]">{t.avatar}</div>
+                      <div>
+                        <div className="font-bold text-xs text-gray-900 dark:text-white">{t.name}</div>
+                        <div className="text-[10px] text-gray-500 dark:text-gray-400">{t.biz}</div>
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-            {/* Dots */}
-            <div className="flex justify-center gap-2 mt-4">
-              {[0, 1, 2].map(i => (
-                <button
-                  key={i}
-                  className={`h-2 rounded-full transition-all duration-300 hover:scale-125 active:scale-75 ${testimonialIdx === i ? 'bg-orange-500 w-6' : 'bg-gray-300 dark:bg-gray-600 w-2'}`}
-                  onClick={() => setTestimonialIdx(i)}
-                />
+                </div>
               ))}
             </div>
           </div>
@@ -706,75 +691,59 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, isDa
             })}
           </div>
 
-          {/* Mobile pricing carousel */}
-          <div className="md:hidden overflow-visible">
-            <div className="relative overflow-hidden -mx-6">
-            <div
-              className="flex pt-6 pb-4 transition-transform duration-500 ease-in-out"
-              style={{ transform: `translateX(-${pricingIdx * 100}%)` }}
-            >
+          {/* Mobile pricing – scrollable */}
+          <div className="md:hidden pt-6">
+            <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-6 px-6 pb-4 hide-scrollbar">
               {PRICING_PLANS.map((plan, i) => {
                 const displayPrice = billingCycle === 'annual' ? plan.annualPrice : plan.price;
                 return (
                   <div
                     key={plan.id}
-                    className="flex-shrink-0 w-full px-6"
-                    style={{ minWidth: '100%' }}
+                    className="flex-shrink-0 w-[80vw] snap-center"
                   >
-                  <div className={`relative p-6 rounded-3xl border flex flex-col backdrop-blur-sm ${
+                  <div className={`relative p-5 rounded-2xl border flex flex-col backdrop-blur-sm h-full ${
                       plan.highlight
                         ? 'bg-white/10 border-orange-500 shadow-2xl shadow-orange-500/20'
                         : 'bg-white/[0.03] border-white/10'
                     }`}
                   >
                     {plan.highlight && (
-                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-5 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-orange-500/30">
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-[9px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-orange-500/30">
                         Most Popular
                       </div>
                     )}
-                    <h3 className="text-xl font-black uppercase tracking-tight mb-1">{plan.name}</h3>
-                    <p className="text-xs text-white/40 font-medium mb-5">{plan.description}</p>
-                    <div className="mb-6">
+                    <h3 className="text-lg font-black uppercase tracking-tight mb-1">{plan.name}</h3>
+                    <p className="text-[10px] text-white/40 font-medium mb-4">{plan.description}</p>
+                    <div className="mb-4">
                       <div className="flex items-baseline gap-1.5 flex-wrap">
-                        <span className="text-lg text-white/30 font-bold line-through">MYR {plan.price}</span>
-                        <span className="text-4xl font-black text-orange-500">MYR 0</span>
-                        <span className="text-white/40 font-bold text-sm">/mo</span>
+                        <span className="text-sm text-white/30 font-bold line-through">MYR {plan.price}</span>
+                        <span className="text-3xl font-black text-orange-500">MYR 0</span>
+                        <span className="text-white/40 font-bold text-xs">/mo</span>
                       </div>
-                      <p className="text-xs text-white/40 font-medium mt-1">For 1 month, MYR {displayPrice}/mo after</p>
+                      <p className="text-[10px] text-white/40 font-medium mt-1">For 1 month, MYR {displayPrice}/mo after</p>
                     </div>
-                    <ul className="space-y-3 mb-8 flex-1">
+                    <ul className="space-y-2 mb-5 flex-1">
                       {plan.features.map((feature, j) => (
-                        <li key={j} className="flex items-start gap-3 text-sm text-white/70 font-medium">
-                          <Check size={16} className="text-orange-500 shrink-0 mt-0.5" />
+                        <li key={j} className="flex items-start gap-2 text-xs text-white/70 font-medium">
+                          <Check size={14} className="text-orange-500 shrink-0 mt-0.5" />
                           {feature}
                         </li>
                       ))}
                     </ul>
                     <button
                       onClick={onGetStarted}
-                      className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2 mt-auto ${
+                      className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 mt-auto ${
                         plan.highlight
                           ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white'
                           : 'bg-white/10 text-white'
                       }`}
                     >
-                      Start Free Trial <ArrowRight size={16} />
+                      Start Free Trial <ArrowRight size={14} />
                     </button>
                   </div>
                   </div>
                 );
               })}
-            </div>
-            </div>
-            {/* Dots */}
-            <div className="flex justify-center gap-2 mt-4">
-              {PRICING_PLANS.map((_, i) => (
-                <button
-                  key={i}
-                  className={`h-2 rounded-full transition-all duration-300 hover:scale-125 active:scale-75 ${pricingIdx === i ? 'bg-orange-500 w-6' : 'bg-white/20 w-2'}`}
-                  onClick={() => setPricingIdx(i)}
-                />
-              ))}
             </div>
           </div>
 
@@ -794,14 +763,14 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, isDa
       </section>
 
       {/* ═══════════════════════ FAQ ═══════════════════════ */}
-      <section id="faq" ref={faqRef.ref} className="py-24 px-6">
+      <section id="faq" ref={faqRef.ref} className="py-14 sm:py-24 px-4 sm:px-6">
         <div className="max-w-2xl mx-auto">
-          <div className={`text-center mb-14 transition-all duration-700 ${faqRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-            <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">FAQ</span>
-            <h2 className="text-3xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Got Questions?</h2>
+          <div className={`text-center mb-8 sm:mb-14 transition-all duration-700 ${faqRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+            <span className="text-[10px] sm:text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-2 sm:mb-3 block">FAQ</span>
+            <h2 className="text-2xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Got Questions?</h2>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             {faqs.map((faq, i) => (
               <FaqItem
                 key={i}
