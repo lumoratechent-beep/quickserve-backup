@@ -429,49 +429,61 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
       {/* ── TEAM ── */}
       <section id="team" className="py-20 px-4 sm:px-6">
         <div ref={teamRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${teamRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-12">
-            <div>
-              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-                The Faces of <span className="text-orange-500 italic">Innovation</span>
-              </h2>
-              <p className="mt-3 text-gray-500 dark:text-gray-400 max-w-lg">
-                Meet the team behind QuickServe — driven by innovation, committed to your success.
-              </p>
-            </div>
+          <div className="text-center mb-14">
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+              Our <span className="text-orange-500 italic">Leadership</span> Team
+            </h2>
+            <p className="mt-4 text-gray-500 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed">
+              Meet the people behind QuickServe — driven by innovation, committed to your success.
+            </p>
           </div>
 
           {teamMembers.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-              {teamMembers.map((member, idx) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10">
+              {teamMembers.map((member, idx) => {
+                const bgColors = [
+                  'bg-amber-400',
+                  'bg-emerald-400',
+                  'bg-rose-300',
+                  'bg-sky-400',
+                  'bg-violet-400',
+                  'bg-orange-400',
+                  'bg-teal-400',
+                  'bg-pink-400',
+                  'bg-indigo-400',
+                ];
+                const colorClass = bgColors[idx % bgColors.length];
+                return (
                   <div
                     key={member.id}
                     className="transition-all duration-500"
                     style={{ transitionDelay: `${idx * 80}ms` }}
                   >
                     <div className="group">
-                      {/* Photo */}
-                      <div className="rounded-3xl overflow-hidden bg-gray-100 dark:bg-gray-800 aspect-[4/5]">
+                      {/* Photo with colored background */}
+                      <div className={`rounded-2xl overflow-hidden ${colorClass} aspect-[4/5] flex items-end justify-center`}>
                         {member.photo_url ? (
                           <img
                             src={member.photo_url}
                             alt={member.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                            className="w-full h-full object-contain object-bottom group-hover:scale-105 transition-transform duration-700"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/20 dark:to-orange-900/10">
-                            <span className="text-7xl font-black text-orange-300 dark:text-orange-700 select-none">{member.name.charAt(0)}</span>
+                          <div className="w-full h-full flex items-center justify-center">
+                            <span className="text-7xl font-black text-white/40 select-none">{member.name.charAt(0)}</span>
                           </div>
                         )}
                       </div>
 
                       {/* Info */}
-                      <div className="mt-4 px-1">
-                        <p className="font-bold text-gray-900 dark:text-white text-base">{member.name}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{member.role}</p>
+                      <div className="mt-5">
+                        <p className="font-extrabold text-gray-900 dark:text-white text-lg">{member.name}</p>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mt-1">{member.role}</p>
                       </div>
                     </div>
                   </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-16 text-gray-400 text-sm font-medium">Loading team...</div>
