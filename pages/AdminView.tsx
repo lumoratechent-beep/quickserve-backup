@@ -2552,7 +2552,7 @@ const AdminView: React.FC<Props> = ({
                         setNewTeamMemberRole('');
                         setNewTeamMemberSortOrder('0');
                         setNewTeamMemberPhotoFile(null);
-                      }}}
+                      }}
                       className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-colors flex items-center gap-2"
                     >
                       <Plus size={12} /> Add Member
