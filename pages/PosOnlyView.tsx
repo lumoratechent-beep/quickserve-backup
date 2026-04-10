@@ -3630,49 +3630,22 @@ const PosOnlyView: React.FC<Props> = ({
 
   const renderTableManagementContent = () => (
     <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
-      {/* Saved Bill toggle */}
-      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 first:pt-0">
-        <div>
-          <p className="text-sm font-medium text-gray-900 dark:text-white">Saved Bill & Table Management</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Allow counter to save pending bills by table</p>
-        </div>
-        <div className="flex items-center">
-          <button
-            onClick={() => {
-              setFeatureSettings(prev => {
-                const nextEnabled = !prev.savedBillEnabled;
-                return {
-                  ...prev,
-                  savedBillEnabled: nextEnabled,
-                  tableManagementEnabled: nextEnabled,
-                };
-              });
-            }}
-            className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.savedBillEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-          >
-            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.savedBillEnabled ? 'left-6' : 'left-1'}`} />
-          </button>
-        </div>
-      </div>
-
       {/* Table Layout */}
-      <div className="py-5">
-        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8">
+      <div className="py-5 first:pt-0">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 md:gap-8">
           <div>
             <p className="text-sm font-medium text-gray-900 dark:text-white">Table Layout</p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Set total tables and columns — rows are calculated automatically</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Rows: {Math.ceil((parsePositiveIntegerDraft(tableCountDraft) ?? featureSettings.tableCount) / (parsePositiveIntegerDraft(tableColumnsDraft) ?? featureSettings.tableColumns))} (auto-calculated)</p>
           </div>
-          <div className={`flex gap-3 transition-opacity ${featureSettings.savedBillEnabled ? '' : 'opacity-50 pointer-events-none'}`}>
+          <div className="flex gap-3 items-start justify-end">
             <div>
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Tables</label>
               <input
                 type="number"
                 min={1}
                 value={tableCountDraft}
-                disabled={!featureSettings.savedBillEnabled}
                 onChange={e => setTableCountDraft(e.target.value)}
-                className="w-24 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors disabled:bg-gray-100 disabled:dark:bg-gray-800/70 disabled:text-gray-400 disabled:cursor-not-allowed"
+                className="w-24 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
               />
             </div>
             <div>
@@ -3682,12 +3655,14 @@ const PosOnlyView: React.FC<Props> = ({
                 min={1}
                 max={20}
                 value={tableColumnsDraft}
-                disabled={!featureSettings.savedBillEnabled}
                 onChange={e => setTableColumnsDraft(e.target.value)}
-                className="w-24 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors disabled:bg-gray-100 disabled:dark:bg-gray-800/70 disabled:text-gray-400 disabled:cursor-not-allowed"
+                className="w-24 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
               />
             </div>
           </div>
+        </div>
+        <div className="flex justify-end mt-1.5">
+          <p className="text-xs text-gray-400 dark:text-gray-500">Rows: {Math.ceil((parsePositiveIntegerDraft(tableCountDraft) ?? featureSettings.tableCount) / (parsePositiveIntegerDraft(tableColumnsDraft) ?? featureSettings.tableColumns))} (auto-calculated)</p>
         </div>
 
         {(tableCountDraft !== String(featureSettings.tableCount) ||
@@ -3696,15 +3671,13 @@ const PosOnlyView: React.FC<Props> = ({
           <div className="flex items-center justify-end gap-2 mt-3 animate-in fade-in slide-in-from-top-1 duration-200">
             <button
               onClick={resetTableManagementDraft}
-              disabled={!featureSettings.savedBillEnabled}
-              className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleSaveTableManagementChanges}
-              disabled={!featureSettings.savedBillEnabled}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-orange-500 text-white hover:bg-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-orange-500 text-white hover:bg-orange-600 transition-all"
             >
               Save Changes
             </button>
@@ -3713,12 +3686,12 @@ const PosOnlyView: React.FC<Props> = ({
       </div>
 
       {/* Floor Management */}
-      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 md:gap-8 py-5">
         <div>
           <p className="text-sm font-medium text-gray-900 dark:text-white">Enable Floors</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Organize tables by floor level (max 5 floors)</p>
         </div>
-        <div className="flex items-center">
+        <div className="flex items-center justify-end">
           <button
             onClick={() => {
               setFeatureSettings(prev => ({
@@ -3729,52 +3702,50 @@ const PosOnlyView: React.FC<Props> = ({
               setSelectedFloor(1);
               setModalSelectedFloor(1);
             }}
-            disabled={!featureSettings.savedBillEnabled}
-            className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.floorEnabled && featureSettings.savedBillEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'} ${!featureSettings.savedBillEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.floorEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
           >
-            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.floorEnabled && featureSettings.savedBillEnabled ? 'left-6' : 'left-1'}`} />
+            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.floorEnabled ? 'left-6' : 'left-1'}`} />
           </button>
         </div>
       </div>
 
-      {/* Floor count input */}
-      {featureSettings.floorEnabled && featureSettings.savedBillEnabled && (
-        <div className="py-5 last:pb-0">
-          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8">
-            <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-white">Number of Floors</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Each floor has {featureSettings.tableCount} tables. Labels: <span className="font-semibold text-orange-500">F1-1</span>, <span className="font-semibold text-orange-500">F2-1</span>, etc.</p>
-            </div>
-            <div className="flex items-center">
-              <input
-                type="number"
-                min={1}
-                max={5}
-                value={floorCountDraft}
-                onChange={e => setFloorCountDraft(e.target.value)}
-                className="w-24 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
-              />
-            </div>
+      {/* Floor count input — always visible */}
+      <div className="py-5 last:pb-0">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 md:gap-8">
+          <div>
+            <p className={`text-sm font-medium ${featureSettings.floorEnabled ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>Number of Floors</p>
+            <p className={`text-xs mt-0.5 ${featureSettings.floorEnabled ? 'text-gray-500 dark:text-gray-400' : 'text-gray-300 dark:text-gray-600'}`}>Each floor has {featureSettings.tableCount} tables. Labels: <span className={`font-semibold ${featureSettings.floorEnabled ? 'text-orange-500' : 'text-gray-300 dark:text-gray-600'}`}>F1-1</span>, <span className={`font-semibold ${featureSettings.floorEnabled ? 'text-orange-500' : 'text-gray-300 dark:text-gray-600'}`}>F2-1</span>, etc.</p>
           </div>
-
-          {floorCountDraft !== String(featureSettings.floorCount || 1) && (
-            <div className="flex items-center justify-end gap-2 mt-3 animate-in fade-in slide-in-from-top-1 duration-200">
-              <button
-                onClick={() => setFloorCountDraft(String(featureSettings.floorCount || 1))}
-                className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveFloorChanges}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-orange-500 text-white hover:bg-orange-600 transition-all"
-              >
-                Save Changes
-              </button>
-            </div>
-          )}
+          <div className="flex items-center justify-end">
+            <input
+              type="number"
+              min={1}
+              max={5}
+              value={floorCountDraft}
+              disabled={!featureSettings.floorEnabled}
+              onChange={e => setFloorCountDraft(e.target.value)}
+              className="w-24 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors disabled:bg-gray-100 disabled:dark:bg-gray-800/70 disabled:text-gray-400 disabled:cursor-not-allowed"
+            />
+          </div>
         </div>
-      )}
+
+        {featureSettings.floorEnabled && floorCountDraft !== String(featureSettings.floorCount || 1) && (
+          <div className="flex items-center justify-end gap-2 mt-3 animate-in fade-in slide-in-from-top-1 duration-200">
+            <button
+              onClick={() => setFloorCountDraft(String(featureSettings.floorCount || 1))}
+              className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveFloorChanges}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-orange-500 text-white hover:bg-orange-600 transition-all"
+            >
+              Save Changes
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 
