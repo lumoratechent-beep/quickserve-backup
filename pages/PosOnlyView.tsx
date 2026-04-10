@@ -4202,13 +4202,13 @@ const PosOnlyView: React.FC<Props> = ({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* ── Column 1: QR Code Generator Config ── */}
-          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 border dark:border-gray-600">
+          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 border dark:border-gray-600 min-w-0">
             <h3 className="text-sm font-black dark:text-white uppercase tracking-tight mb-3">QR Code Generator Config</h3>
 
             <div className="space-y-3">
               {/* Location Name & Table Prefix side by side */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="min-w-0">
                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Location Name</label>
                   <input
                     type="text"
@@ -4225,7 +4225,7 @@ const PosOnlyView: React.FC<Props> = ({
                     <p className="text-[8px] text-gray-400 mt-1">Shown as "Serving At" in customer view</p>
                   )}
                 </div>
-                <div>
+                <div className="min-w-0">
                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Table Prefix</label>
                   <div className="flex items-center gap-2">
                     <span className="text-gray-400 text-sm">—</span>
@@ -4241,8 +4241,8 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
 
               {/* Start Number & Number of Tables side by side */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="min-w-0">
                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Start Number</label>
                   <input
                     type="number"
@@ -4253,7 +4253,7 @@ const PosOnlyView: React.FC<Props> = ({
                     placeholder="1"
                   />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Number of Tables</label>
                   <div className="flex items-center gap-1">
                     <button
@@ -4268,7 +4268,7 @@ const PosOnlyView: React.FC<Props> = ({
                       onChange={e => setQrGenTableCount(e.target.value)}
                       min="1"
                       max="50"
-                      className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white text-center"
+                      className="flex-1 min-w-0 px-2 py-2 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white text-center"
                       placeholder="10"
                     />
                     <button
@@ -4308,7 +4308,7 @@ const PosOnlyView: React.FC<Props> = ({
           </div>
 
           {/* ── Column 2: QR Code Design & Branding ── */}
-          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 border dark:border-gray-600">
+          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 border dark:border-gray-600 min-w-0">
             <h3 className="text-sm font-black dark:text-white uppercase tracking-tight mb-3">QR Code Design & Branding <span className="text-[9px] font-bold text-gray-400 normal-case">(Optional)</span></h3>
 
             <div className="space-y-3">
