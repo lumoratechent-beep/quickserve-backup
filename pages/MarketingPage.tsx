@@ -692,8 +692,8 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, isDa
           </div>
 
           {/* Mobile pricing – scrollable */}
-          <div className="md:hidden pt-6">
-            <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-6 px-6 pb-4 hide-scrollbar">
+          <div className="md:hidden pt-4">
+            <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-6 px-6 pb-4 pt-4 hide-scrollbar">
               {PRICING_PLANS.map((plan, i) => {
                 const displayPrice = billingCycle === 'annual' ? plan.annualPrice : plan.price;
                 return (

@@ -254,68 +254,68 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
 
       {/* ── HERO ── */}
       <section ref={heroRef.ref} className="pt-28 sm:pt-40 pb-14 sm:pb-28 px-4 sm:px-6">
-        <div className={`max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center transition-all duration-700 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+        <div className={`max-w-7xl mx-auto grid grid-cols-2 lg:grid-cols-2 gap-4 sm:gap-8 lg:gap-16 items-center transition-all duration-700 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           <div>
-            <h1 className="text-2xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight leading-[1.08]">
+            <h1 className="text-base sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight leading-[1.08]">
               Fuel Your{' '}
               <span className="text-orange-500 italic">Business</span>
               <br />
               with Advanced Tech
             </h1>
-            <p className="mt-4 sm:mt-6 text-sm sm:text-lg text-gray-500 dark:text-gray-400 max-w-lg leading-relaxed">
+            <p className="mt-2 sm:mt-6 text-[10px] sm:text-lg text-gray-500 dark:text-gray-400 max-w-lg leading-relaxed">
               Leverage the power of advanced technology to streamline operations and drive growth. Stay ahead with innovative solutions built for the future.
             </p>
-            <div className="mt-8 flex flex-wrap items-center gap-4">
+            <div className="mt-4 sm:mt-8 flex flex-wrap items-center gap-2 sm:gap-4">
               <button
                 onClick={onGetStarted}
-                className="inline-flex items-center gap-2 px-7 py-3.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full font-semibold text-sm hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all hover:shadow-lg hover:shadow-orange-500/25"
+                className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-7 py-2 sm:py-3.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full font-semibold text-[10px] sm:text-sm hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all hover:shadow-lg hover:shadow-orange-500/25"
               >
                 Get Started for Free
               </button>
-              <div className="flex items-center gap-2">
-                <Star size={18} className="fill-yellow-400 text-yellow-400" />
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">4.5</span>
+              <div className="flex items-center gap-1 sm:gap-2">
+                <Star size={14} className="fill-yellow-400 text-yellow-400 sm:w-[18px] sm:h-[18px]" />
+                <span className="text-[10px] sm:text-sm font-semibold text-gray-700 dark:text-gray-300">4.5</span>
               </div>
             </div>
-            <div className="mt-10 flex items-center gap-3">
-              <div className="flex -space-x-2">
+            <div className="mt-4 sm:mt-10 flex items-center gap-2 sm:gap-3">
+              <div className="flex -space-x-1.5 sm:-space-x-2">
                 {teamMembers.slice(0, 3).map((m) =>
                   m.photo_url ? (
-                    <img key={m.id} src={m.photo_url} alt="" className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-900 object-cover" />
+                    <img key={m.id} src={m.photo_url} alt="" className="w-5 h-5 sm:w-8 sm:h-8 rounded-full border-2 border-white dark:border-gray-900 object-cover" />
                   ) : (
-                    <div key={m.id} className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-900 bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-xs font-bold text-orange-500">
+                    <div key={m.id} className="w-5 h-5 sm:w-8 sm:h-8 rounded-full border-2 border-white dark:border-gray-900 bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-[8px] sm:text-xs font-bold text-orange-500">
                       {m.name.charAt(0)}
                     </div>
                   ),
                 )}
               </div>
-              {teamMembers.length > 0 && <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">Built by the Lumora team</span>}
+              {teamMembers.length > 0 && <span className="text-[9px] sm:text-sm text-gray-500 dark:text-gray-400 font-medium">Built by the Lumora team</span>}
             </div>
           </div>
 
           <div className="relative">
-            <div className="rounded-3xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900 aspect-[4/3] shadow-2xl shadow-black/10 flex items-center justify-center">
-              <div className="text-center p-8">
-                <img src="/LOGO/LUMORA-BLACK-LOGO.png" alt="Lumora Tech Ent." className="h-32 sm:h-64 mx-auto mb-4 dark:hidden" />
-                <img src="/LOGO/LUMORA-WHITE-LOGO.png" alt="Lumora Tech Ent." className="h-32 sm:h-64 mx-auto mb-4 hidden dark:block" />
-                <p className="text-base font-semibold text-gray-700 dark:text-gray-200 mb-1">Lumora Tech Ent.</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Empowering Businesses Through Innovative Technology</p>
+            <div className="rounded-2xl sm:rounded-3xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900 aspect-[4/3] shadow-2xl shadow-black/10 flex items-center justify-center">
+              <div className="text-center p-3 sm:p-8">
+                <img src="/LOGO/LUMORA-BLACK-LOGO.png" alt="Lumora Tech Ent." className="h-16 sm:h-64 mx-auto mb-2 sm:mb-4 dark:hidden" />
+                <img src="/LOGO/LUMORA-WHITE-LOGO.png" alt="Lumora Tech Ent." className="h-16 sm:h-64 mx-auto mb-2 sm:mb-4 hidden dark:block" />
+                <p className="text-[10px] sm:text-base font-semibold text-gray-700 dark:text-gray-200 mb-0.5 sm:mb-1">Lumora Tech Ent.</p>
+                <p className="text-[8px] sm:text-sm text-gray-500 dark:text-gray-400 font-medium">Empowering Businesses Through Innovative Technology</p>
               </div>
             </div>
             {teamMembers.length > 0 && (
-              <div className="absolute -bottom-4 left-6 sm:left-10 bg-white dark:bg-gray-800 rounded-2xl px-5 py-3 shadow-xl shadow-black/10 border border-gray-100 dark:border-gray-700 flex items-center gap-3">
-                <div className="flex -space-x-1.5">
+              <div className="absolute -bottom-3 sm:-bottom-4 left-3 sm:left-10 bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl px-2.5 sm:px-5 py-1.5 sm:py-3 shadow-xl shadow-black/10 border border-gray-100 dark:border-gray-700 flex items-center gap-1.5 sm:gap-3">
+                <div className="flex -space-x-1 sm:-space-x-1.5">
                   {teamMembers.slice(0, 2).map((m) =>
                     m.photo_url ? (
-                      <img key={`badge-${m.id}`} src={m.photo_url} alt="" className="w-7 h-7 rounded-full border-2 border-white dark:border-gray-800 object-cover" />
+                      <img key={`badge-${m.id}`} src={m.photo_url} alt="" className="w-5 h-5 sm:w-7 sm:h-7 rounded-full border-2 border-white dark:border-gray-800 object-cover" />
                     ) : (
-                      <div key={`badge-${m.id}`} className="w-7 h-7 rounded-full border-2 border-white dark:border-gray-800 bg-orange-100 flex items-center justify-center text-[10px] font-bold text-orange-500">
+                      <div key={`badge-${m.id}`} className="w-5 h-5 sm:w-7 sm:h-7 rounded-full border-2 border-white dark:border-gray-800 bg-orange-100 flex items-center justify-center text-[8px] sm:text-[10px] font-bold text-orange-500">
                         {m.name.charAt(0)}
                       </div>
                     ),
                   )}
                 </div>
-                <span className="text-sm font-bold text-gray-900 dark:text-white">Lumora Team</span>
+                <span className="text-[10px] sm:text-sm font-bold text-gray-900 dark:text-white">Lumora Team</span>
               </div>
             )}
           </div>
