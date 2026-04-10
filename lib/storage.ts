@@ -25,9 +25,9 @@ const compressImage = async (file: File, maxDim = 1200, quality = 0.85, maxBytes
       canvas.toBlob(
         (blob) => {
           if (!blob || blob.size >= file.size) { resolve(file); return; }
-          resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
+          resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.webp'), { type: 'image/webp' }));
         },
-        'image/jpeg',
+        'image/webp',
         quality,
       );
     };

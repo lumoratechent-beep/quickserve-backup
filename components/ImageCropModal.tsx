@@ -334,7 +334,7 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel, mode = '
     }
 
     octx.drawImage(img, sx, sy, sw, sh, 0, 0, outW, outH);
-    out.toBlob(blob => { if (blob) onCrop(blob, shape, outW, outH); }, 'image/jpeg', 0.85);
+    out.toBlob(blob => { if (blob) onCrop(blob, shape, outW, outH); }, 'image/webp', 0.85);
   };
 
   return (

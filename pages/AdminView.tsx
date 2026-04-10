@@ -949,7 +949,7 @@ const AdminView: React.FC<Props> = ({
   };
 
   const handleNewTeamMemberPhotoCropped = async (blob: Blob) => {
-    const file = new File([blob], `team-member-${Date.now()}.jpg`, { type: 'image/jpeg' });
+    const file = new File([blob], `team-member-${Date.now()}.webp`, { type: 'image/webp' });
     setNewTeamMemberPhotoFile(file);
     setNewTeamMemberCropFile(null);
     toast('Cropped photo ready', 'success');
@@ -1021,7 +1021,7 @@ const AdminView: React.FC<Props> = ({
 
     setUploadingTeamMemberId(teamMemberCropTargetId);
     try {
-      const file = new File([blob], `team-member-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      const file = new File([blob], `team-member-${Date.now()}.webp`, { type: 'image/webp' });
       const url = await uploadImage(file, 'quickserve', 'team-photos');
       const { error } = await supabase.from('team_members').update({ photo_url: url }).eq('id', teamMemberCropTargetId);
       if (error) throw error;
