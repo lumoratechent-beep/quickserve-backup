@@ -88,7 +88,7 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
 // Receipt and printer configs are now managed by the PrinterSettings component
 // and the service types from printerService.ts
 
-type SettingsPanel = 'builtin' | 'printer' | 'receipt' | 'orderList' | 'payment' | 'staff';
+type SettingsPanel = 'builtin' | 'printer' | 'receipt' | 'orderList' | 'payment' | 'staff' | 'addon-table' | 'addon-qr' | 'addon-kitchen' | 'addon-tableside' | 'addon-customer-display' | 'addon-online-shop';
 
 interface FeatureSettings {
   autoPrintReceipt: boolean;
@@ -5859,9 +5859,21 @@ const PosOnlyView: React.FC<Props> = ({
                     },
                   ];
 
-            const hasVisiblePanel = settingsTabs.some(tab => tab.key === settingsPanel);
+            const addonPanelMeta: Record<string, { label: string; info: string; icon: React.ElementType; badge: string }> = {
+              'addon-table': { label: 'Table Management', info: 'Save bill & manage table layout for dine-in.', icon: LayoutGrid, badge: 'Add-on' },
+              'addon-qr': { label: 'QR Ordering', info: 'Let customers scan QR codes to order from their table.', icon: QrCode, badge: 'Add-on' },
+              'addon-kitchen': { label: 'Kitchen Display', info: 'Kitchen order management & display system.', icon: Coffee, badge: 'Add-on' },
+              'addon-tableside': { label: 'Tableside Ordering', info: 'Staff take orders tableside using a tablet device.', icon: Tablet, badge: 'Add-on' },
+              'addon-customer-display': { label: 'Customer Display', info: 'External customer-facing display screen.', icon: Monitor, badge: 'Add-on' },
+              'addon-online-shop': { label: 'Online Shop', info: 'Let customers order online via a shareable link.', icon: Globe, badge: 'Add-on' },
+            };
+
+            const isAddonPanel = settingsPanel.startsWith('addon-');
+            const hasVisiblePanel = settingsTabs.some(tab => tab.key === settingsPanel) || isAddonPanel;
             const activeSettingsPanel = hasVisiblePanel ? settingsPanel : settingsTabs[0].key;
-            const activeSettingsTab = settingsTabs.find(tab => tab.key === activeSettingsPanel) || settingsTabs[0];
+            const activeSettingsTab = isAddonPanel && addonPanelMeta[settingsPanel]
+              ? addonPanelMeta[settingsPanel]
+              : (settingsTabs.find(tab => tab.key === activeSettingsPanel) || settingsTabs[0]);
             const ActiveSettingsIcon = activeSettingsTab.icon;
 
             const enabledFeatureCount = [
@@ -5895,6 +5907,18 @@ const PosOnlyView: React.FC<Props> = ({
                   return `${paymentTypes.length} payment type${paymentTypes.length !== 1 ? 's' : ''} · ${taxEntries.length} tax rule${taxEntries.length !== 1 ? 's' : ''}`;
                 case 'staff':
                   return `${staffList.length} staff account${staffList.length !== 1 ? 's' : ''} managed in this outlet`;
+                case 'addon-table':
+                  return featureSettings.tableManagementEnabled ? 'Table management enabled' : 'Saved bill enabled';
+                case 'addon-qr':
+                  return featureSettings.qrEnabled ? 'QR ordering enabled' : 'QR ordering disabled';
+                case 'addon-kitchen':
+                  return featureSettings.kitchenEnabled ? 'Kitchen display enabled' : 'Kitchen display disabled';
+                case 'addon-tableside':
+                  return featureSettings.tablesideOrderingEnabled ? 'Tableside ordering enabled' : 'Tableside ordering disabled';
+                case 'addon-customer-display':
+                  return featureSettings.customerDisplayEnabled ? 'Customer display enabled' : 'Customer display disabled';
+                case 'addon-online-shop':
+                  return featureSettings.onlineShopEnabled ? 'Online shop enabled' : 'Online shop disabled';
                 default:
                   return '';
               }
@@ -5935,21 +5959,58 @@ const PosOnlyView: React.FC<Props> = ({
                           })}
                         </div>
 
-                        {!isKitchenUser && (
-                          <div className="mt-3 border-t border-slate-200/80 pt-3 dark:border-gray-700/80">
-                            <p className="px-1 pb-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">Add-on Feature Setting</p>
-                            <button
-                              onClick={() => handleTabSelection('ADDONS')}
-                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 dark:border-gray-700 dark:bg-gray-800/70 dark:hover:border-gray-500 dark:hover:bg-gray-700/80"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="w-3 text-center text-xs font-black text-slate-300 dark:text-gray-600" />
-                                <span className="text-sm font-semibold text-slate-700 dark:text-gray-200">Add-on Feature</span>
-                              </div>
-                              <p className="mt-1.5 pl-5 pr-1 text-xs leading-relaxed text-slate-500 dark:text-gray-400">Configure installed add-on modules and discover new feature packs.</p>
-                            </button>
-                          </div>
-                        )}
+                        {!isKitchenUser && (() => {
+                          const addonSettingsList: Array<{ key: SettingsPanel; label: string; info: string; icon: React.ReactNode; badge: string; isInstalled: boolean }> = [
+                            { key: 'addon-table', label: 'Table Management', info: 'Save bill & manage table layout for dine-in.', icon: <LayoutGrid size={14} />, badge: 'Add-on', isInstalled: featureSettings.tableManagementEnabled || featureSettings.savedBillEnabled },
+                            { key: 'addon-qr', label: 'QR Ordering', info: 'Let customers scan QR codes to order from their table.', icon: <QrCode size={14} />, badge: 'Add-on', isInstalled: featureSettings.qrEnabled },
+                            { key: 'addon-kitchen', label: 'Kitchen Display', info: 'Kitchen order management & display system.', icon: <Coffee size={14} />, badge: 'Add-on', isInstalled: featureSettings.kitchenEnabled },
+                            { key: 'addon-tableside', label: 'Tableside Ordering', info: 'Staff take orders tableside using a tablet device.', icon: <Tablet size={14} />, badge: 'Add-on', isInstalled: featureSettings.tablesideOrderingEnabled },
+                            { key: 'addon-customer-display', label: 'Customer Display', info: 'External customer-facing display screen.', icon: <Monitor size={14} />, badge: 'Add-on', isInstalled: featureSettings.customerDisplayEnabled },
+                            { key: 'addon-online-shop', label: 'Online Shop', info: 'Let customers order online via a shareable link.', icon: <Globe size={14} />, badge: 'Add-on', isInstalled: featureSettings.onlineShopEnabled },
+                          ];
+                          const installedAddons = addonSettingsList.filter(a => a.isInstalled);
+                          return (
+                            <div className="mt-3 border-t border-slate-200/80 pt-3 dark:border-gray-700/80">
+                              <p className="px-1 pb-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">Add-on Feature Setting</p>
+                              {installedAddons.length > 0 ? (
+                                <div className="space-y-1.5">
+                                  {installedAddons.map(addon => {
+                                    const isActive = activeSettingsPanel === addon.key;
+                                    return (
+                                      <button
+                                        key={addon.key}
+                                        onClick={() => setSettingsPanel(addon.key)}
+                                        className={`w-full rounded-xl border px-3 py-2.5 text-left transition-all duration-200 ${
+                                          isActive
+                                            ? 'border-orange-300 bg-orange-50/90 dark:border-orange-500/50 dark:bg-orange-500/10'
+                                            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-gray-700 dark:bg-gray-800/70 dark:hover:border-gray-500 dark:hover:bg-gray-700/80'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span className={`w-3 text-center text-xs font-black ${isActive ? 'text-orange-500 dark:text-orange-300' : 'text-slate-300 dark:text-gray-600'}`}>{isActive ? '>' : ''}</span>
+                                          <span className={`flex items-center gap-1.5 text-sm font-semibold ${isActive ? 'text-orange-700 dark:text-orange-300' : 'text-slate-700 dark:text-gray-200'}`}>
+                                            {addon.icon} {addon.label}
+                                          </span>
+                                        </div>
+                                        <div className={`overflow-hidden transition-all duration-200 ${isActive ? 'mt-1.5 max-h-16 opacity-100' : 'mt-0 max-h-0 opacity-0'}`}>
+                                          <p className="pl-5 pr-1 text-xs leading-relaxed text-slate-500 dark:text-gray-400">{addon.info}</p>
+                                        </div>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <p className="px-1 text-xs text-slate-400 dark:text-gray-500">No add-ons installed yet.</p>
+                              )}
+                              <button
+                                onClick={() => handleTabSelection('ADDONS')}
+                                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 transition-all hover:border-orange-300 hover:bg-orange-50/50 hover:text-orange-600 dark:border-gray-600 dark:bg-gray-800/30 dark:text-gray-400 dark:hover:border-orange-500/50 dark:hover:text-orange-400"
+                              >
+                                <Package size={12} /> Manage Add-ons
+                              </button>
+                            </div>
+                          );
+                        })()}
                       </aside>
 
                       <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_16px_45px_-40px_rgba(15,23,42,0.7)] backdrop-blur-sm dark:border-gray-700/80 dark:bg-gray-800/90">
@@ -6093,6 +6154,101 @@ const PosOnlyView: React.FC<Props> = ({
 
                           {activeSettingsPanel === 'staff' && (
                             <div className="min-w-0">{renderStaffContent()}</div>
+                          )}
+
+                          {activeSettingsPanel === 'addon-table' && (
+                            <div className="min-w-0 space-y-4">{renderTableManagementContent()}</div>
+                          )}
+
+                          {activeSettingsPanel === 'addon-qr' && (
+                            <div className="min-w-0 space-y-4">
+                              <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-gray-700 dark:bg-gray-700/30">
+                                <div>
+                                  <p className="text-xs font-black dark:text-white">QR Ordering</p>
+                                  <p className="mt-0.5 text-[9px] text-gray-400">Let customers scan QR codes to order from their table</p>
+                                </div>
+                                <button
+                                  onClick={() => updateFeatureSetting('qrEnabled', !featureSettings.qrEnabled)}
+                                  className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.qrEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                >
+                                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.qrEnabled ? 'left-6' : 'left-1'}`} />
+                                </button>
+                              </div>
+                              {featureSettings.qrEnabled && renderQrGeneratorContent()}
+                            </div>
+                          )}
+
+                          {activeSettingsPanel === 'addon-kitchen' && (
+                            <div className="min-w-0 space-y-0">
+                              {canUseKitchen ? renderKitchenSettingsContent() : (
+                                <div className="text-center py-8">
+                                  <Coffee size={36} className="mx-auto text-gray-300 mb-3" />
+                                  <p className="text-sm font-black dark:text-white mb-1">Upgrade to Pro Plus</p>
+                                  <p className="text-[10px] text-gray-400 mb-4">Kitchen Display System requires the Pro Plus plan</p>
+                                  <button onClick={() => setShowUpgradeModal(true)} className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Upgrade Plan</button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {activeSettingsPanel === 'addon-tableside' && (
+                            <div className="min-w-0">
+                              <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-gray-700 dark:bg-gray-700/30">
+                                <div>
+                                  <p className="text-xs font-black dark:text-white">Tableside Ordering</p>
+                                  <p className="mt-0.5 text-[9px] text-gray-400">Staff take orders tableside using a tablet device</p>
+                                </div>
+                                <button
+                                  onClick={() => updateFeatureSetting('tablesideOrderingEnabled', !featureSettings.tablesideOrderingEnabled)}
+                                  className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.tablesideOrderingEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                >
+                                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.tablesideOrderingEnabled ? 'left-6' : 'left-1'}`} />
+                                </button>
+                              </div>
+                              <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300">
+                                Tableside ordering uses the same workflow as QR ordering. Orders placed by staff will appear in the QR Orders queue and Kitchen Display.
+                              </div>
+                            </div>
+                          )}
+
+                          {activeSettingsPanel === 'addon-customer-display' && (
+                            <div className="min-w-0">
+                              <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-gray-700 dark:bg-gray-700/30">
+                                <div>
+                                  <p className="text-xs font-black dark:text-white">Customer Display</p>
+                                  <p className="mt-0.5 text-[9px] text-gray-400">Show order details on a customer-facing screen</p>
+                                </div>
+                                <button
+                                  onClick={() => updateFeatureSetting('customerDisplayEnabled', !featureSettings.customerDisplayEnabled)}
+                                  className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.customerDisplayEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                >
+                                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.customerDisplayEnabled ? 'left-6' : 'left-1'}`} />
+                                </button>
+                              </div>
+                              <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300">
+                                Enable a second screen facing your customers showing items, prices, and the total in real time.
+                              </div>
+                            </div>
+                          )}
+
+                          {activeSettingsPanel === 'addon-online-shop' && (
+                            <div className="min-w-0">
+                              <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-gray-700 dark:bg-gray-700/30">
+                                <div>
+                                  <p className="text-xs font-black dark:text-white">Online Shop</p>
+                                  <p className="mt-0.5 text-[9px] text-gray-400">Let customers order online via a shareable link</p>
+                                </div>
+                                <button
+                                  onClick={() => updateFeatureSetting('onlineShopEnabled', !featureSettings.onlineShopEnabled)}
+                                  className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.onlineShopEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                >
+                                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${featureSettings.onlineShopEnabled ? 'left-6' : 'left-1'}`} />
+                                </button>
+                              </div>
+                              <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300">
+                                Share your online ordering link on social media, your website, or messaging apps to reach more customers.
+                              </div>
+                            </div>
                           )}
                         </div>
                       </section>
