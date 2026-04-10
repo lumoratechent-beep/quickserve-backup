@@ -253,16 +253,16 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
       </nav>
 
       {/* ── HERO ── */}
-      <section ref={heroRef.ref} className="pt-36 sm:pt-40 pb-20 sm:pb-28 px-4 sm:px-6">
-        <div className={`max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center transition-all duration-700 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+      <section ref={heroRef.ref} className="pt-28 sm:pt-40 pb-14 sm:pb-28 px-4 sm:px-6">
+        <div className={`max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center transition-all duration-700 ${heroRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           <div>
-            <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight leading-[1.08]">
+            <h1 className="text-2xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight leading-[1.08]">
               Fuel Your{' '}
               <span className="text-orange-500 italic">Business</span>
               <br />
               with Advanced Tech
             </h1>
-            <p className="mt-6 text-base sm:text-lg text-gray-500 dark:text-gray-400 max-w-lg leading-relaxed">
+            <p className="mt-4 sm:mt-6 text-sm sm:text-lg text-gray-500 dark:text-gray-400 max-w-lg leading-relaxed">
               Leverage the power of advanced technology to streamline operations and drive growth. Stay ahead with innovative solutions built for the future.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
@@ -296,8 +296,8 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
           <div className="relative">
             <div className="rounded-3xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900 aspect-[4/3] shadow-2xl shadow-black/10 flex items-center justify-center">
               <div className="text-center p-8">
-                <img src="/LOGO/LUMORA-BLACK-LOGO.png" alt="Lumora Tech Ent." className="h-52 sm:h-64 mx-auto mb-4 dark:hidden" />
-                <img src="/LOGO/LUMORA-WHITE-LOGO.png" alt="Lumora Tech Ent." className="h-52 sm:h-64 mx-auto mb-4 hidden dark:block" />
+                <img src="/LOGO/LUMORA-BLACK-LOGO.png" alt="Lumora Tech Ent." className="h-32 sm:h-64 mx-auto mb-4 dark:hidden" />
+                <img src="/LOGO/LUMORA-WHITE-LOGO.png" alt="Lumora Tech Ent." className="h-32 sm:h-64 mx-auto mb-4 hidden dark:block" />
                 <p className="text-base font-semibold text-gray-700 dark:text-gray-200 mb-1">Lumora Tech Ent.</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Empowering Businesses Through Innovative Technology</p>
               </div>
@@ -325,13 +325,13 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
 
 
       {/* ── DISCOVER / ABOUT ── */}
-      <section id="about" className="py-20 px-4 sm:px-6 bg-gray-50/80 dark:bg-gray-900/30">
+      <section id="about" className="py-14 sm:py-20 px-4 sm:px-6 bg-gray-50/80 dark:bg-gray-900/30">
         <div ref={aboutRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${aboutRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+          <div className="text-center mb-8 sm:mb-14">
+            <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
               Discover our <span className="text-orange-500 italic">QuickServe</span>
             </h2>
-            <p className="mt-4 text-gray-500 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed">
+            <p className="mt-3 sm:mt-4 text-sm sm:text-base text-gray-500 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed">
               Unleash the full potential of your F&B business with QuickServe. Organize, collaborate, and achieve more with ease.
             </p>
           </div>
@@ -428,19 +428,19 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
       </section>
 
       {/* ── TEAM ── */}
-      <section id="team" className="py-20 px-4 sm:px-6">
+      <section id="team" className="py-14 sm:py-20 px-4 sm:px-6">
         <div ref={teamRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${teamRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+          <div className="text-center mb-8 sm:mb-14">
+            <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
               Our <span className="text-orange-500 italic">Leadership</span> Team
             </h2>
-            <p className="mt-4 text-gray-500 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed">
+            <p className="mt-3 sm:mt-4 text-sm sm:text-base text-gray-500 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed">
               Meet the people behind QuickServe — driven by innovation, committed to your success.
             </p>
           </div>
 
           {teamMembers.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10">
+            <div className="grid grid-cols-3 gap-3 sm:gap-8 lg:gap-10">
               {teamMembers.map((member, idx) => {
                 const bgColors = [
                   'bg-amber-400',
@@ -464,7 +464,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                       {/* Photo with shorter colored background */}
                       <div className="relative aspect-[4/5]">
                         {/* Colored bg – sits at the bottom, shorter than the image */}
-                        <div className={`absolute bottom-0 left-0 right-0 h-[55%] rounded-2xl ${colorClass}`} />
+                        <div className={`absolute bottom-0 left-0 right-0 h-[55%] rounded-xl sm:rounded-2xl ${colorClass}`} />
                         {/* Photo – full height, overlaps above the bg */}
                         {member.photo_url ? (
                           <img
@@ -473,16 +473,16 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                             className="relative z-10 w-full h-full object-contain object-bottom group-hover:scale-105 transition-transform duration-700"
                           />
                         ) : (
-                          <div className={`absolute bottom-0 left-0 right-0 h-[75%] rounded-2xl flex items-center justify-center`}>
-                            <span className="text-7xl font-black text-white/40 select-none">{member.name.charAt(0)}</span>
+                          <div className={`absolute bottom-0 left-0 right-0 h-[75%] rounded-xl sm:rounded-2xl flex items-center justify-center`}>
+                            <span className="text-4xl sm:text-7xl font-black text-white/40 select-none">{member.name.charAt(0)}</span>
                           </div>
                         )}
                       </div>
 
                       {/* Info */}
-                      <div className="mt-5">
-                        <p className="font-extrabold text-gray-900 dark:text-white text-lg">{member.name}</p>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mt-1">{member.role}</p>
+                      <div className="mt-2 sm:mt-5">
+                        <p className="font-extrabold text-gray-900 dark:text-white text-xs sm:text-lg leading-tight">{member.name}</p>
+                        <p className="text-[9px] sm:text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">{member.role}</p>
                       </div>
                     </div>
                   </div>
@@ -496,10 +496,10 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
       </section>
 
       {/* ── LOVED BY TEAMS ── */}
-      <section ref={reviewsRef.ref} className="py-20 px-4 sm:px-6 border-t border-gray-100 dark:border-gray-800/50">
+      <section ref={reviewsRef.ref} className="py-14 sm:py-20 px-4 sm:px-6 border-t border-gray-100 dark:border-gray-800/50">
         <div className={`max-w-7xl mx-auto transition-all duration-700 ${reviewsRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-12">
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-8 sm:mb-12">
+            <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
               Loved by <span className="text-orange-500 italic">teams</span> around
               <br className="hidden sm:block" /> the world
             </h2>
@@ -507,19 +507,20 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
               <div className="flex -space-x-1.5">
                 {teamMembers.slice(0, 3).map((m) =>
                   m.photo_url ? (
-                    <img key={`rev-${m.id}`} src={m.photo_url} alt="" className="w-7 h-7 rounded-full border-2 border-white dark:border-[#0b1120] object-cover" />
+                    <img key={`rev-${m.id}`} src={m.photo_url} alt="" className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 border-white dark:border-[#0b1120] object-cover" />
                   ) : (
-                    <div key={`rev-${m.id}`} className="w-7 h-7 rounded-full border-2 border-white dark:border-[#0b1120] bg-orange-100 flex items-center justify-center text-[10px] font-bold text-orange-500">
+                    <div key={`rev-${m.id}`} className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 border-white dark:border-[#0b1120] bg-orange-100 flex items-center justify-center text-[9px] sm:text-[10px] font-bold text-orange-500">
                       {m.name.charAt(0)}
                     </div>
                   ),
                 )}
               </div>
-              {teamMembers.length > 0 && <span className="text-sm text-gray-500 font-medium">Trusted by teams</span>}
+              {teamMembers.length > 0 && <span className="text-xs sm:text-sm text-gray-500 font-medium">Trusted by teams</span>}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Desktop grid */}
+          <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {reviews.map((review, idx) => (
               <div
                 key={idx}
@@ -538,53 +539,76 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
               </div>
             ))}
           </div>
+
+          {/* Mobile carousel */}
+          <div className="sm:hidden">
+            <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 pb-4 hide-scrollbar">
+              {reviews.map((review, idx) => (
+                <div
+                  key={idx}
+                  className="flex-shrink-0 w-[75vw] snap-center rounded-2xl bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 p-4"
+                >
+                  <div className="flex gap-0.5 mb-3">
+                    {Array.from({ length: review.rating }).map((_, i) => (
+                      <Star key={i} size={12} className="fill-yellow-400 text-yellow-400" />
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{review.text}</p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-[9px] font-bold text-gray-500">{review.author.charAt(0)}</div>
+                    <p className="text-xs font-semibold text-gray-900 dark:text-white">{review.author}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
       {/* ── LOCATION ── */}
-      <section id="location" className="py-20 px-4 sm:px-6 bg-gray-50/80 dark:bg-gray-900/30">
+      <section id="location" className="py-14 sm:py-20 px-4 sm:px-6 bg-gray-50/80 dark:bg-gray-900/30">
         <div ref={mapRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${mapRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+          <div className="text-center mb-8 sm:mb-12">
+            <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
               Our <span className="text-orange-500 italic">Location</span>
             </h2>
-            <p className="mt-3 text-gray-500 dark:text-gray-400">Visit us or get in touch anytime.</p>
+            <p className="mt-2 sm:mt-3 text-sm sm:text-base text-gray-500 dark:text-gray-400">Visit us or get in touch anytime.</p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200/80 dark:border-gray-800 p-7 flex flex-col justify-between hover:shadow-xl hover:shadow-black/[0.04] transition-all duration-500">
+          <div className="grid grid-cols-2 gap-3 sm:gap-6">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl sm:rounded-3xl border border-gray-200/80 dark:border-gray-800 p-4 sm:p-7 flex flex-col justify-between hover:shadow-xl hover:shadow-black/[0.04] transition-all duration-500">
               <div>
-                <div className="w-12 h-12 rounded-2xl bg-orange-50 dark:bg-orange-950/30 flex items-center justify-center mb-5">
-                  <MapPin size={22} className="text-orange-500" />
+                <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-orange-50 dark:bg-orange-950/30 flex items-center justify-center mb-3 sm:mb-5">
+                  <MapPin className="w-4 h-4 sm:w-[22px] sm:h-[22px] text-orange-500" />
                 </div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-orange-500 mb-2">Address</p>
-                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-relaxed">
+                <p className="text-[9px] sm:text-xs font-semibold uppercase tracking-wider text-orange-500 mb-1 sm:mb-2">Address</p>
+                <p className="text-[11px] sm:text-sm font-semibold text-gray-800 dark:text-gray-200 leading-relaxed">
                   Lumora Tech Ent.
                   <br />
                   Jalan Juruanalisis UI/35, Seksyen U1, 40150 Shah Alam, Selangor
                 </p>
               </div>
-              <div className="mt-6 space-y-3">
+              <div className="mt-4 sm:mt-6 space-y-2 sm:space-y-3">
                 <a
                   href="https://maps.app.goo.gl/LbvPzsx9y69htbkCA"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-full bg-orange-500 text-white font-semibold text-sm hover:bg-orange-600 transition-all hover:shadow-lg hover:shadow-orange-500/25"
+                  className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-full bg-orange-500 text-white font-semibold text-[10px] sm:text-sm hover:bg-orange-600 transition-all hover:shadow-lg hover:shadow-orange-500/25"
                 >
-                  <ExternalLink size={14} /> Open in Google Maps
+                  <ExternalLink className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> <span className="hidden sm:inline">Open in </span>Google Maps
                 </a>
                 <a
                   href="https://wa.me/601154036303?text=Hello%2C%20I%20am%20interested%20to%20know%20about%20Lumora%20Tech"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-full border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:border-orange-400 hover:text-orange-500 transition-all"
+                  className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-full border border-gray-200 dark:border-gray-700 text-[10px] sm:text-sm font-semibold text-gray-700 dark:text-gray-300 hover:border-orange-400 hover:text-orange-500 transition-all"
                 >
-                  <MessageSquare size={14} /> WhatsApp Us
+                  <MessageSquare className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> WhatsApp Us
                 </a>
               </div>
             </div>
 
-            <div className="lg:col-span-2 rounded-3xl overflow-hidden border border-gray-200/80 dark:border-gray-800 h-80 sm:h-96 hover:shadow-xl transition-all duration-500">
+            <div className="rounded-2xl sm:rounded-3xl overflow-hidden border border-gray-200/80 dark:border-gray-800 h-60 sm:h-96 hover:shadow-xl transition-all duration-500">
               <iframe
                 title="Lumora Tech Location"
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3984.049003914267!2d101.56005191126862!3d3.0815952535497564!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31cc4d2289f72555%3A0x932d7efba279d7fb!2sLumora%20Tech%20Ent.!5e0!3m2!1sen!2smy!4v1775634323783!5m2!1sen!2smy"
@@ -614,13 +638,13 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
       </section>
 
       {/* ── CAREERS ── */}
-      <section id="careers" className="py-20 px-4 sm:px-6">
+      <section id="careers" className="py-14 sm:py-20 px-4 sm:px-6">
         <div ref={joinRef.ref} className={`max-w-7xl mx-auto transition-all duration-700 ${joinRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+          <div className="text-center mb-8 sm:mb-12">
+            <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
               Join Our <span className="text-orange-500 italic">Team</span>
             </h2>
-            <p className="mt-3 text-gray-500 dark:text-gray-400">Share your profile and we will review your application.</p>
+            <p className="mt-2 sm:mt-3 text-sm sm:text-base text-gray-500 dark:text-gray-400">Share your profile and we will review your application.</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

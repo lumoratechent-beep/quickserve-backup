@@ -304,11 +304,11 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, isDa
       </section>
 
       {/* ═══════════════════════ FEATURES BENTO GRID ═══════════════════════ */}
-      <section id="features" ref={featuresRef.ref} className="py-24 px-6">
+      <section id="features" ref={featuresRef.ref} className="py-14 sm:py-24 px-4 sm:px-6">
         <div className="max-w-7xl mx-auto">
-          <div className={`text-center mb-16 transition-all duration-700 ${featuresRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-            <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Why QuickServe</span>
-            <h2 className="text-3xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Everything You Need</h2>
+          <div className={`text-center mb-8 sm:mb-16 transition-all duration-700 ${featuresRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+            <span className="text-[10px] sm:text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-2 sm:mb-3 block">Why QuickServe</span>
+            <h2 className="text-2xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Everything You Need</h2>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
@@ -339,46 +339,46 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, isDa
       </section>
 
       {/* ═══════════════════════ ADD-ON FEATURES ═══════════════════════ */}
-      <section ref={addonsRef.ref} className="py-24 px-6 bg-gray-50 dark:bg-gray-900/50 relative overflow-hidden">
+      <section ref={addonsRef.ref} className="py-14 sm:py-24 px-4 sm:px-6 bg-gray-50 dark:bg-gray-900/50 relative overflow-hidden">
         <div className="absolute top-1/3 right-0 w-96 h-96 bg-orange-500/5 rounded-full blur-[120px] pointer-events-none" />
         <div className="max-w-7xl mx-auto relative z-10">
-          <div className={`text-center mb-16 transition-all duration-700 ${addonsRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-            <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Add-on Features</span>
-            <h2 className="text-3xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Extend Your Platform</h2>
-            <p className="mt-4 text-sm md:text-base text-gray-600 dark:text-gray-400 font-medium max-w-xl mx-auto">Install powerful add-ons to customize QuickServe for your business needs.</p>
+          <div className={`text-center mb-8 sm:mb-16 transition-all duration-700 ${addonsRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+            <span className="text-[10px] sm:text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-2 sm:mb-3 block">Add-on Features</span>
+            <h2 className="text-2xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Extend Your Platform</h2>
+            <p className="mt-3 sm:mt-4 text-xs sm:text-base text-gray-600 dark:text-gray-400 font-medium max-w-xl mx-auto">Install powerful add-ons to customize QuickServe for your business needs.</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-3 gap-2 sm:gap-6">
             {[
-              { id: 'backoffice', icon: <BarChart3 size={24} />, title: 'Back Office', desc: 'Sales dashboard, inventory, staff & finance management — all in one place.', accent: 'from-gray-600 to-gray-400' },
-              { id: 'table', icon: <MapPin size={24} />, title: 'Table Management', desc: 'Configurable floor plan with saved bills per table and multi-floor support.', accent: 'from-sky-500 to-sky-400' },
-              { id: 'qr', icon: <QrCode size={24} />, title: 'QR Ordering', desc: 'Customers scan, browse, and order from their phone — no app needed.', accent: 'from-violet-500 to-violet-400' },
-              { id: 'tableside', icon: <Smartphone size={24} />, title: 'Tableside Ordering', desc: 'Staff take orders at the table using any tablet device.', accent: 'from-teal-500 to-teal-400' },
-              { id: 'kitchen', icon: <ChefHat size={24} />, title: 'Kitchen Display', desc: 'Dedicated kitchen screen with department routing and auto-accept.', accent: 'from-orange-500 to-orange-400' },
-              { id: 'online-shop', icon: <Globe size={24} />, title: 'Online Shop', desc: 'Let customers order online for delivery or pickup through your branded shop.', accent: 'from-blue-500 to-blue-400' },
+              { id: 'backoffice', icon: <BarChart3 className="w-4 h-4 sm:w-6 sm:h-6" />, title: 'Back Office', desc: 'Sales dashboard, inventory, staff & finance management — all in one place.', accent: 'from-gray-600 to-gray-400' },
+              { id: 'table', icon: <MapPin className="w-4 h-4 sm:w-6 sm:h-6" />, title: 'Table Management', desc: 'Configurable floor plan with saved bills per table and multi-floor support.', accent: 'from-sky-500 to-sky-400' },
+              { id: 'qr', icon: <QrCode className="w-4 h-4 sm:w-6 sm:h-6" />, title: 'QR Ordering', desc: 'Customers scan, browse, and order from their phone — no app needed.', accent: 'from-violet-500 to-violet-400' },
+              { id: 'tableside', icon: <Smartphone className="w-4 h-4 sm:w-6 sm:h-6" />, title: 'Tableside Ordering', desc: 'Staff take orders at the table using any tablet device.', accent: 'from-teal-500 to-teal-400' },
+              { id: 'kitchen', icon: <ChefHat className="w-4 h-4 sm:w-6 sm:h-6" />, title: 'Kitchen Display', desc: 'Dedicated kitchen screen with department routing and auto-accept.', accent: 'from-orange-500 to-orange-400' },
+              { id: 'online-shop', icon: <Globe className="w-4 h-4 sm:w-6 sm:h-6" />, title: 'Online Shop', desc: 'Let customers order online for delivery or pickup through your branded shop.', accent: 'from-blue-500 to-blue-400' },
             ].map((addon, i) => {
               const images = addonImages[addon.id] || [];
               return (
                 <div
                   key={addon.id}
-                  className={`group relative bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-orange-500/50 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-orange-500/5 overflow-hidden ${addonsRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+                  className={`group relative bg-white dark:bg-gray-900 rounded-xl sm:rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-orange-500/50 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-orange-500/5 overflow-hidden ${addonsRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
                   style={{ transitionDelay: addonsRef.isInView ? `${i * 100}ms` : '0ms' }}
                 >
                   {/* Feature image carousel / preview */}
                   {images.length > 0 && (
-                    <div className="w-full h-40 bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                    <div className="w-full h-20 sm:h-40 bg-gray-100 dark:bg-gray-800 overflow-hidden">
                       <img src={images[0].url} alt={images[0].alt || addon.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     </div>
                   )}
-                  <div className="p-6">
+                  <div className="p-2.5 sm:p-6">
                     <div className={`absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r ${addon.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-full`} style={images.length > 0 ? { top: '160px' } : {}} />
-                    <div className="w-10 h-10 bg-orange-50 dark:bg-orange-500/10 text-orange-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                    <div className="w-7 h-7 sm:w-10 sm:h-10 bg-orange-50 dark:bg-orange-500/10 text-orange-500 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-4 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
                       {addon.icon}
                     </div>
-                    <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tight mb-2">{addon.title}</h3>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 font-medium leading-relaxed">{addon.desc}</p>
+                    <h3 className="text-[10px] sm:text-sm font-black text-gray-900 dark:text-white uppercase tracking-tight mb-1 sm:mb-2 leading-tight">{addon.title}</h3>
+                    <p className="text-[9px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium leading-relaxed hidden sm:block">{addon.desc}</p>
                     {images.length > 1 && (
-                      <div className="flex items-center gap-2 mt-4 overflow-x-auto hide-scrollbar">
+                      <div className="hidden sm:flex items-center gap-2 mt-4 overflow-x-auto hide-scrollbar">
                         {images.slice(1, 4).map((img, j) => (
                           <div key={j} className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 flex-shrink-0 border border-gray-200 dark:border-gray-700">
                             <img src={img.url} alt={img.alt} className="w-full h-full object-cover" />
@@ -398,38 +398,38 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, isDa
       </section>
 
       {/* ═══════════════════════ HOW IT WORKS ═══════════════════════ */}
-      <section id="how-it-works" ref={howRef.ref} className="py-24 px-6 bg-gray-50 dark:bg-gray-900/50 relative overflow-hidden">
+      <section id="how-it-works" ref={howRef.ref} className="py-14 sm:py-24 px-4 sm:px-6 bg-gray-50 dark:bg-gray-900/50 relative overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-orange-500/5 rounded-full blur-[150px] pointer-events-none" />
         <div className="max-w-5xl mx-auto relative z-10">
-          <div className={`text-center mb-20 transition-all duration-700 ${howRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-            <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Simple Steps</span>
-            <h2 className="text-3xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Up & Running in Minutes</h2>
+          <div className={`text-center mb-10 sm:mb-20 transition-all duration-700 ${howRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+            <span className="text-[10px] sm:text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-2 sm:mb-3 block">Simple Steps</span>
+            <h2 className="text-2xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Up & Running in Minutes</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 relative">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-8 relative">
             {/* Connector line (desktop) */}
             <div className="hidden md:block absolute top-16 left-[12.5%] right-[12.5%] h-[2px] bg-gradient-to-r from-orange-500/0 via-orange-500/40 to-orange-500/0" />
 
             {[
-              { step: '01', icon: <Monitor size={28} />, title: 'Register & Build Menu', desc: 'Create your account and upload your full menu with images, prices, categories, and options.' },
-              { step: '02', icon: <MapPin size={28} />, title: 'Set Up Tables & Areas', desc: 'Define your restaurant floor — areas, tables, and QR codes. Print and place in minutes.' },
-              { step: '03', icon: <ChefHat size={28} />, title: 'Configure Kitchen Display', desc: 'Assign menu categories to kitchen departments. Orders route to the right screen automatically.' },
-              { step: '04', icon: <Smartphone size={28} />, title: 'Go Live & Take Orders', desc: 'Customers scan, staff order, kitchen sees — everything in real-time from one unified platform.' },
+              { step: '01', icon: <Monitor className="w-5 h-5 sm:w-7 sm:h-7" />, title: 'Register & Build Menu', desc: 'Create your account and upload your full menu with images, prices, categories, and options.' },
+              { step: '02', icon: <MapPin className="w-5 h-5 sm:w-7 sm:h-7" />, title: 'Set Up Tables & Areas', desc: 'Define your restaurant floor — areas, tables, and QR codes. Print and place in minutes.' },
+              { step: '03', icon: <ChefHat className="w-5 h-5 sm:w-7 sm:h-7" />, title: 'Configure Kitchen Display', desc: 'Assign menu categories to kitchen departments. Orders route to the right screen automatically.' },
+              { step: '04', icon: <Smartphone className="w-5 h-5 sm:w-7 sm:h-7" />, title: 'Go Live & Take Orders', desc: 'Customers scan, staff order, kitchen sees — everything in real-time from one unified platform.' },
             ].map((s, i) => (
               <div
                 key={i}
                 className={`text-center relative transition-all duration-700 ${howRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}
                 style={{ transitionDelay: howRef.isInView ? `${i * 200}ms` : '0ms' }}
               >
-                <div className="relative inline-flex items-center justify-center w-32 h-32 mb-8">
+                <div className="relative inline-flex items-center justify-center w-20 h-20 sm:w-32 sm:h-32 mb-3 sm:mb-8">
                   <div className="absolute inset-0 bg-orange-500/10 rounded-full animate-pulse-soft" />
-                  <div className="relative w-20 h-20 bg-white dark:bg-gray-800 rounded-2xl shadow-xl shadow-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500">
+                  <div className="relative w-12 h-12 sm:w-20 sm:h-20 bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-xl shadow-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500">
                     {s.icon}
                   </div>
-                  <span className="absolute -top-2 -right-2 w-8 h-8 bg-orange-500 text-white rounded-full text-[11px] font-black flex items-center justify-center shadow-lg">{s.step}</span>
+                  <span className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-6 h-6 sm:w-8 sm:h-8 bg-orange-500 text-white rounded-full text-[9px] sm:text-[11px] font-black flex items-center justify-center shadow-lg">{s.step}</span>
                 </div>
-                <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight mb-3">{s.title}</h3>
-                <p className="text-sm text-gray-700 dark:text-gray-400 font-medium leading-relaxed max-w-xs mx-auto">{s.desc}</p>
+                <h3 className="text-xs sm:text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight mb-1 sm:mb-3">{s.title}</h3>
+                <p className="text-[10px] sm:text-sm text-gray-700 dark:text-gray-400 font-medium leading-relaxed max-w-xs mx-auto">{s.desc}</p>
               </div>
             ))}
           </div>
@@ -437,7 +437,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, isDa
       </section>
 
       {/* ═══════════════════════ MOCKUP SECTION ═══════════════════════ */}
-      <section id="mockup" ref={mockupRef.ref} className="py-24 overflow-hidden relative">
+      <section id="mockup" ref={mockupRef.ref} className="py-14 sm:py-24 overflow-hidden relative">
         <div className="max-w-7xl mx-auto px-6">
           <div className={`text-center mb-16 transition-all duration-700 ${mockupRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">See It In Action</span>
@@ -500,11 +500,11 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, isDa
       </section>
 
       {/* ═══════════════════════ TESTIMONIALS ═══════════════════════ */}
-      <section ref={testimonialsRef.ref} className="py-24 px-6 bg-gray-50 dark:bg-gray-900/50">
+      <section ref={testimonialsRef.ref} className="py-14 sm:py-24 px-4 sm:px-6 bg-gray-50 dark:bg-gray-900/50">
         <div className="max-w-6xl mx-auto">
-          <div className={`text-center mb-16 transition-all duration-700 ${testimonialsRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-            <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">Loved By Vendors</span>
-            <h2 className="text-3xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">What They Say</h2>
+          <div className={`text-center mb-8 sm:mb-16 transition-all duration-700 ${testimonialsRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+            <span className="text-[10px] sm:text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-2 sm:mb-3 block">Loved By Vendors</span>
+            <h2 className="text-2xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">What They Say</h2>
           </div>
 
           {/* Desktop grid */}
