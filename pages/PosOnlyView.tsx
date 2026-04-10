@@ -607,6 +607,22 @@ const PosOnlyView: React.FC<Props> = ({
   const [editingStaffIndex, setEditingStaffIndex] = useState<number | null>(null);
   const isEditingStaff = editingStaffIndex !== null;
 
+  // Fetch staff from database on mount (localStorage is only a cache)
+  useEffect(() => {
+    const fetchStaff = async () => {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, username, role, restaurant_id, is_active, email, phone, kitchen_categories')
+        .eq('restaurant_id', restaurant.id)
+        .in('role', ['CASHIER', 'KITCHEN', 'ORDER_TAKER']);
+      if (!error && data) {
+        setStaffList(data);
+        localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(data));
+      }
+    };
+    fetchStaff();
+  }, [restaurant.id]);
+
   // User Experience settings
   const FONT_OPTIONS = ['Inter', 'Roboto', 'Poppins', 'Open Sans', 'Lato', 'Nunito', 'Montserrat', 'Raleway'];
   const [userFont, setUserFont] = useState<string>(() =>
