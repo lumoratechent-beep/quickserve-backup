@@ -722,6 +722,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [qrShowLogo, setQrShowLogo] = useState<boolean>(false);
   const [qrLogoCropFile, setQrLogoCropFile] = useState<File | null>(null);
   const [qrLogoUploading, setQrLogoUploading] = useState<boolean>(false);
+  const [isQrGeneratorRedirecting, setIsQrGeneratorRedirecting] = useState<boolean>(false);
   const qrLogoInputRef = useRef<HTMLInputElement>(null);
 
   // Counter Orders Cache State - For local caching strategy
@@ -6219,15 +6220,31 @@ const PosOnlyView: React.FC<Props> = ({
                                       <p className="text-xs text-gray-500 dark:text-gray-400">Generate and customize QR codes for table ordering.</p>
                                     </div>
                                     <div className="min-w-0">
-                                      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300 mb-4">
-                                        Configure QR codes, branding, and generate printable codes from the QR &amp; Table Order menu.
+                                      <div className="flex items-center justify-end">
+                                        <button
+                                          onClick={() => {
+                                            if (isQrGeneratorRedirecting) return;
+                                            setIsQrGeneratorRedirecting(true);
+                                            window.setTimeout(() => {
+                                              setActiveTab('QR_ORDERS');
+                                              setQrOrderSubTab('QR_GENERATOR');
+                                              setIsQrGeneratorRedirecting(false);
+                                            }, 220);
+                                          }}
+                                          disabled={isQrGeneratorRedirecting}
+                                          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-500 text-white rounded-lg font-medium text-sm hover:bg-orange-600 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                                        >
+                                          {isQrGeneratorRedirecting ? (
+                                            <>
+                                              <RotateCw size={15} className="animate-spin" /> Redirecting...
+                                            </>
+                                          ) : (
+                                            <>
+                                              <QrCode size={15} /> Open QR Generator
+                                            </>
+                                          )}
+                                        </button>
                                       </div>
-                                      <button
-                                        onClick={() => { setActiveTab('QR_ORDERS'); setQrOrderSubTab('QR_GENERATOR'); }}
-                                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-orange-500 text-white rounded-lg font-medium text-sm hover:bg-orange-600 transition-all"
-                                      >
-                                        <QrCode size={15} /> Open QR Generator
-                                      </button>
                                     </div>
                                   </div>
                                 </div>
