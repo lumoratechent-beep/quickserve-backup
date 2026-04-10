@@ -64,7 +64,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
 
   const aboutRef = useInView();
   const teamRef = useInView();
-  const showcaseRef = useInView();
+
   const mapRef = useInView();
   const joinRef = useInView();
   const reviewsRef = useInView();
@@ -294,7 +294,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
           </div>
 
           <div className="relative flex items-stretch">
-            <div className="rounded-2xl sm:rounded-3xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900 shadow-2xl shadow-black/10 flex items-center justify-center w-full">
+            <div className="rounded-2xl sm:rounded-3xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900 shadow-2xl shadow-black/10 flex items-center justify-center w-full min-h-[180px]">
               <div className="text-center p-3 sm:p-8">
                 <img src="/LOGO/LUMORA-BLACK-LOGO.png" alt="Lumora Tech Ent." className="h-12 sm:h-64 mx-auto mb-1 sm:mb-4 dark:hidden" />
                 <img src="/LOGO/LUMORA-WHITE-LOGO.png" alt="Lumora Tech Ent." className="h-12 sm:h-64 mx-auto mb-1 sm:mb-4 hidden dark:block" />
@@ -352,6 +352,22 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                 <p className="text-sm sm:text-2xl font-extrabold text-gray-900 dark:text-white">JR0174591U</p>
                 <p className="text-[8px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1">SSM Registered — Malaysia</p>
               </div>
+              <div className="mt-3 sm:mt-6 flex gap-2 sm:gap-3">
+                <a
+                  href="https://www.linkedin.com/company/lumora-tech/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-1.5 sm:py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full text-[9px] sm:text-sm font-semibold hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all"
+                >
+                  <Globe size={10} className="sm:w-3.5 sm:h-3.5" /> Follow Updates
+                </a>
+                <a
+                  href="mailto:lumoratech.ent@gmail.com"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-full border border-gray-200 dark:border-gray-700 text-[9px] sm:text-sm font-semibold text-gray-700 dark:text-gray-300 hover:border-orange-400 hover:text-orange-500 transition-all"
+                >
+                  <MessageSquare size={10} className="sm:w-3.5 sm:h-3.5" /> Contact Us
+                </a>
+              </div>
             </div>
 
             <div className="rounded-2xl sm:rounded-3xl bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 p-3 sm:p-9 hover:shadow-xl hover:shadow-black/[0.04] transition-all duration-500">
@@ -389,43 +405,12 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                 </div>
               </div>
 
-              <div className="mt-3 sm:mt-6 flex flex-wrap gap-2 sm:gap-3">
-                <a
-                  href="https://www.linkedin.com/company/lumora-tech/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-1.5 sm:py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full text-[9px] sm:text-sm font-semibold hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-all"
-                >
-                  <Globe size={10} className="sm:w-3.5 sm:h-3.5" /> Follow Updates
-                </a>
-                <a
-                  href="mailto:lumoratech.ent@gmail.com"
-                  className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-full border border-gray-200 dark:border-gray-700 text-[9px] sm:text-sm font-semibold text-gray-700 dark:text-gray-300 hover:border-orange-400 hover:text-orange-500 transition-all"
-                >
-                  <MessageSquare size={10} className="sm:w-3.5 sm:h-3.5" /> Contact Us
-                </a>
-              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── PRODUCT SHOWCASE ── */}
-      <section ref={showcaseRef.ref} className="py-20 px-4 sm:px-6">
-        <div className={`max-w-7xl mx-auto transition-all duration-700 ${showcaseRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="relative rounded-[2rem] overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 min-h-[360px] sm:min-h-[420px] flex items-center justify-center group cursor-pointer" onClick={onGetStarted}>
-            <p className="text-7xl sm:text-8xl lg:text-9xl font-black text-white/[0.06] uppercase tracking-tighter select-none">QuickServe</p>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/90 group-hover:bg-white flex items-center justify-center shadow-2xl shadow-black/20 transition-all group-hover:scale-110 mx-auto">
-                  <ChevronRight size={28} className="text-gray-900 ml-1" />
-                </div>
-                <p className="mt-4 text-sm font-semibold text-white/70">Explore Platform</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+
 
       {/* ── TEAM ── */}
       <section id="team" className="py-14 sm:py-20 px-4 sm:px-6">
