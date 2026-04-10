@@ -460,16 +460,19 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                     style={{ transitionDelay: `${idx * 80}ms` }}
                   >
                     <div className="group">
-                      {/* Photo with colored background */}
-                      <div className={`rounded-2xl overflow-hidden ${colorClass} aspect-[3/4] flex items-end justify-center`}>
+                      {/* Photo with shorter colored background */}
+                      <div className="relative aspect-[4/5]">
+                        {/* Colored bg – sits at the bottom, shorter than the image */}
+                        <div className={`absolute bottom-0 left-0 right-0 h-[75%] rounded-2xl ${colorClass}`} />
+                        {/* Photo – full height, overlaps above the bg */}
                         {member.photo_url ? (
                           <img
                             src={member.photo_url}
                             alt={member.name}
-                            className="w-full h-full object-contain object-bottom group-hover:scale-105 transition-transform duration-700"
+                            className="relative z-10 w-full h-full object-contain object-bottom group-hover:scale-105 transition-transform duration-700"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center">
+                          <div className={`absolute bottom-0 left-0 right-0 h-[75%] rounded-2xl flex items-center justify-center`}>
                             <span className="text-7xl font-black text-white/40 select-none">{member.name.charAt(0)}</span>
                           </div>
                         )}
