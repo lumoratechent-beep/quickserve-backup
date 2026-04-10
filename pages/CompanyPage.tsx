@@ -463,7 +463,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                       {/* Photo with shorter colored background */}
                       <div className="relative aspect-[4/5]">
                         {/* Colored bg – sits at the bottom, shorter than the image */}
-                        <div className={`absolute bottom-0 left-0 right-0 h-[75%] rounded-2xl ${colorClass}`} />
+                        <div className={`absolute bottom-0 left-0 right-0 h-[55%] rounded-2xl ${colorClass}`} />
                         {/* Photo – full height, overlaps above the bg */}
                         {member.photo_url ? (
                           <img

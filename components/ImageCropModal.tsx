@@ -155,8 +155,8 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel, mode = '
 
     // Team member mode: draw colored background zone guide (bottom 75%)
     if (isTeamMode) {
-      const bgTop = cy + crop.h * 0.25;
-      const bgH = crop.h * 0.75;
+      const bgTop = cy + crop.h * 0.45;
+      const bgH = crop.h * 0.55;
       ctx.save();
       ctx.fillStyle = 'rgba(251, 191, 36, 0.35)';
       const bgR = 8;
@@ -182,7 +182,7 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel, mode = '
       ctx.font = 'bold 10px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.fillText('\u2191 Image overflow', cx + crop.w / 2, cy + crop.h * 0.13);
+      ctx.fillText('\u2191 Image overflow', cx + crop.w / 2, cy + crop.h * 0.22);
       ctx.fillStyle = 'rgba(0,0,0,0.6)';
       ctx.fillText('Colored background', cx + crop.w / 2, bgTop + bgH / 2 + 4);
       ctx.restore();
@@ -357,7 +357,7 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel, mode = '
           {isTeamMode && (
             <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50">
               <div className="w-10 h-14 flex-shrink-0 rounded-md overflow-hidden relative border border-amber-300 dark:border-amber-700">
-                <div className="absolute bottom-0 left-0 right-0 h-[75%] bg-amber-400 rounded-t-sm" />
+                <div className="absolute bottom-0 left-0 right-0 h-[55%] bg-amber-400 rounded-t-sm" />
                 <div className="absolute inset-0 flex items-end justify-center">
                   <div className="w-5 h-10 bg-gray-400 rounded-t-full" />
                 </div>
