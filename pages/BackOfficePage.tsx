@@ -740,6 +740,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               src={restaurant.logo}
               alt={`${restaurant.name} logo`}
               className={`rounded-lg shadow-sm ${isSidebarCollapsed ? 'w-8 h-8' : 'w-10 h-10'} object-cover`}
+              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${restaurant.name?.charAt(0) || 'R'}</text></svg>`)}`; }}
             />
           ) : (
             <Briefcase size={isSidebarCollapsed ? 16 : 20} className="text-amber-500" />

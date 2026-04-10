@@ -91,6 +91,7 @@ const LoginPage: React.FC<Props> = ({ onLogin, onBack, onRegister }) => {
             src="/LOGO/icon-192x192.png"
             alt="QuickServe logo"
             className="w-24 h-24 rounded-2xl object-contain mb-4"
+            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="16" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="32" font-weight="900" fill="%23f97316">QS</text></svg>')}`; }}
           />
           <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Staff Portal</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-2">Manage your restaurant operations</p>

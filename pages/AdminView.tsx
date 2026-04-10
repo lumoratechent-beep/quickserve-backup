@@ -1562,7 +1562,7 @@ const AdminView: React.FC<Props> = ({
                       <tr key={vendor.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                         <td className="px-8 py-5">
                           <div className="flex items-center gap-3">
-                            <img src={res?.logo} className="w-10 h-10 rounded-xl shadow-sm object-cover border dark:border-gray-600" />
+                            <img src={res?.logo} className="w-10 h-10 rounded-xl shadow-sm object-cover border dark:border-gray-600" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="12" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${res?.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
                             <div>
                                 <span className="font-black dark:text-white text-sm block">{res?.name}</span>
                                 <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest">@{vendor.username}</span>
@@ -1991,7 +1991,7 @@ const AdminView: React.FC<Props> = ({
                               <td className="px-4 py-2 text-[10px] font-black dark:text-white uppercase tracking-widest">{report.id}</td>
                               <td className="px-4 py-2">
                                  <div className="flex items-center gap-2">
-                                   <img src={res?.logo} className="w-4 h-4 rounded object-cover" />
+                                   <img src={res?.logo} className="w-4 h-4 rounded object-cover" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" rx="2" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="%23f97316">${res?.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
                                    <span className="text-[10px] font-black dark:text-white uppercase tracking-tight truncate max-w-[80px]">{res?.name}</span>
                                  </div>
                               </td>

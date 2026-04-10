@@ -140,8 +140,8 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, isDa
               {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
             <div className="flex items-center gap-2">
-              <img src="/LOGO/9.png" alt="QuickServe" className="h-8 sm:h-9 dark:hidden" />
-              <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-8 sm:h-9 hidden dark:block" />
+              <img src="/LOGO/9.png" alt="QuickServe" className="h-8 sm:h-9 dark:hidden" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="32"><text x="0" y="24" font-size="20" font-weight="900" fill="%23f97316">QuickServe</text></svg>')}`; }} />
+              <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-8 sm:h-9 hidden dark:block" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="32"><text x="0" y="24" font-size="20" font-weight="900" fill="%23f97316">QuickServe</text></svg>')}`; }} />
             </div>
             {/* Desktop nav links */}
             <div className="hidden md:flex items-center gap-8 text-[11px] font-bold text-gray-700 dark:text-gray-400 uppercase tracking-[0.15em] mx-auto">
@@ -823,7 +823,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, isDa
         <div className={`max-w-7xl mx-auto transition-all duration-700 ${footerRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           <div className="flex flex-col md:flex-row items-center justify-between gap-8 mb-12">
             <div className="flex items-center gap-3">
-              <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-10" />
+              <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-10" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="32"><text x="0" y="24" font-size="20" font-weight="900" fill="%23f97316">QuickServe</text></svg>')}`; }} />
             </div>
             <div className="flex flex-col sm:flex-row items-center gap-6">
               <a

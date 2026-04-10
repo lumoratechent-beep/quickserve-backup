@@ -159,7 +159,7 @@ const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, 
         {/* Header */}
         <header className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <img src={restaurant.logo} className="w-10 h-10 rounded-xl shadow-sm" />
+            <img src={restaurant.logo} className="w-10 h-10 rounded-xl shadow-sm" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="12" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${restaurant.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
             <div>
               <h1 className="font-black text-sm uppercase tracking-tight dark:text-white">{restaurant.name}</h1>
               <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Tableside Ordering</p>
@@ -256,7 +256,7 @@ const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, 
         >
           <ArrowLeft size={18} />
         </button>
-        <img src={restaurant.logo} className="w-8 h-8 rounded-lg shadow-sm" />
+        <img src={restaurant.logo} className="w-8 h-8 rounded-lg shadow-sm" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${restaurant.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
         <div className="flex-1 min-w-0">
           <h1 className="font-black text-sm uppercase tracking-tight dark:text-white truncate">{restaurant.name}</h1>
           <div className="flex items-center gap-2">

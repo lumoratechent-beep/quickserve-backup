@@ -193,8 +193,8 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
             </button>
 
             <div className="flex items-center gap-2">
-              <img src="/LOGO/9.png" alt="QuickServe" className="h-8 dark:hidden" />
-              <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-8 hidden dark:block" />
+              <img src="/LOGO/9.png" alt="QuickServe" className="h-8 dark:hidden" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="32"><text x="0" y="24" font-size="20" font-weight="900" fill="%23f97316">QuickServe</text></svg>')}`; }} />
+              <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-8 hidden dark:block" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="32"><text x="0" y="24" font-size="20" font-weight="900" fill="%23f97316">QuickServe</text></svg>')}`; }} />
             </div>
 
             <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-500 dark:text-gray-400 mx-auto">
@@ -281,7 +281,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
               <div className="flex -space-x-2">
                 {teamMembers.slice(0, 3).map((m) =>
                   m.photo_url ? (
-                    <img key={m.id} src={m.photo_url} alt="" className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-900 object-cover" />
+                    <img key={m.id} src={m.photo_url} alt="" className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-900 object-cover" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" rx="16" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="12" font-weight="900" fill="%23f97316">${m.name?.charAt(0) || '?'}</text></svg>`)}`; }} />
                   ) : (
                     <div key={m.id} className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-900 bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-xs font-bold text-orange-500">
                       {m.name.charAt(0)}
@@ -296,8 +296,8 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
           <div className="relative flex items-stretch">
             <div className="rounded-2xl sm:rounded-3xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900 shadow-2xl shadow-black/10 flex items-center justify-center w-full min-h-[180px]">
               <div className="text-center p-3 sm:p-8">
-                <img src="/LOGO/LUMORA-BLACK-LOGO.png" alt="Lumora Tech Ent." className="h-12 sm:h-64 mx-auto mb-1 sm:mb-4 dark:hidden" />
-                <img src="/LOGO/LUMORA-WHITE-LOGO.png" alt="Lumora Tech Ent." className="h-12 sm:h-64 mx-auto mb-1 sm:mb-4 hidden dark:block" />
+                <img src="/LOGO/LUMORA-BLACK-LOGO.png" alt="Lumora Tech Ent." className="h-12 sm:h-64 mx-auto mb-1 sm:mb-4 dark:hidden" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="60"><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="22" font-weight="900" fill="%23374151">Lumora Tech</text></svg>')}`; }} />
+                <img src="/LOGO/LUMORA-WHITE-LOGO.png" alt="Lumora Tech Ent." className="h-12 sm:h-64 mx-auto mb-1 sm:mb-4 hidden dark:block" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="60"><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="22" font-weight="900" fill="%23e5e7eb">Lumora Tech</text></svg>')}`; }} />
                 <p className="text-[9px] sm:text-base font-semibold text-gray-700 dark:text-gray-200 mb-0.5 sm:mb-1">Lumora Tech Ent.</p>
                 <p className="text-[7px] sm:text-sm text-gray-500 dark:text-gray-400 font-medium leading-tight">Empowering Businesses Through Innovative Technology</p>
               </div>
@@ -307,7 +307,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                 <div className="flex -space-x-1 sm:-space-x-1.5">
                   {teamMembers.slice(0, 2).map((m) =>
                     m.photo_url ? (
-                      <img key={`badge-${m.id}`} src={m.photo_url} alt="" className="w-5 h-5 sm:w-7 sm:h-7 rounded-full border-2 border-white dark:border-gray-800 object-cover" />
+                      <img key={`badge-${m.id}`} src={m.photo_url} alt="" className="w-5 h-5 sm:w-7 sm:h-7 rounded-full border-2 border-white dark:border-gray-800 object-cover" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28"><rect width="28" height="28" rx="14" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="10" font-weight="900" fill="%23f97316">${m.name?.charAt(0) || '?'}</text></svg>`)}`; }} />
                     ) : (
                       <div key={`badge-${m.id}`} className="w-5 h-5 sm:w-7 sm:h-7 rounded-full border-2 border-white dark:border-gray-800 bg-orange-100 flex items-center justify-center text-[8px] sm:text-[10px] font-bold text-orange-500">
                         {m.name.charAt(0)}
@@ -456,6 +456,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                             src={member.photo_url}
                             alt={member.name}
                             className="relative z-10 w-full h-full object-contain object-bottom group-hover:scale-105 transition-transform duration-700"
+                            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.style.display = 'none'; }}
                           />
                         ) : (
                           <div className={`absolute bottom-0 left-0 right-0 h-[75%] rounded-xl sm:rounded-2xl flex items-center justify-center`}>
@@ -492,7 +493,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
               <div className="flex -space-x-1.5">
                 {teamMembers.slice(0, 3).map((m) =>
                   m.photo_url ? (
-                    <img key={`rev-${m.id}`} src={m.photo_url} alt="" className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 border-white dark:border-[#0b1120] object-cover" />
+                    <img key={`rev-${m.id}`} src={m.photo_url} alt="" className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 border-white dark:border-[#0b1120] object-cover" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28"><rect width="28" height="28" rx="14" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="10" font-weight="900" fill="%23f97316">${m.name?.charAt(0) || '?'}</text></svg>`)}`; }} />
                   ) : (
                     <div key={`rev-${m.id}`} className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 border-white dark:border-[#0b1120] bg-orange-100 flex items-center justify-center text-[9px] sm:text-[10px] font-bold text-orange-500">
                       {m.name.charAt(0)}

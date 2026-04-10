@@ -170,7 +170,7 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
                     : 'bg-white dark:bg-gray-700 border-gray-100 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-orange-200'
                 }`}
               >
-                <img src={res.logo} className="w-4 h-4 rounded-full object-cover" />
+                <img src={res.logo} className="w-4 h-4 rounded-full object-cover" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" rx="8" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="%23f97316">${res.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
                 {res.name}
               </button>
             ))}
@@ -265,7 +265,7 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
               <div className="flex items-center justify-between mb-4 px-1">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl overflow-hidden border dark:border-gray-700 shadow-sm">
-                    <img src={res.logo} alt={res.name} className="w-full h-full object-cover" />
+                    <img src={res.logo} alt={res.name} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="12" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${res.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
                   </div>
                   <h2 className="text-sm font-black text-gray-900 dark:text-white leading-tight tracking-tight uppercase">{res.name}</h2>
                 </div>

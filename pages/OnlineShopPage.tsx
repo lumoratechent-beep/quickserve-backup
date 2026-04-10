@@ -338,7 +338,7 @@ const OnlineShopPage: React.FC<{ slug: string }> = ({ slug }) => {
       <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
           {restaurant.logo && (
-            <img src={restaurant.logo} alt={restaurant.name} className="w-10 h-10 rounded-xl object-cover border dark:border-gray-700 shrink-0" />
+            <img src={restaurant.logo} alt={restaurant.name} className="w-10 h-10 rounded-xl object-cover border dark:border-gray-700 shrink-0" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="12" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${restaurant.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
           )}
           <div className="flex-1 min-w-0">
             <h1 className="font-black text-gray-900 dark:text-white text-sm uppercase tracking-tight truncate">{restaurant.name}</h1>
