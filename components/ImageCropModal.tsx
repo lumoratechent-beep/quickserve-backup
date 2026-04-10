@@ -301,7 +301,8 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel, mode = '
 
   const handlePointerUp = () => { dragRef.current = null; };
 
-  // Apply crop — output size matches the crop region in original image pixels
+  // Apply crop — output capped at MAX_DIM and exported as compressed JPEG
+  const MAX_DIM = 1200;
   const applyCrop = () => {
     if (!img) return;
     const { dw, dh } = getDisplayDims();
@@ -312,9 +313,14 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel, mode = '
     const sw = crop.w * scaleX;
     const sh = crop.h * scaleY;
 
-    // Output at actual cropped pixel size
-    const outW = Math.round(sw);
-    const outH = Math.round(sh);
+    // Cap output dimensions to avoid oversized payloads
+    let outW = Math.round(sw);
+    let outH = Math.round(sh);
+    if (outW > MAX_DIM || outH > MAX_DIM) {
+      const ratio = Math.min(MAX_DIM / outW, MAX_DIM / outH);
+      outW = Math.round(outW * ratio);
+      outH = Math.round(outH * ratio);
+    }
     const out = document.createElement('canvas');
     out.width = outW;
     out.height = outH;
@@ -328,7 +334,7 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel, mode = '
     }
 
     octx.drawImage(img, sx, sy, sw, sh, 0, 0, outW, outH);
-    out.toBlob(blob => { if (blob) onCrop(blob, shape, outW, outH); }, 'image/png');
+    out.toBlob(blob => { if (blob) onCrop(blob, shape, outW, outH); }, 'image/jpeg', 0.85);
   };
 
   return (
