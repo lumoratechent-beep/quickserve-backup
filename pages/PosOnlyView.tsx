@@ -5859,13 +5859,13 @@ const PosOnlyView: React.FC<Props> = ({
                     },
                   ];
 
-            const addonPanelMeta: Record<string, { label: string; info: string; icon: React.ElementType; badge: string }> = {
-              'addon-table': { label: 'Table Management', info: 'Save bill & manage table layout for dine-in.', icon: LayoutGrid, badge: 'Add-on' },
-              'addon-qr': { label: 'QR Ordering', info: 'Let customers scan QR codes to order from their table.', icon: QrCode, badge: 'Add-on' },
-              'addon-kitchen': { label: 'Kitchen Display', info: 'Kitchen order management & display system.', icon: Coffee, badge: 'Add-on' },
-              'addon-tableside': { label: 'Tableside Ordering', info: 'Staff take orders tableside using a tablet device.', icon: Tablet, badge: 'Add-on' },
-              'addon-customer-display': { label: 'Customer Display', info: 'External customer-facing display screen.', icon: Monitor, badge: 'Add-on' },
-              'addon-online-shop': { label: 'Online Shop', info: 'Let customers order online via a shareable link.', icon: Globe, badge: 'Add-on' },
+            const addonPanelMeta: Record<string, { label: string; info: string; icon: React.ElementType; badge: string; addonId: string; isInstalled: boolean }> = {
+              'addon-table': { label: 'Table Management', info: 'Save bill & manage table layout for dine-in.', icon: LayoutGrid, badge: 'Add-on', addonId: 'table', isInstalled: featureSettings.tableManagementEnabled || featureSettings.savedBillEnabled },
+              'addon-qr': { label: 'QR Ordering', info: 'Let customers scan QR codes to order from their table.', icon: QrCode, badge: 'Add-on', addonId: 'qr', isInstalled: featureSettings.qrEnabled },
+              'addon-kitchen': { label: 'Kitchen Display', info: 'Kitchen order management & display system.', icon: Coffee, badge: 'Add-on', addonId: 'kitchen', isInstalled: featureSettings.kitchenEnabled },
+              'addon-tableside': { label: 'Tableside Ordering', info: 'Staff take orders tableside using a tablet device.', icon: Tablet, badge: 'Add-on', addonId: 'tableside', isInstalled: featureSettings.tablesideOrderingEnabled },
+              'addon-customer-display': { label: 'Customer Display', info: 'External customer-facing display screen.', icon: Monitor, badge: 'Add-on', addonId: 'customer-display', isInstalled: featureSettings.customerDisplayEnabled },
+              'addon-online-shop': { label: 'Online Shop', info: 'Let customers order online via a shareable link.', icon: Globe, badge: 'Add-on', addonId: 'online-shop', isInstalled: featureSettings.onlineShopEnabled },
             };
 
             const isAddonPanel = settingsPanel.startsWith('addon-');
@@ -5989,9 +5989,6 @@ const PosOnlyView: React.FC<Props> = ({
                                         <span className={`flex items-center gap-1.5 text-sm font-semibold ${isActive ? 'text-orange-700 dark:text-orange-300' : 'text-slate-700 dark:text-gray-200'}`}>
                                           {addon.icon} {addon.label}
                                         </span>
-                                        {!addon.isInstalled && (
-                                          <span className="ml-auto rounded-full bg-slate-100 px-1.5 py-0.5 text-[8px] font-bold uppercase text-slate-400 dark:bg-gray-700 dark:text-gray-500">Not installed</span>
-                                        )}
                                       </div>
                                       <div className={`overflow-hidden transition-all duration-200 ${isActive ? 'mt-1.5 max-h-16 opacity-100' : 'mt-0 max-h-0 opacity-0'}`}>
                                         <p className="pl-5 pr-1 text-xs leading-relaxed text-slate-500 dark:text-gray-400">{addon.info}</p>
@@ -6023,7 +6020,50 @@ const PosOnlyView: React.FC<Props> = ({
                               <p className="mt-0.5 text-sm text-slate-500 dark:text-gray-400">{activeSettingsTab.info}</p>
                             </div>
                           </div>
-                          <span className="inline-flex w-fit items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600 dark:border-gray-600 dark:bg-gray-700/80 dark:text-gray-300">{activeSettingsTab.badge}</span>
+                          {isAddonPanel && addonPanelMeta[activeSettingsPanel] ? (
+                            <div className="flex flex-shrink-0 items-center gap-2">
+                              {addonPanelMeta[activeSettingsPanel].isInstalled ? (
+                                <button
+                                  onClick={() => {
+                                    const m = addonPanelMeta[activeSettingsPanel];
+                                    if (m.addonId === 'table') { updateFeatureSetting('tableManagementEnabled', false); updateFeatureSetting('savedBillEnabled', false); }
+                                    else if (m.addonId === 'qr') updateFeatureSetting('qrEnabled', false);
+                                    else if (m.addonId === 'kitchen') updateFeatureSetting('kitchenEnabled', false);
+                                    else if (m.addonId === 'tableside') updateFeatureSetting('tablesideOrderingEnabled', false);
+                                    else if (m.addonId === 'customer-display') updateFeatureSetting('customerDisplayEnabled', false);
+                                    else if (m.addonId === 'online-shop') updateFeatureSetting('onlineShopEnabled', false);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-red-600 transition-all hover:bg-red-100 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
+                                >
+                                  <X size={12} /> Uninstall
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    const m = addonPanelMeta[activeSettingsPanel];
+                                    if (m.addonId === 'table') { updateFeatureSetting('tableManagementEnabled', true); updateFeatureSetting('savedBillEnabled', true); }
+                                    else if (m.addonId === 'qr') updateFeatureSetting('qrEnabled', true);
+                                    else if (m.addonId === 'kitchen') updateFeatureSetting('kitchenEnabled', true);
+                                    else if (m.addonId === 'tableside') updateFeatureSetting('tablesideOrderingEnabled', true);
+                                    else if (m.addonId === 'customer-display') updateFeatureSetting('customerDisplayEnabled', true);
+                                    else if (m.addonId === 'online-shop') updateFeatureSetting('onlineShopEnabled', true);
+                                  }}
+                                  disabled={(['qr','tableside','online-shop'].includes(addonPanelMeta[activeSettingsPanel].addonId) && !canUseQr) || (addonPanelMeta[activeSettingsPanel].addonId === 'kitchen' && !canUseKitchen)}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-green-600 transition-all hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed dark:border-green-500/40 dark:bg-green-500/10 dark:text-green-400 dark:hover:bg-green-500/20"
+                                >
+                                  <Download size={12} /> Install
+                                </button>
+                              )}
+                              <button
+                                onClick={() => { handleTabSelection('ADDONS'); setAddonDetailView(addonPanelMeta[activeSettingsPanel].addonId); setAddonDetailTab('details'); }}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:border-orange-300 hover:bg-orange-50 hover:text-orange-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-orange-500/50 dark:hover:text-orange-400"
+                              >
+                                <Info size={12} /> Learn More
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="inline-flex w-fit items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600 dark:border-gray-600 dark:bg-gray-700/80 dark:text-gray-300">{activeSettingsTab.badge}</span>
+                          )}
                         </div>
                         <div className="mt-3 flex flex-wrap items-center gap-2">
                           <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[11px] font-semibold text-orange-700 dark:border-orange-500/40 dark:bg-orange-500/10 dark:text-orange-300">{panelMetaLine}</span>
@@ -6155,35 +6195,12 @@ const PosOnlyView: React.FC<Props> = ({
                           )}
 
                           {activeSettingsPanel === 'addon-table' && (
-                            <div className="min-w-0 space-y-4">
-                              <div className="flex flex-wrap items-center gap-2">
-                                {(featureSettings.tableManagementEnabled || featureSettings.savedBillEnabled) ? (
-                                  <button
-                                    onClick={() => { updateFeatureSetting('tableManagementEnabled', false); updateFeatureSetting('savedBillEnabled', false); }}
-                                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 transition-all hover:bg-red-100 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
-                                  >
-                                    <X size={12} /> Uninstall
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => { updateFeatureSetting('tableManagementEnabled', true); updateFeatureSetting('savedBillEnabled', true); }}
-                                    className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-green-600 transition-all hover:bg-green-100 dark:border-green-500/40 dark:bg-green-500/10 dark:text-green-400 dark:hover:bg-green-500/20"
-                                  >
-                                    <Download size={12} /> Install
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => { handleTabSelection('ADDONS'); setAddonDetailView('table'); setAddonDetailTab('details'); }}
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:border-orange-300 hover:bg-orange-50 hover:text-orange-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-orange-500/50 dark:hover:text-orange-400"
-                                >
-                                  <Info size={12} /> Learn More
-                                </button>
-                              </div>
+                            <div className="min-w-0">
                               {(featureSettings.tableManagementEnabled || featureSettings.savedBillEnabled) ? (
-                                renderTableManagementContent()
+                                <div className="space-y-4">{renderTableManagementContent()}</div>
                               ) : (
-                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-6 text-center dark:border-amber-500/30 dark:bg-amber-500/10">
-                                  <Package size={28} className="mx-auto mb-2 text-amber-400" />
+                                <div className="flex flex-col items-center justify-center py-12">
+                                  <Package size={36} className="mb-3 text-amber-300" />
                                   <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">Please install this add-on to review the setting.</p>
                                   <p className="mt-1 text-xs text-amber-500 dark:text-amber-400/70">Click the Install button above or visit the Add-on Feature page.</p>
                                 </div>
@@ -6192,36 +6209,12 @@ const PosOnlyView: React.FC<Props> = ({
                           )}
 
                           {activeSettingsPanel === 'addon-qr' && (
-                            <div className="min-w-0 space-y-4">
-                              <div className="flex flex-wrap items-center gap-2">
-                                {featureSettings.qrEnabled ? (
-                                  <button
-                                    onClick={() => updateFeatureSetting('qrEnabled', false)}
-                                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 transition-all hover:bg-red-100 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
-                                  >
-                                    <X size={12} /> Uninstall
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => updateFeatureSetting('qrEnabled', true)}
-                                    disabled={!canUseQr}
-                                    className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-green-600 transition-all hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed dark:border-green-500/40 dark:bg-green-500/10 dark:text-green-400 dark:hover:bg-green-500/20"
-                                  >
-                                    <Download size={12} /> Install
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => { handleTabSelection('ADDONS'); setAddonDetailView('qr'); setAddonDetailTab('details'); }}
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:border-orange-300 hover:bg-orange-50 hover:text-orange-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-orange-500/50 dark:hover:text-orange-400"
-                                >
-                                  <Info size={12} /> Learn More
-                                </button>
-                              </div>
+                            <div className="min-w-0">
                               {featureSettings.qrEnabled ? (
-                                renderQrGeneratorContent()
+                                <div className="space-y-4">{renderQrGeneratorContent()}</div>
                               ) : (
-                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-6 text-center dark:border-amber-500/30 dark:bg-amber-500/10">
-                                  <Package size={28} className="mx-auto mb-2 text-amber-400" />
+                                <div className="flex flex-col items-center justify-center py-12">
+                                  <Package size={36} className="mb-3 text-amber-300" />
                                   <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">Please install this add-on to review the setting.</p>
                                   <p className="mt-1 text-xs text-amber-500 dark:text-amber-400/70">Click the Install button above or visit the Add-on Feature page.</p>
                                 </div>
@@ -6230,33 +6223,11 @@ const PosOnlyView: React.FC<Props> = ({
                           )}
 
                           {activeSettingsPanel === 'addon-kitchen' && (
-                            <div className="min-w-0 space-y-4">
-                              <div className="flex flex-wrap items-center gap-2">
-                                {featureSettings.kitchenEnabled ? (
-                                  <button
-                                    onClick={() => updateFeatureSetting('kitchenEnabled', false)}
-                                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 transition-all hover:bg-red-100 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
-                                  >
-                                    <X size={12} /> Uninstall
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => updateFeatureSetting('kitchenEnabled', true)}
-                                    disabled={!canUseKitchen}
-                                    className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-green-600 transition-all hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed dark:border-green-500/40 dark:bg-green-500/10 dark:text-green-400 dark:hover:bg-green-500/20"
-                                  >
-                                    <Download size={12} /> Install
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => { handleTabSelection('ADDONS'); setAddonDetailView('kitchen'); setAddonDetailTab('details'); }}
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:border-orange-300 hover:bg-orange-50 hover:text-orange-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-orange-500/50 dark:hover:text-orange-400"
-                                >
-                                  <Info size={12} /> Learn More
-                                </button>
-                              </div>
+                            <div className="min-w-0">
                               {featureSettings.kitchenEnabled ? (
-                                canUseKitchen ? renderKitchenSettingsContent() : (
+                                canUseKitchen ? (
+                                  <div className="space-y-0">{renderKitchenSettingsContent()}</div>
+                                ) : (
                                   <div className="text-center py-8">
                                     <Coffee size={36} className="mx-auto text-gray-300 mb-3" />
                                     <p className="text-sm font-black dark:text-white mb-1">Upgrade to Pro Plus</p>
@@ -6265,8 +6236,8 @@ const PosOnlyView: React.FC<Props> = ({
                                   </div>
                                 )
                               ) : (
-                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-6 text-center dark:border-amber-500/30 dark:bg-amber-500/10">
-                                  <Package size={28} className="mx-auto mb-2 text-amber-400" />
+                                <div className="flex flex-col items-center justify-center py-12">
+                                  <Package size={36} className="mb-3 text-amber-300" />
                                   <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">Please install this add-on to review the setting.</p>
                                   <p className="mt-1 text-xs text-amber-500 dark:text-amber-400/70">Click the Install button above or visit the Add-on Feature page.</p>
                                 </div>
@@ -6275,38 +6246,14 @@ const PosOnlyView: React.FC<Props> = ({
                           )}
 
                           {activeSettingsPanel === 'addon-tableside' && (
-                            <div className="min-w-0 space-y-4">
-                              <div className="flex flex-wrap items-center gap-2">
-                                {featureSettings.tablesideOrderingEnabled ? (
-                                  <button
-                                    onClick={() => updateFeatureSetting('tablesideOrderingEnabled', false)}
-                                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 transition-all hover:bg-red-100 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
-                                  >
-                                    <X size={12} /> Uninstall
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => updateFeatureSetting('tablesideOrderingEnabled', true)}
-                                    disabled={!canUseQr}
-                                    className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-green-600 transition-all hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed dark:border-green-500/40 dark:bg-green-500/10 dark:text-green-400 dark:hover:bg-green-500/20"
-                                  >
-                                    <Download size={12} /> Install
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => { handleTabSelection('ADDONS'); setAddonDetailView('tableside'); setAddonDetailTab('details'); }}
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:border-orange-300 hover:bg-orange-50 hover:text-orange-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-orange-500/50 dark:hover:text-orange-400"
-                                >
-                                  <Info size={12} /> Learn More
-                                </button>
-                              </div>
+                            <div className="min-w-0">
                               {featureSettings.tablesideOrderingEnabled ? (
                                 <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300">
                                   Tableside ordering uses the same workflow as QR ordering. Orders placed by staff will appear in the QR Orders queue and Kitchen Display.
                                 </div>
                               ) : (
-                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-6 text-center dark:border-amber-500/30 dark:bg-amber-500/10">
-                                  <Package size={28} className="mx-auto mb-2 text-amber-400" />
+                                <div className="flex flex-col items-center justify-center py-12">
+                                  <Package size={36} className="mb-3 text-amber-300" />
                                   <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">Please install this add-on to review the setting.</p>
                                   <p className="mt-1 text-xs text-amber-500 dark:text-amber-400/70">Click the Install button above or visit the Add-on Feature page.</p>
                                 </div>
@@ -6315,37 +6262,14 @@ const PosOnlyView: React.FC<Props> = ({
                           )}
 
                           {activeSettingsPanel === 'addon-customer-display' && (
-                            <div className="min-w-0 space-y-4">
-                              <div className="flex flex-wrap items-center gap-2">
-                                {featureSettings.customerDisplayEnabled ? (
-                                  <button
-                                    onClick={() => updateFeatureSetting('customerDisplayEnabled', false)}
-                                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 transition-all hover:bg-red-100 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
-                                  >
-                                    <X size={12} /> Uninstall
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => updateFeatureSetting('customerDisplayEnabled', true)}
-                                    className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-green-600 transition-all hover:bg-green-100 dark:border-green-500/40 dark:bg-green-500/10 dark:text-green-400 dark:hover:bg-green-500/20"
-                                  >
-                                    <Download size={12} /> Install
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => { handleTabSelection('ADDONS'); setAddonDetailView('customer-display'); setAddonDetailTab('details'); }}
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:border-orange-300 hover:bg-orange-50 hover:text-orange-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-orange-500/50 dark:hover:text-orange-400"
-                                >
-                                  <Info size={12} /> Learn More
-                                </button>
-                              </div>
+                            <div className="min-w-0">
                               {featureSettings.customerDisplayEnabled ? (
                                 <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300">
                                   Enable a second screen facing your customers showing items, prices, and the total in real time.
                                 </div>
                               ) : (
-                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-6 text-center dark:border-amber-500/30 dark:bg-amber-500/10">
-                                  <Package size={28} className="mx-auto mb-2 text-amber-400" />
+                                <div className="flex flex-col items-center justify-center py-12">
+                                  <Package size={36} className="mb-3 text-amber-300" />
                                   <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">Please install this add-on to review the setting.</p>
                                   <p className="mt-1 text-xs text-amber-500 dark:text-amber-400/70">Click the Install button above or visit the Add-on Feature page.</p>
                                 </div>
@@ -6354,38 +6278,14 @@ const PosOnlyView: React.FC<Props> = ({
                           )}
 
                           {activeSettingsPanel === 'addon-online-shop' && (
-                            <div className="min-w-0 space-y-4">
-                              <div className="flex flex-wrap items-center gap-2">
-                                {featureSettings.onlineShopEnabled ? (
-                                  <button
-                                    onClick={() => updateFeatureSetting('onlineShopEnabled', false)}
-                                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 transition-all hover:bg-red-100 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
-                                  >
-                                    <X size={12} /> Uninstall
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => updateFeatureSetting('onlineShopEnabled', true)}
-                                    disabled={!canUseQr}
-                                    className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-green-600 transition-all hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed dark:border-green-500/40 dark:bg-green-500/10 dark:text-green-400 dark:hover:bg-green-500/20"
-                                  >
-                                    <Download size={12} /> Install
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => { handleTabSelection('ADDONS'); setAddonDetailView('online-shop'); setAddonDetailTab('details'); }}
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:border-orange-300 hover:bg-orange-50 hover:text-orange-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-orange-500/50 dark:hover:text-orange-400"
-                                >
-                                  <Info size={12} /> Learn More
-                                </button>
-                              </div>
+                            <div className="min-w-0">
                               {featureSettings.onlineShopEnabled ? (
                                 <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300">
                                   Share your online ordering link on social media, your website, or messaging apps to reach more customers.
                                 </div>
                               ) : (
-                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-6 text-center dark:border-amber-500/30 dark:bg-amber-500/10">
-                                  <Package size={28} className="mx-auto mb-2 text-amber-400" />
+                                <div className="flex flex-col items-center justify-center py-12">
+                                  <Package size={36} className="mb-3 text-amber-300" />
                                   <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">Please install this add-on to review the setting.</p>
                                   <p className="mt-1 text-xs text-amber-500 dark:text-amber-400/70">Click the Install button above or visit the Add-on Feature page.</p>
                                 </div>
