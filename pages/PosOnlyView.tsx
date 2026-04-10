@@ -3630,122 +3630,134 @@ const PosOnlyView: React.FC<Props> = ({
 
   const renderTableManagementContent = () => (
     <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
-      {/* Table Layout */}
-      <div className="py-5 first:pt-0">
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 md:gap-8">
-          <div>
-            <p className="text-sm font-medium text-gray-900 dark:text-white">Table Layout</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Set total tables and columns — rows are calculated automatically</p>
-          </div>
-          <div className="flex gap-3 items-start justify-end">
+      {/* Table Layout Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6 first:pt-0">
+        <div>
+          <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Table Layout</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Configure table grid and column layout.</p>
+        </div>
+        <div className="min-w-0 divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 first:pt-0 last:pb-0">
             <div>
-              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Tables</label>
-              <input
-                type="number"
-                min={1}
-                value={tableCountDraft}
-                onChange={e => setTableCountDraft(e.target.value)}
-                className="w-24 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
-              />
+              <p className="text-sm font-medium text-gray-900 dark:text-white">Tables & Columns</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Set total tables and columns — rows are calculated automatically</p>
             </div>
-            <div>
-              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Columns</label>
-              <input
-                type="number"
-                min={1}
-                max={20}
-                value={tableColumnsDraft}
-                onChange={e => setTableColumnsDraft(e.target.value)}
-                className="w-24 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
-              />
+            <div className="flex flex-col items-end gap-1.5">
+              <div className="flex gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Tables</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={tableCountDraft}
+                    onChange={e => setTableCountDraft(e.target.value)}
+                    className="w-24 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Columns</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={tableColumnsDraft}
+                    onChange={e => setTableColumnsDraft(e.target.value)}
+                    className="w-24 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Rows: {Math.ceil((parsePositiveIntegerDraft(tableCountDraft) ?? featureSettings.tableCount) / (parsePositiveIntegerDraft(tableColumnsDraft) ?? featureSettings.tableColumns))} (auto-calculated)</p>
             </div>
           </div>
         </div>
-        <div className="flex justify-end mt-1.5">
-          <p className="text-xs text-gray-400 dark:text-gray-500">Rows: {Math.ceil((parsePositiveIntegerDraft(tableCountDraft) ?? featureSettings.tableCount) / (parsePositiveIntegerDraft(tableColumnsDraft) ?? featureSettings.tableColumns))} (auto-calculated)</p>
-        </div>
-
-        {(tableCountDraft !== String(featureSettings.tableCount) ||
-          tableColumnsDraft !== String(featureSettings.tableColumns) ||
-          (featureSettings.floorEnabled && floorCountDraft !== String(featureSettings.floorCount || 1))) && (
-          <div className="flex items-center justify-end gap-2 mt-3 animate-in fade-in slide-in-from-top-1 duration-200">
-            <button
-              onClick={resetTableManagementDraft}
-              className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSaveTableManagementChanges}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-orange-500 text-white hover:bg-orange-600 transition-all"
-            >
-              Save Changes
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Floor Management */}
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 md:gap-8 py-5">
+      {/* Floor Management Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6">
         <div>
-          <p className="text-sm font-medium text-gray-900 dark:text-white">Enable Floors</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Organize tables by floor level (max 5 floors)</p>
+          <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Floor Management</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Organize tables across multiple floors.</p>
         </div>
-        <div className="flex items-center justify-end">
+        <div className="min-w-0 divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 first:pt-0">
+            <div>
+              <p className="text-sm font-medium text-gray-900 dark:text-white">Enable Floors</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Organize tables by floor level (max 5 floors)</p>
+            </div>
+            <div className="flex items-center justify-end">
+              <button
+                onClick={() => {
+                  setFeatureSettings(prev => ({
+                    ...prev,
+                    floorEnabled: !prev.floorEnabled,
+                    floorCount: !prev.floorEnabled ? (prev.floorCount || 1) : prev.floorCount,
+                  }));
+                  setSelectedFloor(1);
+                  setModalSelectedFloor(1);
+                }}
+                className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.floorEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.floorEnabled ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 last:pb-0">
+            <div>
+              <p className={`text-sm font-medium ${featureSettings.floorEnabled ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>Number of Floors</p>
+              <p className={`text-xs mt-0.5 ${featureSettings.floorEnabled ? 'text-gray-500 dark:text-gray-400' : 'text-gray-300 dark:text-gray-600'}`}>Each floor has {featureSettings.tableCount} tables. Labels: <span className={`font-semibold ${featureSettings.floorEnabled ? 'text-orange-500' : 'text-gray-300 dark:text-gray-600'}`}>F1-1</span>, <span className={`font-semibold ${featureSettings.floorEnabled ? 'text-orange-500' : 'text-gray-300 dark:text-gray-600'}`}>F2-1</span>, etc.</p>
+            </div>
+            <div className="flex items-center justify-end">
+              <input
+                type="number"
+                min={1}
+                max={5}
+                value={floorCountDraft}
+                disabled={!featureSettings.floorEnabled}
+                onChange={e => setFloorCountDraft(e.target.value)}
+                className="w-24 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors disabled:bg-gray-100 disabled:dark:bg-gray-800/70 disabled:text-gray-400 disabled:cursor-not-allowed"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Save/Cancel bar */}
+      {(tableCountDraft !== String(featureSettings.tableCount) ||
+        tableColumnsDraft !== String(featureSettings.tableColumns) ||
+        (featureSettings.floorEnabled && floorCountDraft !== String(featureSettings.floorCount || 1))) && (
+        <div className="flex items-center justify-end gap-2 py-4 animate-in fade-in slide-in-from-top-1 duration-200">
           <button
-            onClick={() => {
-              setFeatureSettings(prev => ({
-                ...prev,
-                floorEnabled: !prev.floorEnabled,
-                floorCount: !prev.floorEnabled ? (prev.floorCount || 1) : prev.floorCount,
-              }));
-              setSelectedFloor(1);
-              setModalSelectedFloor(1);
-            }}
-            className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.floorEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+            onClick={resetTableManagementDraft}
+            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
           >
-            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.floorEnabled ? 'left-6' : 'left-1'}`} />
+            Cancel
+          </button>
+          <button
+            onClick={handleSaveTableManagementChanges}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-orange-500 text-white hover:bg-orange-600 transition-all"
+          >
+            Save Changes
           </button>
         </div>
-      </div>
+      )}
 
-      {/* Floor count input — always visible */}
-      <div className="py-5 last:pb-0">
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 md:gap-8">
-          <div>
-            <p className={`text-sm font-medium ${featureSettings.floorEnabled ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>Number of Floors</p>
-            <p className={`text-xs mt-0.5 ${featureSettings.floorEnabled ? 'text-gray-500 dark:text-gray-400' : 'text-gray-300 dark:text-gray-600'}`}>Each floor has {featureSettings.tableCount} tables. Labels: <span className={`font-semibold ${featureSettings.floorEnabled ? 'text-orange-500' : 'text-gray-300 dark:text-gray-600'}`}>F1-1</span>, <span className={`font-semibold ${featureSettings.floorEnabled ? 'text-orange-500' : 'text-gray-300 dark:text-gray-600'}`}>F2-1</span>, etc.</p>
-          </div>
-          <div className="flex items-center justify-end">
-            <input
-              type="number"
-              min={1}
-              max={5}
-              value={floorCountDraft}
-              disabled={!featureSettings.floorEnabled}
-              onChange={e => setFloorCountDraft(e.target.value)}
-              className="w-24 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors disabled:bg-gray-100 disabled:dark:bg-gray-800/70 disabled:text-gray-400 disabled:cursor-not-allowed"
-            />
-          </div>
+      {featureSettings.floorEnabled && floorCountDraft !== String(featureSettings.floorCount || 1) && !(tableCountDraft !== String(featureSettings.tableCount) || tableColumnsDraft !== String(featureSettings.tableColumns)) && (
+        <div className="flex items-center justify-end gap-2 py-4 animate-in fade-in slide-in-from-top-1 duration-200">
+          <button
+            onClick={() => setFloorCountDraft(String(featureSettings.floorCount || 1))}
+            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSaveFloorChanges}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-orange-500 text-white hover:bg-orange-600 transition-all"
+          >
+            Save Changes
+          </button>
         </div>
-
-        {featureSettings.floorEnabled && floorCountDraft !== String(featureSettings.floorCount || 1) && (
-          <div className="flex items-center justify-end gap-2 mt-3 animate-in fade-in slide-in-from-top-1 duration-200">
-            <button
-              onClick={() => setFloorCountDraft(String(featureSettings.floorCount || 1))}
-              className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSaveFloorChanges}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-orange-500 text-white hover:bg-orange-600 transition-all"
-            >
-              Save Changes
-            </button>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 
@@ -3754,27 +3766,39 @@ const PosOnlyView: React.FC<Props> = ({
     return (
       <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
         {/* Enable/Disable Toggle */}
-        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 first:pt-0">
+        <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6 first:pt-0">
           <div>
-            <p className="text-sm font-medium text-gray-900 dark:text-white">Kitchen Display System</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Route orders to kitchen screens with department support</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Kitchen Display</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Enable and configure the kitchen display system.</p>
           </div>
-          <div className="flex items-center">
-            <button
-              onClick={() => updateFeatureSetting('kitchenEnabled', !featureSettings.kitchenEnabled)}
-              className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.kitchenEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-            >
-              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.kitchenEnabled ? 'left-6' : 'left-1'}`} />
-            </button>
+          <div className="min-w-0 divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+            <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 first:pt-0 last:pb-0">
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">Kitchen Display System</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Route orders to kitchen screens with department support</p>
+              </div>
+              <div className="flex items-center justify-end">
+                <button
+                  onClick={() => updateFeatureSetting('kitchenEnabled', !featureSettings.kitchenEnabled)}
+                  className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.kitchenEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.kitchenEnabled ? 'left-6' : 'left-1'}`} />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
         {featureSettings.kitchenEnabled && (
           <>
             {/* Departments / Divisions */}
-            <div className="py-5">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">Departments</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Create kitchen departments to route specific categories to specific screens.</p>
+            <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6">
+              <div>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Departments</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Route specific categories to specific kitchen screens.</p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Create kitchen departments to route specific categories to specific screens.</p>
               {kitchenDivisions.length > 0 && (
                 <div className="space-y-2 mb-2">
                   {kitchenDivisions.map(dep => (
@@ -3862,9 +3886,13 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
 
             {/* Kitchen Staff */}
-            <div className="py-5 last:pb-0">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">Kitchen Staff</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Staff assigned to kitchen role can access the Kitchen Display.</p>
+            <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6">
+              <div>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Kitchen Staff</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Assign staff to the kitchen role.</p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Staff assigned to kitchen role can access the Kitchen Display.</p>
               {kitchenStaff.length > 0 ? (
                 <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700 mb-4">
                   {kitchenStaff.map((staff: any, idx: number) => (
@@ -3899,6 +3927,7 @@ const PosOnlyView: React.FC<Props> = ({
               >
                 <UserPlus size={15} /> Add Kitchen Staff
               </button>
+              </div>
             </div>
           </>
         )}
@@ -6182,7 +6211,15 @@ const PosOnlyView: React.FC<Props> = ({
                           {activeSettingsPanel === 'addon-qr' && (
                             <div className="min-w-0">
                               {featureSettings.qrEnabled ? (
-                                <div className="space-y-4">{renderQrGeneratorContent()}</div>
+                                <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+                                  <div className="py-6 first:pt-0">
+                                    <div className="mb-4">
+                                      <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">QR Code Generator</p>
+                                      <p className="text-xs text-gray-500 dark:text-gray-400">Generate and customize QR codes for table ordering.</p>
+                                    </div>
+                                    {renderQrGeneratorContent()}
+                                  </div>
+                                </div>
                               ) : (
                                 <div className="flex flex-col items-center justify-center py-12">
                                   <Package size={36} className="mb-3 text-amber-300" />
@@ -6219,8 +6256,18 @@ const PosOnlyView: React.FC<Props> = ({
                           {activeSettingsPanel === 'addon-tableside' && (
                             <div className="min-w-0">
                               {featureSettings.tablesideOrderingEnabled ? (
-                                <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300">
-                                  Tableside ordering uses the same workflow as QR ordering. Orders placed by staff will appear in the QR Orders queue and Kitchen Display.
+                                <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+                                  <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6 first:pt-0">
+                                    <div>
+                                      <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">How It Works</p>
+                                      <p className="text-xs text-gray-500 dark:text-gray-400">Order flow and routing.</p>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300">
+                                        Tableside ordering uses the same workflow as QR ordering. Orders placed by staff will appear in the QR Orders queue and Kitchen Display.
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
                               ) : (
                                 <div className="flex flex-col items-center justify-center py-12">
@@ -6235,8 +6282,18 @@ const PosOnlyView: React.FC<Props> = ({
                           {activeSettingsPanel === 'addon-customer-display' && (
                             <div className="min-w-0">
                               {featureSettings.customerDisplayEnabled ? (
-                                <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300">
-                                  Enable a second screen facing your customers showing items, prices, and the total in real time.
+                                <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+                                  <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6 first:pt-0">
+                                    <div>
+                                      <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">How It Works</p>
+                                      <p className="text-xs text-gray-500 dark:text-gray-400">Customer-facing display setup.</p>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300">
+                                        Enable a second screen facing your customers showing items, prices, and the total in real time.
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
                               ) : (
                                 <div className="flex flex-col items-center justify-center py-12">
@@ -6251,8 +6308,18 @@ const PosOnlyView: React.FC<Props> = ({
                           {activeSettingsPanel === 'addon-online-shop' && (
                             <div className="min-w-0">
                               {featureSettings.onlineShopEnabled ? (
-                                <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300">
-                                  Share your online ordering link on social media, your website, or messaging apps to reach more customers.
+                                <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+                                  <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6 first:pt-0">
+                                    <div>
+                                      <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">How It Works</p>
+                                      <p className="text-xs text-gray-500 dark:text-gray-400">Online ordering channel.</p>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300">
+                                        Share your online ordering link on social media, your website, or messaging apps to reach more customers.
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
                               ) : (
                                 <div className="flex flex-col items-center justify-center py-12">
