@@ -1,28 +1,32 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Check, Circle, Square, RectangleHorizontal } from 'lucide-react';
 
-type CropShape = 'circle' | 'square' | 'rectangle';
+type CropShape = 'circle' | 'square' | 'rectangle' | 'portrait';
 
 interface Props {
   imageFile: File;
   onCrop: (blob: Blob, shape: CropShape, width: number, height: number) => void;
   onCancel: () => void;
+  /** When 'team-member', locks to portrait 4:5 crop with a visual guide showing the colored bg zone */
+  mode?: 'default' | 'team-member';
 }
 
 const SHAPES: { id: CropShape; label: string; icon: React.ReactNode; aspect?: number }[] = [
   { id: 'circle', label: 'Circle', icon: <Circle size={16} />, aspect: 1 },
   { id: 'square', label: 'Square', icon: <Square size={16} />, aspect: 1 },
   { id: 'rectangle', label: 'Wide', icon: <RectangleHorizontal size={16} />, aspect: 2 },
+  { id: 'portrait', label: 'Portrait', icon: <RectangleHorizontal size={16} className="rotate-90" />, aspect: 4 / 5 },
 ];
 
 const HANDLE_SIZE = 10;
 
 type DragMode = 'move' | 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w' | null;
 
-const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel }) => {
+const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel, mode = 'default' }) => {
+  const isTeamMode = mode === 'team-member';
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [img, setImg] = useState<HTMLImageElement | null>(null);
-  const [shape, setShape] = useState<CropShape>('square');
+  const [shape, setShape] = useState<CropShape>(isTeamMode ? 'portrait' : 'square');
 
   // Crop box state (relative to displayed image)
   const [crop, setCrop] = useState({ x: 0, y: 0, w: 0, h: 0 });
@@ -149,6 +153,41 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel }) => {
       ctx.stroke();
     }
 
+    // Team member mode: draw colored background zone guide (bottom 75%)
+    if (isTeamMode) {
+      const bgTop = cy + crop.h * 0.25;
+      const bgH = crop.h * 0.75;
+      ctx.save();
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.35)';
+      const bgR = 8;
+      ctx.beginPath();
+      ctx.moveTo(cx + bgR, bgTop);
+      ctx.lineTo(cx + crop.w - bgR, bgTop);
+      ctx.arcTo(cx + crop.w, bgTop, cx + crop.w, bgTop + bgH, bgR);
+      ctx.arcTo(cx + crop.w, cy + crop.h, cx, cy + crop.h, bgR);
+      ctx.arcTo(cx, cy + crop.h, cx, bgTop, bgR);
+      ctx.lineTo(cx, bgTop);
+      ctx.closePath();
+      ctx.fill();
+      // Dashed line at bg top edge
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx, bgTop);
+      ctx.lineTo(cx + crop.w, bgTop);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // Labels
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillText('\u2191 Image overflow', cx + crop.w / 2, cy + crop.h * 0.13);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillText('Colored background', cx + crop.w / 2, bgTop + bgH / 2 + 4);
+      ctx.restore();
+    }
+
     // Draw resize handles
     const handles = [
       { x: cx, y: cy },                           // nw
@@ -169,7 +208,7 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel }) => {
       ctx.fill();
       ctx.stroke();
     });
-  }, [img, crop, shape, getDisplayDims]);
+  }, [img, crop, shape, isTeamMode, getDisplayDims]);
 
   // Update cursor based on hover position
   const updateCursor = useCallback((e: React.PointerEvent) => {
@@ -314,11 +353,28 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel }) => {
 
         {/* Controls */}
         <div className="p-5 space-y-4">
+          {/* Team member guide */}
+          {isTeamMode && (
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50">
+              <div className="w-10 h-14 flex-shrink-0 rounded-md overflow-hidden relative border border-amber-300 dark:border-amber-700">
+                <div className="absolute bottom-0 left-0 right-0 h-[75%] bg-amber-400 rounded-t-sm" />
+                <div className="absolute inset-0 flex items-end justify-center">
+                  <div className="w-5 h-10 bg-gray-400 rounded-t-full" />
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-amber-800 dark:text-amber-300">Team Member Photo Guide</p>
+                <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5 leading-relaxed">Upload a photo with background removed (PNG). The top 25% overflows above the colored background. Position the head/shoulders in the top area.</p>
+              </div>
+            </div>
+          )}
+
           {/* Shape picker */}
+          {!isTeamMode && (
           <div>
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Shape</label>
             <div className="flex gap-2">
-              {SHAPES.map(s => (
+              {SHAPES.filter(s => s.id !== 'portrait').map(s => (
                 <button
                   key={s.id}
                   onClick={() => setShape(s.id)}
@@ -333,6 +389,7 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel }) => {
               ))}
             </div>
           </div>
+          )}
 
           {/* Crop size indicator */}
           <div className="flex items-center gap-3">

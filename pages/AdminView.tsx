@@ -2801,6 +2801,7 @@ const AdminView: React.FC<Props> = ({
         {newTeamMemberCropFile && (
           <ImageCropModal
             imageFile={newTeamMemberCropFile}
+            mode="team-member"
             onCrop={teamMemberCropTargetId ? handleTeamMemberPhotoCropped : handleNewTeamMemberPhotoCropped}
             onCancel={() => { setNewTeamMemberCropFile(null); setTeamMemberCropTargetId(null); }}
           />
