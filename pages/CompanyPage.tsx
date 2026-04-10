@@ -461,7 +461,7 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
                   >
                     <div className="group">
                       {/* Photo with colored background */}
-                      <div className={`rounded-2xl overflow-hidden ${colorClass} aspect-[4/5] flex items-end justify-center`}>
+                      <div className={`rounded-2xl overflow-hidden ${colorClass} aspect-square flex items-end justify-center`}>
                         {member.photo_url ? (
                           <img
                             src={member.photo_url}
