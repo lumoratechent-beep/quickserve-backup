@@ -296,9 +296,10 @@ const CompanyPage: React.FC<Props> = ({ onBack, isDarkMode, onToggleDark, onGetS
           <div className="relative">
             <div className="rounded-3xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900 aspect-[4/3] shadow-2xl shadow-black/10 flex items-center justify-center">
               <div className="text-center p-8">
-                <img src="/LOGO/9.png" alt="QuickServe" className="h-14 sm:h-16 mx-auto mb-4 dark:hidden" />
-                <img src="/LOGO/9-dark.png" alt="QuickServe" className="h-14 sm:h-16 mx-auto mb-4 hidden dark:block" />
-                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">All-in-One F&B Platform</p>
+                <img src="/LOGO/LUMORA-BLACK-LOGO.png" alt="Lumora Tech Ent." className="h-14 sm:h-16 mx-auto mb-4 dark:hidden" />
+                <img src="/LOGO/LUMORA-WHITE-LOGO.png" alt="Lumora Tech Ent." className="h-14 sm:h-16 mx-auto mb-4 hidden dark:block" />
+                <p className="text-base font-semibold text-gray-700 dark:text-gray-200 mb-1">Lumora Tech Ent.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Empowering Businesses Through Innovative Technology</p>
               </div>
             </div>
             {teamMembers.length > 0 && (
