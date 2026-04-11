@@ -28,9 +28,10 @@ interface Props {
   subscription: Subscription | null;
   onUpgradeClick: () => void;
   onSubscriptionUpdated?: () => void;
+  onComparePlans?: () => void;
 }
 
-const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeClick, onSubscriptionUpdated }) => {
+const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeClick, onSubscriptionUpdated, onComparePlans }) => {
   const [billingHistory, setBillingHistory] = useState<BillingHistory[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(10);
@@ -281,6 +282,14 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         <section>
           <div className="mb-4 flex items-center gap-2 flex-wrap">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">Plan</h3>
+            {onComparePlans && (
+              <button
+                onClick={onComparePlans}
+                className="px-3 py-1 rounded-full text-[11px] font-bold text-orange-500 border border-orange-300 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+              >
+                Compare Plans
+              </button>
+            )}
             {hasPendingDowngrade && (
               <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-300/60 dark:border-amber-700/50">
                 Pending Downgrade Active

@@ -7,9 +7,10 @@ interface Props {
   onBack: () => void;
   onRegisterSuccess: () => void;
   onLoginClick: () => void;
+  onComparePlans?: () => void;
 }
 
-const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick }) => {
+const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick, onComparePlans }) => {
   const [step, setStep] = useState<'plan' | 'details'>('plan');
   const [selectedPlan, setSelectedPlan] = useState<PlanId>('pro');
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
@@ -127,6 +128,15 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
             <p className="text-gray-500 dark:text-gray-400 mt-1 font-medium text-xs lg:text-sm">
               Cancel at any time. All plans include a {TRIAL_DAYS}-day free trial.
             </p>
+
+            {onComparePlans && (
+              <button
+                onClick={onComparePlans}
+                className="mt-2 inline-flex items-center gap-1.5 text-xs lg:text-sm font-bold text-orange-500 hover:text-orange-600 dark:text-orange-400 dark:hover:text-orange-300 transition-colors underline underline-offset-4 decoration-orange-500/40"
+              >
+                Compare Plans
+              </button>
+            )}
 
             {/* Monthly / Annual Toggle */}
             <div className="inline-flex items-center mt-4 lg:mt-6 bg-gray-200 dark:bg-gray-700 rounded-full p-1">

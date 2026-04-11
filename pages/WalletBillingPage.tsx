@@ -12,6 +12,7 @@ interface Props {
   subscription: Subscription | null;
   onUpgradeClick: () => void;
   onSubscriptionUpdated?: () => void;
+  onComparePlans?: () => void;
 }
 
 const WalletBillingPage: React.FC<Props> = ({
@@ -19,7 +20,8 @@ const WalletBillingPage: React.FC<Props> = ({
   restaurantId,
   subscription,
   onUpgradeClick,
-  onSubscriptionUpdated
+  onSubscriptionUpdated,
+  onComparePlans
 }) => {
   const [activeTab, setActiveTab] = useState<'BILLING' | 'WALLET'>('BILLING');
 
@@ -62,6 +64,7 @@ const WalletBillingPage: React.FC<Props> = ({
               subscription={subscription}
               onUpgradeClick={onUpgradeClick}
               onSubscriptionUpdated={onSubscriptionUpdated}
+              onComparePlans={onComparePlans}
             />
           )}
 

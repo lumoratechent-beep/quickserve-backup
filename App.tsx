@@ -7,6 +7,7 @@ import BackOfficePage from './pages/BackOfficePage';
 import LoginPage from './pages/LoginPage';
 import MarketingPage from './pages/MarketingPage';
 import CompanyPage from './pages/CompanyPage';
+import ComparePlansPage from './pages/ComparePlansPage';
 import RegisterPage from './pages/RegisterPage';
 import OnlineShopPage from './pages/OnlineShopPage';
 import TableSideOrderPage from './pages/TableSideOrderPage';
@@ -255,7 +256,7 @@ const App: React.FC = () => {
   const [stripeRedirect] = useState(() => stripeRedirectRef.current());
 
   const [onlineShopSlug, setOnlineShopSlug] = useState<string | null>(null);
-  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS' | 'BACK_OFFICE' | 'ONLINE_SHOP' | 'COMPANY'>(() => {
+  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'APP' | 'MARKETING' | 'POS' | 'BACK_OFFICE' | 'ONLINE_SHOP' | 'COMPANY' | 'COMPARE_PLANS'>(() => {
     const savedView = localStorage.getItem('qs_view') as any;
     
     // Handle Stripe payment redirect
@@ -2057,8 +2058,12 @@ const App: React.FC = () => {
     );
   }
 
+  if (view === 'COMPARE_PLANS') {
+    return <ComparePlansPage onBack={() => setView('MARKETING')} onGetStarted={() => setView('REGISTER')} />;
+  }
+
   if (view === 'MARKETING') {
-    return <MarketingPage onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} onCompany={() => setView('COMPANY')} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
+    return <MarketingPage onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} onCompany={() => setView('COMPANY')} onComparePlans={() => setView('COMPARE_PLANS')} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
   }
 
   if (view === 'COMPANY') {
@@ -2085,7 +2090,7 @@ const App: React.FC = () => {
   }
 
   if (view === 'REGISTER') {
-    return <RegisterPage onBack={() => setView('MARKETING')} onLoginClick={() => setView('LOGIN')} onRegisterSuccess={() => {
+    return <RegisterPage onBack={() => setView('MARKETING')} onLoginClick={() => setView('LOGIN')} onComparePlans={() => setView('COMPARE_PLANS')} onRegisterSuccess={() => {
       toast('Registration successful! You can now log in.', 'success');
       setView('LOGIN');
     }} />;
@@ -2241,6 +2246,7 @@ const App: React.FC = () => {
               openMailTab={openMailInPOS}
               onMailTabOpened={() => setOpenMailInPOS(false)}
               onUpdateOrderItems={updateOrderItems}
+              onComparePlans={() => setView('COMPARE_PLANS')}
             />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
@@ -2286,6 +2292,7 @@ const App: React.FC = () => {
                 openMailTab={openMailInPOS}
                 onMailTabOpened={() => setOpenMailInPOS(false)}
                 onUpdateOrderItems={updateOrderItems}
+                onComparePlans={() => setView('COMPARE_PLANS')}
               />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
