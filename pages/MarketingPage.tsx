@@ -613,15 +613,6 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
             </h2>
             <p className="text-white/50 font-medium text-lg max-w-lg mx-auto">Cancel at any time. All plans include a {TRIAL_DAYS}-day free trial.</p>
 
-            {onComparePlans && (
-              <button
-                onClick={onComparePlans}
-                className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-orange-400 hover:text-orange-300 transition-colors underline underline-offset-4 decoration-orange-500/40 hover:decoration-orange-400"
-              >
-                Compare Plans
-              </button>
-            )}
-
             {/* Toggle */}
             {(() => {
               const annualSavePct = Math.round((1 - PRICING_PLANS[1].annualPrice / PRICING_PLANS[1].price) * 100);
@@ -758,6 +749,17 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
           </div>
 
           <div className="flex items-center justify-center gap-4 sm:gap-8 mt-10 sm:mt-16">
+            {onComparePlans && (
+              <button
+                onClick={onComparePlans}
+                className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-orange-400 hover:text-orange-300 transition-colors"
+              >
+                <span className="text-orange-500">⇄</span>
+                Compare Plans
+              </button>
+            )}
+          </div>
+          <div className="flex items-center justify-center gap-4 sm:gap-8 mt-4 sm:mt-6">
             {[
               { icon: <ShieldCheck size={18} />, text: 'SST Compliant' },
               { icon: <Globe size={18} />, text: 'Local Support' },

@@ -129,15 +129,6 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
               Cancel at any time. All plans include a {TRIAL_DAYS}-day free trial.
             </p>
 
-            {onComparePlans && (
-              <button
-                onClick={onComparePlans}
-                className="mt-2 inline-flex items-center gap-1.5 text-xs lg:text-sm font-bold text-orange-500 hover:text-orange-600 dark:text-orange-400 dark:hover:text-orange-300 transition-colors underline underline-offset-4 decoration-orange-500/40"
-              >
-                Compare Plans
-              </button>
-            )}
-
             {/* Monthly / Annual Toggle */}
             <div className="inline-flex items-center mt-4 lg:mt-6 bg-gray-200 dark:bg-gray-700 rounded-full p-1">
               <button
@@ -224,6 +215,17 @@ const RegisterPage: React.FC<Props> = ({ onBack, onRegisterSuccess, onLoginClick
               );
             })}
           </div>
+
+          {onComparePlans && (
+            <div className="text-center mt-3 lg:mt-4">
+              <button
+                onClick={onComparePlans}
+                className="inline-flex items-center gap-1.5 text-[10px] lg:text-xs font-black text-orange-500 hover:text-orange-600 dark:text-orange-400 dark:hover:text-orange-300 uppercase tracking-widest transition-colors"
+              >
+                ⇄ Compare Plans
+              </button>
+            </div>
+          )}
 
           <div className="pt-3 lg:pt-4 pb-2">
             <p className="text-center text-gray-400 text-[10px] lg:text-xs font-medium">
