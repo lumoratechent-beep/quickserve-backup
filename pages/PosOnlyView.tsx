@@ -10077,7 +10077,7 @@ const PosOnlyView: React.FC<Props> = ({
                 {/* Main payment view */}
                 <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-in-out ${showPaymentAmountKeypad ? '-translate-x-full' : 'translate-x-0'}`}>
                   {/* Content */}
-                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 lg:px-8 pb-6 lg:pb-8 pt-4 lg:pt-6 space-y-4 lg:space-y-6">
+                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 lg:px-8 pb-6 lg:pb-8 pt-8 lg:pt-10 space-y-4 lg:space-y-6">
                     {/* Total Amount Due - Centered */}
                     <div className="text-center space-y-2 lg:space-y-3">
                       <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
@@ -10194,12 +10194,13 @@ const PosOnlyView: React.FC<Props> = ({
 
                 {/* Amount keypad view */}
                 <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-in-out ${showPaymentAmountKeypad ? 'translate-x-0' : 'translate-x-full'}`}>
-                  <div className="flex-1 min-h-0 overflow-y-auto px-5 lg:px-8 pb-6 lg:pb-8 pt-8 lg:pt-10 space-y-4 lg:space-y-5">
-                    <div className="text-center space-y-2">
+                  <div className="flex-1 min-h-0 overflow-y-auto px-5 lg:px-8 pb-6 lg:pb-8 pt-10 lg:pt-14 space-y-5 lg:space-y-6">
+                    <div className="text-center space-y-3">
                       <p className="text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Amount Received</p>
-                      <div className="mx-auto w-64 lg:w-80 border-b-2 border-orange-500 pb-1">
-                        <span className="block text-4xl lg:text-5xl font-black text-orange-500 tracking-tighter text-center">
-                          {currencySymbol}{paymentAmountKeypadInput || '0.00'}
+                      <div className="mx-auto w-64 lg:w-80 flex items-end justify-center border-b-2 border-orange-500 pb-1">
+                        <span className="text-xl lg:text-2xl font-black text-orange-500 shrink-0 mr-1">{currencySymbol}</span>
+                        <span className="text-4xl lg:text-5xl font-black text-orange-500 tracking-tighter">
+                          {paymentAmountKeypadInput || '0.00'}
                         </span>
                       </div>
                     </div>
