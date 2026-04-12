@@ -2069,12 +2069,38 @@ const PosOnlyView: React.FC<Props> = ({
       .sort((a, b) => b.timestamp - a.timestamp);
 
     const completedOrders = filtered.filter(o => o.status === OrderStatus.COMPLETED);
+    const nonCancelled = filtered.filter(o => o.status !== OrderStatus.CANCELLED);
+
+    const txMap: Record<string, { count: number; total: number }> = {};
+    nonCancelled.forEach(o => {
+      const method = o.paymentMethod || '-';
+      if (!txMap[method]) txMap[method] = { count: 0, total: 0 };
+      txMap[method].count += 1;
+      txMap[method].total += o.total;
+    });
+    const byTransactionType = Object.entries(txMap)
+      .map(([name, d]) => ({ name, ...d }))
+      .sort((a, b) => b.total - a.total);
+
+    const cashierMap: Record<string, { count: number; total: number }> = {};
+    nonCancelled.forEach(o => {
+      const name = o.cashierName || '-';
+      if (!cashierMap[name]) cashierMap[name] = { count: 0, total: 0 };
+      cashierMap[name].count += 1;
+      cashierMap[name].total += o.total;
+    });
+    const byCashier = Object.entries(cashierMap)
+      .map(([name, d]) => ({ name, ...d }))
+      .sort((a, b) => b.total - a.total);
+
     const summary = {
       totalRevenue: completedOrders.reduce((sum, o) => sum + o.total, 0),
       orderVolume: filtered.length,
       efficiency: filtered.length > 0
         ? Math.round((completedOrders.length / filtered.length) * 100)
         : 0,
+      byTransactionType,
+      byCashier,
     };
 
     if (isExport) return filtered;

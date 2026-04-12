@@ -89,33 +89,34 @@ const StandardReport: React.FC<Props> = ({
     });
   }, [paginatedReports, filterStatus, filterPayment, filterCashier]);
 
-  // Transaction type and cashier breakdowns from the current filtered data
-  const nonCancelledOrders = useMemo(
-    () => paginatedReports.filter(o => o.status !== OrderStatus.CANCELLED),
-    [paginatedReports],
-  );
-
+  // Transaction type and cashier breakdowns from the full report summary
   const detailTransactions = useMemo(() => {
+    if (reportData?.summary?.byTransactionType) return reportData.summary.byTransactionType;
+    // Fallback: compute from paginated data (legacy)
+    const nonCancelled = paginatedReports.filter(o => o.status !== OrderStatus.CANCELLED);
     const map: Record<string, { count: number; total: number }> = {};
-    nonCancelledOrders.forEach(o => {
+    nonCancelled.forEach(o => {
       const method = o.paymentMethod || '-';
       if (!map[method]) map[method] = { count: 0, total: 0 };
       map[method].count += 1;
       map[method].total += o.total;
     });
     return Object.entries(map).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.total - a.total);
-  }, [nonCancelledOrders]);
+  }, [reportData, paginatedReports]);
 
   const detailCashiers = useMemo(() => {
+    if (reportData?.summary?.byCashier) return reportData.summary.byCashier;
+    // Fallback: compute from paginated data (legacy)
+    const nonCancelled = paginatedReports.filter(o => o.status !== OrderStatus.CANCELLED);
     const map: Record<string, { count: number; total: number }> = {};
-    nonCancelledOrders.forEach(o => {
+    nonCancelled.forEach(o => {
       const name = o.cashierName || '-';
       if (!map[name]) map[name] = { count: 0, total: 0 };
       map[name].count += 1;
       map[name].total += o.total;
     });
     return Object.entries(map).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.total - a.total);
-  }, [nonCancelledOrders]);
+  }, [reportData, paginatedReports]);
 
   return (
     <div className="animate-in fade-in duration-500">

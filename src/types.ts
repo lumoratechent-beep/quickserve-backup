@@ -181,6 +181,8 @@ export interface ReportResponse {
     totalRevenue: number;
     orderVolume: number;
     efficiency: number;
+    byTransactionType?: { name: string; count: number; total: number }[];
+    byCashier?: { name: string; count: number; total: number }[];
   };
   totalCount: number;
 }

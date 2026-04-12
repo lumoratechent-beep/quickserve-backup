@@ -62,7 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (error) throw error;
 
     // Summary query
-    let summaryQuery = supabase.from('orders').select('total, status');
+    let summaryQuery = supabase.from('orders').select('total, status, payment_method, cashier_name');
     if (restaurantId && restaurantId !== 'ALL') summaryQuery = summaryQuery.eq('restaurant_id', restaurantId);
     if (locationName && locationName !== 'ALL') summaryQuery = summaryQuery.eq('location_name', locationName);
     if (status && status !== 'ALL') summaryQuery = summaryQuery.eq('status', status);
@@ -93,6 +93,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const completedCount = summaryData.filter(o => o.status === 'COMPLETED').length;
     const efficiency = orderVolume > 0 ? Math.round((completedCount / orderVolume) * 100) : 0;
 
+    // Compute breakdowns from non-cancelled orders
+    const nonCancelled = summaryData.filter(o => o.status !== 'CANCELLED');
+
+    const txMap: Record<string, { count: number; total: number }> = {};
+    nonCancelled.forEach(o => {
+      const method = o.payment_method || '-';
+      if (!txMap[method]) txMap[method] = { count: 0, total: 0 };
+      txMap[method].count += 1;
+      txMap[method].total += Number(o.total || 0);
+    });
+    const byTransactionType = Object.entries(txMap)
+      .map(([name, d]) => ({ name, ...d }))
+      .sort((a, b) => b.total - a.total);
+
+    const cashierMap: Record<string, { count: number; total: number }> = {};
+    nonCancelled.forEach(o => {
+      const name = o.cashier_name || '-';
+      if (!cashierMap[name]) cashierMap[name] = { count: 0, total: 0 };
+      cashierMap[name].count += 1;
+      cashierMap[name].total += Number(o.total || 0);
+    });
+    const byCashier = Object.entries(cashierMap)
+      .map(([name, d]) => ({ name, ...d }))
+      .sort((a, b) => b.total - a.total);
+
     return res.status(200).json({
       orders: data.map(o => ({
         id: o.id,
@@ -117,7 +142,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       summary: {
         totalRevenue,
         orderVolume,
-        efficiency
+        efficiency,
+        byTransactionType,
+        byCashier
       },
       totalCount: count || 0
     });
