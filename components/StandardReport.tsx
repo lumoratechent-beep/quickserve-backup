@@ -20,6 +20,7 @@ interface Props {
   onChangeCurrentPage: (value: number | ((prev: number) => number)) => void;
   onDownloadReport: () => void;
   onDownloadPDF?: () => void;
+  isDownloadingPDF?: boolean;
   onSelectOrder?: (order: Order) => void;
 }
 
@@ -41,6 +42,7 @@ const StandardReport: React.FC<Props> = ({
   onChangeCurrentPage,
   onDownloadReport,
   onDownloadPDF,
+  isDownloadingPDF,
   onSelectOrder,
 }) => {
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
@@ -152,7 +154,7 @@ const StandardReport: React.FC<Props> = ({
         </div>
         <div className="flex gap-2 w-full md:w-auto">
           <button onClick={onDownloadReport} className="flex-1 md:flex-none px-6 py-2 bg-black text-white dark:bg-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-orange-500 transition-all"><Download size={16} /> Export CSV</button>
-          {onDownloadPDF && <button onClick={onDownloadPDF} className="flex-1 md:flex-none px-6 py-2 bg-red-600 text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-700 transition-all"><FileText size={16} /> Download PDF</button>}
+          {onDownloadPDF && <button onClick={onDownloadPDF} disabled={isDownloadingPDF} className={`flex-1 md:flex-none px-6 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${isDownloadingPDF ? 'bg-red-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'} text-white`}>{isDownloadingPDF ? (<><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> Generating...</>) : (<><FileText size={16} /> Download PDF</>)}</button>}
         </div>
       </div>
 

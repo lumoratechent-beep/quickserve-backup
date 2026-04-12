@@ -3037,9 +3037,13 @@ const PosOnlyView: React.FC<Props> = ({
     document.body.removeChild(link);
   };
 
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
+
   const handleDownloadPDF = async () => {
+    setIsDownloadingPDF(true);
+    try {
     const allOrders = await fetchReport(true) as Order[];
-    if (!allOrders || allOrders.length === 0) return;
+    if (!allOrders || allOrders.length === 0) { setIsDownloadingPDF(false); return; }
     const { default: jsPDF } = await import('jspdf');
     const { default: autoTable } = await import('jspdf-autotable');
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
@@ -3119,8 +3123,8 @@ const PosOnlyView: React.FC<Props> = ({
     const paymentMap: Record<string, { count: number; total: number }> = {};
     completed.forEach(o => {
       const rawMethod = o.paymentMethod || 'Cash';
-      // Normalize: capitalize first letter, lowercase rest to merge "CASH" / "Cash" / "cash"
-      const m = rawMethod.charAt(0).toUpperCase() + rawMethod.slice(1).toLowerCase();
+      // Normalize to UPPERCASE to merge "CASH" / "Cash" / "cash"
+      const m = rawMethod.toUpperCase();
       if (!paymentMap[m]) paymentMap[m] = { count: 0, total: 0 };
       paymentMap[m].count += 1; paymentMap[m].total += o.total;
     });
@@ -3465,6 +3469,11 @@ const PosOnlyView: React.FC<Props> = ({
     }
 
     doc.save(`POS_Report_${reportStart}_to_${reportEnd}.pdf`);
+    } catch (e) {
+      console.error('PDF generation error:', e);
+    } finally {
+      setIsDownloadingPDF(false);
+    }
   };
 
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
@@ -5582,6 +5591,7 @@ const PosOnlyView: React.FC<Props> = ({
                 onChangeCurrentPage={setCurrentPage}
                 onDownloadReport={handleDownloadReport}
                 onDownloadPDF={handleDownloadPDF}
+                isDownloadingPDF={isDownloadingPDF}
                 onSelectOrder={(order) => setSelectedReportOrder(order)}
               />
             </div>
