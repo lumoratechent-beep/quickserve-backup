@@ -5401,7 +5401,7 @@ const PosOnlyView: React.FC<Props> = ({
             <>
               {/* Saved Bill selection panel */}
               {counterMode === 'SAVED_BILL' ? (
-                <div className="flex-1 overflow-hidden flex flex-col p-4">
+                <div className="flex-1 overflow-hidden flex flex-col p-4" onClick={() => setActiveSavedBillTable(null)}>
                   {!featureSettings.savedBillEnabled ? (
                     <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
                       <Receipt size={48} className="mb-4" />
@@ -5472,9 +5472,10 @@ const PosOnlyView: React.FC<Props> = ({
                                   type="button"
                                   key={table}
                                   disabled={!hasPending}
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     if (!hasPending) return;
-                                    setActiveSavedBillTable(table);
+                                    setActiveSavedBillTable(isActiveTable ? null : table);
                                   }}
                                   className={`saved-table-cell h-[96px] rounded-xl border-2 p-3 transition-all text-left flex flex-col justify-between ${
                                     isActiveTable
