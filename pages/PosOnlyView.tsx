@@ -751,6 +751,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [collectPaymentType, setCollectPaymentType] = useState<string>('');
   const [showPaymentAmountKeypad, setShowPaymentAmountKeypad] = useState(false);
   const [paymentAmountKeypadInput, setPaymentAmountKeypadInput] = useState<string>('');
+  const [keypadFreshEntry, setKeypadFreshEntry] = useState(true);
   const enabledPaymentTypes = useMemo(() => paymentTypes.filter((type) => type.enabled), [paymentTypes]);
   const paymentMethodButtons = useMemo(() => enabledPaymentTypes.slice(0, 3), [enabledPaymentTypes]);
   const availableDiningOptions = useMemo(() => {
@@ -827,14 +828,21 @@ const PosOnlyView: React.FC<Props> = ({
 
   const openPaymentAmountKeypad = () => {
     setPaymentAmountKeypadInput(cashAmountInput);
+    setKeypadFreshEntry(true);
     setShowPaymentAmountKeypad(true);
   };
 
   const appendPaymentKeypadValue = (token: string) => {
-    setPaymentAmountKeypadInput((prev) => sanitizeAmountInput(`${prev}${token}`));
+    if (keypadFreshEntry) {
+      setPaymentAmountKeypadInput(sanitizeAmountInput(token));
+      setKeypadFreshEntry(false);
+    } else {
+      setPaymentAmountKeypadInput((prev) => sanitizeAmountInput(`${prev}${token}`));
+    }
   };
 
   const backspacePaymentKeypadValue = () => {
+    setKeypadFreshEntry(false);
     setPaymentAmountKeypadInput((prev) => prev.slice(0, -1));
   };
 
@@ -10079,7 +10087,7 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
 
                     {/* Amount Received - Tap to keypad */}
-                    <div className="space-y-3">
+                    <div className="space-y-3 mt-6 lg:mt-8">
                       <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Amount Received</label>
                       <button
                         type="button"
@@ -10186,11 +10194,13 @@ const PosOnlyView: React.FC<Props> = ({
 
                 {/* Amount keypad view */}
                 <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-in-out ${showPaymentAmountKeypad ? 'translate-x-0' : 'translate-x-full'}`}>
-                  <div className="flex-1 min-h-0 overflow-y-auto px-5 lg:px-8 pb-6 lg:pb-8 space-y-4 lg:space-y-5">
+                  <div className="flex-1 min-h-0 overflow-y-auto px-5 lg:px-8 pb-6 lg:pb-8 pt-4 lg:pt-6 space-y-4 lg:space-y-5">
                     <div className="text-center space-y-2">
                       <p className="text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Amount Received</p>
-                      <div className="text-4xl lg:text-5xl font-black text-orange-500 tracking-tighter">
-                        {currencySymbol}{paymentAmountKeypadInput || '0.00'}
+                      <div className="inline-block border-b-2 border-orange-500 pb-1">
+                        <span className="text-4xl lg:text-5xl font-black text-orange-500 tracking-tighter">
+                          {currencySymbol}{paymentAmountKeypadInput || '0.00'}
+                        </span>
                       </div>
                     </div>
 
