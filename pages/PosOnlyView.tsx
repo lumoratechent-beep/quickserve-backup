@@ -3044,54 +3044,209 @@ const PosOnlyView: React.FC<Props> = ({
     const { default: autoTable } = await import('jspdf-autotable');
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
     const pw = doc.internal.pageSize.getWidth();
+    const ph = doc.internal.pageSize.getHeight();
     const margin = 14;
     let y = 14;
     const darkGray = [55, 65, 81] as [number, number, number];
     const amber = [217, 119, 6] as [number, number, number];
-
-    // Header
-    doc.setFontSize(18); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
-    doc.text(restaurant.name || 'POS Report', margin, y); y += 7;
-    doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(120, 120, 120);
-    doc.text(`Report Period: ${reportStart} to ${reportEnd}`, margin, y);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, pw - margin, y, { align: 'right' }); y += 3;
-    doc.setDrawColor(...amber); doc.setLineWidth(0.6); doc.line(margin, y, pw - margin, y); y += 8;
+    const lightAmber = [254, 243, 199] as [number, number, number];
+    const green = [16, 185, 129] as [number, number, number];
+    const red = [239, 68, 68] as [number, number, number];
+    const blue = [59, 130, 246] as [number, number, number];
+    const contentW = pw - margin * 2;
 
     // Compute analytics from allOrders
     const completed = allOrders.filter(o => o.status === OrderStatus.COMPLETED);
     const cancelled = allOrders.filter(o => o.status === OrderStatus.CANCELLED);
+    const pending = allOrders.filter(o => o.status === OrderStatus.PENDING);
+    const served = allOrders.filter(o => o.status === OrderStatus.SERVED);
+    const ongoing = allOrders.filter(o => o.status === OrderStatus.ONGOING);
     const totalRevenue = completed.reduce((s, o) => s + o.total, 0);
     const avgOrder = completed.length > 0 ? totalRevenue / completed.length : 0;
     const cancelledValue = cancelled.reduce((s, o) => s + o.total, 0);
 
-    // KPI Summary
-    doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
-    doc.text('Sales Summary', margin, y); y += 6;
-    const kpis = [
-      ['Total Revenue', `RM ${totalRevenue.toFixed(2)}`],
-      ['Completed Orders', `${completed.length}`],
-      ['Average Order Value', `RM ${avgOrder.toFixed(2)}`],
-      ['Cancelled Orders', `${cancelled.length} (RM ${cancelledValue.toFixed(2)})`],
-      ['Total Orders', `${allOrders.length}`],
-    ];
-    autoTable(doc, {
-      startY: y, head: [['Metric', 'Value']], body: kpis, margin: { left: margin, right: margin },
-      styles: { fontSize: 8, cellPadding: 2.5 },
-      headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [254, 243, 199] },
-      theme: 'grid',
-    });
-    y = (doc as any).lastAutoTable.finalY + 8;
+    // =====================================================
+    // PAGE 1: OVERVIEW DASHBOARD
+    // =====================================================
 
-    // Payment Type Breakdown
+    // Header with accent bar
+    doc.setFillColor(...amber);
+    doc.rect(0, 0, pw, 3, 'F');
+    y = 12;
+    doc.setFontSize(22); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+    doc.text(restaurant.name || 'Sales Report', margin, y); y += 7;
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(120, 120, 120);
+    doc.text(`Report Period: ${reportStart}  to  ${reportEnd}`, margin, y);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, pw - margin, y, { align: 'right' }); y += 2;
+    doc.setDrawColor(230, 230, 230); doc.setLineWidth(0.3); doc.line(margin, y, pw - margin, y); y += 8;
+
+    // Section title helper
+    const sectionTitle = (title: string) => {
+      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+      doc.text(title, margin, y);
+      doc.setDrawColor(...amber); doc.setLineWidth(0.5);
+      doc.line(margin, y + 1.5, margin + doc.getTextWidth(title), y + 1.5);
+      y += 7;
+    };
+
+    // KPI Cards - 4 cards in a row
+    sectionTitle('Sales Overview');
+    const cardW = (contentW - 6) / 4;
+    const cardH = 24;
+    const kpiCards = [
+      { label: 'Total Revenue', value: `RM ${totalRevenue.toFixed(2)}`, sub: `${completed.length} paid orders`, color: amber },
+      { label: 'Total Orders', value: `${allOrders.length}`, sub: `${completed.length} completed`, color: blue },
+      { label: 'Avg Order Value', value: `RM ${avgOrder.toFixed(2)}`, sub: 'per completed order', color: green },
+      { label: 'Cancelled', value: `${cancelled.length}`, sub: `RM ${cancelledValue.toFixed(2)} lost`, color: red },
+    ];
+    kpiCards.forEach((card, i) => {
+      const cx = margin + i * (cardW + 2);
+      doc.setFillColor(248, 250, 252); doc.roundedRect(cx, y, cardW, cardH, 2, 2, 'F');
+      doc.setFillColor(...card.color); doc.rect(cx, y, 1.2, cardH, 'F');
+      doc.setFontSize(7); doc.setFont('helvetica', 'bold'); doc.setTextColor(130, 130, 130);
+      doc.text(card.label.toUpperCase(), cx + 4, y + 6);
+      doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+      doc.text(card.value, cx + 4, y + 14);
+      doc.setFontSize(6.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 150, 150);
+      doc.text(card.sub, cx + 4, y + 19);
+    });
+    y += cardH + 10;
+
+    // Payment Type Breakdown with visual bars
     const paymentMap: Record<string, { count: number; total: number }> = {};
     completed.forEach(o => {
       const m = o.paymentMethod || 'Cash';
       if (!paymentMap[m]) paymentMap[m] = { count: 0, total: 0 };
       paymentMap[m].count += 1; paymentMap[m].total += o.total;
     });
-    const paymentRows = Object.entries(paymentMap)
-      .sort((a, b) => b[1].total - a[1].total)
+    const paymentEntries = Object.entries(paymentMap).sort((a, b) => b[1].total - a[1].total);
+
+    if (paymentEntries.length > 0) {
+      sectionTitle('Payment Breakdown');
+      const barMaxW = contentW * 0.45;
+      const maxPaymentTotal = paymentEntries[0][1].total;
+      paymentEntries.forEach(([method, d]) => {
+        const pct = totalRevenue > 0 ? (d.total / totalRevenue) * 100 : 0;
+        const barW = maxPaymentTotal > 0 ? (d.total / maxPaymentTotal) * barMaxW : 0;
+        doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+        doc.text(method, margin, y + 3);
+        doc.setFillColor(245, 245, 245); doc.roundedRect(margin + 40, y, barMaxW, 5, 1, 1, 'F');
+        doc.setFillColor(...amber); doc.roundedRect(margin + 40, y, Math.max(barW, 1), 5, 1, 1, 'F');
+        doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+        doc.text(`RM ${d.total.toFixed(2)}`, margin + 42 + barMaxW, y + 3.5);
+        doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(130, 130, 130);
+        doc.text(`${d.count} txn · ${pct.toFixed(1)}%`, margin + 42 + barMaxW + 35, y + 3.5);
+        y += 8;
+      });
+      y += 4;
+    }
+
+    // Daily Sales Summary (bar-like visual)
+    const dailyMap: Record<string, { orders: number; revenue: number }> = {};
+    completed.forEach(o => {
+      const day = new Date(o.timestamp).toLocaleDateString('en-MY', { month: 'short', day: 'numeric' });
+      if (!dailyMap[day]) dailyMap[day] = { orders: 0, revenue: 0 };
+      dailyMap[day].orders += 1; dailyMap[day].revenue += o.total;
+    });
+    const dailyEntries = Object.entries(dailyMap).sort((a, b) => {
+      const da = new Date(a[0] + ', 2024'); const db = new Date(b[0] + ', 2024');
+      return da.getTime() - db.getTime();
+    });
+
+    if (dailyEntries.length > 0 && dailyEntries.length <= 31) {
+      sectionTitle('Daily Sales');
+      const barAreaH = 28;
+      const barAreaW = contentW;
+      const maxDailyRev = Math.max(...dailyEntries.map(e => e[1].revenue));
+      const barGap = 1;
+      const barW = Math.min((barAreaW - barGap * dailyEntries.length) / dailyEntries.length, 12);
+      const totalBarsW = dailyEntries.length * (barW + barGap);
+      const startX = margin + (barAreaW - totalBarsW) / 2;
+
+      // Grid lines
+      doc.setDrawColor(240, 240, 240); doc.setLineWidth(0.1);
+      for (let i = 0; i <= 4; i++) {
+        const ly = y + barAreaH - (barAreaH * i / 4);
+        doc.line(margin, ly, pw - margin, ly);
+      }
+
+      dailyEntries.forEach(([day, d], i) => {
+        const bh = maxDailyRev > 0 ? (d.revenue / maxDailyRev) * (barAreaH - 4) : 0;
+        const bx = startX + i * (barW + barGap);
+        const by = y + barAreaH - bh;
+        doc.setFillColor(...amber); doc.roundedRect(bx, by, barW, bh, 0.5, 0.5, 'F');
+        // Day label
+        if (dailyEntries.length <= 14 || i % Math.ceil(dailyEntries.length / 14) === 0) {
+          doc.setFontSize(5); doc.setFont('helvetica', 'normal'); doc.setTextColor(140, 140, 140);
+          doc.text(day, bx + barW / 2, y + barAreaH + 4, { align: 'center' });
+        }
+      });
+      y += barAreaH + 8;
+    }
+
+    // Order Status Breakdown
+    sectionTitle('Order Status');
+    const statuses = [
+      { label: 'Completed', count: completed.length, color: green },
+      { label: 'Served', count: served.length, color: blue },
+      { label: 'Ongoing', count: ongoing.length, color: amber },
+      { label: 'Pending', count: pending.length, color: [251, 191, 36] as [number, number, number] },
+      { label: 'Cancelled', count: cancelled.length, color: red },
+    ].filter(s => s.count > 0);
+    const totalForStatus = allOrders.length;
+    statuses.forEach(s => {
+      const pct = totalForStatus > 0 ? (s.count / totalForStatus) * 100 : 0;
+      doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+      doc.text(`${s.label}`, margin, y + 3);
+      doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(130, 130, 130);
+      doc.text(`${s.count} orders`, margin + 28, y + 3);
+      // Progress bar
+      const barX = margin + 50; const barTotalW = contentW - 68;
+      doc.setFillColor(240, 240, 240); doc.roundedRect(barX, y, barTotalW, 5, 1, 1, 'F');
+      doc.setFillColor(...s.color); doc.roundedRect(barX, y, Math.max((pct / 100) * barTotalW, 1), 5, 1, 1, 'F');
+      doc.setFontSize(7); doc.setFont('helvetica', 'bold'); doc.setTextColor(...s.color);
+      doc.text(`${pct.toFixed(1)}%`, barX + barTotalW + 2, y + 3.5);
+      y += 8;
+    });
+    y += 4;
+
+    // Cashier Performance (compact overview on page 1)
+    const cashierMap: Record<string, { orders: number; revenue: number; cancelled: number }> = {};
+    allOrders.forEach(o => {
+      const name = o.cashierName || 'Unknown';
+      if (!cashierMap[name]) cashierMap[name] = { orders: 0, revenue: 0, cancelled: 0 };
+      if (o.status === OrderStatus.CANCELLED) { cashierMap[name].cancelled += 1; }
+      else { cashierMap[name].orders += 1; cashierMap[name].revenue += o.total; }
+    });
+    const cashierEntries = Object.entries(cashierMap).sort((a, b) => b[1].revenue - a[1].revenue);
+
+    if (cashierEntries.length > 0 && y < ph - 50) {
+      sectionTitle('Cashier Performance');
+      autoTable(doc, {
+        startY: y,
+        head: [['Cashier', 'Orders', 'Revenue', 'Avg Order', 'Cancelled']],
+        body: cashierEntries.map(([name, d]) => [
+          name, `${d.orders}`, `RM ${d.revenue.toFixed(2)}`,
+          `RM ${(d.orders > 0 ? d.revenue / d.orders : 0).toFixed(2)}`, `${d.cancelled}`
+        ]),
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 7.5, cellPadding: 2 },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
+        alternateRowStyles: { fillColor: lightAmber },
+        theme: 'grid',
+      });
+      y = (doc as any).lastAutoTable.finalY + 6;
+    }
+
+    // =====================================================
+    // PAGE 2+: DETAILED TABLES
+    // =====================================================
+    doc.addPage();
+    y = 14;
+    doc.setFillColor(...amber); doc.rect(0, 0, pw, 3, 'F');
+
+    // Payment Type Detailed Table
+    const paymentRows = paymentEntries
       .map(([method, d]) => [method, `${d.count}`, `RM ${d.total.toFixed(2)}`, `${totalRevenue > 0 ? ((d.total / totalRevenue) * 100).toFixed(1) : '0'}%`]);
     if (paymentRows.length > 0) {
       doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
@@ -3101,7 +3256,7 @@ const PosOnlyView: React.FC<Props> = ({
         margin: { left: margin, right: margin },
         styles: { fontSize: 8, cellPadding: 2.5 },
         headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [254, 243, 199] },
+        alternateRowStyles: { fillColor: lightAmber },
         theme: 'grid',
       });
       y = (doc as any).lastAutoTable.finalY + 8;
@@ -3152,32 +3307,6 @@ const PosOnlyView: React.FC<Props> = ({
       doc.text('Sales by Category', margin, y); y += 6;
       autoTable(doc, {
         startY: y, head: [['Category', 'Items Sold', 'Orders', 'Revenue']], body: catRows,
-        margin: { left: margin, right: margin },
-        styles: { fontSize: 8, cellPadding: 2.5 },
-        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [254, 243, 199] },
-        theme: 'grid',
-      });
-      y = (doc as any).lastAutoTable.finalY + 8;
-    }
-
-    // Cashier Performance
-    const cashierMap: Record<string, { orders: number; revenue: number; cancelled: number }> = {};
-    allOrders.forEach(o => {
-      const name = o.cashierName || 'Unknown';
-      if (!cashierMap[name]) cashierMap[name] = { orders: 0, revenue: 0, cancelled: 0 };
-      if (o.status === OrderStatus.CANCELLED) { cashierMap[name].cancelled += 1; }
-      else { cashierMap[name].orders += 1; cashierMap[name].revenue += o.total; }
-    });
-    const cashierRows = Object.entries(cashierMap)
-      .sort((a, b) => b[1].revenue - a[1].revenue)
-      .map(([name, d]) => [name, `${d.orders}`, `RM ${d.revenue.toFixed(2)}`, `RM ${(d.orders > 0 ? d.revenue / d.orders : 0).toFixed(2)}`, `${d.cancelled}`]);
-    if (cashierRows.length > 0) {
-      if (y > 240) { doc.addPage(); y = 14; }
-      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
-      doc.text('Cashier Performance', margin, y); y += 6;
-      autoTable(doc, {
-        startY: y, head: [['Cashier', 'Orders', 'Revenue', 'Avg Order', 'Cancelled']], body: cashierRows,
         margin: { left: margin, right: margin },
         styles: { fontSize: 8, cellPadding: 2.5 },
         headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
@@ -5343,7 +5472,6 @@ const PosOnlyView: React.FC<Props> = ({
                 onDownloadReport={handleDownloadReport}
                 onDownloadPDF={handleDownloadPDF}
                 onSelectOrder={(order) => setSelectedReportOrder(order)}
-                allOrders={orders}
               />
             </div>
           )}
