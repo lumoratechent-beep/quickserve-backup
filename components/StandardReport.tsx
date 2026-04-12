@@ -329,7 +329,18 @@ const StandardReport: React.FC<Props> = ({
           </button>
 
           <div className="flex items-center gap-1">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+            {(() => {
+              const maxVisible = 10;
+              let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+              let end = start + maxVisible - 1;
+              if (end > totalPages) {
+                end = totalPages;
+                start = Math.max(1, end - maxVisible + 1);
+              }
+              const pages: number[] = [];
+              for (let i = start; i <= end; i++) pages.push(i);
+              return pages;
+            })().map(page => (
               <button
                 key={page}
                 onClick={() => onChangeCurrentPage(page)}

@@ -178,7 +178,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl shadow-2xl border dark:border-gray-700 animate-in fade-in zoom-in-95 duration-200"
+        className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl shadow-2xl border dark:border-gray-700 animate-in fade-in zoom-in-95 duration-200 flex flex-col"
         onClick={(e) => e.stopPropagation()}
         style={{ maxHeight: '90vh', overflow: 'hidden' }}
       >
@@ -193,8 +193,10 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
           </button>
         </div>
 
+        {/* Scrollable content area */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
         {/* Main Content - Image Left, Options Right */}
-        <div className="p-5 flex gap-5 max-h-[60vh]">
+        <div className="p-5 flex gap-5">
           {/* Left: Image — hidden on mobile */}
           <div className="hidden sm:block w-36 h-36 flex-shrink-0 bg-gray-100 dark:bg-gray-700 rounded-xl overflow-hidden shadow-inner">
             {item.image ? (
@@ -207,7 +209,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
           </div>
 
           {/* Right: Options, Sizes, Variants, Temperature */}
-          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+          <div className="flex-1 space-y-4 pr-1">
             {/* Sizes */}
             {sizes.length > 0 && (
               <div>
@@ -382,9 +384,10 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
             </div>
           </div>
         )}
+        </div>{/* end scrollable content area */}
 
         {/* Footer */}
-        <div className="p-5 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex items-center gap-4">
+        <div className="p-5 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex items-center gap-4 flex-shrink-0">
           <div>
             <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Total</p>
             <p className="text-2xl font-black dark:text-white">RM{calculateTotal().toFixed(2)}</p>

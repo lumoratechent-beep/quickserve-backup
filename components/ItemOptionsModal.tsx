@@ -186,7 +186,7 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
           console.log('ItemOptionsModal: Modal content clicked, stopping propagation');
           event.stopPropagation();
         }}
-        className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-2xl shadow-2xl border dark:border-gray-700"
+        className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-2xl shadow-2xl border dark:border-gray-700 flex flex-col"
         style={{ 
           maxHeight: '90vh', 
           overflow: 'hidden',
@@ -204,7 +204,7 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
           </button>
         </div>
 
-        <div className="p-5 max-h-[60vh] overflow-y-auto space-y-5">
+        <div className="p-5 overflow-y-auto space-y-5 flex-1 min-h-0">
           {sizes.length > 0 && (
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Size</label>
@@ -322,7 +322,7 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
           )}
         </div>
 
-        <div className="p-5 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex items-center gap-4">
+        <div className="p-5 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex items-center gap-4 flex-shrink-0">
           <div>
             <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Total</p>
             <p className="text-2xl font-black dark:text-white">RM{totalPrice.toFixed(2)}</p>
