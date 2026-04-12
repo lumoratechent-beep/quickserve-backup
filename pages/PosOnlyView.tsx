@@ -5343,6 +5343,7 @@ const PosOnlyView: React.FC<Props> = ({
                 onDownloadReport={handleDownloadReport}
                 onDownloadPDF={handleDownloadPDF}
                 onSelectOrder={(order) => setSelectedReportOrder(order)}
+                allOrders={orders}
               />
             </div>
           )}
