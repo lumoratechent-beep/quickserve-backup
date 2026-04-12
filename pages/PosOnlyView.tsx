@@ -3080,16 +3080,14 @@ const PosOnlyView: React.FC<Props> = ({
     doc.text(`Generated: ${new Date().toLocaleString()}`, pw - margin, y, { align: 'right' }); y += 2;
     doc.setDrawColor(230, 230, 230); doc.setLineWidth(0.3); doc.line(margin, y, pw - margin, y); y += 8;
 
-    // Section title helper
+    // Section title helper (no underline)
     const sectionTitle = (title: string) => {
       doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
       doc.text(title, margin, y);
-      doc.setDrawColor(...amber); doc.setLineWidth(0.5);
-      doc.line(margin, y + 1.5, margin + doc.getTextWidth(title), y + 1.5);
       y += 7;
     };
 
-    // KPI Cards - 4 cards in a row
+    // KPI Cards - 4 cards in a row with border outlines
     sectionTitle('Sales Overview');
     const cardW = (contentW - 6) / 4;
     const cardH = 24;
@@ -3101,8 +3099,13 @@ const PosOnlyView: React.FC<Props> = ({
     ];
     kpiCards.forEach((card, i) => {
       const cx = margin + i * (cardW + 2);
+      // Fill background
       doc.setFillColor(248, 250, 252); doc.roundedRect(cx, y, cardW, cardH, 2, 2, 'F');
-      doc.setFillColor(...card.color); doc.rect(cx, y, 1.2, cardH, 'F');
+      // Border outline
+      doc.setDrawColor(...card.color); doc.setLineWidth(0.5); doc.roundedRect(cx, y, cardW, cardH, 2, 2, 'S');
+      // Left accent bar
+      doc.setFillColor(...card.color); doc.rect(cx + 0.5, y + 3, 1.2, cardH - 6, 'F');
+      // Text
       doc.setFontSize(7); doc.setFont('helvetica', 'bold'); doc.setTextColor(130, 130, 130);
       doc.text(card.label.toUpperCase(), cx + 4, y + 6);
       doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
@@ -3110,7 +3113,7 @@ const PosOnlyView: React.FC<Props> = ({
       doc.setFontSize(6.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 150, 150);
       doc.text(card.sub, cx + 4, y + 19);
     });
-    y += cardH + 10;
+    y += cardH + 12;
 
     // Payment Type Breakdown with visual bars
     const paymentMap: Record<string, { count: number; total: number }> = {};
@@ -3122,23 +3125,71 @@ const PosOnlyView: React.FC<Props> = ({
     const paymentEntries = Object.entries(paymentMap).sort((a, b) => b[1].total - a[1].total);
 
     if (paymentEntries.length > 0) {
-      sectionTitle('Payment Breakdown');
-      const barMaxW = contentW * 0.45;
-      const maxPaymentTotal = paymentEntries[0][1].total;
-      paymentEntries.forEach(([method, d]) => {
-        const pct = totalRevenue > 0 ? (d.total / totalRevenue) * 100 : 0;
-        const barW = maxPaymentTotal > 0 ? (d.total / maxPaymentTotal) * barMaxW : 0;
-        doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
-        doc.text(method, margin, y + 3);
-        doc.setFillColor(245, 245, 245); doc.roundedRect(margin + 40, y, barMaxW, 5, 1, 1, 'F');
-        doc.setFillColor(...amber); doc.roundedRect(margin + 40, y, Math.max(barW, 1), 5, 1, 1, 'F');
-        doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
-        doc.text(`RM ${d.total.toFixed(2)}`, margin + 42 + barMaxW, y + 3.5);
-        doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(130, 130, 130);
-        doc.text(`${d.count} txn · ${pct.toFixed(1)}%`, margin + 42 + barMaxW + 35, y + 3.5);
-        y += 8;
+      sectionTitle('Payment Methods');
+      // Donut chart style — draw concentric arcs for each payment method
+      const donutColors: [number, number, number][] = [
+        [217, 119, 6],   // amber/orange
+        [251, 191, 36],  // yellow
+        [180, 120, 30],  // brown
+        [245, 158, 11],  // light amber
+        [146, 64, 14],   // dark brown
+      ];
+      const cx = margin + contentW * 0.25;
+      const cy = y + 28;
+      const outerR = 22;
+      const innerR = 13;
+      let startAngle = -90; // start from top
+
+      // Draw donut segments
+      paymentEntries.forEach(([, d], idx) => {
+        const pct = totalRevenue > 0 ? d.total / totalRevenue : 0;
+        const sweepAngle = pct * 360;
+        const col = donutColors[idx % donutColors.length];
+
+        // Draw arc segment using many small filled triangles
+        const steps = Math.max(Math.ceil(sweepAngle / 2), 1);
+        const stepAngle = sweepAngle / steps;
+        doc.setFillColor(...col);
+        for (let s = 0; s < steps; s++) {
+          const a1 = ((startAngle + s * stepAngle) * Math.PI) / 180;
+          const a2 = ((startAngle + (s + 1) * stepAngle) * Math.PI) / 180;
+          const ox1 = cx + outerR * Math.cos(a1);
+          const oy1 = cy + outerR * Math.sin(a1);
+          const ox2 = cx + outerR * Math.cos(a2);
+          const oy2 = cy + outerR * Math.sin(a2);
+          const ix1 = cx + innerR * Math.cos(a1);
+          const iy1 = cy + innerR * Math.sin(a1);
+          const ix2 = cx + innerR * Math.cos(a2);
+          const iy2 = cy + innerR * Math.sin(a2);
+          // Draw quadrilateral as two triangles
+          doc.triangle(ox1, oy1, ox2, oy2, ix1, iy1, 'F');
+          doc.triangle(ox2, oy2, ix2, iy2, ix1, iy1, 'F');
+        }
+        startAngle += sweepAngle;
       });
-      y += 4;
+
+      // White center circle for donut hole
+      doc.setFillColor(255, 255, 255);
+      doc.circle(cx, cy, innerR - 0.5, 'F');
+
+      // Legend on the right side
+      const legendX = margin + contentW * 0.55;
+      let legendY = y + 10;
+      paymentEntries.forEach(([method, d], idx) => {
+        const pct = totalRevenue > 0 ? (d.total / totalRevenue) * 100 : 0;
+        const col = donutColors[idx % donutColors.length];
+        // Color dot
+        doc.setFillColor(...col); doc.circle(legendX, legendY, 2, 'F');
+        // Method name
+        doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+        doc.text(method, legendX + 5, legendY + 1);
+        // Percentage
+        doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(...col);
+        doc.text(`${pct.toFixed(1)}%`, legendX + 45, legendY + 1);
+        legendY += 9;
+      });
+
+      y += 60;
     }
 
     // Daily Sales Summary (bar-like visual)
@@ -3155,33 +3206,59 @@ const PosOnlyView: React.FC<Props> = ({
 
     if (dailyEntries.length > 0 && dailyEntries.length <= 31) {
       sectionTitle('Daily Sales');
-      const barAreaH = 28;
-      const barAreaW = contentW;
+      const chartH = 32;
+      const chartW = contentW - 10;
+      const chartX = margin + 5;
+      const chartY = y;
       const maxDailyRev = Math.max(...dailyEntries.map(e => e[1].revenue));
-      const barGap = 1;
-      const barW = Math.min((barAreaW - barGap * dailyEntries.length) / dailyEntries.length, 12);
-      const totalBarsW = dailyEntries.length * (barW + barGap);
-      const startX = margin + (barAreaW - totalBarsW) / 2;
 
-      // Grid lines
-      doc.setDrawColor(240, 240, 240); doc.setLineWidth(0.1);
+      // Y-axis grid lines & labels
+      doc.setDrawColor(235, 235, 235); doc.setLineWidth(0.1);
       for (let i = 0; i <= 4; i++) {
-        const ly = y + barAreaH - (barAreaH * i / 4);
-        doc.line(margin, ly, pw - margin, ly);
+        const ly = chartY + chartH - (chartH * i / 4);
+        doc.line(chartX, ly, chartX + chartW, ly);
+        const val = (maxDailyRev * i / 4);
+        doc.setFontSize(5.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 150, 150);
+        doc.text(`RM${Math.round(val)}`, margin, ly + 1.5);
       }
 
-      dailyEntries.forEach(([day, d], i) => {
-        const bh = maxDailyRev > 0 ? (d.revenue / maxDailyRev) * (barAreaH - 4) : 0;
-        const bx = startX + i * (barW + barGap);
-        const by = y + barAreaH - bh;
-        doc.setFillColor(...amber); doc.roundedRect(bx, by, barW, bh, 0.5, 0.5, 'F');
-        // Day label
-        if (dailyEntries.length <= 14 || i % Math.ceil(dailyEntries.length / 14) === 0) {
+      // Compute points for line chart
+      const points = dailyEntries.map(([, d], i) => {
+        const px = chartX + (i / Math.max(dailyEntries.length - 1, 1)) * chartW;
+        const py = chartY + chartH - (maxDailyRev > 0 ? (d.revenue / maxDailyRev) * chartH : 0);
+        return { x: px, y: py };
+      });
+
+      // Draw filled area under line (using triangles)
+      const baseY = chartY + chartH;
+      doc.setFillColor(217, 119, 6); doc.setGState(new (doc as any).GState({ opacity: 0.12 }));
+      for (let i = 0; i < points.length - 1; i++) {
+        doc.triangle(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y, points[i].x, baseY, 'F');
+        doc.triangle(points[i + 1].x, points[i + 1].y, points[i + 1].x, baseY, points[i].x, baseY, 'F');
+      }
+      doc.setGState(new (doc as any).GState({ opacity: 1 }));
+
+      // Draw the line
+      doc.setDrawColor(...amber); doc.setLineWidth(0.6);
+      for (let i = 0; i < points.length - 1; i++) {
+        doc.line(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y);
+      }
+
+      // Draw dots on data points
+      points.forEach(p => {
+        doc.setFillColor(...amber); doc.circle(p.x, p.y, 0.8, 'F');
+      });
+
+      // X-axis date labels
+      const labelInterval = Math.max(1, Math.ceil(dailyEntries.length / 10));
+      dailyEntries.forEach(([day], i) => {
+        if (i % labelInterval === 0 || i === dailyEntries.length - 1) {
           doc.setFontSize(5); doc.setFont('helvetica', 'normal'); doc.setTextColor(140, 140, 140);
-          doc.text(day, bx + barW / 2, y + barAreaH + 4, { align: 'center' });
+          doc.text(day, points[i].x, chartY + chartH + 4, { align: 'center' });
         }
       });
-      y += barAreaH + 8;
+
+      y += chartH + 10;
     }
 
     // Order Status Breakdown
@@ -3208,7 +3285,7 @@ const PosOnlyView: React.FC<Props> = ({
       doc.text(`${pct.toFixed(1)}%`, barX + barTotalW + 2, y + 3.5);
       y += 8;
     });
-    y += 4;
+    y += 10;
 
     // Cashier Performance (compact overview on page 1)
     const cashierMap: Record<string, { orders: number; revenue: number; cancelled: number }> = {};
@@ -3262,7 +3339,7 @@ const PosOnlyView: React.FC<Props> = ({
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // Sales by Item (top 30)
+    // Sales by Item (all items)
     const itemMap: Record<string, { qty: number; revenue: number }> = {};
     completed.forEach(o => o.items.forEach(i => {
       if (!itemMap[i.name]) itemMap[i.name] = { qty: 0, revenue: 0 };
@@ -3270,12 +3347,11 @@ const PosOnlyView: React.FC<Props> = ({
     }));
     const itemRows = Object.entries(itemMap)
       .sort((a, b) => b[1].revenue - a[1].revenue)
-      .slice(0, 30)
       .map(([name, d]) => [name, `${d.qty}`, `RM ${d.revenue.toFixed(2)}`, `RM ${(d.qty > 0 ? d.revenue / d.qty : 0).toFixed(2)}`]);
     if (itemRows.length > 0) {
       if (y > 240) { doc.addPage(); y = 14; }
       doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
-      doc.text('Sales by Item (Top 30)', margin, y); y += 6;
+      doc.text('Sales by Item', margin, y); y += 6;
       autoTable(doc, {
         startY: y, head: [['Item', 'Qty Sold', 'Revenue', 'Avg Price']], body: itemRows,
         margin: { left: margin, right: margin },
