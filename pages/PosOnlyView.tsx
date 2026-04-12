@@ -3037,6 +3037,196 @@ const PosOnlyView: React.FC<Props> = ({
     document.body.removeChild(link);
   };
 
+  const handleDownloadPDF = async () => {
+    const allOrders = await fetchReport(true) as Order[];
+    if (!allOrders || allOrders.length === 0) return;
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+    const pw = doc.internal.pageSize.getWidth();
+    const margin = 14;
+    let y = 14;
+    const darkGray = [55, 65, 81] as [number, number, number];
+    const amber = [217, 119, 6] as [number, number, number];
+
+    // Header
+    doc.setFontSize(18); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+    doc.text(restaurant.name || 'POS Report', margin, y); y += 7;
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(120, 120, 120);
+    doc.text(`Report Period: ${reportStart} to ${reportEnd}`, margin, y);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, pw - margin, y, { align: 'right' }); y += 3;
+    doc.setDrawColor(...amber); doc.setLineWidth(0.6); doc.line(margin, y, pw - margin, y); y += 8;
+
+    // Compute analytics from allOrders
+    const completed = allOrders.filter(o => o.status === OrderStatus.COMPLETED);
+    const cancelled = allOrders.filter(o => o.status === OrderStatus.CANCELLED);
+    const totalRevenue = completed.reduce((s, o) => s + o.total, 0);
+    const avgOrder = completed.length > 0 ? totalRevenue / completed.length : 0;
+    const cancelledValue = cancelled.reduce((s, o) => s + o.total, 0);
+
+    // KPI Summary
+    doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+    doc.text('Sales Summary', margin, y); y += 6;
+    const kpis = [
+      ['Total Revenue', `RM ${totalRevenue.toFixed(2)}`],
+      ['Completed Orders', `${completed.length}`],
+      ['Average Order Value', `RM ${avgOrder.toFixed(2)}`],
+      ['Cancelled Orders', `${cancelled.length} (RM ${cancelledValue.toFixed(2)})`],
+      ['Total Orders', `${allOrders.length}`],
+    ];
+    autoTable(doc, {
+      startY: y, head: [['Metric', 'Value']], body: kpis, margin: { left: margin, right: margin },
+      styles: { fontSize: 8, cellPadding: 2.5 },
+      headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [254, 243, 199] },
+      theme: 'grid',
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+
+    // Payment Type Breakdown
+    const paymentMap: Record<string, { count: number; total: number }> = {};
+    completed.forEach(o => {
+      const m = o.paymentMethod || 'Cash';
+      if (!paymentMap[m]) paymentMap[m] = { count: 0, total: 0 };
+      paymentMap[m].count += 1; paymentMap[m].total += o.total;
+    });
+    const paymentRows = Object.entries(paymentMap)
+      .sort((a, b) => b[1].total - a[1].total)
+      .map(([method, d]) => [method, `${d.count}`, `RM ${d.total.toFixed(2)}`, `${totalRevenue > 0 ? ((d.total / totalRevenue) * 100).toFixed(1) : '0'}%`]);
+    if (paymentRows.length > 0) {
+      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+      doc.text('Sales by Payment Type', margin, y); y += 6;
+      autoTable(doc, {
+        startY: y, head: [['Payment Method', 'Transactions', 'Revenue', '% of Total']], body: paymentRows,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 2.5 },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [254, 243, 199] },
+        theme: 'grid',
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Sales by Item (top 30)
+    const itemMap: Record<string, { qty: number; revenue: number }> = {};
+    completed.forEach(o => o.items.forEach(i => {
+      if (!itemMap[i.name]) itemMap[i.name] = { qty: 0, revenue: 0 };
+      itemMap[i.name].qty += i.quantity; itemMap[i.name].revenue += i.price * i.quantity;
+    }));
+    const itemRows = Object.entries(itemMap)
+      .sort((a, b) => b[1].revenue - a[1].revenue)
+      .slice(0, 30)
+      .map(([name, d]) => [name, `${d.qty}`, `RM ${d.revenue.toFixed(2)}`, `RM ${(d.qty > 0 ? d.revenue / d.qty : 0).toFixed(2)}`]);
+    if (itemRows.length > 0) {
+      if (y > 240) { doc.addPage(); y = 14; }
+      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+      doc.text('Sales by Item (Top 30)', margin, y); y += 6;
+      autoTable(doc, {
+        startY: y, head: [['Item', 'Qty Sold', 'Revenue', 'Avg Price']], body: itemRows,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 7, cellPadding: 2 },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [254, 243, 199] },
+        theme: 'grid',
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Sales by Category
+    const catMap: Record<string, { items: number; revenue: number; orders: number }> = {};
+    completed.forEach(o => {
+      const seen = new Set<string>();
+      o.items.forEach(i => {
+        const cat = i.category || 'Uncategorized';
+        if (!catMap[cat]) catMap[cat] = { items: 0, revenue: 0, orders: 0 };
+        catMap[cat].items += i.quantity; catMap[cat].revenue += i.price * i.quantity; seen.add(cat);
+      });
+      seen.forEach(c => { catMap[c].orders += 1; });
+    });
+    const catRows = Object.entries(catMap)
+      .sort((a, b) => b[1].revenue - a[1].revenue)
+      .map(([name, d]) => [name, `${d.items}`, `${d.orders}`, `RM ${d.revenue.toFixed(2)}`]);
+    if (catRows.length > 0) {
+      if (y > 240) { doc.addPage(); y = 14; }
+      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+      doc.text('Sales by Category', margin, y); y += 6;
+      autoTable(doc, {
+        startY: y, head: [['Category', 'Items Sold', 'Orders', 'Revenue']], body: catRows,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 2.5 },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [254, 243, 199] },
+        theme: 'grid',
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Cashier Performance
+    const cashierMap: Record<string, { orders: number; revenue: number; cancelled: number }> = {};
+    allOrders.forEach(o => {
+      const name = o.cashierName || 'Unknown';
+      if (!cashierMap[name]) cashierMap[name] = { orders: 0, revenue: 0, cancelled: 0 };
+      if (o.status === OrderStatus.CANCELLED) { cashierMap[name].cancelled += 1; }
+      else { cashierMap[name].orders += 1; cashierMap[name].revenue += o.total; }
+    });
+    const cashierRows = Object.entries(cashierMap)
+      .sort((a, b) => b[1].revenue - a[1].revenue)
+      .map(([name, d]) => [name, `${d.orders}`, `RM ${d.revenue.toFixed(2)}`, `RM ${(d.orders > 0 ? d.revenue / d.orders : 0).toFixed(2)}`, `${d.cancelled}`]);
+    if (cashierRows.length > 0) {
+      if (y > 240) { doc.addPage(); y = 14; }
+      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+      doc.text('Cashier Performance', margin, y); y += 6;
+      autoTable(doc, {
+        startY: y, head: [['Cashier', 'Orders', 'Revenue', 'Avg Order', 'Cancelled']], body: cashierRows,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 2.5 },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [254, 243, 199] },
+        theme: 'grid',
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Hourly sales distribution
+    const hourlyMap: Record<number, { orders: number; revenue: number }> = {};
+    completed.forEach(o => {
+      const h = new Date(o.timestamp).getHours();
+      if (!hourlyMap[h]) hourlyMap[h] = { orders: 0, revenue: 0 };
+      hourlyMap[h].orders += 1; hourlyMap[h].revenue += o.total;
+    });
+    const hourlyRows = Object.entries(hourlyMap)
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([h, d]) => {
+        const hr = Number(h); const ampm = hr >= 12 ? 'PM' : 'AM'; const h12 = hr % 12 || 12;
+        return [`${h12}:00 ${ampm}`, `${d.orders}`, `RM ${d.revenue.toFixed(2)}`];
+      });
+    if (hourlyRows.length > 0) {
+      if (y > 240) { doc.addPage(); y = 14; }
+      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+      doc.text('Hourly Sales Distribution', margin, y); y += 6;
+      autoTable(doc, {
+        startY: y, head: [['Hour', 'Orders', 'Revenue']], body: hourlyRows,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [254, 243, 199] },
+        theme: 'grid',
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Footer on every page
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7); doc.setTextColor(160, 160, 160);
+      doc.text(`Page ${i} of ${pageCount}`, pw - margin, doc.internal.pageSize.getHeight() - 8, { align: 'right' });
+      doc.text(`${restaurant.name} — QuickServe POS`, margin, doc.internal.pageSize.getHeight() - 8);
+    }
+
+    doc.save(`POS_Report_${reportStart}_to_${reportEnd}.pdf`);
+  };
+
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
   const paginatedReports = reportData?.orders || [];
 
@@ -5151,6 +5341,7 @@ const PosOnlyView: React.FC<Props> = ({
                 onChangeEntriesPerPage={setEntriesPerPage}
                 onChangeCurrentPage={setCurrentPage}
                 onDownloadReport={handleDownloadReport}
+                onDownloadPDF={handleDownloadPDF}
                 onSelectOrder={(order) => setSelectedReportOrder(order)}
               />
             </div>

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, OrderStatus, ReportResponse } from '../src/types';
-import { Calendar, Download, Search, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, CreditCard, Users } from 'lucide-react';
+import { Calendar, Download, Search, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, CreditCard, Users, FileText } from 'lucide-react';
 
 interface Props {
   reportStart: string;
@@ -19,6 +19,7 @@ interface Props {
   onChangeEntriesPerPage: (value: number) => void;
   onChangeCurrentPage: (value: number | ((prev: number) => number)) => void;
   onDownloadReport: () => void;
+  onDownloadPDF?: () => void;
   onSelectOrder?: (order: Order) => void;
 }
 
@@ -39,6 +40,7 @@ const StandardReport: React.FC<Props> = ({
   onChangeEntriesPerPage,
   onChangeCurrentPage,
   onDownloadReport,
+  onDownloadPDF,
   onSelectOrder,
 }) => {
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
@@ -148,7 +150,10 @@ const StandardReport: React.FC<Props> = ({
             </div>
           </div>
         </div>
-        <button onClick={onDownloadReport} className="w-full md:w-auto px-6 py-2 bg-black text-white dark:bg-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-orange-500 transition-all"><Download size={16} /> Export CSV</button>
+        <div className="flex gap-2 w-full md:w-auto">
+          <button onClick={onDownloadReport} className="flex-1 md:flex-none px-6 py-2 bg-black text-white dark:bg-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-orange-500 transition-all"><Download size={16} /> Export CSV</button>
+          {onDownloadPDF && <button onClick={onDownloadPDF} className="flex-1 md:flex-none px-6 py-2 bg-red-600 text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-700 transition-all"><FileText size={16} /> Download PDF</button>}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6">

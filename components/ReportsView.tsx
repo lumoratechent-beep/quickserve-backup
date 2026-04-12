@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import {
   DollarSign, ShoppingBag, Tag, Users, CreditCard, Layers, Percent, Receipt,
-  TrendingUp, TrendingDown, Search, Download, Calendar, X, Clock, ArrowLeft,
+  TrendingUp, TrendingDown, Search, Download, Calendar, X, Clock, ArrowLeft, FileText,
 } from 'lucide-react';
 
 interface Props {
@@ -153,6 +153,127 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
     a.download = `report_${customStart}_${customEnd}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleExportPDF = async () => {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+    const pw = doc.internal.pageSize.getWidth();
+    const margin = 14;
+    let y = 14;
+    const darkGray = [55, 65, 81] as [number, number, number];
+    const amber = [217, 119, 6] as [number, number, number];
+
+    // Header
+    doc.setFontSize(18); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+    doc.text('Analytics Report', margin, y); y += 7;
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(120, 120, 120);
+    doc.text(`Report Period: ${customStart} to ${customEnd}`, margin, y);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, pw - margin, y, { align: 'right' }); y += 3;
+    doc.setDrawColor(...amber); doc.setLineWidth(0.6); doc.line(margin, y, pw - margin, y); y += 8;
+
+    // KPI Summary
+    doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+    doc.text('Sales Summary', margin, y); y += 6;
+    const kpis = [
+      ['Gross Sales', `${currencySymbol}${salesSummary.totalRevenue.toFixed(2)}`],
+      ['Net Sales', `${currencySymbol}${salesSummary.netSales.toFixed(2)}`],
+      ['Orders', `${salesSummary.totalOrders}`],
+      ['Average Order Value', `${currencySymbol}${salesSummary.avgOrder.toFixed(2)}`],
+      ['Refunds / Cancelled', `${currencySymbol}${salesSummary.refunds.toFixed(2)}`],
+    ];
+    autoTable(doc, {
+      startY: y, head: [['Metric', 'Value']], body: kpis, margin: { left: margin, right: margin },
+      styles: { fontSize: 8, cellPadding: 2.5 }, headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [254, 243, 199] }, theme: 'grid',
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+
+    // Payment Type
+    if (salesByPayment.length > 0) {
+      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+      doc.text('Sales by Payment Type', margin, y); y += 6;
+      autoTable(doc, {
+        startY: y, head: [['Payment Method', 'Transactions', 'Revenue', '% of Total']],
+        body: salesByPayment.map(p => [p.name, `${p.transactions}`, `${currencySymbol}${p.revenue.toFixed(2)}`, `${p.percentage.toFixed(1)}%`]),
+        margin: { left: margin, right: margin }, styles: { fontSize: 8, cellPadding: 2.5 },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [254, 243, 199] }, theme: 'grid',
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Items (top 30)
+    if (salesByItem.length > 0) {
+      if (y > 240) { doc.addPage(); y = 14; }
+      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+      doc.text('Sales by Item (Top 30)', margin, y); y += 6;
+      autoTable(doc, {
+        startY: y, head: [['Item', 'Qty Sold', 'Revenue', 'Avg Price']],
+        body: salesByItem.slice(0, 30).map(i => [i.name, `${i.quantity}`, `${currencySymbol}${i.revenue.toFixed(2)}`, `${currencySymbol}${i.avgPrice.toFixed(2)}`]),
+        margin: { left: margin, right: margin }, styles: { fontSize: 7, cellPadding: 2 },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [254, 243, 199] }, theme: 'grid',
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Category
+    if (salesByCategory.length > 0) {
+      if (y > 240) { doc.addPage(); y = 14; }
+      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+      doc.text('Sales by Category', margin, y); y += 6;
+      autoTable(doc, {
+        startY: y, head: [['Category', 'Items Sold', 'Orders', 'Revenue']],
+        body: salesByCategory.map(c => [c.name, `${c.itemsSold}`, `${c.orderCount}`, `${currencySymbol}${c.revenue.toFixed(2)}`]),
+        margin: { left: margin, right: margin }, styles: { fontSize: 8, cellPadding: 2.5 },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [254, 243, 199] }, theme: 'grid',
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Employee
+    if (salesByEmployee.length > 0) {
+      if (y > 240) { doc.addPage(); y = 14; }
+      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+      doc.text('Cashier Performance', margin, y); y += 6;
+      autoTable(doc, {
+        startY: y, head: [['Cashier', 'Orders', 'Revenue', 'Avg Order', 'Items Sold', 'Cancelled']],
+        body: salesByEmployee.map(e => [e.name, `${e.orders}`, `${currencySymbol}${e.revenue.toFixed(2)}`, `${currencySymbol}${e.avgOrder.toFixed(2)}`, `${e.itemsSold}`, `${e.cancelled}`]),
+        margin: { left: margin, right: margin }, styles: { fontSize: 8, cellPadding: 2.5 },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [254, 243, 199] }, theme: 'grid',
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Modifier usage (top 20)
+    if (salesByModifier.length > 0) {
+      if (y > 240) { doc.addPage(); y = 14; }
+      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+      doc.text('Modifier Usage (Top 20)', margin, y); y += 6;
+      autoTable(doc, {
+        startY: y, head: [['Modifier', 'Times Used', 'Revenue', 'Used In']],
+        body: salesByModifier.slice(0, 20).map(m => [m.name, `${m.timesUsed}`, `${currencySymbol}${m.revenue.toFixed(2)}`, m.items.slice(0, 3).join(', ') + (m.items.length > 3 ? '...' : '')]),
+        margin: { left: margin, right: margin }, styles: { fontSize: 7, cellPadding: 2 },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [254, 243, 199] }, theme: 'grid',
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Footer
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7); doc.setTextColor(160, 160, 160);
+      doc.text(`Page ${i} of ${pageCount}`, pw - margin, doc.internal.pageSize.getHeight() - 8, { align: 'right' });
+      doc.text('QuickServe Analytics Report', margin, doc.internal.pageSize.getHeight() - 8);
+    }
+
+    doc.save(`analytics_report_${customStart}_${customEnd}.pdf`);
   };
 
   // ════════════════════════════════════════
@@ -438,7 +559,10 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
             </div>
           </div>
         </div>
-        <button onClick={handleExportCSV} className="w-full md:w-auto px-6 py-2 bg-black text-white dark:bg-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-amber-600 transition-all"><Download size={16} /> Export CSV</button>
+        <div className="flex gap-2 w-full md:w-auto">
+          <button onClick={handleExportCSV} className="flex-1 md:flex-none px-6 py-2 bg-black text-white dark:bg-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-amber-600 transition-all"><Download size={16} /> Export CSV</button>
+          <button onClick={handleExportPDF} className="flex-1 md:flex-none px-6 py-2 bg-red-600 text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-700 transition-all"><FileText size={16} /> Download PDF</button>
+        </div>
       </div>
 
       {/* ═══════════════════════════════════════ */}
