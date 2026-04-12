@@ -3126,70 +3126,36 @@ const PosOnlyView: React.FC<Props> = ({
 
     if (paymentEntries.length > 0) {
       sectionTitle('Payment Methods');
-      // Donut chart style — draw concentric arcs for each payment method
-      const donutColors: [number, number, number][] = [
-        [217, 119, 6],   // amber/orange
+      const paymentColors: [number, number, number][] = [
+        [217, 119, 6],   // amber
+        [59, 130, 246],  // blue
+        [16, 185, 129],  // green
         [251, 191, 36],  // yellow
-        [180, 120, 30],  // brown
-        [245, 158, 11],  // light amber
-        [146, 64, 14],   // dark brown
+        [239, 68, 68],   // red
       ];
-      const cx = margin + contentW * 0.25;
-      const cy = y + 28;
-      const outerR = 22;
-      const innerR = 13;
-      let startAngle = -90; // start from top
+      // Rounded container
+      const pmEntryH = 8;
+      const pmContainerH = paymentEntries.length * pmEntryH + 6;
+      doc.setDrawColor(230, 230, 230); doc.setLineWidth(0.3);
+      doc.setFillColor(252, 252, 253);
+      doc.roundedRect(margin, y - 2, contentW, pmContainerH, 3, 3, 'FD');
 
-      // Draw donut segments
-      paymentEntries.forEach(([, d], idx) => {
-        const pct = totalRevenue > 0 ? d.total / totalRevenue : 0;
-        const sweepAngle = pct * 360;
-        const col = donutColors[idx % donutColors.length];
-
-        // Draw arc segment using many small filled triangles
-        const steps = Math.max(Math.ceil(sweepAngle / 2), 1);
-        const stepAngle = sweepAngle / steps;
-        doc.setFillColor(...col);
-        for (let s = 0; s < steps; s++) {
-          const a1 = ((startAngle + s * stepAngle) * Math.PI) / 180;
-          const a2 = ((startAngle + (s + 1) * stepAngle) * Math.PI) / 180;
-          const ox1 = cx + outerR * Math.cos(a1);
-          const oy1 = cy + outerR * Math.sin(a1);
-          const ox2 = cx + outerR * Math.cos(a2);
-          const oy2 = cy + outerR * Math.sin(a2);
-          const ix1 = cx + innerR * Math.cos(a1);
-          const iy1 = cy + innerR * Math.sin(a1);
-          const ix2 = cx + innerR * Math.cos(a2);
-          const iy2 = cy + innerR * Math.sin(a2);
-          // Draw quadrilateral as two triangles
-          doc.triangle(ox1, oy1, ox2, oy2, ix1, iy1, 'F');
-          doc.triangle(ox2, oy2, ix2, iy2, ix1, iy1, 'F');
-        }
-        startAngle += sweepAngle;
-      });
-
-      // White center circle for donut hole
-      doc.setFillColor(255, 255, 255);
-      doc.circle(cx, cy, innerR - 0.5, 'F');
-
-      // Legend on the right side
-      const legendX = margin + contentW * 0.55;
-      let legendY = y + 10;
       paymentEntries.forEach(([method, d], idx) => {
         const pct = totalRevenue > 0 ? (d.total / totalRevenue) * 100 : 0;
-        const col = donutColors[idx % donutColors.length];
-        // Color dot
-        doc.setFillColor(...col); doc.circle(legendX, legendY, 2, 'F');
-        // Method name
+        const col = paymentColors[idx % paymentColors.length];
         doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
-        doc.text(method, legendX + 5, legendY + 1);
-        // Percentage
-        doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(...col);
-        doc.text(`${pct.toFixed(1)}%`, legendX + 45, legendY + 1);
-        legendY += 9;
+        doc.text(method, margin + 3, y + 3);
+        doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(130, 130, 130);
+        doc.text(`${d.count} txns`, margin + 31, y + 3);
+        // Progress bar (same as Order Status)
+        const barX = margin + 50; const barTotalW = contentW - 68;
+        doc.setFillColor(240, 240, 240); doc.roundedRect(barX, y, barTotalW, 5, 1, 1, 'F');
+        doc.setFillColor(...col); doc.roundedRect(barX, y, Math.max((pct / 100) * barTotalW, 1), 5, 1, 1, 'F');
+        doc.setFontSize(7); doc.setFont('helvetica', 'bold'); doc.setTextColor(...col);
+        doc.text(`${pct.toFixed(1)}%`, barX + barTotalW + 2, y + 3.5);
+        y += pmEntryH;
       });
-
-      y += 60;
+      y += 10;
     }
 
     // Daily Sales Summary (bar-like visual)
@@ -3212,6 +3178,13 @@ const PosOnlyView: React.FC<Props> = ({
       const chartY = y;
       const maxDailyRev = Math.max(...dailyEntries.map(e => e[1].revenue));
 
+      // Rounded container around the chart area
+      const dsContainerPad = 4;
+      const dsContainerH = chartH + 14 + dsContainerPad * 2;
+      doc.setDrawColor(230, 230, 230); doc.setLineWidth(0.3);
+      doc.setFillColor(252, 252, 253);
+      doc.roundedRect(margin, chartY - dsContainerPad, contentW, dsContainerH, 3, 3, 'FD');
+
       // Y-axis grid lines & labels
       doc.setDrawColor(235, 235, 235); doc.setLineWidth(0.1);
       for (let i = 0; i <= 4; i++) {
@@ -3219,7 +3192,7 @@ const PosOnlyView: React.FC<Props> = ({
         doc.line(chartX, ly, chartX + chartW, ly);
         const val = (maxDailyRev * i / 4);
         doc.setFontSize(5.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 150, 150);
-        doc.text(`RM${Math.round(val)}`, margin, ly + 1.5);
+        doc.text(`RM${Math.round(val)}`, margin + 1, ly + 1.5);
       }
 
       // Compute points for line chart
@@ -3229,22 +3202,44 @@ const PosOnlyView: React.FC<Props> = ({
         return { x: px, y: py };
       });
 
-      // Draw filled area under line (using triangles)
+      // Generate smooth curve points using Catmull-Rom spline interpolation
+      const smoothPoints: {x: number; y: number}[] = [];
+      if (points.length <= 2) {
+        smoothPoints.push(...points);
+      } else {
+        for (let i = 0; i < points.length - 1; i++) {
+          const p0 = points[Math.max(0, i - 1)];
+          const p1 = points[i];
+          const p2 = points[i + 1];
+          const p3 = points[Math.min(points.length - 1, i + 2)];
+          const steps = 12;
+          for (let t = 0; t < 1; t += 1 / steps) {
+            const t2 = t * t;
+            const t3 = t2 * t;
+            const sx = 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3);
+            const sy = 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3);
+            smoothPoints.push({ x: sx, y: sy });
+          }
+        }
+        smoothPoints.push(points[points.length - 1]);
+      }
+
+      // Draw filled area under smooth curve (using triangles)
       const baseY = chartY + chartH;
       doc.setFillColor(217, 119, 6); doc.setGState(new (doc as any).GState({ opacity: 0.12 }));
-      for (let i = 0; i < points.length - 1; i++) {
-        doc.triangle(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y, points[i].x, baseY, 'F');
-        doc.triangle(points[i + 1].x, points[i + 1].y, points[i + 1].x, baseY, points[i].x, baseY, 'F');
+      for (let i = 0; i < smoothPoints.length - 1; i++) {
+        doc.triangle(smoothPoints[i].x, smoothPoints[i].y, smoothPoints[i + 1].x, smoothPoints[i + 1].y, smoothPoints[i].x, baseY, 'F');
+        doc.triangle(smoothPoints[i + 1].x, smoothPoints[i + 1].y, smoothPoints[i + 1].x, baseY, smoothPoints[i].x, baseY, 'F');
       }
       doc.setGState(new (doc as any).GState({ opacity: 1 }));
 
-      // Draw the line
+      // Draw the smooth line
       doc.setDrawColor(...amber); doc.setLineWidth(0.6);
-      for (let i = 0; i < points.length - 1; i++) {
-        doc.line(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y);
+      for (let i = 0; i < smoothPoints.length - 1; i++) {
+        doc.line(smoothPoints[i].x, smoothPoints[i].y, smoothPoints[i + 1].x, smoothPoints[i + 1].y);
       }
 
-      // Draw dots on data points
+      // Draw dots on original data points
       points.forEach(p => {
         doc.setFillColor(...amber); doc.circle(p.x, p.y, 0.8, 'F');
       });
@@ -3271,12 +3266,20 @@ const PosOnlyView: React.FC<Props> = ({
       { label: 'Cancelled', count: cancelled.length, color: red },
     ].filter(s => s.count > 0);
     const totalForStatus = allOrders.length;
+
+    // Rounded container
+    const osEntryH = 8;
+    const osContainerH = statuses.length * osEntryH + 6;
+    doc.setDrawColor(230, 230, 230); doc.setLineWidth(0.3);
+    doc.setFillColor(252, 252, 253);
+    doc.roundedRect(margin, y - 2, contentW, osContainerH, 3, 3, 'FD');
+
     statuses.forEach(s => {
       const pct = totalForStatus > 0 ? (s.count / totalForStatus) * 100 : 0;
       doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
-      doc.text(`${s.label}`, margin, y + 3);
+      doc.text(`${s.label}`, margin + 3, y + 3);
       doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(130, 130, 130);
-      doc.text(`${s.count} orders`, margin + 28, y + 3);
+      doc.text(`${s.count} orders`, margin + 31, y + 3);
       // Progress bar
       const barX = margin + 50; const barTotalW = contentW - 68;
       doc.setFillColor(240, 240, 240); doc.roundedRect(barX, y, barTotalW, 5, 1, 1, 'F');
