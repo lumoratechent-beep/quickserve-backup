@@ -3162,7 +3162,7 @@ const PosOnlyView: React.FC<Props> = ({
         doc.text(`${pct.toFixed(1)}%`, barX + barTotalW + 2, rowMidY + 1);
         y += pmRowH;
       });
-      y += pmPadBot + 6;
+      y += pmPadBot + 10;
     }
 
     // Daily Sales Summary (bar-like visual)
@@ -3201,12 +3201,13 @@ const PosOnlyView: React.FC<Props> = ({
       const chartY = y + 2;
       const maxDailyRev = Math.max(...displayDailyEntries.map(e => e[1].revenue));
 
-      // Rounded container around the chart area
-      const dsContainerPad = 6;
-      const dsContainerH = chartH + 16 + dsContainerPad * 2;
+      // Rounded container around the chart area — tightly fit to content
+      const dsContainerPadTop = 4;
+      const dsContainerPadBot = 10; // room for x-axis labels
+      const dsContainerH = dsContainerPadTop + chartH + dsContainerPadBot;
       doc.setDrawColor(230, 230, 230); doc.setLineWidth(0.3);
       doc.setFillColor(252, 252, 253);
-      doc.roundedRect(margin, chartY - dsContainerPad, contentW, dsContainerH, 3, 3, 'FD');
+      doc.roundedRect(margin, chartY - dsContainerPadTop, contentW, dsContainerH, 3, 3, 'FD');
 
       // Y-axis grid lines & labels (positioned left of chart area)
       doc.setDrawColor(235, 235, 235); doc.setLineWidth(0.1);
@@ -3278,7 +3279,8 @@ const PosOnlyView: React.FC<Props> = ({
         }
       });
 
-      y += chartH + 18;
+      // Advance y past the container bottom + section gap
+      y = chartY - dsContainerPadTop + dsContainerH + 10;
     }
 
     // Order Status Breakdown
@@ -3318,7 +3320,7 @@ const PosOnlyView: React.FC<Props> = ({
       doc.text(`${pct.toFixed(1)}%`, barX + barTotalW + 2, rowMidY + 1);
       y += osRowH;
     });
-    y += osPadBot + 6;
+    y += osPadBot + 10;
 
     // Cashier Performance (compact overview on page 1)
     const cashierMap: Record<string, { orders: number; revenue: number; cancelled: number }> = {};
