@@ -26,7 +26,7 @@ import {
   Receipt, Network, Type, MessageSquare, Zap, Briefcase, PlusCircle, Puzzle,
   ArrowLeft, Star, Package, Monitor, Info, ExternalLink,
   Tablet, Globe, ShoppingCart, Wallet, ArrowUpRight, ArrowDownRight, Building2, Banknote, Send, Copy, Truck, Mail,
-  MoreVertical, Lock, ImagePlus, EyeOff, User, Link2
+  MoreVertical, Lock, ImagePlus, EyeOff, User, Link2, Delete
 } from 'lucide-react';
 
 interface Props {
@@ -749,6 +749,8 @@ const PosOnlyView: React.FC<Props> = ({
   const [collectCashAmountInput, setCollectCashAmountInput] = useState<string>('');
   const [collectCashAmount, setCollectCashAmount] = useState<number | null>(null);
   const [collectPaymentType, setCollectPaymentType] = useState<string>('');
+  const [showPaymentAmountKeypad, setShowPaymentAmountKeypad] = useState(false);
+  const [paymentAmountKeypadInput, setPaymentAmountKeypadInput] = useState<string>('');
   const enabledPaymentTypes = useMemo(() => paymentTypes.filter((type) => type.enabled), [paymentTypes]);
   const paymentMethodButtons = useMemo(() => enabledPaymentTypes.slice(0, 3), [enabledPaymentTypes]);
   const availableDiningOptions = useMemo(() => {
@@ -800,6 +802,62 @@ const PosOnlyView: React.FC<Props> = ({
     const totalDue = typeof selectedReportOrder?.total === 'number' ? selectedReportOrder.total : 0;
     return getCashQuickSelectAmounts(totalDue);
   }, [selectedReportOrder?.total]);
+
+  const sanitizeAmountInput = (value: string) => {
+    const cleaned = value.replace(/[^0-9.]/g, '');
+    const firstDot = cleaned.indexOf('.');
+    const normalized = firstDot === -1
+      ? cleaned
+      : `${cleaned.slice(0, firstDot + 1)}${cleaned.slice(firstDot + 1).replace(/\./g, '')}`;
+    if (!normalized.includes('.')) return normalized;
+    const [whole, decimal = ''] = normalized.split('.');
+    return `${whole}.${decimal.slice(0, 2)}`;
+  };
+
+  const applyPaymentAmountInput = (value: string) => {
+    const next = sanitizeAmountInput(value);
+    setCashAmountInput(next);
+    if (next === '' || next === '.') {
+      setSelectedCashAmount(null);
+      return;
+    }
+    const parsed = parseFloat(next);
+    if (!isNaN(parsed)) setSelectedCashAmount(parsed);
+  };
+
+  const openPaymentAmountKeypad = () => {
+    setPaymentAmountKeypadInput(cashAmountInput);
+    setShowPaymentAmountKeypad(true);
+  };
+
+  const appendPaymentKeypadValue = (token: string) => {
+    setPaymentAmountKeypadInput((prev) => sanitizeAmountInput(`${prev}${token}`));
+  };
+
+  const backspacePaymentKeypadValue = () => {
+    setPaymentAmountKeypadInput((prev) => prev.slice(0, -1));
+  };
+
+  const savePaymentAmountFromKeypad = () => {
+    const next = sanitizeAmountInput(paymentAmountKeypadInput);
+    applyPaymentAmountInput(next);
+    if (next !== '' && next !== '.') {
+      const parsed = parseFloat(next);
+      if (!isNaN(parsed)) {
+        const rounded = parseFloat(parsed.toFixed(2));
+        setSelectedCashAmount(rounded);
+        setCashAmountInput(rounded.toFixed(2));
+      }
+    }
+    setShowPaymentAmountKeypad(false);
+  };
+
+  useEffect(() => {
+    if (!showPaymentModal) {
+      setShowPaymentAmountKeypad(false);
+      setPaymentAmountKeypadInput('');
+    }
+  }, [showPaymentModal]);
 
   const handleRemoveStaff = async (staff: any, index: number) => {
     const updated = staffList.filter((_: any, idx: number) => idx !== index);
@@ -10007,133 +10065,198 @@ const PosOnlyView: React.FC<Props> = ({
                 <X size={28} className="text-gray-400" />
               </button>
 
-              {/* Content */}
-              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 lg:px-8 pb-6 lg:pb-8 pt-[3.75rem] space-y-4 lg:space-y-6">
-                {/* Total Amount Due - Centered */}
-                <div className="text-center space-y-2 lg:space-y-3">
-                  <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
-                  <div className="text-4xl lg:text-6xl font-black text-orange-500 tracking-tighter">
-                    {currencySymbol}{pendingOrderData.total.toFixed(2)}
-                  </div>
-                </div>
+              <div className="relative flex-1 min-h-0 overflow-hidden pt-[3.75rem]">
+                {/* Main payment view */}
+                <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-in-out ${showPaymentAmountKeypad ? '-translate-x-full' : 'translate-x-0'}`}>
+                  {/* Content */}
+                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 lg:px-8 pb-6 lg:pb-8 space-y-4 lg:space-y-6">
+                    {/* Total Amount Due - Centered */}
+                    <div className="text-center space-y-2 lg:space-y-3">
+                      <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
+                      <div className="text-4xl lg:text-6xl font-black text-orange-500 tracking-tighter">
+                        {currencySymbol}{pendingOrderData.total.toFixed(2)}
+                      </div>
+                    </div>
 
-                {/* Amount Received - Plain Input */}
-                <div className="space-y-3">
-                  <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Amount Received</label>
-                  <div className="flex items-center justify-center border-b-2 dark:border-gray-600 border-gray-300 focus-within:border-orange-500 dark:focus-within:border-orange-500">
-                    <span className="text-2xl font-black text-gray-600 dark:text-gray-400 pb-3">{currencySymbol}</span>
-                    <input 
-                      type="text" 
-                      inputMode="decimal"
-                      value={cashAmountInput} 
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/[^0-9.]/g, '');
-                        setCashAmountInput(val);
-                        if (val === '' || val === '.') { setSelectedCashAmount(null); return; }
-                        const parsed = parseFloat(val);
-                        if (!isNaN(parsed)) setSelectedCashAmount(parsed);
-                      }}
-                      onBlur={() => {
-                        if (selectedCashAmount !== null) {
-                          const rounded = parseFloat(selectedCashAmount.toFixed(2));
-                          setSelectedCashAmount(rounded);
-                          setCashAmountInput(rounded.toFixed(2));
-                        }
-                      }}
-                      placeholder="0.00"
-                      className="flex-1 p-3 bg-transparent text-2xl font-black dark:text-white text-center focus:outline-none border-none"
-                    />
-                  </div>
-                </div>
-
-                {/* Cash Denomination Boxes */}
-                <div className="space-y-2 lg:space-y-3">
-                  <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Quick Select</label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3">
-                    {paymentQuickSelectAmounts.map((amount, index) => (
+                    {/* Amount Received - Tap to keypad */}
+                    <div className="space-y-3">
+                      <label className="block text-sm font-black text-gray-400 uppercase tracking-widest">Amount Received</label>
                       <button
-                        key={`pay-quick-${index}-${amount}`}
-                        onClick={() => { setSelectedCashAmount(amount); setCashAmountInput(amount.toFixed(2)); }}
-                        className={`p-3 rounded-xl font-black text-lg uppercase tracking-widest transition-all border-2 ${
-                          selectedCashAmount === amount
-                            ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
-                        }`}
+                        type="button"
+                        onClick={openPaymentAmountKeypad}
+                        className="w-full flex items-center justify-center border-b-2 dark:border-gray-600 border-gray-300 hover:border-orange-500 dark:hover:border-orange-500 transition-colors pb-2"
                       >
-                        {currencySymbol} {amount.toFixed(2)}
+                        <span className="text-2xl font-black text-gray-600 dark:text-gray-400">{currencySymbol}</span>
+                        <span className="flex-1 p-2 text-2xl font-black dark:text-white text-center">
+                          {cashAmountInput || '0.00'}
+                        </span>
                       </button>
-                    ))}
+                    </div>
+
+                    {/* Cash Denomination Boxes */}
+                    <div className="space-y-2 lg:space-y-3">
+                      <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Quick Select</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3">
+                        {paymentQuickSelectAmounts.map((amount, index) => (
+                          <button
+                            key={`pay-quick-${index}-${amount}`}
+                            onClick={() => { setSelectedCashAmount(amount); setCashAmountInput(amount.toFixed(2)); }}
+                            className={`p-3 rounded-xl font-black text-lg uppercase tracking-widest transition-all border-2 ${
+                              selectedCashAmount === amount
+                                ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
+                            }`}
+                          >
+                            {currencySymbol} {amount.toFixed(2)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Payment Method */}
+                    <div className="space-y-2 lg:space-y-3">
+                      <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
+                      <div className="grid grid-cols-3 gap-2 lg:gap-3">
+                        {Array.from({ length: 3 }, (_, index) => {
+                          const type = paymentMethodButtons[index];
+                          if (!type) return <div key={`payment-method-empty-${index}`} aria-hidden="true" />;
+                          const selected = selectedPaymentType === type.id;
+                          return (
+                            <button
+                              key={type.id}
+                              type="button"
+                              onClick={() => setSelectedPaymentType(type.id)}
+                              className={`py-3 lg:py-3.5 rounded-xl border-2 text-sm lg:text-base font-black uppercase tracking-widest transition-all ${
+                                selected
+                                  ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
+                                  : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
+                              }`}
+                            >
+                              {type.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Remark */}
+                    <div className="space-y-2 lg:space-y-3">
+                      <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Remark</label>
+                      <textarea
+                        value={pendingOrderData.remark || ''}
+                        onChange={(e) => {
+                          const nextRemark = e.target.value;
+                          setPendingOrderData((prev: any) => ({ ...(prev || {}), remark: nextRemark }));
+                          setPosRemark(nextRemark);
+                        }}
+                        rows={2}
+                        placeholder="Optional order note"
+                        className="w-full p-2.5 lg:p-3 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-sm lg:text-base font-semibold dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500 resize-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Footer / Action Buttons */}
+                  <div className="px-5 lg:px-8 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:py-5 border-t dark:border-gray-700 flex gap-3 lg:gap-4 flex-shrink-0">
+                    <button
+                      onClick={() => setShowPaymentModal(false)}
+                      disabled={isCompletingPayment}
+                      className="flex-1 py-2 lg:py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleConfirmPayment}
+                      disabled={isCompletingPayment || !selectedPaymentType}
+                      className="flex-1 py-2 lg:py-3 bg-orange-500 text-white rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-1 lg:gap-3"
+                    >
+                      {isCompletingPayment ? (
+                        <>
+                          <div className="w-4 h-4 lg:w-5 lg:h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard size={16} className="lg:hidden" /><CreditCard size={24} className="hidden lg:block" /> Confirm Payment
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
 
-                {/* Payment Method */}
-                <div className="space-y-2 lg:space-y-3">
-                  <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
-                  <div className="grid grid-cols-3 gap-2 lg:gap-3">
-                    {Array.from({ length: 3 }, (_, index) => {
-                      const type = paymentMethodButtons[index];
-                      if (!type) return <div key={`payment-method-empty-${index}`} aria-hidden="true" />;
-                      const selected = selectedPaymentType === type.id;
-                      return (
+                {/* Amount keypad view */}
+                <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-in-out ${showPaymentAmountKeypad ? 'translate-x-0' : 'translate-x-full'}`}>
+                  <div className="flex-1 min-h-0 overflow-y-auto px-5 lg:px-8 pb-6 lg:pb-8 space-y-4 lg:space-y-5">
+                    <div className="text-center space-y-2">
+                      <p className="text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Amount Received</p>
+                      <div className="text-4xl lg:text-5xl font-black text-orange-500 tracking-tighter">
+                        {currencySymbol}{paymentAmountKeypadInput || '0.00'}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 lg:gap-3">
+                      {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((token) => (
                         <button
-                          key={type.id}
+                          key={`pay-keypad-${token}`}
                           type="button"
-                          onClick={() => setSelectedPaymentType(type.id)}
-                          className={`py-3 lg:py-3.5 rounded-xl border-2 text-sm lg:text-base font-black uppercase tracking-widest transition-all ${
-                            selected
-                              ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
-                              : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
-                          }`}
+                          onClick={() => appendPaymentKeypadValue(token)}
+                          className="py-4 lg:py-5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-2xl lg:text-3xl font-black hover:border-orange-500 dark:hover:border-orange-500 transition-all"
                         >
-                          {type.name}
+                          {token}
                         </button>
-                      );
-                    })}
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => appendPaymentKeypadValue('.')}
+                        className="py-4 lg:py-5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-2xl lg:text-3xl font-black hover:border-orange-500 dark:hover:border-orange-500 transition-all"
+                      >
+                        .
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => appendPaymentKeypadValue('0')}
+                        className="py-4 lg:py-5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-2xl lg:text-3xl font-black hover:border-orange-500 dark:hover:border-orange-500 transition-all"
+                      >
+                        0
+                      </button>
+                      <button
+                        type="button"
+                        onClick={backspacePaymentKeypadValue}
+                        className="py-4 lg:py-5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 flex items-center justify-center hover:border-orange-500 dark:hover:border-orange-500 transition-all"
+                      >
+                        <Delete size={24} />
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setPaymentAmountKeypadInput('')}
+                      className="w-full py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-black uppercase tracking-widest hover:border-orange-500 dark:hover:border-orange-500 transition-all"
+                    >
+                      Clear
+                    </button>
+                  </div>
+
+                  <div className="px-5 lg:px-8 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:py-5 border-t dark:border-gray-700 flex gap-3 lg:gap-4 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaymentAmountKeypadInput(cashAmountInput);
+                        setShowPaymentAmountKeypad(false);
+                      }}
+                      className="flex-1 py-2 lg:py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={savePaymentAmountFromKeypad}
+                      className="flex-1 py-2 lg:py-3 bg-orange-500 text-white rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-orange-600 transition-all"
+                    >
+                      Save
+                    </button>
                   </div>
                 </div>
-
-                {/* Remark */}
-                <div className="space-y-2 lg:space-y-3">
-                  <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Remark</label>
-                  <textarea
-                    value={pendingOrderData.remark || ''}
-                    onChange={(e) => {
-                      const nextRemark = e.target.value;
-                      setPendingOrderData((prev: any) => ({ ...(prev || {}), remark: nextRemark }));
-                      setPosRemark(nextRemark);
-                    }}
-                    rows={2}
-                    placeholder="Optional order note"
-                    className="w-full p-2.5 lg:p-3 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-sm lg:text-base font-semibold dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500 resize-none"
-                  />
-                </div>
-              </div>
-
-              {/* Footer / Action Buttons */}
-              <div className="px-5 lg:px-8 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:py-5 border-t dark:border-gray-700 flex gap-3 lg:gap-4 flex-shrink-0">
-                <button 
-                  onClick={() => setShowPaymentModal(false)} 
-                  disabled={isCompletingPayment}
-                  className="flex-1 py-2 lg:py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handleConfirmPayment} 
-                  disabled={isCompletingPayment || !selectedPaymentType}
-                  className="flex-1 py-2 lg:py-3 bg-orange-500 text-white rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-1 lg:gap-3"
-                >
-                  {isCompletingPayment ? (
-                    <>
-                      <div className="w-4 h-4 lg:w-5 lg:h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard size={16} className="lg:hidden" /><CreditCard size={24} className="hidden lg:block" /> Confirm Payment
-                    </>
-                  )}
-                </button>
               </div>
             </div>
 
