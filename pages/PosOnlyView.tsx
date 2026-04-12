@@ -3118,7 +3118,9 @@ const PosOnlyView: React.FC<Props> = ({
     // Payment Type Breakdown with visual bars
     const paymentMap: Record<string, { count: number; total: number }> = {};
     completed.forEach(o => {
-      const m = o.paymentMethod || 'Cash';
+      const rawMethod = o.paymentMethod || 'Cash';
+      // Normalize: capitalize first letter, lowercase rest to merge "CASH" / "Cash" / "cash"
+      const m = rawMethod.charAt(0).toUpperCase() + rawMethod.slice(1).toLowerCase();
       if (!paymentMap[m]) paymentMap[m] = { count: 0, total: 0 };
       paymentMap[m].count += 1; paymentMap[m].total += o.total;
     });
@@ -3134,28 +3136,33 @@ const PosOnlyView: React.FC<Props> = ({
         [239, 68, 68],   // red
       ];
       // Rounded container
-      const pmEntryH = 8;
-      const pmContainerH = paymentEntries.length * pmEntryH + 6;
+      const pmRowH = 10;
+      const pmPadTop = 5;
+      const pmPadBot = 5;
+      const pmContainerH = paymentEntries.length * pmRowH + pmPadTop + pmPadBot;
       doc.setDrawColor(230, 230, 230); doc.setLineWidth(0.3);
       doc.setFillColor(252, 252, 253);
       doc.roundedRect(margin, y - 2, contentW, pmContainerH, 3, 3, 'FD');
+      y += pmPadTop - 2;
 
       paymentEntries.forEach(([method, d], idx) => {
         const pct = totalRevenue > 0 ? (d.total / totalRevenue) * 100 : 0;
         const col = paymentColors[idx % paymentColors.length];
+        const rowMidY = y + pmRowH / 2;
         doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
-        doc.text(method, margin + 3, y + 3);
+        doc.text(method, margin + 4, rowMidY + 1);
         doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(130, 130, 130);
-        doc.text(`${d.count} txns`, margin + 31, y + 3);
-        // Progress bar (same as Order Status)
-        const barX = margin + 50; const barTotalW = contentW - 68;
-        doc.setFillColor(240, 240, 240); doc.roundedRect(barX, y, barTotalW, 5, 1, 1, 'F');
-        doc.setFillColor(...col); doc.roundedRect(barX, y, Math.max((pct / 100) * barTotalW, 1), 5, 1, 1, 'F');
+        doc.text(`${d.count} txns`, margin + 32, rowMidY + 1);
+        // Progress bar vertically centered in row
+        const barX = margin + 52; const barTotalW = contentW - 72; const barH = 5;
+        const barY = rowMidY - barH / 2;
+        doc.setFillColor(240, 240, 240); doc.roundedRect(barX, barY, barTotalW, barH, 1, 1, 'F');
+        doc.setFillColor(...col); doc.roundedRect(barX, barY, Math.max((pct / 100) * barTotalW, 1), barH, 1, 1, 'F');
         doc.setFontSize(7); doc.setFont('helvetica', 'bold'); doc.setTextColor(...col);
-        doc.text(`${pct.toFixed(1)}%`, barX + barTotalW + 2, y + 3.5);
-        y += pmEntryH;
+        doc.text(`${pct.toFixed(1)}%`, barX + barTotalW + 2, rowMidY + 1);
+        y += pmRowH;
       });
-      y += 10;
+      y += pmPadBot + 6;
     }
 
     // Daily Sales Summary (bar-like visual)
@@ -3170,34 +3177,50 @@ const PosOnlyView: React.FC<Props> = ({
       return da.getTime() - db.getTime();
     });
 
-    if (dailyEntries.length > 0 && dailyEntries.length <= 31) {
+    // Group daily entries into date ranges if > 14 days
+    let displayDailyEntries = dailyEntries;
+    if (dailyEntries.length > 14) {
+      const groupSize = Math.ceil(dailyEntries.length / 10);
+      const grouped: [string, { orders: number; revenue: number }][] = [];
+      for (let g = 0; g < dailyEntries.length; g += groupSize) {
+        const chunk = dailyEntries.slice(g, g + groupSize);
+        const aggregated = { orders: 0, revenue: 0 };
+        chunk.forEach(([, d]) => { aggregated.orders += d.orders; aggregated.revenue += d.revenue; });
+        const rangeLabel = chunk.length === 1 ? chunk[0][0] : `${chunk[0][0]} - ${chunk[chunk.length - 1][0]}`;
+        grouped.push([rangeLabel, aggregated]);
+      }
+      displayDailyEntries = grouped;
+    }
+
+    if (displayDailyEntries.length > 0 && displayDailyEntries.length <= 31) {
       sectionTitle('Daily Sales');
-      const chartH = 32;
-      const chartW = contentW - 10;
-      const chartX = margin + 5;
-      const chartY = y;
-      const maxDailyRev = Math.max(...dailyEntries.map(e => e[1].revenue));
+      const chartLeftMargin = 18;
+      const chartH = 36;
+      const chartW = contentW - chartLeftMargin - 4;
+      const chartX = margin + chartLeftMargin;
+      const chartY = y + 2;
+      const maxDailyRev = Math.max(...displayDailyEntries.map(e => e[1].revenue));
 
       // Rounded container around the chart area
-      const dsContainerPad = 4;
-      const dsContainerH = chartH + 14 + dsContainerPad * 2;
+      const dsContainerPad = 6;
+      const dsContainerH = chartH + 16 + dsContainerPad * 2;
       doc.setDrawColor(230, 230, 230); doc.setLineWidth(0.3);
       doc.setFillColor(252, 252, 253);
       doc.roundedRect(margin, chartY - dsContainerPad, contentW, dsContainerH, 3, 3, 'FD');
 
-      // Y-axis grid lines & labels
+      // Y-axis grid lines & labels (positioned left of chart area)
       doc.setDrawColor(235, 235, 235); doc.setLineWidth(0.1);
       for (let i = 0; i <= 4; i++) {
         const ly = chartY + chartH - (chartH * i / 4);
         doc.line(chartX, ly, chartX + chartW, ly);
         const val = (maxDailyRev * i / 4);
-        doc.setFontSize(5.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 150, 150);
-        doc.text(`RM${Math.round(val)}`, margin + 1, ly + 1.5);
+        doc.setFontSize(5); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 150, 150);
+        doc.text(`RM${Math.round(val)}`, margin + 2, ly + 1.2);
       }
 
-      // Compute points for line chart
-      const points = dailyEntries.map(([, d], i) => {
-        const px = chartX + (i / Math.max(dailyEntries.length - 1, 1)) * chartW;
+      // Compute points for line chart (starts after Y-axis label area)
+      const points = displayDailyEntries.map(([, d], i) => {
+        const px = chartX + (i / Math.max(displayDailyEntries.length - 1, 1)) * chartW;
         const py = chartY + chartH - (maxDailyRev > 0 ? (d.revenue / maxDailyRev) * chartH : 0);
         return { x: px, y: py };
       });
@@ -3244,16 +3267,18 @@ const PosOnlyView: React.FC<Props> = ({
         doc.setFillColor(...amber); doc.circle(p.x, p.y, 0.8, 'F');
       });
 
-      // X-axis date labels
-      const labelInterval = Math.max(1, Math.ceil(dailyEntries.length / 10));
-      dailyEntries.forEach(([day], i) => {
-        if (i % labelInterval === 0 || i === dailyEntries.length - 1) {
-          doc.setFontSize(5); doc.setFont('helvetica', 'normal'); doc.setTextColor(140, 140, 140);
-          doc.text(day, points[i].x, chartY + chartH + 4, { align: 'center' });
+      // X-axis date labels — draw dots for all points, labels for selected ones
+      const labelInterval = Math.max(1, Math.ceil(displayDailyEntries.length / 8));
+      displayDailyEntries.forEach(([day], i) => {
+        // Small dot on every data point on the x-axis
+        doc.setFillColor(180, 180, 180); doc.circle(points[i].x, chartY + chartH + 1.5, 0.4, 'F');
+        if (i % labelInterval === 0 || i === displayDailyEntries.length - 1) {
+          doc.setFontSize(4.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(140, 140, 140);
+          doc.text(day, points[i].x, chartY + chartH + 5, { align: 'center' });
         }
       });
 
-      y += chartH + 10;
+      y += chartH + 18;
     }
 
     // Order Status Breakdown
@@ -3268,27 +3293,32 @@ const PosOnlyView: React.FC<Props> = ({
     const totalForStatus = allOrders.length;
 
     // Rounded container
-    const osEntryH = 8;
-    const osContainerH = statuses.length * osEntryH + 6;
+    const osRowH = 10;
+    const osPadTop = 5;
+    const osPadBot = 5;
+    const osContainerH = statuses.length * osRowH + osPadTop + osPadBot;
     doc.setDrawColor(230, 230, 230); doc.setLineWidth(0.3);
     doc.setFillColor(252, 252, 253);
     doc.roundedRect(margin, y - 2, contentW, osContainerH, 3, 3, 'FD');
+    y += osPadTop - 2;
 
     statuses.forEach(s => {
       const pct = totalForStatus > 0 ? (s.count / totalForStatus) * 100 : 0;
+      const rowMidY = y + osRowH / 2;
       doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
-      doc.text(`${s.label}`, margin + 3, y + 3);
+      doc.text(`${s.label}`, margin + 4, rowMidY + 1);
       doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(130, 130, 130);
-      doc.text(`${s.count} orders`, margin + 31, y + 3);
-      // Progress bar
-      const barX = margin + 50; const barTotalW = contentW - 68;
-      doc.setFillColor(240, 240, 240); doc.roundedRect(barX, y, barTotalW, 5, 1, 1, 'F');
-      doc.setFillColor(...s.color); doc.roundedRect(barX, y, Math.max((pct / 100) * barTotalW, 1), 5, 1, 1, 'F');
+      doc.text(`${s.count} orders`, margin + 32, rowMidY + 1);
+      // Progress bar vertically centered in row
+      const barX = margin + 52; const barTotalW = contentW - 72; const barH = 5;
+      const barY = rowMidY - barH / 2;
+      doc.setFillColor(240, 240, 240); doc.roundedRect(barX, barY, barTotalW, barH, 1, 1, 'F');
+      doc.setFillColor(...s.color); doc.roundedRect(barX, barY, Math.max((pct / 100) * barTotalW, 1), barH, 1, 1, 'F');
       doc.setFontSize(7); doc.setFont('helvetica', 'bold'); doc.setTextColor(...s.color);
-      doc.text(`${pct.toFixed(1)}%`, barX + barTotalW + 2, y + 3.5);
-      y += 8;
+      doc.text(`${pct.toFixed(1)}%`, barX + barTotalW + 2, rowMidY + 1);
+      y += osRowH;
     });
-    y += 10;
+    y += osPadBot + 6;
 
     // Cashier Performance (compact overview on page 1)
     const cashierMap: Record<string, { orders: number; revenue: number; cancelled: number }> = {};
