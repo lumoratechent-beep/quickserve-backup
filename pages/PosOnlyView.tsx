@@ -1,7 +1,7 @@
 // pages/PosOnlyView.tsx
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters, CategoryData, ModifierData, ModifierOption, AddOnItemData, QS_DEFAULT_HUB, Subscription, PlanId, KitchenDepartment } from '../src/types';
+import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, ReportFilters, CategoryData, ModifierData, ModifierOption, AddOnItemData, QS_DEFAULT_HUB, Subscription, PlanId, KitchenDepartment, CashierShift } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { uploadImage } from '../lib/storage';
 import { saveAllSettingsToDb, saveSettingsToDb, compressPosSettings, expandPosSettings, fetchSettingsFromServer, updateFeatureOnServer } from '../lib/sharedSettings';
@@ -62,6 +62,8 @@ interface Props {
   onMailTabOpened?: () => void;
   onUpdateOrderItems?: (orderId: string, items: CartItem[], total: number) => void;
   onComparePlans?: () => void;
+  activeShift?: CashierShift | null;
+  onOpenShiftModal?: () => void;
 }
 
 const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
@@ -89,7 +91,7 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
 // Receipt and printer configs are now managed by the PrinterSettings component
 // and the service types from printerService.ts
 
-type SettingsPanel = 'builtin' | 'printer' | 'receipt' | 'orderList' | 'payment' | 'staff' | 'addon-table' | 'addon-qr' | 'addon-kitchen' | 'addon-tableside' | 'addon-customer-display' | 'addon-online-shop';
+type SettingsPanel = 'builtin' | 'printer' | 'receipt' | 'orderList' | 'payment' | 'staff' | 'addon-table' | 'addon-qr' | 'addon-kitchen' | 'addon-tableside' | 'addon-customer-display' | 'addon-online-shop' | 'addon-shift';
 
 interface FeatureSettings {
   autoPrintReceipt: boolean;
@@ -305,6 +307,8 @@ const PosOnlyView: React.FC<Props> = ({
   onMailTabOpened,
   onUpdateOrderItems,
   onComparePlans,
+  activeShift,
+  onOpenShiftModal,
 }) => {
   const toLocalDateInputValue = (date: Date) => {
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -681,6 +685,41 @@ const PosOnlyView: React.FC<Props> = ({
     }
     return defaults;
   });
+
+  // Shift guard: if shift feature is enabled but cashier has no active shift
+  const shiftRequired = featureSettings.shiftEnabled && !activeShift;
+
+  // Shift schedules (for record only — not validation)
+  interface ShiftScheduleEntry { cashierName: string; startTime: string; endTime: string; }
+  const [shiftSchedules, setShiftSchedules] = useState<ShiftScheduleEntry[]>(() => {
+    const dbSaved = restaurant.settings?.features?.shiftSchedules;
+    if (Array.isArray(dbSaved)) return dbSaved;
+    return [];
+  });
+  const [newScheduleCashier, setNewScheduleCashier] = useState('');
+  const [newScheduleStart, setNewScheduleStart] = useState('');
+  const [newScheduleEnd, setNewScheduleEnd] = useState('');
+
+  const saveShiftSchedules = (schedules: ShiftScheduleEntry[]) => {
+    setShiftSchedules(schedules);
+    const currentSettings = (() => {
+      try {
+        const cached = localStorage.getItem(`qs_settings_${restaurant.id}`);
+        return cached ? JSON.parse(cached) : {};
+      } catch { return {}; }
+    })();
+    const newSettings = {
+      ...currentSettings,
+      features: { ...(currentSettings.features || {}), shiftSchedules: schedules },
+    };
+    localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(newSettings));
+    fetch(`/api/settings?restaurantId=${restaurant.id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings: newSettings }),
+    }).catch(() => {});
+  };
+
   const [tableCountDraft, setTableCountDraft] = useState<string>('20');
   const [tableRowsDraft, setTableRowsDraft] = useState<string>('4');
   const [tableColumnsDraft, setTableColumnsDraft] = useState<string>('5');
@@ -1885,6 +1924,13 @@ const PosOnlyView: React.FC<Props> = ({
   const handleCheckout = async () => {
     if (posCart.length === 0 || isCompletingPayment) return;
 
+    // Block checkout if shift is required but not active
+    if (shiftRequired) {
+      toast('Please open your shift before completing a payment.', 'error');
+      onOpenShiftModal?.();
+      return;
+    }
+
     // Store the pending order data and show payment modal
     setPendingOrderData({
       items: posCart,
@@ -1959,6 +2005,13 @@ const PosOnlyView: React.FC<Props> = ({
 
   const handleConfirmPayment = async () => {
     if (!pendingOrderData || !selectedPaymentType) return;
+
+    // Block payment if shift is required but not active
+    if (shiftRequired) {
+      toast('Please open your shift before completing a payment.', 'error');
+      onOpenShiftModal?.();
+      return;
+    }
 
     // Validate amount received is not less than total
     if (!selectedCashAmount || selectedCashAmount < pendingOrderData.total) {
@@ -5607,6 +5660,24 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               ) : (
                 <>
+              {/* Shift-required dim overlay */}
+              {shiftRequired && (
+                <div className="bg-red-50 dark:bg-red-900/30 border-b-2 border-red-300 dark:border-red-700 px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Clock size={16} className="text-red-500" />
+                    <span className="text-xs font-black text-red-700 dark:text-red-300 uppercase tracking-wider">Shift not started — counter inactive</span>
+                  </div>
+                  {onOpenShiftModal && (
+                    <button
+                      onClick={onOpenShiftModal}
+                      className="px-4 py-1.5 bg-red-600 text-white rounded-lg text-xs font-black uppercase tracking-wider hover:bg-red-700 transition-all"
+                    >
+                      Open Shift
+                    </button>
+                  )}
+                </div>
+              )}
+              <div className={`flex-1 flex flex-col overflow-hidden ${shiftRequired ? 'opacity-40 pointer-events-auto' : ''}`} style={shiftRequired ? { filter: 'grayscale(0.3)' } : undefined}>
               <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 lg:px-5 py-2 lg:py-2.5 max-lg:landscape:py-1 flex flex-col gap-2 lg:gap-2 max-lg:landscape:gap-1">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1">
@@ -6466,6 +6537,7 @@ const PosOnlyView: React.FC<Props> = ({
               'addon-tableside': { label: 'Tableside Ordering', info: 'Staff take orders tableside using a tablet device.', icon: Tablet, badge: 'Add-on', addonId: 'tableside', isInstalled: featureSettings.tablesideOrderingEnabled },
               'addon-customer-display': { label: 'Customer Display', info: 'External customer-facing display screen.', icon: Monitor, badge: 'Add-on', addonId: 'customer-display', isInstalled: featureSettings.customerDisplayEnabled },
               'addon-online-shop': { label: 'Online Shop', info: 'Let customers order online via a shareable link.', icon: Globe, badge: 'Add-on', addonId: 'online-shop', isInstalled: featureSettings.onlineShopEnabled },
+              'addon-shift': { label: 'Shift Management', info: 'Cashier shift open/close with cash drawer reconciliation & schedule.', icon: Clock, badge: 'Add-on', addonId: 'shift', isInstalled: featureSettings.shiftEnabled },
             };
 
             const isAddonPanel = settingsPanel.startsWith('addon-');
@@ -6632,6 +6704,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     else if (m.addonId === 'tableside') updateFeatureSetting('tablesideOrderingEnabled', false);
                                     else if (m.addonId === 'customer-display') updateFeatureSetting('customerDisplayEnabled', false);
                                     else if (m.addonId === 'online-shop') updateFeatureSetting('onlineShopEnabled', false);
+                                    else if (m.addonId === 'shift') updateFeatureSetting('shiftEnabled', false);
                                   }}
                                   className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-red-600 transition-all hover:bg-red-100 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
                                 >
@@ -6647,6 +6720,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     else if (m.addonId === 'tableside') updateFeatureSetting('tablesideOrderingEnabled', true);
                                     else if (m.addonId === 'customer-display') updateFeatureSetting('customerDisplayEnabled', true);
                                     else if (m.addonId === 'online-shop') updateFeatureSetting('onlineShopEnabled', true);
+                                    else if (m.addonId === 'shift') updateFeatureSetting('shiftEnabled', true);
                                   }}
                                   disabled={(['qr','tableside','online-shop'].includes(addonPanelMeta[activeSettingsPanel].addonId) && !canUseQr) || (addonPanelMeta[activeSettingsPanel].addonId === 'kitchen' && !canUseKitchen)}
                                   className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-green-600 transition-all hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed dark:border-green-500/40 dark:bg-green-500/10 dark:text-green-400 dark:hover:bg-green-500/20"
@@ -10004,6 +10078,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               </div>
             </div>
+              </div>{/* close shift dim wrapper */}
               </>
             )}
           </div>
@@ -10800,6 +10875,11 @@ const PosOnlyView: React.FC<Props> = ({
                   </button>
                   <button
                     onClick={async () => {
+                      if (shiftRequired) {
+                        toast('Please open your shift before completing a payment.', 'error');
+                        onOpenShiftModal?.();
+                        return;
+                      }
                       if (!collectCashAmount || collectCashAmount < selectedReportOrder.total) {
                         toast('Amount received cannot be less than the total.', 'error');
                         return;
