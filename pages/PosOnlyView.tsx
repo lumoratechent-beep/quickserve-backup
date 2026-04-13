@@ -365,7 +365,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [newDivisionName, setNewDivisionName] = useState('');
   const [renamingDepartment, setRenamingDepartment] = useState<string | null>(null);
   const [renameDepartmentValue, setRenameDepartmentValue] = useState('');
-  const [newStaffRole, setNewStaffRole] = useState<'CASHIER' | 'KITCHEN' | 'ORDER_TAKER'>('CASHIER');
+  const [newStaffRole, setNewStaffRole] = useState<'CASHIER' | 'KITCHEN' | 'ORDER_TAKER' | 'MANAGER'>('CASHIER');
   const [showLockedRoleAlert, setShowLockedRoleAlert] = useState<string | null>(null);
   const [newStaffKitchenCategories, setNewStaffKitchenCategories] = useState<string[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -614,15 +614,21 @@ const PosOnlyView: React.FC<Props> = ({
   const [isAddingStaff, setIsAddingStaff] = useState(false);
   const [editingStaffIndex, setEditingStaffIndex] = useState<number | null>(null);
   const isEditingStaff = editingStaffIndex !== null;
+  const [expandedStaffAccess, setExpandedStaffAccess] = useState<number | null>(null);
+  const [showManagerApprovalModal, setShowManagerApprovalModal] = useState(false);
+  const [managerApprovalInput, setManagerApprovalInput] = useState('');
+  const [managerApprovalError, setManagerApprovalError] = useState<string | null>(null);
+  const [managerApprovalLoading, setManagerApprovalLoading] = useState(false);
+  const [pendingRefundOrder, setPendingRefundOrder] = useState<Order | null>(null);
 
   // Fetch staff from database on mount (localStorage is only a cache)
   useEffect(() => {
     const fetchStaff = async () => {
       const { data, error } = await supabase
         .from('users')
-        .select('id, username, role, restaurant_id, is_active, email, phone, kitchen_categories')
+        .select('id, username, role, restaurant_id, is_active, email, phone, kitchen_categories, access_permissions')
         .eq('restaurant_id', restaurant.id)
-        .in('role', ['CASHIER', 'KITCHEN', 'ORDER_TAKER']);
+        .in('role', ['CASHIER', 'KITCHEN', 'ORDER_TAKER', 'MANAGER']);
       if (!error && data) {
         setStaffList(data);
         localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(data));
@@ -977,6 +983,17 @@ const PosOnlyView: React.FC<Props> = ({
     }
   };
 
+  const handleUpdateStaffPermissions = async (staffIndex: number, permissions: Record<string, any>) => {
+    const staff = staffList[staffIndex];
+    const updated = [...staffList];
+    updated[staffIndex] = { ...staff, access_permissions: permissions };
+    setStaffList(updated);
+    localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+    if (staff?.id) {
+      await supabase.from('users').update({ access_permissions: permissions }).eq('id', staff.id);
+    }
+  };
+
   const resetStaffForm = () => {
     setNewStaffUsername('');
     setNewStaffPassword('');
@@ -986,7 +1003,7 @@ const PosOnlyView: React.FC<Props> = ({
     setNewStaffKitchenCategories([]);
   };
 
-  const openAddStaffModal = (initialRole: 'CASHIER' | 'KITCHEN' | 'ORDER_TAKER' = 'CASHIER') => {
+  const openAddStaffModal = (initialRole: 'CASHIER' | 'KITCHEN' | 'ORDER_TAKER' | 'MANAGER' = 'CASHIER') => {
     setEditingStaffIndex(null);
     resetStaffForm();
     setNewStaffRole(initialRole);
@@ -999,7 +1016,7 @@ const PosOnlyView: React.FC<Props> = ({
     setNewStaffPassword('');
     setNewStaffEmail(staff.email || '');
     setNewStaffPhone(staff.phone || '');
-    const mappedRole: 'CASHIER' | 'KITCHEN' | 'ORDER_TAKER' = staff.role === 'KITCHEN' ? 'KITCHEN' : staff.role === 'ORDER_TAKER' ? 'ORDER_TAKER' : 'CASHIER';
+    const mappedRole: 'CASHIER' | 'KITCHEN' | 'ORDER_TAKER' | 'MANAGER' = staff.role === 'KITCHEN' ? 'KITCHEN' : staff.role === 'ORDER_TAKER' ? 'ORDER_TAKER' : staff.role === 'MANAGER' ? 'MANAGER' : 'CASHIER';
     setNewStaffRole(mappedRole);
     setNewStaffKitchenCategories(
       mappedRole === 'KITCHEN' && Array.isArray(staff.kitchen_categories)
@@ -1022,14 +1039,17 @@ const PosOnlyView: React.FC<Props> = ({
 
     setIsAddingStaff(true);
     try {
+      // Auto-assign MANAGER to the first staff member added
+      const isFirstStaff = !isEditingStaff && staffList.length === 0;
+      const assignedRole = isFirstStaff ? 'MANAGER' : newStaffRole;
       const basePayload: Record<string, any> = {
         username,
         email,
         phone,
         restaurant_id: restaurant.id,
-        role: newStaffRole,
+        role: assignedRole,
         is_active: true,
-        kitchen_categories: newStaffRole === 'KITCHEN' && newStaffKitchenCategories.length > 0 ? newStaffKitchenCategories : null,
+        kitchen_categories: assignedRole === 'KITCHEN' && newStaffKitchenCategories.length > 0 ? newStaffKitchenCategories : null,
       };
 
       if (isEditingStaff) {
@@ -3668,7 +3688,14 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
-  const paginatedReports = reportData?.orders || [];
+  // Respect "view own sales only" access control for the logged-in cashier
+  const _currentStaffPerms = staffList.find((s: any) => s.username === cashierName)?.access_permissions;
+  const _viewOwnSalesOnly = (_currentStaffPerms?.viewOwnSalesOnly === true) && !!cashierName;
+  const paginatedReports = reportData?.orders
+    ? (_viewOwnSalesOnly
+        ? reportData.orders.filter(o => (o.cashierName || '') === cashierName)
+        : reportData.orders)
+    : [];
 
   const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING' | 'ADDONS' | 'ONLINE_ORDERS' | 'MAIL') => {
     setActiveTab(tab);
@@ -4105,44 +4132,109 @@ const PosOnlyView: React.FC<Props> = ({
         <div className="text-center py-12 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl mb-5">
           <Users size={28} className="mx-auto text-gray-300 dark:text-gray-600 mb-2" />
           <p className="text-sm text-gray-400 dark:text-gray-500">No staff added yet</p>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">The first staff added will automatically be assigned as <span className="font-bold text-purple-500">Manager</span>.</p>
         </div>
       ) : (
-        <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700 mb-5">
-          {staffList.map((staff: any, idx: number) => (
-            <div key={idx} className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-4">
-              <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">{staff.username}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                    staff.role === 'KITCHEN' 
-                      ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
-                      : staff.role === 'ORDER_TAKER'
-                        ? 'bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400'
-                        : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                  }`}>{staff.role === 'KITCHEN' ? 'Kitchen' : staff.role === 'ORDER_TAKER' ? 'Order Taker' : 'Cashier'}</span>
-                  {staff.role === 'KITCHEN' && (
-                    <span className="text-xs text-gray-400 dark:text-gray-500">
-                      {staff.kitchen_categories && staff.kitchen_categories.length > 0 ? staff.kitchen_categories.join(', ') : 'General Kitchen'}
-                    </span>
-                  )}
+        <div className="divide-y divide-gray-200 dark:divide-gray-700 mb-5 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+          {staffList.map((staff: any, idx: number) => {
+            const perms = staff.access_permissions || {};
+            const isManager = staff.role === 'MANAGER';
+            const isAccessOpen = expandedStaffAccess === idx;
+            return (
+              <div key={idx} className="bg-white dark:bg-gray-800">
+                {/* Staff row */}
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{staff.username}</p>
+                    <div className="flex items-center flex-wrap gap-1.5 mt-1">
+                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${
+                        isManager
+                          ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
+                          : staff.role === 'KITCHEN'
+                            ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
+                            : staff.role === 'ORDER_TAKER'
+                              ? 'bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400'
+                              : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                      }`}>
+                        {isManager ? 'Manager' : staff.role === 'KITCHEN' ? 'Kitchen' : staff.role === 'ORDER_TAKER' ? 'Order Taker' : 'Cashier'}
+                      </span>
+                      {staff.role === 'KITCHEN' && (
+                        <span className="text-[9px] text-gray-400 dark:text-gray-500">
+                          {staff.kitchen_categories && staff.kitchen_categories.length > 0 ? staff.kitchen_categories.join(', ') : 'General Kitchen'}
+                        </span>
+                      )}
+                      {!isManager && perms.viewOwnSalesOnly && (
+                        <span className="text-[9px] bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Own Sales Only</span>
+                      )}
+                      {!isManager && perms.requireManagerApprovalForRefund && (
+                        <span className="text-[9px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Refund: Manager</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {!isManager && (
+                      <button
+                        onClick={() => setExpandedStaffAccess(isAccessOpen ? null : idx)}
+                        title="Access Control"
+                        className={`p-2 rounded-lg transition-colors text-xs font-black uppercase tracking-widest flex items-center gap-1 ${isAccessOpen ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' : 'text-gray-400 hover:text-purple-500 hover:bg-gray-100 dark:hover:bg-gray-700/50'}`}
+                      >
+                        <Lock size={14} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleEditStaff(staff, idx)}
+                      className="p-2 text-gray-400 hover:text-orange-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"
+                    >
+                      <Edit3 size={15} />
+                    </button>
+                    <button
+                      onClick={() => handleRemoveStaff(staff, idx)}
+                      className="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
+
+                {/* Access Control Expandable Panel (non-manager only) */}
+                {isAccessOpen && !isManager && (
+                  <div className="border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-4 py-4 space-y-3 animate-in slide-in-from-top-1 fade-in duration-200">
+                    <p className="text-[9px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-1.5">
+                      <Lock size={10} /> Access Control — {staff.username}
+                    </p>
+
+                    {/* Toggle: View own sales only */}
+                    <div className="flex items-start justify-between gap-4 bg-white dark:bg-gray-800 rounded-lg p-3 border dark:border-gray-700">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-gray-800 dark:text-white">View Own Sales Only</p>
+                        <p className="text-[10px] text-gray-400 mt-0.5">Restrict this staff to see only their own transactions in the Sales Report.</p>
+                      </div>
+                      <button
+                        onClick={() => handleUpdateStaffPermissions(idx, { ...perms, viewOwnSalesOnly: !perms.viewOwnSalesOnly })}
+                        className={`w-11 h-6 rounded-full transition-all relative shrink-0 ${perms.viewOwnSalesOnly ? 'bg-sky-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow ${perms.viewOwnSalesOnly ? 'left-6' : 'left-1'}`} />
+                      </button>
+                    </div>
+
+                    {/* Toggle: Require manager approval for refund */}
+                    <div className="flex items-start justify-between gap-4 bg-white dark:bg-gray-800 rounded-lg p-3 border dark:border-gray-700">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-gray-800 dark:text-white">Require Manager Approval for Refund</p>
+                        <p className="text-[10px] text-gray-400 mt-0.5">This staff must get a Manager to enter their password before processing any refund.</p>
+                      </div>
+                      <button
+                        onClick={() => handleUpdateStaffPermissions(idx, { ...perms, requireManagerApprovalForRefund: !perms.requireManagerApprovalForRefund })}
+                        className={`w-11 h-6 rounded-full transition-all relative shrink-0 ${perms.requireManagerApprovalForRefund ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow ${perms.requireManagerApprovalForRefund ? 'left-6' : 'left-1'}`} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center justify-end gap-1">
-                <button
-                  onClick={() => handleEditStaff(staff, idx)}
-                  className="p-2 text-gray-400 hover:text-orange-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"
-                >
-                  <Edit3 size={15} />
-                </button>
-                <button
-                  onClick={() => handleRemoveStaff(staff, idx)}
-                  className="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -7247,9 +7339,16 @@ const PosOnlyView: React.FC<Props> = ({
                 {/* Role Selection */}
                 <div>
                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Role</label>
-                  <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                  {/* Show auto-MANAGER hint only when adding first staff */}
+                  {!isEditingStaff && staffList.length === 0 && (
+                    <p className="text-[9px] text-purple-500 font-bold mb-2 ml-1">
+                      This is the first staff account — they will automatically be assigned as <span className="uppercase">Manager</span>.
+                    </p>
+                  )}
+                  <div className="flex flex-wrap bg-gray-100 dark:bg-gray-700 rounded-lg p-1 gap-1">
                     <button
                       onClick={() => { setNewStaffRole('CASHIER'); setNewStaffKitchenCategories([]); }}
+                      disabled={isEditingStaff && newStaffRole === 'MANAGER'}
                       className={`flex-1 py-2 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
                         newStaffRole === 'CASHIER' ? 'bg-white dark:bg-gray-800 text-blue-600 shadow-sm' : 'text-gray-400'
                       }`}
@@ -7259,6 +7358,7 @@ const PosOnlyView: React.FC<Props> = ({
                         if (!featureSettings.kitchenEnabled) { setShowLockedRoleAlert('Kitchen Display'); return; }
                         setNewStaffRole('KITCHEN');
                       }}
+                      disabled={isEditingStaff && newStaffRole === 'MANAGER'}
                       className={`flex-1 py-2 rounded-md text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1 ${
                         newStaffRole === 'KITCHEN' ? 'bg-white dark:bg-gray-800 text-orange-600 shadow-sm' : 'text-gray-400'
                       }`}
@@ -7271,6 +7371,7 @@ const PosOnlyView: React.FC<Props> = ({
                         if (!featureSettings.tablesideOrderingEnabled) { setShowLockedRoleAlert('Tableside Ordering'); return; }
                         setNewStaffRole('ORDER_TAKER'); setNewStaffKitchenCategories([]);
                       }}
+                      disabled={isEditingStaff && newStaffRole === 'MANAGER'}
                       className={`flex-1 py-2 rounded-md text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1 ${
                         newStaffRole === 'ORDER_TAKER' ? 'bg-white dark:bg-gray-800 text-teal-600 shadow-sm' : 'text-gray-400'
                       }`}
@@ -7278,7 +7379,19 @@ const PosOnlyView: React.FC<Props> = ({
                       Order Taker
                       {!featureSettings.tablesideOrderingEnabled && <Lock size={10} />}
                     </button>
+                    {/* Manager role — only shown if editing an existing manager OR if there is no manager yet */}
+                    {(newStaffRole === 'MANAGER' || !staffList.some((s: any) => s.role === 'MANAGER')) && (
+                      <button
+                        onClick={() => { setNewStaffRole('MANAGER'); setNewStaffKitchenCategories([]); }}
+                        className={`flex-1 py-2 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                          newStaffRole === 'MANAGER' ? 'bg-white dark:bg-gray-800 text-purple-600 shadow-sm' : 'text-gray-400'
+                        }`}
+                      >Manager</button>
+                    )}
                   </div>
+                  {newStaffRole === 'MANAGER' && (
+                    <p className="text-[9px] text-purple-500 font-bold mt-1.5 ml-1">Manager can set access controls for other staff and approve refunds.</p>
+                  )}
                 </div>
 
                 {/* Locked Role Alert */}
@@ -7605,6 +7718,16 @@ const PosOnlyView: React.FC<Props> = ({
 
                   const selectedAddon = addonDetailView ? addonFeatures.find(f => f.id === addonDetailView) : null;
 
+                  // Plan order for sorting
+                  const PLAN_ORDER: Record<string, number> = { 'Basic': 1, 'Pro': 2, 'Pro Plus': 3 };
+                  const sortByPlanThenAlpha = (arr: typeof addonFeatures) =>
+                    [...arr].sort((a, b) => {
+                      const pa = PLAN_ORDER[a.plan] ?? 99;
+                      const pb = PLAN_ORDER[b.plan] ?? 99;
+                      if (pa !== pb) return pa - pb;
+                      return a.name.localeCompare(b.name);
+                    });
+
                   // ── Detail View ──
                   if (selectedAddon) {
                     const selectedAddonInstalling = isAddonActionRunning(selectedAddon.id, 'install');
@@ -7920,8 +8043,8 @@ const PosOnlyView: React.FC<Props> = ({
                   }
 
                   // ── Grid View (WordPress plugin style) ──
-                  const existingAddons = addonFeatures.filter(a => !(a as any).isComingSoon);
-                  const upcomingAddons = addonFeatures.filter(a => (a as any).isComingSoon);
+                  const existingAddons = sortByPlanThenAlpha(addonFeatures.filter(a => !(a as any).isComingSoon));
+                  const upcomingAddons = sortByPlanThenAlpha(addonFeatures.filter(a => (a as any).isComingSoon));
 
                   const renderAddonCard = (addon: typeof addonFeatures[0]) => {
                     const addonInstalling = isAddonActionRunning(addon.id, 'install');
@@ -10754,7 +10877,18 @@ const PosOnlyView: React.FC<Props> = ({
                     </button>
                   ) : (
                     <button
-                      onClick={() => setShowRefundConfirm(true)}
+                      onClick={() => {
+                        // Check if manager approval is required for this cashier
+                        const _myPerms = staffList.find((s: any) => s.username === cashierName)?.access_permissions;
+                        if (_myPerms?.requireManagerApprovalForRefund) {
+                          setPendingRefundOrder(selectedReportOrder);
+                          setManagerApprovalInput('');
+                          setManagerApprovalError(null);
+                          setShowManagerApprovalModal(true);
+                        } else {
+                          setShowRefundConfirm(true);
+                        }
+                      }}
                       className="flex-1 py-3 bg-red-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all flex items-center justify-center gap-2"
                     >
                       <RotateCcw size={14} /> Refund
@@ -10796,6 +10930,107 @@ const PosOnlyView: React.FC<Props> = ({
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manager Approval Modal (for refund requiring manager sign-off) */}
+      {showManagerApprovalModal && pendingRefundOrder && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4" onClick={() => { setShowManagerApprovalModal(false); setManagerApprovalInput(''); setManagerApprovalError(null); setPendingRefundOrder(null); }}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-6 text-center">
+              <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Lock size={28} className="text-purple-600 dark:text-purple-400" />
+              </div>
+              <h3 className="text-lg font-black dark:text-white uppercase tracking-tight mb-1">Manager Approval Required</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">A Manager must enter their password to authorise the refund for Order <span className="font-bold text-gray-700 dark:text-gray-200">#{pendingRefundOrder.id}</span>.</p>
+              <input
+                type="password"
+                value={managerApprovalInput}
+                onChange={e => { setManagerApprovalInput(e.target.value); setManagerApprovalError(null); }}
+                placeholder="Manager password"
+                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none text-sm font-bold dark:text-white focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-colors mb-2"
+                autoFocus
+                onKeyDown={async e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (!managerApprovalInput.trim()) return;
+                    setManagerApprovalLoading(true);
+                    setManagerApprovalError(null);
+                    try {
+                      const { data, error } = await supabase
+                        .from('users')
+                        .select('id')
+                        .eq('restaurant_id', restaurant.id)
+                        .eq('role', 'MANAGER')
+                        .eq('password', managerApprovalInput.trim())
+                        .maybeSingle();
+                      if (error || !data) {
+                        setManagerApprovalError('Incorrect manager password. Please try again.');
+                      } else {
+                        setShowManagerApprovalModal(false);
+                        setManagerApprovalInput('');
+                        setManagerApprovalError(null);
+                        handleOrderStatusUpdate(pendingRefundOrder.id, OrderStatus.CANCELLED);
+                        toast('Order has been refunded.', 'success');
+                        setSelectedReportOrder(null);
+                        setPendingRefundOrder(null);
+                      }
+                    } catch {
+                      setManagerApprovalError('Verification failed. Please try again.');
+                    } finally {
+                      setManagerApprovalLoading(false);
+                    }
+                  }
+                }}
+              />
+              {managerApprovalError && (
+                <p className="text-[10px] text-red-500 font-bold mb-2">{managerApprovalError}</p>
+              )}
+            </div>
+            <div className="flex border-t dark:border-gray-700">
+              <button
+                onClick={() => { setShowManagerApprovalModal(false); setManagerApprovalInput(''); setManagerApprovalError(null); setPendingRefundOrder(null); }}
+                className="flex-1 py-4 text-sm font-black uppercase tracking-widest text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={managerApprovalLoading || !managerApprovalInput.trim()}
+                onClick={async () => {
+                  if (!managerApprovalInput.trim()) return;
+                  setManagerApprovalLoading(true);
+                  setManagerApprovalError(null);
+                  try {
+                    const { data, error } = await supabase
+                      .from('users')
+                      .select('id')
+                      .eq('restaurant_id', restaurant.id)
+                      .eq('role', 'MANAGER')
+                      .eq('password', managerApprovalInput.trim())
+                      .maybeSingle();
+                    if (error || !data) {
+                      setManagerApprovalError('Incorrect manager password. Please try again.');
+                    } else {
+                      setShowManagerApprovalModal(false);
+                      setManagerApprovalInput('');
+                      setManagerApprovalError(null);
+                      handleOrderStatusUpdate(pendingRefundOrder.id, OrderStatus.CANCELLED);
+                      toast('Order has been refunded.', 'success');
+                      setSelectedReportOrder(null);
+                      setPendingRefundOrder(null);
+                    }
+                  } catch {
+                    setManagerApprovalError('Verification failed. Please try again.');
+                  } finally {
+                    setManagerApprovalLoading(false);
+                  }
+                }}
+                className="flex-1 py-4 text-sm font-black uppercase tracking-widest text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all border-l dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {managerApprovalLoading ? <><RotateCw size={14} className="animate-spin" /> Verifying...</> : 'Approve'}
+              </button>
             </div>
           </div>
         </div>
