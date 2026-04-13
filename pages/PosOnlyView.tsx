@@ -109,6 +109,7 @@ interface FeatureSettings {
   qrEnabled: boolean;
   tablesideOrderingEnabled: boolean;
   onlineShopEnabled: boolean;
+  shiftEnabled: boolean;
 }
 
 const getDefaultFeatureSettings = (): FeatureSettings => ({
@@ -129,6 +130,7 @@ const getDefaultFeatureSettings = (): FeatureSettings => ({
   qrEnabled: false,
   tablesideOrderingEnabled: false,
   onlineShopEnabled: false,
+  shiftEnabled: false,
 });
 
 const REJECTION_REASONS = [
@@ -4160,7 +4162,7 @@ const PosOnlyView: React.FC<Props> = ({
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 last:pb-0">
+          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5">
             <div>
               <p className="text-sm font-medium text-gray-900 dark:text-white">Auto Open Drawer</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Open cash drawer after checkout</p>
@@ -4171,6 +4173,20 @@ const PosOnlyView: React.FC<Props> = ({
                 className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.autoOpenDrawer ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
               >
                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.autoOpenDrawer ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 last:pb-0">
+            <div>
+              <p className="text-sm font-medium text-gray-900 dark:text-white">Shift Management</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Enable cashier shift open/close tracking with cash drawer reconciliation</p>
+            </div>
+            <div className="flex items-center justify-end">
+              <button
+                onClick={() => updateFeatureSetting('shiftEnabled', !featureSettings.shiftEnabled)}
+                className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.shiftEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.shiftEnabled ? 'left-6' : 'left-1'}`} />
               </button>
             </div>
           </div>

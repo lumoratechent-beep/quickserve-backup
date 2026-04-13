@@ -2134,6 +2134,29 @@ const App: React.FC = () => {
           <img src={isDarkMode ? "/LOGO/9-dark.png" : "/LOGO/9.png"} alt="QuickServe" className="h-10" />
         </div>
         <div className="flex items-center gap-3">
+          {/* Shift button — rectangular, before mail. Only if shiftEnabled feature is on */}
+          {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (() => {
+            const r = restaurants.find(r => r.id === currentUser!.restaurantId);
+            const shiftOn = r?.settings?.features?.shiftEnabled === true;
+            if (!shiftOn) return null;
+            return (
+              <button
+                onClick={() => setShowShiftModal(true)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+                  activeShift
+                    ? 'bg-green-100 text-green-700 border border-green-300 hover:bg-green-200 dark:bg-green-900/40 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/60'
+                    : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
+                }`}
+                title={activeShift ? 'Shift Active — Click to close' : 'Open Shift'}
+              >
+                <Clock size={14} />
+                {activeShift ? 'SHIFT ON' : 'SHIFT'}
+                {activeShift && (
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                )}
+              </button>
+            );
+          })()}
           {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (
             <button
               onClick={() => { setView('APP'); fetchAnnouncements(); setOpenMailInPOS(true); }}
@@ -2143,19 +2166,6 @@ const App: React.FC = () => {
               <Mail size={20} />
               {unreadMailCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">{unreadMailCount}</span>
-              )}
-            </button>
-          )}
-          {/* Shift button — visible for VENDOR & CASHIER */}
-          {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (
-            <button
-              onClick={() => setShowShiftModal(true)}
-              className={`p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 relative ${activeShift ? 'text-green-600' : 'dark:text-white'}`}
-              title={activeShift ? 'Shift Active — Click to close' : 'Open Shift'}
-            >
-              <Clock size={20} />
-              {activeShift && (
-                <span className="absolute -top-0.5 -right-0.5 bg-green-500 w-3 h-3 rounded-full border-2 border-white dark:border-gray-800" />
               )}
             </button>
           )}
