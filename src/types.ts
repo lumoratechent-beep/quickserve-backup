@@ -253,3 +253,27 @@ export interface Subscription {
   created_at: string;
   updated_at: string;
 }
+
+// Cashier Shift Management
+export interface CashierShift {
+  id: string;
+  restaurant_id: string;
+  cashier_name: string;
+  cashier_user_id?: string;
+  opened_at: string;
+  closed_at?: string;
+  opening_amount: number;
+  expected_closing_amount?: number;
+  actual_closing_amount?: number;
+  difference?: number;
+  total_cash_sales: number;
+  total_card_sales: number;
+  total_qr_sales: number;
+  total_other_sales: number;
+  total_sales: number;
+  total_orders: number;
+  total_refunds: number;
+  status: 'open' | 'closed';
+  close_note?: string;
+  created_at: string;
+}

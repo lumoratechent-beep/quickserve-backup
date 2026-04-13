@@ -18,6 +18,7 @@ import InventoryManagement from '../components/InventoryManagement';
 import ReportsView from '../components/ReportsView';
 import ContactsManagement from '../components/ContactsManagement';
 import FinanceView from '../components/FinanceView';
+import CashierShiftRecords from '../components/CashierShiftRecords';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
 
 interface Props {
@@ -33,7 +34,7 @@ interface Props {
   subscription?: Subscription | null;
 }
 
-type BackOfficeTab = 'DASHBOARD' | 'ITEMS' | 'STAFF' | 'STOCK' | 'INVENTORY' | 'REPORTS' | 'CONTACTS' | 'FINANCE';
+type BackOfficeTab = 'DASHBOARD' | 'ITEMS' | 'STAFF' | 'STOCK' | 'INVENTORY' | 'REPORTS' | 'CONTACTS' | 'FINANCE' | 'SHIFTS';
 type DateRange = '7d' | '30d' | '90d' | 'custom';
 
 const COLORS = ['#D97706', '#F59E0B', '#92400E', '#B45309', '#78350F', '#FBBF24', '#FCD34D', '#3B82F6', '#8B5CF6', '#22C55E'];
@@ -626,6 +627,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     { key: 'DASHBOARD', label: 'Dashboard', icon: <BarChart3 size={18} /> },
     { key: 'ITEMS', label: 'Items & Stock', icon: <ShoppingBag size={18} /> },
     { key: 'STAFF', label: 'Staff Management', icon: <Users size={18} /> },
+    { key: 'SHIFTS', label: 'Cashier Shifts', icon: <Clock size={18} /> },
   ];
 
   const expandableTabs: {
@@ -1745,6 +1747,13 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
         {/* ════════════════════════════════════ */}
         {activeTab === 'FINANCE' && (
           <FinanceView restaurant={restaurant} orders={orders} currencySymbol={currencySymbol} initialSubTab={financeSubTab} subscription={subscription} />
+        )}
+
+        {/* ════════════════════════════════════ */}
+        {/* CASHIER SHIFTS TAB                  */}
+        {/* ════════════════════════════════════ */}
+        {activeTab === 'SHIFTS' && (
+          <CashierShiftRecords restaurantId={restaurant.id} currencySymbol={currencySymbol} />
         )}
       </div>
       </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, QS_DEFAULT_HUB, Subscription, KitchenDepartment, OrderSource } from './src/types';
+import { User, Role, Restaurant, Order, OrderStatus, CartItem, MenuItem, Area, ReportFilters, ReportResponse, QS_DEFAULT_HUB, Subscription, KitchenDepartment, OrderSource, CashierShift } from './src/types';
 import CustomerView from './pages/CustomerView';
 import AdminView from './pages/AdminView';
 import PosOnlyView from './pages/PosOnlyView';
@@ -13,9 +13,10 @@ import OnlineShopPage from './pages/OnlineShopPage';
 import TableSideOrderPage from './pages/TableSideOrderPage';
 import { supabase } from './lib/supabase';
 import { expandPosSettings } from './lib/sharedSettings';
-import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw } from 'lucide-react';
+import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, Clock } from 'lucide-react';
 import * as offlineQueue from './lib/offlineOrdersQueue';
 import { toast } from './components/Toast';
+import CashierShiftModal from './components/CashierShiftModal';
 
 /**
  * Generate a default 3-character order code from a restaurant name.
@@ -468,6 +469,32 @@ const App: React.FC = () => {
   };
 
   const unreadMailCount = announcements.filter(a => !a.is_read).length;
+
+  // ─── Cashier Shift Management ───
+  const [activeShift, setActiveShift] = useState<CashierShift | null>(null);
+  const [showShiftModal, setShowShiftModal] = useState(false);
+
+  // Fetch active shift on login
+  useEffect(() => {
+    if (!currentUser?.restaurantId || (currentRole !== 'VENDOR' && currentRole !== 'CASHIER')) {
+      setActiveShift(null);
+      return;
+    }
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('cashier_shifts')
+          .select('*')
+          .eq('restaurant_id', currentUser.restaurantId!)
+          .eq('cashier_name', currentUser.username)
+          .eq('status', 'open')
+          .order('opened_at', { ascending: false })
+          .limit(1);
+        if (data && data.length > 0) setActiveShift(data[0] as CashierShift);
+        else setActiveShift(null);
+      } catch { /* ignore */ }
+    })();
+  }, [currentUser?.restaurantId, currentUser?.username, currentRole]);
 
   const persistCache = (key: string, data: any) => {
     try {
@@ -2119,6 +2146,19 @@ const App: React.FC = () => {
               )}
             </button>
           )}
+          {/* Shift button — visible for VENDOR & CASHIER */}
+          {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (
+            <button
+              onClick={() => setShowShiftModal(true)}
+              className={`p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 relative ${activeShift ? 'text-green-600' : 'dark:text-white'}`}
+              title={activeShift ? 'Shift Active — Click to close' : 'Open Shift'}
+            >
+              <Clock size={20} />
+              {activeShift && (
+                <span className="absolute -top-0.5 -right-0.5 bg-green-500 w-3 h-3 rounded-full border-2 border-white dark:border-gray-800" />
+              )}
+            </button>
+          )}
           {/* Theme toggle switch */}
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
@@ -2384,6 +2424,24 @@ const App: React.FC = () => {
           />
         )}
       </main>
+
+      {/* Cashier Shift Modal */}
+      {showShiftModal && currentUser?.restaurantId && (
+        <CashierShiftModal
+          restaurantId={currentUser.restaurantId}
+          cashierName={currentUser.username}
+          cashierUserId={currentUser.id}
+          currencySymbol={(() => {
+            const r = restaurants.find(r => r.id === currentUser.restaurantId);
+            const c = r?.settings?.currency;
+            return c === 'USD' ? '$' : c === 'SGD' ? 'S$' : c === 'IDR' ? 'Rp' : 'RM';
+          })()}
+          orders={orders}
+          activeShift={activeShift}
+          onShiftChanged={setActiveShift}
+          onClose={() => setShowShiftModal(false)}
+        />
+      )}
     </div>
   );
 };
