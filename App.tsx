@@ -2309,7 +2309,6 @@ const App: React.FC = () => {
               openMailTab={openMailInPOS}
               onMailTabOpened={() => setOpenMailInPOS(false)}
               onUpdateOrderItems={updateOrderItems}
-              activeShift={activeShift}
               onComparePlans={() => setView('COMPARE_PLANS')}
             />
           ) : (
@@ -2356,8 +2355,6 @@ const App: React.FC = () => {
                 openMailTab={openMailInPOS}
                 onMailTabOpened={() => setOpenMailInPOS(false)}
                 onUpdateOrderItems={updateOrderItems}
-                activeShift={activeShift}
-                activeShift={activeShift}
                 onComparePlans={() => setView('COMPARE_PLANS')}
               />
           ) : (
