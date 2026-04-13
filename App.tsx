@@ -474,6 +474,20 @@ const App: React.FC = () => {
   const [activeShift, setActiveShift] = useState<CashierShift | null>(null);
   const [showShiftModal, setShowShiftModal] = useState(false);
 
+  const isShiftFeatureEnabledForRestaurant = useCallback((restaurantId?: string) => {
+    if (!restaurantId) return false;
+    try {
+      const cached = localStorage.getItem(`qs_settings_${restaurantId}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.features?.shiftEnabled === true) return true;
+      }
+    } catch {
+      // ignore cache parse issues and fall back to in-memory restaurant data
+    }
+    return restaurants.find(r => r.id === restaurantId)?.settings?.features?.shiftEnabled === true;
+  }, [restaurants]);
+
   // Fetch active shift on login
   useEffect(() => {
     if (!currentUser?.restaurantId || (currentRole !== 'VENDOR' && currentRole !== 'CASHIER')) {
@@ -2136,8 +2150,7 @@ const App: React.FC = () => {
         <div className="flex items-center gap-3">
           {/* Shift button — rectangular, before mail. Only if shiftEnabled feature is on */}
           {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (() => {
-            const r = restaurants.find(r => r.id === currentUser!.restaurantId);
-            const shiftOn = r?.settings?.features?.shiftEnabled === true;
+            const shiftOn = isShiftFeatureEnabledForRestaurant(currentUser!.restaurantId);
             if (!shiftOn) return null;
             return (
               <button
@@ -2145,12 +2158,12 @@ const App: React.FC = () => {
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
                   activeShift
                     ? 'bg-green-100 text-green-700 border border-green-300 hover:bg-green-200 dark:bg-green-900/40 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/60'
-                    : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
+                    : 'bg-red-100 text-red-700 border border-red-300 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700 dark:hover:bg-red-900/60'
                 }`}
-                title={activeShift ? 'Shift Active — Click to close' : 'Open Shift'}
+                title={activeShift ? 'Shift Active — Click to close' : 'Shift required before payment'}
               >
                 <Clock size={14} />
-                {activeShift ? 'SHIFT ON' : 'SHIFT'}
+                {activeShift ? 'SHIFT ON' : 'SHIFT OFF'}
                 {activeShift && (
                   <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                 )}
@@ -2296,6 +2309,7 @@ const App: React.FC = () => {
               openMailTab={openMailInPOS}
               onMailTabOpened={() => setOpenMailInPOS(false)}
               onUpdateOrderItems={updateOrderItems}
+              activeShift={activeShift}
               onComparePlans={() => setView('COMPARE_PLANS')}
             />
           ) : (
@@ -2342,6 +2356,8 @@ const App: React.FC = () => {
                 openMailTab={openMailInPOS}
                 onMailTabOpened={() => setOpenMailInPOS(false)}
                 onUpdateOrderItems={updateOrderItems}
+                activeShift={activeShift}
+                activeShift={activeShift}
                 onComparePlans={() => setView('COMPARE_PLANS')}
               />
           ) : (

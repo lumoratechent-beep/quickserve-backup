@@ -76,6 +76,20 @@ export interface KitchenDepartment {
   categories: string[];
 }
 
+export interface ShiftScheduleEntry {
+  id: string;
+  userId?: string;
+  username: string;
+  label: string;
+  startTime: string;
+  endTime: string;
+}
+
+export interface ShiftManagementSettings {
+  fixedShiftEnabled: boolean;
+  schedules: ShiftScheduleEntry[];
+}
+
 export interface Restaurant {
   id: string;
   name: string;
@@ -106,6 +120,7 @@ export interface Restaurant {
     onlinePaymentMethods?: Array<{ id: string; label: string; enabled: boolean }>;
     qrLocationLabel?: string; // Custom "Serving At" label for QuickServe Hub restaurants
     backoffice?: Record<string, any>;
+    shiftManagement?: ShiftManagementSettings;
     receiptFormatting?: Record<string, any>; // Alignment, size, bold etc. formatting options
     imageLink?: string;
     imageDescription?: string;

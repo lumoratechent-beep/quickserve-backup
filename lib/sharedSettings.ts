@@ -100,6 +100,7 @@ export const POS_DEFAULTS = {
     qrEnabled: false,
     tablesideOrderingEnabled: false,
     onlineShopEnabled: false,
+    shiftEnabled: false,
   } as Record<string, unknown>,
   paymentTypes: [
     { id: 'cash', name: 'CASH' },
