@@ -5783,8 +5783,7 @@ const PosOnlyView: React.FC<Props> = ({
                   ))}
                 </div>
               </div>
-            </>
-              )}
+              </div>{/* close shift dim wrapper */}
             </>
           )}
 
@@ -10078,8 +10077,6 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               </div>
             </div>
-              </div>{/* close shift dim wrapper */}
-              </>
             )}
           </div>
         )}
