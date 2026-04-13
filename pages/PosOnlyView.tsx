@@ -1927,7 +1927,6 @@ const PosOnlyView: React.FC<Props> = ({
     // Block checkout if shift is required but not active
     if (shiftRequired) {
       toast('Please open your shift before completing a payment.', 'error');
-      onOpenShiftModal?.();
       return;
     }
 
@@ -2009,7 +2008,6 @@ const PosOnlyView: React.FC<Props> = ({
     // Block payment if shift is required but not active
     if (shiftRequired) {
       toast('Please open your shift before completing a payment.', 'error');
-      onOpenShiftModal?.();
       return;
     }
 
@@ -4229,20 +4227,6 @@ const PosOnlyView: React.FC<Props> = ({
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 last:pb-0">
-            <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-white">Shift Management</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Enable cashier shift open/close tracking with cash drawer reconciliation</p>
-            </div>
-            <div className="flex items-center justify-end">
-              <button
-                onClick={() => updateFeatureSetting('shiftEnabled', !featureSettings.shiftEnabled)}
-                className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.shiftEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-              >
-                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.shiftEnabled ? 'left-6' : 'left-1'}`} />
-              </button>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -5667,14 +5651,6 @@ const PosOnlyView: React.FC<Props> = ({
                     <Clock size={16} className="text-red-500" />
                     <span className="text-xs font-black text-red-700 dark:text-red-300 uppercase tracking-wider">Shift not started — counter inactive</span>
                   </div>
-                  {onOpenShiftModal && (
-                    <button
-                      onClick={onOpenShiftModal}
-                      className="px-4 py-1.5 bg-red-600 text-white rounded-lg text-xs font-black uppercase tracking-wider hover:bg-red-700 transition-all"
-                    >
-                      Open Shift
-                    </button>
-                  )}
                 </div>
               )}
               <div className={`flex-1 flex flex-col overflow-hidden ${shiftRequired ? 'opacity-40 pointer-events-auto' : ''}`} style={shiftRequired ? { filter: 'grayscale(0.3)' } : undefined}>
@@ -6592,6 +6568,8 @@ const PosOnlyView: React.FC<Props> = ({
                   return featureSettings.customerDisplayEnabled ? 'Installed · Customer display enabled' : 'Not installed';
                 case 'addon-online-shop':
                   return featureSettings.onlineShopEnabled ? 'Installed · Online shop enabled' : 'Not installed';
+                case 'addon-shift':
+                  return featureSettings.shiftEnabled ? 'Installed · Shift management enabled' : 'Not installed';
                 default:
                   return '';
               }
@@ -6640,6 +6618,7 @@ const PosOnlyView: React.FC<Props> = ({
                             { key: 'addon-tableside', label: 'Tableside Ordering', info: 'Staff take orders tableside using a tablet device.', icon: <Tablet size={14} />, badge: 'Add-on', isInstalled: featureSettings.tablesideOrderingEnabled, addonId: 'tableside' },
                             { key: 'addon-customer-display', label: 'Customer Display', info: 'External customer-facing display screen.', icon: <Monitor size={14} />, badge: 'Add-on', isInstalled: featureSettings.customerDisplayEnabled, addonId: 'customer-display' },
                             { key: 'addon-online-shop', label: 'Online Shop', info: 'Let customers order online via a shareable link.', icon: <Globe size={14} />, badge: 'Add-on', isInstalled: featureSettings.onlineShopEnabled, addonId: 'online-shop' },
+                            { key: 'addon-shift', label: 'Shift Management', info: 'Cashier shift open/close with cash drawer reconciliation & schedule.', icon: <Clock size={14} />, badge: 'Add-on', isInstalled: featureSettings.shiftEnabled, addonId: 'shift' },
                           ];
                           return (
                             <div className="mt-3 border-t border-slate-200/80 pt-3 dark:border-gray-700/80">
@@ -7018,6 +6997,32 @@ const PosOnlyView: React.FC<Props> = ({
                                     <div className="min-w-0">
                                       <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300">
                                         Share your online ordering link on social media, your website, or messaging apps to reach more customers.
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-center justify-center py-12">
+                                  <Package size={36} className="mb-3 text-amber-300" />
+                                  <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">Please install this add-on to review the setting.</p>
+                                  <p className="mt-1 text-xs text-amber-500 dark:text-amber-400/70">Click the Install button above or visit the Add-on Feature page.</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {activeSettingsPanel === 'addon-shift' && (
+                            <div className="min-w-0">
+                              {featureSettings.shiftEnabled ? (
+                                <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+                                  <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6 first:pt-0">
+                                    <div>
+                                      <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">How It Works</p>
+                                      <p className="text-xs text-gray-500 dark:text-gray-400">Shift workflow and cashier lock behavior.</p>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300">
+                                        Shift Management requires cashiers to open a shift before they can complete payment. If a shift is not active, checkout is blocked with an error notice.
                                       </div>
                                     </div>
                                   </div>
@@ -7515,6 +7520,25 @@ const PosOnlyView: React.FC<Props> = ({
                       onInstall: () => { updateFeatureSetting('onlineShopEnabled', true); },
                       onUninstall: () => { updateFeatureSetting('onlineShopEnabled', false); },
                       settingsPanel: null as string | null,
+                      renderSettings: null as (() => React.ReactNode) | null,
+                    },
+                    {
+                      id: 'shift',
+                      name: 'Shift Management',
+                      icon: <Clock size={28} className="text-amber-600 dark:text-amber-400" />,
+                      iconBg: 'bg-amber-100 dark:bg-amber-900/30',
+                      plan: 'Basic',
+                      planColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+                      shortDesc: 'Cashier shift open/close with cash drawer reconciliation.',
+                      description: 'Shift Management helps enforce cashier accountability by requiring shift open and close sessions. It tracks shift lifecycle, supports cash drawer reconciliation, and blocks payment completion while no active shift is available.',
+                      features: ['Shift open/close workflow', 'Cash drawer reconciliation support', 'Shift schedule awareness', 'Payment completion lock when shift is inactive', 'Cashier accountability tracking'],
+                      version: '1.0.0',
+                      author: 'QuickServe',
+                      isInstalled: featureSettings.shiftEnabled,
+                      canInstall: true,
+                      onInstall: () => { updateFeatureSetting('shiftEnabled', true); },
+                      onUninstall: () => { updateFeatureSetting('shiftEnabled', false); },
+                      settingsPanel: 'addon-shift' as string | null,
                       renderSettings: null as (() => React.ReactNode) | null,
                     },
                     {
@@ -9679,7 +9703,8 @@ const PosOnlyView: React.FC<Props> = ({
           <div className={`
             hidden lg:flex w-96 bg-white dark:bg-gray-800 border-l dark:border-gray-700 flex-col
             transition-all duration-300 ease-in-out
-          `}>
+            ${shiftRequired ? 'opacity-40' : ''}
+          `} style={shiftRequired ? { filter: 'grayscale(0.3)' } : undefined}>
             {/* Sidebar header */}
             <div className="p-4 border-b dark:border-gray-700">
               {editingQrOrderId && (
@@ -10877,7 +10902,6 @@ const PosOnlyView: React.FC<Props> = ({
                     onClick={async () => {
                       if (shiftRequired) {
                         toast('Please open your shift before completing a payment.', 'error');
-                        onOpenShiftModal?.();
                         return;
                       }
                       if (!collectCashAmount || collectCashAmount < selectedReportOrder.total) {
