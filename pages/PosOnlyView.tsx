@@ -522,6 +522,8 @@ const PosOnlyView: React.FC<Props> = ({
   const [reportData, setReportData] = useState<ReportResponse | null>(null);
   const [isReportLoading, setIsReportLoading] = useState(false);
   const [reportsSubMenu, setReportsSubMenu] = useState<'salesReport' | 'statistics'>('salesReport');
+  const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
+  const paginatedReports = reportData?.orders || [];
 
   // Printer Settings State (Loyverse-style)
   const [connectedDevice, setConnectedDevice] = useState<PrinterDevice | null>(null);
@@ -2230,31 +2232,21 @@ const PosOnlyView: React.FC<Props> = ({
     }
   };
 
-  const unpaidOrders = useMemo(() => {
-    // Use cached counter orders instead of fetching from DB
-    return cachedCounterOrders;
-  }, [cachedCounterOrders]);
+  const currentStaff = useMemo(
+    () => staffList.find((s: any) => s.username === cashierName),
+    [staffList, cashierName]
+  );
+  const currentStaffAccessPermissions = currentStaff?.access_permissions || {};
+  const isOwnSalesOnlyAccess = !!cashierName && currentStaff?.role !== 'MANAGER' && currentStaffAccessPermissions?.viewOwnSalesOnly === true;
 
-  const buildOfflineReportData = (isExport = false): ReportResponse | Order[] => {
-    const startTs = new Date(reportStart + 'T00:00:00').getTime();
-    const endTs = new Date(reportEnd + 'T23:59:59').getTime();
+  const applyReportAccess = (orders: Order[]): Order[] => {
+    if (!isOwnSalesOnlyAccess || !cashierName) return orders;
+    return orders.filter(order => (order.cashierName || '') === cashierName);
+  };
 
-    // Use the dedicated report cache (contains both locally-placed orders &
-    // previously-fetched server data) instead of the unpaid-queue cache.
-    const allCachedOrders = counterOrdersCache.getReportOrdersCache(restaurant.id);
-
-    const filtered = allCachedOrders
-      .filter(order => {
-        const inRange = order.timestamp >= startTs && order.timestamp <= endTs;
-        const statusMatch = reportStatus === 'ALL' || order.status === reportStatus;
-        const searchMatch = !reportSearchQuery ||
-          order.id.toLowerCase().includes(reportSearchQuery.toLowerCase());
-        return inRange && statusMatch && searchMatch;
-      })
-      .sort((a, b) => b.timestamp - a.timestamp);
-
-    const completedOrders = filtered.filter(o => o.status === OrderStatus.COMPLETED);
-    const nonCancelled = filtered.filter(o => o.status !== OrderStatus.CANCELLED);
+  const buildReportSummary = (orders: Order[]) => {
+    const completedOrders = orders.filter(o => o.status === OrderStatus.COMPLETED);
+    const nonCancelled = orders.filter(o => o.status !== OrderStatus.CANCELLED);
 
     const txMap: Record<string, { count: number; total: number }> = {};
     nonCancelled.forEach(o => {
@@ -2278,23 +2270,50 @@ const PosOnlyView: React.FC<Props> = ({
       .map(([name, d]) => ({ name, ...d }))
       .sort((a, b) => b.total - a.total);
 
-    const summary = {
+    return {
       totalRevenue: completedOrders.reduce((sum, o) => sum + o.total, 0),
-      orderVolume: filtered.length,
-      efficiency: filtered.length > 0
-        ? Math.round((completedOrders.length / filtered.length) * 100)
+      orderVolume: orders.length,
+      efficiency: orders.length > 0
+        ? Math.round((completedOrders.length / orders.length) * 100)
         : 0,
       byTransactionType,
       byCashier,
     };
+  };
 
-    if (isExport) return filtered;
+  const unpaidOrders = useMemo(() => {
+    // Use cached counter orders instead of fetching from DB
+    return cachedCounterOrders;
+  }, [cachedCounterOrders]);
+
+  const buildOfflineReportData = (isExport = false): ReportResponse | Order[] => {
+    const startTs = new Date(reportStart + 'T00:00:00').getTime();
+    const endTs = new Date(reportEnd + 'T23:59:59').getTime();
+
+    // Use the dedicated report cache (contains both locally-placed orders &
+    // previously-fetched server data) instead of the unpaid-queue cache.
+    const allCachedOrders = counterOrdersCache.getReportOrdersCache(restaurant.id);
+
+    const filtered = allCachedOrders
+      .filter(order => {
+        const inRange = order.timestamp >= startTs && order.timestamp <= endTs;
+        const statusMatch = reportStatus === 'ALL' || order.status === reportStatus;
+        const searchMatch = !reportSearchQuery ||
+          order.id.toLowerCase().includes(reportSearchQuery.toLowerCase());
+        return inRange && statusMatch && searchMatch;
+      })
+      .sort((a, b) => b.timestamp - a.timestamp);
+
+    const accessFiltered = applyReportAccess(filtered);
+    const summary = buildReportSummary(accessFiltered);
+
+    if (isExport) return accessFiltered;
 
     const pageStart = (currentPage - 1) * entriesPerPage;
     return {
-      orders: filtered.slice(pageStart, pageStart + entriesPerPage),
+      orders: accessFiltered.slice(pageStart, pageStart + entriesPerPage),
       summary,
-      totalCount: filtered.length,
+      totalCount: accessFiltered.length,
     };
   };
 
@@ -2319,7 +2338,38 @@ const PosOnlyView: React.FC<Props> = ({
 
       if (isExport && onFetchAllFilteredOrders) {
         const orders = await onFetchAllFilteredOrders(filters);
-        return orders;
+        return applyReportAccess(orders);
+      }
+
+      if (!isExport && isOwnSalesOnlyAccess) {
+        let allOrders: Order[] = [];
+        if (onFetchAllFilteredOrders) {
+          allOrders = await onFetchAllFilteredOrders(filters);
+        } else {
+          const allParams = new URLSearchParams({
+            ...filters as any,
+            page: '1',
+            limit: '10000',
+          });
+          const allResponse = await fetch(`/api/orders/report?${allParams.toString()}`);
+          if (!allResponse.ok) throw new Error('Failed to fetch report');
+          const allData: ReportResponse = await allResponse.json();
+          allOrders = allData.orders || [];
+        }
+
+        const sortedAccessibleOrders = applyReportAccess(allOrders)
+          .slice()
+          .sort((a, b) => b.timestamp - a.timestamp);
+        const pageStart = (currentPage - 1) * entriesPerPage;
+        const pageOrders = sortedAccessibleOrders.slice(pageStart, pageStart + entriesPerPage);
+        const data: ReportResponse = {
+          orders: pageOrders,
+          summary: buildReportSummary(sortedAccessibleOrders),
+          totalCount: sortedAccessibleOrders.length,
+        };
+        counterOrdersCache.mergeReportOrdersCache(restaurant.id, pageOrders);
+        setReportData(data);
+        return;
       }
 
       if (!isExport && onFetchPaginatedOrders) {
@@ -2332,8 +2382,8 @@ const PosOnlyView: React.FC<Props> = ({
 
       const params = new URLSearchParams({
         ...filters as any,
-        page: isExport ? '1' : currentPage.toString(),
-        limit: isExport ? '10000' : entriesPerPage.toString()
+        page: (isExport || isOwnSalesOnlyAccess) ? '1' : currentPage.toString(),
+        limit: (isExport || isOwnSalesOnlyAccess) ? '10000' : entriesPerPage.toString()
       });
 
       const response = await fetch(`/api/orders/report?${params.toString()}`);
@@ -2342,7 +2392,20 @@ const PosOnlyView: React.FC<Props> = ({
       
       if (isExport) {
         counterOrdersCache.mergeReportOrdersCache(restaurant.id, data.orders);
-        return data.orders;
+        return applyReportAccess(data.orders);
+      } else if (isOwnSalesOnlyAccess) {
+        const sortedAccessibleOrders = applyReportAccess(data.orders)
+          .slice()
+          .sort((a, b) => b.timestamp - a.timestamp);
+        const pageStart = (currentPage - 1) * entriesPerPage;
+        const pageOrders = sortedAccessibleOrders.slice(pageStart, pageStart + entriesPerPage);
+        const accessData: ReportResponse = {
+          orders: pageOrders,
+          summary: buildReportSummary(sortedAccessibleOrders),
+          totalCount: sortedAccessibleOrders.length,
+        };
+        counterOrdersCache.mergeReportOrdersCache(restaurant.id, pageOrders);
+        setReportData(accessData);
       } else {
         counterOrdersCache.mergeReportOrdersCache(restaurant.id, data.orders);
         setReportData(data);
@@ -3686,16 +3749,6 @@ const PosOnlyView: React.FC<Props> = ({
       setIsDownloadingPDF(false);
     }
   };
-
-  const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
-  // Respect "view own sales only" access control for the logged-in cashier
-  const _currentStaffPerms = staffList.find((s: any) => s.username === cashierName)?.access_permissions;
-  const _viewOwnSalesOnly = (_currentStaffPerms?.viewOwnSalesOnly === true) && !!cashierName;
-  const paginatedReports = reportData?.orders
-    ? (_viewOwnSalesOnly
-        ? reportData.orders.filter(o => (o.cashierName || '') === cashierName)
-        : reportData.orders)
-    : [];
 
   const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING' | 'ADDONS' | 'ONLINE_ORDERS' | 'MAIL') => {
     setActiveTab(tab);
@@ -5738,11 +5791,8 @@ const PosOnlyView: React.FC<Props> = ({
                 <>
               {/* Shift-required dim overlay */}
               {shiftRequired && (
-                <div className="bg-red-50 dark:bg-red-900/30 border-b-2 border-red-300 dark:border-red-700 px-4 py-3 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <Clock size={16} className="text-red-500" />
-                    <span className="text-xs font-black text-red-700 dark:text-red-300 uppercase tracking-wider">Shift not started — counter inactive</span>
-                  </div>
+                <div className="bg-red-50 dark:bg-red-900/30 border-b-2 border-red-300 dark:border-red-700 px-4 py-3 flex items-center justify-center">
+                  <span className="text-xs font-black text-red-700 dark:text-red-300 uppercase tracking-wider text-center">Shift not started — counter inactive</span>
                 </div>
               )}
               <div className={`flex-1 flex flex-col overflow-hidden ${shiftRequired ? 'opacity-40 pointer-events-auto' : ''}`} style={shiftRequired ? { filter: 'grayscale(0.3)' } : undefined}>
@@ -6592,7 +6642,7 @@ const PosOnlyView: React.FC<Props> = ({
                     },
                     {
                       key: 'staff',
-                      label: 'Staff',
+                      label: 'Staff & Access',
                       info: 'Manage staff accounts and permissions.',
                       icon: Users,
                       badge: 'Access'
