@@ -5786,6 +5786,8 @@ const PosOnlyView: React.FC<Props> = ({
               </div>{/* close shift dim wrapper */}
             </>
           )}
+            </>
+          )}
 
           {/* Reports Tab - Same as PosView */}
           {activeTab === 'REPORTS' && reportsSubMenu === 'salesReport' && (
@@ -10077,6 +10079,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               </div>
             </div>
+              </>
             )}
           </div>
         )}

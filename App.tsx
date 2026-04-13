@@ -2310,6 +2310,8 @@ const App: React.FC = () => {
               onMailTabOpened={() => setOpenMailInPOS(false)}
               onUpdateOrderItems={updateOrderItems}
               onComparePlans={() => setView('COMPARE_PLANS')}
+              activeShift={activeShift}
+              onOpenShiftModal={() => setShowShiftModal(true)}
             />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
@@ -2356,6 +2358,8 @@ const App: React.FC = () => {
                 onMailTabOpened={() => setOpenMailInPOS(false)}
                 onUpdateOrderItems={updateOrderItems}
                 onComparePlans={() => setView('COMPARE_PLANS')}
+                activeShift={activeShift}
+                onOpenShiftModal={() => setShowShiftModal(true)}
               />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
@@ -2396,6 +2400,8 @@ const App: React.FC = () => {
                 openMailTab={openMailInPOS}
                 onMailTabOpened={() => setOpenMailInPOS(false)}
                 onUpdateOrderItems={updateOrderItems}
+                activeShift={activeShift}
+                onOpenShiftModal={() => setShowShiftModal(true)}
               />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
