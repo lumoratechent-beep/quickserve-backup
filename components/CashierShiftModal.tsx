@@ -404,9 +404,9 @@ const CashierShiftModal: React.FC<Props> = ({
   };
 
   const handleOpenShift = async (skipZeroConfirmation = false) => {
-    const amount = parseFloat(openingAmount);
+    const amount = openingAmount === '' ? 0 : parseFloat(openingAmount);
     if (Number.isNaN(amount) || amount < 0) {
-      toast('Please enter an opening amount. Zero is allowed.', 'error');
+      toast('Please enter a valid opening amount.', 'error');
       return;
     }
 
@@ -773,7 +773,7 @@ const CashierShiftModal: React.FC<Props> = ({
           className="flex h-full w-[200%] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
           style={{ transform: isCloseConfirmationStep ? 'translateX(-50%)' : 'translateX(0%)' }}
         >
-          <div className="flex h-full min-w-full flex-col">
+          <div className="flex h-full min-w-[50%] flex-col">
             <div className="px-5 lg:px-8 py-4 lg:py-5 border-b dark:border-gray-700 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 bg-red-100 dark:bg-red-900/30 rounded-2xl flex items-center justify-center">
@@ -925,7 +925,7 @@ const CashierShiftModal: React.FC<Props> = ({
             </div>
           </div>
 
-          <div className="flex h-full min-w-full flex-col">
+          <div className="flex h-full min-w-[50%] flex-col">
             <div className="px-8 py-5 border-b dark:border-gray-700 flex items-center justify-between flex-shrink-0 relative">
               <div className="text-center flex-1">
                 <h3 className="font-black dark:text-white uppercase tracking-tighter text-2xl">Shift Close Ready</h3>
@@ -993,6 +993,13 @@ const CashierShiftModal: React.FC<Props> = ({
             </div>
 
             <div className="px-8 py-5 border-t dark:border-gray-700 flex-shrink-0 flex gap-3">
+              <button
+                onClick={resetCloseFlow}
+                disabled={loading || isPrinting}
+                className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-sm lg:text-lg uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+              >
+                Back
+              </button>
               {!hasPrintedShiftDetails && (
                 <button
                   onClick={() => void handlePrintShiftDetails()}
