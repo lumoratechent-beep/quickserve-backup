@@ -4628,7 +4628,7 @@ const PosOnlyView: React.FC<Props> = ({
         </div>
       ) : (
         <>
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-4 lg:gap-10 py-6 first:pt-0">
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6 first:pt-0">
         <div>
           <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Cashier Access</p>
           <p className="text-xs text-gray-500 dark:text-gray-400">Apply rules to all cashiers at once, or expand a rule to decide which cashier should have it enabled.</p>
@@ -4656,7 +4656,7 @@ const PosOnlyView: React.FC<Props> = ({
                   <div key={setting.key} className="px-4 py-3 sm:px-5">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 min-w-0">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
                           <button
                             onClick={() => setExpandedCashierAccessSettings(prev => ({ ...prev, [setting.key]: !prev[setting.key] }))}
                             className="mt-0.5 shrink-0 p-1 text-slate-400 hover:text-orange-500 transition-colors"
@@ -4664,7 +4664,7 @@ const PosOnlyView: React.FC<Props> = ({
                           >
                             <ChevronRight size={14} className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
                           </button>
-                          <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{setting.label}</p>
+                          <p className="min-w-0 flex-1 text-sm font-semibold leading-snug text-slate-900 dark:text-white">{setting.label}</p>
                           <span className={`shrink-0 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${badgeClass}`}>{statusLabel}</span>
                           <span className="shrink-0 text-[9px] font-black text-slate-400 dark:text-gray-500 uppercase tracking-widest">{summary.enabledCount}/{summary.total} enabled</span>
                         </div>
@@ -4687,8 +4687,8 @@ const PosOnlyView: React.FC<Props> = ({
                             const isEnabled = staff.access_permissions?.[setting.key] === true;
                             return (
                               <div key={staff.id || `${staff.username}-${index}`} className="flex items-center justify-between gap-3 px-4 py-3">
-                                <div className="min-w-0">
-                                  <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{staff.username}</p>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium leading-snug text-slate-900 dark:text-white">{staff.username}</p>
                                   <p className="text-[10px] text-slate-400 dark:text-gray-500 uppercase tracking-widest mt-0.5">Cashier</p>
                                 </div>
                                 <button
@@ -4721,7 +4721,7 @@ const PosOnlyView: React.FC<Props> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-4 lg:gap-10 py-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6">
         <div>
           <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Registered Staff</p>
           <p className="text-xs text-gray-500 dark:text-gray-400">Edit existing account details, reset passwords, or remove access for individual team members.</p>
@@ -4741,9 +4741,9 @@ const PosOnlyView: React.FC<Props> = ({
                   const perms = staff.access_permissions || {};
                   const isManager = staff.role === 'MANAGER';
                   return (
-                    <div key={idx} className="flex items-center gap-3 px-4 py-4 sm:px-5">
+                    <div key={idx} className="flex items-start gap-3 px-4 py-4 sm:px-5">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{staff.username}</p>
+                        <p className="text-sm font-semibold leading-snug text-slate-900 dark:text-white">{staff.username}</p>
                         <div className="mt-2 flex items-center flex-wrap gap-1.5">
                           <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${
                             isManager
