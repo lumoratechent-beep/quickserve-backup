@@ -10,7 +10,7 @@ import printerService, {
 } from '../services/printerService';
 import {
   X, DollarSign, Clock, CheckCircle2, TrendingUp, TrendingDown,
-  Banknote, CreditCard, QrCode, ArrowRight, Printer
+  Banknote, CreditCard, QrCode, ArrowRight, Printer, Delete
 } from 'lucide-react';
 
 interface Props {
@@ -39,6 +39,9 @@ const CashierShiftModal: React.FC<Props> = ({
   const [openingAmount, setOpeningAmount] = useState('');
   const [closingAmount, setClosingAmount] = useState('');
   const [closeNote, setCloseNote] = useState('');
+  const [amountKeypadTarget, setAmountKeypadTarget] = useState<'opening' | 'closing' | null>(null);
+  const [amountKeypadInput, setAmountKeypadInput] = useState('');
+  const [amountKeypadFreshEntry, setAmountKeypadFreshEntry] = useState(true);
   const [loading, setLoading] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [closeStep, setCloseStep] = useState<'form' | 'confirm'>('form');
@@ -111,6 +114,150 @@ const CashierShiftModal: React.FC<Props> = ({
     return `${hours}h ${minutes}m`;
   };
 
+  const sanitizeAmountInput = (value: string) => {
+    const cleaned = value.replace(/[^0-9.]/g, '');
+    const firstDot = cleaned.indexOf('.');
+    const normalized = firstDot === -1
+      ? cleaned
+      : `${cleaned.slice(0, firstDot + 1)}${cleaned.slice(firstDot + 1).replace(/\./g, '')}`;
+
+    if (!normalized.includes('.')) return normalized;
+
+    const [whole, decimal = ''] = normalized.split('.');
+    return `${whole}.${decimal.slice(0, 2)}`;
+  };
+
+  const resetAmountKeypad = () => {
+    setAmountKeypadTarget(null);
+    setAmountKeypadInput('');
+    setAmountKeypadFreshEntry(true);
+  };
+
+  const openAmountKeypad = (target: 'opening' | 'closing') => {
+    setAmountKeypadTarget(target);
+    setAmountKeypadInput(target === 'opening' ? openingAmount : closingAmount);
+    setAmountKeypadFreshEntry(true);
+  };
+
+  const appendAmountKeypadValue = (token: string) => {
+    if (amountKeypadFreshEntry) {
+      setAmountKeypadInput(sanitizeAmountInput(token));
+      setAmountKeypadFreshEntry(false);
+      return;
+    }
+
+    setAmountKeypadInput((prev) => sanitizeAmountInput(`${prev}${token}`));
+  };
+
+  const backspaceAmountKeypadValue = () => {
+    setAmountKeypadFreshEntry(false);
+    setAmountKeypadInput((prev) => prev.slice(0, -1));
+  };
+
+  const saveAmountFromKeypad = () => {
+    const next = sanitizeAmountInput(amountKeypadInput);
+
+    if (amountKeypadTarget === 'opening') {
+      setOpeningAmount(next);
+    }
+
+    if (amountKeypadTarget === 'closing') {
+      setClosingAmount(next);
+      setHasPrintedShiftDetails(false);
+      setPendingClosedAt(null);
+    }
+
+    resetAmountKeypad();
+  };
+
+  const renderAmountKeypad = () => {
+    if (!amountKeypadTarget) return null;
+
+    const isOpeningKeypad = amountKeypadTarget === 'opening';
+    const accentBorder = isOpeningKeypad ? 'border-green-500' : 'border-red-500';
+    const accentText = isOpeningKeypad ? 'text-green-500' : 'text-red-500';
+    const accentButton = isOpeningKeypad ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700';
+    const title = isOpeningKeypad ? 'Opening Amount' : 'Actual Cash In Drawer';
+
+    return (
+      <div className="absolute inset-0 z-20 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm flex flex-col">
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 lg:px-8 pb-6 lg:pb-8 pt-8 lg:pt-10 space-y-5 lg:space-y-6">
+          <div className="text-center space-y-3">
+            <p className="text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">{title}</p>
+            <div className={`mx-auto w-64 lg:w-80 relative flex items-end border-b-2 ${accentBorder} pb-1`}>
+              <span className={`absolute left-0 bottom-1 text-xl lg:text-2xl font-black ${accentText}`}>{currencySymbol}</span>
+              <span className={`w-full text-4xl lg:text-5xl font-black tracking-tighter text-center ${accentText}`}>
+                {amountKeypadInput || '0.00'}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 lg:gap-3">
+            {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((token) => (
+              <button
+                key={`shift-amount-keypad-${token}`}
+                type="button"
+                onClick={() => appendAmountKeypadValue(token)}
+                className="py-4 lg:py-5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-2xl lg:text-3xl font-black transition-all"
+              >
+                {token}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => appendAmountKeypadValue('.')}
+              className="py-4 lg:py-5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-2xl lg:text-3xl font-black transition-all"
+            >
+              .
+            </button>
+            <button
+              type="button"
+              onClick={() => appendAmountKeypadValue('0')}
+              className="py-4 lg:py-5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-2xl lg:text-3xl font-black transition-all"
+            >
+              0
+            </button>
+            <button
+              type="button"
+              onClick={backspaceAmountKeypadValue}
+              className="py-4 lg:py-5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 flex items-center justify-center transition-all"
+            >
+              <Delete size={24} />
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setAmountKeypadFreshEntry(true);
+              setAmountKeypadInput('');
+            }}
+            className="w-full py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-black uppercase tracking-widest transition-all"
+          >
+            Clear
+          </button>
+        </div>
+
+        <div className="px-5 lg:px-8 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:py-5 border-t dark:border-gray-700 flex gap-3 lg:gap-4 flex-shrink-0">
+          <button
+            type="button"
+            onClick={resetAmountKeypad}
+            className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={saveAmountFromKeypad}
+            className={`flex-1 py-3 text-white rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider transition-all ${accentButton}`}
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const resetCloseFlow = () => {
     setCloseStep('form');
     setPendingClosedAt(null);
@@ -118,6 +265,7 @@ const CashierShiftModal: React.FC<Props> = ({
   };
 
   const handleDismiss = () => {
+    resetAmountKeypad();
     resetCloseFlow();
     onClose();
   };
@@ -218,6 +366,32 @@ const CashierShiftModal: React.FC<Props> = ({
     }
   };
 
+  const ensureShiftPrinterConnection = async (printer?: SavedPrinter | null) => {
+    if (printerService.isConnected()) return true;
+
+    const candidateDeviceNames = [
+      (() => {
+        try {
+          const saved = localStorage.getItem(`printer_${restaurantId}`);
+          if (!saved) return null;
+          const parsed = JSON.parse(saved) as { name?: string } | null;
+          return parsed?.name || null;
+        } catch {
+          return null;
+        }
+      })(),
+      printer?.deviceName || null,
+    ].filter((name, index, list): name is string => Boolean(name) && list.indexOf(name) === index);
+
+    for (const deviceName of candidateDeviceNames) {
+      if (await printerService.autoReconnect(deviceName)) {
+        return true;
+      }
+    }
+
+    return printerService.isConnected();
+  };
+
   const handlePrepareCloseShift = () => {
     if (!activeShift) return;
     const amount = ensureClosingAmount();
@@ -241,7 +415,8 @@ const CashierShiftModal: React.FC<Props> = ({
         toast('Printer is not connected.', 'error');
         return false;
       }
-      if (!printerService.isConnected()) {
+
+      if (!await ensureShiftPrinterConnection(printer)) {
         toast('Printer is not connected.', 'error');
         return false;
       }
@@ -343,20 +518,13 @@ const CashierShiftModal: React.FC<Props> = ({
               <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
                 Cash Drawer Opening Amount
               </label>
-              <div className="relative">
+              <button type="button" onClick={() => openAmountKeypad('opening')} className="relative w-full">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg">{currencySymbol}</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={openingAmount}
-                  onChange={e => setOpeningAmount(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full pl-10 pr-4 py-4 text-2xl font-black border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 dark:text-white focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none text-center"
-                  autoFocus
-                />
-              </div>
-              <p className="text-xs text-gray-400 mt-2">Enter the amount of cash currently in the drawer</p>
+                <div className="w-full pl-10 pr-4 py-4 text-2xl font-black border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 dark:text-white text-center">
+                  {openingAmount || '0.00'}
+                </div>
+              </button>
+              <p className="text-xs text-gray-400 mt-2">Tap the amount field to open the number pad.</p>
             </div>
           </div>
 
@@ -372,6 +540,8 @@ const CashierShiftModal: React.FC<Props> = ({
               {loading ? 'Opening...' : <>Open Shift <ArrowRight size={18} /></>}
             </button>
           </div>
+
+          {renderAmountKeypad()}
         </div>
       </div>
     );
@@ -466,24 +636,13 @@ const CashierShiftModal: React.FC<Props> = ({
                     <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest mb-3">
                       Actual Cash In Drawer
                     </label>
-                    <div className="relative">
+                    <button type="button" onClick={() => openAmountKeypad('closing')} className="relative w-full">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xl">{currencySymbol}</span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={closingAmount}
-                        onChange={e => {
-                          setClosingAmount(e.target.value);
-                          setHasPrintedShiftDetails(false);
-                          setPendingClosedAt(null);
-                        }}
-                        placeholder="0.00"
-                        className="w-full pl-10 pr-4 py-5 lg:py-6 text-4xl lg:text-5xl font-black border-2 border-gray-200 dark:border-gray-600 rounded-2xl bg-gray-50 dark:bg-gray-700 dark:text-white focus:border-red-500 focus:ring-2 focus:ring-red-200 outline-none text-center tracking-tighter"
-                        autoFocus
-                      />
-                    </div>
-                    <p className="text-xs text-gray-400 mt-2">Enter the physical cash counted in the drawer.</p>
+                      <div className="w-full pl-10 pr-4 py-5 lg:py-6 text-4xl lg:text-5xl font-black border-2 border-gray-200 dark:border-gray-600 rounded-2xl bg-gray-50 dark:bg-gray-700 dark:text-white text-center tracking-tighter">
+                        {closingAmount || '0.00'}
+                      </div>
+                    </button>
+                    <p className="text-xs text-gray-400 mt-2">Tap the amount field to open the number pad.</p>
                   </div>
 
                   {closingAmount && (
@@ -627,6 +786,8 @@ const CashierShiftModal: React.FC<Props> = ({
             </div>
           </>
         )}
+
+        {renderAmountKeypad()}
       </div>
     </div>
   );
