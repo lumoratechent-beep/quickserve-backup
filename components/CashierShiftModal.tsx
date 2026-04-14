@@ -47,6 +47,7 @@ const CashierShiftModal: React.FC<Props> = ({
   const [closeStep, setCloseStep] = useState<'form' | 'confirm'>('form');
   const [pendingClosedAt, setPendingClosedAt] = useState<string | null>(null);
   const [hasPrintedShiftDetails, setHasPrintedShiftDetails] = useState(false);
+  const [printerLive, setPrinterLive] = useState(() => printerService.isConnected());
 
   const shiftSales = useMemo(() => {
     if (!activeShift) return { cash: 0, card: 0, qr: 0, other: 0, total: 0, count: 0, refunds: 0 };
@@ -94,6 +95,13 @@ const CashierShiftModal: React.FC<Props> = ({
     setPendingClosedAt(null);
     setHasPrintedShiftDetails(false);
   }, [activeShift?.id]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setPrinterLive(printerService.isConnected());
+    }, 2000);
+    return () => clearInterval(timer);
+  }, []);
 
   const fmt = (value: number) => `${currencySymbol}${value.toFixed(2)}`;
 
@@ -180,79 +188,93 @@ const CashierShiftModal: React.FC<Props> = ({
     const title = isOpeningKeypad ? 'Opening Amount' : 'Actual Cash In Drawer';
 
     return (
-      <div className="absolute inset-0 z-20 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm flex flex-col">
-        <div className="flex-1 min-h-0 overflow-y-auto px-5 lg:px-8 pb-6 lg:pb-8 pt-8 lg:pt-10 space-y-5 lg:space-y-6">
-          <div className="text-center space-y-3">
-            <p className="text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">{title}</p>
-            <div className={`mx-auto w-64 lg:w-80 relative flex items-end border-b-2 ${accentBorder} pb-1`}>
-              <span className={`absolute left-0 bottom-1 text-xl lg:text-2xl font-black ${accentText}`}>{currencySymbol}</span>
-              <span className={`w-full text-4xl lg:text-5xl font-black tracking-tighter text-center ${accentText}`}>
+      <div
+        className="fixed inset-0 z-[100001] bg-black/50 flex items-end lg:items-center justify-center lg:p-4"
+        onClick={resetAmountKeypad}
+      >
+        <div
+          className="bg-white dark:bg-gray-800 rounded-t-3xl lg:rounded-3xl shadow-2xl w-full lg:max-w-sm flex flex-col max-h-[92dvh]"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="px-6 py-4 border-b dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+            <p className="text-sm font-black uppercase tracking-widest dark:text-white">{title}</p>
+            <button onClick={resetAmountKeypad} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+              <X size={20} className="text-gray-400" />
+            </button>
+          </div>
+
+          <div className="px-6 pt-6 pb-2 text-center flex-shrink-0">
+            <div className={`mx-auto relative flex items-center justify-center border-b-2 ${accentBorder} pb-2 gap-2`}>
+              <span className={`text-xl font-black ${accentText}`}>{currencySymbol}</span>
+              <span className={`text-5xl font-black tracking-tighter ${accentText}`}>
                 {amountKeypadInput || '0.00'}
               </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 lg:gap-3">
-            {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((token) => (
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-4 pt-4 space-y-3">
+            <div className="grid grid-cols-3 gap-2">
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((token) => (
+                <button
+                  key={`shift-amount-keypad-${token}`}
+                  type="button"
+                  onClick={() => appendAmountKeypadValue(token)}
+                  className="py-4 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-2xl font-black transition-all"
+                >
+                  {token}
+                </button>
+              ))}
               <button
-                key={`shift-amount-keypad-${token}`}
                 type="button"
-                onClick={() => appendAmountKeypadValue(token)}
-                className="py-4 lg:py-5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-2xl lg:text-3xl font-black transition-all"
+                onClick={() => appendAmountKeypadValue('.')}
+                className="py-4 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-2xl font-black transition-all"
               >
-                {token}
+                .
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={() => appendAmountKeypadValue('0')}
+                className="py-4 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-2xl font-black transition-all"
+              >
+                0
+              </button>
+              <button
+                type="button"
+                onClick={backspaceAmountKeypadValue}
+                className="py-4 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 flex items-center justify-center transition-all"
+              >
+                <Delete size={24} />
+              </button>
+            </div>
+
             <button
               type="button"
-              onClick={() => appendAmountKeypadValue('.')}
-              className="py-4 lg:py-5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-2xl lg:text-3xl font-black transition-all"
+              onClick={() => {
+                setAmountKeypadFreshEntry(true);
+                setAmountKeypadInput('');
+              }}
+              className="w-full py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-black uppercase tracking-widest transition-all"
             >
-              .
-            </button>
-            <button
-              type="button"
-              onClick={() => appendAmountKeypadValue('0')}
-              className="py-4 lg:py-5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-2xl lg:text-3xl font-black transition-all"
-            >
-              0
-            </button>
-            <button
-              type="button"
-              onClick={backspaceAmountKeypadValue}
-              className="py-4 lg:py-5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 flex items-center justify-center transition-all"
-            >
-              <Delete size={24} />
+              Clear
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setAmountKeypadFreshEntry(true);
-              setAmountKeypadInput('');
-            }}
-            className="w-full py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-black uppercase tracking-widest transition-all"
-          >
-            Clear
-          </button>
-        </div>
-
-        <div className="px-5 lg:px-8 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:py-5 border-t dark:border-gray-700 flex gap-3 lg:gap-4 flex-shrink-0">
-          <button
-            type="button"
-            onClick={resetAmountKeypad}
-            className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={saveAmountFromKeypad}
-            className={`flex-1 py-3 text-white rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider transition-all ${accentButton}`}
-          >
-            Save
-          </button>
+          <div className="px-5 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t dark:border-gray-700 flex gap-3 flex-shrink-0">
+            <button
+              type="button"
+              onClick={resetAmountKeypad}
+              className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-sm uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={saveAmountFromKeypad}
+              className={`flex-1 py-3 text-white rounded-xl font-black text-sm uppercase tracking-wider transition-all ${accentButton}`}
+            >
+              Save
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -272,8 +294,8 @@ const CashierShiftModal: React.FC<Props> = ({
 
   const handleOpenShift = async () => {
     const amount = parseFloat(openingAmount);
-    if (isNaN(amount) || amount < 0) {
-      toast('Please enter a valid opening amount.', 'error');
+    if (isNaN(amount) || amount <= 0) {
+      toast('Please enter an opening amount greater than 0.', 'error');
       return;
     }
 
@@ -304,8 +326,8 @@ const CashierShiftModal: React.FC<Props> = ({
 
   const ensureClosingAmount = () => {
     const amount = parseFloat(closingAmount);
-    if (isNaN(amount) || amount < 0) {
-      toast('Please enter the actual cash drawer amount.', 'error');
+    if (isNaN(amount) || amount <= 0) {
+      toast('Please enter the actual cash drawer amount (must be greater than 0).', 'error');
       return null;
     }
     return amount;
@@ -366,32 +388,6 @@ const CashierShiftModal: React.FC<Props> = ({
     }
   };
 
-  const ensureShiftPrinterConnection = async (printer?: SavedPrinter | null) => {
-    if (printerService.isConnected()) return true;
-
-    const candidateDeviceNames = [
-      (() => {
-        try {
-          const saved = localStorage.getItem(`printer_${restaurantId}`);
-          if (!saved) return null;
-          const parsed = JSON.parse(saved) as { name?: string } | null;
-          return parsed?.name || null;
-        } catch {
-          return null;
-        }
-      })(),
-      printer?.deviceName || null,
-    ].filter((name, index, list): name is string => Boolean(name) && list.indexOf(name) === index);
-
-    for (const deviceName of candidateDeviceNames) {
-      if (await printerService.autoReconnect(deviceName)) {
-        return true;
-      }
-    }
-
-    return printerService.isConnected();
-  };
-
   const handlePrepareCloseShift = () => {
     if (!activeShift) return;
     const amount = ensureClosingAmount();
@@ -412,12 +408,7 @@ const CashierShiftModal: React.FC<Props> = ({
     try {
       const printer = loadSavedPrinters()[0];
       if (!printer) {
-        toast('Printer is not connected.', 'error');
-        return false;
-      }
-
-      if (!await ensureShiftPrinterConnection(printer)) {
-        toast('Printer is not connected.', 'error');
+        toast('No printer configured. Please add a printer in Settings.', 'error');
         return false;
       }
 
@@ -697,7 +688,7 @@ const CashierShiftModal: React.FC<Props> = ({
               </button>
               <button
                 onClick={handlePrepareCloseShift}
-                disabled={loading || !closingAmount}
+                disabled={loading || !closingAmount || parseFloat(closingAmount) <= 0}
                 className="flex-1 py-3 bg-red-600 text-white rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-red-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {loading ? 'Closing...' : <>Close Shift <ArrowRight size={18} /></>}
@@ -763,6 +754,12 @@ const CashierShiftModal: React.FC<Props> = ({
                 <p className="text-sm text-gray-400 dark:text-gray-500 italic">
                   {hasPrintedShiftDetails ? 'Shift details printed. You can close the shift now.' : 'Closing the shift will print the shift details automatically.'}
                 </p>
+                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider mt-2 ${
+                  printerLive ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                }`}>
+                  <div className={`w-2 h-2 rounded-full ${printerLive ? 'bg-green-500 animate-pulse' : 'bg-red-400'}`} />
+                  {printerLive ? 'Printer Connected' : 'Printer Not Connected'}
+                </div>
               </div>
             </div>
 
