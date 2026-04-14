@@ -2458,6 +2458,7 @@ const App: React.FC = () => {
       {showShiftModal && currentUser?.restaurantId && (
         <CashierShiftModal
           restaurantId={currentUser.restaurantId}
+          restaurantName={restaurants.find(r => r.id === currentUser.restaurantId)?.name || 'Restaurant'}
           cashierName={currentUser.username}
           cashierUserId={currentUser.id}
           currencySymbol={(() => {

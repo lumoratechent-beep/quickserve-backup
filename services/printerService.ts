@@ -218,6 +218,38 @@ export interface ReceiptPrintOptions {
   footerAlignment?: TextAlignment;
 }
 
+export interface ShiftPrintData {
+  shiftId: string;
+  cashierName: string;
+  openedAt: string;
+  closedAt: string;
+  openingAmount: number;
+  expectedClosingAmount: number;
+  actualClosingAmount: number;
+  difference: number;
+  totalCashSales: number;
+  totalCardSales: number;
+  totalQrSales: number;
+  totalOtherSales: number;
+  totalSales: number;
+  totalOrders: number;
+  totalRefunds?: number;
+  closeNote?: string | null;
+}
+
+export interface ShiftPrintOptions {
+  businessName?: string;
+  businessAddressLine1?: string;
+  businessAddressLine2?: string;
+  businessPhone?: string;
+  headerText?: string;
+  footerText?: string;
+  currencySymbol?: string;
+  paperSize?: PaperSize;
+  printDensity?: PrintDensity;
+  autoCut?: boolean;
+}
+
 
 // ─── Defaults ───────────────────────────────────────────────────────────────
 
@@ -1174,6 +1206,105 @@ class PrinterService {
       return true;
     } catch (error) {
       console.error('Kitchen ticket error:', error);
+      return false;
+    } finally {
+      this.isPrinting = false;
+    }
+  }
+
+  async printShiftDetails(
+    shift: ShiftPrintData,
+    restaurant?: { name?: string },
+    options?: ShiftPrintOptions,
+  ): Promise<boolean> {
+    if (!await this.ensureConnection()) throw new Error('Printer not connected');
+    if (!this.characteristic) throw new Error('No writable characteristic');
+
+    this.isPrinting = true;
+    try {
+      const paperSize: PaperSize = options?.paperSize || '58mm';
+      const r = new EscPosBuilder(paperSize);
+      const businessName = this.sanitize(options?.businessName || restaurant?.name) || 'RESTAURANT';
+      const currencySymbol = this.sanitize(options?.currencySymbol) || 'RM ';
+      const headerText = this.sanitize(options?.headerText);
+      const footerText = this.sanitize(options?.footerText || 'Shift closed successfully.');
+      const businessAddressLine1 = this.sanitize(options?.businessAddressLine1);
+      const businessAddressLine2 = this.sanitize(options?.businessAddressLine2);
+      const businessPhone = this.sanitize(options?.businessPhone);
+      const openedAt = new Date(shift.openedAt);
+      const closedAt = new Date(shift.closedAt);
+      const durationMinutes = Math.max(0, Math.round((closedAt.getTime() - openedAt.getTime()) / 60000));
+      const durationHours = Math.floor(durationMinutes / 60);
+      const remainingMinutes = durationMinutes % 60;
+      const durationLabel = `${durationHours}h ${remainingMinutes}m`;
+      const fmtMoney = (amount: number) => `${currencySymbol}${this.formatPrice(amount)}`;
+
+      r.init();
+      if (options?.printDensity) r.density(options.printDensity);
+
+      r.align('center').bold(true).size(2, 2).line(businessName).normalSize().bold(false);
+      if (businessAddressLine1) r.line(businessAddressLine1);
+      if (businessAddressLine2) r.line(businessAddressLine2);
+      if (businessPhone) r.line(businessPhone);
+      if (headerText) {
+        r.feed(1);
+        r.line(headerText);
+      }
+
+      r.thickSeparator();
+      r.align('center').bold(true).size(1, 2).line('SHIFT CLOSE').normalSize().bold(false);
+      r.align('left').separator();
+      r.columns2('Shift ID', this.sanitize(shift.shiftId) || '-');
+      r.columns2('Cashier', this.sanitize(shift.cashierName) || '-');
+      r.columns2('Opened', `${this.formatDate(openedAt)} ${this.formatTime(openedAt)}`);
+      r.columns2('Closed', `${this.formatDate(closedAt)} ${this.formatTime(closedAt)}`);
+      r.columns2('Duration', durationLabel);
+
+      r.separator();
+      r.bold(true).line('SALES BREAKDOWN').bold(false);
+      r.columns2('Cash Sales', fmtMoney(shift.totalCashSales));
+      r.columns2('Card Sales', fmtMoney(shift.totalCardSales));
+      r.columns2('QR Sales', fmtMoney(shift.totalQrSales));
+      r.columns2('Other Sales', fmtMoney(shift.totalOtherSales));
+      r.columns2('Orders', String(shift.totalOrders || 0));
+      if ((shift.totalRefunds || 0) > 0) {
+        r.columns2('Refunds', fmtMoney(shift.totalRefunds || 0));
+      }
+
+      r.separator();
+      r.bold(true).size(1, 2);
+      r.columns2('TOTAL SALES', fmtMoney(shift.totalSales));
+      r.normalSize().bold(false);
+
+      r.separator();
+      r.bold(true).line('CASH DRAWER').bold(false);
+      r.columns2('Opening Amount', fmtMoney(shift.openingAmount));
+      r.columns2('Expected Close', fmtMoney(shift.expectedClosingAmount));
+      r.columns2('Actual Close', fmtMoney(shift.actualClosingAmount));
+      r.bold(true);
+      r.columns2(
+        shift.difference === 0 ? 'Balanced' : shift.difference > 0 ? 'Overage' : 'Shortage',
+        `${shift.difference > 0 ? '+' : ''}${fmtMoney(shift.difference)}`,
+      );
+      r.bold(false);
+
+      if (shift.closeNote && this.sanitize(shift.closeNote)) {
+        r.separator();
+        r.bold(true).line('NOTE').bold(false);
+        r.line(this.sanitize(shift.closeNote));
+      }
+
+      r.thickSeparator();
+      r.align('center').line(footerText);
+      r.align('left').feed(4);
+      if (options?.autoCut !== false) r.cut();
+
+      await this.writeData(r.encode());
+      await new Promise(resolve => setTimeout(resolve, 2500));
+      this.lastPrintTime = Date.now();
+      return true;
+    } catch (error) {
+      console.error('Shift print error:', error);
       return false;
     } finally {
       this.isPrinting = false;
