@@ -441,9 +441,9 @@ const CashierShiftModal: React.FC<Props> = ({
   };
 
   const ensureClosingAmount = () => {
-    const amount = parseFloat(closingAmount);
+    const amount = closingAmount === '' ? 0 : parseFloat(closingAmount);
     if (Number.isNaN(amount) || amount < 0) {
-      toast('Please enter the actual cash drawer amount. Zero is allowed.', 'error');
+      toast('Please enter a valid cash drawer amount.', 'error');
       return null;
     }
     return amount;
@@ -917,7 +917,7 @@ const CashierShiftModal: React.FC<Props> = ({
               </button>
               <button
                 onClick={() => handlePrepareCloseShift()}
-                disabled={loading || closingAmount === '' || Number.isNaN(parseFloat(closingAmount)) || parseFloat(closingAmount) < 0}
+                disabled={loading}
                 className="flex-1 py-3 bg-red-600 text-white rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-red-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {loading ? 'Closing...' : <>Close Shift <ArrowRight size={18} /></>}
