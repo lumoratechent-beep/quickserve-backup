@@ -30,6 +30,29 @@ import {
 } from 'lucide-react';
 
 type CashierAccessPermissionKey = 'viewOwnSalesOnly' | 'requireManagerApprovalForRefund';
+type RefundApprovalRole = 'MANAGER' | 'VENDOR';
+type RefundApprovalRequestStatus = 'PENDING' | 'APPROVED' | 'DELETED';
+
+interface RefundApprovalRequestRecord {
+  id: string;
+  restaurant_id: string;
+  order_id: string;
+  order_total?: number;
+  requested_by_username: string;
+  requested_by_role?: string;
+  approver_role: RefundApprovalRole;
+  status: RefundApprovalRequestStatus;
+  note?: string;
+  created_at: string;
+  resolved_at?: string | null;
+  resolved_by_username?: string | null;
+}
+
+const getRefundApprovalRole = (permissions?: Record<string, any>): RefundApprovalRole =>
+  permissions?.refundApprovalRole === 'VENDOR' ? 'VENDOR' : 'MANAGER';
+
+const getRefundApprovalRoleLabel = (role: RefundApprovalRole): string =>
+  role === 'VENDOR' ? 'Vendor' : 'Manager';
 
 const CASHIER_ACCESS_SETTINGS: Array<{
   key: CashierAccessPermissionKey;
@@ -43,8 +66,8 @@ const CASHIER_ACCESS_SETTINGS: Array<{
   },
   {
     key: 'requireManagerApprovalForRefund',
-    label: 'Require Manager Approval for Refund',
-    description: 'This staff must get a Manager to enter their password before processing any refund.',
+    label: 'Require Approval for Refund',
+    description: 'This staff must get a Manager or Vendor to enter their password before processing any refund.',
   },
 ];
 
@@ -645,7 +668,10 @@ const PosOnlyView: React.FC<Props> = ({
   const [managerApprovalInput, setManagerApprovalInput] = useState('');
   const [managerApprovalError, setManagerApprovalError] = useState<string | null>(null);
   const [managerApprovalLoading, setManagerApprovalLoading] = useState(false);
+  const [managerApprovalRequestLoading, setManagerApprovalRequestLoading] = useState(false);
   const [pendingRefundOrder, setPendingRefundOrder] = useState<Order | null>(null);
+  const [refundApprovalRequests, setRefundApprovalRequests] = useState<RefundApprovalRequestRecord[]>([]);
+  const [refundRequestsLoading, setRefundRequestsLoading] = useState(false);
 
   // Fetch staff from database on mount (localStorage is only a cache)
   useEffect(() => {
@@ -1058,6 +1084,45 @@ const PosOnlyView: React.FC<Props> = ({
       );
     } catch (error: any) {
       toast('Error updating cashier access: ' + error.message, 'error');
+    }
+  };
+
+  const handleUpdateCashierRefundApproverForAll = async (approverRole: RefundApprovalRole) => {
+    const updated = [...staffList];
+    const changedCashiers: any[] = [];
+
+    staffList.forEach((staff: any, index: number) => {
+      if (staff.role !== 'CASHIER') return;
+      const currentRole = getRefundApprovalRole(staff.access_permissions || {});
+      if (currentRole === approverRole) return;
+
+      const nextStaff = {
+        ...staff,
+        access_permissions: {
+          ...(staff.access_permissions || {}),
+          refundApprovalRole: approverRole,
+        },
+      };
+
+      updated[index] = nextStaff;
+      changedCashiers.push(nextStaff);
+    });
+
+    if (changedCashiers.length === 0) return;
+
+    setStaffList(updated);
+    localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+
+    try {
+      await Promise.all(
+        changedCashiers
+          .filter((staff: any) => !!staff?.id)
+          .map((staff: any) =>
+            supabase.from('users').update({ access_permissions: staff.access_permissions || {} }).eq('id', staff.id)
+          )
+      );
+    } catch (error: any) {
+      toast('Error updating refund approver: ' + error.message, 'error');
     }
   };
 
@@ -2338,6 +2403,17 @@ const PosOnlyView: React.FC<Props> = ({
   );
   const currentStaffAccessPermissions = currentStaff?.access_permissions || {};
   const isOwnSalesOnlyAccess = !!cashierName && currentStaff?.role !== 'MANAGER' && currentStaffAccessPermissions?.viewOwnSalesOnly === true;
+  const hasManagerStaff = staffList.some((staff: any) => staff.role === 'MANAGER');
+  const refundApprovalRoleForCurrentCashier = getRefundApprovalRole(currentStaffAccessPermissions);
+  const refundApprovalRoleForCashiers = useMemo<RefundApprovalRole>(() => {
+    const firstCashier = cashierStaffEntries[0];
+    return firstCashier ? getRefundApprovalRole(firstCashier.staff.access_permissions || {}) : 'MANAGER';
+  }, [cashierStaffEntries]);
+  const isVendorSession = userRole === 'VENDOR' && !currentStaff;
+  const isManagerSession = currentStaff?.role === 'MANAGER';
+  const canReviewRefundRequests = isVendorSession || isManagerSession;
+  const refundRequestTargetRole: RefundApprovalRole | null = isVendorSession ? 'VENDOR' : isManagerSession ? 'MANAGER' : null;
+  const combinedMailUnreadCount = unreadMailCount + (canReviewRefundRequests ? refundApprovalRequests.length : 0);
 
   const getCashierPermissionSummary = (permissionKey: CashierAccessPermissionKey) => {
     const total = cashierStaffEntries.length;
@@ -2348,6 +2424,176 @@ const PosOnlyView: React.FC<Props> = ({
       allEnabled: total > 0 && enabledCount === total,
       partiallyEnabled: enabledCount > 0 && enabledCount < total,
     };
+  };
+
+  const fetchRefundApprovalRequests = useCallback(async () => {
+    if (!refundRequestTargetRole) {
+      setRefundApprovalRequests([]);
+      return;
+    }
+
+    setRefundRequestsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('refund_approval_requests')
+        .select('id, restaurant_id, order_id, order_total, requested_by_username, requested_by_role, approver_role, status, note, created_at, resolved_at, resolved_by_username')
+        .eq('restaurant_id', restaurant.id)
+        .eq('approver_role', refundRequestTargetRole)
+        .eq('status', 'PENDING')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setRefundApprovalRequests((data as RefundApprovalRequestRecord[]) || []);
+    } catch (error) {
+      console.error('Failed to fetch refund approval requests', error);
+      setRefundApprovalRequests([]);
+    } finally {
+      setRefundRequestsLoading(false);
+    }
+  }, [refundRequestTargetRole, restaurant.id]);
+
+  useEffect(() => {
+    if (activeTab === 'MAIL' && refundRequestTargetRole) {
+      fetchRefundApprovalRequests();
+      return;
+    }
+
+    if (!refundRequestTargetRole) {
+      setRefundApprovalRequests([]);
+    }
+  }, [activeTab, refundRequestTargetRole, fetchRefundApprovalRequests]);
+
+  const resetRefundApprovalModal = () => {
+    setShowManagerApprovalModal(false);
+    setManagerApprovalInput('');
+    setManagerApprovalError(null);
+    setManagerApprovalLoading(false);
+    setManagerApprovalRequestLoading(false);
+    setPendingRefundOrder(null);
+  };
+
+  const approveRefundWithPassword = async () => {
+    if (!pendingRefundOrder || !managerApprovalInput.trim()) return;
+
+    const approverRole = refundApprovalRoleForCurrentCashier;
+    const approverLabel = getRefundApprovalRoleLabel(approverRole);
+
+    if (approverRole === 'MANAGER' && !hasManagerStaff) {
+      setManagerApprovalError('No manager account is configured for this outlet. Choose Vendor approval in Staff & Access or add a manager account.');
+      return;
+    }
+
+    setManagerApprovalLoading(true);
+    setManagerApprovalError(null);
+
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, username, role')
+        .eq('restaurant_id', restaurant.id)
+        .eq('role', approverRole)
+        .eq('password', managerApprovalInput.trim())
+        .limit(1);
+
+      if (error || !data || data.length === 0) {
+        setManagerApprovalError(`Incorrect ${approverLabel.toLowerCase()} password. Please try again.`);
+        return;
+      }
+
+      const orderId = pendingRefundOrder.id;
+      resetRefundApprovalModal();
+      handleOrderStatusUpdate(orderId, OrderStatus.CANCELLED);
+      toast(`Order has been refunded with ${approverLabel.toLowerCase()} approval.`, 'success');
+      setSelectedReportOrder(null);
+    } catch {
+      setManagerApprovalError('Verification failed. Please try again.');
+    } finally {
+      setManagerApprovalLoading(false);
+    }
+  };
+
+  const sendRefundApprovalRequest = async () => {
+    if (!pendingRefundOrder) return;
+
+    const approverRole = refundApprovalRoleForCurrentCashier;
+    const approverLabel = getRefundApprovalRoleLabel(approverRole);
+
+    if (approverRole === 'MANAGER' && !hasManagerStaff) {
+      setManagerApprovalError('No manager account is configured for this outlet. Choose Vendor approval in Staff & Access or add a manager account.');
+      return;
+    }
+
+    setManagerApprovalRequestLoading(true);
+    setManagerApprovalError(null);
+
+    try {
+      const { data: existing, error: existingError } = await supabase
+        .from('refund_approval_requests')
+        .select('id')
+        .eq('restaurant_id', restaurant.id)
+        .eq('order_id', pendingRefundOrder.id)
+        .eq('approver_role', approverRole)
+        .eq('status', 'PENDING')
+        .limit(1);
+
+      if (existingError) throw existingError;
+
+      if (existing && existing.length > 0) {
+        setManagerApprovalError(`A pending ${approverLabel.toLowerCase()} approval request already exists for this order.`);
+        return;
+      }
+
+      const { error } = await supabase
+        .from('refund_approval_requests')
+        .insert({
+          restaurant_id: restaurant.id,
+          order_id: pendingRefundOrder.id,
+          order_total: pendingRefundOrder.total,
+          requested_by_username: cashierName || currentStaff?.username || 'Unknown',
+          requested_by_role: currentStaff?.role || userRole,
+          approver_role: approverRole,
+          status: 'PENDING',
+          note: `Refund requested for order #${pendingRefundOrder.id}`,
+        });
+
+      if (error) throw error;
+
+      resetRefundApprovalModal();
+      setSelectedReportOrder(null);
+      toast(`Refund request sent to ${approverLabel.toLowerCase()} mail.`, 'success');
+
+      if (refundRequestTargetRole === approverRole) {
+        fetchRefundApprovalRequests();
+      }
+    } catch (error: any) {
+      setManagerApprovalError(error?.message || 'Failed to send refund request. Please try again.');
+    } finally {
+      setManagerApprovalRequestLoading(false);
+    }
+  };
+
+  const resolveRefundApprovalRequest = async (request: RefundApprovalRequestRecord, nextStatus: Exclude<RefundApprovalRequestStatus, 'PENDING'>) => {
+    try {
+      if (nextStatus === 'APPROVED') {
+        handleOrderStatusUpdate(request.order_id, OrderStatus.CANCELLED);
+      }
+
+      const { error } = await supabase
+        .from('refund_approval_requests')
+        .update({
+          status: nextStatus,
+          resolved_at: new Date().toISOString(),
+          resolved_by_username: cashierName || currentStaff?.username || (isVendorSession ? 'Vendor' : 'Manager'),
+        })
+        .eq('id', request.id);
+
+      if (error) throw error;
+
+      setRefundApprovalRequests(prev => prev.filter(item => item.id !== request.id));
+      toast(nextStatus === 'APPROVED' ? 'Refund approved and processed.' : 'Refund request deleted.', 'success');
+    } catch (error: any) {
+      toast(error?.message || 'Failed to update refund request.', 'error');
+    }
   };
 
   const applyReportAccess = (orders: Order[]): Order[] => {
