@@ -669,6 +669,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [managerApprovalError, setManagerApprovalError] = useState<string | null>(null);
   const [managerApprovalLoading, setManagerApprovalLoading] = useState(false);
   const [managerApprovalRequestLoading, setManagerApprovalRequestLoading] = useState(false);
+  const [selectedRefundApprover, setSelectedRefundApprover] = useState<RefundApprovalRole>('MANAGER');
   const [pendingRefundOrder, setPendingRefundOrder] = useState<Order | null>(null);
   const [refundApprovalRequests, setRefundApprovalRequests] = useState<RefundApprovalRequestRecord[]>([]);
   const [refundRequestsLoading, setRefundRequestsLoading] = useState(false);
@@ -2409,6 +2410,12 @@ const PosOnlyView: React.FC<Props> = ({
     const firstCashier = cashierStaffEntries[0];
     return firstCashier ? getRefundApprovalRole(firstCashier.staff.access_permissions || {}) : 'MANAGER';
   }, [cashierStaffEntries]);
+  const defaultRefundApprover = useMemo<RefundApprovalRole>(() => {
+    if (refundApprovalRoleForCurrentCashier === 'MANAGER' && !hasManagerStaff) {
+      return 'VENDOR';
+    }
+    return refundApprovalRoleForCurrentCashier;
+  }, [refundApprovalRoleForCurrentCashier, hasManagerStaff]);
   const isVendorSession = userRole === 'VENDOR' && !currentStaff;
   const isManagerSession = currentStaff?.role === 'MANAGER';
   const canReviewRefundRequests = isVendorSession || isManagerSession;
@@ -2469,14 +2476,39 @@ const PosOnlyView: React.FC<Props> = ({
     setManagerApprovalError(null);
     setManagerApprovalLoading(false);
     setManagerApprovalRequestLoading(false);
+    setSelectedRefundApprover(defaultRefundApprover);
     setPendingRefundOrder(null);
+  };
+
+  const openRefundApprovalModal = (order: Order) => {
+    setPendingRefundOrder(order);
+    setSelectedRefundApprover(defaultRefundApprover);
+    setManagerApprovalInput('');
+    setManagerApprovalError(null);
+    setShowManagerApprovalModal(true);
+  };
+
+  const resolvePendingRefundRequestsForOrder = async (orderId: string, status: Exclude<RefundApprovalRequestStatus, 'PENDING'>, resolvedByUsername: string) => {
+    const { error } = await supabase
+      .from('refund_approval_requests')
+      .update({
+        status,
+        resolved_at: new Date().toISOString(),
+        resolved_by_username: resolvedByUsername,
+      })
+      .eq('restaurant_id', restaurant.id)
+      .eq('order_id', orderId)
+      .eq('status', 'PENDING');
+
+    if (error) throw error;
   };
 
   const approveRefundWithPassword = async () => {
     if (!pendingRefundOrder || !managerApprovalInput.trim()) return;
 
-    const approverRole = refundApprovalRoleForCurrentCashier;
+    const approverRole = selectedRefundApprover;
     const approverLabel = getRefundApprovalRoleLabel(approverRole);
+    const resolvedByUsername = cashierName || currentStaff?.username || (approverRole === 'VENDOR' ? 'Vendor' : 'Manager');
 
     if (approverRole === 'MANAGER' && !hasManagerStaff) {
       setManagerApprovalError('No manager account is configured for this outlet. Choose Vendor approval in Staff & Access or add a manager account.');
@@ -2501,6 +2533,7 @@ const PosOnlyView: React.FC<Props> = ({
       }
 
       const orderId = pendingRefundOrder.id;
+      await resolvePendingRefundRequestsForOrder(orderId, 'APPROVED', resolvedByUsername);
       resetRefundApprovalModal();
       handleOrderStatusUpdate(orderId, OrderStatus.CANCELLED);
       toast(`Order has been refunded with ${approverLabel.toLowerCase()} approval.`, 'success');
@@ -2515,13 +2548,7 @@ const PosOnlyView: React.FC<Props> = ({
   const sendRefundApprovalRequest = async () => {
     if (!pendingRefundOrder) return;
 
-    const approverRole = refundApprovalRoleForCurrentCashier;
-    const approverLabel = getRefundApprovalRoleLabel(approverRole);
-
-    if (approverRole === 'MANAGER' && !hasManagerStaff) {
-      setManagerApprovalError('No manager account is configured for this outlet. Choose Vendor approval in Staff & Access or add a manager account.');
-      return;
-    }
+    const approverRoles: RefundApprovalRole[] = hasManagerStaff ? ['MANAGER', 'VENDOR'] : ['VENDOR'];
 
     setManagerApprovalRequestLoading(true);
     setManagerApprovalError(null);
@@ -2529,40 +2556,45 @@ const PosOnlyView: React.FC<Props> = ({
     try {
       const { data: existing, error: existingError } = await supabase
         .from('refund_approval_requests')
-        .select('id')
+        .select('id, approver_role')
         .eq('restaurant_id', restaurant.id)
         .eq('order_id', pendingRefundOrder.id)
-        .eq('approver_role', approverRole)
+        .in('approver_role', approverRoles)
         .eq('status', 'PENDING')
-        .limit(1);
+        .limit(10);
 
       if (existingError) throw existingError;
 
-      if (existing && existing.length > 0) {
-        setManagerApprovalError(`A pending ${approverLabel.toLowerCase()} approval request already exists for this order.`);
+      const existingRoles = new Set(((existing as Array<{ approver_role: RefundApprovalRole }>) || []).map(item => item.approver_role));
+      const rolesToInsert = approverRoles.filter(role => !existingRoles.has(role));
+
+      if (rolesToInsert.length === 0) {
+        setManagerApprovalError('Pending refund approval requests already exist for both vendor and manager.');
         return;
       }
 
       const { error } = await supabase
         .from('refund_approval_requests')
-        .insert({
-          restaurant_id: restaurant.id,
-          order_id: pendingRefundOrder.id,
-          order_total: pendingRefundOrder.total,
-          requested_by_username: cashierName || currentStaff?.username || 'Unknown',
-          requested_by_role: currentStaff?.role || userRole,
-          approver_role: approverRole,
-          status: 'PENDING',
-          note: `Refund requested for order #${pendingRefundOrder.id}`,
-        });
+        .insert(
+          rolesToInsert.map(role => ({
+            restaurant_id: restaurant.id,
+            order_id: pendingRefundOrder.id,
+            order_total: pendingRefundOrder.total,
+            requested_by_username: cashierName || currentStaff?.username || 'Unknown',
+            requested_by_role: currentStaff?.role || userRole,
+            approver_role: role,
+            status: 'PENDING',
+            note: `Refund requested for order #${pendingRefundOrder.id}`,
+          }))
+        );
 
       if (error) throw error;
 
       resetRefundApprovalModal();
       setSelectedReportOrder(null);
-      toast(`Refund request sent to ${approverLabel.toLowerCase()} mail.`, 'success');
+      toast(`Refund request sent to ${hasManagerStaff ? 'manager and vendor' : 'vendor'} mail.`, 'success');
 
-      if (refundRequestTargetRole === approverRole) {
+      if (refundRequestTargetRole && approverRoles.includes(refundRequestTargetRole)) {
         fetchRefundApprovalRequests();
       }
     } catch (error: any) {
@@ -2574,22 +2606,27 @@ const PosOnlyView: React.FC<Props> = ({
 
   const resolveRefundApprovalRequest = async (request: RefundApprovalRequestRecord, nextStatus: Exclude<RefundApprovalRequestStatus, 'PENDING'>) => {
     try {
+      const resolvedByUsername = cashierName || currentStaff?.username || (isVendorSession ? 'Vendor' : 'Manager');
+
       if (nextStatus === 'APPROVED') {
+        await resolvePendingRefundRequestsForOrder(request.order_id, 'APPROVED', resolvedByUsername);
         handleOrderStatusUpdate(request.order_id, OrderStatus.CANCELLED);
+        setRefundApprovalRequests(prev => prev.filter(item => item.order_id !== request.order_id));
+      } else {
+        const { error } = await supabase
+          .from('refund_approval_requests')
+          .update({
+            status: nextStatus,
+            resolved_at: new Date().toISOString(),
+            resolved_by_username: resolvedByUsername,
+          })
+          .eq('id', request.id);
+
+        if (error) throw error;
+
+        setRefundApprovalRequests(prev => prev.filter(item => item.id !== request.id));
       }
 
-      const { error } = await supabase
-        .from('refund_approval_requests')
-        .update({
-          status: nextStatus,
-          resolved_at: new Date().toISOString(),
-          resolved_by_username: cashierName || currentStaff?.username || (isVendorSession ? 'Vendor' : 'Manager'),
-        })
-        .eq('id', request.id);
-
-      if (error) throw error;
-
-      setRefundApprovalRequests(prev => prev.filter(item => item.id !== request.id));
       toast(nextStatus === 'APPROVED' ? 'Refund approved and processed.' : 'Refund request deleted.', 'success');
     } catch (error: any) {
       toast(error?.message || 'Failed to update refund request.', 'error');
@@ -8777,11 +8814,11 @@ const PosOnlyView: React.FC<Props> = ({
                   <div>
                     <h2 className="text-lg font-black dark:text-white uppercase tracking-tighter flex items-center gap-2">
                       <Mail size={18} className="text-orange-500" /> Inbox
-                      {unreadMailCount > 0 && (
-                        <span className="text-[10px] bg-orange-500 text-white px-2 py-0.5 rounded-full font-black">{unreadMailCount} new</span>
+                      {combinedMailUnreadCount > 0 && (
+                        <span className="text-[10px] bg-orange-500 text-white px-2 py-0.5 rounded-full font-black">{combinedMailUnreadCount} new</span>
                       )}
                     </h2>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Announcements and updates from QuickServe.</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Announcements, refund approvals, and updates from QuickServe.</p>
                   </div>
                   {announcements.length > 0 && (
                     <div className="flex items-center gap-2">
@@ -8802,6 +8839,66 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
                   )}
                 </div>
+
+                {canReviewRefundRequests && (
+                  <div className="mb-5 rounded-2xl border border-purple-200/80 bg-purple-50/60 dark:border-purple-900/40 dark:bg-purple-900/10 overflow-hidden">
+                    <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-purple-200/80 dark:border-purple-900/40">
+                      <div>
+                        <h3 className="text-sm font-black uppercase tracking-wider text-purple-700 dark:text-purple-300">Refund Approval Requests</h3>
+                        <p className="text-xs text-purple-600/80 dark:text-purple-300/80 mt-1">Review requests sent to your {refundRequestTargetRole === 'VENDOR' ? 'vendor' : 'manager'} inbox.</p>
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-white/80 text-purple-700 dark:bg-purple-950/40 dark:text-purple-200">
+                        {refundApprovalRequests.length} pending
+                      </span>
+                    </div>
+
+                    {refundRequestsLoading ? (
+                      <div className="flex items-center justify-center py-10">
+                        <RotateCw size={22} className="animate-spin text-purple-400" />
+                      </div>
+                    ) : refundApprovalRequests.length === 0 ? (
+                      <div className="px-5 py-8 text-center">
+                        <Lock size={24} className="mx-auto text-purple-300 dark:text-purple-700 mb-2" />
+                        <p className="text-sm font-semibold text-slate-700 dark:text-gray-200">No refund requests pending</p>
+                        <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">New cashier refund requests will appear here for approval or deletion.</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-purple-200/70 dark:divide-purple-900/30">
+                        {refundApprovalRequests.map(request => (
+                          <div key={request.id} className="px-5 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-bold text-slate-900 dark:text-white">Order #{request.order_id}</p>
+                                <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                                  {getRefundApprovalRoleLabel(request.approver_role)} Approval
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
+                                Requested by {request.requested_by_username}{request.order_total != null ? ` • ${currencySymbol}${request.order_total.toFixed(2)}` : ''}
+                              </p>
+                              {request.note && <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">{request.note}</p>}
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                onClick={() => resolveRefundApprovalRequest(request, 'DELETED')}
+                                className="px-3 py-2 rounded-xl bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 transition-colors text-[10px] font-black uppercase tracking-widest dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
+                              >
+                                Delete
+                              </button>
+                              <button
+                                onClick={() => resolveRefundApprovalRequest(request, 'APPROVED')}
+                                className="px-3 py-2 rounded-xl bg-purple-600 text-white hover:bg-purple-700 transition-colors text-[10px] font-black uppercase tracking-widest"
+                              >
+                                Approve
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {announcementsLoading ? (
                   <div className="flex items-center justify-center py-32">
@@ -11484,10 +11581,7 @@ const PosOnlyView: React.FC<Props> = ({
                         // Check if manager approval is required for this cashier
                         const _myPerms = staffList.find((s: any) => s.username === cashierName)?.access_permissions;
                         if (_myPerms?.requireManagerApprovalForRefund) {
-                          setPendingRefundOrder(selectedReportOrder);
-                          setManagerApprovalInput('');
-                          setManagerApprovalError(null);
-                          setShowManagerApprovalModal(true);
+                          openRefundApprovalModal(selectedReportOrder);
                         } else {
                           setShowRefundConfirm(true);
                         }
@@ -11540,96 +11634,72 @@ const PosOnlyView: React.FC<Props> = ({
 
       {/* Manager Approval Modal (for refund requiring manager sign-off) */}
       {showManagerApprovalModal && pendingRefundOrder && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[130] flex items-center justify-center p-4" onClick={() => { setShowManagerApprovalModal(false); setManagerApprovalInput(''); setManagerApprovalError(null); setPendingRefundOrder(null); }}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[130] flex items-center justify-center p-4" onClick={resetRefundApprovalModal}>
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="p-6 text-center">
               <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Lock size={28} className="text-purple-600 dark:text-purple-400" />
               </div>
-              <h3 className="text-lg font-black dark:text-white uppercase tracking-tight mb-1">Manager Approval Required</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">A Manager must enter their password to authorise the refund for Order <span className="font-bold text-gray-700 dark:text-gray-200">#{pendingRefundOrder.id}</span>.</p>
+              <h3 className="text-lg font-black dark:text-white uppercase tracking-tight mb-1">Approval Required</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">A Manager or Vendor must enter their password to authorise the refund for Order <span className="font-bold text-gray-700 dark:text-gray-200">#{pendingRefundOrder.id}</span>.</p>
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                {(['MANAGER', 'VENDOR'] as RefundApprovalRole[]).map(role => {
+                  const isUnavailable = role === 'MANAGER' && !hasManagerStaff;
+                  const isSelected = selectedRefundApprover === role;
+                  return (
+                    <button
+                      key={role}
+                      type="button"
+                      disabled={isUnavailable}
+                      onClick={() => {
+                        setSelectedRefundApprover(role);
+                        setManagerApprovalError(null);
+                      }}
+                      className={`px-3 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${isSelected ? 'border-purple-500 bg-purple-50 text-purple-600 dark:border-purple-400 dark:bg-purple-900/20 dark:text-purple-300' : 'border-gray-200 text-gray-500 dark:border-gray-600 dark:text-gray-300'} ${isUnavailable ? 'opacity-50 cursor-not-allowed' : 'hover:border-purple-300 dark:hover:border-purple-500'}`}
+                    >
+                      {getRefundApprovalRoleLabel(role)}
+                    </button>
+                  );
+                })}
+              </div>
               <input
                 type="password"
                 value={managerApprovalInput}
                 onChange={e => { setManagerApprovalInput(e.target.value); setManagerApprovalError(null); }}
-                placeholder="Manager password"
+                placeholder={`${getRefundApprovalRoleLabel(selectedRefundApprover)} password`}
                 className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none text-sm font-bold dark:text-white focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-colors mb-2"
                 autoFocus
                 onKeyDown={async e => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
-                    if (!managerApprovalInput.trim()) return;
-                    setManagerApprovalLoading(true);
-                    setManagerApprovalError(null);
-                    try {
-                      const { data, error } = await supabase
-                        .from('users')
-                        .select('id')
-                        .eq('restaurant_id', restaurant.id)
-                        .eq('role', 'MANAGER')
-                        .eq('password', managerApprovalInput.trim())
-                        .maybeSingle();
-                      if (error || !data) {
-                        setManagerApprovalError('Incorrect manager password. Please try again.');
-                      } else {
-                        setShowManagerApprovalModal(false);
-                        setManagerApprovalInput('');
-                        setManagerApprovalError(null);
-                        handleOrderStatusUpdate(pendingRefundOrder.id, OrderStatus.CANCELLED);
-                        toast('Order has been refunded.', 'success');
-                        setSelectedReportOrder(null);
-                        setPendingRefundOrder(null);
-                      }
-                    } catch {
-                      setManagerApprovalError('Verification failed. Please try again.');
-                    } finally {
-                      setManagerApprovalLoading(false);
-                    }
+                    await approveRefundWithPassword();
                   }
                 }}
               />
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-2">Select the approver for direct password approval, or send the request to both manager and vendor mail instead.</p>
               {managerApprovalError && (
                 <p className="text-[10px] text-red-500 font-bold mb-2">{managerApprovalError}</p>
               )}
             </div>
+            <div className="px-4 pb-4 pt-0">
+              <button
+                disabled={managerApprovalRequestLoading}
+                onClick={sendRefundApprovalRequest}
+                className="w-full mb-3 py-3 text-sm font-black uppercase tracking-widest text-purple-600 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {managerApprovalRequestLoading ? <><RotateCw size={14} className="animate-spin" /> Sending...</> : <><Send size={14} /> Send Request Instead</>}
+              </button>
+            </div>
             <div className="flex border-t dark:border-gray-700">
               <button
-                onClick={() => { setShowManagerApprovalModal(false); setManagerApprovalInput(''); setManagerApprovalError(null); setPendingRefundOrder(null); }}
+                onClick={resetRefundApprovalModal}
                 className="flex-1 py-4 text-sm font-black uppercase tracking-widest text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
               >
                 Cancel
               </button>
               <button
                 disabled={managerApprovalLoading || !managerApprovalInput.trim()}
-                onClick={async () => {
-                  if (!managerApprovalInput.trim()) return;
-                  setManagerApprovalLoading(true);
-                  setManagerApprovalError(null);
-                  try {
-                    const { data, error } = await supabase
-                      .from('users')
-                      .select('id')
-                      .eq('restaurant_id', restaurant.id)
-                      .eq('role', 'MANAGER')
-                      .eq('password', managerApprovalInput.trim())
-                      .maybeSingle();
-                    if (error || !data) {
-                      setManagerApprovalError('Incorrect manager password. Please try again.');
-                    } else {
-                      setShowManagerApprovalModal(false);
-                      setManagerApprovalInput('');
-                      setManagerApprovalError(null);
-                      handleOrderStatusUpdate(pendingRefundOrder.id, OrderStatus.CANCELLED);
-                      toast('Order has been refunded.', 'success');
-                      setSelectedReportOrder(null);
-                      setPendingRefundOrder(null);
-                    }
-                  } catch {
-                    setManagerApprovalError('Verification failed. Please try again.');
-                  } finally {
-                    setManagerApprovalLoading(false);
-                  }
-                }}
+                onClick={approveRefundWithPassword}
                 className="flex-1 py-4 text-sm font-black uppercase tracking-widest text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all border-l dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {managerApprovalLoading ? <><RotateCw size={14} className="animate-spin" /> Verifying...</> : 'Approve'}
