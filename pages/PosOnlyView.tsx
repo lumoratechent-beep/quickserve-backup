@@ -637,7 +637,6 @@ const PosOnlyView: React.FC<Props> = ({
   const [isAddingStaff, setIsAddingStaff] = useState(false);
   const [editingStaffIndex, setEditingStaffIndex] = useState<number | null>(null);
   const isEditingStaff = editingStaffIndex !== null;
-  const [expandedStaffAccess, setExpandedStaffAccess] = useState<number | null>(null);
   const [expandedCashierAccessSettings, setExpandedCashierAccessSettings] = useState<Record<CashierAccessPermissionKey, boolean>>({
     viewOwnSalesOnly: false,
     requireManagerApprovalForRefund: false,
@@ -4318,91 +4317,94 @@ const PosOnlyView: React.FC<Props> = ({
   const renderStaffContent = () => (
     <div>
       {cashierStaffEntries.length > 0 && (
-        <div className="mb-5 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden bg-white dark:bg-gray-800">
-          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-sky-50 via-white to-red-50 dark:from-sky-950/20 dark:via-gray-800 dark:to-red-950/20">
-            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Cashier Access</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Apply rules to all cashiers at once, or expand a rule to decide which cashier should have it enabled.</p>
-          </div>
+        <div className="mb-6 space-y-4">
+          {CASHIER_ACCESS_SETTINGS.map((setting) => {
+            const summary = getCashierPermissionSummary(setting.key);
+            const isExpanded = expandedCashierAccessSettings[setting.key];
+            const isAllEnabled = summary.allEnabled;
+            const isPartial = summary.partiallyEnabled;
+            const statusLabel = isAllEnabled ? 'All Cashiers' : isPartial ? 'Partial' : 'Off';
+            const badgeClass = isAllEnabled
+              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+              : isPartial
+                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300';
+            const toggleClass = setting.key === 'viewOwnSalesOnly'
+              ? (isAllEnabled ? 'bg-sky-500' : isPartial ? 'bg-sky-300 dark:bg-sky-700' : 'bg-gray-300 dark:bg-gray-600')
+              : (isAllEnabled ? 'bg-red-500' : isPartial ? 'bg-red-300 dark:bg-red-700' : 'bg-gray-300 dark:bg-gray-600');
+            const listBorderClass = setting.key === 'viewOwnSalesOnly'
+              ? 'border-sky-100 dark:border-sky-900/30'
+              : 'border-red-100 dark:border-red-900/30';
 
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {CASHIER_ACCESS_SETTINGS.map((setting) => {
-              const summary = getCashierPermissionSummary(setting.key);
-              const isExpanded = expandedCashierAccessSettings[setting.key];
-              const isAllEnabled = summary.allEnabled;
-              const isPartial = summary.partiallyEnabled;
-              const badgeClass = isAllEnabled
-                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                : isPartial
-                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300';
-              const toggleClass = setting.key === 'viewOwnSalesOnly'
-                ? (isAllEnabled ? 'bg-sky-500' : isPartial ? 'bg-sky-300 dark:bg-sky-700' : 'bg-gray-300 dark:bg-gray-600')
-                : (isAllEnabled ? 'bg-red-500' : isPartial ? 'bg-red-300 dark:bg-red-700' : 'bg-gray-300 dark:bg-gray-600');
-
-              return (
-                <div key={setting.key} className="bg-white dark:bg-gray-800">
-                  <div className="px-4 py-3 flex items-start gap-3">
-                    <button
-                      onClick={() => setExpandedCashierAccessSettings(prev => ({ ...prev, [setting.key]: !prev[setting.key] }))}
-                      className="mt-0.5 p-1.5 rounded-lg text-gray-400 hover:text-purple-500 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
-                      title={isExpanded ? 'Collapse cashier list' : 'Expand cashier list'}
-                    >
-                      <ChevronRight size={14} className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
-                    </button>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">{setting.label}</p>
-                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${badgeClass}`}>
-                          {isAllEnabled ? 'All Cashiers' : isPartial ? 'Partial' : 'Off'}
-                        </span>
-                        <span className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                          {summary.enabledCount}/{summary.total} enabled
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">{setting.description}</p>
-                    </div>
-
-                    <button
-                      onClick={() => handleUpdateCashierPermissionForAll(setting.key, !isAllEnabled)}
-                      title={isAllEnabled ? 'Disable for all cashiers' : 'Enable for all cashiers'}
-                      className={`w-11 h-6 rounded-full transition-all relative shrink-0 ${toggleClass}`}
-                    >
-                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow ${isAllEnabled ? 'left-6' : 'left-1'}`} />
-                    </button>
+            return (
+              <div key={setting.key} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+                <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 p-5">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">{setting.label}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{setting.description}</p>
                   </div>
 
-                  {isExpanded && (
-                    <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-4 py-3 animate-in slide-in-from-top-1 fade-in duration-200">
-                      <div className="space-y-2">
-                        {cashierStaffEntries.map(({ staff, index }) => {
-                          const isEnabled = staff.access_permissions?.[setting.key] === true;
-                          return (
-                            <div key={staff.id || `${staff.username}-${index}`} className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2.5">
-                              <div className="min-w-0">
-                                <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{staff.username}</p>
-                                <p className="text-[10px] text-gray-400 dark:text-gray-500">Cashier</p>
-                              </div>
-                              <button
-                                onClick={() => handleUpdateStaffPermissions(index, {
-                                  ...(staff.access_permissions || {}),
-                                  [setting.key]: !isEnabled,
-                                })}
-                                className={`w-11 h-6 rounded-full transition-all relative shrink-0 ${setting.key === 'viewOwnSalesOnly' ? (isEnabled ? 'bg-sky-500' : 'bg-gray-300 dark:bg-gray-600') : (isEnabled ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-600')}`}
-                                title={isEnabled ? 'Disable for this cashier' : 'Enable for this cashier'}
-                              >
-                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow ${isEnabled ? 'left-6' : 'left-1'}`} />
-                              </button>
-                            </div>
-                          );
-                        })}
+                  <div className="min-w-0">
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 px-4 py-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${badgeClass}`}>
+                            {statusLabel}
+                          </span>
+                          <span className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                            {summary.enabledCount}/{summary.total} enabled
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => setExpandedCashierAccessSettings(prev => ({ ...prev, [setting.key]: !prev[setting.key] }))}
+                          className="mt-2 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-purple-500 transition-colors"
+                        >
+                          <ChevronRight size={12} className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+                          {isExpanded ? 'Hide cashier list' : 'Choose cashier access'}
+                        </button>
                       </div>
+
+                      <button
+                        onClick={() => handleUpdateCashierPermissionForAll(setting.key, !isAllEnabled)}
+                        title={isAllEnabled ? 'Disable for all cashiers' : 'Enable for all cashiers'}
+                        className={`w-11 h-6 rounded-full transition-all relative shrink-0 ${toggleClass}`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow ${isAllEnabled ? 'left-6' : 'left-1'}`} />
+                      </button>
                     </div>
-                  )}
+
+                    {isExpanded && (
+                      <div className={`mt-3 rounded-xl border bg-white dark:bg-gray-800 overflow-hidden animate-in slide-in-from-top-1 fade-in duration-200 ${listBorderClass}`}>
+                        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                          {cashierStaffEntries.map(({ staff, index }) => {
+                            const isEnabled = staff.access_permissions?.[setting.key] === true;
+                            return (
+                              <div key={staff.id || `${staff.username}-${index}`} className="flex items-center justify-between gap-3 px-4 py-3">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{staff.username}</p>
+                                  <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-0.5">Cashier</p>
+                                </div>
+                                <button
+                                  onClick={() => handleUpdateStaffPermissions(index, {
+                                    ...(staff.access_permissions || {}),
+                                    [setting.key]: !isEnabled,
+                                  })}
+                                  className={`w-11 h-6 rounded-full transition-all relative shrink-0 ${setting.key === 'viewOwnSalesOnly' ? (isEnabled ? 'bg-sky-500' : 'bg-gray-300 dark:bg-gray-600') : (isEnabled ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-600')}`}
+                                  title={isEnabled ? 'Disable for this cashier' : 'Enable for this cashier'}
+                                >
+                                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow ${isEnabled ? 'left-6' : 'left-1'}`} />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -4417,10 +4419,8 @@ const PosOnlyView: React.FC<Props> = ({
           {staffList.map((staff: any, idx: number) => {
             const perms = staff.access_permissions || {};
             const isManager = staff.role === 'MANAGER';
-            const isAccessOpen = expandedStaffAccess === idx;
             return (
               <div key={idx} className="bg-white dark:bg-gray-800">
-                {/* Staff row */}
                 <div className="flex items-center gap-3 px-4 py-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{staff.username}</p>
@@ -4450,15 +4450,6 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    {!isManager && (
-                      <button
-                        onClick={() => setExpandedStaffAccess(isAccessOpen ? null : idx)}
-                        title="Access Control"
-                        className={`p-2 rounded-lg transition-colors text-xs font-black uppercase tracking-widest flex items-center gap-1 ${isAccessOpen ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' : 'text-gray-400 hover:text-purple-500 hover:bg-gray-100 dark:hover:bg-gray-700/50'}`}
-                      >
-                        <Lock size={14} />
-                      </button>
-                    )}
                     <button
                       onClick={() => handleEditStaff(staff, idx)}
                       className="p-2 text-gray-400 hover:text-orange-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"
@@ -4473,43 +4464,6 @@ const PosOnlyView: React.FC<Props> = ({
                     </button>
                   </div>
                 </div>
-
-                {/* Access Control Expandable Panel (non-manager only) */}
-                {isAccessOpen && !isManager && (
-                  <div className="border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-4 py-4 space-y-3 animate-in slide-in-from-top-1 fade-in duration-200">
-                    <p className="text-[9px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-1.5">
-                      <Lock size={10} /> Access Control — {staff.username}
-                    </p>
-
-                    {/* Toggle: View own sales only */}
-                    <div className="flex items-start justify-between gap-4 bg-white dark:bg-gray-800 rounded-lg p-3 border dark:border-gray-700">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-gray-800 dark:text-white">View Own Sales Only</p>
-                        <p className="text-[10px] text-gray-400 mt-0.5">Restrict this staff to see only their own transactions in the Sales Report.</p>
-                      </div>
-                      <button
-                        onClick={() => handleUpdateStaffPermissions(idx, { ...perms, viewOwnSalesOnly: !perms.viewOwnSalesOnly })}
-                        className={`w-11 h-6 rounded-full transition-all relative shrink-0 ${perms.viewOwnSalesOnly ? 'bg-sky-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                      >
-                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow ${perms.viewOwnSalesOnly ? 'left-6' : 'left-1'}`} />
-                      </button>
-                    </div>
-
-                    {/* Toggle: Require manager approval for refund */}
-                    <div className="flex items-start justify-between gap-4 bg-white dark:bg-gray-800 rounded-lg p-3 border dark:border-gray-700">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-gray-800 dark:text-white">Require Manager Approval for Refund</p>
-                        <p className="text-[10px] text-gray-400 mt-0.5">This staff must get a Manager to enter their password before processing any refund.</p>
-                      </div>
-                      <button
-                        onClick={() => handleUpdateStaffPermissions(idx, { ...perms, requireManagerApprovalForRefund: !perms.requireManagerApprovalForRefund })}
-                        className={`w-11 h-6 rounded-full transition-all relative shrink-0 ${perms.requireManagerApprovalForRefund ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                      >
-                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow ${perms.requireManagerApprovalForRefund ? 'left-6' : 'left-1'}`} />
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             );
           })}
