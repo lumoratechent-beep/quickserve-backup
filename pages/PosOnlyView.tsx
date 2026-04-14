@@ -2428,6 +2428,7 @@ const PosOnlyView: React.FC<Props> = ({
   }, [refundApprovalRoleForCurrentCashier, hasManagerStaff]);
   const isVendorSession = userRole === 'VENDOR' && !currentStaff;
   const isManagerSession = currentStaff?.role === 'MANAGER';
+  const canManageStaffAccess = isVendorSession || isManagerSession;
   const canReviewRefundRequests = isVendorSession || isManagerSession;
   const refundRequestTargetRole: RefundApprovalRole | null = isVendorSession ? 'VENDOR' : isManagerSession ? 'MANAGER' : null;
   const combinedMailUnreadCount = unreadMailCount + (canReviewRefundRequests ? refundApprovalRequests.length : 0);
@@ -4609,6 +4610,24 @@ const PosOnlyView: React.FC<Props> = ({
 
   const renderStaffContent = () => (
     <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+      {!canManageStaffAccess ? (
+        <div className="py-2">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/80 px-5 py-5 dark:border-amber-500/30 dark:bg-amber-500/10">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-xl bg-white/80 p-2 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300">
+                <Lock size={18} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Restricted Access</p>
+                <p className="mt-1 text-sm text-amber-800/90 dark:text-amber-100/85">
+                  Only the owner or a manager can access Staff &amp; Access settings. If you need to update staff accounts or permissions, please contact them for assistance.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
       <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-4 lg:gap-10 py-6 first:pt-0">
         <div>
           <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Cashier Access</p>
@@ -4780,6 +4799,8 @@ const PosOnlyView: React.FC<Props> = ({
           </button>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 
