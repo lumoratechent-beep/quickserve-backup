@@ -768,11 +768,9 @@ const CashierShiftModal: React.FC<Props> = ({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99999] flex items-end lg:items-center justify-center lg:p-4" onClick={handleDismiss}>
-      <div className="bg-white dark:bg-gray-800 rounded-t-3xl lg:rounded-3xl shadow-2xl w-full lg:max-w-4xl h-[100dvh] lg:h-auto lg:max-h-[95dvh] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
-
-        {!isCloseConfirmationStep ? (
-          /* ── Panel 1: Close Shift Form ── */
-          <>
+      <div className="bg-white dark:bg-gray-800 rounded-t-3xl lg:rounded-3xl shadow-2xl w-full lg:max-w-4xl h-[100dvh] lg:h-[min(95dvh,720px)] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className={`flex h-full w-[200%] transition-transform duration-300 ease-out ${isCloseConfirmationStep ? '-translate-x-1/2' : 'translate-x-0'}`}>
+          <div className="flex h-full w-1/2 flex-col">
             <div className="px-5 lg:px-8 py-4 lg:py-5 border-b dark:border-gray-700 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 bg-red-100 dark:bg-red-900/30 rounded-2xl flex items-center justify-center">
@@ -790,7 +788,6 @@ const CashierShiftModal: React.FC<Props> = ({
 
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 lg:px-8 pb-4 lg:pb-6 pt-4 lg:pt-6">
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-4 lg:gap-0 items-start">
-                {/* ── Left: Shift Summary ── */}
                 <div className="space-y-3 lg:pr-6">
                   <h3 className="text-[10px] lg:text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Shift Summary</h3>
                   <div className="grid grid-cols-2 gap-2">
@@ -849,12 +846,10 @@ const CashierShiftModal: React.FC<Props> = ({
                   </div>
                 </div>
 
-                {/* ── Vertical Separator ── */}
                 <div className="hidden lg:flex flex-col items-center self-stretch py-2">
                   <div className="w-px flex-1 bg-gray-200 dark:bg-gray-700" />
                 </div>
 
-                {/* ── Right: Close input ── */}
                 <div className="space-y-3 lg:pl-6">
                   <div>
                     <label className="block text-[10px] lg:text-xs font-black text-gray-400 uppercase tracking-widest mb-2">
@@ -927,23 +922,30 @@ const CashierShiftModal: React.FC<Props> = ({
                 {loading ? 'Closing...' : <>Close Shift <ArrowRight size={18} /></>}
               </button>
             </div>
-          </>
-        ) : (
-          /* ── Panel 2: Shift Close Ready ── */
-          <>
-            <div className="px-8 py-5 border-b dark:border-gray-700 flex items-center justify-between flex-shrink-0 relative">
+          </div>
+
+          <div className="flex h-full w-1/2 flex-col border-l border-transparent">
+            <div className="px-5 lg:px-8 py-4 lg:py-5 border-b dark:border-gray-700 flex items-center justify-between flex-shrink-0 relative">
+              <button
+                onClick={resetCloseFlow}
+                disabled={loading || isPrinting}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all disabled:opacity-50"
+                aria-label="Back to close shift form"
+              >
+                <ArrowRight size={22} className="text-gray-400 rotate-180" />
+              </button>
               <div className="text-center flex-1">
-                <h3 className="font-black dark:text-white uppercase tracking-tighter text-2xl">Shift Close Ready</h3>
+                <h3 className="font-black dark:text-white uppercase tracking-tighter text-xl lg:text-2xl">Shift Close Ready</h3>
                 <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">Print the shift close details before finalizing</p>
               </div>
-              <button onClick={handleDismiss} className="absolute right-5 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all">
+              <button onClick={handleDismiss} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all">
                 <X size={24} className="text-gray-400" />
               </button>
             </div>
 
-            <div className="flex-1 flex flex-col items-center justify-center p-8">
-              <div className="w-full max-w-3xl">
-                <div className="grid grid-cols-1 sm:grid-cols-2">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 lg:px-8 pb-4 lg:pb-6 pt-4 lg:pt-6">
+              <div className="mx-auto flex h-full w-full max-w-3xl flex-col justify-center">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-0">
                   <div className="sm:pr-8 text-center sm:text-right sm:border-r-2 border-dotted dark:border-gray-700 pb-4 sm:pb-0">
                     <div className="text-3xl lg:text-5xl font-black text-green-500 tracking-tighter">
                       {fmt(actualClose)}
@@ -961,73 +963,73 @@ const CashierShiftModal: React.FC<Props> = ({
                     </label>
                   </div>
                 </div>
-              </div>
 
-              <div className="w-full max-w-3xl mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
-                <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-2xl p-4">
-                  <p className="text-2xl font-black text-amber-500 tracking-tighter">{fmt(shiftSales.total)}</p>
-                  <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mt-1">Total Sales</p>
-                </div>
-                <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-2xl p-4">
-                  <p className="text-2xl font-black text-gray-700 dark:text-gray-100 tracking-tighter">{shiftSales.count}</p>
-                  <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mt-1">Orders</p>
-                </div>
-                <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-2xl p-4">
-                  <p className="text-lg font-black text-gray-700 dark:text-gray-100 tracking-tight">{formatDuration(activeShift.opened_at, confirmClosedAt)}</p>
-                  <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mt-1">Shift Duration</p>
-                </div>
-              </div>
-
-              <div className="w-full max-w-3xl mt-8 text-center space-y-2">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Opened {formatDateTime(activeShift.opened_at)}
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Closing at {formatDateTime(confirmClosedAt)}
-                </p>
-                <p className="text-sm text-gray-400 dark:text-gray-500 italic">
-                  {hasPrintedShiftDetails ? 'Shift details printed. You can close the shift now.' : 'Closing the shift will print the shift details automatically.'}
-                </p>
-                {printerLive ? (
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider mt-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    Printer Connected
+                <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+                  <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-2xl p-4">
+                    <p className="text-2xl font-black text-amber-500 tracking-tighter">{fmt(shiftSales.total)}</p>
+                    <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mt-1">Total Sales</p>
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        const found = await printerService.scanForPrinters();
-                        if (found.length > 0) {
-                          const device = found[0];
-                          const success = await printerService.connect(device.name);
-                          if (success) {
-                            setPrinterLive(true);
-                            try {
-                              const printers = loadSavedPrinters();
-                              if (printers.length === 0) {
-                                const newPrinters = [{ id: device.id, name: device.name, connectionType: 'bluetooth' as const, paperSize: '58mm' as const, printDensity: 'medium' as const, autoCut: true }];
-                                localStorage.setItem(`printers_${restaurantId}`, JSON.stringify(newPrinters));
-                              }
-                            } catch {}
-                            toast('Printer connected!', 'success');
+                  <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-2xl p-4">
+                    <p className="text-2xl font-black text-gray-700 dark:text-gray-100 tracking-tighter">{shiftSales.count}</p>
+                    <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mt-1">Orders</p>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-2xl p-4">
+                    <p className="text-lg font-black text-gray-700 dark:text-gray-100 tracking-tight">{formatDuration(activeShift.opened_at, confirmClosedAt)}</p>
+                    <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mt-1">Shift Duration</p>
+                  </div>
+                </div>
+
+                <div className="mt-8 text-center space-y-2">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Opened {formatDateTime(activeShift.opened_at)}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Closing at {formatDateTime(confirmClosedAt)}
+                  </p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 italic">
+                    {hasPrintedShiftDetails ? 'Shift details printed. You can close the shift now.' : 'Closing the shift will print the shift details automatically.'}
+                  </p>
+                  {printerLive ? (
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider mt-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                      Printer Connected
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const found = await printerService.scanForPrinters();
+                          if (found.length > 0) {
+                            const device = found[0];
+                            const success = await printerService.connect(device.name);
+                            if (success) {
+                              setPrinterLive(true);
+                              try {
+                                const printers = loadSavedPrinters();
+                                if (printers.length === 0) {
+                                  const newPrinters = [{ id: device.id, name: device.name, connectionType: 'bluetooth' as const, paperSize: '58mm' as const, printDensity: 'medium' as const, autoCut: true }];
+                                  localStorage.setItem(`printers_${restaurantId}`, JSON.stringify(newPrinters));
+                                }
+                              } catch {}
+                              toast('Printer connected!', 'success');
+                            } else {
+                              toast('Failed to connect to printer.', 'error');
+                            }
                           } else {
-                            toast('Failed to connect to printer.', 'error');
+                            toast('No printer found. Make sure Bluetooth is on.', 'warning');
                           }
-                        } else {
-                          toast('No printer found. Make sure Bluetooth is on.', 'warning');
+                        } catch {
+                          toast('Bluetooth scan cancelled or failed.', 'error');
                         }
-                      } catch {
-                        toast('Bluetooth scan cancelled or failed.', 'error');
-                      }
-                    }}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider mt-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors cursor-pointer"
-                  >
-                    <div className="w-2 h-2 rounded-full bg-red-400" />
-                    Printer Not Connected
-                  </button>
-                )}
+                      }}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider mt-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors cursor-pointer"
+                    >
+                      <div className="w-2 h-2 rounded-full bg-red-400" />
+                      Printer Not Connected
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1056,8 +1058,8 @@ const CashierShiftModal: React.FC<Props> = ({
                 {loading ? 'Closing...' : <>Close Shift <ArrowRight size={18} /></>}
               </button>
             </div>
-          </>
-        )}
+          </div>
+        </div>
 
         {renderAmountKeypad()}
         {renderZeroAmountConfirmation()}
