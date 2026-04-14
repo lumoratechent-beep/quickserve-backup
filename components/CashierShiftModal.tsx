@@ -286,11 +286,6 @@ const CashierShiftModal: React.FC<Props> = ({
     const shiftPrintData = buildShiftPrintData(closedAt);
     if (!shiftPrintData) return;
 
-    if (!hasPrintedShiftDetails) {
-      toast('Please print shift details before closing the shift.', 'error');
-      return;
-    }
-
     setLoading(true);
     try {
       const { error } = await supabase
