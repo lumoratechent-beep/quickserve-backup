@@ -400,6 +400,8 @@ const PosOnlyView: React.FC<Props> = ({
   const [mobileMenuLayout, setMobileMenuLayout] = useState<'2' | '3' | 'list'>('3');
   const [flashItemId, setFlashItemId] = useState<string | null>(null);
   const [showLayoutPicker, setShowLayoutPicker] = useState(false);
+  const [showCounterModePicker, setShowCounterModePicker] = useState(false);
+  const [showDiningOptionPicker, setShowDiningOptionPicker] = useState(false);
   const [posCart, setPosCart] = useState<CartItem[]>([]);
   const [posRemark, setPosRemark] = useState('');
   const [posTableNo, setPosTableNo] = useState('Counter');
@@ -721,11 +723,7 @@ const PosOnlyView: React.FC<Props> = ({
       features: { ...(currentSettings.features || {}), shiftSchedules: schedules },
     };
     localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(newSettings));
-    fetch(`/api/settings?restaurantId=${restaurant.id}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ settings: newSettings }),
-    }).catch(() => {});
+    saveSettingsToDb(restaurant.id, currentSettings, 'features', newSettings.features).catch(() => {});
   };
 
   const [tableCountDraft, setTableCountDraft] = useState<string>('20');
@@ -806,6 +804,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [collectKeypadFreshEntry, setCollectKeypadFreshEntry] = useState(true);
   const enabledPaymentTypes = useMemo(() => paymentTypes.filter((type) => type.enabled), [paymentTypes]);
   const paymentMethodButtons = useMemo(() => enabledPaymentTypes.slice(0, 3), [enabledPaymentTypes]);
+  const cartItemCount = useMemo(() => posCart.reduce((sum, item) => sum + item.quantity, 0), [posCart]);
   const availableDiningOptions = useMemo(() => {
     const options: string[] = [];
     if (featureSettings.dineInEnabled) options.push('Dine-in');
@@ -1909,6 +1908,35 @@ const PosOnlyView: React.FC<Props> = ({
     startSaveBillFlow('COUNTER');
   };
 
+  const resetCounterOrderDraft = () => {
+    setEditingQrOrderId(null);
+    setPosCart([]);
+    setPosRemark('');
+    setPosTableNo('Counter');
+    setPosDiningType(preferredDiningOption);
+  };
+
+  const switchCounterMode = (mode: 'SAVED_BILL' | 'COUNTER_ORDER' | 'QR_ORDER') => {
+    if (mode === 'SAVED_BILL' && !showSavedBillFeature) return;
+    if (mode === 'QR_ORDER' && !showQrFeature) return;
+
+    if (editingQrOrderId) {
+      resetCounterOrderDraft();
+    }
+
+    setCounterMode(mode);
+    setSelectedQrOrderForPayment(null);
+    setShowCounterModePicker(false);
+  };
+
+  const currentCounterModeLabel = editingQrOrderId
+    ? 'Edit Order'
+    : counterMode === 'SAVED_BILL'
+      ? 'Saved Bill'
+      : counterMode === 'QR_ORDER'
+        ? 'QR Order'
+        : 'Counter';
+
   const handleSavedBillCheckout = () => {
     if (!selectedSavedBillEntry || isCompletingPayment) return;
 
@@ -2469,6 +2497,9 @@ const PosOnlyView: React.FC<Props> = ({
       // Hydrate ALL settings state from server (DB is authoritative for cross-device)
       if (serverSettings.features) {
         setFeatureSettings(prev => ({ ...prev, ...serverSettings.features }));
+        if (Array.isArray(serverSettings.features.shiftSchedules)) {
+          setShiftSchedules(serverSettings.features.shiftSchedules);
+        }
       }
       if (serverSettings.receipt && typeof serverSettings.receipt === 'object') {
         setReceiptConfig(prev => normalizeReceiptConfig({ ...prev, ...serverSettings.receipt }));
@@ -2752,6 +2783,15 @@ const PosOnlyView: React.FC<Props> = ({
       setCounterMode('COUNTER_ORDER');
     }
   }, [featureSettings.savedBillEnabled, counterMode]);
+
+  useEffect(() => {
+    if (activeTab !== 'COUNTER') {
+      setShowLayoutPicker(false);
+      setShowCounterModePicker(false);
+      setShowDiningOptionPicker(false);
+      setShowMobileCart(false);
+    }
+  }, [activeTab]);
 
   // User Experience: persist font choice and apply to page
   useEffect(() => {
@@ -4152,13 +4192,25 @@ const PosOnlyView: React.FC<Props> = ({
     }
     if (settingsSyncTimerRef.current) clearTimeout(settingsSyncTimerRef.current);
     settingsSyncTimerRef.current = setTimeout(() => {
+      const cachedSettings = (() => {
+        try {
+          const cached = localStorage.getItem(`qs_settings_${restaurant.id}`);
+          return cached ? JSON.parse(cached) : {};
+        } catch {
+          return {};
+        }
+      })();
       const bundle: Record<string, any> = {
-        // Preserve existing DB keys not managed here (orderCode, flags, etc.)
+        // Preserve existing DB/cache keys not managed here so sync remains lossless across devices.
         ...(restaurant.settings || {}),
+        ...cachedSettings,
         receipt: receiptConfig,
         orderList: orderListConfig,
         kitchenTicket: kitchenConfig,
-        features: featureSettings,
+        features: {
+          ...(cachedSettings.features || restaurant.settings?.features || {}),
+          ...featureSettings,
+        },
         paymentTypes,
         taxes: taxEntries,
         font: userFont,
@@ -5552,7 +5604,7 @@ const PosOnlyView: React.FC<Props> = ({
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Mobile Header */}
-          <div className="lg:hidden flex items-center p-4 landscape:py-1.5 landscape:px-2 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30 no-print">
+          <div className="lg:hidden flex items-center p-3 landscape:py-1.5 landscape:px-2 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30 no-print">
             <button 
               onClick={() => setIsMobileMenuOpen(true)}
               className="p-2 -ml-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -5576,20 +5628,68 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
             {/* Mobile View Option (only on COUNTER tab) */}
             {activeTab === 'COUNTER' && (
-              <div className="relative ml-2 flex-shrink-0">
-                <button
-                  onClick={() => setShowLayoutPicker(!showLayoutPicker)}
-                  className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-all"
-                >
-                  <LayoutGrid size={18} />
-                </button>
-                {showLayoutPicker && (
-                  <div className="absolute right-0 top-full mt-1 z-50 flex items-center gap-1 bg-white dark:bg-gray-800 border dark:border-gray-700 p-1 rounded-xl shadow-lg">
-                    <button onClick={() => { setMobileMenuLayout('2'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${mobileMenuLayout === '2' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>2</button>
-                    <button onClick={() => { setMobileMenuLayout('3'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${mobileMenuLayout === '3' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>3</button>
-                    <button onClick={() => { setMobileMenuLayout('list'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all ${mobileMenuLayout === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><List size={14} /></button>
-                  </div>
-                )}
+              <div className="ml-2 flex items-center gap-2 flex-shrink-0">
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setShowCounterModePicker(prev => !prev);
+                      setShowLayoutPicker(false);
+                    }}
+                    className="h-10 px-3 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:text-orange-500 transition-all flex items-center gap-2"
+                  >
+                    <Receipt size={16} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">{currentCounterModeLabel}</span>
+                    <ChevronDown size={14} className="text-gray-400" />
+                  </button>
+                  {showCounterModePicker && (
+                    <div className="absolute right-0 top-full mt-2 z-50 w-48 bg-white dark:bg-gray-800 border dark:border-gray-700 p-1.5 rounded-2xl shadow-xl space-y-1">
+                      {showSavedBillFeature && (
+                        <button
+                          onClick={() => switchCounterMode('SAVED_BILL')}
+                          className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${counterMode === 'SAVED_BILL' && !editingQrOrderId ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                        >
+                          <span className="text-[10px] font-black uppercase tracking-widest">Saved Bill</span>
+                          {savedBills.length > 0 && <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[8px] font-black flex items-center justify-center">{savedBills.length}</span>}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => switchCounterMode('COUNTER_ORDER')}
+                        className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${counterMode === 'COUNTER_ORDER' && !editingQrOrderId ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                      >
+                        <span className="text-[10px] font-black uppercase tracking-widest">Counter</span>
+                      </button>
+                      {showQrFeature && (
+                        <button
+                          onClick={() => switchCounterMode('QR_ORDER')}
+                          className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${counterMode === 'QR_ORDER' && !editingQrOrderId ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                        >
+                          <span className="text-[10px] font-black uppercase tracking-widest">QR Order</span>
+                          {orders.filter(o => o.status === OrderStatus.SERVED).length > 0 && (
+                            <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[8px] font-black flex items-center justify-center">{orders.filter(o => o.status === OrderStatus.SERVED).length}</span>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setShowLayoutPicker(prev => !prev);
+                      setShowCounterModePicker(false);
+                    }}
+                    className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-all"
+                  >
+                    <LayoutGrid size={18} />
+                  </button>
+                  {showLayoutPicker && (
+                    <div className="absolute right-0 top-full mt-2 z-50 flex items-center gap-1 bg-white dark:bg-gray-800 border dark:border-gray-700 p-1 rounded-xl shadow-lg">
+                      <button onClick={() => { setMobileMenuLayout('2'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${mobileMenuLayout === '2' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>2</button>
+                      <button onClick={() => { setMobileMenuLayout('3'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all text-[10px] font-black ${mobileMenuLayout === '3' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>3</button>
+                      <button onClick={() => { setMobileMenuLayout('list'); setShowLayoutPicker(false); }} className={`p-2 rounded-lg transition-all ${mobileMenuLayout === 'list' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><List size={14} /></button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -9890,7 +9990,7 @@ const PosOnlyView: React.FC<Props> = ({
                     <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 mb-3">
                       {showSavedBillFeature && (
                         <button
-                          onClick={() => { if (editingQrOrderId) return; setCounterMode('SAVED_BILL'); setSelectedQrOrderForPayment(null); }}
+                          onClick={() => { if (editingQrOrderId) return; switchCounterMode('SAVED_BILL'); }}
                           className={`relative flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
                             editingQrOrderId
                               ? 'bg-blue-500 text-white shadow-sm'
@@ -9908,7 +10008,7 @@ const PosOnlyView: React.FC<Props> = ({
                         >Edit Order</button>
                       )}
                       <button
-                        onClick={() => { if (editingQrOrderId) { setEditingQrOrderId(null); setPosCart([]); setPosRemark(''); setPosTableNo('Counter'); setPosDiningType(preferredDiningOption); } setCounterMode('COUNTER_ORDER'); setSelectedQrOrderForPayment(null); }}
+                        onClick={() => switchCounterMode('COUNTER_ORDER')}
                         className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
                           !editingQrOrderId && counterMode === 'COUNTER_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
                         }`}
@@ -9917,7 +10017,7 @@ const PosOnlyView: React.FC<Props> = ({
                         const servedQrCount = orders.filter(o => o.status === OrderStatus.SERVED).length;
                         return (
                         <button
-                          onClick={() => { if (editingQrOrderId) { setEditingQrOrderId(null); setPosCart([]); setPosRemark(''); setPosTableNo('Counter'); setPosDiningType(preferredDiningOption); } setCounterMode('QR_ORDER'); setSelectedQrOrderForPayment(null); }}
+                          onClick={() => switchCounterMode('QR_ORDER')}
                           className={`relative flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
                             !editingQrOrderId && counterMode === 'QR_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
                           }`}
@@ -10291,7 +10391,7 @@ const PosOnlyView: React.FC<Props> = ({
         >
           <ShoppingBag size={24} />
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center shadow-lg">
-            {posCart.reduce((sum, item) => sum + item.quantity, 0)}
+            {cartItemCount}
           </span>
         </button>
       )}
@@ -10309,7 +10409,7 @@ const PosOnlyView: React.FC<Props> = ({
             {/* Cart Header */}
             <div className="px-5 py-3 border-b dark:border-gray-700 flex items-center justify-between">
               <h3 className="font-black dark:text-white uppercase tracking-tighter text-base">
-                Cart ({posCart.reduce((sum, item) => sum + item.quantity, 0)})
+                Cart ({cartItemCount})
               </h3>
               <div className="flex items-center gap-3">
                 <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors p-1">
@@ -10372,22 +10472,45 @@ const PosOnlyView: React.FC<Props> = ({
                 <span className="text-xl font-black text-orange-500">{currencySymbol}{cartGrandTotal.toFixed(2)}</span>
               </div>
 
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <input type="text" value={posTableNo} onChange={e => setPosTableNo(e.target.value)} className="w-full p-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white" placeholder="Table" />
-                </div>
-                <div className="flex-[2]">
-                  <select value={posDiningType} onChange={e => setPosDiningType(e.target.value)} className="w-full p-2.5 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-[10px] font-black dark:text-white">
-                    {availableDiningOptions.map((option) => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </select>
-                </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={openCounterTablePicker}
+                  className="p-3 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-left transition-all hover:border-orange-300 dark:hover:border-orange-500"
+                >
+                  <span className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Table</span>
+                  <span className="flex items-center justify-between gap-2 text-[11px] font-black dark:text-white uppercase tracking-wide">
+                    <span className="truncate">{posTableNo || 'Counter'}</span>
+                    <ChevronDown size={14} className="text-gray-400 shrink-0" />
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDiningOptionPicker(true)}
+                  className="p-3 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl text-left transition-all hover:border-orange-300 dark:hover:border-orange-500"
+                >
+                  <span className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Dining</span>
+                  <span className="flex items-center justify-between gap-2 text-[11px] font-black dark:text-white uppercase tracking-wide">
+                    <span className="truncate">{posDiningType}</span>
+                    <ChevronDown size={14} className="text-gray-400 shrink-0" />
+                  </span>
+                </button>
               </div>
 
-              <button onClick={() => { setShowMobileCart(false); handleCheckout(); }} disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2">
-                <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : `Pay ${currencySymbol}${cartGrandTotal.toFixed(2)}`}
-              </button>
+              {showSavedBillFeature ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={saveCurrentBill} disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess} className="w-full py-4 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border dark:border-gray-700 rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] hover:border-orange-300 dark:hover:border-orange-500 transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2">
+                    <Receipt size={15} /> Save Bill
+                  </button>
+                  <button onClick={() => { setShowMobileCart(false); handleCheckout(); }} disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2">
+                    <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : `Pay ${currencySymbol}${cartGrandTotal.toFixed(2)}`}
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => { setShowMobileCart(false); handleCheckout(); }} disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2">
+                  <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : `Pay ${currencySymbol}${cartGrandTotal.toFixed(2)}`}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -10670,6 +10793,18 @@ const PosOnlyView: React.FC<Props> = ({
             </div>
 
             <div className="p-6 space-y-4 flex-1 overflow-y-auto">
+              {tableModalMode === 'COUNTER_PICK' && (
+                <button
+                  onClick={() => handleSaveBillModalTableClick('Counter')}
+                  className={`w-full p-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between ${selectedSaveTableNumber === 'Counter' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-orange-300'}`}
+                >
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-widest dark:text-white">Counter</p>
+                    <p className="text-[10px] mt-1 text-gray-400">No table assigned</p>
+                  </div>
+                  <Hash size={16} className="text-gray-400" />
+                </button>
+              )}
               {/* Floor tabs in modal */}
               {featureSettings.floorEnabled && effectiveFloorCount > 1 && (
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
@@ -10738,6 +10873,40 @@ const PosOnlyView: React.FC<Props> = ({
               >
                 {tableModalMode === 'COUNTER_PICK' ? 'Use Selected Table' : 'Save Bill'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDiningOptionPicker && (
+        <div className="lg:hidden fixed inset-0 z-[60]" onClick={() => setShowDiningOptionPicker(false)}>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div className="absolute inset-x-0 bottom-0 bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-center pb-1">
+              <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full" />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-black dark:text-white uppercase tracking-tighter text-base">Dining Option</h3>
+                <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">Choose order mode for this bill</p>
+              </div>
+              <button onClick={() => setShowDiningOptionPicker(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all">
+                <X size={18} className="text-gray-400" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {availableDiningOptions.map((option) => (
+                <button
+                  key={option}
+                  onClick={() => {
+                    setPosDiningType(option);
+                    setShowDiningOptionPicker(false);
+                  }}
+                  className={`w-full px-4 py-3 rounded-2xl border text-left transition-all ${posDiningType === option ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:border-orange-300 dark:hover:border-orange-500'}`}
+                >
+                  <span className="text-[11px] font-black uppercase tracking-widest">{option}</span>
+                </button>
+              ))}
             </div>
           </div>
         </div>

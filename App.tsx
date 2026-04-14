@@ -2143,11 +2143,11 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors" style={{ height: 'var(--app-height, 100dvh)' }}>
-      <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-16 flex items-center justify-between px-8 shadow-sm">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('MARKETING')}>
-          <img src={isDarkMode ? "/LOGO/9-dark.png" : "/LOGO/9.png"} alt="QuickServe" className="h-10" />
+      <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 lg:px-8 shadow-sm">
+        <div className="flex items-center gap-2 cursor-pointer min-w-0" onClick={() => setView('MARKETING')}>
+          <img src={isDarkMode ? "/LOGO/9-dark.png" : "/LOGO/9.png"} alt="QuickServe" className="h-8 sm:h-10 w-auto" />
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3">
           {/* Shift button — rectangular, before mail. Only if shiftEnabled feature is on */}
           {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (() => {
             const shiftOn = isShiftFeatureEnabledForRestaurant(currentUser!.restaurantId);
@@ -2155,15 +2155,16 @@ const App: React.FC = () => {
             return (
               <button
                 onClick={() => setShowShiftModal(true)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+                className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-black transition-all ${
                   activeShift
                     ? 'bg-green-100 text-green-700 border border-green-300 hover:bg-green-200 dark:bg-green-900/40 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/60'
                     : 'bg-red-100 text-red-700 border border-red-300 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700 dark:hover:bg-red-900/60'
                 }`}
                 title={activeShift ? 'Shift Active — Click to close' : 'Shift required before payment'}
               >
-                <Clock size={14} />
-                {activeShift ? 'SHIFT ON' : 'SHIFT OFF'}
+                <Clock size={13} />
+                <span className="sm:hidden">SHIFT</span>
+                <span className="hidden sm:inline">{activeShift ? 'SHIFT ON' : 'SHIFT OFF'}</span>
                 {activeShift && (
                   <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                 )}
@@ -2173,10 +2174,10 @@ const App: React.FC = () => {
           {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (
             <button
               onClick={() => { setView('APP'); fetchAnnouncements(); setOpenMailInPOS(true); }}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white relative"
+              className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white relative shrink-0"
               title="Mail"
             >
-              <Mail size={20} />
+              <Mail size={18} className="sm:w-5 sm:h-5" />
               {unreadMailCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">{unreadMailCount}</span>
               )}
@@ -2195,15 +2196,15 @@ const App: React.FC = () => {
               border: '1px solid rgba(0, 0, 0, 0.08)',
               boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.08)',
             }}
-            className="relative flex items-center w-16 h-8 rounded-full transition-all duration-300 focus:outline-none"
+            className="relative flex items-center w-14 sm:w-16 h-7 sm:h-8 rounded-full transition-all duration-300 focus:outline-none shrink-0"
           >
             <span
               style={isDarkMode
                 ? { background: 'linear-gradient(135deg, #6366f1 0%, #3730a3 100%)', boxShadow: '0 0 10px rgba(99, 102, 241, 0.4)' }
                 : { background: 'linear-gradient(135deg, #fbbf24 0%, #f97316 100%)', boxShadow: '0 0 10px rgba(249, 115, 22, 0.3)' }
               }
-              className={`absolute left-1 flex items-center justify-center w-6 h-6 rounded-full transition-all duration-300 ${
-                isDarkMode ? 'translate-x-8' : 'translate-x-0'
+              className={`absolute left-1 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full transition-all duration-300 ${
+                isDarkMode ? 'translate-x-7 sm:translate-x-8' : 'translate-x-0'
               }`}
             >
               {isDarkMode
@@ -2214,13 +2215,13 @@ const App: React.FC = () => {
             <Moon size={12} className={`absolute right-2 transition-opacity duration-300 text-indigo-400 ${isDarkMode ? 'opacity-0' : 'opacity-40'}`} />
           </button>
           {currentUser && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-3">
               <div className="text-right hidden sm:block">
                 <p className="text-[10px] text-gray-400 font-bold uppercase">{currentUser.role}</p>
                 <p className="text-xs font-black dark:text-white">{currentUser.username}</p>
               </div>
               {isOnline && (
-                <button onClick={handleLogout} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white"><LogOut size={20} /></button>
+                <button onClick={handleLogout} className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white shrink-0"><LogOut size={18} className="sm:w-5 sm:h-5" /></button>
               )}
             </div>
           )}
