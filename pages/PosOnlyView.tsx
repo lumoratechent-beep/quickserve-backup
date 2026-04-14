@@ -48,6 +48,15 @@ interface RefundApprovalRequestRecord {
   resolved_by_username?: string | null;
 }
 
+interface AnnouncementRecord {
+  id: string;
+  title: string;
+  body: string;
+  category: string;
+  created_at: string;
+  is_read: boolean;
+}
+
 const getRefundApprovalRole = (permissions?: Record<string, any>): RefundApprovalRole =>
   permissions?.refundApprovalRole === 'VENDOR' ? 'VENDOR' : 'MANAGER';
 
@@ -94,7 +103,7 @@ interface Props {
   subscription?: Subscription | null;
   onSubscriptionUpdated?: () => void;
   onNavigateBackOffice?: () => void;
-  announcements?: Array<{id: string; title: string; body: string; category: string; created_at: string; is_read: boolean}>;
+  announcements?: AnnouncementRecord[];
   announcementsLoading?: boolean;
   onMarkAnnouncementRead?: (id: string) => void;
   onMarkAllAnnouncementsRead?: () => void;
@@ -416,6 +425,7 @@ const PosOnlyView: React.FC<Props> = ({
 
   // Profile panel state
   const [showProfilePanel, setShowProfilePanel] = useState(false);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<AnnouncementRecord | null>(null);
   const [profileRestaurantName, setProfileRestaurantName] = useState('');
   const [profileCurrentPassword, setProfileCurrentPassword] = useState('');
   const [profileNewPassword, setProfileNewPassword] = useState('');
@@ -8841,13 +8851,13 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {canReviewRefundRequests && (
-                  <div className="mb-5 rounded-2xl border border-purple-200/80 bg-purple-50/60 dark:border-purple-900/40 dark:bg-purple-900/10 overflow-hidden">
-                    <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-purple-200/80 dark:border-purple-900/40">
+                  <div className="mb-5 rounded-2xl border-2 border-slate-200 bg-white shadow-[0_12px_30px_-24px_rgba(91,33,182,0.45)] ring-1 ring-purple-100/80 dark:border-purple-900/40 dark:bg-gradient-to-br dark:from-purple-950/20 dark:via-gray-900 dark:to-gray-900 dark:ring-0 overflow-hidden">
+                    <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 bg-gradient-to-r from-purple-50 via-white to-fuchsia-50 dark:border-purple-900/40 dark:from-purple-950/20 dark:via-gray-900 dark:to-fuchsia-950/10">
                       <div>
-                        <h3 className="text-sm font-black uppercase tracking-wider text-purple-700 dark:text-purple-300">Refund Approval Requests</h3>
-                        <p className="text-xs text-purple-600/80 dark:text-purple-300/80 mt-1">Review requests sent to your {refundRequestTargetRole === 'VENDOR' ? 'vendor' : 'manager'} inbox.</p>
+                        <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-purple-300">Refund Approval Requests</h3>
+                        <p className="text-xs text-slate-600 dark:text-purple-300/80 mt-1">Review requests sent to your {refundRequestTargetRole === 'VENDOR' ? 'vendor' : 'manager'} inbox.</p>
                       </div>
-                      <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-white/80 text-purple-700 dark:bg-purple-950/40 dark:text-purple-200">
+                      <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border border-purple-200 bg-white text-purple-700 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-200">
                         {refundApprovalRequests.length} pending
                       </span>
                     </div>
@@ -8857,19 +8867,19 @@ const PosOnlyView: React.FC<Props> = ({
                         <RotateCw size={22} className="animate-spin text-purple-400" />
                       </div>
                     ) : refundApprovalRequests.length === 0 ? (
-                      <div className="px-5 py-8 text-center">
-                        <Lock size={24} className="mx-auto text-purple-300 dark:text-purple-700 mb-2" />
+                      <div className="px-5 py-10 text-center bg-slate-50/70 dark:bg-transparent">
+                        <Lock size={24} className="mx-auto text-purple-400 dark:text-purple-700 mb-2" />
                         <p className="text-sm font-semibold text-slate-700 dark:text-gray-200">No refund requests pending</p>
                         <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">New cashier refund requests will appear here for approval or deletion.</p>
                       </div>
                     ) : (
-                      <div className="divide-y divide-purple-200/70 dark:divide-purple-900/30">
+                      <div className="divide-y divide-slate-200 dark:divide-purple-900/30 bg-white dark:bg-transparent">
                         {refundApprovalRequests.map(request => (
-                          <div key={request.id} className="px-5 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                          <div key={request.id} className="px-5 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between hover:bg-purple-50/45 dark:hover:bg-purple-950/10 transition-colors">
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <p className="text-sm font-bold text-slate-900 dark:text-white">Order #{request.order_id}</p>
-                                <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                                <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
                                   {getRefundApprovalRoleLabel(request.approver_role)} Approval
                                 </span>
                               </div>
@@ -8917,11 +8927,14 @@ const PosOnlyView: React.FC<Props> = ({
                     {announcements.map(a => (
                       <div
                         key={a.id}
-                        onClick={() => { if (!a.is_read) onMarkAnnouncementRead?.(a.id); }}
-                        className={`px-5 py-4 transition-all cursor-pointer flex items-start gap-4 ${
+                        onClick={() => {
+                          if (!a.is_read) onMarkAnnouncementRead?.(a.id);
+                          setSelectedAnnouncement(a);
+                        }}
+                        className={`group px-5 py-4 transition-all cursor-pointer flex items-start gap-4 ${
                           a.is_read
-                            ? 'hover:bg-gray-50 dark:hover:bg-gray-750'
-                            : 'bg-orange-50/60 dark:bg-orange-900/10 hover:bg-orange-50 dark:hover:bg-orange-900/15'
+                            ? 'hover:bg-slate-50 hover:shadow-[inset_4px_0_0_rgba(148,163,184,0.45)] dark:hover:bg-slate-700/45 dark:hover:shadow-[inset_4px_0_0_rgba(148,163,184,0.35)]'
+                            : 'bg-orange-50/60 dark:bg-orange-900/10 hover:bg-orange-100/70 hover:shadow-[inset_4px_0_0_rgba(249,115,22,0.45)] dark:hover:bg-orange-900/20 dark:hover:shadow-[inset_4px_0_0_rgba(251,146,60,0.4)]'
                         }`}
                       >
                         {/* Category icon */}
@@ -8943,7 +8956,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-0.5">
                             {!a.is_read && <span className="w-2 h-2 bg-orange-500 rounded-full shrink-0" />}
-                            <h3 className={`text-sm truncate ${!a.is_read ? 'font-black dark:text-white' : 'font-semibold text-gray-700 dark:text-gray-300'}`}>{a.title}</h3>
+                            <h3 className={`text-sm truncate transition-colors ${!a.is_read ? 'font-black text-slate-900 dark:text-white' : 'font-semibold text-gray-700 dark:text-gray-300 group-hover:text-slate-900 dark:group-hover:text-white'}`}>{a.title}</h3>
                             <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0 ${
                               a.category === 'billing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
                               a.category === 'update' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
@@ -8952,7 +8965,7 @@ const PosOnlyView: React.FC<Props> = ({
                               'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
                             }`}>{a.category}</span>
                           </div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 whitespace-pre-line leading-relaxed line-clamp-2">{a.body}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-slate-600 dark:group-hover:text-gray-300 whitespace-pre-line leading-relaxed line-clamp-2">{a.body}</p>
                         </div>
 
                         {/* Date & status */}
@@ -8973,6 +8986,47 @@ const PosOnlyView: React.FC<Props> = ({
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {selectedAnnouncement && (
+            <div className="fixed inset-0 bg-black/55 backdrop-blur-sm z-[130] flex items-center justify-center p-4" onClick={() => setSelectedAnnouncement(null)}>
+              <div className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-hidden dark:border-gray-700 dark:bg-gray-800" onClick={e => e.stopPropagation()}>
+                <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-slate-200 dark:border-gray-700 bg-gradient-to-r from-slate-50 to-orange-50/70 dark:from-gray-800 dark:to-gray-800">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                      <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                        selectedAnnouncement.category === 'billing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
+                        selectedAnnouncement.category === 'update' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
+                        selectedAnnouncement.category === 'maintenance' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
+                        selectedAnnouncement.category === 'promotion' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' :
+                        'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                      }`}>
+                        {selectedAnnouncement.category}
+                      </span>
+                      {!selectedAnnouncement.is_read && <span className="text-[9px] font-black uppercase tracking-widest text-orange-500">New</span>}
+                    </div>
+                    <h3 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">{selectedAnnouncement.title}</h3>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-gray-400">
+                      {new Date(selectedAnnouncement.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {' • '}
+                      {new Date(selectedAnnouncement.created_at).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedAnnouncement(null)}
+                    className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="px-6 py-6 max-h-[65vh] overflow-y-auto">
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <p className="whitespace-pre-line text-sm leading-7 text-slate-700 dark:text-gray-200 m-0">{selectedAnnouncement.body}</p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
