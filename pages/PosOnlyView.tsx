@@ -5347,7 +5347,7 @@ const PosOnlyView: React.FC<Props> = ({
 
       {/* Left Sidebar Navigation */}
       <aside className={`
-        fixed lg:relative inset-y-0 left-0 z-50 bg-white dark:bg-gray-800 border-r dark:border-gray-700 
+        fixed lg:relative inset-y-0 left-0 z-[120] bg-white dark:bg-gray-800 border-r dark:border-gray-700 
         flex flex-col transition-all duration-300 ease-in-out no-print
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         ${isSidebarCollapsed ? 'lg:w-16' : 'w-64'}
@@ -5551,7 +5551,7 @@ const PosOnlyView: React.FC<Props> = ({
         </div>
 
         {/* Printer Connection Status */}
-        <div className={`mt-auto border-t dark:border-gray-700 space-y-1.5 ${isSidebarCollapsed ? 'p-2' : 'px-3 py-2'}`}>
+        <div className={`relative z-[121] mt-auto border-t dark:border-gray-700 space-y-1.5 ${isSidebarCollapsed ? 'p-2' : 'px-3 py-2'}`}>
           <button
             onClick={handlePrinterButtonClick}
             disabled={isAutoReconnecting}

@@ -57,6 +57,7 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, currencySymbol }) 
     if (!searchQuery.trim()) return shifts;
     const q = searchQuery.toLowerCase();
     return shifts.filter(s =>
+      (s.shift_code || '').toLowerCase().includes(q) ||
       s.cashier_name.toLowerCase().includes(q) ||
       (s.close_note || '').toLowerCase().includes(q)
     );
@@ -161,6 +162,7 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, currencySymbol }) 
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-gray-900/50">
                 <tr>
+                  <th className="px-4 py-3 text-left font-bold text-gray-500 dark:text-gray-400">Shift ID</th>
                   <th className="px-4 py-3 text-left font-bold text-gray-500 dark:text-gray-400">Cashier</th>
                   <th className="px-4 py-3 text-left font-bold text-gray-500 dark:text-gray-400">Date</th>
                   <th className="px-4 py-3 text-left font-bold text-gray-500 dark:text-gray-400">Time</th>
@@ -174,6 +176,9 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, currencySymbol }) 
               <tbody className="divide-y dark:divide-gray-700">
                 {filtered.map(shift => (
                   <tr key={shift.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onClick={() => setSelectedShift(shift)}>
+                    <td className="px-4 py-3">
+                      <span className="font-black text-gray-700 dark:text-gray-100">{shift.shift_code || shift.id}</span>
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
@@ -226,7 +231,7 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, currencySymbol }) 
             <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
               <div>
                 <h3 className="text-lg font-black dark:text-white">Shift Detail</h3>
-                <p className="text-xs text-gray-500">{selectedShift.cashier_name} &bull; {fmtDate(selectedShift.opened_at)}</p>
+                <p className="text-xs text-gray-500">{selectedShift.shift_code || selectedShift.id} &bull; {selectedShift.cashier_name} &bull; {fmtDate(selectedShift.opened_at)}</p>
               </div>
               <button onClick={() => setSelectedShift(null)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                 <X size={20} className="dark:text-white" />
@@ -235,6 +240,17 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, currencySymbol }) 
 
             <div className="p-6 space-y-4">
               {/* Timing */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-gray-500 font-bold">Shift ID</p>
+                  <p className="font-bold dark:text-white break-all">{selectedShift.shift_code || selectedShift.id}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-bold">Cashier</p>
+                  <p className="font-bold dark:text-white">{selectedShift.cashier_name}</p>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-xs text-gray-500 font-bold">Opened</p>

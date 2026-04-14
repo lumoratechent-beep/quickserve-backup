@@ -48,6 +48,8 @@ const CashierShiftModal: React.FC<Props> = ({
   const [pendingClosedAt, setPendingClosedAt] = useState<string | null>(null);
   const [hasPrintedShiftDetails, setHasPrintedShiftDetails] = useState(false);
   const [printerLive, setPrinterLive] = useState(() => printerService.isConnected());
+  const [lastClosedShift, setLastClosedShift] = useState<CashierShift | null>(null);
+  const [isLoadingLastClosedShift, setIsLoadingLastClosedShift] = useState(false);
 
   const shiftSales = useMemo(() => {
     if (!activeShift) return { cash: 0, card: 0, qr: 0, other: 0, total: 0, count: 0, refunds: 0 };
@@ -102,6 +104,45 @@ const CashierShiftModal: React.FC<Props> = ({
     }, 2000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (activeShift) {
+      setLastClosedShift(null);
+      setIsLoadingLastClosedShift(false);
+      return;
+    }
+
+    const loadLastClosedShift = async () => {
+      setIsLoadingLastClosedShift(true);
+      try {
+        const { data, error } = await supabase
+          .from('cashier_shifts')
+          .select('*')
+          .eq('restaurant_id', restaurantId)
+          .eq('status', 'closed')
+          .order('closed_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (!cancelled) {
+          setLastClosedShift((data as CashierShift | null) || null);
+        }
+      } catch {
+        if (!cancelled) setLastClosedShift(null);
+      } finally {
+        if (!cancelled) setIsLoadingLastClosedShift(false);
+      }
+    };
+
+    void loadLastClosedShift();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeShift, restaurantId]);
 
   const fmt = (value: number) => `${currencySymbol}${value.toFixed(2)}`;
 
@@ -294,8 +335,8 @@ const CashierShiftModal: React.FC<Props> = ({
 
   const handleOpenShift = async () => {
     const amount = parseFloat(openingAmount);
-    if (isNaN(amount) || amount <= 0) {
-      toast('Please enter an opening amount greater than 0.', 'error');
+    if (Number.isNaN(amount) || amount < 0) {
+      toast('Please enter an opening amount. Zero is allowed.', 'error');
       return;
     }
 
@@ -326,11 +367,34 @@ const CashierShiftModal: React.FC<Props> = ({
 
   const ensureClosingAmount = () => {
     const amount = parseFloat(closingAmount);
-    if (isNaN(amount) || amount <= 0) {
-      toast('Please enter the actual cash drawer amount (must be greater than 0).', 'error');
+    if (Number.isNaN(amount) || amount < 0) {
+      toast('Please enter the actual cash drawer amount. Zero is allowed.', 'error');
       return null;
     }
     return amount;
+  };
+
+  const buildClosedShiftPrintData = (shift: CashierShift): ShiftPrintData | null => {
+    if (!shift.closed_at) return null;
+
+    return {
+      shiftId: shift.shift_code || shift.id,
+      cashierName: shift.cashier_name,
+      openedAt: shift.opened_at,
+      closedAt: shift.closed_at,
+      openingAmount: shift.opening_amount,
+      expectedClosingAmount: shift.expected_closing_amount ?? shift.opening_amount + (shift.total_cash_sales || 0),
+      actualClosingAmount: shift.actual_closing_amount ?? 0,
+      difference: shift.difference ?? 0,
+      totalCashSales: shift.total_cash_sales || 0,
+      totalCardSales: shift.total_card_sales || 0,
+      totalQrSales: shift.total_qr_sales || 0,
+      totalOtherSales: shift.total_other_sales || 0,
+      totalSales: shift.total_sales || 0,
+      totalOrders: shift.total_orders || 0,
+      totalRefunds: shift.total_refunds || 0,
+      closeNote: shift.close_note || null,
+    };
   };
 
   const buildShiftPrintData = (closedAt: string): ShiftPrintData | null => {
@@ -338,7 +402,7 @@ const CashierShiftModal: React.FC<Props> = ({
     if (!activeShift || amount === null) return null;
 
     return {
-      shiftId: activeShift.id,
+      shiftId: activeShift.shift_code || activeShift.id,
       cashierName: activeShift.cashier_name,
       openedAt: activeShift.opened_at,
       closedAt,
@@ -388,6 +452,28 @@ const CashierShiftModal: React.FC<Props> = ({
     }
   };
 
+  const printShiftData = async (shiftPrintData: ShiftPrintData, footerText: string) => {
+    const printer = loadSavedPrinters()[0] ?? null;
+    const receiptConfig = loadReceiptConfig();
+
+    return printerService.printShiftDetails(
+      shiftPrintData,
+      { name: receiptConfig.businessName.trim() || restaurantName },
+      {
+        businessName: receiptConfig.businessName.trim() || restaurantName,
+        businessAddressLine1: receiptConfig.businessAddressLine1,
+        businessAddressLine2: receiptConfig.businessAddressLine2,
+        businessPhone: receiptConfig.businessPhone,
+        headerText: 'Shift Closing Summary',
+        footerText,
+        currencySymbol,
+        paperSize: printer?.paperSize || '58mm',
+        printDensity: printer?.printDensity || 'medium',
+        autoCut: printer?.autoCut ?? true,
+      },
+    );
+  };
+
   const handlePrepareCloseShift = () => {
     if (!activeShift) return;
     const amount = ensureClosingAmount();
@@ -406,28 +492,7 @@ const CashierShiftModal: React.FC<Props> = ({
     setPendingClosedAt(closedAt);
     setIsPrinting(true);
     try {
-      // Use saved printer profile for paper/density settings; fall back to safe defaults
-      // so printing still works when the user connected via BLE scan but hasn't added a
-      // named printer profile in Settings.
-      const printer = loadSavedPrinters()[0] ?? null;
-
-      const receiptConfig = loadReceiptConfig();
-      const printed = await printerService.printShiftDetails(
-        shiftPrintData,
-        { name: receiptConfig.businessName.trim() || restaurantName },
-        {
-          businessName: receiptConfig.businessName.trim() || restaurantName,
-          businessAddressLine1: receiptConfig.businessAddressLine1,
-          businessAddressLine2: receiptConfig.businessAddressLine2,
-          businessPhone: receiptConfig.businessPhone,
-          headerText: 'Shift Closing Summary',
-          footerText: 'Shift closed successfully.',
-          currencySymbol,
-          paperSize: printer?.paperSize || '58mm',
-          printDensity: printer?.printDensity || 'medium',
-          autoCut: printer?.autoCut ?? true,
-        },
-      );
+      const printed = await printShiftData(shiftPrintData, 'Shift closed successfully.');
 
       if (!printed) throw new Error('Shift details printing failed.');
 
@@ -437,6 +502,32 @@ const CashierShiftModal: React.FC<Props> = ({
     } catch (err: any) {
       toast(err?.message || 'Failed to print shift details', 'error');
       return false;
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
+  const handleReprintLastShiftDetails = async () => {
+    if (!lastClosedShift) {
+      toast('No closed shift found to reprint.', 'warning');
+      return;
+    }
+
+    const shiftPrintData = buildClosedShiftPrintData(lastClosedShift);
+    if (!shiftPrintData) {
+      toast('Last shift is missing close details.', 'error');
+      return;
+    }
+
+    setIsPrinting(true);
+    try {
+      const printed = await printShiftData(shiftPrintData, 'Shift details reprinted.');
+
+      if (!printed) throw new Error('Shift details printing failed.');
+
+      toast('Last shift details printed successfully.', 'success');
+    } catch (err: any) {
+      toast(err?.message || 'Failed to reprint last shift details', 'error');
     } finally {
       setIsPrinting(false);
     }
@@ -516,6 +607,54 @@ const CashierShiftModal: React.FC<Props> = ({
               </button>
               <p className="text-xs text-gray-400 mt-2">Tap the amount field to open the number pad.</p>
             </div>
+
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-700 p-4 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-widest text-gray-400">Last Closed Shift</p>
+                  {lastClosedShift ? (
+                    <>
+                      <p className="text-base font-black text-gray-900 dark:text-white mt-1">{lastClosedShift.shift_code || lastClosedShift.id}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {lastClosedShift.cashier_name} • {lastClosedShift.closed_at ? formatDateTime(lastClosedShift.closed_at) : 'Close time unavailable'}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {isLoadingLastClosedShift ? 'Loading the latest shift...' : 'No closed shift available yet.'}
+                    </p>
+                  )}
+                </div>
+                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                  printerLive ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                }`}>
+                  <div className={`w-2 h-2 rounded-full ${printerLive ? 'bg-green-500 animate-pulse' : 'bg-red-400'}`} />
+                  {printerLive ? 'Printer Ready' : 'Printer Offline'}
+                </div>
+              </div>
+
+              {lastClosedShift && (
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="rounded-xl bg-gray-50 dark:bg-gray-700/50 p-3">
+                    <p className="font-black uppercase tracking-widest text-gray-400">Sales</p>
+                    <p className="text-sm font-black text-gray-900 dark:text-white mt-1">{fmt(lastClosedShift.total_sales || 0)}</p>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-gray-700/50 p-3">
+                    <p className="font-black uppercase tracking-widest text-gray-400">Actual Close</p>
+                    <p className="text-sm font-black text-gray-900 dark:text-white mt-1">{fmt(lastClosedShift.actual_closing_amount || 0)}</p>
+                  </div>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => void handleReprintLastShiftDetails()}
+                disabled={!lastClosedShift || isLoadingLastClosedShift || isPrinting}
+                className="w-full py-3 rounded-xl border-2 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 font-black text-sm uppercase tracking-wider hover:bg-gray-50 dark:hover:bg-gray-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isPrinting ? 'Printing...' : <><Printer size={16} /> Re-Print Last Shift Details</>}
+              </button>
+            </div>
           </div>
 
           <div className="px-6 py-4 border-t dark:border-gray-700 flex gap-3">
@@ -551,7 +690,7 @@ const CashierShiftModal: React.FC<Props> = ({
                 </div>
                 <div>
                   <h2 className="font-black dark:text-white uppercase tracking-tighter text-xl lg:text-2xl">Close Shift</h2>
-                  <p className="text-xs lg:text-sm text-gray-500">{cashierName} • Opened {new Date(activeShift.opened_at).toLocaleTimeString()}</p>
+                  <p className="text-xs lg:text-sm text-gray-500">{activeShift.shift_code || activeShift.id} • Opened {new Date(activeShift.opened_at).toLocaleTimeString()}</p>
                 </div>
               </div>
               <button onClick={handleDismiss} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all">
@@ -687,7 +826,7 @@ const CashierShiftModal: React.FC<Props> = ({
               </button>
               <button
                 onClick={handlePrepareCloseShift}
-                disabled={loading || !closingAmount || parseFloat(closingAmount) <= 0}
+                disabled={loading || closingAmount === '' || Number.isNaN(parseFloat(closingAmount)) || parseFloat(closingAmount) < 0}
                 className="flex-1 py-3 bg-red-600 text-white rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-red-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {loading ? 'Closing...' : <>Close Shift <ArrowRight size={18} /></>}

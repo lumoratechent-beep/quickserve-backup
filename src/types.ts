@@ -273,6 +273,7 @@ export interface Subscription {
 export interface CashierShift {
   id: string;
   restaurant_id: string;
+  shift_code?: string | null;
   cashier_name: string;
   cashier_user_id?: string;
   opened_at: string;
