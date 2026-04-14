@@ -45,6 +45,7 @@ const CashierShiftModal: React.FC<Props> = ({
   const [loading, setLoading] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [closeStep, setCloseStep] = useState<'form' | 'confirm'>('form');
+  const [zeroAmountConfirmation, setZeroAmountConfirmation] = useState<'opening' | 'closing' | null>(null);
   const [pendingClosedAt, setPendingClosedAt] = useState<string | null>(null);
   const [hasPrintedShiftDetails, setHasPrintedShiftDetails] = useState(false);
   const [printerLive, setPrinterLive] = useState(() => printerService.isConnected());
@@ -94,6 +95,7 @@ const CashierShiftModal: React.FC<Props> = ({
 
   useEffect(() => {
     setCloseStep('form');
+    setZeroAmountConfirmation(null);
     setPendingClosedAt(null);
     setHasPrintedShiftDetails(false);
   }, [activeShift?.id]);
@@ -230,11 +232,11 @@ const CashierShiftModal: React.FC<Props> = ({
 
     return (
       <div
-        className="fixed inset-0 z-[100001] bg-black/50 flex items-end lg:items-center justify-center lg:p-4"
+        className="fixed inset-0 z-[100001] bg-black/50 flex items-center justify-center p-4"
         onClick={resetAmountKeypad}
       >
         <div
-          className="bg-white dark:bg-gray-800 rounded-t-3xl lg:rounded-3xl shadow-2xl w-full lg:max-w-sm flex flex-col max-h-[92dvh]"
+          className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[92dvh]"
           onClick={e => e.stopPropagation()}
         >
           <div className="px-6 py-4 border-b dark:border-gray-700 flex items-center justify-between flex-shrink-0">
@@ -253,7 +255,7 @@ const CashierShiftModal: React.FC<Props> = ({
             </div>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-4 pt-4 space-y-3">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-4 pt-4 space-y-3">
             <div className="grid grid-cols-3 gap-2">
               {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((token) => (
                 <button
@@ -300,7 +302,7 @@ const CashierShiftModal: React.FC<Props> = ({
             </button>
           </div>
 
-          <div className="px-5 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t dark:border-gray-700 flex gap-3 flex-shrink-0">
+          <div className="px-6 py-4 border-t dark:border-gray-700 flex gap-3 flex-shrink-0">
             <button
               type="button"
               onClick={resetAmountKeypad}
@@ -321,8 +323,75 @@ const CashierShiftModal: React.FC<Props> = ({
     );
   };
 
+  const renderZeroAmountConfirmation = () => {
+    if (!zeroAmountConfirmation) return null;
+
+    const isOpeningConfirmation = zeroAmountConfirmation === 'opening';
+    const accentClasses = isOpeningConfirmation
+      ? 'bg-green-100 dark:bg-green-900/30 text-green-600'
+      : 'bg-red-100 dark:bg-red-900/30 text-red-600';
+    const actionButtonClasses = isOpeningConfirmation
+      ? 'bg-green-600 hover:bg-green-700'
+      : 'bg-red-600 hover:bg-red-700';
+    const actionLabel = isOpeningConfirmation ? 'Start Shift' : 'Continue Closing';
+    const heading = isOpeningConfirmation ? 'Start Shift With Zero Cash?' : 'Close Shift With Zero Cash?';
+    const message = isOpeningConfirmation
+      ? `You are about to open this shift with ${currencySymbol}0.00 in the drawer. Continue only if this is intentional.`
+      : `You entered ${currencySymbol}0.00 as the actual cash in drawer. Continue only if the drawer is really empty before closing.`;
+
+    return (
+      <div className="fixed inset-0 z-[100002] flex items-center justify-center bg-black/60 p-4" onClick={() => setZeroAmountConfirmation(null)}>
+        <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between border-b dark:border-gray-700 px-6 py-4">
+            <div className="flex items-center gap-3">
+              <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${accentClasses}`}>
+                <DollarSign size={18} />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-gray-900 dark:text-white">{heading}</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Confirmation required for zero-amount shifts</p>
+              </div>
+            </div>
+            <button onClick={() => setZeroAmountConfirmation(null)} className="rounded-lg p-2 transition-all hover:bg-gray-100 dark:hover:bg-gray-700">
+              <X size={20} className="text-gray-400" />
+            </button>
+          </div>
+
+          <div className="px-6 py-5">
+            <p className="text-sm leading-6 text-gray-600 dark:text-gray-300">{message}</p>
+          </div>
+
+          <div className="flex gap-3 border-t dark:border-gray-700 px-6 py-4">
+            <button
+              type="button"
+              onClick={() => setZeroAmountConfirmation(null)}
+              className="flex-1 rounded-xl border-2 border-gray-200 py-3 font-black text-gray-600 transition-all hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setZeroAmountConfirmation(null);
+                if (isOpeningConfirmation) {
+                  void handleOpenShift(true);
+                  return;
+                }
+                handlePrepareCloseShift(true);
+              }}
+              className={`flex-1 rounded-xl py-3 font-black text-white transition-all ${actionButtonClasses}`}
+            >
+              {actionLabel}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const resetCloseFlow = () => {
     setCloseStep('form');
+    setZeroAmountConfirmation(null);
     setPendingClosedAt(null);
     setHasPrintedShiftDetails(false);
   };
@@ -333,10 +402,15 @@ const CashierShiftModal: React.FC<Props> = ({
     onClose();
   };
 
-  const handleOpenShift = async () => {
+  const handleOpenShift = async (skipZeroConfirmation = false) => {
     const amount = parseFloat(openingAmount);
     if (Number.isNaN(amount) || amount < 0) {
       toast('Please enter an opening amount. Zero is allowed.', 'error');
+      return;
+    }
+
+    if (amount === 0 && !skipZeroConfirmation) {
+      setZeroAmountConfirmation('opening');
       return;
     }
 
@@ -474,14 +548,23 @@ const CashierShiftModal: React.FC<Props> = ({
     );
   };
 
-  const handlePrepareCloseShift = () => {
+  const proceedToCloseReady = () => {
+    setPendingClosedAt(new Date().toISOString());
+    setHasPrintedShiftDetails(false);
+    setCloseStep('confirm');
+  };
+
+  const handlePrepareCloseShift = (skipZeroConfirmation = false) => {
     if (!activeShift) return;
     const amount = ensureClosingAmount();
     if (amount === null) return;
 
-    setPendingClosedAt(new Date().toISOString());
-    setHasPrintedShiftDetails(false);
-    setCloseStep('confirm');
+    if (amount === 0 && !skipZeroConfirmation) {
+      setZeroAmountConfirmation('closing');
+      return;
+    }
+
+    proceedToCloseReady();
   };
 
   const handlePrintShiftDetails = async (closedAtOverride?: string) => {
@@ -662,7 +745,9 @@ const CashierShiftModal: React.FC<Props> = ({
               Cancel
             </button>
             <button
-              onClick={handleOpenShift}
+              onClick={() => {
+                void handleOpenShift();
+              }}
               disabled={loading}
               className="flex-1 py-3 rounded-xl bg-green-600 text-white font-black hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
             >
@@ -671,18 +756,23 @@ const CashierShiftModal: React.FC<Props> = ({
           </div>
 
           {renderAmountKeypad()}
+          {renderZeroAmountConfirmation()}
         </div>
       </div>
     );
   }
 
   const confirmClosedAt = pendingClosedAt || new Date().toISOString();
+  const isCloseConfirmationStep = closeStep === 'confirm';
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99999] flex items-end lg:items-center justify-center lg:p-4" onClick={handleDismiss}>
       <div className="bg-white dark:bg-gray-800 rounded-t-3xl lg:rounded-3xl shadow-2xl w-full lg:max-w-4xl h-[100dvh] lg:h-[900px] lg:max-h-[99dvh] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
-        {closeStep === 'form' ? (
-          <>
+        <div
+          className="flex h-full w-[200%] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          style={{ transform: isCloseConfirmationStep ? 'translateX(-50%)' : 'translateX(0%)' }}
+        >
+          <div className="flex h-full min-w-full flex-col">
             <div className="px-5 lg:px-8 py-4 lg:py-5 border-b dark:border-gray-700 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 bg-red-100 dark:bg-red-900/30 rounded-2xl flex items-center justify-center">
@@ -825,16 +915,16 @@ const CashierShiftModal: React.FC<Props> = ({
                 Cancel
               </button>
               <button
-                onClick={handlePrepareCloseShift}
+                onClick={() => handlePrepareCloseShift()}
                 disabled={loading || closingAmount === '' || Number.isNaN(parseFloat(closingAmount)) || parseFloat(closingAmount) < 0}
                 className="flex-1 py-3 bg-red-600 text-white rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-red-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {loading ? 'Closing...' : <>Close Shift <ArrowRight size={18} /></>}
               </button>
             </div>
-          </>
-        ) : (
-          <>
+          </div>
+
+          <div className="flex h-full min-w-full flex-col">
             <div className="px-8 py-5 border-b dark:border-gray-700 flex items-center justify-between flex-shrink-0 relative">
               <div className="text-center flex-1">
                 <h3 className="font-black dark:text-white uppercase tracking-tighter text-2xl">Shift Close Ready</h3>
@@ -919,10 +1009,11 @@ const CashierShiftModal: React.FC<Props> = ({
                 {loading ? 'Closing...' : <>Close Shift <ArrowRight size={18} /></>}
               </button>
             </div>
-          </>
-        )}
+          </div>
+        </div>
 
         {renderAmountKeypad()}
+        {renderZeroAmountConfirmation()}
       </div>
     </div>
   );

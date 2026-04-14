@@ -14,7 +14,7 @@ BEGIN
   SELECT COALESCE(r.settings ->> 'orderCode', r.name, 'QS')
   INTO raw_code
   FROM restaurants r
-  WHERE r.id = target_restaurant_id
+  WHERE r.id::TEXT = target_restaurant_id
   LIMIT 1;
 
   cleaned_code := UPPER(REGEXP_REPLACE(COALESCE(raw_code, 'QS'), '[^A-Z0-9]', '', 'g'));
