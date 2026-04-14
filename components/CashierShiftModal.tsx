@@ -327,6 +327,7 @@ const CashierShiftModal: React.FC<Props> = ({
     if (!zeroAmountConfirmation) return null;
 
     const isOpeningConfirmation = zeroAmountConfirmation === 'opening';
+    const formattedZeroAmount = `${currencySymbol} ${Number(0).toFixed(2)}`;
     const accentClasses = isOpeningConfirmation
       ? 'bg-green-100 dark:bg-green-900/30 text-green-600'
       : 'bg-red-100 dark:bg-red-900/30 text-red-600';
@@ -336,8 +337,8 @@ const CashierShiftModal: React.FC<Props> = ({
     const actionLabel = isOpeningConfirmation ? 'Start Shift' : 'Continue Closing';
     const heading = isOpeningConfirmation ? 'Start Shift With Zero Cash?' : 'Close Shift With Zero Cash?';
     const message = isOpeningConfirmation
-      ? `You are about to open this shift with ${currencySymbol}0.00 in the drawer. Continue only if this is intentional.`
-      : `You entered ${currencySymbol}0.00 as the actual cash in drawer. Continue only if the drawer is really empty before closing.`;
+      ? `You are about to open this shift with ${formattedZeroAmount} in the drawer. Continue only if this is intentional.`
+      : `You entered ${formattedZeroAmount} as the actual cash in drawer. Continue only if the drawer is really empty before closing.`;
 
     return (
       <div className="fixed inset-0 z-[100002] flex items-center justify-center bg-black/60 p-4" onClick={() => setZeroAmountConfirmation(null)}>
