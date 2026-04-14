@@ -342,7 +342,7 @@ const CashierShiftModal: React.FC<Props> = ({
 
     return (
       <div className="fixed inset-0 z-[100002] flex items-center justify-center bg-black/60 p-4" onClick={() => setZeroAmountConfirmation(null)}>
-        <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 shadow-2xl" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between border-b dark:border-gray-700 px-6 py-4">
             <div className="flex items-center gap-3">
               <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${accentClasses}`}>
@@ -768,7 +768,7 @@ const CashierShiftModal: React.FC<Props> = ({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99999] flex items-end lg:items-center justify-center lg:p-4" onClick={handleDismiss}>
-      <div className="bg-white dark:bg-gray-800 rounded-t-3xl lg:rounded-3xl shadow-2xl w-full lg:max-w-4xl h-[100dvh] lg:h-[900px] lg:max-h-[99dvh] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
+      <div className="bg-white dark:bg-gray-800 rounded-t-3xl lg:rounded-3xl shadow-2xl w-full lg:max-w-4xl h-[100dvh] lg:h-auto lg:max-h-[95dvh] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
         <div
           className="flex h-full w-[200%] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
           style={{ transform: isCloseConfirmationStep ? 'translateX(-50%)' : 'translateX(0%)' }}
@@ -789,95 +789,100 @@ const CashierShiftModal: React.FC<Props> = ({
               </button>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 lg:px-8 pb-6 lg:pb-8 pt-6 lg:pt-8 space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest mb-3">Shift Summary</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-4">
-                        <div className="flex items-center gap-2 text-green-600 mb-2">
-                          <Banknote size={16} />
-                          <span className="text-xs font-bold uppercase tracking-wider">Cash Sales</span>
-                        </div>
-                        <p className="text-2xl font-black text-green-700 dark:text-green-400 tracking-tighter">{fmt(shiftSales.cash)}</p>
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 lg:px-8 pb-4 lg:pb-6 pt-4 lg:pt-6">
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-4 lg:gap-0 items-start">
+                {/* ── Left: Shift Summary ── */}
+                <div className="space-y-3 lg:pr-6">
+                  <h3 className="text-[10px] lg:text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Shift Summary</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/40 rounded-xl p-3">
+                      <div className="flex items-center gap-1.5 text-green-600 mb-1">
+                        <Banknote size={14} />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Cash</span>
                       </div>
-                      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-4">
-                        <div className="flex items-center gap-2 text-blue-600 mb-2">
-                          <CreditCard size={16} />
-                          <span className="text-xs font-bold uppercase tracking-wider">Card Sales</span>
-                        </div>
-                        <p className="text-2xl font-black text-blue-700 dark:text-blue-400 tracking-tighter">{fmt(shiftSales.card)}</p>
+                      <p className="text-lg font-black text-green-700 dark:text-green-400 tracking-tighter">{fmt(shiftSales.cash)}</p>
+                    </div>
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/40 rounded-xl p-3">
+                      <div className="flex items-center gap-1.5 text-blue-600 mb-1">
+                        <CreditCard size={14} />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Card</span>
                       </div>
-                      <div className="bg-purple-50 dark:bg-purple-900/20 rounded-2xl p-4">
-                        <div className="flex items-center gap-2 text-purple-600 mb-2">
-                          <QrCode size={16} />
-                          <span className="text-xs font-bold uppercase tracking-wider">QR Sales</span>
-                        </div>
-                        <p className="text-2xl font-black text-purple-700 dark:text-purple-400 tracking-tighter">{fmt(shiftSales.qr)}</p>
+                      <p className="text-lg font-black text-blue-700 dark:text-blue-400 tracking-tighter">{fmt(shiftSales.card)}</p>
+                    </div>
+                    <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/40 rounded-xl p-3">
+                      <div className="flex items-center gap-1.5 text-purple-600 mb-1">
+                        <QrCode size={14} />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">QR</span>
                       </div>
-                      <div className="bg-gray-50 dark:bg-gray-700 rounded-2xl p-4">
-                        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300 mb-2">
-                          <DollarSign size={16} />
-                          <span className="text-xs font-bold uppercase tracking-wider">Other</span>
-                        </div>
-                        <p className="text-2xl font-black text-gray-700 dark:text-gray-200 tracking-tighter">{fmt(shiftSales.other)}</p>
+                      <p className="text-lg font-black text-purple-700 dark:text-purple-400 tracking-tighter">{fmt(shiftSales.qr)}</p>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3">
+                      <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300 mb-1">
+                        <DollarSign size={14} />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Other</span>
                       </div>
+                      <p className="text-lg font-black text-gray-700 dark:text-gray-200 tracking-tighter">{fmt(shiftSales.other)}</p>
                     </div>
                   </div>
 
-                  <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl p-5 flex items-center justify-between">
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-xl p-3 flex items-center justify-between">
                     <div>
-                      <p className="text-xs lg:text-sm font-black text-amber-600 uppercase tracking-wider">Total Sales ({shiftSales.count} orders)</p>
-                      <p className="text-3xl lg:text-4xl font-black text-amber-700 dark:text-amber-400 tracking-tighter">{fmt(shiftSales.total)}</p>
+                      <p className="text-[10px] lg:text-xs font-black text-amber-600 uppercase tracking-wider">Total Sales ({shiftSales.count} orders)</p>
+                      <p className="text-2xl font-black text-amber-700 dark:text-amber-400 tracking-tighter">{fmt(shiftSales.total)}</p>
                     </div>
-                    <TrendingUp size={34} className="text-amber-400" />
+                    <TrendingUp size={28} className="text-amber-400" />
                   </div>
 
-                  <div className="rounded-2xl border border-gray-200 dark:border-gray-700 p-5 space-y-3">
-                    <h3 className="text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Cash Drawer</h3>
-                    <div className="flex items-center justify-between text-sm lg:text-base">
+                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+                    <h3 className="text-[10px] lg:text-xs font-black text-gray-400 uppercase tracking-widest">Cash Drawer</h3>
+                    <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-500 dark:text-gray-400">Opening Amount</span>
                       <span className="font-black dark:text-white">{fmt(activeShift.opening_amount)}</span>
                     </div>
-                    <div className="flex items-center justify-between text-sm lg:text-base">
+                    <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-500 dark:text-gray-400">+ Cash Sales</span>
                       <span className="font-black text-green-600">{fmt(shiftSales.cash)}</span>
                     </div>
-                    <div className="flex items-center justify-between text-sm lg:text-base border-t dark:border-gray-700 pt-3">
-                      <span className="font-black text-gray-700 dark:text-gray-200 uppercase tracking-wide">Expected In Drawer</span>
-                      <span className="text-2xl font-black dark:text-white tracking-tighter">{fmt(expectedClosing)}</span>
+                    <div className="flex items-center justify-between text-sm border-t dark:border-gray-700 pt-2">
+                      <span className="font-black text-gray-700 dark:text-gray-200 uppercase tracking-wide text-xs">Expected In Drawer</span>
+                      <span className="text-xl font-black dark:text-white tracking-tighter">{fmt(expectedClosing)}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-5">
+                {/* ── Vertical Separator ── */}
+                <div className="hidden lg:flex flex-col items-center self-stretch py-2">
+                  <div className="w-px flex-1 bg-gray-200 dark:bg-gray-700" />
+                </div>
+
+                {/* ── Right: Close input ── */}
+                <div className="space-y-3 lg:pl-6">
                   <div>
-                    <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest mb-3">
+                    <label className="block text-[10px] lg:text-xs font-black text-gray-400 uppercase tracking-widest mb-2">
                       Actual Cash In Drawer
                     </label>
                     <button type="button" onClick={() => openAmountKeypad('closing')} className="relative w-full">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xl">{currencySymbol}</span>
-                      <div className="w-full pl-10 pr-4 py-5 lg:py-6 text-4xl lg:text-5xl font-black border-2 border-gray-200 dark:border-gray-600 rounded-2xl bg-gray-50 dark:bg-gray-700 dark:text-white text-center tracking-tighter">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg">{currencySymbol}</span>
+                      <div className="w-full pl-10 pr-4 py-4 text-3xl lg:text-4xl font-black border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 dark:text-white text-center tracking-tighter">
                         {closingAmount || '0.00'}
                       </div>
                     </button>
-                    <p className="text-xs text-gray-400 mt-2">Tap the amount field to open the number pad.</p>
+                    <p className="text-[10px] text-gray-400 mt-1">Tap the amount field to open the number pad.</p>
                   </div>
 
                   {closingAmount && (
-                    <div className={`rounded-2xl p-5 flex items-center justify-between ${
-                      diff === 0 ? 'bg-green-50 dark:bg-green-900/20' :
-                      diff > 0 ? 'bg-blue-50 dark:bg-blue-900/20' :
-                      'bg-red-50 dark:bg-red-900/20'
+                    <div className={`rounded-xl border p-3 flex items-center justify-between ${
+                      diff === 0 ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800/40' :
+                      diff > 0 ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800/40' :
+                      'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/40'
                     }`}>
                       <div>
-                        <p className={`text-xs lg:text-sm font-black uppercase tracking-widest ${
+                        <p className={`text-[10px] lg:text-xs font-black uppercase tracking-widest ${
                           diff === 0 ? 'text-green-600' : diff > 0 ? 'text-blue-600' : 'text-red-600'
                         }`}>
                           {diff === 0 ? 'Balanced' : diff > 0 ? 'Overage' : 'Shortage'}
                         </p>
-                        <p className={`text-3xl lg:text-4xl font-black tracking-tighter ${
+                        <p className={`text-2xl font-black tracking-tighter ${
                           diff === 0 ? 'text-green-700 dark:text-green-400' :
                           diff > 0 ? 'text-blue-700 dark:text-blue-400' :
                           'text-red-700 dark:text-red-400'
@@ -885,23 +890,23 @@ const CashierShiftModal: React.FC<Props> = ({
                           {diff > 0 ? '+' : ''}{fmt(diff)}
                         </p>
                       </div>
-                      {diff === 0 ? <CheckCircle2 size={34} className="text-green-400" /> :
-                       diff > 0 ? <TrendingUp size={34} className="text-blue-400" /> :
-                       <TrendingDown size={34} className="text-red-400" />}
+                      {diff === 0 ? <CheckCircle2 size={28} className="text-green-400" /> :
+                       diff > 0 ? <TrendingUp size={28} className="text-blue-400" /> :
+                       <TrendingDown size={28} className="text-red-400" />}
                     </div>
                   )}
 
                   <div>
-                    <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest mb-3">Shift Note</label>
+                    <label className="block text-[10px] lg:text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Shift Note</label>
                     <textarea
                       value={closeNote}
                       onChange={e => {
                         setCloseNote(e.target.value);
                         setHasPrintedShiftDetails(false);
                       }}
-                      rows={6}
+                      rows={3}
                       placeholder="Add a note about this shift..."
-                      className="w-full px-4 py-4 border-2 border-gray-200 dark:border-gray-600 rounded-2xl bg-gray-50 dark:bg-gray-700 dark:text-white focus:border-red-500 outline-none text-sm resize-none"
+                      className="w-full px-3 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 dark:text-white focus:border-red-500 outline-none text-sm resize-none"
                     />
                   </div>
                 </div>
