@@ -4315,74 +4315,69 @@ const PosOnlyView: React.FC<Props> = ({
   // ────────────────────────────────────────────────────────────────────────────
 
   const renderStaffContent = () => (
-    <div>
-      {cashierStaffEntries.length > 0 && (
-        <div className="mb-6 space-y-4">
-          {CASHIER_ACCESS_SETTINGS.map((setting) => {
-            const summary = getCashierPermissionSummary(setting.key);
-            const isExpanded = expandedCashierAccessSettings[setting.key];
-            const isAllEnabled = summary.allEnabled;
-            const isPartial = summary.partiallyEnabled;
-            const statusLabel = isAllEnabled ? 'All Cashiers' : isPartial ? 'Partial' : 'Off';
-            const badgeClass = isAllEnabled
-              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-              : isPartial
-                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300';
-            const toggleClass = setting.key === 'viewOwnSalesOnly'
-              ? (isAllEnabled ? 'bg-sky-500' : isPartial ? 'bg-sky-300 dark:bg-sky-700' : 'bg-gray-300 dark:bg-gray-600')
-              : (isAllEnabled ? 'bg-red-500' : isPartial ? 'bg-red-300 dark:bg-red-700' : 'bg-gray-300 dark:bg-gray-600');
-            const listBorderClass = setting.key === 'viewOwnSalesOnly'
-              ? 'border-sky-100 dark:border-sky-900/30'
-              : 'border-red-100 dark:border-red-900/30';
+    <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-4 lg:gap-10 py-6 first:pt-0">
+        <div>
+          <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Cashier Access</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Apply rules to all cashiers at once, or expand a rule to decide which cashier should have it enabled.</p>
+        </div>
 
-            return (
-              <div key={setting.key} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
-                <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 p-5">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">{setting.label}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{setting.description}</p>
-                  </div>
+        <div className="min-w-0 rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-gray-700/80 dark:bg-gray-800 overflow-hidden">
+          {cashierStaffEntries.length > 0 ? (
+            <div className="divide-y divide-slate-200/80 dark:divide-gray-700/80">
+              {CASHIER_ACCESS_SETTINGS.map((setting) => {
+                const summary = getCashierPermissionSummary(setting.key);
+                const isExpanded = expandedCashierAccessSettings[setting.key];
+                const isAllEnabled = summary.allEnabled;
+                const isPartial = summary.partiallyEnabled;
+                const statusLabel = isAllEnabled ? 'All' : isPartial ? 'Partial' : 'Off';
+                const badgeClass = isAllEnabled
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                  : isPartial
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                    : 'bg-slate-100 text-slate-600 dark:bg-gray-700 dark:text-gray-300';
+                const toggleClass = setting.key === 'viewOwnSalesOnly'
+                  ? (isAllEnabled ? 'bg-sky-500' : isPartial ? 'bg-sky-300 dark:bg-sky-700' : 'bg-gray-300 dark:bg-gray-600')
+                  : (isAllEnabled ? 'bg-red-500' : isPartial ? 'bg-red-300 dark:bg-red-700' : 'bg-gray-300 dark:bg-gray-600');
 
-                  <div className="min-w-0">
-                    <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 px-4 py-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${badgeClass}`}>
-                            {statusLabel}
-                          </span>
-                          <span className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                            {summary.enabledCount}/{summary.total} enabled
-                          </span>
+                return (
+                  <div key={setting.key} className="px-4 py-3 sm:px-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <button
+                            onClick={() => setExpandedCashierAccessSettings(prev => ({ ...prev, [setting.key]: !prev[setting.key] }))}
+                            className="mt-0.5 shrink-0 p-1 text-slate-400 hover:text-orange-500 transition-colors"
+                            title={isExpanded ? 'Collapse cashier list' : 'Expand cashier list'}
+                          >
+                            <ChevronRight size={14} className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+                          </button>
+                          <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{setting.label}</p>
+                          <span className={`shrink-0 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${badgeClass}`}>{statusLabel}</span>
+                          <span className="shrink-0 text-[9px] font-black text-slate-400 dark:text-gray-500 uppercase tracking-widest">{summary.enabledCount}/{summary.total} enabled</span>
                         </div>
-                        <button
-                          onClick={() => setExpandedCashierAccessSettings(prev => ({ ...prev, [setting.key]: !prev[setting.key] }))}
-                          className="mt-2 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-purple-500 transition-colors"
-                        >
-                          <ChevronRight size={12} className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
-                          {isExpanded ? 'Hide cashier list' : 'Choose cashier access'}
-                        </button>
+                        <p className="mt-1 pl-7 text-xs text-slate-500 dark:text-gray-400">{setting.description}</p>
                       </div>
 
                       <button
                         onClick={() => handleUpdateCashierPermissionForAll(setting.key, !isAllEnabled)}
                         title={isAllEnabled ? 'Disable for all cashiers' : 'Enable for all cashiers'}
-                        className={`w-11 h-6 rounded-full transition-all relative shrink-0 ${toggleClass}`}
+                        className={`mt-1 w-11 h-6 rounded-full transition-all relative shrink-0 ${toggleClass}`}
                       >
                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow ${isAllEnabled ? 'left-6' : 'left-1'}`} />
                       </button>
                     </div>
 
                     {isExpanded && (
-                      <div className={`mt-3 rounded-xl border bg-white dark:bg-gray-800 overflow-hidden animate-in slide-in-from-top-1 fade-in duration-200 ${listBorderClass}`}>
-                        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                      <div className="mt-3 ml-7 rounded-xl border border-slate-200/80 bg-slate-50/70 dark:border-gray-700/80 dark:bg-gray-900/30 overflow-hidden animate-in slide-in-from-top-1 fade-in duration-200">
+                        <div className="divide-y divide-slate-200/80 dark:divide-gray-700/80">
                           {cashierStaffEntries.map(({ staff, index }) => {
                             const isEnabled = staff.access_permissions?.[setting.key] === true;
                             return (
                               <div key={staff.id || `${staff.username}-${index}`} className="flex items-center justify-between gap-3 px-4 py-3">
                                 <div className="min-w-0">
-                                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{staff.username}</p>
-                                  <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-0.5">Cashier</p>
+                                  <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{staff.username}</p>
+                                  <p className="text-[10px] text-slate-400 dark:text-gray-500 uppercase tracking-widest mt-0.5">Cashier</p>
                                 </div>
                                 <button
                                   onClick={() => handleUpdateStaffPermissions(index, {
@@ -4401,81 +4396,97 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                     )}
                   </div>
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          ) : (
+            <div className="px-5 py-8 text-center">
+              <Users size={22} className="mx-auto text-slate-300 dark:text-gray-600 mb-2" />
+              <p className="text-sm text-slate-500 dark:text-gray-400">No cashier accounts available yet</p>
+              <p className="mt-1 text-[11px] text-slate-400 dark:text-gray-500">Add a cashier to configure sales report and refund approval access.</p>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
-      {staffList.length === 0 ? (
-        <div className="text-center py-12 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl mb-5">
-          <Users size={28} className="mx-auto text-gray-300 dark:text-gray-600 mb-2" />
-          <p className="text-sm text-gray-400 dark:text-gray-500">No staff added yet</p>
-          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">The first staff added will automatically be assigned as <span className="font-bold text-purple-500">Manager</span>.</p>
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-4 lg:gap-10 py-6">
+        <div>
+          <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Registered Staff</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Edit existing account details, reset passwords, or remove access for individual team members.</p>
         </div>
-      ) : (
-        <div className="divide-y divide-gray-200 dark:divide-gray-700 mb-5 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-          {staffList.map((staff: any, idx: number) => {
-            const perms = staff.access_permissions || {};
-            const isManager = staff.role === 'MANAGER';
-            return (
-              <div key={idx} className="bg-white dark:bg-gray-800">
-                <div className="flex items-center gap-3 px-4 py-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{staff.username}</p>
-                    <div className="flex items-center flex-wrap gap-1.5 mt-1">
-                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${
-                        isManager
-                          ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
-                          : staff.role === 'KITCHEN'
-                            ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
-                            : staff.role === 'ORDER_TAKER'
-                              ? 'bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400'
-                              : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                      }`}>
-                        {isManager ? 'Manager' : staff.role === 'KITCHEN' ? 'Kitchen' : staff.role === 'ORDER_TAKER' ? 'Order Taker' : 'Cashier'}
-                      </span>
-                      {staff.role === 'KITCHEN' && (
-                        <span className="text-[9px] text-gray-400 dark:text-gray-500">
-                          {staff.kitchen_categories && staff.kitchen_categories.length > 0 ? staff.kitchen_categories.join(', ') : 'General Kitchen'}
-                        </span>
-                      )}
-                      {!isManager && perms.viewOwnSalesOnly && (
-                        <span className="text-[9px] bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Own Sales Only</span>
-                      )}
-                      {!isManager && perms.requireManagerApprovalForRefund && (
-                        <span className="text-[9px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Refund: Manager</span>
-                      )}
+
+        <div className="min-w-0">
+          {staffList.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 dark:border-gray-700 bg-slate-50/60 dark:bg-gray-900/20 px-5 py-12 text-center">
+              <Users size={28} className="mx-auto text-slate-300 dark:text-gray-600 mb-2" />
+              <p className="text-sm text-slate-500 dark:text-gray-400">No staff added yet</p>
+              <p className="text-[11px] text-slate-400 dark:text-gray-500 mt-1">The first staff added will automatically be assigned as <span className="font-bold text-purple-500">Manager</span>.</p>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-gray-700/80 dark:bg-gray-800 overflow-hidden">
+              <div className="divide-y divide-slate-200/80 dark:divide-gray-700/80">
+                {staffList.map((staff: any, idx: number) => {
+                  const perms = staff.access_permissions || {};
+                  const isManager = staff.role === 'MANAGER';
+                  return (
+                    <div key={idx} className="flex items-center gap-3 px-4 py-4 sm:px-5">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{staff.username}</p>
+                        <div className="mt-2 flex items-center flex-wrap gap-1.5">
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${
+                            isManager
+                              ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
+                              : staff.role === 'KITCHEN'
+                                ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
+                                : staff.role === 'ORDER_TAKER'
+                                  ? 'bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400'
+                                  : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                          }`}>
+                            {isManager ? 'Manager' : staff.role === 'KITCHEN' ? 'Kitchen' : staff.role === 'ORDER_TAKER' ? 'Order Taker' : 'Cashier'}
+                          </span>
+                          {staff.role === 'KITCHEN' && (
+                            <span className="text-[9px] font-semibold text-slate-400 dark:text-gray-500">{staff.kitchen_categories && staff.kitchen_categories.length > 0 ? staff.kitchen_categories.join(', ') : 'General Kitchen'}</span>
+                          )}
+                          {!isManager && perms.viewOwnSalesOnly && (
+                            <span className="text-[9px] bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Own Sales Only</span>
+                          )}
+                          {!isManager && perms.requireManagerApprovalForRefund && (
+                            <span className="text-[9px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Refund: Manager</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => handleEditStaff(staff, idx)}
+                          className="p-2 text-slate-400 hover:text-orange-500 transition-colors rounded-lg hover:bg-slate-100 dark:text-gray-400 dark:hover:bg-gray-700/50"
+                          title="Edit staff"
+                        >
+                          <Edit3 size={15} />
+                        </button>
+                        <button
+                          onClick={() => handleRemoveStaff(staff, idx)}
+                          className="p-2 text-slate-400 hover:text-red-500 transition-colors rounded-lg hover:bg-slate-100 dark:text-gray-400 dark:hover:bg-gray-700/50"
+                          title="Remove staff"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => handleEditStaff(staff, idx)}
-                      className="p-2 text-gray-400 hover:text-orange-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"
-                    >
-                      <Edit3 size={15} />
-                    </button>
-                    <button
-                      onClick={() => handleRemoveStaff(staff, idx)}
-                      className="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
-      )}
+            </div>
+          )}
 
-      <button
-        onClick={() => openAddStaffModal()}
-        className="w-full py-2.5 bg-orange-500 text-white rounded-lg font-medium text-sm hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
-      >
-        <UserPlus size={15} /> Add Staff Member
-      </button>
+          <button
+            onClick={() => openAddStaffModal()}
+            className="mt-4 w-full py-3 bg-orange-500 text-white rounded-xl font-medium text-sm hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
+          >
+            <UserPlus size={15} /> Add Staff Member
+          </button>
+        </div>
+      </div>
     </div>
   );
 
