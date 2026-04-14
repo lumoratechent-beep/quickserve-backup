@@ -237,6 +237,15 @@ const CashierShiftModal: React.FC<Props> = ({
     setIsPrinting(true);
     try {
       const printer = loadSavedPrinters()[0];
+      if (!printer) {
+        toast('Printer is not connected.', 'error');
+        return false;
+      }
+      if (!printerService.isConnected()) {
+        toast('Printer is not connected.', 'error');
+        return false;
+      }
+
       const receiptConfig = loadReceiptConfig();
       const printed = await printerService.printShiftDetails(
         shiftPrintData,
@@ -278,8 +287,8 @@ const CashierShiftModal: React.FC<Props> = ({
     if (!shiftPrintData) return;
 
     if (!hasPrintedShiftDetails) {
-      const printed = await handlePrintShiftDetails(closedAt);
-      if (!printed) return;
+      toast('Please print shift details before closing the shift.', 'error');
+      return;
     }
 
     setLoading(true);
