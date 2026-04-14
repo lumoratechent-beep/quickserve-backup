@@ -406,11 +406,10 @@ const CashierShiftModal: React.FC<Props> = ({
     setPendingClosedAt(closedAt);
     setIsPrinting(true);
     try {
-      const printer = loadSavedPrinters()[0];
-      if (!printer) {
-        toast('No printer configured. Please add a printer in Settings.', 'error');
-        return false;
-      }
+      // Use saved printer profile for paper/density settings; fall back to safe defaults
+      // so printing still works when the user connected via BLE scan but hasn't added a
+      // named printer profile in Settings.
+      const printer = loadSavedPrinters()[0] ?? null;
 
       const receiptConfig = loadReceiptConfig();
       const printed = await printerService.printShiftDetails(
