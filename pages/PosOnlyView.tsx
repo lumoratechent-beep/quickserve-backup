@@ -29,6 +29,25 @@ import {
   MoreVertical, Lock, ImagePlus, EyeOff, User, Link2, Delete
 } from 'lucide-react';
 
+type CashierAccessPermissionKey = 'viewOwnSalesOnly' | 'requireManagerApprovalForRefund';
+
+const CASHIER_ACCESS_SETTINGS: Array<{
+  key: CashierAccessPermissionKey;
+  label: string;
+  description: string;
+}> = [
+  {
+    key: 'viewOwnSalesOnly',
+    label: 'View Own Sales Only',
+    description: 'Restrict this staff to see only their own transactions in the Sales Report.',
+  },
+  {
+    key: 'requireManagerApprovalForRefund',
+    label: 'Require Manager Approval for Refund',
+    description: 'This staff must get a Manager to enter their password before processing any refund.',
+  },
+];
+
 interface Props {
   restaurant: Restaurant;
   orders: Order[];
@@ -619,6 +638,10 @@ const PosOnlyView: React.FC<Props> = ({
   const [editingStaffIndex, setEditingStaffIndex] = useState<number | null>(null);
   const isEditingStaff = editingStaffIndex !== null;
   const [expandedStaffAccess, setExpandedStaffAccess] = useState<number | null>(null);
+  const [expandedCashierAccessSettings, setExpandedCashierAccessSettings] = useState<Record<CashierAccessPermissionKey, boolean>>({
+    viewOwnSalesOnly: false,
+    requireManagerApprovalForRefund: false,
+  });
   const [showManagerApprovalModal, setShowManagerApprovalModal] = useState(false);
   const [managerApprovalInput, setManagerApprovalInput] = useState('');
   const [managerApprovalError, setManagerApprovalError] = useState<string | null>(null);
@@ -990,8 +1013,52 @@ const PosOnlyView: React.FC<Props> = ({
     updated[staffIndex] = { ...staff, access_permissions: permissions };
     setStaffList(updated);
     localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
-    if (staff?.id) {
-      await supabase.from('users').update({ access_permissions: permissions }).eq('id', staff.id);
+    try {
+      if (staff?.id) {
+        const { error } = await supabase.from('users').update({ access_permissions: permissions }).eq('id', staff.id);
+        if (error) throw error;
+      }
+    } catch (error: any) {
+      toast('Error updating staff access: ' + error.message, 'error');
+    }
+  };
+
+  const handleUpdateCashierPermissionForAll = async (permissionKey: CashierAccessPermissionKey, enabled: boolean) => {
+    const updated = [...staffList];
+    const changedCashiers: any[] = [];
+
+    staffList.forEach((staff: any, index: number) => {
+      if (staff.role !== 'CASHIER') return;
+      const currentValue = staff.access_permissions?.[permissionKey] === true;
+      if (currentValue === enabled) return;
+
+      const nextStaff = {
+        ...staff,
+        access_permissions: {
+          ...(staff.access_permissions || {}),
+          [permissionKey]: enabled,
+        },
+      };
+
+      updated[index] = nextStaff;
+      changedCashiers.push(nextStaff);
+    });
+
+    if (changedCashiers.length === 0) return;
+
+    setStaffList(updated);
+    localStorage.setItem(`staff_${restaurant.id}`, JSON.stringify(updated));
+
+    try {
+      await Promise.all(
+        changedCashiers
+          .filter((staff: any) => !!staff?.id)
+          .map((staff: any) =>
+            supabase.from('users').update({ access_permissions: staff.access_permissions || {} }).eq('id', staff.id)
+          )
+      );
+    } catch (error: any) {
+      toast('Error updating cashier access: ' + error.message, 'error');
     }
   };
 
@@ -2264,8 +2331,25 @@ const PosOnlyView: React.FC<Props> = ({
     () => staffList.find((s: any) => s.username === cashierName),
     [staffList, cashierName]
   );
+  const cashierStaffEntries = useMemo(
+    () => staffList
+      .map((staff: any, index: number) => ({ staff, index }))
+      .filter(({ staff }) => staff.role === 'CASHIER'),
+    [staffList]
+  );
   const currentStaffAccessPermissions = currentStaff?.access_permissions || {};
   const isOwnSalesOnlyAccess = !!cashierName && currentStaff?.role !== 'MANAGER' && currentStaffAccessPermissions?.viewOwnSalesOnly === true;
+
+  const getCashierPermissionSummary = (permissionKey: CashierAccessPermissionKey) => {
+    const total = cashierStaffEntries.length;
+    const enabledCount = cashierStaffEntries.filter(({ staff }) => staff.access_permissions?.[permissionKey] === true).length;
+    return {
+      total,
+      enabledCount,
+      allEnabled: total > 0 && enabledCount === total,
+      partiallyEnabled: enabledCount > 0 && enabledCount < total,
+    };
+  };
 
   const applyReportAccess = (orders: Order[]): Order[] => {
     if (!isOwnSalesOnlyAccess || !cashierName) return orders;
@@ -4233,6 +4317,95 @@ const PosOnlyView: React.FC<Props> = ({
 
   const renderStaffContent = () => (
     <div>
+      {cashierStaffEntries.length > 0 && (
+        <div className="mb-5 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden bg-white dark:bg-gray-800">
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-sky-50 via-white to-red-50 dark:from-sky-950/20 dark:via-gray-800 dark:to-red-950/20">
+            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Cashier Access</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Apply rules to all cashiers at once, or expand a rule to decide which cashier should have it enabled.</p>
+          </div>
+
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+            {CASHIER_ACCESS_SETTINGS.map((setting) => {
+              const summary = getCashierPermissionSummary(setting.key);
+              const isExpanded = expandedCashierAccessSettings[setting.key];
+              const isAllEnabled = summary.allEnabled;
+              const isPartial = summary.partiallyEnabled;
+              const badgeClass = isAllEnabled
+                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                : isPartial
+                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300';
+              const toggleClass = setting.key === 'viewOwnSalesOnly'
+                ? (isAllEnabled ? 'bg-sky-500' : isPartial ? 'bg-sky-300 dark:bg-sky-700' : 'bg-gray-300 dark:bg-gray-600')
+                : (isAllEnabled ? 'bg-red-500' : isPartial ? 'bg-red-300 dark:bg-red-700' : 'bg-gray-300 dark:bg-gray-600');
+
+              return (
+                <div key={setting.key} className="bg-white dark:bg-gray-800">
+                  <div className="px-4 py-3 flex items-start gap-3">
+                    <button
+                      onClick={() => setExpandedCashierAccessSettings(prev => ({ ...prev, [setting.key]: !prev[setting.key] }))}
+                      className="mt-0.5 p-1.5 rounded-lg text-gray-400 hover:text-purple-500 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+                      title={isExpanded ? 'Collapse cashier list' : 'Expand cashier list'}
+                    >
+                      <ChevronRight size={14} className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+                    </button>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">{setting.label}</p>
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${badgeClass}`}>
+                          {isAllEnabled ? 'All Cashiers' : isPartial ? 'Partial' : 'Off'}
+                        </span>
+                        <span className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                          {summary.enabledCount}/{summary.total} enabled
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">{setting.description}</p>
+                    </div>
+
+                    <button
+                      onClick={() => handleUpdateCashierPermissionForAll(setting.key, !isAllEnabled)}
+                      title={isAllEnabled ? 'Disable for all cashiers' : 'Enable for all cashiers'}
+                      className={`w-11 h-6 rounded-full transition-all relative shrink-0 ${toggleClass}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow ${isAllEnabled ? 'left-6' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-4 py-3 animate-in slide-in-from-top-1 fade-in duration-200">
+                      <div className="space-y-2">
+                        {cashierStaffEntries.map(({ staff, index }) => {
+                          const isEnabled = staff.access_permissions?.[setting.key] === true;
+                          return (
+                            <div key={staff.id || `${staff.username}-${index}`} className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2.5">
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{staff.username}</p>
+                                <p className="text-[10px] text-gray-400 dark:text-gray-500">Cashier</p>
+                              </div>
+                              <button
+                                onClick={() => handleUpdateStaffPermissions(index, {
+                                  ...(staff.access_permissions || {}),
+                                  [setting.key]: !isEnabled,
+                                })}
+                                className={`w-11 h-6 rounded-full transition-all relative shrink-0 ${setting.key === 'viewOwnSalesOnly' ? (isEnabled ? 'bg-sky-500' : 'bg-gray-300 dark:bg-gray-600') : (isEnabled ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-600')}`}
+                                title={isEnabled ? 'Disable for this cashier' : 'Enable for this cashier'}
+                              >
+                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow ${isEnabled ? 'left-6' : 'left-1'}`} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {staffList.length === 0 ? (
         <div className="text-center py-12 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl mb-5">
           <Users size={28} className="mx-auto text-gray-300 dark:text-gray-600 mb-2" />
