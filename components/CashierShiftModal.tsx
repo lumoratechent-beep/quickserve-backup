@@ -769,11 +769,10 @@ const CashierShiftModal: React.FC<Props> = ({
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99999] flex items-end lg:items-center justify-center lg:p-4" onClick={handleDismiss}>
       <div className="bg-white dark:bg-gray-800 rounded-t-3xl lg:rounded-3xl shadow-2xl w-full lg:max-w-4xl h-[100dvh] lg:h-auto lg:max-h-[95dvh] flex flex-col relative overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div
-          className="flex h-full w-[200%] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
-          style={{ transform: isCloseConfirmationStep ? 'translateX(-50%)' : 'translateX(0%)' }}
-        >
-          <div className="flex h-full min-w-[50%] flex-col">
+
+        {!isCloseConfirmationStep ? (
+          /* ── Panel 1: Close Shift Form ── */
+          <>
             <div className="px-5 lg:px-8 py-4 lg:py-5 border-b dark:border-gray-700 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 bg-red-100 dark:bg-red-900/30 rounded-2xl flex items-center justify-center">
@@ -928,9 +927,10 @@ const CashierShiftModal: React.FC<Props> = ({
                 {loading ? 'Closing...' : <>Close Shift <ArrowRight size={18} /></>}
               </button>
             </div>
-          </div>
-
-          <div className="flex h-full min-w-[50%] flex-col">
+          </>
+        ) : (
+          /* ── Panel 2: Shift Close Ready ── */
+          <>
             <div className="px-8 py-5 border-b dark:border-gray-700 flex items-center justify-between flex-shrink-0 relative">
               <div className="text-center flex-1">
                 <h3 className="font-black dark:text-white uppercase tracking-tighter text-2xl">Shift Close Ready</h3>
@@ -1056,8 +1056,8 @@ const CashierShiftModal: React.FC<Props> = ({
                 {loading ? 'Closing...' : <>Close Shift <ArrowRight size={18} /></>}
               </button>
             </div>
-          </div>
-        </div>
+          </>
+        )}
 
         {renderAmountKeypad()}
         {renderZeroAmountConfirmation()}
