@@ -8851,35 +8851,35 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {canReviewRefundRequests && (
-                  <div className="mb-5 rounded-2xl border-2 border-slate-200 bg-white shadow-[0_12px_30px_-24px_rgba(91,33,182,0.45)] ring-1 ring-purple-100/80 dark:border-purple-900/40 dark:bg-gradient-to-br dark:from-purple-950/20 dark:via-gray-900 dark:to-gray-900 dark:ring-0 overflow-hidden">
-                    <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 bg-gradient-to-r from-purple-50 via-white to-fuchsia-50 dark:border-purple-900/40 dark:from-purple-950/20 dark:via-gray-900 dark:to-fuchsia-950/10">
+                  <div className="mb-5 rounded-2xl border border-orange-200 bg-orange-50/40 dark:border-orange-900/30 dark:bg-orange-950/10 overflow-hidden">
+                    <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-orange-200/80 dark:border-orange-900/30">
                       <div>
-                        <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-purple-300">Refund Approval Requests</h3>
-                        <p className="text-xs text-slate-600 dark:text-purple-300/80 mt-1">Review requests sent to your {refundRequestTargetRole === 'VENDOR' ? 'vendor' : 'manager'} inbox.</p>
+                        <h3 className="text-sm font-black uppercase tracking-wider text-orange-700 dark:text-orange-300">Refund Approval Requests</h3>
+                        <p className="text-xs text-orange-700/80 dark:text-orange-300/80 mt-1">Review requests sent to your {refundRequestTargetRole === 'VENDOR' ? 'vendor' : 'manager'} inbox.</p>
                       </div>
-                      <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border border-purple-200 bg-white text-purple-700 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-200">
+                      <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-white text-orange-700 border border-orange-200 dark:bg-orange-950/30 dark:text-orange-200 dark:border-orange-800/50">
                         {refundApprovalRequests.length} pending
                       </span>
                     </div>
 
                     {refundRequestsLoading ? (
                       <div className="flex items-center justify-center py-10">
-                        <RotateCw size={22} className="animate-spin text-purple-400" />
+                        <RotateCw size={22} className="animate-spin text-orange-400" />
                       </div>
                     ) : refundApprovalRequests.length === 0 ? (
-                      <div className="px-5 py-10 text-center bg-slate-50/70 dark:bg-transparent">
-                        <Lock size={24} className="mx-auto text-purple-400 dark:text-purple-700 mb-2" />
+                      <div className="px-5 py-10 text-center bg-white/40 dark:bg-transparent">
+                        <Lock size={24} className="mx-auto text-orange-400 dark:text-orange-700 mb-2" />
                         <p className="text-sm font-semibold text-slate-700 dark:text-gray-200">No refund requests pending</p>
                         <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">New cashier refund requests will appear here for approval or deletion.</p>
                       </div>
                     ) : (
-                      <div className="divide-y divide-slate-200 dark:divide-purple-900/30 bg-white dark:bg-transparent">
+                      <div className="divide-y divide-orange-200/70 dark:divide-orange-900/20 bg-white/70 dark:bg-transparent">
                         {refundApprovalRequests.map(request => (
-                          <div key={request.id} className="px-5 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between hover:bg-purple-50/45 dark:hover:bg-purple-950/10 transition-colors">
+                          <div key={request.id} className="px-5 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <p className="text-sm font-bold text-slate-900 dark:text-white">Order #{request.order_id}</p>
-                                <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                                <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
                                   {getRefundApprovalRoleLabel(request.approver_role)} Approval
                                 </span>
                               </div>
@@ -8898,7 +8898,7 @@ const PosOnlyView: React.FC<Props> = ({
                               </button>
                               <button
                                 onClick={() => resolveRefundApprovalRequest(request, 'APPROVED')}
-                                className="px-3 py-2 rounded-xl bg-purple-600 text-white hover:bg-purple-700 transition-colors text-[10px] font-black uppercase tracking-widest"
+                                className="px-3 py-2 rounded-xl bg-orange-500 text-white hover:bg-orange-600 transition-colors text-[10px] font-black uppercase tracking-widest"
                               >
                                 Approve
                               </button>
@@ -8992,7 +8992,7 @@ const PosOnlyView: React.FC<Props> = ({
 
           {selectedAnnouncement && (
             <div className="fixed inset-0 bg-black/55 backdrop-blur-sm z-[130] flex items-center justify-center p-4" onClick={() => setSelectedAnnouncement(null)}>
-              <div className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-hidden dark:border-gray-700 dark:bg-gray-800" onClick={e => e.stopPropagation()}>
+              <div className="w-full max-w-3xl rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-hidden dark:border-gray-700 dark:bg-gray-800" onClick={e => e.stopPropagation()}>
                 <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-slate-200 dark:border-gray-700 bg-gradient-to-r from-slate-50 to-orange-50/70 dark:from-gray-800 dark:to-gray-800">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1.5">
