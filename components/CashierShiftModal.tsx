@@ -1031,34 +1031,30 @@ const CashierShiftModal: React.FC<Props> = ({
               </div>
             </div>
 
-            {/* Footer with separator + centered buttons */}
-            <div className="flex-shrink-0 px-8 pb-8 pt-4">
-              <div className="border-t dark:border-gray-700 mb-4" />
-              <div className="flex gap-3 items-center">
+            <div className="px-5 lg:px-8 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:py-5 border-t dark:border-gray-700 flex gap-3 lg:gap-4 flex-shrink-0">
+              <button
+                onClick={resetCloseFlow}
+                disabled={loading || isPrinting}
+                className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+              >
+                Back
+              </button>
+              {!hasPrintedShiftDetails && (
                 <button
-                  onClick={resetCloseFlow}
-                  disabled={loading || isPrinting}
-                  className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-sm lg:text-lg uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                  onClick={() => void handlePrintShiftDetails()}
+                  disabled={isPrinting || loading}
+                  className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  Back
+                  {isPrinting ? 'Printing...' : <><Printer size={18} /> Print Shift Details</>}
                 </button>
-                {!hasPrintedShiftDetails && (
-                  <button
-                    onClick={() => void handlePrintShiftDetails()}
-                    disabled={isPrinting || loading}
-                    className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-black text-sm lg:text-lg uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {isPrinting ? 'Printing...' : <><Printer size={18} /> Print Shift Details</>}
-                  </button>
-                )}
-                <button
-                  onClick={handleCloseShift}
-                  disabled={loading || isPrinting}
-                  className="flex-1 py-3 bg-red-600 text-white rounded-xl font-black text-sm lg:text-lg uppercase tracking-wider hover:bg-red-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {loading ? 'Closing...' : <>Close Shift <ArrowRight size={18} /></>}
-                </button>
-              </div>
+              )}
+              <button
+                onClick={handleCloseShift}
+                disabled={loading || isPrinting}
+                className="flex-1 py-3 bg-red-600 text-white rounded-xl font-black text-sm lg:text-lg uppercase tracking-normal lg:tracking-wider hover:bg-red-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {loading ? 'Closing...' : <>Close Shift <ArrowRight size={18} /></>}
+              </button>
             </div>
           </div>
         </div>
