@@ -964,15 +964,15 @@ const CashierShiftModal: React.FC<Props> = ({
               </div>
 
               <div className="w-full max-w-3xl mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-2xl p-4">
+                <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-2xl p-4">
                   <p className="text-2xl font-black text-amber-500 tracking-tighter">{fmt(shiftSales.total)}</p>
                   <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mt-1">Total Sales</p>
                 </div>
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-2xl p-4">
+                <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-2xl p-4">
                   <p className="text-2xl font-black text-gray-700 dark:text-gray-100 tracking-tighter">{shiftSales.count}</p>
                   <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mt-1">Orders</p>
                 </div>
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-2xl p-4">
+                <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-2xl p-4">
                   <p className="text-lg font-black text-gray-700 dark:text-gray-100 tracking-tight">{formatDuration(activeShift.opened_at, confirmClosedAt)}</p>
                   <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mt-1">Shift Duration</p>
                 </div>
@@ -988,39 +988,77 @@ const CashierShiftModal: React.FC<Props> = ({
                 <p className="text-sm text-gray-400 dark:text-gray-500 italic">
                   {hasPrintedShiftDetails ? 'Shift details printed. You can close the shift now.' : 'Closing the shift will print the shift details automatically.'}
                 </p>
-                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider mt-2 ${
-                  printerLive ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                }`}>
-                  <div className={`w-2 h-2 rounded-full ${printerLive ? 'bg-green-500 animate-pulse' : 'bg-red-400'}`} />
-                  {printerLive ? 'Printer Connected' : 'Printer Not Connected'}
-                </div>
+                {printerLive ? (
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider mt-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    Printer Connected
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const found = await printerService.scanForPrinters();
+                        if (found.length > 0) {
+                          const device = found[0];
+                          const success = await printerService.connect(device.name);
+                          if (success) {
+                            setPrinterLive(true);
+                            try {
+                              const printers = loadSavedPrinters();
+                              if (printers.length === 0) {
+                                const newPrinters = [{ id: device.id, name: device.name, connectionType: 'bluetooth' as const, paperSize: '58mm' as const, printDensity: 'medium' as const, autoCut: true }];
+                                localStorage.setItem(`printers_${restaurantId}`, JSON.stringify(newPrinters));
+                              }
+                            } catch {}
+                            toast('Printer connected!', 'success');
+                          } else {
+                            toast('Failed to connect to printer.', 'error');
+                          }
+                        } else {
+                          toast('No printer found. Make sure Bluetooth is on.', 'warning');
+                        }
+                      } catch {
+                        toast('Bluetooth scan cancelled or failed.', 'error');
+                      }
+                    }}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider mt-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors cursor-pointer"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-red-400" />
+                    Printer Not Connected
+                  </button>
+                )}
               </div>
             </div>
 
-            <div className="px-8 py-5 border-t dark:border-gray-700 flex-shrink-0 flex gap-3">
-              <button
-                onClick={resetCloseFlow}
-                disabled={loading || isPrinting}
-                className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-sm lg:text-lg uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
-              >
-                Back
-              </button>
-              {!hasPrintedShiftDetails && (
+            {/* Footer with separator + centered buttons */}
+            <div className="flex-shrink-0">
+              <div className="mx-8 border-t dark:border-gray-700" />
+              <div className="px-8 py-6 flex gap-3 items-center">
                 <button
-                  onClick={() => void handlePrintShiftDetails()}
-                  disabled={isPrinting || loading}
-                  className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-black text-sm lg:text-lg uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  onClick={resetCloseFlow}
+                  disabled={loading || isPrinting}
+                  className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-sm lg:text-lg uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
                 >
-                  {isPrinting ? 'Printing...' : <><Printer size={18} /> Print Shift Details</>}
+                  Back
                 </button>
-              )}
-              <button
-                onClick={handleCloseShift}
-                disabled={loading || isPrinting}
-                className="flex-1 py-3 bg-red-600 text-white rounded-xl font-black text-sm lg:text-lg uppercase tracking-wider hover:bg-red-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {loading ? 'Closing...' : <>Close Shift <ArrowRight size={18} /></>}
-              </button>
+                {!hasPrintedShiftDetails && (
+                  <button
+                    onClick={() => void handlePrintShiftDetails()}
+                    disabled={isPrinting || loading}
+                    className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-black text-sm lg:text-lg uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isPrinting ? 'Printing...' : <><Printer size={18} /> Print Shift Details</>}
+                  </button>
+                )}
+                <button
+                  onClick={handleCloseShift}
+                  disabled={loading || isPrinting}
+                  className="flex-1 py-3 bg-red-600 text-white rounded-xl font-black text-sm lg:text-lg uppercase tracking-wider hover:bg-red-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {loading ? 'Closing...' : <>Close Shift <ArrowRight size={18} /></>}
+                </button>
+              </div>
             </div>
           </div>
         </div>
