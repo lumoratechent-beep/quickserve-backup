@@ -1032,9 +1032,9 @@ const CashierShiftModal: React.FC<Props> = ({
             </div>
 
             {/* Footer with separator + centered buttons */}
-            <div className="flex-shrink-0">
-              <div className="mx-8 border-t dark:border-gray-700" />
-              <div className="px-8 py-6 flex gap-3 items-center">
+            <div className="flex-shrink-0 px-8 pb-8 pt-4">
+              <div className="border-t dark:border-gray-700 mb-4" />
+              <div className="flex gap-3 items-center">
                 <button
                   onClick={resetCloseFlow}
                   disabled={loading || isPrinting}
