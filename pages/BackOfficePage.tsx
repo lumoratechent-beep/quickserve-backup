@@ -126,23 +126,60 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     return { startDate: start, endDate: new Date() };
   }, [dateRange, customStart, customEnd]);
 
+  // ─── Fetch ALL orders from API for dashboard (avoids 200-order in-memory cap) ───
+  const [dashboardOrders, setDashboardOrders] = useState<Order[]>([]);
+  const [isDashboardLoading, setIsDashboardLoading] = useState(false);
+
+  useEffect(() => {
+    if (!onFetchAllFilteredOrders) return;
+    let cancelled = false;
+
+    const fetchDashboardData = async () => {
+      setIsDashboardLoading(true);
+      try {
+        // Fetch orders covering both current period AND previous period (for comparison)
+        const duration = endDate.getTime() - startDate.getTime();
+        const prevStart = new Date(startDate.getTime() - duration);
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        const toLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+        const allOrders = await onFetchAllFilteredOrders({
+          restaurantId: restaurant.id,
+          startDate: toLocal(prevStart),
+          endDate: toLocal(endDate),
+        });
+        if (!cancelled) setDashboardOrders(allOrders);
+      } catch (err) {
+        console.error('Failed to fetch dashboard orders:', err);
+      } finally {
+        if (!cancelled) setIsDashboardLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+    return () => { cancelled = true; };
+  }, [startDate, endDate, restaurant.id, onFetchAllFilteredOrders]);
+
+  // Use API-fetched orders when available, otherwise fall back to prop
+  const sourceOrders = dashboardOrders.length > 0 ? dashboardOrders : orders;
+
   const filteredOrders = useMemo(
-    () => orders.filter(o => {
+    () => sourceOrders.filter(o => {
       const t = new Date(o.timestamp);
       return t >= startDate && t <= endDate;
     }),
-    [orders, startDate, endDate],
+    [sourceOrders, startDate, endDate],
   );
 
   const prevPeriodOrders = useMemo(() => {
     const duration = endDate.getTime() - startDate.getTime();
     const prevStart = new Date(startDate.getTime() - duration);
     const prevEnd = new Date(startDate.getTime() - 1);
-    return orders.filter(o => {
+    return sourceOrders.filter(o => {
       const t = new Date(o.timestamp);
       return t >= prevStart && t <= prevEnd;
     });
-  }, [orders, startDate, endDate]);
+  }, [sourceOrders, startDate, endDate]);
 
   // ─── Staff State ───
   const [staffList, setStaffList] = useState<StaffMember[]>(() =>

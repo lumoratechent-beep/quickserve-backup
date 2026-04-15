@@ -6,6 +6,26 @@ const supabaseUrl = 'https://anknjpuiklglykguneax.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFua25qcHVpa2xnbHlrZ3VuZWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5ODkwNTAsImV4cCI6MjA4NzU2NTA1MH0.DUMHeKg0v-1oI9nLT-nZP9cg1eYPI0R4fRNBzE9K2MI';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+const BATCH_SIZE = 1000;
+
+/**
+ * Fetch all rows matching a query by paginating in batches of BATCH_SIZE.
+ * This avoids Supabase's default 1000-row PostgREST limit.
+ */
+async function fetchAllRows(buildQuery: () => any): Promise<any[]> {
+  let allRows: any[] = [];
+  let offset = 0;
+  while (true) {
+    const { data, error } = await buildQuery().range(offset, offset + BATCH_SIZE - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allRows = allRows.concat(data);
+    if (data.length < BATCH_SIZE) break;
+    offset += BATCH_SIZE;
+  }
+  return allRows;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -55,35 +75,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     if (search) query = query.ilike('id', `%${search}%`);
 
-    const { data, error, count } = await query
-      .order('timestamp', { ascending: false })
-      .range(start, end);
+    // For large limits (e.g. CSV export), paginate in batches to avoid Supabase's 1000-row default cap
+    let data: any[];
+    let count: number | null;
+    const requestedLimit = Number(limit);
+    if (requestedLimit > BATCH_SIZE) {
+      // First get exact count
+      const { count: exactCount, error: countError } = await query.order('timestamp', { ascending: false }).range(0, 0);
+      if (countError) throw countError;
+      count = exactCount;
 
-    if (error) throw error;
-
-    // Summary query
-    let summaryQuery = supabase.from('orders').select('total, status, payment_method, cashier_name');
-    if (restaurantId && restaurantId !== 'ALL') summaryQuery = summaryQuery.eq('restaurant_id', restaurantId);
-    if (locationName && locationName !== 'ALL') summaryQuery = summaryQuery.eq('location_name', locationName);
-    if (status && status !== 'ALL') summaryQuery = summaryQuery.eq('status', status);
-    
-    if (startDate) {
-      const startD = new Date(startDate as string);
-      startD.setHours(0, 0, 0, 0);
-      const startTimestamp = startD.getTime() + (tzOffset * 60000);
-      summaryQuery = summaryQuery.gte('timestamp', startTimestamp);
+      // Fetch all requested rows in batches
+      data = [];
+      let offset = start;
+      while (offset <= end) {
+        const batchEnd = Math.min(offset + BATCH_SIZE - 1, end);
+        const { data: batch, error: batchError } = await query.order('timestamp', { ascending: false }).range(offset, batchEnd);
+        if (batchError) throw batchError;
+        if (!batch || batch.length === 0) break;
+        data = data.concat(batch);
+        if (batch.length < (batchEnd - offset + 1)) break;
+        offset += BATCH_SIZE;
+      }
+    } else {
+      const result = await query
+        .order('timestamp', { ascending: false })
+        .range(start, end);
+      if (result.error) throw result.error;
+      data = result.data;
+      count = result.count;
     }
-    if (endDate) {
-      const endD = new Date(endDate as string);
-      endD.setHours(23, 59, 59, 999);
-      const endTimestamp = endD.getTime() + (tzOffset * 60000);
-      summaryQuery = summaryQuery.lte('timestamp', endTimestamp);
-    }
-    
-    if (search) summaryQuery = summaryQuery.ilike('id', `%${search}%`);
 
-    const { data: summaryData, error: summaryError } = await summaryQuery;
-    if (summaryError) throw summaryError;
+    // Summary query – paginate through ALL matching rows to avoid Supabase's default 1000-row limit
+    const buildSummaryQuery = () => {
+      let q = supabase.from('orders').select('total, status, payment_method, cashier_name');
+      if (restaurantId && restaurantId !== 'ALL') q = q.eq('restaurant_id', restaurantId);
+      if (locationName && locationName !== 'ALL') q = q.eq('location_name', locationName);
+      if (status && status !== 'ALL') q = q.eq('status', status);
+      if (startDate) {
+        const startD = new Date(startDate as string);
+        startD.setHours(0, 0, 0, 0);
+        q = q.gte('timestamp', startD.getTime() + (tzOffset * 60000));
+      }
+      if (endDate) {
+        const endD = new Date(endDate as string);
+        endD.setHours(23, 59, 59, 999);
+        q = q.lte('timestamp', endD.getTime() + (tzOffset * 60000));
+      }
+      if (search) q = q.ilike('id', `%${search}%`);
+      return q;
+    };
+
+    const summaryData = await fetchAllRows(buildSummaryQuery);
 
     const totalRevenue = summaryData
       .filter(o => o.status === 'COMPLETED')
