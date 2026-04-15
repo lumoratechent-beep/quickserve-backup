@@ -338,7 +338,7 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel, mode = '
   };
 
   return (
-    <div className="fixed inset-0 z-[110] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[99999] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-xl w-full shadow-2xl animate-in zoom-in fade-in duration-300">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b dark:border-gray-700">

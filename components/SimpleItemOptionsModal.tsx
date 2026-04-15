@@ -174,7 +174,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div

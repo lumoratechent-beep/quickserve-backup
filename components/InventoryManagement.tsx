@@ -1253,7 +1253,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
 
       {/* ─── Quick Add Supplier Modal ─── */}
       {showAddSupplierModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAddSupplierModal(false)} />
           <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-6">
             <div className="flex items-center justify-between mb-5">
@@ -1306,7 +1306,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
 
       {/* ─── Partial Count Category Modal ─── */}
       {showPartialCountModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowPartialCountModal(false)} />
           <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-5">
@@ -1354,7 +1354,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
         const po = purchaseOrders.find(p => p.id === receivingPOId);
         if (!po) return null;
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setReceivingPOId(null)} />
             <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-6">
               <div className="flex items-center justify-between mb-5">
