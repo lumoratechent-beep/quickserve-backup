@@ -1740,7 +1740,8 @@ const PosOnlyView: React.FC<Props> = ({
       (sanitizedItem.variantOptions && sanitizedItem.variantOptions.enabled) ||
       (sanitizedItem.linkedModifiers && sanitizedItem.linkedModifiers.length > 0) ||
       (sanitizedItem.otherVariantsEnabled && sanitizedItem.otherVariants && sanitizedItem.otherVariants.length > 0) ||
-      (sanitizedItem.addOns && sanitizedItem.addOns.length > 0);
+      (sanitizedItem.addOns && sanitizedItem.addOns.length > 0) ||
+      (sanitizedItem.mixAndMatch?.enabled && sanitizedItem.mixAndMatch.selections.length > 0);
 
     console.log('PosOnlyView: Checking if item has options', { hasOptions, sanitizedItem });
 

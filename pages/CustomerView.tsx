@@ -100,7 +100,8 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
       (item.otherVariantsEnabled && item.otherVariants && item.otherVariants.length > 0) ||
       (item.addOns && item.addOns.length > 0) ||
       (item.variantOptions?.enabled && item.variantOptions?.options && item.variantOptions.options.length > 0) ||
-      (item.linkedModifiers && item.linkedModifiers.length > 0);
+      (item.linkedModifiers && item.linkedModifiers.length > 0) ||
+      (item.mixAndMatch?.enabled && item.mixAndMatch.selections.length > 0);
 
     if (hasOptions) {
       setSelectedItemForVariants({ item, resId });

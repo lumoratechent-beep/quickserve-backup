@@ -32,9 +32,11 @@ const MenuItemFormModal: React.FC<Props> = ({
   onSaveModifier,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const initialFormRef = useRef<string>('');
   const [showNewModifierForm, setShowNewModifierForm] = useState(false);
   const [collapsedAddOns, setCollapsedAddOns] = useState<Set<number>>(new Set());
   const [collapsedMixMatch, setCollapsedMixMatch] = useState<Set<number>>(new Set());
+  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [newModName, setNewModName] = useState('');
   const [newModOptions, setNewModOptions] = useState<{ name: string; price: number }[]>([]);
   const [newOptionName, setNewOptionName] = useState('');
@@ -93,9 +95,25 @@ const MenuItemFormModal: React.FC<Props> = ({
         setCollapsedMixMatch(new Set());
       }
       setAddingSection(null);
+      // Snapshot initial form for dirty check
+      setTimeout(() => {
+        initialFormRef.current = JSON.stringify(formItem);
+      }, 0);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  const hasUnsavedChanges = () => {
+    return JSON.stringify(formItem) !== initialFormRef.current;
+  };
+
+  const handleBackClick = () => {
+    if (hasUnsavedChanges()) {
+      setShowUnsavedWarning(true);
+    } else {
+      onClose();
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -1275,6 +1293,35 @@ const MenuItemFormModal: React.FC<Props> = ({
 
   return (
     <>
+    {showUnsavedWarning && (
+      <div className="fixed inset-0 z-[99999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowUnsavedWarning(false)}>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border dark:border-gray-700 w-full max-w-sm p-6 space-y-4" onClick={e => e.stopPropagation()}>
+          <div className="text-center">
+            <div className="w-12 h-12 mx-auto mb-3 bg-orange-50 dark:bg-orange-900/20 rounded-full flex items-center justify-center">
+              <Info size={24} className="text-orange-500" />
+            </div>
+            <h3 className="text-lg font-black dark:text-white uppercase tracking-tight">Unsaved Changes</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">You have unsaved changes to this menu item. Are you sure you want to go back?</p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setShowUnsavedWarning(false)}
+              className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+            >
+              Keep Editing
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowUnsavedWarning(false); onClose(); }}
+              className="flex-1 py-2.5 bg-red-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-red-600 transition-all"
+            >
+              Discard & Leave
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     {cropFile && (
       <ImageCropModal
         imageFile={cropFile}
@@ -1285,7 +1332,7 @@ const MenuItemFormModal: React.FC<Props> = ({
     <div className="flex-1 flex flex-col min-h-0">
       {/* Page Header */}
       <div className="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-900">
-        <button onClick={onClose} className="p-2 text-gray-500 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-all">
+        <button onClick={handleBackClick} className="p-2 text-gray-500 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-all">
           <ArrowLeft size={20} />
         </button>
         <h2 className="text-xl font-black dark:text-white uppercase tracking-tighter">{formItem.id ? 'Edit Item' : 'New Item'}</h2>
