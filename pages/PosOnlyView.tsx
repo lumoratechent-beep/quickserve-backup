@@ -3120,13 +3120,17 @@ const PosOnlyView: React.FC<Props> = ({
     });
   }, [featureSettings.autoPrintReceipt, featureSettings.autoOpenDrawer]);
 
-  // Reverse sync: if receiptConfig changes from PrinterSettings panel, update featureSettings
-  useEffect(() => {
+  // Note: reverse sync useEffect (receiptConfig → featureSettings) removed to prevent toggle oscillation.
+  // featureSettings is the authoritative source; updateFeatureSetting() already syncs inline to receiptConfig.
+  // When PrinterSettings changes receiptConfig, we sync the two toggles back via this handler:
+  const handleReceiptConfigChange = (config: ReceiptConfig) => {
+    setReceiptConfig(config);
+    // Sync the two shared toggles back to featureSettings
     setFeatureSettings(prev => {
-      if (prev.autoPrintReceipt === receiptConfig.autoPrintAfterSale && prev.autoOpenDrawer === receiptConfig.openCashDrawerOnPayment) return prev;
-      return { ...prev, autoPrintReceipt: receiptConfig.autoPrintAfterSale, autoOpenDrawer: receiptConfig.openCashDrawerOnPayment };
+      if (prev.autoPrintReceipt === config.autoPrintAfterSale && prev.autoOpenDrawer === config.openCashDrawerOnPayment) return prev;
+      return { ...prev, autoPrintReceipt: config.autoPrintAfterSale, autoOpenDrawer: config.openCashDrawerOnPayment };
     });
-  }, [receiptConfig.autoPrintAfterSale, receiptConfig.openCashDrawerOnPayment]);
+  };
 
   useEffect(() => {
     localStorage.setItem(`order_list_config_${restaurant.id}`, JSON.stringify(orderListConfig));
@@ -7495,7 +7499,7 @@ const PosOnlyView: React.FC<Props> = ({
                                 orderListConfig={orderListConfig}
                                 kitchenConfig={kitchenConfig}
                                 onPrintersChange={(printers) => setSavedPrinters(printers)}
-                                onReceiptConfigChange={(config) => setReceiptConfig(config)}
+                                onReceiptConfigChange={handleReceiptConfigChange}
                                 onOrderListConfigChange={(config) => setOrderListConfig(config)}
                                 onKitchenConfigChange={(config) => setKitchenConfig(config)}
                                 onPrinterConnected={(device) => {
@@ -7520,7 +7524,7 @@ const PosOnlyView: React.FC<Props> = ({
                                 orderListConfig={orderListConfig}
                                 kitchenConfig={kitchenConfig}
                                 onPrintersChange={(printers) => setSavedPrinters(printers)}
-                                onReceiptConfigChange={(config) => setReceiptConfig(config)}
+                                onReceiptConfigChange={handleReceiptConfigChange}
                                 onOrderListConfigChange={(config) => setOrderListConfig(config)}
                                 onKitchenConfigChange={(config) => setKitchenConfig(config)}
                                 onPrinterConnected={(device) => {
@@ -7545,7 +7549,7 @@ const PosOnlyView: React.FC<Props> = ({
                                 orderListConfig={orderListConfig}
                                 kitchenConfig={kitchenConfig}
                                 onPrintersChange={(printers) => setSavedPrinters(printers)}
-                                onReceiptConfigChange={(config) => setReceiptConfig(config)}
+                                onReceiptConfigChange={handleReceiptConfigChange}
                                 onOrderListConfigChange={(config) => setOrderListConfig(config)}
                                 onKitchenConfigChange={(config) => setKitchenConfig(config)}
                                 onPrinterConnected={(device) => {
@@ -11359,7 +11363,8 @@ const PosOnlyView: React.FC<Props> = ({
                   )}
                 </div>
 
-                {/* Print Receipt Button */}
+                {/* Print Receipt Button — only shown when auto-print is off */}
+                {!receiptConfig.autoPrintAfterSale && (
                 <div className="w-full max-w-3xl mt-4 flex justify-center">
                   <button
                     type="button"
@@ -11401,6 +11406,7 @@ const PosOnlyView: React.FC<Props> = ({
                     Print Receipt
                   </button>
                 </div>
+                )}
 
                 <div className="w-full max-w-3xl mt-6 text-center">
                   <p className="text-sm text-gray-400 dark:text-gray-500 italic">Please make sure all the balances are correct before completing the payment.</p>
