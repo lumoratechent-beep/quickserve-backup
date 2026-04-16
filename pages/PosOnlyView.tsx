@@ -3112,6 +3112,22 @@ const PosOnlyView: React.FC<Props> = ({
     localStorage.setItem(`receipt_config_${restaurant.id}`, JSON.stringify(receiptConfig));
   }, [receiptConfig, restaurant.id]);
 
+  // Keep receiptConfig in sync with featureSettings toggles (authoritative source for these two flags)
+  useEffect(() => {
+    setReceiptConfig(prev => {
+      if (prev.autoPrintAfterSale === featureSettings.autoPrintReceipt && prev.openCashDrawerOnPayment === featureSettings.autoOpenDrawer) return prev;
+      return { ...prev, autoPrintAfterSale: featureSettings.autoPrintReceipt, openCashDrawerOnPayment: featureSettings.autoOpenDrawer };
+    });
+  }, [featureSettings.autoPrintReceipt, featureSettings.autoOpenDrawer]);
+
+  // Reverse sync: if receiptConfig changes from PrinterSettings panel, update featureSettings
+  useEffect(() => {
+    setFeatureSettings(prev => {
+      if (prev.autoPrintReceipt === receiptConfig.autoPrintAfterSale && prev.autoOpenDrawer === receiptConfig.openCashDrawerOnPayment) return prev;
+      return { ...prev, autoPrintReceipt: receiptConfig.autoPrintAfterSale, autoOpenDrawer: receiptConfig.openCashDrawerOnPayment };
+    });
+  }, [receiptConfig.autoPrintAfterSale, receiptConfig.openCashDrawerOnPayment]);
+
   useEffect(() => {
     localStorage.setItem(`order_list_config_${restaurant.id}`, JSON.stringify(orderListConfig));
   }, [orderListConfig, restaurant.id]);
@@ -3504,6 +3520,13 @@ const PosOnlyView: React.FC<Props> = ({
         .then(({ error }) => {
           if (error) console.warn('Failed to sync kitchen_enabled to DB:', error.message);
         });
+    }
+
+    // Sync feature toggles to receiptConfig so checkout flow picks them up
+    if (key === 'autoPrintReceipt') {
+      setReceiptConfig(prev => ({ ...prev, autoPrintAfterSale: value as boolean }));
+    } else if (key === 'autoOpenDrawer') {
+      setReceiptConfig(prev => ({ ...prev, openCashDrawerOnPayment: value as boolean }));
     }
   };
 
