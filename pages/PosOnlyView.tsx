@@ -4235,6 +4235,8 @@ const PosOnlyView: React.FC<Props> = ({
   const navContainerPy  = navExtraCompact ? 'py-2' : navCompact ? 'py-3' : 'py-4';
   const navIconSize     = navExtraCompact ? 16 : navCompact ? 17 : 18;
   const navTextSize     = navExtraCompact ? 'text-xs' : 'text-sm';
+  const navActiveClass  = 'border border-orange-300 bg-orange-200 text-orange-900 shadow-sm dark:border-orange-500/30 dark:bg-orange-900/20 dark:text-orange-400';
+  const navInactiveClass = 'border border-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50';
 
   const kitchenPendingOrders = useMemo(() => {
     return orders.filter(o => o.status === OrderStatus.PENDING);
@@ -5863,8 +5865,8 @@ const PosOnlyView: React.FC<Props> = ({
               title="Incoming Orders"
               className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
                 activeTab === 'KITCHEN'
-                  ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                  ? navActiveClass
+                  : navInactiveClass
               }`}
             >
               <Coffee size={navIconSize} /> {!isSidebarCollapsed && 'Incoming Orders'}
@@ -5881,8 +5883,8 @@ const PosOnlyView: React.FC<Props> = ({
             title="Counter"
             className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
               activeTab === 'COUNTER' 
-                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                ? navActiveClass 
+                : navInactiveClass
             }`}
           >
             <ShoppingBag size={navIconSize} /> {!isSidebarCollapsed && 'Counter'}
@@ -5894,8 +5896,8 @@ const PosOnlyView: React.FC<Props> = ({
               title="QR & Table Order"
               className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2 relative' : 'justify-between px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
                 activeTab === 'QR_ORDERS'
-                  ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                  ? navActiveClass
+                  : navInactiveClass
               }`}
             >
               <div className="flex items-center gap-3">
@@ -5923,8 +5925,8 @@ const PosOnlyView: React.FC<Props> = ({
               title="Online Shop"
               className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-2 relative' : 'justify-between px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
                 activeTab === 'ONLINE_ORDERS'
-                  ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                  ? navActiveClass
+                  : navInactiveClass
               }`}
             >
               <div className="flex items-center gap-3">
@@ -5956,8 +5958,8 @@ const PosOnlyView: React.FC<Props> = ({
             title="Menu Editor"
             className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
               activeTab === 'MENU_EDITOR' 
-                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                ? navActiveClass 
+                : navInactiveClass
             }`}
           >
             <BookOpen size={navIconSize} /> {!isSidebarCollapsed && 'Menu Editor'}
@@ -5968,8 +5970,8 @@ const PosOnlyView: React.FC<Props> = ({
             title="Bill and Report"
             className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
               activeTab === 'REPORTS' 
-                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                ? navActiveClass 
+                : navInactiveClass
             }`}
           >
             <BarChart3 size={navIconSize} /> {!isSidebarCollapsed && 'Reports'}
@@ -5980,8 +5982,8 @@ const PosOnlyView: React.FC<Props> = ({
             title="Settings"
             className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
               activeTab === 'SETTINGS' 
-                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                ? navActiveClass 
+                : navInactiveClass
             }`}
           >
             <Settings size={navIconSize} /> {!isSidebarCollapsed && 'Settings'}
@@ -5997,8 +5999,8 @@ const PosOnlyView: React.FC<Props> = ({
             title="Add-on Feature"
             className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
               activeTab === 'ADDONS' 
-                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                ? navActiveClass 
+                : navInactiveClass
             }`}
           >
             <Package size={navIconSize} /> {!isSidebarCollapsed && 'Add-on Feature'}
@@ -6008,8 +6010,8 @@ const PosOnlyView: React.FC<Props> = ({
             title="Billing"
             className={`w-full flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} ${navItemPy} rounded-xl ${navTextSize} font-medium transition-all ${
               activeTab === 'BILLING' 
-                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' 
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                ? navActiveClass 
+                : navInactiveClass
             }`}
           >
             <CreditCard size={navIconSize} /> {!isSidebarCollapsed && 'Wallet & billing'}
@@ -10936,14 +10938,14 @@ const PosOnlyView: React.FC<Props> = ({
                       <button
                         onClick={saveCurrentBill}
                         disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
-                        className="w-[47.5%] py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                        className="w-[47.5%] py-4 border-2 border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
                       >
                         Save Bill
                       </button>
                       <button
                         onClick={handleCheckout}
                         disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
-                        className="w-[47.5%] py-4 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
+                        className="w-[47.5%] py-4 border-2 border-orange-700/70 dark:border-orange-300/60 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
                       >
                         {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : 'Complete Payment'}
                       </button>
@@ -10952,7 +10954,7 @@ const PosOnlyView: React.FC<Props> = ({
                     <button
                       onClick={handleCheckout}
                       disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess}
-                      className="w-full py-4 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
+                      className="w-full py-4 border-2 border-orange-700/70 dark:border-orange-300/60 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
                     >
                       {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : 'Complete Payment'}
                     </button>
@@ -11417,7 +11419,7 @@ const PosOnlyView: React.FC<Props> = ({
               <div className="px-8 py-5 border-t dark:border-gray-700 flex-shrink-0">
                 <button
                   onClick={finalizePaymentFlow}
-                  className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-lg uppercase tracking-wider hover:bg-orange-600 transition-all"
+                  className="w-full py-3 border-2 border-orange-700/70 dark:border-orange-300/60 bg-orange-500 text-white rounded-xl font-black text-lg uppercase tracking-wider hover:bg-orange-600 transition-all"
                 >
                   Complete Payment
                 </button>
