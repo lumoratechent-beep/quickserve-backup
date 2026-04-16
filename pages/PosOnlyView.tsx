@@ -2310,7 +2310,7 @@ const PosOnlyView: React.FC<Props> = ({
     setShowPaymentResult(true);
     setIsCompletingPayment(false);
 
-    if (receiptConfig.autoPrintAfterSale) {
+    if (featureSettings.autoPrintReceipt) {
       if (connectedDevice) {
         const printRestaurant = {
           ...restaurant,
@@ -2332,7 +2332,7 @@ const PosOnlyView: React.FC<Props> = ({
       } else {
         setCheckoutNotice('Order saved. Auto-print is enabled but no printer is connected.');
       }
-    } else if (receiptConfig.openCashDrawerOnPayment) {
+    } else if (featureSettings.autoOpenDrawer) {
       if (connectedDevice) {
         printerService
           .openDrawer()
@@ -11364,7 +11364,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
 
                 {/* Print Receipt Button — only shown when auto-print is off */}
-                {!receiptConfig.autoPrintAfterSale && (
+                {!featureSettings.autoPrintReceipt && (
                 <div className="w-full max-w-3xl mt-4 flex justify-center">
                   <button
                     type="button"
