@@ -1421,6 +1421,7 @@ const App: React.FC = () => {
         color: item.color ?? null,
         onlineDisabled: item.onlineDisabled ?? false,
         onlinePrice: item.onlinePrice ?? null,
+        mixAndMatch: item.mixAndMatch || { enabled: false, selections: [] },
       },
       add_ons: item.addOns || []
     }).eq('id', item.id);
