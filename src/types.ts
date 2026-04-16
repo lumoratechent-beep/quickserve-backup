@@ -26,6 +26,16 @@ export interface AddOnItem {
   required?: boolean;
 }
 
+export interface MixMatchOption {
+  name: string;
+  priceModifier: number;
+}
+
+export interface MixMatchSelection {
+  label: string;
+  options: MixMatchOption[];
+}
+
 export interface MenuItem {
   id: string;
   name: string;
@@ -60,6 +70,10 @@ export interface MenuItem {
   color?: string; // Tile color for POS display
   onlineDisabled?: boolean;  // Hide from online shop
   onlinePrice?: number;      // Override price for online orders
+  mixAndMatch?: {
+    enabled: boolean;
+    selections: MixMatchSelection[];
+  };
 }
 
 export interface Area {
@@ -148,6 +162,7 @@ export interface CartItem extends MenuItem {
   selectedModifiers?: Record<string, string>;
   selectedAddOns?: SelectedAddOn[];
   selectedVariantOption?: string;
+  selectedMixMatch?: { label: string; choice: string; priceModifier: number }[];
   tableNumber?: string;
   remark?: string;
 }

@@ -967,6 +967,16 @@ class PrinterService {
           if (item.selectedVariantOption)
             r.line(`  Variant: ${this.sanitize(item.selectedVariantOption)}`);
 
+          // Mix & Match
+          if (Array.isArray(item.selectedMixMatch)) {
+            for (const mm of item.selectedMixMatch) {
+              if (mm.choice) {
+                const label = this.sanitize(mm.label) || 'Selection';
+                r.line(`  ${label}: ${this.sanitize(mm.choice)}`);
+              }
+            }
+          }
+
           // Add-ons
           if (Array.isArray(item.selectedAddOns)) {
             for (const addon of item.selectedAddOns) {
@@ -1178,6 +1188,14 @@ class PrinterService {
           }
           if (item.selectedVariantOption)
             r.line(`  Variant: ${this.sanitize(item.selectedVariantOption)}`);
+          if (Array.isArray(item.selectedMixMatch)) {
+            for (const mm of item.selectedMixMatch) {
+              if (mm.choice) {
+                const label = this.sanitize(mm.label) || 'Selection';
+                r.line(`  ${label}: ${this.sanitize(mm.choice)}`);
+              }
+            }
+          }
           if (Array.isArray(item.selectedAddOns)) {
             for (const addon of item.selectedAddOns) {
               const n = this.sanitize(addon.name) || 'Add-on';

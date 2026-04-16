@@ -650,6 +650,10 @@ const App: React.FC = () => {
             color: others.color ?? undefined,
             onlineDisabled: others.onlineDisabled ?? false,
             onlinePrice: others.onlinePrice ?? undefined,
+            mixAndMatch: others.mixAndMatch ? {
+              enabled: others.mixAndMatch.enabled ?? false,
+              selections: Array.isArray(others.mixAndMatch.selections) ? others.mixAndMatch.selections : [],
+            } : { enabled: false, selections: [] },
           };
         })
       }));
@@ -1455,6 +1459,7 @@ const App: React.FC = () => {
         color: item.color ?? null,
         onlineDisabled: item.onlineDisabled ?? false,
         onlinePrice: item.onlinePrice ?? null,
+        mixAndMatch: item.mixAndMatch || { enabled: false, selections: [] },
       },
       add_ons: item.addOns || []
     });

@@ -1692,6 +1692,7 @@ const PosOnlyView: React.FC<Props> = ({
       first.selectedOtherVariant === second.selectedOtherVariant &&
       first.selectedVariantOption === second.selectedVariantOption &&
       JSON.stringify(first.selectedModifiers || {}) === JSON.stringify(second.selectedModifiers || {}) &&
+      JSON.stringify(first.selectedMixMatch || []) === JSON.stringify(second.selectedMixMatch || []) &&
       firstAddOns === secondAddOns
     );
   };
@@ -9273,6 +9274,7 @@ const PosOnlyView: React.FC<Props> = ({
                         if (item.selectedOtherVariant) parts.push(item.selectedOtherVariant);
                         if (item.selectedModifiers) Object.values(item.selectedModifiers).forEach(v => v && parts.push(v));
                         if (item.selectedAddOns) item.selectedAddOns.forEach(a => parts.push(a.quantity > 1 ? `${a.name} ×${a.quantity}` : a.name));
+                        if (item.selectedMixMatch) item.selectedMixMatch.forEach(m => m.choice && parts.push(`${m.label}: ${m.choice}`));
                         return parts.join('  ·  ');
                       };
                       return (
@@ -10459,6 +10461,9 @@ const PosOnlyView: React.FC<Props> = ({
                                         {item.selectedSize && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">Size: {item.selectedSize}</span>}
                                         {item.selectedTemp && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${item.selectedTemp === 'Hot' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>Temp: {item.selectedTemp}</span>}
                                         {item.selectedOtherVariant && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">{item.selectedOtherVariant}</span>}
+                                        {item.selectedMixMatch && item.selectedMixMatch.map((m, mIdx) => (
+                                          m.choice && <span key={mIdx} className="text-[9px] font-black px-1.5 py-0.5 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded uppercase tracking-tighter">{m.label}: {m.choice}</span>
+                                        ))}
                                       </div>
                                     </div>
                                     <span className="text-gray-500 dark:text-gray-400 font-bold">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
@@ -10673,6 +10678,9 @@ const PosOnlyView: React.FC<Props> = ({
                                 • Add-ons: {item.selectedAddOns.map(addon => `${addon.name} x${addon.quantity}`).join(', ')}
                               </p>
                             )}
+                            {item.selectedMixMatch && item.selectedMixMatch.length > 0 && item.selectedMixMatch.map((m, mIdx) => (
+                              m.choice && <p key={mIdx} className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {m.label}: {m.choice}</p>
+                            ))}
                           </div>
                         </div>
                         <span className="text-xs font-black dark:text-white bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-lg">x{item.quantity}</span>
@@ -10848,6 +10856,9 @@ const PosOnlyView: React.FC<Props> = ({
                               • Add-ons: {item.selectedAddOns.map(addon => `${addon.name} x${addon.quantity}`).join(', ')}
                             </p>
                           )}
+                          {item.selectedMixMatch && item.selectedMixMatch.length > 0 && item.selectedMixMatch.map((m, mIdx) => (
+                            m.choice && <p key={mIdx} className="text-xs text-gray-600 dark:text-gray-300 font-bold">• {m.label}: {m.choice}</p>
+                          ))}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
@@ -11026,6 +11037,9 @@ const PosOnlyView: React.FC<Props> = ({
                           • Add-ons: {item.selectedAddOns.map(addon => `${addon.name} x${addon.quantity}`).join(', ')}
                         </p>
                       )}
+                      {item.selectedMixMatch && item.selectedMixMatch.length > 0 && item.selectedMixMatch.map((m, mIdx) => (
+                        m.choice && <p key={mIdx} className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• {m.label}: {m.choice}</p>
+                      ))}
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 bg-white dark:bg-gray-800 p-1 rounded-lg shadow-sm shrink-0">

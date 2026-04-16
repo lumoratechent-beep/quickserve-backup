@@ -23,6 +23,11 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
   const [addOns, setAddOns] = useState<Record<string, number>>({});
   const [selectedModifiers, setSelectedModifiers] = useState<Record<string, string>>({});
 
+  // Mix & Match state
+  const hasMixMatch = item.mixAndMatch?.enabled && item.mixAndMatch.selections.length > 0;
+  const mixMatchSelections = item.mixAndMatch?.selections || [];
+  const [mixMatchChoices, setMixMatchChoices] = useState<Record<number, string>>({});
+
   // Safety check - make sure arrays exist
   const sizes = Array.isArray(item.sizes) ? item.sizes : [];
   const variants = Array.isArray(item.otherVariants) ? item.otherVariants : [];
@@ -106,6 +111,18 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
       if (addon) total += addon.price * qty;
     });
 
+    // Add mix & match price modifiers
+    if (hasMixMatch) {
+      Object.entries(mixMatchChoices).forEach(([selIdxStr, choiceName]) => {
+        const selIdx = Number(selIdxStr);
+        const sel = mixMatchSelections[selIdx];
+        if (sel) {
+          const opt = sel.options.find(o => o.name === choiceName);
+          if (opt) total += opt.priceModifier;
+        }
+      });
+    }
+
     return total;
   };
 
@@ -133,6 +150,16 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
       if (modifier.required && !selectedModifiers[modifier.name]) {
         toast(`Please select an option for ${modifier.name}`, 'warning');
         return;
+      }
+    }
+
+    // Validate mix & match (all selections required)
+    if (hasMixMatch) {
+      for (let i = 0; i < mixMatchSelections.length; i++) {
+        if (!mixMatchChoices[i]) {
+          toast(`Please make a choice for "${mixMatchSelections[i].label}"`, 'warning');
+          return;
+        }
       }
     }
 
@@ -167,6 +194,13 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
       selectedModifiers: Object.keys(selectedModifiers).length > 0 ? selectedModifiers : undefined,
       selectedAddOns,
       selectedVariantOption: variantOption || undefined,
+      selectedMixMatch: hasMixMatch
+        ? mixMatchSelections.map((sel, i) => {
+            const choiceName = mixMatchChoices[i] || '';
+            const opt = sel.options.find(o => o.name === choiceName);
+            return { label: sel.label, choice: choiceName, priceModifier: opt?.priceModifier || 0 };
+          })
+        : undefined,
     };
 
     onConfirm(cartItem);
@@ -344,6 +378,32 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
                     >
                       <p className="text-sm font-black uppercase text-gray-800 dark:text-white">{option.name}</p>
                       <p className="text-xs font-black">{option.price > 0 ? `+RM${option.price.toFixed(2)}` : 'FREE'}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            {/* Mix & Match */}
+            {hasMixMatch && mixMatchSelections.map((sel, selIdx) => (
+              <div key={`mix-${selIdx}`}>
+                <p className="text-sm font-black text-gray-700 dark:text-gray-100 uppercase tracking-widest mb-2 flex items-center gap-2">
+                  {sel.label}
+                  <span className="text-red-500 text-[9px]">Required</span>
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {sel.options.map((opt) => (
+                    <button
+                      key={opt.name}
+                      onClick={() => setMixMatchChoices(prev => ({ ...prev, [selIdx]: opt.name }))}
+                      className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
+                        mixMatchChoices[selIdx] === opt.name
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 shadow-sm'
+                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+                      }`}
+                    >
+                      <p className="text-sm font-black uppercase text-gray-800 dark:text-white">{opt.name}</p>
+                      <p className="text-xs font-black">{opt.priceModifier > 0 ? `+RM${opt.priceModifier.toFixed(2)}` : 'FREE'}</p>
                     </button>
                   ))}
                 </div>
