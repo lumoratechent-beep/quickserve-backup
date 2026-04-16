@@ -7387,11 +7387,11 @@ const PosOnlyView: React.FC<Props> = ({
             })();
 
             return (
-              <div className="relative flex-1 overflow-y-auto bg-gradient-to-b from-slate-50 via-white to-orange-50/40 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950">
+              <div className="relative flex-1 overflow-y-auto bg-gradient-to-b from-slate-50 via-white to-orange-50/40 dark:bg-gray-900 dark:bg-none">
                 <div className="mx-auto w-full max-w-[1480px] px-3 pb-8 pt-3 sm:px-5 sm:pt-5 lg:px-8 lg:pt-6">
                   <div className="animate-in fade-in duration-500">
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-[300px_minmax(0,1fr)] lg:gap-6">
-                      <aside className="h-fit rounded-2xl border border-slate-200/80 bg-white/95 p-3 shadow-sm dark:border-gray-700/80 dark:bg-gray-800/90 md:sticky md:top-4">
+                      <aside className="h-fit rounded-2xl border border-slate-200/80 bg-white/95 p-3 shadow-sm dark:border-gray-700/80 dark:bg-gray-800 dark:shadow-none md:sticky md:top-4">
                         <p className="px-1 pb-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400">General Setting</p>
 
                         <div className="space-y-1.5">
@@ -7471,7 +7471,7 @@ const PosOnlyView: React.FC<Props> = ({
                         })()}
                       </aside>
 
-                      <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_16px_45px_-40px_rgba(15,23,42,0.7)] backdrop-blur-sm dark:border-gray-700/80 dark:bg-gray-800/90">
+                      <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_16px_45px_-40px_rgba(15,23,42,0.7)] backdrop-blur-sm dark:border-gray-700/80 dark:bg-gray-800 dark:shadow-none dark:backdrop-blur-none">
                       <div className="border-b border-slate-200/80 px-4 py-4 dark:border-gray-700/80 sm:px-6 sm:py-5">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="flex items-start gap-3">
