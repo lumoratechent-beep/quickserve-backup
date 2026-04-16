@@ -1548,6 +1548,7 @@ const PosOnlyView: React.FC<Props> = ({
       soldBy: formItem.soldBy || 'each',
       trackStock: formItem.trackStock || false,
       color: resolvedTileColor,
+      mixAndMatch: formItem.mixAndMatch?.enabled ? formItem.mixAndMatch : undefined,
     };
 
     setIsSavingMenuItem(true);

@@ -34,6 +34,7 @@ const MenuItemFormModal: React.FC<Props> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showNewModifierForm, setShowNewModifierForm] = useState(false);
   const [collapsedAddOns, setCollapsedAddOns] = useState<Set<number>>(new Set());
+  const [collapsedMixMatch, setCollapsedMixMatch] = useState<Set<number>>(new Set());
   const [newModName, setNewModName] = useState('');
   const [newModOptions, setNewModOptions] = useState<{ name: string; price: number }[]>([]);
   const [newOptionName, setNewOptionName] = useState('');
@@ -84,6 +85,12 @@ const MenuItemFormModal: React.FC<Props> = ({
         setCollapsedAddOns(new Set(Array.from({ length: count }, (_, i) => i)));
       } else {
         setCollapsedAddOns(new Set());
+      }
+      const mmCount = formItem.mixAndMatch?.selections?.length ?? 0;
+      if (mmCount > 0) {
+        setCollapsedMixMatch(new Set(Array.from({ length: mmCount }, (_, i) => i)));
+      } else {
+        setCollapsedMixMatch(new Set());
       }
       setAddingSection(null);
     }
@@ -298,6 +305,14 @@ const MenuItemFormModal: React.FC<Props> = ({
         selections: (prev.mixAndMatch?.selections || []).filter((_, i) => i !== index),
       },
     }));
+    setCollapsedMixMatch(prev => {
+      const reindexed = new Set<number>();
+      prev.forEach(i => {
+        if (i < index) reindexed.add(i);
+        else if (i > index) reindexed.add(i - 1);
+      });
+      return reindexed;
+    });
   };
 
   const handleMixMatchSelectionLabelChange = (index: number, label: string) => {
@@ -1112,36 +1127,43 @@ const MenuItemFormModal: React.FC<Props> = ({
     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><Shuffle size={16} className="text-amber-500" /> Mix & Match</h3>
-        <button
-          type="button"
-          onClick={handleToggleMixMatch}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            mixMatchEnabled ? 'bg-amber-500' : 'bg-gray-200 dark:bg-gray-600'
-          }`}
-        >
-          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-            mixMatchEnabled ? 'translate-x-6' : 'translate-x-1'
-          }`} />
-        </button>
+        <div className="flex items-center gap-2">
+          {mixMatchEnabled && (
+            <button type="button" onClick={handleAddMixMatchSelection} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+              <Plus size={16} />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleToggleMixMatch}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              mixMatchEnabled ? 'bg-amber-500' : 'bg-gray-200 dark:bg-gray-600'
+            }`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+              mixMatchEnabled ? 'translate-x-6' : 'translate-x-1'
+            }`} />
+          </button>
+        </div>
       </div>
 
       {mixMatchEnabled && (
-        <div className="space-y-4">
-          <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">
-            Create selection groups for customers to pick from (e.g. "Choose Meat 1", "Choose Meat 2")
-          </p>
+        <div className="space-y-3">
+          {mixMatchSelections.length === 0 && (
+            <div className="text-center py-6 bg-gray-50 dark:bg-gray-700/30 rounded-lg border-2 border-dashed border-gray-200">
+              <PlusCircle size={24} className="mx-auto text-gray-400 mb-2" />
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">No selection groups yet</p>
+              <p className="text-[8px] text-gray-400 mt-1">Click + to add a selection group</p>
+            </div>
+          )}
 
           {mixMatchSelections.map((sel, selIdx) => (
-            <div key={selIdx} className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 flex-1">
-                  <input
-                    type="text"
-                    className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none"
-                    placeholder="e.g. Choose Meat 1"
-                    value={sel.label}
-                    onChange={e => handleMixMatchSelectionLabelChange(selIdx, e.target.value)}
-                  />
+            collapsedMixMatch.has(selIdx) ? (
+              /* ── Collapsed View ── */
+              <div key={selIdx} className="flex items-center justify-between px-3 py-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs font-bold dark:text-white truncate">{sel.label || `Selection #${selIdx + 1}`}</span>
+                  <span className="shrink-0 text-[9px] text-gray-400">{sel.options.length} option{sel.options.length !== 1 ? 's' : ''}</span>
                 </div>
                 <div className="flex items-center gap-1 ml-2">
                   {sel.options.length > 0 && mixMatchSelections.length > 1 && (
@@ -1151,57 +1173,87 @@ const MenuItemFormModal: React.FC<Props> = ({
                       title="Copy options to all other selections"
                       className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
                     >
-                      <Copy size={14} />
+                      <Copy size={13} />
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setCollapsedMixMatch(prev => { const n = new Set(prev); n.delete(selIdx); return n; })}
+                    className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg"
+                  >
+                    <Pencil size={13} />
+                  </button>
                   <button type="button" onClick={() => handleRemoveMixMatchSelection(selIdx)} className="p-1.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">
-                    <Trash2 size={14} />
+                    <Trash2 size={13} />
                   </button>
                 </div>
               </div>
+            ) : (
+              /* ── Expanded Edit View ── */
+              <div key={selIdx} className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Selection #{selIdx + 1}</span>
+                  <button type="button" onClick={() => handleRemoveMixMatchSelection(selIdx)} className="p-1 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
 
-              {/* Options for this selection */}
-              <div className="space-y-2">
-                {sel.options.map((opt, optIdx) => (
-                  <div key={optIdx} className="flex gap-2 items-center">
-                    <input
-                      type="text"
-                      className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none"
-                      placeholder="e.g. Beef, Chicken, Lamb"
-                      value={opt.name}
-                      onChange={e => handleMixMatchOptionChange(selIdx, optIdx, 'name', e.target.value)}
-                    />
-                    <input
-                      type="number" step="0.01" min="0"
-                      className="w-24 px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none"
-                      placeholder="+Price"
-                      value={opt.priceModifier === 0 ? '' : opt.priceModifier}
-                      onChange={e => handleMixMatchOptionChange(selIdx, optIdx, 'priceModifier', e.target.value === '' ? 0 : Number(e.target.value))}
-                    />
-                    <button type="button" onClick={() => handleRemoveMixMatchOption(selIdx, optIdx)} className="p-2 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
+                <div>
+                  <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Label</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none"
+                    placeholder="e.g. Choose Meat 1"
+                    value={sel.label}
+                    onChange={e => handleMixMatchSelectionLabelChange(selIdx, e.target.value)}
+                  />
+                </div>
+
+                {/* Options */}
+                <div className="space-y-2">
+                  {sel.options.map((opt, optIdx) => (
+                    <div key={optIdx} className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none"
+                        placeholder="e.g. Beef, Chicken, Lamb"
+                        value={opt.name}
+                        onChange={e => handleMixMatchOptionChange(selIdx, optIdx, 'name', e.target.value)}
+                      />
+                      <input
+                        type="number" step="0.01" min="0"
+                        className="w-24 px-3 py-2 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-xs font-bold dark:text-white outline-none"
+                        placeholder="+Price"
+                        value={opt.priceModifier === 0 ? '' : opt.priceModifier}
+                        onChange={e => handleMixMatchOptionChange(selIdx, optIdx, 'priceModifier', e.target.value === '' ? 0 : Number(e.target.value))}
+                      />
+                      <button type="button" onClick={() => handleRemoveMixMatchOption(selIdx, optIdx)} className="p-2 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleAddMixMatchOption(selIdx)}
+                  className="w-full py-2 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg text-[9px] font-black text-gray-400 uppercase tracking-widest hover:border-orange-300 hover:text-orange-500 transition-all flex items-center justify-center gap-1"
+                >
+                  <Plus size={12} /> Add Option
+                </button>
+
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setCollapsedMixMatch(prev => new Set(prev).add(selIdx))}
+                    className="px-2.5 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-[8px] font-black uppercase tracking-widest flex items-center gap-1 transition-colors"
+                  >
+                    <Save size={11} /> Save
+                  </button>
+                </div>
               </div>
-
-              <button
-                type="button"
-                onClick={() => handleAddMixMatchOption(selIdx)}
-                className="w-full py-2 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg text-[9px] font-black text-gray-400 uppercase tracking-widest hover:border-orange-300 hover:text-orange-500 transition-all flex items-center justify-center gap-1"
-              >
-                <Plus size={12} /> Add Option
-              </button>
-            </div>
+            )
           ))}
-
-          <button
-            type="button"
-            onClick={handleAddMixMatchSelection}
-            className="w-full py-2.5 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-[9px] font-black text-gray-500 uppercase tracking-widest hover:border-orange-400 hover:text-orange-500 transition-all flex items-center justify-center gap-1"
-          >
-            <PlusCircle size={14} /> Add Selection Group
-          </button>
         </div>
       )}
 

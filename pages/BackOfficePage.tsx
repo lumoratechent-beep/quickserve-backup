@@ -647,6 +647,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       soldBy: formItem.soldBy || 'each',
       trackStock: formItem.trackStock || false,
       color: formItem.color || undefined,
+      mixAndMatch: formItem.mixAndMatch?.enabled ? formItem.mixAndMatch : undefined,
     };
 
     setIsSavingItem(true);
