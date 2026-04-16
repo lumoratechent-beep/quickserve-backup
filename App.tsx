@@ -476,6 +476,7 @@ const App: React.FC = () => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showLoginShiftPrompt, setShowLoginShiftPrompt] = useState(false);
   const [showOtherUserShiftAlert, setShowOtherUserShiftAlert] = useState<string | null>(null); // holds other user's name
+  const [showOwnShiftActive, setShowOwnShiftActive] = useState(false); // user's own shift is still open
 
   const isShiftFeatureEnabledForRestaurant = useCallback((restaurantId?: string) => {
     if (!restaurantId) return false;
@@ -1206,19 +1207,35 @@ const App: React.FC = () => {
         }
 
         if (shiftEnabled) {
-          // Check if any OTHER user already has an open shift for this restaurant
-          const { data: openShifts } = await supabase
+          // First check if THIS user already has an open shift
+          const { data: ownShifts } = await supabase
             .from('cashier_shifts')
-            .select('cashier_name')
+            .select('*')
             .eq('restaurant_id', user.restaurantId)
+            .eq('cashier_name', user.username)
             .eq('status', 'open')
-            .neq('cashier_name', user.username)
+            .order('opened_at', { ascending: false })
             .limit(1);
-          
-          if (openShifts && openShifts.length > 0) {
-            setShowOtherUserShiftAlert(openShifts[0].cashier_name);
+
+          if (ownShifts && ownShifts.length > 0) {
+            // User's own shift is still active from a previous session
+            setActiveShift(ownShifts[0] as CashierShift);
+            setShowOwnShiftActive(true);
           } else {
-            setShowLoginShiftPrompt(true);
+            // Check if any OTHER user already has an open shift
+            const { data: otherShifts } = await supabase
+              .from('cashier_shifts')
+              .select('cashier_name')
+              .eq('restaurant_id', user.restaurantId)
+              .eq('status', 'open')
+              .neq('cashier_name', user.username)
+              .limit(1);
+
+            if (otherShifts && otherShifts.length > 0) {
+              setShowOtherUserShiftAlert(otherShifts[0].cashier_name);
+            } else {
+              setShowLoginShiftPrompt(true);
+            }
           }
         }
       } catch { /* ignore shift check errors */ }
@@ -2508,34 +2525,71 @@ const App: React.FC = () => {
       {/* Logout Confirmation Popup — Active shift warning */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                <LogOut size={20} className="text-red-600 dark:text-red-400" />
+              <div className="w-12 h-12 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <LogOut size={24} className="text-red-600 dark:text-red-400" />
               </div>
-              <h3 className="text-lg font-black text-gray-900 dark:text-white">Shift Still Active</h3>
+              <div>
+                <h3 className="text-lg font-black text-gray-900 dark:text-white">Shift Still Active</h3>
+                <p className="text-xs text-gray-400 dark:text-gray-500">Your sales won't be reconciled</p>
+              </div>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
               You still have an <strong>active shift</strong> open. Logging out without closing your shift means your sales data won't be reconciled. Are you sure you want to logout?
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={() => { setShowLogoutConfirm(false); setShowShiftModal(true); }}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-amber-500 text-white hover:bg-amber-600 transition-all"
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-amber-500 text-white hover:bg-amber-600 transition-all"
               >
                 Close Shift
               </button>
               <button
                 onClick={handleLogout}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-red-500 text-white hover:bg-red-600 transition-all"
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-red-500 text-white hover:bg-red-600 transition-all"
               >
                 Logout Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Own Shift Still Active — user logged out without closing and logged back in */}
+      {showOwnShiftActive && (
+        <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <Clock size={24} className="text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-gray-900 dark:text-white">Your Shift Is Still Active</h3>
+                <p className="text-xs text-gray-400 dark:text-gray-500">Last session was not closed</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+              Your previous shift is still open. You can <strong>continue</strong> on the same shift, or <strong>close it</strong> and start a new one.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowOwnShiftActive(false)}
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-green-500 text-white hover:bg-green-600 transition-all"
+              >
+                Continue Shift
+              </button>
+              <button
+                onClick={() => { setShowOwnShiftActive(false); setShowShiftModal(true); }}
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-amber-500 text-white hover:bg-amber-600 transition-all"
+              >
+                Close & Start New
               </button>
             </div>
           </div>
@@ -2545,26 +2599,29 @@ const App: React.FC = () => {
       {/* Other User on Shift Alert */}
       {showOtherUserShiftAlert && (
         <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                <Clock size={20} className="text-blue-600 dark:text-blue-400" />
+              <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                <Clock size={24} className="text-blue-600 dark:text-blue-400" />
               </div>
-              <h3 className="text-lg font-black text-gray-900 dark:text-white">Shift In Progress</h3>
+              <div>
+                <h3 className="text-lg font-black text-gray-900 dark:text-white">Shift In Progress</h3>
+                <p className="text-xs text-gray-400 dark:text-gray-500">Another user is on shift</p>
+              </div>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
               <strong>{showOtherUserShiftAlert}</strong> is currently on an active shift. You can continue without entering a shift, or start your own shift alongside them.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowOtherUserShiftAlert(null)}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
               >
                 Continue Without Shift
               </button>
               <button
                 onClick={() => { setShowOtherUserShiftAlert(null); setShowShiftModal(true); }}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-amber-500 text-white hover:bg-amber-600 transition-all"
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-amber-500 text-white hover:bg-amber-600 transition-all"
               >
                 Enter Shift
               </button>
@@ -2573,29 +2630,32 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Login Shift Prompt */}
+      {/* Login Shift Prompt — no existing shifts */}
       {showLoginShiftPrompt && (
         <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                <Clock size={20} className="text-amber-600 dark:text-amber-400" />
+              <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                <Clock size={24} className="text-amber-600 dark:text-amber-400" />
               </div>
-              <h3 className="text-lg font-black text-gray-900 dark:text-white">Start a Shift?</h3>
+              <div>
+                <h3 className="text-lg font-black text-gray-900 dark:text-white">Start a Shift?</h3>
+                <p className="text-xs text-gray-400 dark:text-gray-500">Track your sales accurately</p>
+              </div>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
               Would you like to open a cashier shift now? Starting a shift helps track your sales and cash accuracy.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowLoginShiftPrompt(false)}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
               >
                 Continue Without Shift
               </button>
               <button
                 onClick={() => { setShowLoginShiftPrompt(false); setShowShiftModal(true); }}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-amber-500 text-white hover:bg-amber-600 transition-all"
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-amber-500 text-white hover:bg-amber-600 transition-all"
               >
                 Open Shift
               </button>
