@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Order, OrderStatus, MenuItem, Restaurant, Subscription } from '../src/types';
+import { Order, OrderStatus, MenuItem, Restaurant, Subscription, IngredientItem } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
 import { loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
@@ -93,11 +93,31 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [formItem, setFormItem] = useState<MenuFormItem>({});
   const [isSavingItem, setIsSavingItem] = useState(false);
-  const [itemSubTab, setItemSubTab] = useState<'list' | 'stock'>('list');
+  const [itemSubTab, setItemSubTab] = useState<'menu' | 'ingredients' | 'stock'>('menu');
   const [itemEntriesPerPage, setItemEntriesPerPage] = useState(30);
   const [itemCurrentPage, setItemCurrentPage] = useState(1);
   const [stockEntriesPerPage, setStockEntriesPerPage] = useState(30);
   const [stockCurrentPage, setStockCurrentPage] = useState(1);
+
+  // ─── Ingredient items state ───
+  const [ingredientItems, setIngredientItems] = useState<IngredientItem[]>(() =>
+    loadBackofficeData<IngredientItem[]>(`ingredients_${restaurant.id}`, restaurant.settings, 'ingredients', [])
+  );
+  const [ingredientSearch, setIngredientSearch] = useState('');
+  const [ingredientCategoryFilter, setIngredientCategoryFilter] = useState('ALL');
+  const [ingredientShowArchived, setIngredientShowArchived] = useState(false);
+  const [isIngredientFormOpen, setIsIngredientFormOpen] = useState(false);
+  const [editingIngredient, setEditingIngredient] = useState<IngredientItem | null>(null);
+  const [ingredientForm, setIngredientForm] = useState<Partial<IngredientItem>>({});
+  const [isSavingIngredient, setIsSavingIngredient] = useState(false);
+  const [ingredientEntriesPerPage, setIngredientEntriesPerPage] = useState(30);
+  const [ingredientCurrentPage, setIngredientCurrentPage] = useState(1);
+
+  const saveIngredients = (items: IngredientItem[]) => {
+    setIngredientItems(items);
+    localStorage.setItem(`ingredients_${restaurant.id}`, JSON.stringify(items));
+    syncBackofficeToDb(restaurant.id);
+  };
 
   // ─── Initial loading overlay ───
   useEffect(() => {
@@ -558,6 +578,111 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     const healthy = total - low - out;
     return { total, low, out, healthy };
   }, [stockItems]);
+
+  // ─── Ingredient tab helpers ───
+  const ingredientCategories = useMemo(() => {
+    const cats = Array.from(new Set(ingredientItems.map(i => i.category))).sort();
+    return ['ALL', ...cats];
+  }, [ingredientItems]);
+
+  const filteredIngredients = useMemo(() => {
+    return ingredientItems.filter(item => {
+      if (!ingredientShowArchived && item.is_archived) return false;
+      if (ingredientShowArchived && !item.is_archived) return false;
+      if (ingredientCategoryFilter !== 'ALL' && item.category !== ingredientCategoryFilter) return false;
+      if (ingredientSearch) {
+        const q = ingredientSearch.toLowerCase();
+        if (!item.name.toLowerCase().includes(q) && !item.category.toLowerCase().includes(q) && !(item.sku || '').toLowerCase().includes(q) && !(item.barcode || '').toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+  }, [ingredientItems, ingredientSearch, ingredientCategoryFilter, ingredientShowArchived]);
+
+  const ingredientTotalPages = useMemo(() => Math.max(1, Math.ceil(filteredIngredients.length / ingredientEntriesPerPage)), [filteredIngredients.length, ingredientEntriesPerPage]);
+  const paginatedIngredients = useMemo(() => {
+    const start = (ingredientCurrentPage - 1) * ingredientEntriesPerPage;
+    return filteredIngredients.slice(start, start + ingredientEntriesPerPage);
+  }, [filteredIngredients, ingredientCurrentPage, ingredientEntriesPerPage]);
+
+  useEffect(() => { setIngredientCurrentPage(1); }, [ingredientSearch, ingredientCategoryFilter, ingredientShowArchived, ingredientEntriesPerPage]);
+
+  const openAddIngredient = () => {
+    setEditingIngredient(null);
+    setIngredientForm({ name: '', category: '', cost: 0, unit: 'pcs', sku: '', barcode: '', notes: '', is_archived: false });
+    setIsIngredientFormOpen(true);
+  };
+
+  const openEditIngredient = (item: IngredientItem) => {
+    setEditingIngredient(item);
+    setIngredientForm({ ...item });
+    setIsIngredientFormOpen(true);
+  };
+
+  const handleIngredientFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ingredientForm.name?.trim()) return;
+    setIsSavingIngredient(true);
+    try {
+      if (editingIngredient) {
+        // Update existing
+        const updated = ingredientItems.map(i =>
+          i.id === editingIngredient.id ? { ...i, ...ingredientForm, updated_at: new Date().toISOString() } as IngredientItem : i
+        );
+        saveIngredients(updated);
+        toast(`${ingredientForm.name} updated`, 'success');
+      } else {
+        // Create new
+        const newItem: IngredientItem = {
+          id: crypto.randomUUID(),
+          restaurant_id: restaurant.id,
+          name: ingredientForm.name?.trim() || '',
+          category: ingredientForm.category?.trim() || 'Uncategorized',
+          cost: ingredientForm.cost || 0,
+          unit: ingredientForm.unit || 'pcs',
+          sku: ingredientForm.sku,
+          barcode: ingredientForm.barcode,
+          notes: ingredientForm.notes || '',
+          is_archived: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        saveIngredients([...ingredientItems, newItem]);
+        // Also add to stock tracking
+        const newStockItem: StockItem = {
+          menuItemId: newItem.id,
+          name: newItem.name,
+          category: newItem.category,
+          currentStock: 0,
+          lowStockThreshold: 10,
+          unit: newItem.unit,
+          lastRestocked: Date.now(),
+          stockEnabled: true,
+        };
+        saveStock([...stockItems, newStockItem]);
+        toast(`${newItem.name} added`, 'success');
+      }
+      setIsIngredientFormOpen(false);
+      setEditingIngredient(null);
+    } finally {
+      setIsSavingIngredient(false);
+    }
+  };
+
+  const handleArchiveIngredient = (item: IngredientItem) => {
+    const updated = ingredientItems.map(i =>
+      i.id === item.id ? { ...i, is_archived: !i.is_archived, updated_at: new Date().toISOString() } : i
+    );
+    saveIngredients(updated);
+    toast(`${item.name} ${item.is_archived ? 'restored' : 'archived'}`, 'success');
+  };
+
+  const handleDeleteIngredient = (item: IngredientItem) => {
+    if (!confirm(`Permanently delete "${item.name}"? This cannot be undone.`)) return;
+    saveIngredients(ingredientItems.filter(i => i.id !== item.id));
+    // Also remove from stock tracking
+    saveStock(stockItems.filter(s => s.menuItemId !== item.id));
+    toast(`${item.name} deleted`, 'success');
+  };
 
   const filteredStaff = useMemo(() => {
     if (!staffSearch) return staffList;
@@ -1181,7 +1306,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           <div>
             {/* Sub-tab toggle */}
             <div className="flex items-center gap-1 mb-6 bg-gray-100 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-700 p-0.5 w-fit">
-              {([['list', 'Item List'], ['stock', 'Stock Management']] as const).map(([key, label]) => (
+              {([['menu', 'Menu Items'], ['ingredients', 'Ingredients / Supplies'], ['stock', 'Stock Management']] as const).map(([key, label]) => (
                 <button
                   key={key}
                   onClick={() => setItemSubTab(key)}
@@ -1192,8 +1317,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               ))}
             </div>
 
-            {/* ── Item List sub-tab ── */}
-            {itemSubTab === 'list' && (
+            {/* ── Menu Items sub-tab ── */}
+            {itemSubTab === 'menu' && (
             <>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
               <h2 className="text-lg font-black">Item List</h2>
@@ -1371,6 +1496,188 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 <button onClick={() => setItemCurrentPage(itemTotalPages)} disabled={itemCurrentPage === itemTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all">
                   <ChevronLast size={16} />
                 </button>
+              </div>
+            )}
+            </>
+            )}
+
+            {/* ── Ingredients / Supplies sub-tab ── */}
+            {itemSubTab === 'ingredients' && (
+            <>
+            {/* Ingredient Form Modal */}
+            {isIngredientFormOpen && (
+              <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => { setIsIngredientFormOpen(false); setEditingIngredient(null); }}>
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 w-full max-w-lg max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                  <h3 className="text-sm font-black mb-4">{editingIngredient ? 'Edit Ingredient' : 'Add Ingredient / Supply'}</h3>
+                  <form onSubmit={handleIngredientFormSubmit} className="space-y-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Name *</label>
+                      <input type="text" value={ingredientForm.name || ''} onChange={e => setIngredientForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Sugar, Ice Block, Ketchup" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" required />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Category</label>
+                        <input type="text" value={ingredientForm.category || ''} onChange={e => setIngredientForm(f => ({ ...f, category: e.target.value }))} placeholder="e.g. Ingredients, Packaging" list="ingredient-categories" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                        <datalist id="ingredient-categories">
+                          {ingredientCategories.filter(c => c !== 'ALL').map(c => <option key={c} value={c} />)}
+                        </datalist>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Unit</label>
+                        <select value={ingredientForm.unit || 'pcs'} onChange={e => setIngredientForm(f => ({ ...f, unit: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                          <option value="pcs">Pieces</option>
+                          <option value="kg">Kilogram (kg)</option>
+                          <option value="g">Gram (g)</option>
+                          <option value="litre">Litre</option>
+                          <option value="ml">Millilitre (ml)</option>
+                          <option value="box">Box</option>
+                          <option value="pack">Pack</option>
+                          <option value="bottle">Bottle</option>
+                          <option value="bag">Bag</option>
+                          <option value="can">Can</option>
+                          <option value="roll">Roll</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Cost per Unit ({currencySymbol})</label>
+                        <input type="number" step="0.01" value={ingredientForm.cost || ''} onChange={e => setIngredientForm(f => ({ ...f, cost: parseFloat(e.target.value) || 0 }))} placeholder="0.00" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">SKU</label>
+                        <input type="text" value={ingredientForm.sku || ''} onChange={e => setIngredientForm(f => ({ ...f, sku: e.target.value }))} placeholder="Optional" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Barcode</label>
+                        <input type="text" value={ingredientForm.barcode || ''} onChange={e => setIngredientForm(f => ({ ...f, barcode: e.target.value }))} placeholder="Optional" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Notes</label>
+                        <input type="text" value={ingredientForm.notes || ''} onChange={e => setIngredientForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional notes" className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
+                      </div>
+                    </div>
+                    <div className="flex gap-3 mt-2">
+                      <button type="button" onClick={() => { setIsIngredientFormOpen(false); setEditingIngredient(null); }} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
+                      <button type="submit" disabled={isSavingIngredient} className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20 disabled:opacity-50 flex items-center justify-center gap-2">
+                        {isSavingIngredient && <Loader2 size={14} className="animate-spin" />}
+                        {editingIngredient ? 'Update' : 'Add Ingredient'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+              <h2 className="text-lg font-black">Ingredients & Supplies</h2>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                  <input type="text" placeholder="Search name, SKU, barcode..." value={ingredientSearch} onChange={e => setIngredientSearch(e.target.value)} className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-4 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none w-56" />
+                </div>
+                <select value={ingredientCategoryFilter} onChange={e => setIngredientCategoryFilter(e.target.value)} className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                  {ingredientCategories.map(c => <option key={c} value={c}>{c === 'ALL' ? 'All Categories' : c}</option>)}
+                </select>
+                <button onClick={() => setIngredientShowArchived(!ingredientShowArchived)} className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${ingredientShowArchived ? 'bg-red-50 dark:bg-red-900/20 text-red-600 border-red-200 dark:border-red-800' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 border-gray-200 dark:border-gray-700'}`}>
+                  {ingredientShowArchived ? 'Show Active' : 'Archived'}
+                </button>
+                <button onClick={openAddIngredient} className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20">
+                  <Plus size={14} /> Add Ingredient
+                </button>
+              </div>
+            </div>
+
+            {/* Info banner */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 mb-6 flex items-start gap-3">
+              <Info size={16} className="text-blue-500 mt-0.5 shrink-0" />
+              <p className="text-xs text-blue-700 dark:text-blue-300">Ingredients & supplies are non-menu items like sugar, ice blocks, ketchup, packaging, etc. They appear in Purchase Orders and Stock Management for P&L tracking.</p>
+            </div>
+
+            {/* Ingredients Table */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                  Showing {filteredIngredients.length === 0 ? 0 : (ingredientCurrentPage - 1) * ingredientEntriesPerPage + 1}–{Math.min(ingredientCurrentPage * ingredientEntriesPerPage, filteredIngredients.length)} of {filteredIngredients.length}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Show</span>
+                  <select value={ingredientEntriesPerPage} onChange={e => setIngredientEntriesPerPage(Number(e.target.value))} className="bg-gray-100 dark:bg-gray-700 border-none rounded-lg text-[10px] font-bold dark:text-white p-1.5 outline-none cursor-pointer">
+                    <option value={30}>30</option><option value={50}>50</option><option value={100}>100</option>
+                  </select>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Entries</span>
+                </div>
+              </div>
+              {paginatedIngredients.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Name</th>
+                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Category</th>
+                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Cost/Unit</th>
+                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Unit</th>
+                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">SKU</th>
+                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Notes</th>
+                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedIngredients.map(item => (
+                        <tr key={item.id} className={`border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${item.is_archived ? 'opacity-50' : ''}`}>
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                                <Box size={14} className="text-amber-600 dark:text-amber-400" />
+                              </div>
+                              <span className="text-sm font-bold dark:text-white">{item.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-4"><span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md">{item.category}</span></td>
+                          <td className="px-5 py-4 text-sm font-bold dark:text-white">{currencySymbol}{(item.cost || 0).toFixed(2)}</td>
+                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400">{item.unit}</td>
+                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell">{item.sku || '-'}</td>
+                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell truncate max-w-[150px]">{item.notes || '-'}</td>
+                          <td className="px-5 py-4 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button onClick={() => openEditIngredient(item)} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-gray-400 hover:text-amber-500"><Edit3 size={14} /></button>
+                              <button onClick={() => handleArchiveIngredient(item)} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-gray-400 hover:text-amber-500"><Archive size={14} /></button>
+                              {item.is_archived && <button onClick={() => handleDeleteIngredient(item)} className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="h-48 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
+                  <Box size={40} className="mb-3 opacity-30" />
+                  <p className="text-sm font-bold">{ingredientShowArchived ? 'No archived ingredients' : 'No ingredients yet'}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{ingredientShowArchived ? 'Archived ingredients will appear here' : 'Add ingredients like sugar, ice blocks, packaging, etc.'}</p>
+                  {!ingredientShowArchived && (
+                    <button onClick={openAddIngredient} className="mt-4 px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20">
+                      <Plus size={14} /> Add First Ingredient
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Ingredient Pagination */}
+            {ingredientTotalPages > 1 && (
+              <div className="mt-6 flex items-center justify-center gap-2 overflow-x-auto py-2">
+                <button onClick={() => setIngredientCurrentPage(1)} disabled={ingredientCurrentPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all"><ChevronFirst size={16} /></button>
+                <button onClick={() => setIngredientCurrentPage(p => Math.max(1, p - 1))} disabled={ingredientCurrentPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all"><ChevronLeft size={16} /></button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: ingredientTotalPages }, (_, i) => i + 1).map(page => (
+                    <button key={page} onClick={() => setIngredientCurrentPage(page)} className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${ingredientCurrentPage === page ? 'bg-amber-600 text-white shadow-lg shadow-amber-200' : 'bg-white dark:bg-gray-800 text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>{page}</button>
+                  ))}
+                </div>
+                <button onClick={() => setIngredientCurrentPage(p => Math.min(ingredientTotalPages, p + 1))} disabled={ingredientCurrentPage === ingredientTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all"><ChevronRight size={16} /></button>
+                <button onClick={() => setIngredientCurrentPage(ingredientTotalPages)} disabled={ingredientCurrentPage === ingredientTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all"><ChevronLast size={16} /></button>
               </div>
             )}
             </>

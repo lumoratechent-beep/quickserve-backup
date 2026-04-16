@@ -284,6 +284,22 @@ export interface Subscription {
   updated_at: string;
 }
 
+// Ingredient / non-menu stock items (e.g. ice blocks, sugar, ketchup, packaging)
+export interface IngredientItem {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  category: string;
+  cost: number;         // cost per unit for COGS / P&L
+  unit: string;         // pcs, kg, litre, box, pack …
+  sku?: string;
+  barcode?: string;
+  is_archived?: boolean;
+  notes: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // Cashier Shift Management
 export interface CashierShift {
   id: string;

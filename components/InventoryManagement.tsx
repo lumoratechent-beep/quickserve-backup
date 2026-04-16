@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Restaurant, MenuItem } from '../src/types';
+import { Restaurant, MenuItem, IngredientItem } from '../src/types';
 import { loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
 import {
   Package, Truck, ArrowUpDown, ClipboardList, Factory,
@@ -119,6 +119,16 @@ interface Props {
   initialSubTab?: InventorySubTab;
 }
 
+// Unified selectable item: either a menu item or an ingredient
+interface SelectableItem {
+  id: string;
+  name: string;
+  category: string;
+  price?: number;
+  cost?: number;
+  type: 'menu' | 'ingredient';
+}
+
 const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, initialSubTab }) => {
   const [subTab, setSubTab] = useState<InventorySubTab>(initialSubTab || 'purchase_orders');
 
@@ -184,6 +194,20 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const [receiveQuantities, setReceiveQuantities] = useState<Record<string, number>>({});
 
   const activeMenuItems = useMemo(() => restaurant.menu.filter(m => !m.isArchived), [restaurant.menu]);
+
+  // Load ingredient items from localStorage (same key as BackOfficePage)
+  const ingredientItems = useMemo<IngredientItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(`ingredients_${restaurant.id}`);
+      return saved ? (JSON.parse(saved) as IngredientItem[]).filter(i => !i.is_archived) : [];
+    } catch { return []; }
+  }, [restaurant.id]);
+
+  // Combined list of menu items + ingredient items for selectors in PO, transfers, etc.
+  const allSelectableItems = useMemo<SelectableItem[]>(() => [
+    ...activeMenuItems.map(m => ({ id: m.id, name: m.name, category: m.category, price: m.price, cost: m.cost, type: 'menu' as const })),
+    ...ingredientItems.map(i => ({ id: i.id, name: i.name, category: i.category, price: undefined, cost: i.cost, type: 'ingredient' as const })),
+  ], [activeMenuItems, ingredientItems]);
 
   // ─── History Logger ───
   const addHistory = (entry: Omit<InventoryHistoryEntry, 'id' | 'timestamp'>) => {
@@ -355,7 +379,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const handleSaveAdjustment = () => {
     const qty = parseInt(adjForm.quantity);
     if (!adjForm.menuItemId || isNaN(qty) || qty <= 0) return;
-    const menuItem = activeMenuItems.find(m => m.id === adjForm.menuItemId);
+    const menuItem = allSelectableItems.find(m => m.id === adjForm.menuItemId);
     if (!menuItem) return;
     const prevStock = getStockLevel(adjForm.menuItemId);
     const delta = adjForm.type === 'increase' ? qty : -qty;
@@ -385,8 +409,8 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   // ════════════════════════════════════════
   const handleStartCount = (type: 'full' | 'partial', categories?: string[]) => {
     const filteredItems = type === 'partial' && categories && categories.length > 0
-      ? activeMenuItems.filter(m => categories.includes(m.category))
-      : activeMenuItems;
+      ? allSelectableItems.filter(m => categories.includes(m.category))
+      : allSelectableItems;
     const items: InventoryCountItem[] = filteredItems.map(m => ({
       menuItemId: m.id,
       name: m.name,
@@ -409,7 +433,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     setShowForm(false);
   };
 
-  const allCategories = useMemo(() => [...new Set(activeMenuItems.map(m => m.category).filter(Boolean))], [activeMenuItems]);
+  const allCategories = useMemo(() => [...new Set(allSelectableItems.map(m => m.category).filter(Boolean))], [allSelectableItems]);
 
   const handleUpdateCountItem = (countId: string, menuItemId: string, counted: number) => {
     const updated = inventoryCounts.map(c => {
@@ -451,7 +475,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
   const handleSaveProduction = () => {
     const qty = parseInt(prodForm.quantityProduced);
     if (!prodForm.producedItemId || isNaN(qty) || qty <= 0) return;
-    const producedMenuItem = activeMenuItems.find(m => m.id === prodForm.producedItemId);
+    const producedMenuItem = allSelectableItems.find(m => m.id === prodForm.producedItemId);
     if (!producedMenuItem) return;
     const validIngredients = prodForm.ingredients.filter(i => i.menuItemId).map(i => ({ menuItemId: i.menuItemId, name: i.name, quantityUsed: parseFloat(i.quantityUsed) || 0, unit: i.unit }));
     const prod: Production = {
@@ -495,18 +519,20 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
     const stockItems = getStockItems();
     return stockItems.map((s: any) => {
       const menuItem = restaurant.menu.find(m => m.id === s.menuItemId);
+      const ingredient = ingredientItems.find(i => i.id === s.menuItemId);
       const poCost = getLatestCostFromPOs(s.menuItemId);
-      const unitCost = poCost > 0 ? poCost : (menuItem?.price ? menuItem.price * 0.4 : 0);
+      const unitCost = poCost > 0 ? poCost : ingredient?.cost ? ingredient.cost : (menuItem?.price ? menuItem.price * 0.4 : 0);
       return {
         ...s,
         price: menuItem?.price || 0,
         estimatedCost: unitCost,
-        hasPOCost: poCost > 0,
+        hasPOCost: poCost > 0 || (ingredient?.cost ?? 0) > 0,
         totalValue: s.currentStock * unitCost,
         retailValue: s.currentStock * (menuItem?.price || 0),
+        isIngredient: !!ingredient,
       };
     });
-  }, [restaurant.menu, purchaseOrders]);
+  }, [restaurant.menu, ingredientItems, purchaseOrders]);
 
   const totalValuation = useMemo(() => {
     return valuationData.reduce((sum: number, item: any) => sum + item.totalValue, 0);
@@ -619,13 +645,20 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               {poForm.items.map((item, i) => (
                 <div key={i} className="flex items-center gap-2 mb-2">
                   <select value={item.menuItemId} onChange={e => {
-                    const mi = activeMenuItems.find(m => m.id === e.target.value);
+                    const mi = allSelectableItems.find(m => m.id === e.target.value);
                     const items = [...poForm.items];
-                    items[i] = { ...items[i], menuItemId: e.target.value, name: mi?.name || '' };
+                    items[i] = { ...items[i], menuItemId: e.target.value, name: mi?.name || '', costPerUnit: items[i].costPerUnit || mi?.cost || 0 };
                     setPoForm(f => ({ ...f, items }));
                   }} className="flex-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
                     <option value="">Select item</option>
-                    {activeMenuItems.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    <optgroup label="Menu Items">
+                      {allSelectableItems.filter(m => m.type === 'menu').map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </optgroup>
+                    {allSelectableItems.some(m => m.type === 'ingredient') && (
+                      <optgroup label="Ingredients / Supplies">
+                        {allSelectableItems.filter(m => m.type === 'ingredient').map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                      </optgroup>
+                    )}
                   </select>
                   <span className={`w-16 text-center text-xs font-bold ${item.menuItemId ? (getStockLevel(item.menuItemId) === 0 ? 'text-red-400' : getStockLevel(item.menuItemId) <= 10 ? 'text-amber-400' : 'text-green-400') : 'text-gray-500'}`}>
                     {item.menuItemId ? getStockLevel(item.menuItemId) : '-'}
@@ -738,13 +771,20 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               {toForm.items.map((item, i) => (
                 <div key={i} className="flex items-center gap-2 mb-2">
                   <select value={item.menuItemId} onChange={e => {
-                    const mi = activeMenuItems.find(m => m.id === e.target.value);
+                    const mi = allSelectableItems.find(m => m.id === e.target.value);
                     const items = [...toForm.items];
                     items[i] = { ...items[i], menuItemId: e.target.value, name: mi?.name || '' };
                     setToForm(f => ({ ...f, items }));
                   }} className="flex-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
                     <option value="">Select item</option>
-                    {activeMenuItems.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    <optgroup label="Menu Items">
+                      {allSelectableItems.filter(m => m.type === 'menu').map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </optgroup>
+                    {allSelectableItems.some(m => m.type === 'ingredient') && (
+                      <optgroup label="Ingredients / Supplies">
+                        {allSelectableItems.filter(m => m.type === 'ingredient').map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                      </optgroup>
+                    )}
                   </select>
                   <input type="number" value={item.quantity || ''} onChange={e => { const items = [...toForm.items]; items[i] = { ...items[i], quantity: parseInt(e.target.value) || 0 }; setToForm(f => ({ ...f, items })); }} placeholder="Qty" className="w-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none" />
                   <button onClick={() => { const items = toForm.items.filter((_, idx) => idx !== i); setToForm(f => ({ ...f, items })); }} className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg"><X size={14} /></button>
@@ -833,7 +873,14 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Item *</label>
                   <select value={adjForm.menuItemId} onChange={e => setAdjForm(f => ({ ...f, menuItemId: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
                     <option value="">Select item</option>
-                    {activeMenuItems.map(m => <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)})</option>)}
+                    <optgroup label="Menu Items">
+                      {allSelectableItems.filter(m => m.type === 'menu').map(m => <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)})</option>)}
+                    </optgroup>
+                    {allSelectableItems.some(m => m.type === 'ingredient') && (
+                      <optgroup label="Ingredients / Supplies">
+                        {allSelectableItems.filter(m => m.type === 'ingredient').map(m => <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)})</option>)}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
                 <div>
@@ -1040,9 +1087,16 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Produced Item *</label>
-                  <select value={prodForm.producedItemId} onChange={e => { const mi = activeMenuItems.find(m => m.id === e.target.value); setProdForm(f => ({ ...f, producedItemId: e.target.value, producedItemName: mi?.name || '' })); }} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                  <select value={prodForm.producedItemId} onChange={e => { const mi = allSelectableItems.find(m => m.id === e.target.value); setProdForm(f => ({ ...f, producedItemId: e.target.value, producedItemName: mi?.name || '' })); }} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
                     <option value="">Select item to produce</option>
-                    {activeMenuItems.map(m => <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)})</option>)}
+                    <optgroup label="Menu Items">
+                      {allSelectableItems.filter(m => m.type === 'menu').map(m => <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)})</option>)}
+                    </optgroup>
+                    {allSelectableItems.some(m => m.type === 'ingredient') && (
+                      <optgroup label="Ingredients / Supplies">
+                        {allSelectableItems.filter(m => m.type === 'ingredient').map(m => <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)})</option>)}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
                 <div>
@@ -1057,9 +1111,16 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 block">Ingredients Used</label>
               {prodForm.ingredients.map((ing, i) => (
                 <div key={i} className="flex items-center gap-2 mb-2">
-                  <select value={ing.menuItemId} onChange={e => { const mi = activeMenuItems.find(m => m.id === e.target.value); const ingredients = [...prodForm.ingredients]; ingredients[i] = { ...ingredients[i], menuItemId: e.target.value, name: mi?.name || '' }; setProdForm(f => ({ ...f, ingredients })); }} className="flex-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                  <select value={ing.menuItemId} onChange={e => { const mi = allSelectableItems.find(m => m.id === e.target.value); const ingredients = [...prodForm.ingredients]; ingredients[i] = { ...ingredients[i], menuItemId: e.target.value, name: mi?.name || '' }; setProdForm(f => ({ ...f, ingredients })); }} className="flex-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
                     <option value="">Select ingredient</option>
-                    {activeMenuItems.map(m => <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)})</option>)}
+                    <optgroup label="Menu Items">
+                      {allSelectableItems.filter(m => m.type === 'menu').map(m => <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)})</option>)}
+                    </optgroup>
+                    {allSelectableItems.some(m => m.type === 'ingredient') && (
+                      <optgroup label="Ingredients / Supplies">
+                        {allSelectableItems.filter(m => m.type === 'ingredient').map(m => <option key={m.id} value={m.id}>{m.name} (Stock: {getStockLevel(m.id)})</option>)}
+                      </optgroup>
+                    )}
                   </select>
                   <input type="number" value={ing.quantityUsed} onChange={e => { const ingredients = [...prodForm.ingredients]; ingredients[i] = { ...ingredients[i], quantityUsed: e.target.value }; setProdForm(f => ({ ...f, ingredients })); }} placeholder="Qty" className="w-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none" />
                   <select value={ing.unit} onChange={e => { const ingredients = [...prodForm.ingredients]; ingredients[i] = { ...ingredients[i], unit: e.target.value }; setProdForm(f => ({ ...f, ingredients })); }} className="w-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-2 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
@@ -1330,7 +1391,7 @@ const InventoryManagement: React.FC<Props> = ({ restaurant, currencySymbol, init
                     className="rounded border-gray-300 text-amber-600 focus:ring-amber-500"
                   />
                   <span className="text-sm text-gray-900 dark:text-white">{cat}</span>
-                  <span className="text-[10px] text-gray-400 ml-auto">{activeMenuItems.filter(m => m.category === cat).length} items</span>
+                  <span className="text-[10px] text-gray-400 ml-auto">{allSelectableItems.filter(m => m.category === cat).length} items</span>
                 </label>
               ))}
               {allCategories.length === 0 && (
