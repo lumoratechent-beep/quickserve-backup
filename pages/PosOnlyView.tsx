@@ -11334,7 +11334,75 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
                   </div>
                 </div>
-                <div className="w-full max-w-3xl mt-8 text-center">
+
+                {/* Bluetooth Printer Status */}
+                <div className="w-full max-w-3xl mt-6 flex justify-center">
+                  {realPrinterConnected ? (
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                      Printer Connected
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handlePrinterButtonClick}
+                      disabled={isAutoReconnecting}
+                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider ${
+                        isAutoReconnecting
+                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 cursor-wait'
+                          : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 cursor-pointer'
+                      }`}
+                    >
+                      <div className={`w-2 h-2 rounded-full ${isAutoReconnecting ? 'bg-blue-400 animate-pulse' : 'bg-red-400'}`} />
+                      {isAutoReconnecting ? 'Connecting...' : 'Printer Not Connected'}
+                    </button>
+                  )}
+                </div>
+
+                {/* Print Receipt Button */}
+                <div className="w-full max-w-3xl mt-4 flex justify-center">
+                  <button
+                    type="button"
+                    disabled={!realPrinterConnected}
+                    onClick={async () => {
+                      if (!pendingOrderData) return;
+                      const printRestaurant = {
+                        ...restaurant,
+                        name: receiptConfig.businessName.trim() || restaurant.name,
+                      };
+                      const orderForPrint = {
+                        id: pendingOrderData.orderId || pendingOrderData.id || '',
+                        tableNumber: pendingOrderData.tableNumber,
+                        diningType: pendingOrderData.diningType,
+                        timestamp: new Date().toISOString(),
+                        total: pendingOrderData.total,
+                        items: pendingOrderData.items,
+                        remark: pendingOrderData.remark,
+                        paymentMethod: pendingOrderData.paymentMethod || '',
+                        cashierName: cashierName || '',
+                        amountReceived: selectedCashAmount ?? undefined,
+                        changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined,
+                        orderSource: isQrPaymentMode ? (selectedQrOrderForPayment?.orderSource || 'qr_order') : 'counter',
+                      };
+                      const success = await printerService.printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions());
+                      if (success) {
+                        toast('Receipt printed!', 'success');
+                      } else {
+                        toast('Print failed. Please try again.', 'error');
+                      }
+                    }}
+                    className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider transition-all ${
+                      realPrinterConnected
+                        ? 'bg-gray-800 dark:bg-white text-white dark:text-gray-800 hover:bg-gray-700 dark:hover:bg-gray-100'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    <Printer size={16} />
+                    Print Receipt
+                  </button>
+                </div>
+
+                <div className="w-full max-w-3xl mt-6 text-center">
                   <p className="text-sm text-gray-400 dark:text-gray-500 italic">Please make sure all the balances are correct before completing the payment.</p>
                 </div>
               </div>

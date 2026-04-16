@@ -855,7 +855,8 @@ class PrinterService {
 
       const bizName   = this.sanitize(restaurant?.name) || 'RESTAURANT';
       const orderId   = this.sanitize(order.id) || 'ORDER';
-      const tableNum  = this.sanitize(order.tableNumber);
+      const rawTable  = this.sanitize(order.tableNumber);
+      const tableNum  = rawTable ? rawTable.replace(/^Table\s+/i, '') : rawTable;
       const remark    = this.sanitize(order.remark);
       const header    = this.sanitize(options?.headerText);
       const footer    = this.sanitize(options?.footerText || 'Thank you! Please come again.');
@@ -1126,7 +1127,8 @@ class PrinterService {
       const r = new EscPosBuilder(paperSize || '58mm');
       const now = new Date(order.timestamp);
       const orderId = this.sanitize(order.id) || 'ORDER';
-      const tableNum = this.sanitize(order.tableNumber);
+      const rawTableK = this.sanitize(order.tableNumber);
+      const tableNum = rawTableK ? rawTableK.replace(/^Table\s+/i, '') : rawTableK;
 
       r.init();
 
