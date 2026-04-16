@@ -459,9 +459,11 @@ const PosOnlyView: React.FC<Props> = ({
   const [posTableNo, setPosTableNo] = useState('Counter');
   const [posDiningType, setPosDiningType] = useState('Dine-in');
   const [savedBills, setSavedBills] = useState<SavedBillEntry[]>(() => {
+    // Use localStorage as initial cache; Supabase will overwrite on mount
     const saved = localStorage.getItem(`saved_bills_${restaurant.id}`);
     return saved ? JSON.parse(saved) : [];
   });
+  const savedBillsSyncRef = useRef(false); // prevent echo from realtime after local write
   const [activeSavedBillTable, setActiveSavedBillTable] = useState<string | null>(null);
   const [showSaveBillTableModal, setShowSaveBillTableModal] = useState(false);
   const [pendingSaveBillSource, setPendingSaveBillSource] = useState<'COUNTER' | 'QR' | null>(null);
@@ -1949,11 +1951,32 @@ const PosOnlyView: React.FC<Props> = ({
 
     if (!entry) return false;
 
+    // Optimistic local update
     setSavedBills(prev => {
       const withoutSameTable = prev.filter(bill => bill.tableNumber !== targetTable);
       return [entry, ...withoutSameTable];
     });
     setActiveSavedBillTable(targetTable);
+
+    // Persist to Supabase (upsert by restaurant_id + table_number)
+    savedBillsSyncRef.current = true;
+    supabase
+      .from('saved_bills')
+      .upsert(
+        {
+          restaurant_id: restaurant.id,
+          table_number: entry.tableNumber,
+          items: entry.items,
+          remark: entry.remark,
+          dining_type: entry.diningType ?? null,
+          created_at: new Date(entry.createdAt).toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'restaurant_id,table_number' }
+      )
+      .then(({ error }) => {
+        if (error) console.error('Failed to save bill to Supabase:', error);
+      });
 
     if (source === 'COUNTER') {
       setPosCart([]);
@@ -2021,6 +2044,17 @@ const PosOnlyView: React.FC<Props> = ({
 
   const clearSavedBillByTable = (tableNumber: string) => {
     setSavedBills(prev => prev.filter(bill => bill.tableNumber !== tableNumber));
+
+    // Delete from Supabase
+    savedBillsSyncRef.current = true;
+    supabase
+      .from('saved_bills')
+      .delete()
+      .eq('restaurant_id', restaurant.id)
+      .eq('table_number', tableNumber)
+      .then(({ error }) => {
+        if (error) console.error('Failed to delete saved bill from Supabase:', error);
+      });
   };
 
   const handleSaveBillModalTableClick = (tableNumber: string) => {
@@ -3174,9 +3208,60 @@ const PosOnlyView: React.FC<Props> = ({
     localStorage.setItem(`taxes_${restaurant.id}`, JSON.stringify(taxEntries));
   }, [taxEntries, restaurant.id]);
 
+  // Sync savedBills to localStorage as offline cache
   useEffect(() => {
     localStorage.setItem(`saved_bills_${restaurant.id}`, JSON.stringify(savedBills));
   }, [savedBills, restaurant.id]);
+
+  // Load saved bills from Supabase on mount + subscribe to realtime changes
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSavedBills = async () => {
+      const { data, error } = await supabase
+        .from('saved_bills')
+        .select('*')
+        .eq('restaurant_id', restaurant.id)
+        .order('created_at', { ascending: false });
+      if (cancelled) return;
+      if (!error && data) {
+        const bills: SavedBillEntry[] = data.map((row: any) => ({
+          id: row.id,
+          items: row.items ?? [],
+          remark: row.remark ?? '',
+          tableNumber: row.table_number,
+          diningType: row.dining_type ?? undefined,
+          createdAt: new Date(row.created_at).getTime(),
+        }));
+        setSavedBills(bills);
+      }
+    };
+
+    loadSavedBills();
+
+    // Realtime subscription for cross-device sync
+    const channel = supabase
+      .channel(`saved_bills_${restaurant.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'saved_bills', filter: `restaurant_id=eq.${restaurant.id}` },
+        () => {
+          // Skip echo from our own writes
+          if (savedBillsSyncRef.current) {
+            savedBillsSyncRef.current = false;
+            return;
+          }
+          // Re-fetch on any remote change
+          loadSavedBills();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [restaurant.id]);
 
   useEffect(() => {
     if (!featureSettings.savedBillEnabled && counterMode === 'SAVED_BILL') {
