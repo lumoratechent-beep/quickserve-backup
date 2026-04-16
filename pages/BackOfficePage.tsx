@@ -12,7 +12,7 @@ import {
   BarChart3, Package, UserPlus, UserMinus, Edit3, Trash2, Plus, Minus, Search, AlertCircle, Info,
   ArrowUpRight, ArrowDownRight, Clock, CheckCircle, XCircle, Eye, Archive, RotateCcw,
   Briefcase, Box, Tag, Layers, Activity, ArrowLeft, Warehouse, FileBarChart, Contact,
-  CreditCard, Percent, FileText, Truck, ArrowUpDown, ClipboardList, Factory, History, Building2, MoreVertical,
+  CreditCard, Percent, FileText, Truck, ArrowUpDown, ClipboardList, Factory, History, Building2, MoreVertical, Loader2,
 } from 'lucide-react';
 import InventoryManagement from '../components/InventoryManagement';
 import ReportsView from '../components/ReportsView';
@@ -76,6 +76,7 @@ interface StockItem {
 }
 
 const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, onFetchAllFilteredOrders, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription }) => {
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<BackOfficeTab>('DASHBOARD');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [reportSubTab, setReportSubTab] = useState<string | undefined>(undefined);
@@ -97,6 +98,28 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [itemCurrentPage, setItemCurrentPage] = useState(1);
   const [stockEntriesPerPage, setStockEntriesPerPage] = useState(30);
   const [stockCurrentPage, setStockCurrentPage] = useState(1);
+
+  // ─── Initial loading overlay ───
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        // Fetch fresh restaurant data & orders to ensure latest
+        if (onFetchAllFilteredOrders) {
+          const pad = (n: number) => n.toString().padStart(2, '0');
+          const toLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+          const end = new Date();
+          const start = new Date(); start.setDate(start.getDate() - 30);
+          await onFetchAllFilteredOrders({ restaurantId: restaurant.id, startDate: toLocal(start), endDate: toLocal(end) });
+        }
+      } catch { /* ignore */ }
+      // Small delay so the spinner is visible even on fast loads
+      await new Promise(r => setTimeout(r, 600));
+      if (!cancelled) setIsInitialLoading(false);
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   // Detect dark mode for Recharts inline color props
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
@@ -769,7 +792,15 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   );
 
   return (
-    <div className="flex bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white" style={{ height: 'var(--app-height, 100dvh)' }}>
+    <div className="flex bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white relative" style={{ height: 'var(--app-height, 100dvh)' }}>
+      {/* Initial Loading Overlay */}
+      {isInitialLoading && (
+        <div className="absolute inset-0 z-[100] bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm flex flex-col items-center justify-center">
+          <Loader2 size={40} className="animate-spin text-amber-500 mb-4" />
+          <p className="text-sm font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Loading Back Office...</p>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Fetching latest data</p>
+        </div>
+      )}
       {/* Sidebar */}
       <aside className={`${isSidebarCollapsed ? 'lg:w-16' : 'w-64'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0 hidden md:flex transition-all duration-300 ease-in-out`}>
         {/* Logo / Header */}
