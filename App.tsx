@@ -17,6 +17,8 @@ import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, Clock } from
 import * as offlineQueue from './lib/offlineOrdersQueue';
 import { toast } from './components/Toast';
 import CashierShiftModal from './components/CashierShiftModal';
+import RenewalBanner from './components/RenewalBanner';
+import { getRenewalStatus } from './lib/subscriptionService';
 
 /**
  * Generate a default 3-character order code from a restaurant name.
@@ -2300,6 +2302,19 @@ const App: React.FC = () => {
           )}
         </div>
       </header>
+      {/* Renewal reminder banner for vendors/cashiers */}
+      {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (() => {
+        const sub = vendorSubscriptions[currentUser!.restaurantId] || null;
+        if (!sub) return null;
+        const renewalStatus = getRenewalStatus(sub);
+        if (renewalStatus === 'ok') return null;
+        return (
+          <RenewalBanner
+            subscription={sub}
+            onRenewClick={() => setView('BACK_OFFICE')}
+          />
+        );
+      })()}
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
         {/* Global Error Display */}
         {globalError && (
