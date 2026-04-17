@@ -2477,7 +2477,10 @@ const PosOnlyView: React.FC<Props> = ({
   const canManageStaffAccess = isVendorSession || isManagerSession;
   const canReviewRefundRequests = isVendorSession || isManagerSession;
   const refundRequestTargetRole: RefundApprovalRole | null = isVendorSession ? 'VENDOR' : isManagerSession ? 'MANAGER' : null;
-  const combinedMailUnreadCount = unreadMailCount + (canReviewRefundRequests ? refundApprovalRequests.length : 0);
+  // Only show refund approval section if at least one cashier has requireManagerApprovalForRefund enabled, or there are already pending requests
+  const hasRefundApprovalEnabled = cashierStaffEntries.some(({ staff }) => staff.access_permissions?.requireManagerApprovalForRefund === true);
+  const showRefundApprovalSection = canReviewRefundRequests && (hasRefundApprovalEnabled || refundApprovalRequests.length > 0);
+  const combinedMailUnreadCount = unreadMailCount + (showRefundApprovalSection ? refundApprovalRequests.length : 0);
 
   const getCashierPermissionSummary = (permissionKey: CashierAccessPermissionKey) => {
     const total = cashierStaffEntries.length;
@@ -8997,7 +9000,7 @@ const PosOnlyView: React.FC<Props> = ({
                   )}
                 </div>
 
-                {canReviewRefundRequests && (
+                {showRefundApprovalSection && (
                   <div className="mb-5 rounded-2xl border border-orange-200 bg-orange-50/40 dark:border-orange-900/30 dark:bg-orange-950/10 overflow-hidden">
                     <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-orange-200/80 dark:border-orange-900/30">
                       <div>

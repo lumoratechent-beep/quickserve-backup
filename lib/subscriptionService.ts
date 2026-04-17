@@ -57,6 +57,9 @@ export function getRenewalStatus(sub: Subscription): RenewalStatus {
   if (sub.status === 'canceled' || sub.status === 'unpaid') return 'blocked';
   if (sub.status === 'pending_payment') return 'blocked';
 
+  // past_due = Stripe auto-charge failed — always show urgent regardless of auto-renew
+  if (sub.status === 'past_due') return 'urgent';
+
   // If auto-renew is ON (Stripe handles renewal), no reminders needed
   // cancel_at_period_end=false means Stripe will auto-charge before end date
   if (sub.stripe_subscription_id && sub.cancel_at_period_end === false) return 'ok';

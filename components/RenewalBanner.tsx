@@ -65,6 +65,7 @@ const RenewalBanner: React.FC<Props> = ({ subscription, onRenewClick }) => {
     : '';
 
   const graceDaysLeft = Math.max(0, GRACE_PERIOD_DAYS + days);
+  const isPastDue = subscription.status === 'past_due';
 
   const configs: Record<Exclude<RenewalStatus, 'ok'>, {
     bg: string; icon: React.ReactNode; message: string; buttonLabel: string; buttonClass: string;
@@ -79,8 +80,10 @@ const RenewalBanner: React.FC<Props> = ({ subscription, onRenewClick }) => {
     urgent: {
       bg: 'bg-orange-50 border-orange-400 dark:bg-orange-900/30 dark:border-orange-600',
       icon: <AlertCircle size={16} className="text-orange-600 dark:text-orange-400 shrink-0" />,
-      message: `Your plan expires ${days <= 0 ? 'today' : `in ${days} day${days !== 1 ? 's' : ''}`}! Renew immediately to keep your system running.`,
-      buttonLabel: 'Renew Now',
+      message: isPastDue
+        ? 'Your last payment failed. Please update your payment method in Wallet & Billing to avoid service interruption.'
+        : `Your plan expires ${days <= 0 ? 'today' : `in ${days} day${days !== 1 ? 's' : ''}`}! Renew immediately to keep your system running.`,
+      buttonLabel: isPastDue ? 'Update Payment' : 'Renew Now',
       buttonClass: 'bg-orange-600 hover:bg-orange-700 text-white',
     },
     grace: {

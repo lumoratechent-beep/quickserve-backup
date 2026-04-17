@@ -281,6 +281,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           : null;
         if (!subscriptionId) break;
 
+        // Look up the restaurant for this subscription
+        const { data: subRow } = await supabase
+          .from('subscriptions')
+          .select('restaurant_id')
+          .eq('stripe_subscription_id', subscriptionId)
+          .single();
+
         await supabase
           .from('subscriptions')
           .update({
@@ -288,6 +295,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             updated_at: new Date().toISOString(),
           })
           .eq('stripe_subscription_id', subscriptionId);
+
+        // Send a billing announcement so the vendor sees it in their Mail inbox
+        if (subRow?.restaurant_id) {
+          await supabase.from('announcements').insert({
+            title: 'Payment Failed — Action Required',
+            body: 'Your latest subscription payment could not be processed. Please update your payment method in Wallet & Billing to avoid service interruption.',
+            category: 'billing',
+            is_active: true,
+            hub: 'all',
+            restaurant_id: subRow.restaurant_id,
+          });
+        }
         break;
       }
 
