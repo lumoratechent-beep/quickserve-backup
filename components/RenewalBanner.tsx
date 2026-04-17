@@ -9,6 +9,8 @@ interface Props {
 }
 
 const DISMISS_KEY_PREFIX = 'qs_renewal_banner_dismissed_';
+/** Re-show the banner after 12 hours */
+const DISMISS_COOLDOWN_MS = 12 * 60 * 60 * 1000;
 
 const RenewalBanner: React.FC<Props> = ({ subscription, onRenewClick }) => {
   const [dismissed, setDismissed] = useState(false);
@@ -17,12 +19,31 @@ const RenewalBanner: React.FC<Props> = ({ subscription, onRenewClick }) => {
   const days = subscription ? daysUntilExpiry(subscription) : 0;
   const endDate = subscription ? getSubscriptionEndDate(subscription) : null;
 
-  // Reset dismiss when status escalates
+  // On mount / status change: check if the dismiss cooldown has expired
   useEffect(() => {
     if (!subscription) return;
     const key = DISMISS_KEY_PREFIX + subscription.restaurant_id;
-    const prev = localStorage.getItem(key);
-    if (prev && prev !== status) {
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      setDismissed(false);
+      return;
+    }
+    try {
+      const stored = JSON.parse(raw);
+      // If status escalated since last dismiss, clear and re-show
+      if (stored.status !== status) {
+        localStorage.removeItem(key);
+        setDismissed(false);
+        return;
+      }
+      // If 12 hours have passed since dismiss, re-show
+      if (Date.now() - stored.timestamp >= DISMISS_COOLDOWN_MS) {
+        localStorage.removeItem(key);
+        setDismissed(false);
+        return;
+      }
+      setDismissed(true);
+    } catch {
       localStorage.removeItem(key);
       setDismissed(false);
     }
@@ -35,7 +56,7 @@ const RenewalBanner: React.FC<Props> = ({ subscription, onRenewClick }) => {
   const handleDismiss = () => {
     if (status === 'blocked') return;
     const key = DISMISS_KEY_PREFIX + subscription.restaurant_id;
-    localStorage.setItem(key, status);
+    localStorage.setItem(key, JSON.stringify({ status, timestamp: Date.now() }));
     setDismissed(true);
   };
 

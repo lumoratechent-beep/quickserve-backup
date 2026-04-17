@@ -16,8 +16,6 @@ import { toast } from '../components/Toast';
 import StandardReport from '../components/StandardReport';
 import UpgradePlanModal from '../components/UpgradePlanModal';
 import ImageCropModal from '../components/ImageCropModal';
-import RenewalBanner from '../components/RenewalBanner';
-import { getRenewalStatus } from '../lib/subscriptionService';
 import WalletBillingPage from './WalletBillingPage';
 import {
   ShoppingBag, Search, Download, Calendar,
@@ -5915,14 +5913,6 @@ const PosOnlyView: React.FC<Props> = ({
             <p className="text-xs font-semibold text-yellow-900 dark:text-yellow-200">Syncing Orders — <span className="font-normal text-yellow-700 dark:text-yellow-300">{pendingOfflineOrdersCount} orders are being synced to the server</span></p>
           </div>
         </div>
-      )}
-
-      {/* Subscription Renewal Reminder Banner */}
-      {subscription && getRenewalStatus(subscription) !== 'ok' && (
-        <RenewalBanner
-          subscription={subscription}
-          onRenewClick={onSubscriptionUpdated}
-        />
       )}
 
       <div className="flex flex-1 overflow-hidden">
