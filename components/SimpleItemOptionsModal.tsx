@@ -1,6 +1,6 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { MenuItem, CartItem, SelectedAddOn, ModifierData } from '../src/types';
-import { X, Plus, Minus, DollarSign } from 'lucide-react';
+import { X, Plus, Minus, Delete } from 'lucide-react';
 import { toast } from './Toast';
 
 interface Props {
@@ -31,7 +31,6 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
   // Price entry state for zero-price items
   const [showPriceEntry, setShowPriceEntry] = useState(false);
   const [manualPrice, setManualPrice] = useState('');
-  const priceInputRef = useRef<HTMLInputElement>(null);
 
   // Safety check - make sure arrays exist
   const sizes = Array.isArray(item.sizes) ? item.sizes : [];
@@ -172,7 +171,6 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
     const total = calculateTotal();
     if (!item.price && total <= 0 && !showPriceEntry) {
       setShowPriceEntry(true);
-      setTimeout(() => priceInputRef.current?.focus(), 100);
       return;
     }
 
@@ -471,24 +469,44 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
         )}
         </div>{/* end scrollable content area */}
 
-        {/* Price Entry for zero-price items */}
+        {/* Price Entry with Number Pad for zero-price items */}
         {showPriceEntry && (
           <div className="px-5 pt-4 pb-2 border-t dark:border-gray-700 bg-orange-50 dark:bg-orange-900/20">
             <label className="block text-[9px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest mb-2">
               This item has no set price — enter a price for this sale
             </label>
-            <div className="relative">
-              <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                ref={priceInputRef}
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={manualPrice}
-                onChange={(e) => setManualPrice(e.target.value)}
-                placeholder="0.00"
-                className="w-full pl-9 pr-4 py-2.5 text-xl font-black text-center border-2 border-orange-300 dark:border-orange-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
-              />
+            <div className="w-full py-2.5 px-4 text-2xl font-black text-center border-2 border-orange-300 dark:border-orange-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white min-h-[48px] flex items-center justify-center select-none mb-3">
+              {manualPrice ? (
+                <><span className="text-gray-400 text-lg mr-1">RM</span>{manualPrice}</>
+              ) : (
+                <span className="text-gray-300 dark:text-gray-500">0.00</span>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {(['1','2','3','4','5','6','7','8','9','.','0','del'] as const).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    if (key === 'del') { setManualPrice(prev => prev.slice(0, -1)); return; }
+                    if (key === '.') {
+                      if (manualPrice.includes('.')) return;
+                      if (!manualPrice) { setManualPrice('0.'); return; }
+                    }
+                    const dotIdx = manualPrice.indexOf('.');
+                    if (dotIdx !== -1 && manualPrice.length - dotIdx > 2) return;
+                    if (manualPrice.length >= 10) return;
+                    setManualPrice(prev => prev + key);
+                  }}
+                  className={`py-2.5 rounded-lg font-black text-sm transition-all active:scale-95 select-none ${
+                    key === 'del'
+                      ? 'bg-red-100 dark:bg-red-900/30 text-red-500 hover:bg-red-200 dark:hover:bg-red-900/50 flex items-center justify-center'
+                      : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {key === 'del' ? <Delete size={16} /> : key}
+                </button>
+              ))}
             </div>
           </div>
         )}
