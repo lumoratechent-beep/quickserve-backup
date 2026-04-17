@@ -16,10 +16,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     switch (action) {
-      // GET /api/stripe/billing?action=history&customerId=...
+      // GET /api/stripe/billing?action=history&customerId=...&restaurantId=...
       case 'history': {
         if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
         const customerId = req.query.customerId as string;
+        const historyRestaurantId = req.query.restaurantId as string;
         if (!customerId) return res.status(400).json({ error: 'customerId is required.' });
 
         // Fetch invoices (subscription payments + renewal invoices)
@@ -58,7 +59,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
           });
 
-        const result = [...invoiceEntries, ...chargeEntries]
+        // Fetch local billing records (admin-granted extensions, etc.)
+        let localEntries: Array<{ id: string; date: string; description: string; amount: number; invoiceUrl: string | null }> = [];
+        if (historyRestaurantId) {
+          const { data: localRecords } = await supabase
+            .from('billing_records')
+            .select('id, description, amount, created_at')
+            .eq('restaurant_id', historyRestaurantId)
+            .order('created_at', { ascending: false })
+            .limit(50);
+          if (localRecords) {
+            localEntries = localRecords.map((r: any) => ({
+              id: r.id,
+              date: r.created_at,
+              description: r.description,
+              amount: Number(r.amount) || 0,
+              invoiceUrl: null,
+            }));
+          }
+        }
+
+        const result = [...invoiceEntries, ...chargeEntries, ...localEntries]
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         return res.status(200).json({ invoices: result });
@@ -520,8 +541,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ updated: true, plan: reconcilePlan });
       }
 
+      // POST /api/stripe/billing?action=admin-extend
+      // Admin grants 1 month extension (no payment)
+      case 'admin-extend': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { restaurantId: extendRestId } = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        if (!extendRestId) return res.status(400).json({ error: 'restaurantId is required.' });
+
+        const { data: extSub, error: extSubErr } = await supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('restaurant_id', extendRestId)
+          .single();
+
+        if (extSubErr || !extSub) return res.status(404).json({ error: 'Subscription not found.' });
+
+        // Calculate new period: extend from current end date (or now if already expired)
+        const currentEnd = extSub.current_period_end || extSub.trial_end;
+        const baseDate = currentEnd && new Date(currentEnd) > new Date()
+          ? new Date(currentEnd)
+          : new Date();
+        const newEnd = new Date(baseDate);
+        newEnd.setDate(newEnd.getDate() + 30);
+
+        const { error: extUpdateErr } = await supabase
+          .from('subscriptions')
+          .update({
+            status: 'active',
+            current_period_start: baseDate.toISOString(),
+            current_period_end: newEnd.toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('restaurant_id', extendRestId);
+
+        if (extUpdateErr) return res.status(500).json({ error: 'Failed to extend subscription.' });
+
+        // Record in billing_records so it appears in vendor's billing history
+        await supabase.from('billing_records').insert({
+          restaurant_id: extendRestId,
+          description: 'Admin granted 1 month extension',
+          amount: 0,
+          created_by: 'admin',
+        });
+
+        return res.status(200).json({
+          success: true,
+          newPeriodEnd: newEnd.toISOString(),
+        });
+      }
+
       default:
-        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, toggle-auto-renew, renew-direct, cleanup-stale, reconcile-access' });
+        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, toggle-auto-renew, renew-direct, cleanup-stale, reconcile-access, admin-extend' });
     }
   } catch (err: any) {
     console.error(`Stripe billing error (${action}):`, err);

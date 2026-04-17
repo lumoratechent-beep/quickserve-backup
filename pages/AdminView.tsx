@@ -712,6 +712,37 @@ const AdminView: React.FC<Props> = ({
     fetchSubscriptions();
   }, [restaurants]);
 
+  const [extendingRestId, setExtendingRestId] = useState<string | null>(null);
+
+  const handleAdminExtend = async (restaurantId: string, restaurantName: string) => {
+    if (!confirm(`Add 1 month to "${restaurantName}"? This skips payment and records RM0 in their billing history.`)) return;
+    setExtendingRestId(restaurantId);
+    try {
+      const res = await fetch('/api/stripe/billing?action=admin-extend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ restaurantId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to extend');
+      }
+      const data = await res.json();
+      toast(`Extended! New end date: ${new Date(data.newPeriodEnd).toLocaleDateString()}`, 'success');
+      // Refresh subscriptions
+      const { data: subs } = await supabase.from('subscriptions').select('*');
+      if (subs) {
+        const map: Record<string, Subscription> = {};
+        subs.forEach((s: any) => { map[s.restaurant_id] = s; });
+        setSubscriptions(map);
+      }
+    } catch (err: any) {
+      toast(err.message || 'Failed to extend subscription', 'error');
+    } finally {
+      setExtendingRestId(null);
+    }
+  };
+
   const vendorFileInputRef = useRef<HTMLInputElement>(null);
 
   // Hub Modal State
@@ -1587,7 +1618,20 @@ const AdminView: React.FC<Props> = ({
                             if (!endDate) return <span className="text-[9px] font-bold text-gray-400">—</span>;
                             const d = new Date(endDate);
                             const isExpired = d < new Date();
-                            return <span className={`text-[9px] font-black ${isExpired ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>{d.toLocaleDateString()}</span>;
+                            return (
+                              <div className="flex flex-col items-center gap-1">
+                                <span className={`text-[9px] font-black ${isExpired ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>{d.toLocaleDateString()}</span>
+                                {res && (
+                                  <button
+                                    onClick={() => handleAdminExtend(res.id, res.name)}
+                                    disabled={extendingRestId === res.id}
+                                    className="text-[8px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50"
+                                  >
+                                    {extendingRestId === res.id ? '...' : '+ 1 Month'}
+                                  </button>
+                                )}
+                              </div>
+                            );
                           })()}
                         </td>
                         <td className="px-8 py-5 text-center">

@@ -98,7 +98,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     if (!subscription?.stripe_customer_id) return;
     setIsLoadingHistory(true);
     try {
-      const res = await fetch(`/api/stripe/billing?action=history&customerId=${encodeURIComponent(subscription.stripe_customer_id)}`);
+      const res = await fetch(`/api/stripe/billing?action=history&customerId=${encodeURIComponent(subscription.stripe_customer_id)}&restaurantId=${encodeURIComponent(restaurantId)}`);
       if (res.ok) {
         const data = await res.json();
         setBillingHistory(data.invoices || []);
