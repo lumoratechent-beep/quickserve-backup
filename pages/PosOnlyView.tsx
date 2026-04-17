@@ -11,6 +11,7 @@ import type { PaperSize } from '../services/printerService';
 import PrinterSettings from '../components/PrinterSettings';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
+import PriceEntryModal from '../components/PriceEntryModal';
 import { toast } from '../components/Toast';
 import StandardReport from '../components/StandardReport';
 import UpgradePlanModal from '../components/UpgradePlanModal';
@@ -472,6 +473,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [menuSearch, setMenuSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [selectedItemForOptions, setSelectedItemForOptions] = useState<MenuItem | null>(null);
+  const [priceEntryItem, setPriceEntryItem] = useState<MenuItem | null>(null);
 
   // Menu Editor State
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
@@ -1750,6 +1752,13 @@ const PosOnlyView: React.FC<Props> = ({
     if (hasOptions) {
       console.log('PosOnlyView: Setting selected item for options modal');
       setSelectedItemForOptions(sanitizedItem);
+      return;
+    }
+
+    // If item has no set price (0), prompt the user to enter a price
+    if (!sanitizedItem.price) {
+      console.log('PosOnlyView: Zero price, showing price entry modal');
+      setPriceEntryItem(sanitizedItem);
       return;
     }
 
@@ -11678,6 +11687,19 @@ const PosOnlyView: React.FC<Props> = ({
           setSelectedItemForOptions(null);
         }}
       />
+
+      {/* Price Entry Modal for items with no set price */}
+      {priceEntryItem && (
+        <PriceEntryModal
+          itemName={priceEntryItem.name}
+          currency={restaurant.settings?.currency}
+          onClose={() => setPriceEntryItem(null)}
+          onConfirm={(price) => {
+            addToPosCart({ ...priceEntryItem, price, quantity: 1, restaurantId: restaurant.id });
+            setPriceEntryItem(null);
+          }}
+        />
+      )}
 
       {/* Order Detail Popup from Report */}
       {selectedReportOrder && (

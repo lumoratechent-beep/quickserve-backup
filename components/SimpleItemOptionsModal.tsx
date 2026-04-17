@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { MenuItem, CartItem, SelectedAddOn, ModifierData } from '../src/types';
-import { X, Plus, Minus } from 'lucide-react';
+import { X, Plus, Minus, DollarSign } from 'lucide-react';
 import { toast } from './Toast';
 
 interface Props {
@@ -27,6 +27,11 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
   const hasMixMatch = item.mixAndMatch?.enabled && item.mixAndMatch.selections.length > 0;
   const mixMatchSelections = item.mixAndMatch?.selections || [];
   const [mixMatchChoices, setMixMatchChoices] = useState<Record<number, string>>({});
+
+  // Price entry state for zero-price items
+  const [showPriceEntry, setShowPriceEntry] = useState(false);
+  const [manualPrice, setManualPrice] = useState('');
+  const priceInputRef = useRef<HTMLInputElement>(null);
 
   // Safety check - make sure arrays exist
   const sizes = Array.isArray(item.sizes) ? item.sizes : [];
@@ -163,6 +168,23 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
       }
     }
 
+    // If base price is 0 and total is still 0, prompt for price entry
+    const total = calculateTotal();
+    if (!item.price && total <= 0 && !showPriceEntry) {
+      setShowPriceEntry(true);
+      setTimeout(() => priceInputRef.current?.focus(), 100);
+      return;
+    }
+
+    // If price entry is active, validate the manual price
+    if (showPriceEntry) {
+      const numPrice = Number(manualPrice);
+      if (!manualPrice || numPrice <= 0) {
+        toast('Please enter a valid price', 'warning');
+        return;
+      }
+    }
+
     const selectedAddOns: SelectedAddOn[] = Object.entries(addOns).map(([name, qty]) => {
       const addon = addOnList.find(x => x.name === name);
       return { name, price: addon?.price || 0, quantity: qty };
@@ -171,11 +193,14 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
     // Build selectedOtherVariant for backward compat (first modifier's selection)
     const firstModSelection = activeModifiers.length > 0 ? (selectedModifiers[activeModifiers[0].name] || '') : '';
 
+    // Use manual price if entered, otherwise use calculated total
+    const finalPrice = showPriceEntry ? Number(manualPrice) : total;
+
     const cartItem: CartItem = {
       id: item.id,
       name: item.name,
       description: item.description,
-      price: calculateTotal(),
+      price: finalPrice,
       image: item.image,
       category: item.category,
       isArchived: item.isArchived,
@@ -446,17 +471,41 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
         )}
         </div>{/* end scrollable content area */}
 
+        {/* Price Entry for zero-price items */}
+        {showPriceEntry && (
+          <div className="px-5 pt-4 pb-2 border-t dark:border-gray-700 bg-orange-50 dark:bg-orange-900/20">
+            <label className="block text-[9px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest mb-2">
+              This item has no set price — enter a price for this sale
+            </label>
+            <div className="relative">
+              <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                ref={priceInputRef}
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={manualPrice}
+                onChange={(e) => setManualPrice(e.target.value)}
+                placeholder="0.00"
+                className="w-full pl-9 pr-4 py-2.5 text-xl font-black text-center border-2 border-orange-300 dark:border-orange-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
+              />
+            </div>
+          </div>
+        )}
+
         {/* Footer */}
         <div className="p-5 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex items-center gap-4 flex-shrink-0">
           <div>
             <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Total</p>
-            <p className="text-2xl font-black dark:text-white">RM{calculateTotal().toFixed(2)}</p>
+            <p className="text-2xl font-black dark:text-white">
+              {showPriceEntry && manualPrice ? `RM${Number(manualPrice).toFixed(2)}` : `RM${calculateTotal().toFixed(2)}`}
+            </p>
           </div>
           <button
             onClick={handleConfirm}
             className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all"
           >
-            Add to Cart
+            {showPriceEntry ? 'Confirm Price & Add' : 'Add to Cart'}
           </button>
         </div>
       </div>
