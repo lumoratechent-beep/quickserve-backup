@@ -397,6 +397,7 @@ const App: React.FC = () => {
   const [announcements, setAnnouncements] = useState<Array<{id: string; title: string; body: string; category: string; created_at: string; is_read: boolean}>>([]);
   const [announcementsLoading, setAnnouncementsLoading] = useState(false);
   const [openMailInPOS, setOpenMailInPOS] = useState(false);
+  const [openBillingInPOS, setOpenBillingInPOS] = useState(false);
 
   const fetchAnnouncements = useCallback(async (restaurantId?: string) => {
     const rid = restaurantId || currentUser?.restaurantId;
@@ -2311,7 +2312,7 @@ const App: React.FC = () => {
         return (
           <RenewalBanner
             subscription={sub}
-            onRenewClick={() => setView('BACK_OFFICE')}
+            onRenewClick={() => { setView('APP'); setOpenBillingInPOS(true); }}
           />
         );
       })()}
@@ -2397,6 +2398,8 @@ const App: React.FC = () => {
               unreadMailCount={unreadMailCount}
               openMailTab={openMailInPOS}
               onMailTabOpened={() => setOpenMailInPOS(false)}
+              openBillingTab={openBillingInPOS}
+              onBillingTabOpened={() => setOpenBillingInPOS(false)}
               onUpdateOrderItems={updateOrderItems}
               onComparePlans={() => setView('COMPARE_PLANS')}
               activeShift={activeShift}
@@ -2445,6 +2448,8 @@ const App: React.FC = () => {
                 unreadMailCount={unreadMailCount}
                 openMailTab={openMailInPOS}
                 onMailTabOpened={() => setOpenMailInPOS(false)}
+                openBillingTab={openBillingInPOS}
+                onBillingTabOpened={() => setOpenBillingInPOS(false)}
                 onUpdateOrderItems={updateOrderItems}
                 onComparePlans={() => setView('COMPARE_PLANS')}
                 activeShift={activeShift}
@@ -2488,6 +2493,8 @@ const App: React.FC = () => {
                 unreadMailCount={unreadMailCount}
                 openMailTab={openMailInPOS}
                 onMailTabOpened={() => setOpenMailInPOS(false)}
+                openBillingTab={openBillingInPOS}
+                onBillingTabOpened={() => setOpenBillingInPOS(false)}
                 onUpdateOrderItems={updateOrderItems}
                 activeShift={activeShift}
                 onOpenShiftModal={() => setShowShiftModal(true)}

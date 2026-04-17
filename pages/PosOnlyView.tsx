@@ -112,6 +112,8 @@ interface Props {
   unreadMailCount?: number;
   openMailTab?: boolean;
   onMailTabOpened?: () => void;
+  openBillingTab?: boolean;
+  onBillingTabOpened?: () => void;
   onUpdateOrderItems?: (orderId: string, items: CartItem[], total: number) => void;
   onComparePlans?: () => void;
   activeShift?: CashierShift | null;
@@ -357,6 +359,8 @@ const PosOnlyView: React.FC<Props> = ({
   unreadMailCount = 0,
   openMailTab = false,
   onMailTabOpened,
+  openBillingTab = false,
+  onBillingTabOpened,
   onUpdateOrderItems,
   onComparePlans,
   activeShift,
@@ -2885,6 +2889,15 @@ const PosOnlyView: React.FC<Props> = ({
       onMailTabOpened?.();
     }
   }, [openMailTab]);
+
+  // Open BILLING tab when triggered from outside (renewal banner)
+  useEffect(() => {
+    if (openBillingTab) {
+      setActiveTab('BILLING');
+      setIsMobileMenuOpen(false);
+      onBillingTabOpened?.();
+    }
+  }, [openBillingTab]);
 
   useEffect(() => {
     setCurrentPage(1);
