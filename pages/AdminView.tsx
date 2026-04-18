@@ -1533,11 +1533,11 @@ const AdminView: React.FC<Props> = ({
 
         <div className="flex-1 overflow-auto">
         {activeTab === 'VENDORS' && (
-          <div>
-            <div className="px-4 md:px-8 py-6 pb-0">
-              <div className="mb-4">
-                <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Vendor & Hubs</h3>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Manage registered kitchens and hub locations</p>
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-4 md:p-8 pb-0 md:pb-0">
+              <div className="mb-5">
+                <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">Vendor & Hubs</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Manage registered kitchens and hub locations</p>
               </div>
 
               {/* Document-style tab bar */}
@@ -1560,14 +1560,13 @@ const AdminView: React.FC<Props> = ({
                   </button>
                 ))}
               </div>
-            </div>
 
-            {/* Tab content container */}
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm mx-4 md:mx-8 rounded-b-2xl rounded-tr-2xl">
+              {/* Tab content container */}
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl rounded-tr-2xl">
 
             {vendorHubSubTab === 'VENDORS' && (
-              <div>
-            <div className="px-5 md:px-6 pt-5 pb-3 flex flex-col lg:flex-row lg:items-center justify-end gap-4">
+              <div className="space-y-5">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-end gap-4">
               <div className="flex flex-col sm:flex-row flex-wrap gap-3">
                 <div className="relative flex-1 sm:flex-none sm:w-56">
                   <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -1584,12 +1583,13 @@ const AdminView: React.FC<Props> = ({
                 <button onClick={handleOpenAdd} className="w-full sm:w-auto px-5 py-2 bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg transition-all active:scale-95">+ Register</button>
               </div>
             </div>
+            <div className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden shadow-sm">
             <div className="max-h-[55vh] overflow-y-auto">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-100 dark:bg-gray-800 text-gray-400 text-[10px] font-black uppercase tracking-widest sticky top-0 z-10">
+                <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[9px] font-black uppercase tracking-widest sticky top-0 z-10">
                   <tr>
-                    <th className="px-8 py-4 text-left group">
+                    <th className="px-4 py-2.5 text-left group">
                       <div className="inline-flex items-center gap-1.5">
                         <span>Kitchen</span>
                         <button
@@ -1602,7 +1602,7 @@ const AdminView: React.FC<Props> = ({
                         </button>
                       </div>
                     </th>
-                    <th className="px-8 py-4 text-left group">
+                    <th className="px-4 py-2.5 text-left group">
                       <div className="inline-flex items-center gap-1.5">
                         <span>Hub</span>
                         <button
@@ -1615,11 +1615,11 @@ const AdminView: React.FC<Props> = ({
                         </button>
                       </div>
                     </th>
-                    <th className="px-8 py-4 text-center">Plan</th>
-                    <th className="px-8 py-4 text-center">Plan Expiry</th>
-                    <th className="px-8 py-4 text-center">Master Activation</th>
-                    <th className="px-8 py-4 text-center">Live Status</th>
-                    <th className="px-8 py-4 text-right">Actions</th>
+                    <th className="px-4 py-2.5 text-center">Plan</th>
+                    <th className="px-4 py-2.5 text-center">Plan Expiry</th>
+                    <th className="px-4 py-2.5 text-center">Master Activation</th>
+                    <th className="px-4 py-2.5 text-center">Live Status</th>
+                    <th className="px-4 py-2.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y dark:divide-gray-700/50">
@@ -1627,18 +1627,18 @@ const AdminView: React.FC<Props> = ({
                     const res = restaurants.find(r => r.id === vendor.restaurantId);
                     const isOnline = res?.isOnline ?? false;
                     return (
-                      <tr key={vendor.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                        <td className="px-8 py-5">
+                      <tr key={vendor.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                        <td className="px-4 py-2.5">
                           <div className="flex items-center gap-3">
-                            <img src={res?.logo} className="w-10 h-10 rounded-xl shadow-sm object-cover border dark:border-gray-600" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="12" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${res?.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
+                            <img src={res?.logo} className="w-7 h-7 rounded-lg shadow-sm object-cover border dark:border-gray-600" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="12" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${res?.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
                             <div>
-                                <span className="font-black dark:text-white text-sm block">{res?.name}</span>
-                                <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest">@{vendor.username}</span>
+                                <span className="font-black dark:text-white text-xs block">{res?.name}</span>
+                                <span className="text-[8px] font-black text-orange-500 uppercase tracking-widest">@{vendor.username}</span>
                             </div>
                           </div>
                         </td>
-                        <td className="px-8 py-5 text-sm font-bold text-gray-500 dark:text-gray-400 uppercase truncate max-w-[120px]">{res?.location || 'Unassigned'}</td>
-                        <td className="px-8 py-5 text-center">
+                        <td className="px-4 py-2.5 text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase truncate max-w-[120px]">{res?.location || 'Unassigned'}</td>
+                        <td className="px-4 py-2.5 text-center">
                           {(() => {
                             const sub = res ? subscriptions[res.id] : null;
                             const planId = sub?.plan_id || 'basic';
@@ -1647,7 +1647,7 @@ const AdminView: React.FC<Props> = ({
                             return <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${planColors[planId] || planColors.basic}`}>{planLabels[planId] || 'Basic'}</span>;
                           })()}
                         </td>
-                        <td className="px-8 py-5 text-center">
+                        <td className="px-4 py-2.5 text-center">
                           {(() => {
                             const sub = res ? subscriptions[res.id] : null;
                             if (!sub) return <span className="text-[9px] font-bold text-gray-400">—</span>;
@@ -1671,12 +1671,12 @@ const AdminView: React.FC<Props> = ({
                             );
                           })()}
                         </td>
-                        <td className="px-8 py-5 text-center">
-                          <button onClick={() => toggleVendorStatus(vendor)} className={`p-2 rounded-xl transition-all ${vendor.isActive ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 bg-gray-50 dark:bg-gray-700'}`}>
-                             {vendor.isActive ? <CheckCircle2 size={20} /> : <Power size={20} />}
+                        <td className="px-4 py-2.5 text-center">
+                          <button onClick={() => toggleVendorStatus(vendor)} className={`p-1.5 rounded-lg transition-all ${vendor.isActive ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 bg-gray-50 dark:bg-gray-700'}`}>
+                             {vendor.isActive ? <CheckCircle2 size={16} /> : <Power size={16} />}
                           </button>
                         </td>
-                        <td className="px-8 py-5 text-center">
+                        <td className="px-4 py-2.5 text-center">
                           <button 
                             onClick={() => res && onToggleOnline(res.id, isOnline)} 
                             className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${isOnline ? 'bg-green-500 text-white shadow-lg' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'}`}
@@ -1684,13 +1684,13 @@ const AdminView: React.FC<Props> = ({
                             {isOnline ? 'Online' : 'Offline'}
                           </button>
                         </td>
-                        <td className="px-8 py-5 text-right">
-                          <div className="flex justify-end gap-2">
-                            <button onClick={() => handleOpenEdit(vendor)} className="p-2 text-gray-400 hover:text-blue-500"><Edit3 size={18} /></button>
+                        <td className="px-4 py-2.5 text-right">
+                          <div className="flex justify-end gap-1">
+                            <button onClick={() => handleOpenEdit(vendor)} className="p-1.5 text-gray-400 hover:text-blue-500"><Edit3 size={15} /></button>
                             {!res && (
-                              <button onClick={() => { if (confirm(`Remove orphaned vendor "${vendor.username}"?`)) onDeleteVendor(vendor.id, vendor.restaurantId || '').catch(() => {}); }} className="p-2 text-gray-400 hover:text-red-500" title="Delete orphaned vendor"><Trash2 size={18} /></button>
+                              <button onClick={() => { if (confirm(`Remove orphaned vendor "${vendor.username}"?`)) onDeleteVendor(vendor.id, vendor.restaurantId || '').catch(() => {}); }} className="p-1.5 text-gray-400 hover:text-red-500" title="Delete orphaned vendor"><Trash2 size={15} /></button>
                             )}
-                            <button onClick={() => onImpersonateVendor(vendor)} className="p-2 text-gray-400 hover:text-orange-500"><LogIn size={18} /></button>
+                            <button onClick={() => onImpersonateVendor(vendor)} className="p-1.5 text-gray-400 hover:text-orange-500"><LogIn size={15} /></button>
                           </div>
                         </td>
                       </tr>
@@ -1700,14 +1700,13 @@ const AdminView: React.FC<Props> = ({
               </table>
             </div>
             </div>
+            </div>
               </div>
             )}
 
             {vendorHubSubTab === 'HUBS' && (
-              <div>
-            <div className="px-5 md:px-6 pt-5 pb-3 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-              <div>
-              </div>
+              <div className="space-y-5">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-end gap-4">
               <div className="flex flex-col sm:flex-row flex-wrap gap-3">
                 <div className="relative flex-1 sm:flex-none sm:w-56">
                   <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -1721,21 +1720,22 @@ const AdminView: React.FC<Props> = ({
                 </div>
               </div>
             </div>
+            <div className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden shadow-sm">
             <div className="max-h-[55vh] overflow-y-auto">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-100 dark:bg-gray-800 text-gray-400 text-[10px] font-black uppercase tracking-widest sticky top-0 z-10">
+                <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[9px] font-black uppercase tracking-widest sticky top-0 z-10">
                   <tr>
-                    <th className="px-8 py-4 text-left">Hub</th>
-                    <th className="px-8 py-4 text-center">Vendors</th>
-                    <th className="px-8 py-4 text-center">Status</th>
-                    <th className="px-8 py-4 text-right">Actions</th>
+                    <th className="px-4 py-2.5 text-left">Hub</th>
+                    <th className="px-4 py-2.5 text-center">Vendors</th>
+                    <th className="px-4 py-2.5 text-center">Status</th>
+                    <th className="px-4 py-2.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y dark:divide-gray-700/50">
                   {filteredHubs.map(loc => (
-                    <tr key={loc.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
-                      <td className="px-8 py-5">
+                    <tr key={loc.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors group">
+                      <td className="px-4 py-2.5">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-orange-50 dark:bg-orange-900/30 text-orange-500 rounded-xl flex items-center justify-center shadow-inner group-hover:bg-orange-500 group-hover:text-white transition-all"><MapPin size={20} /></div>
                           <div>
@@ -1744,7 +1744,7 @@ const AdminView: React.FC<Props> = ({
                           </div>
                         </div>
                       </td>
-                      <td className="px-8 py-5 text-center">
+                      <td className="px-4 py-2.5 text-center">
                         {(() => {
                           const count = restaurants.filter(r => r.location === loc.name).length;
                           return (
@@ -1758,15 +1758,15 @@ const AdminView: React.FC<Props> = ({
                           );
                         })()}
                       </td>
-                      <td className="px-8 py-5 text-center">
-                        <button onClick={() => toggleHubStatus(loc)} className={`p-2 rounded-xl transition-all ${loc.isActive !== false ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 bg-gray-50 dark:bg-gray-700'}`}>
-                           {loc.isActive !== false ? <Power size={20} /> : <Power size={20} className="opacity-40" />}
+                      <td className="px-4 py-2.5 text-center">
+                        <button onClick={() => toggleHubStatus(loc)} className={`p-1.5 rounded-lg transition-all ${loc.isActive !== false ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 bg-gray-50 dark:bg-gray-700'}`}>
+                           {loc.isActive !== false ? <Power size={16} /> : <Power size={16} className="opacity-40" />}
                         </button>
                       </td>
-                      <td className="px-8 py-5 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button onClick={() => setGeneratingQrHub(loc)} className="p-2 text-gray-400 hover:text-orange-500"><QrCode size={18} /></button>
-                          <button onClick={() => handleOpenHubEdit(loc)} className="p-2 text-gray-400 hover:text-blue-500"><Edit3 size={18} /></button>
+                      <td className="px-4 py-2.5 text-right">
+                        <div className="flex justify-end gap-1">
+                          <button onClick={() => setGeneratingQrHub(loc)} className="p-1.5 text-gray-400 hover:text-orange-500"><QrCode size={15} /></button>
+                          <button onClick={() => handleOpenHubEdit(loc)} className="p-1.5 text-gray-400 hover:text-blue-500"><Edit3 size={15} /></button>
                         </div>
                       </td>
                     </tr>
@@ -1775,9 +1775,11 @@ const AdminView: React.FC<Props> = ({
               </table>
             </div>
             </div>
+            </div>
               </div>
             )}
 
+            </div>
             </div>
           </div>
         )}
