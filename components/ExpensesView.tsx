@@ -112,7 +112,12 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
     if (initialSubTab) {
       const v = initialSubTab as ExpenseSubTab;
       const valid: ExpenseSubTab[] = ['staff', 'food_cost', 'bills', 'rent', 'marketing', 'platform', 'others', 'all'];
-      if (valid.includes(v)) setSubTab(v);
+      if (valid.includes(v)) {
+        setSubTab(v);
+        setShowForm(false);
+        setShowTypePicker(false);
+        setEditingId(null);
+      }
     }
   }, [initialSubTab]);
 
@@ -563,8 +568,6 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
           </div>
         </section>
 
-        <hr className="my-6 border-gray-200 dark:border-gray-700" />
-
         {/* ── Payslip form OR normal amount ── */}
         {isPayslipMode ? (
           <>
@@ -598,8 +601,6 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
                 </div>
               </div>
             </section>
-
-            <hr className="my-6 border-gray-200 dark:border-gray-700" />
 
             <section className="space-y-5">
               <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Financials</h4>
@@ -637,8 +638,6 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
           </section>
         )}
 
-        <hr className="my-6 border-gray-200 dark:border-gray-700" />
-
         {/* ── Entity & Method ── */}
         <section className="space-y-5">
           <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Entity & Method</h4>
@@ -669,8 +668,6 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
             </div>
           </div>
         </section>
-
-        <hr className="my-6 border-gray-200 dark:border-gray-700" />
 
         {/* ── Additional Information ── */}
         <section className="space-y-5">
