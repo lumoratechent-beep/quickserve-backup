@@ -3,10 +3,10 @@ import { Restaurant, Order, OrderStatus, Subscription } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 import { loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
 import {
-  DollarSign, Plus, Search, Edit3, Trash2, Filter,
-  ChevronDown, X, Paperclip, FileText, Users, Zap, Home,
+  Plus, Search, Edit3, Trash2,
+  X, Paperclip, FileText, Users, Zap, Home,
   Megaphone, CreditCard, MoreHorizontal, Download, Printer,
-  Receipt, AlertCircle, ShoppingCart, List, Eye,
+  Receipt, ShoppingCart, Eye,
 } from 'lucide-react';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -71,6 +71,10 @@ function getCategoryType(categoryName: string): 'COGS' | 'OPEX' {
 
 function getCategoryByKey(key: string) {
   return EXPENSE_CATEGORIES.find(c => c.key === key);
+}
+
+function shouldUseSupplier(categoryName: string) {
+  return categoryName === 'Food Cost';
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -241,6 +245,7 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
   }, [allExpenses, subTab, startDate, endDate, expenseSearch]);
 
   const totalFiltered = useMemo(() => filteredExpenses.reduce((s, e) => s + e.amount, 0), [filteredExpenses]);
+  const showSupplierColumn = useMemo(() => filteredExpenses.some(e => Boolean(e.supplierName)), [filteredExpenses]);
 
   // ─── Add/Edit modal ───
   const currentCat = getCategoryByKey(subTab);
@@ -274,6 +279,10 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
     const cat = EXPENSE_CATEGORIES.find(c => c.name === form.category);
     return cat?.subcategories ?? [];
   }, [form.category]);
+  const formCategory = useMemo(
+    () => EXPENSE_CATEGORIES.find(c => c.name === form.category),
+    [form.category],
+  );
 
   const openAdd = () => {
     setEditingId(null);
@@ -299,12 +308,14 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
     const finalAmount = isPayslip ? ((form.basicSalary || 0) + (form.allowances || 0) - (form.deductions || 0)) : Number(form.amount);
     if (finalAmount <= 0) return;
     const type = getCategoryType(form.category);
-    const supplier = suppliers.find(s => s.id === form.supplierId);
+    const supplierEnabled = shouldUseSupplier(form.category);
+    const supplier = supplierEnabled ? suppliers.find(s => s.id === form.supplierId) : undefined;
     const entry: Expense = {
       id: editingId ?? `exp_${Date.now()}`,
       ...form,
       amount: finalAmount,
-      supplierName: supplier?.name ?? '',
+      supplierId: supplierEnabled ? form.supplierId : '',
+      supplierName: supplierEnabled ? (supplier?.name ?? '') : '',
       type,
       createdAt: editingId ? (expenses.find(e => e.id === editingId)?.createdAt ?? Date.now()) : Date.now(),
     };
@@ -344,6 +355,9 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
   };
 
   const fmt = (n: number) => `${currencySymbol}${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fieldShellClass = 'w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition-all focus:border-amber-300 focus:ring-2 focus:ring-amber-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-white';
+  const fieldLabelClass = 'mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400';
+  const paymentButtonClass = (isActive: boolean) => `rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all ${isActive ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-white text-gray-500 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-gray-700/70'}`;
 
   // ─── Date Range Picker ────────────────────────────────────────────────────
   const DateRangePicker = () => (
@@ -434,6 +448,14 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
 
   // ─── Is payslip form? ─────────────────────────────────────────────────────
   const isPayslipMode = form.category === 'Staff' && form.subcategory === 'Salary';
+  const supplierEnabled = shouldUseSupplier(form.category);
+  const primaryModalTitle = editingId
+    ? (isPayslipMode ? 'Edit Staff Expense' : 'Edit Expense')
+    : (subTab === 'staff' || isPayslipMode ? 'Add Staff Expense' : 'Add Expense');
+  const modalSubtitle = isPayslipMode
+    ? 'Capture salary, allowances, deductions, and generate a clean staff expense record.'
+    : 'Add a clean expense entry with only the fields that matter for this category.';
+  const netPayPreview = (form.basicSalary || 0) + (form.allowances || 0) - (form.deductions || 0);
 
   return (
     <div>
@@ -524,7 +546,7 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
           {subTab !== 'platform' && (
             <button onClick={openAdd}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20 shrink-0">
-              <Plus size={14} /> {subTab === 'staff' ? 'Create Payslip' : 'Add Expense'}
+              <Plus size={14} /> {subTab === 'staff' ? 'Add Staff Expense' : 'Add Expense'}
             </button>
           )}
         </div>
@@ -542,7 +564,7 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
                   <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Subcategory</th>
                   {subTab === 'staff' && <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Employee</th>}
                   <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Amount</th>
-                  <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Supplier</th>
+                  {showSupplierColumn && <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Supplier</th>}
                   <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Payment</th>
                   <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Type</th>
                   <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Notes</th>
@@ -563,7 +585,7 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
                     <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{e.subcategory}</td>
                     {subTab === 'staff' && <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell">{e.staffName || '–'}</td>}
                     <td className="px-4 py-3 text-sm font-black text-gray-900 dark:text-white">{fmt(e.amount)}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 hidden lg:table-cell">{e.supplierName || '–'}</td>
+                    {showSupplierColumn && <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 hidden lg:table-cell">{e.supplierName || '–'}</td>}
                     <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell">{e.paymentMethod}</td>
                     <td className="px-4 py-3">
                       <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${e.type === 'COGS' ? 'bg-amber-100 dark:bg-amber-600/20 text-amber-700 dark:text-amber-400' : 'bg-blue-100 dark:bg-blue-600/20 text-blue-700 dark:text-blue-400'}`}>{e.type}</span>
@@ -618,177 +640,283 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
       {/* ══════════════════════════════════════ */}
       {showForm && (
         <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowForm(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-base font-black dark:text-white flex items-center gap-2">
-                <Receipt size={18} className="text-amber-500" />
-                {editingId ? 'Edit Expense' : (subTab === 'staff' ? 'Create Payslip' : 'Add Expense')}
-              </h3>
-              <button onClick={() => setShowForm(false)} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"><X size={16} /></button>
-            </div>
-            <div className="space-y-4">
-              {/* Date */}
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Date *</label>
-                <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                  className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
-              </div>
-              {/* Category (locked if from a specific sub-tab) */}
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Category *</label>
-                {subTab !== 'all' && currentCat ? (
-                  <div className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white opacity-70">
-                    {currentCat.name}
+          <div className="w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-[28px] border border-gray-200 bg-white p-5 shadow-2xl dark:border-gray-700 dark:bg-gray-900 sm:p-6" onClick={e => e.stopPropagation()}>
+            <div className="mb-5 flex items-start justify-between gap-4 rounded-2xl bg-gradient-to-r from-amber-50 via-white to-orange-50 p-5 dark:from-amber-900/20 dark:via-gray-900 dark:to-orange-900/10">
+              <div className="min-w-0">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-lg shadow-amber-500/20">
+                    <Receipt size={18} />
+                  </span>
+                  <div>
+                    <h3 className="text-base font-black text-gray-900 dark:text-white">{primaryModalTitle}</h3>
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{modalSubtitle}</p>
                   </div>
-                ) : (
-                  <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value, subcategory: '' }))}
-                    className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                    <option value="">Select category</option>
-                    {EXPENSE_CATEGORIES.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-                  </select>
-                )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                  <span className="rounded-full bg-white px-3 py-1 text-gray-500 shadow-sm ring-1 ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700">{formCategory?.name || currentCat?.name || 'Select Category'}</span>
+                  {form.category && (
+                    <span className={`rounded-full px-3 py-1 ${getCategoryType(form.category) === 'COGS' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'}`}>
+                      {getCategoryType(form.category)}
+                    </span>
+                  )}
+                  {isPayslipMode && (
+                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">Staff Payroll</span>
+                  )}
+                </div>
               </div>
-              {/* Subcategory */}
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Subcategory *</label>
-                <select value={form.subcategory} onChange={e => setForm(f => ({ ...f, subcategory: e.target.value }))}
-                  disabled={!form.category}
-                  className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-50">
-                  <option value="">Select subcategory</option>
-                  {subcategoryOptions.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+              <button onClick={() => setShowForm(false)} className="rounded-xl p-2 text-gray-400 transition-all hover:bg-white hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-200"><X size={18} /></button>
+            </div>
+
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-900/50">
+                <h4 className="mb-4 text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white">Expense Details</h4>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <label className={fieldLabelClass}>Date</label>
+                    <input
+                      type="date"
+                      value={form.date}
+                      onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                      className={fieldShellClass}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className={fieldLabelClass}>Category</label>
+                    {subTab !== 'all' && currentCat ? (
+                      <div className={`${fieldShellClass} flex items-center justify-between bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200`}>
+                        <span>{currentCat.name}</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Locked</span>
+                      </div>
+                    ) : (
+                      <select
+                        value={form.category}
+                        onChange={e => setForm(f => ({ ...f, category: e.target.value, subcategory: '', supplierId: '', supplierName: '' }))}
+                        className={fieldShellClass}
+                      >
+                        <option value="">Select category</option>
+                        {EXPENSE_CATEGORIES.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                      </select>
+                    )}
+                  </div>
+                  <div className="space-y-1 md:col-span-2">
+                    <label className={fieldLabelClass}>Subcategory</label>
+                    <select
+                      value={form.subcategory}
+                      onChange={e => setForm(f => ({ ...f, subcategory: e.target.value }))}
+                      disabled={!form.category}
+                      className={`${fieldShellClass} disabled:cursor-not-allowed disabled:opacity-50`}
+                    >
+                      <option value="">Select subcategory</option>
+                      {subcategoryOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                </div>
               </div>
 
-              {/* ── Staff Payslip fields ── */}
-              {isPayslipMode && (
+              {isPayslipMode ? (
                 <>
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Employee Name *</label>
-                    <select value={form.staffName} onChange={e => {
-                      const staff = staffList.find((s: any) => s.username === e.target.value);
-                      setForm(f => ({ ...f, staffName: e.target.value, staffRole: staff?.role ?? '' }));
-                    }}
-                      className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                      <option value="">Select employee</option>
-                      {staffList.map((s: any) => <option key={s.id} value={s.username}>{s.username} ({s.role})</option>)}
-                    </select>
-                    {staffList.length === 0 && (
-                      <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">No staff found. Add staff in Staff Management first, or type manually below.</p>
-                    )}
-                    {staffList.length === 0 && (
-                      <input type="text" placeholder="Type employee name" value={form.staffName} onChange={e => setForm(f => ({ ...f, staffName: e.target.value }))}
-                        className="w-full mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Role</label>
-                    <input type="text" value={form.staffRole} onChange={e => setForm(f => ({ ...f, staffRole: e.target.value }))} placeholder="e.g. Cashier, Kitchen"
-                      className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Pay Period</label>
-                    <input type="text" value={form.payPeriod} onChange={e => setForm(f => ({ ...f, payPeriod: e.target.value }))} placeholder="e.g. January 2026"
-                      className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Basic Salary ({currencySymbol})</label>
-                      <input type="number" min="0" step="0.01" value={form.basicSalary || ''} onChange={e => setForm(f => ({ ...f, basicSalary: parseFloat(e.target.value) || 0 }))}
-                        className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="0.00" />
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-900/50">
+                    <h4 className="mb-4 text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white">Staff Details</h4>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <label className={fieldLabelClass}>Employee Name</label>
+                        {staffList.length > 0 ? (
+                          <select
+                            value={form.staffName}
+                            onChange={e => {
+                              const staff = staffList.find((s: any) => s.username === e.target.value);
+                              setForm(f => ({ ...f, staffName: e.target.value, staffRole: staff?.role ?? '' }));
+                            }}
+                            className={fieldShellClass}
+                          >
+                            <option value="">Select employee</option>
+                            {staffList.map((s: any) => <option key={s.id} value={s.username}>{s.username} ({s.role})</option>)}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            placeholder="Type employee name"
+                            value={form.staffName}
+                            onChange={e => setForm(f => ({ ...f, staffName: e.target.value }))}
+                            className={fieldShellClass}
+                          />
+                        )}
+                        {staffList.length === 0 && (
+                          <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400">No staff found in Staff Management yet. You can still enter the employee manually.</p>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <label className={fieldLabelClass}>Role</label>
+                        <input
+                          type="text"
+                          value={form.staffRole}
+                          onChange={e => setForm(f => ({ ...f, staffRole: e.target.value }))}
+                          placeholder="e.g. Cashier, Kitchen"
+                          className={fieldShellClass}
+                        />
+                      </div>
+                      <div className="space-y-1 md:col-span-2">
+                        <label className={fieldLabelClass}>Pay Period</label>
+                        <input
+                          type="text"
+                          value={form.payPeriod}
+                          onChange={e => setForm(f => ({ ...f, payPeriod: e.target.value }))}
+                          placeholder="e.g. January 2026"
+                          className={fieldShellClass}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-green-500 uppercase tracking-wider mb-1 block">+ Allowances</label>
-                      <input type="number" min="0" step="0.01" value={form.allowances || ''} onChange={e => setForm(f => ({ ...f, allowances: parseFloat(e.target.value) || 0 }))}
-                        className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="0.00" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-red-500 uppercase tracking-wider mb-1 block">- Deductions</label>
-                      <input type="number" min="0" step="0.01" value={form.deductions || ''} onChange={e => setForm(f => ({ ...f, deductions: parseFloat(e.target.value) || 0 }))}
-                        className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="0.00" />
-                    </div>
                   </div>
-                  {/* Net pay preview */}
-                  <div className="flex items-center justify-between px-4 py-3 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-800/30">
-                    <span className="text-xs font-bold text-amber-700 dark:text-amber-400">Net Pay</span>
-                    <span className="text-base font-black text-amber-700 dark:text-amber-400">{fmt((form.basicSalary || 0) + (form.allowances || 0) - (form.deductions || 0))}</span>
+
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-900/50">
+                    <h4 className="mb-4 text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white">Compensation Breakdown</h4>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <div className="space-y-1">
+                        <label className={fieldLabelClass}>Basic Salary ({currencySymbol})</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={form.basicSalary || ''}
+                          onChange={e => setForm(f => ({ ...f, basicSalary: parseFloat(e.target.value) || 0 }))}
+                          placeholder="0.00"
+                          className={fieldShellClass}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className={`${fieldLabelClass} text-emerald-500 dark:text-emerald-400`}>Allowances</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={form.allowances || ''}
+                          onChange={e => setForm(f => ({ ...f, allowances: parseFloat(e.target.value) || 0 }))}
+                          placeholder="0.00"
+                          className={fieldShellClass}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className={`${fieldLabelClass} text-rose-500 dark:text-rose-400`}>Deductions</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={form.deductions || ''}
+                          onChange={e => setForm(f => ({ ...f, deductions: parseFloat(e.target.value) || 0 }))}
+                          placeholder="0.00"
+                          className={fieldShellClass}
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-4 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-4 dark:border-amber-800/30 dark:from-amber-900/20 dark:to-orange-900/10">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">Net Staff Expense</p>
+                          <p className="mt-1 text-xs text-amber-700/80 dark:text-amber-200/80">This amount will be stored as the final staff expense record.</p>
+                        </div>
+                        <span className="text-xl font-black text-amber-700 dark:text-amber-300">{fmt(netPayPreview)}</span>
+                      </div>
+                    </div>
                   </div>
                 </>
-              )}
-
-              {/* Amount (hidden for payslip, shown for others) */}
-              {!isPayslipMode && (
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Amount ({currencySymbol}) *</label>
-                  <input type="number" min="0" step="0.01" value={form.amount || ''} onChange={e => setForm(f => ({ ...f, amount: parseFloat(e.target.value) || 0 }))}
-                    className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="0.00" />
+              ) : (
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-900/50">
+                  <h4 className="mb-4 text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white">Amount</h4>
+                  <div className="space-y-1">
+                    <label className={fieldLabelClass}>Amount ({currencySymbol})</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.amount || ''}
+                      onChange={e => setForm(f => ({ ...f, amount: parseFloat(e.target.value) || 0 }))}
+                      placeholder="0.00"
+                      className={fieldShellClass}
+                    />
+                  </div>
                 </div>
               )}
 
-              {/* Type (auto) */}
-              {form.category && (
-                <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-700">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Auto Type:</span>
-                  <span className={`text-xs font-black px-2 py-1 rounded-md ${getCategoryType(form.category) === 'COGS' ? 'bg-amber-100 dark:bg-amber-600/20 text-amber-700 dark:text-amber-400' : 'bg-blue-100 dark:bg-blue-600/20 text-blue-700 dark:text-blue-400'}`}>
-                    {getCategoryType(form.category)}
-                  </span>
-                </div>
-              )}
-              {/* Supplier */}
-              {suppliers.length > 0 && (
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Supplier</label>
-                  <select value={form.supplierId} onChange={e => setForm(f => ({ ...f, supplierId: e.target.value }))}
-                    className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                    <option value="">No supplier</option>
-                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                </div>
-              )}
-              {/* Payment Method */}
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Payment Method</label>
-                <div className="flex gap-2 flex-wrap">
-                  {PAYMENT_METHODS.map(m => (
-                    <button key={m} type="button" onClick={() => setForm(f => ({ ...f, paymentMethod: m }))}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${form.paymentMethod === m ? 'bg-amber-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'}`}>
-                      {m}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {/* Notes */}
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Notes</label>
-                <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2}
-                  className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none resize-none" placeholder="Optional notes..." />
-              </div>
-              {/* Attachment */}
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Attachment</label>
-                <div className="flex items-center gap-3">
-                  <button type="button" onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all">
-                    <Paperclip size={13} /> {form.attachmentName ? 'Change file' : 'Attach file'}
-                  </button>
-                  {form.attachmentName && (
-                    <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[160px]">{form.attachmentName}</span>
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-900/50">
+                <h4 className="mb-4 text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white">Extra Details</h4>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {supplierEnabled && suppliers.length > 0 && (
+                    <div className="space-y-1">
+                      <label className={fieldLabelClass}>Supplier</label>
+                      <select
+                        value={form.supplierId}
+                        onChange={e => setForm(f => ({ ...f, supplierId: e.target.value }))}
+                        className={fieldShellClass}
+                      >
+                        <option value="">No supplier</option>
+                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                    </div>
                   )}
-                  {form.attachmentName && (
-                    <button type="button" onClick={() => setForm(f => ({ ...f, attachmentName: '' }))} className="text-gray-400 hover:text-red-500 transition-colors"><X size={13} /></button>
-                  )}
+                  <div className="space-y-1 md:col-span-1">
+                    <label className={fieldLabelClass}>Payment Method</label>
+                    <div className="flex flex-wrap gap-2 rounded-2xl bg-white p-2 ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                      {PAYMENT_METHODS.map(m => (
+                        <button key={m} type="button" onClick={() => setForm(f => ({ ...f, paymentMethod: m }))} className={paymentButtonClass(form.paymentMethod === m)}>
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className={`space-y-1 ${supplierEnabled && suppliers.length > 0 ? 'md:col-span-2' : 'md:col-span-2'}`}>
+                    <label className={fieldLabelClass}>Notes</label>
+                    <textarea
+                      value={form.notes}
+                      onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                      rows={3}
+                      placeholder="Optional notes, references, or context..."
+                      className={`${fieldShellClass} resize-none`}
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className={fieldLabelClass}>Attachment</label>
+                    <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-4 dark:border-gray-600 dark:bg-gray-800">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-gray-900 dark:text-white">Upload receipt or supporting file</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Accepted: images, PDF, DOC, DOCX</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="flex items-center gap-2 rounded-xl bg-gray-100 px-4 py-2 text-xs font-bold text-gray-700 transition-all hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                          >
+                            <Paperclip size={13} /> {form.attachmentName ? 'Change file' : 'Attach file'}
+                          </button>
+                          {form.attachmentName && (
+                            <button type="button" onClick={() => setForm(f => ({ ...f, attachmentName: '' }))} className="rounded-xl p-2 text-gray-400 transition-colors hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-900/20">
+                              <X size={13} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {form.attachmentName && (
+                        <div className="mt-3 rounded-xl bg-gray-50 px-3 py-2 text-xs font-medium text-gray-600 dark:bg-gray-900 dark:text-gray-300">
+                          {form.attachmentName}
+                        </div>
+                      )}
+                      <input ref={fileInputRef} type="file" className="hidden" accept="image/*,.pdf,.doc,.docx"
+                        onChange={e => { const f = e.target.files?.[0]; if (f) setForm(prev => ({ ...prev, attachmentName: f.name })); e.target.value = ''; }} />
+                    </div>
+                  </div>
                 </div>
-                <input ref={fileInputRef} type="file" className="hidden" accept="image/*,.pdf,.doc,.docx"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) setForm(prev => ({ ...prev, attachmentName: f.name })); e.target.value = ''; }} />
               </div>
             </div>
 
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowForm(false)} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
+            <div className="mt-6 flex flex-col-reverse gap-3 border-t border-gray-200 pt-5 dark:border-gray-700 sm:flex-row sm:justify-end">
+              <button onClick={() => setShowForm(false)} className="rounded-xl bg-gray-100 px-5 py-3 text-xs font-black uppercase tracking-widest text-gray-600 transition-all hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">Cancel</button>
               <button
                 onClick={handleSave}
-                disabled={!form.date || !form.category || !form.subcategory || (isPayslipMode ? !form.staffName || ((form.basicSalary || 0) + (form.allowances || 0) - (form.deductions || 0)) <= 0 : !form.amount)}
-                className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all disabled:opacity-40 shadow-lg shadow-amber-600/20">
-                {editingId ? 'Save Changes' : (isPayslipMode ? 'Create Payslip' : 'Add Expense')}
+                disabled={!form.date || !form.category || !form.subcategory || (isPayslipMode ? !form.staffName || netPayPreview <= 0 : !form.amount)}
+                className="rounded-xl bg-amber-500 px-5 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-amber-500/20 transition-all hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {editingId ? 'Save Changes' : (isPayslipMode ? 'Add Staff Expense' : 'Add Expense')}
               </button>
             </div>
           </div>
