@@ -457,6 +457,7 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
         !showForm && !showTypePicker && (
           <div className="mb-5">
             <h2 className="text-lg font-black dark:text-white">{pageTitle}</h2>
+            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{pageSubtitle}</p>
           </div>
         )
       )}
@@ -500,24 +501,21 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
           </div>
         </div>
       ) : showForm ? (
-        <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
-          <div className="mb-5 flex items-center justify-between gap-4">
+        <div>
+          <div className="mb-6 flex items-center justify-between gap-4">
             <button
               onClick={() => { setShowForm(false); setEditingId(null); }}
               className="inline-flex items-center gap-2 rounded-xl bg-gray-100 px-4 py-2 text-xs font-black uppercase tracking-widest text-gray-600 transition-all hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
             >
               <ArrowLeft size={14} /> Back
             </button>
-            <div className="text-right">
-              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Expense Editor</p>
-              <p className="text-sm font-bold text-gray-900 dark:text-white">{form.category || currentCat?.name || 'Expense'}</p>
-            </div>
+            <p className="text-sm font-bold text-gray-900 dark:text-white">{form.category || currentCat?.name || 'Expense'}</p>
           </div>
 
-          <div className="mb-5 flex items-start justify-between gap-4 rounded-2xl bg-gradient-to-r from-amber-50 via-white to-orange-50 p-5 dark:from-amber-900/20 dark:via-gray-800 dark:to-orange-900/10">
+          <div className="mb-5 flex items-start justify-between gap-4 border-b border-gray-200 pb-4 dark:border-gray-700">
             <div className="min-w-0">
               <div className="mb-2 flex items-center gap-2">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-lg shadow-amber-500/20">
+                <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-lg shadow-amber-500/20">
                   <Receipt size={18} />
                 </span>
                 <div>
@@ -761,32 +759,36 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
 
       {/* Food Cost: link to Purchase Orders */}
       {subTab === 'food_cost' && (
-        <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 rounded-xl flex items-center justify-between">
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 dark:border-amber-800/30 dark:bg-amber-900/10">
+          <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <ShoppingCart size={16} className="text-amber-600 dark:text-amber-400" />
+            <ShoppingCart size={14} className="text-amber-600 dark:text-amber-400" />
             <div>
-              <p className="text-xs font-bold text-amber-800 dark:text-amber-300">Purchase Orders auto-sync here</p>
-              <p className="text-[10px] text-amber-600 dark:text-amber-500">Received POs from Inventory are automatically listed as Food Cost expenses.</p>
+              <p className="text-[11px] font-black text-amber-800 dark:text-amber-300">Purchase Orders auto-sync here</p>
+              <p className="text-[10px] leading-tight text-amber-600 dark:text-amber-500">Received POs from Inventory are automatically listed as Food Cost expenses.</p>
             </div>
           </div>
           {onNavigateToInventory && (
             <button onClick={() => onNavigateToInventory('purchase_orders')}
-              className="px-3 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all shrink-0">
+              className="shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white transition-all hover:bg-amber-700">
               Go to PO
             </button>
           )}
+          </div>
         </div>
       )}
 
       {/* Platform Subscription: auto info */}
       {subTab === 'platform' && (
-        <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/30 rounded-xl flex items-center gap-3">
-          <CreditCard size={16} className="text-blue-600 dark:text-blue-400" />
-          <div>
-            <p className="text-xs font-bold text-blue-800 dark:text-blue-300">QuickServe subscription charges are auto-tracked</p>
-            <p className="text-[10px] text-blue-600 dark:text-blue-500">
+        <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 dark:border-blue-800/30 dark:bg-blue-900/10">
+          <div className="flex items-center gap-3">
+            <CreditCard size={14} className="text-blue-600 dark:text-blue-400" />
+            <div>
+            <p className="text-[11px] font-black text-blue-800 dark:text-blue-300">QuickServe subscription charges are auto-tracked</p>
+            <p className="text-[10px] leading-tight text-blue-600 dark:text-blue-500">
               {subscription ? `Current plan: ${PRICING_PLANS.find(p => p.id === subscription.plan_id)?.name ?? subscription.plan_id} (${subscription.billing_interval ?? 'monthly'})` : 'No active subscription'}
             </p>
+            </div>
           </div>
         </div>
       )}
