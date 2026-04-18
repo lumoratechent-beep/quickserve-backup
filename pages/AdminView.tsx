@@ -1876,7 +1876,9 @@ const AdminView: React.FC<Props> = ({
                             ) : <span className="text-xs text-gray-400">—</span>}
                           </td>
                           <td className="px-3 py-2 text-center">
-                            {txn.extensionType === 'paid' ? (
+                            {txn.extensionType === 'stripe' ? (
+                              <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-900/20 text-blue-600">Stripe</span>
+                            ) : txn.extensionType === 'paid' ? (
                               <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-orange-50 dark:bg-orange-900/20 text-orange-600">Cash</span>
                             ) : (
                               <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-green-50 dark:bg-green-900/20 text-green-600">Free</span>

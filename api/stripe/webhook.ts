@@ -205,6 +205,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .update({ kitchen_enabled: kitchenEnabled })
             .eq('id', restaurantId);
         }
+
+        // Record Stripe payment into billing_records for income tracking
+        if (session.mode === 'payment' && session.amount_total && session.amount_total > 0) {
+          const grossAmount = (session.amount_total || 0) / 100;
+          // Estimate Stripe fee: 3% + RM1 for Malaysian cards (approximate)
+          const stripeFee = Math.round((grossAmount * 0.03 + 1) * 100) / 100;
+          const netAmount = Math.round((grossAmount - stripeFee) * 100) / 100;
+
+          // Get restaurant name
+          const { data: restRow } = await supabase
+            .from('restaurants').select('name').eq('id', restaurantId).single();
+
+          const planNames: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
+          const changeType = session.metadata?.change_type || 'renew';
+          const billingInterval = session.metadata?.billing_interval || 'monthly';
+          const intervalLabel = billingInterval === 'annual' ? 'Annual' : 'Monthly';
+
+          await supabase.from('billing_records').insert({
+            restaurant_id: restaurantId,
+            description: `Stripe ${planNames[planId || 'basic'] || planId} ${changeType === 'upgrade' ? 'Upgrade' : 'Renewal'} (${intervalLabel})`,
+            amount: grossAmount,
+            type: 'stripe',
+            gross: grossAmount,
+            fee: stripeFee,
+            net: netAmount,
+            plan_id: planId || 'basic',
+            restaurant_name: restRow?.name || 'Unknown',
+            created_by: 'stripe',
+          });
+        }
+
         break;
       }
 

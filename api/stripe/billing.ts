@@ -378,10 +378,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           })
           .eq('restaurant_id', renewRestId);
 
+        // Record Stripe payment into billing_records for income tracking
+        const grossCharged = totalAmount / 100;
+        // Estimate Stripe fee: 3% + RM1 for Malaysian cards (approximate)
+        const stripeFeeAmt = Math.round((grossCharged * 0.03 + 1) * 100) / 100;
+        const netCharged = Math.round((grossCharged - stripeFeeAmt) * 100) / 100;
+
+        const { data: renewRest } = await supabase
+          .from('restaurants').select('name').eq('id', renewRestId).single();
+
+        await supabase.from('billing_records').insert({
+          restaurant_id: renewRestId,
+          description: chargeDescription,
+          amount: grossCharged,
+          type: 'stripe',
+          gross: grossCharged,
+          fee: stripeFeeAmt,
+          net: netCharged,
+          plan_id: planId,
+          restaurant_name: renewRest?.name || 'Unknown',
+          created_by: 'stripe',
+        });
+
         return res.status(200).json({
           success: true,
           newPeriodEnd: periodEnd.toISOString(),
-          amountCharged: totalAmount / 100,
+          amountCharged: grossCharged,
           interval: intervalLabel,
         });
       }
