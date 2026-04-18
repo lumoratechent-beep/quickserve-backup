@@ -542,11 +542,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       // POST /api/stripe/billing?action=admin-extend
-      // Admin grants 1 month extension (no payment)
+      // Admin grants 1 month extension — type: 'free' (trial) or 'paid' (cash)
       case 'admin-extend': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-        const { restaurantId: extendRestId } = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        const { restaurantId: extendRestId, extensionType } = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         if (!extendRestId) return res.status(400).json({ error: 'restaurantId is required.' });
+        const extType = extensionType === 'paid' ? 'paid' : 'free';
 
         const { data: extSub, error: extSubErr } = await supabase
           .from('subscriptions')
@@ -555,6 +556,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .single();
 
         if (extSubErr || !extSub) return res.status(404).json({ error: 'Subscription not found.' });
+
+        // Look up plan price for paid extensions
+        const planPrices: Record<string, number> = { basic: 30, pro: 50, pro_plus: 70 };
+        const planId = extSub.plan_id || 'basic';
+        const grossAmount = extType === 'paid' ? (planPrices[planId] || 30) : 0;
+
+        // Look up restaurant name
+        const { data: extRest } = await supabase.from('restaurants').select('name').eq('id', extendRestId).single();
+        const restaurantName = extRest?.name || 'Unknown';
 
         // Calculate new period: extend from current end date (or now if already expired)
         const currentEnd = extSub.current_period_end || extSub.trial_end;
@@ -576,17 +586,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (extUpdateErr) return res.status(500).json({ error: 'Failed to extend subscription.' });
 
-        // Record in billing_records so it appears in vendor's billing history
+        // Record in billing_records so it appears in vendor's billing history and income report
+        const description = extType === 'paid'
+          ? 'Admin extension (Cash Payment)'
+          : 'Admin extension (Free Trial)';
         await supabase.from('billing_records').insert({
           restaurant_id: extendRestId,
-          description: 'Admin granted 1 month extension',
-          amount: 0,
+          description,
+          amount: grossAmount,
+          type: extType,
+          gross: grossAmount,
+          fee: 0,
+          net: grossAmount,
+          plan_id: planId,
+          restaurant_name: restaurantName,
           created_by: 'admin',
         });
 
         return res.status(200).json({
           success: true,
           newPeriodEnd: newEnd.toISOString(),
+          extensionType: extType,
         });
       }
 

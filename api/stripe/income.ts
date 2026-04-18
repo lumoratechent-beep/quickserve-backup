@@ -132,8 +132,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         restaurantName: meta?.restaurantId ? (restaurantNames[meta.restaurantId] || meta.customerName || 'Unknown') : (meta?.customerName || '—'),
         planId: meta?.planId || null,
         planName: meta?.planId ? (PLAN_LABELS[meta.planId] || meta.planId) : '—',
+        extensionType: null as string | null,
       };
     });
+
+    // Fetch billing_records (admin extensions) for the same date range
+    let billingQuery = supabase.from('billing_records').select('*').order('created_at', { ascending: false });
+    if (startDate) billingQuery = billingQuery.gte('created_at', new Date(startDate).toISOString());
+    if (endDate) {
+      const endOfDay = new Date(endDate);
+      endOfDay.setUTCHours(23, 59, 59, 999);
+      billingQuery = billingQuery.lte('created_at', endOfDay.toISOString());
+    }
+    const { data: billingRecords } = await billingQuery;
+
+    // Merge billing_records into the transactions list
+    if (billingRecords && billingRecords.length > 0) {
+      for (const br of billingRecords) {
+        transactions.push({
+          id: `br_${br.id}`,
+          date: br.created_at,
+          amount: Number(br.gross) || 0,
+          fee: Number(br.fee) || 0,
+          net: Number(br.net) || 0,
+          currency: 'MYR',
+          description: br.description || 'Admin Extension',
+          status: 'succeeded',
+          source: null,
+          restaurantName: br.restaurant_name || '—',
+          planId: br.plan_id || null,
+          planName: br.plan_id ? (PLAN_LABELS[br.plan_id] || br.plan_id) : '—',
+          extensionType: br.type || 'free',
+        });
+      }
+    }
+
+    // Sort all transactions by date descending
+    transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     const totalGross = transactions.reduce((s, t) => s + t.amount, 0);
     const totalFees = transactions.reduce((s, t) => s + t.fee, 0);

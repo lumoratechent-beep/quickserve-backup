@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, Subscription, PlanId } from '../src/types';
 import { uploadImage } from '../lib/storage';
-import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight, Gift } from 'lucide-react';
 import ImageCropModal from '../components/ImageCropModal';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
@@ -713,22 +713,31 @@ const AdminView: React.FC<Props> = ({
   }, [restaurants]);
 
   const [extendingRestId, setExtendingRestId] = useState<string | null>(null);
+  const [extendModal, setExtendModal] = useState<{ restaurantId: string; restaurantName: string } | null>(null);
 
   const handleAdminExtend = async (restaurantId: string, restaurantName: string) => {
-    if (!confirm(`Add 1 month to "${restaurantName}"? This skips payment and records RM0 in their billing history.`)) return;
+    // Show modal to ask Free or Paid
+    setExtendModal({ restaurantId, restaurantName });
+  };
+
+  const confirmExtend = async (extensionType: 'free' | 'paid') => {
+    if (!extendModal) return;
+    const { restaurantId, restaurantName } = extendModal;
+    setExtendModal(null);
     setExtendingRestId(restaurantId);
     try {
       const res = await fetch('/api/stripe/billing?action=admin-extend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ restaurantId }),
+        body: JSON.stringify({ restaurantId, extensionType }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to extend');
       }
       const data = await res.json();
-      toast(`Extended! New end date: ${new Date(data.newPeriodEnd).toLocaleDateString()}`, 'success');
+      const typeLabel = extensionType === 'paid' ? 'Paid (Cash)' : 'Free';
+      toast(`Extended (${typeLabel})! New end date: ${new Date(data.newPeriodEnd).toLocaleDateString()}`, 'success');
       // Refresh subscriptions
       const { data: subs } = await supabase.from('subscriptions').select('*');
       if (subs) {
@@ -1748,13 +1757,13 @@ const AdminView: React.FC<Props> = ({
             <div className="p-4 md:p-8 pb-0 md:pb-0">
               <div className="mb-5">
                 <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">Income & Report</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Stripe income overview and platform-wide sales analytics.</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Subscription income overview and platform-wide sales analytics.</p>
               </div>
 
               {/* Document-style tab bar */}
               <div className="flex gap-0 relative">
                 {([
-                  { id: 'INCOME' as const, label: 'Stripe Income', icon: <DollarSign size={13} /> },
+                  { id: 'INCOME' as const, label: 'Subscription Income', icon: <DollarSign size={13} /> },
                   { id: 'REPORTS' as const, label: 'Sales Report', icon: <TrendingUp size={13} /> },
                 ]).map(tab => (
                   <button
@@ -1790,7 +1799,7 @@ const AdminView: React.FC<Props> = ({
                     <div className="bg-gray-50 dark:bg-gray-900/50 rounded-2xl border dark:border-gray-700 p-4">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="w-8 h-8 bg-red-50 dark:bg-red-900/20 rounded-lg flex items-center justify-center"><ArrowDownRight size={16} className="text-red-500" /></div>
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Stripe Fees</span>
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Fees</span>
                       </div>
                       <p className="text-xl font-black dark:text-white">RM {incomeSummary.totalFees.toFixed(2)}</p>
                     </div>
@@ -1831,21 +1840,22 @@ const AdminView: React.FC<Props> = ({
                   <table className="w-full table-fixed">
                     <thead>
                       <tr className="bg-gray-50 dark:bg-gray-900/50">
-                        <th className="w-[11%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Date</th>
-                        <th className="w-[16%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Restaurant</th>
-                        <th className="w-[9%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Plan</th>
-                        <th className="w-[22%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest hidden lg:table-cell">Description</th>
-                        <th className="w-[11%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Gross</th>
+                        <th className="w-[10%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Date</th>
+                        <th className="w-[14%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Restaurant</th>
+                        <th className="w-[8%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Plan</th>
+                        <th className="w-[8%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Source</th>
+                        <th className="w-[18%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest hidden lg:table-cell">Description</th>
+                        <th className="w-[10%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Gross</th>
                         <th className="w-[10%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest hidden md:table-cell">Fee</th>
-                        <th className="w-[11%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Net</th>
+                        <th className="w-[10%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Net</th>
                         <th className="w-[10%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                       {incomeLoading && incomeTransactions.length === 0 ? (
-                        <tr><td colSpan={8} className="text-center py-12 text-gray-400"><RefreshCw size={24} className="mx-auto animate-spin mb-2" /> Loading transactions…</td></tr>
+                        <tr><td colSpan={9} className="text-center py-12 text-gray-400"><RefreshCw size={24} className="mx-auto animate-spin mb-2" /> Loading transactions…</td></tr>
                       ) : incomeTransactions.length === 0 ? (
-                        <tr><td colSpan={8} className="text-center py-12">
+                        <tr><td colSpan={9} className="text-center py-12">
                           <FileText size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
                           <p className="text-sm font-bold text-gray-400">No transactions found</p>
                           <p className="text-xs text-gray-400 mt-1">Try adjusting the date range</p>
@@ -1864,6 +1874,15 @@ const AdminView: React.FC<Props> = ({
                                 'bg-gray-100 dark:bg-gray-700 text-gray-500'
                               }`}>{txn.planName}</span>
                             ) : <span className="text-xs text-gray-400">—</span>}
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            {txn.extensionType === 'free' ? (
+                              <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-green-50 dark:bg-green-900/20 text-green-600">Free</span>
+                            ) : txn.extensionType === 'paid' ? (
+                              <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-orange-50 dark:bg-orange-900/20 text-orange-600">Cash</span>
+                            ) : (
+                              <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-900/20 text-blue-600">Stripe</span>
+                            )}
                           </td>
                           <td className="px-3 py-2 text-xs dark:text-gray-300 truncate hidden lg:table-cell">{txn.description}</td>
                           <td className="px-3 py-2 text-xs font-bold dark:text-gray-300 text-right">{txn.amount.toFixed(2)}</td>
@@ -3181,6 +3200,52 @@ const AdminView: React.FC<Props> = ({
                  ))}
               </div>
            </div>
+        </div>
+      )}
+
+      {/* Extension Type Modal */}
+      {extendModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setExtendModal(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-6 pt-6 pb-3">
+              <h3 className="text-lg font-black dark:text-white uppercase tracking-tight">Add 1 Month</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Choose extension type for <span className="font-bold text-gray-700 dark:text-gray-200">"{extendModal.restaurantName}"</span>
+              </p>
+            </div>
+            <div className="px-6 pb-6 space-y-3">
+              <button
+                onClick={() => confirmExtend('free')}
+                className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-green-400 dark:hover:border-green-500 bg-gray-50 dark:bg-gray-700/50 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
+                  <Gift size={20} className="text-green-600" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-black dark:text-white uppercase tracking-tight">Free</p>
+                  <p className="text-[10px] text-gray-400 font-medium">Extend trial period — RM0 recorded</p>
+                </div>
+              </button>
+              <button
+                onClick={() => confirmExtend('paid')}
+                className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-orange-400 dark:hover:border-orange-500 bg-gray-50 dark:bg-gray-700/50 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0">
+                  <Banknote size={20} className="text-orange-600" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-black dark:text-white uppercase tracking-tight">Paid (Cash)</p>
+                  <p className="text-[10px] text-gray-400 font-medium">Restaurant paid cash — full amount, no Stripe fee</p>
+                </div>
+              </button>
+              <button
+                onClick={() => setExtendModal(null)}
+                className="w-full py-2.5 text-xs font-bold text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 uppercase tracking-widest transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
