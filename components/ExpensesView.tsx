@@ -734,24 +734,30 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
       </div>
 
       {/* Category tabs */}
-      <div className="mb-4 flex flex-wrap items-center gap-1.5">
+      <div className="flex gap-0 border-b border-gray-200 dark:border-gray-700 mb-0">
         {[
-          { key: 'all' as ExpenseSubTab, label: 'All' },
-          ...EXPENSE_TYPE_KEYS.map(k => ({ key: k, label: getCategoryByKey(k)?.name ?? k })),
+          { key: 'all' as ExpenseSubTab, label: 'All Expenses', icon: <FileText size={13} /> },
+          ...EXPENSE_TYPE_KEYS.map(k => {
+            const cat = getCategoryByKey(k);
+            return { key: k, label: cat?.name ?? k, icon: cat?.icon ?? null };
+          }),
         ].map(tab => (
           <button
             key={tab.key}
             onClick={() => setSubTab(tab.key)}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold uppercase tracking-wider border border-b-0 rounded-t-xl transition-all -mb-px ${
               subTab === tab.key
-                ? 'bg-amber-500 text-white'
-                : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600'
+                ? 'bg-white dark:bg-gray-800 text-amber-600 dark:text-amber-400 border-gray-200 dark:border-gray-700 relative z-10'
+                : 'bg-gray-100 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 border-transparent hover:bg-gray-200 dark:hover:bg-gray-800/60 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
-            {tab.label}
+            {tab.icon} {tab.label}
           </button>
         ))}
       </div>
+
+      {/* Tab content panel */}
+      <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 border-t-0 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
 
       {/* Summary strip */}
       {subTab === 'all' && (
@@ -820,7 +826,7 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={downloadCSV} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-gray-500 transition hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700">
+          <button onClick={downloadCSV} className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-600 transition hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
             <Download size={13} /> CSV
           </button>
           {subTab !== 'platform' && (
@@ -832,7 +838,7 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+      <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
         {filteredExpenses.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -906,11 +912,13 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
 
       {/* Total bar */}
       {filteredExpenses.length > 0 && (
-        <div className="mt-3 flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
+        <div className="mt-3 flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 dark:border-gray-700">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Total ({filteredExpenses.length} records)</span>
           <span className="text-base font-bold text-gray-900 dark:text-white">{fmt(totalFiltered)}</span>
         </div>
       )}
+
+      </div>{/* end tab content panel */}
 
       {/* Payslip Preview Modal */}
       {showPayslip && payslipExpense && (
