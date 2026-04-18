@@ -6,7 +6,7 @@ import {
   ArrowLeft, Plus, Search, Edit3, Trash2,
   X, Paperclip, FileText, Users, Zap, Home,
   Megaphone, CreditCard, MoreHorizontal, Download, Printer,
-  Receipt, ShoppingCart, Eye, ChevronRight,
+  Receipt, ShoppingCart, Eye, ChevronRight, ChevronLeft, MoreVertical,
 } from 'lucide-react';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -333,6 +333,22 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
   // ─── Payslip preview ───
   const [showPayslip, setShowPayslip] = useState(false);
   const [payslipExpense, setPayslipExpense] = useState<Expense | null>(null);
+
+  // ─── Action menu ───
+  const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  const actionMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) setActionMenuId(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // ─── Pagination ───
+  const [pageSize, setPageSize] = useState(30);
+  const [currentPage, setCurrentPage] = useState(1);
+  useEffect(() => { setCurrentPage(1); }, [subTab, expenseSearch]);
 
   const subcategoryOptions = useMemo(() => {
     const cat = EXPENSE_CATEGORIES.find(c => c.name === form.category);
@@ -902,26 +918,32 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
       </div>
 
       {/* Table */}
+      {(() => {
+        const totalPages = Math.max(1, Math.ceil(filteredExpenses.length / pageSize));
+        const safeCurrentPage = Math.min(currentPage, totalPages);
+        const paginatedExpenses = filteredExpenses.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
+        return (
+          <>
       <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
         {filteredExpenses.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-700">
-                  <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Date</th>
-                  {subTab === 'all' && <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Category</th>}
-                  <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Subcategory</th>
-                  {subTab === 'staff' && <th className="hidden px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400 md:table-cell">Employee</th>}
-                  <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Amount</th>
-                  {showSupplierColumn && <th className="hidden px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400 lg:table-cell">Supplier</th>}
-                  <th className="hidden px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400 md:table-cell">Payment</th>
-                  <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Type</th>
-                  <th className="hidden px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400 lg:table-cell">Notes</th>
-                  <th className="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-gray-400" />
+              <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                <tr>
+                  <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-gray-400">Date</th>
+                  {subTab === 'all' && <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-gray-400">Category</th>}
+                  <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-gray-400">Subcategory</th>
+                  {subTab === 'staff' && <th className="hidden px-4 py-3 text-[9px] font-black uppercase tracking-widest text-gray-400 md:table-cell">Employee</th>}
+                  <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-gray-400">Amount</th>
+                  {showSupplierColumn && <th className="hidden px-4 py-3 text-[9px] font-black uppercase tracking-widest text-gray-400 lg:table-cell">Supplier</th>}
+                  <th className="hidden px-4 py-3 text-[9px] font-black uppercase tracking-widest text-gray-400 md:table-cell">Payment</th>
+                  <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-gray-400">Type</th>
+                  <th className="hidden px-4 py-3 text-[9px] font-black uppercase tracking-widest text-gray-400 lg:table-cell">Notes</th>
+                  <th className="px-4 py-3 text-right text-[9px] font-black uppercase tracking-widest text-gray-400">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
-                {filteredExpenses.map(e => (
+                {paginatedExpenses.map(e => (
                   <tr key={e.id} className="transition hover:bg-gray-50/60 dark:hover:bg-gray-700/20">
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                       {new Date(e.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -941,24 +963,42 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
                     </td>
                     <td className="hidden max-w-[140px] truncate px-4 py-3 text-xs text-gray-400 dark:text-gray-500 lg:table-cell">{e.notes || '–'}</td>
                     <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-0.5">
-                        {e.attachmentName && (
-                          <span title={e.attachmentName} className="cursor-default p-1.5 text-gray-300 dark:text-gray-600"><Paperclip size={13} /></span>
-                        )}
-                        {e.category === 'Staff' && e.subcategory === 'Salary' && e.staffName && (
-                          <button onClick={() => { setPayslipExpense(e); setShowPayslip(true); }} className="rounded-lg p-1.5 text-gray-400 transition hover:bg-blue-50 hover:text-blue-500 dark:hover:bg-blue-900/20" title="View Payslip">
-                            <Eye size={13} />
+                      {e.id.startsWith('po_') || e.id.startsWith('billing_') ? (
+                        <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[9px] font-semibold text-gray-400 dark:bg-gray-700 dark:text-gray-500" title={e.id.startsWith('po_') ? 'Managed from Inventory' : 'Auto from subscription'}>Auto</span>
+                      ) : (
+                        <div className="relative inline-block" ref={actionMenuId === e.id ? actionMenuRef : undefined}>
+                          <button
+                            onClick={() => setActionMenuId(actionMenuId === e.id ? null : e.id)}
+                            className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                          >
+                            <MoreVertical size={15} />
                           </button>
-                        )}
-                        {e.id.startsWith('po_') || e.id.startsWith('billing_') ? (
-                          <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[9px] font-semibold text-gray-400 dark:bg-gray-700 dark:text-gray-500" title={e.id.startsWith('po_') ? 'Managed from Inventory' : 'Auto from subscription'}>Auto</span>
-                        ) : (
-                          <>
-                            <button onClick={() => openEdit(e)} className="rounded-lg p-1.5 text-gray-400 transition hover:bg-amber-50 hover:text-amber-500 dark:hover:bg-amber-900/20"><Edit3 size={13} /></button>
-                            <button onClick={() => handleDelete(e.id)} className="rounded-lg p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"><Trash2 size={13} /></button>
-                          </>
-                        )}
-                      </div>
+                          {actionMenuId === e.id && (
+                            <div className="absolute right-0 top-full z-20 mt-1 w-36 rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                              {e.category === 'Staff' && e.subcategory === 'Salary' && e.staffName && (
+                                <button
+                                  onClick={() => { setPayslipExpense(e); setShowPayslip(true); setActionMenuId(null); }}
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-600 transition hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                                >
+                                  <Eye size={13} /> View Payslip
+                                </button>
+                              )}
+                              <button
+                                onClick={() => { openEdit(e); setActionMenuId(null); }}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-600 transition hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                              >
+                                <Edit3 size={13} /> Edit
+                              </button>
+                              <button
+                                onClick={() => { handleDelete(e.id); setActionMenuId(null); }}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-red-500 transition hover:bg-red-50 dark:hover:bg-red-900/20"
+                              >
+                                <Trash2 size={13} /> Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -974,13 +1014,70 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
         )}
       </div>
 
-      {/* Total bar */}
+      {/* Total + Pagination bar */}
       {filteredExpenses.length > 0 && (
-        <div className="mt-3 flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 dark:border-gray-700">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Total ({filteredExpenses.length} records)</span>
-          <span className="text-base font-bold text-gray-900 dark:text-white">{fmt(totalFiltered)}</span>
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Total ({filteredExpenses.length} records)</span>
+            <span className="text-base font-bold text-gray-900 dark:text-white">{fmt(totalFiltered)}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Show</span>
+              <select
+                value={pageSize}
+                onChange={e => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                className="rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-700 outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
+              >
+                {[30, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={safeCurrentPage <= 1}
+                className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-gray-700"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - safeCurrentPage) <= 1)
+                .reduce<(number | 'ellipsis')[]>((acc, p, idx, arr) => {
+                  if (idx > 0 && p - (arr[idx - 1]) > 1) acc.push('ellipsis');
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, idx) =>
+                  p === 'ellipsis' ? (
+                    <span key={`e${idx}`} className="px-1 text-xs text-gray-400">…</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setCurrentPage(p)}
+                      className={`min-w-[28px] rounded-lg px-2 py-1 text-xs font-semibold transition ${
+                        p === safeCurrentPage
+                          ? 'bg-amber-500 text-white'
+                          : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={safeCurrentPage >= totalPages}
+                className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-gray-700"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
         </div>
       )}
+          </>
+        );
+      })()}
 
       </div>{/* end tab content panel */}
 
