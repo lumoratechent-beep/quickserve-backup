@@ -313,7 +313,7 @@ const _pendingSync: Record<string, ReturnType<typeof setTimeout>> = {};
 const SYNC_DELAY = 3000; // ms debounce
 
 const BACKOFFICE_LS_KEYS: { local: (id: string) => string; remote: string }[] = [
-  { local: id => `finance_${id}_expenses`, remote: 'expenses' },
+  // expenses moved to dedicated Supabase table (031_expenses.sql)
   { local: id => `inv_${id}_suppliers`, remote: 'suppliers' },
   { local: id => `inv_${id}_purchase_orders`, remote: 'purchase_orders' },
   { local: id => `inv_${id}_transfer_orders`, remote: 'transfer_orders' },

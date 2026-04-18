@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Restaurant, Order, OrderStatus, Subscription } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
-import { loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
+import { supabase } from '../lib/supabase';
 import {
   ArrowLeft, Plus, Search, Edit3, Trash2,
   X, Paperclip, FileText, Users, Zap, Home,
@@ -85,14 +85,6 @@ const labelClass = 'mb-1.5 block text-[11px] font-semibold uppercase tracking-wi
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, initialSubTab, subscription, onNavigateToInventory }) => {
-  const storeKey = (k: string) => `finance_${restaurant.id}_${k}`;
-
-  const load = <T,>(key: string, fallback: T): T =>
-    loadBackofficeData<T>(storeKey(key), restaurant.settings, key, fallback);
-  const save = <T,>(key: string, data: T) => {
-    localStorage.setItem(storeKey(key), JSON.stringify(data));
-    syncBackofficeToDb(restaurant.id);
-  };
 
   // ─── Dark mode ───
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
@@ -121,9 +113,84 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
     }
   }, [initialSubTab]);
 
-  // ─── Expenses state ───
-  const [expenses, setExpenses] = useState<Expense[]>(() => load('expenses', []));
-  const saveExpenses = (data: Expense[]) => { setExpenses(data); save('expenses', data); };
+  // ─── Expenses state (Supabase) ───
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [expensesLoading, setExpensesLoading] = useState(true);
+
+  const fetchExpenses = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('*')
+      .eq('restaurant_id', restaurant.id)
+      .order('date', { ascending: false });
+    if (!error && data) {
+      setExpenses(data.map((row: any) => ({
+        id: row.id,
+        date: row.date,
+        amount: Number(row.amount),
+        category: row.category,
+        subcategory: row.subcategory,
+        supplierId: row.supplier_id ?? '',
+        supplierName: row.supplier_name ?? '',
+        paymentMethod: row.payment_method,
+        notes: row.notes ?? '',
+        attachmentName: row.attachment_name ?? '',
+        type: row.type as 'COGS' | 'OPEX',
+        createdAt: new Date(row.created_at).getTime(),
+        staffName: row.staff_name ?? '',
+        staffRole: row.staff_role ?? '',
+        basicSalary: row.basic_salary ? Number(row.basic_salary) : 0,
+        allowances: row.allowances ? Number(row.allowances) : 0,
+        deductions: row.deductions ? Number(row.deductions) : 0,
+        payPeriod: row.pay_period ?? '',
+      })));
+    }
+    setExpensesLoading(false);
+  }, [restaurant.id]);
+
+  useEffect(() => { fetchExpenses(); }, [fetchExpenses]);
+
+  // Realtime subscription for cross-device sync
+  useEffect(() => {
+    const channel = supabase
+      .channel(`expenses_${restaurant.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses', filter: `restaurant_id=eq.${restaurant.id}` }, () => {
+        fetchExpenses();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [restaurant.id, fetchExpenses]);
+
+  const upsertExpense = async (expense: Expense) => {
+    const row = {
+      id: expense.id,
+      restaurant_id: restaurant.id,
+      date: expense.date,
+      amount: expense.amount,
+      category: expense.category,
+      subcategory: expense.subcategory,
+      supplier_id: expense.supplierId || null,
+      supplier_name: expense.supplierName || null,
+      payment_method: expense.paymentMethod,
+      notes: expense.notes,
+      attachment_name: expense.attachmentName || null,
+      type: expense.type,
+      staff_name: expense.staffName || null,
+      staff_role: expense.staffRole || null,
+      basic_salary: expense.basicSalary || null,
+      allowances: expense.allowances || null,
+      deductions: expense.deductions || null,
+      pay_period: expense.payPeriod || null,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from('expenses').upsert(row, { onConflict: 'id' });
+    if (!error) fetchExpenses();
+  };
+
+  const deleteExpense = async (id: string) => {
+    const { error } = await supabase.from('expenses').delete().eq('id', id);
+    if (!error) fetchExpenses();
+  };
 
   // ─── Staff list ───
   const staffList = useMemo(() => {
@@ -316,7 +383,7 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
     setShowForm(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.date || !form.category || !form.subcategory) return;
     const isPayslip = form.category === 'Staff' && form.subcategory === 'Salary';
     const finalAmount = isPayslip ? ((form.basicSalary || 0) + (form.allowances || 0) - (form.deductions || 0)) : Number(form.amount);
@@ -333,17 +400,14 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
       type,
       createdAt: editingId ? (expenses.find(e => e.id === editingId)?.createdAt ?? Date.now()) : Date.now(),
     };
-    const updated = editingId
-      ? expenses.map(e => e.id === editingId ? entry : e)
-      : [...expenses, entry];
-    saveExpenses(updated);
+    await upsertExpense(entry);
     setShowForm(false);
     setShowTypePicker(false);
   };
 
   const handleDelete = (id: string) => {
     if (!confirm('Delete this expense?')) return;
-    saveExpenses(expenses.filter(e => e.id !== id));
+    deleteExpense(id);
   };
 
   // ─── CSV Download ─────────────────────────────────────────────────────────
