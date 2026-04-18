@@ -858,16 +858,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     },
     {
       key: 'EXPENSES' as BackOfficeTab, label: 'Expenses', icon: <Receipt size={18} />,
-      subItems: [
-        { key: 'all', label: 'All Expenses', icon: <FileBarChart size={14} /> },
-        { key: 'staff', label: 'Staff', icon: <Users size={14} /> },
-        { key: 'food_cost', label: 'Food Cost', icon: <ShoppingBag size={14} /> },
-        { key: 'bills', label: 'Bills', icon: <FileText size={14} /> },
-        { key: 'rent', label: 'Rent & Occupancy', icon: <Building2 size={14} /> },
-        { key: 'marketing', label: 'Marketing', icon: <Activity size={14} /> },
-        { key: 'platform', label: 'Platform Subscription', icon: <CreditCard size={14} /> },
-        { key: 'others', label: 'Others', icon: <MoreVertical size={14} /> },
-      ],
+      subItems: [],
     },
     {
       key: 'FINANCE', label: 'Finance', icon: <DollarSign size={18} />,

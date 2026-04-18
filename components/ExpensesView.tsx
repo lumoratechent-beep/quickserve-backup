@@ -536,6 +536,9 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
           </div>
         </div>
 
+        {/* ── Form Sections ── */}
+        <div className="space-y-6">
+
         {/* ── Expense Details ── */}
         <section className="space-y-3">
           <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Expense Details</h4>
@@ -700,6 +703,8 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
           </div>
         </section>
 
+        </div>{/* end form sections wrapper */}
+
         {/* ── Actions ── */}
         <div className="mt-5 flex flex-col-reverse gap-3 border-t border-gray-200 pt-3 dark:border-gray-700 sm:flex-row sm:justify-end">
           <button onClick={() => { setShowForm(false); setEditingId(null); }} className="rounded-xl px-5 py-2.5 text-xs font-semibold text-gray-500 transition hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700">
@@ -721,11 +726,31 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
   return (
     <div>
       {/* Page header */}
-      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">{pageTitle}</h2>
-          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{pageSubtitle}</p>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">All Expenses</h2>
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Manage all expense records across categories</p>
         </div>
+      </div>
+
+      {/* Category tabs */}
+      <div className="mb-4 flex flex-wrap items-center gap-1.5">
+        {[
+          { key: 'all' as ExpenseSubTab, label: 'All' },
+          ...EXPENSE_TYPE_KEYS.map(k => ({ key: k, label: getCategoryByKey(k)?.name ?? k })),
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setSubTab(tab.key)}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              subTab === tab.key
+                ? 'bg-amber-500 text-white'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Summary strip */}
