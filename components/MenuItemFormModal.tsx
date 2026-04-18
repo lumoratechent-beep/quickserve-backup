@@ -447,7 +447,7 @@ const MenuItemFormModal: React.FC<Props> = ({
 
   // ─── Item Details (Loyverse section 1) ───
   const itemDetailsSection = (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm space-y-4">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 shadow-sm space-y-3">
       <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><Tag size={16} className="text-amber-500" /> Item Details</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -552,7 +552,7 @@ const MenuItemFormModal: React.FC<Props> = ({
 
   // ─── Selling Information (Loyverse section 2) ───
   const sellingInfoSection = (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm space-y-4">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 shadow-sm space-y-3">
       <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><DollarSign size={16} className="text-amber-500" /> Selling Information</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -592,7 +592,7 @@ const MenuItemFormModal: React.FC<Props> = ({
 
   // ─── Cost & Identification (Loyverse section 3) ───
   const costIdSection = (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm space-y-4">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 shadow-sm space-y-3">
       <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><ScanBarcode size={16} className="text-amber-500" /> Cost & Identification</h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
@@ -632,7 +632,7 @@ const MenuItemFormModal: React.FC<Props> = ({
 
   // ─── Inventory / Track Stock (Loyverse section 4) ───
   const trackStockSection = (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm space-y-4">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 shadow-sm space-y-3">
       <h3 className="text-sm font-black dark:text-white flex items-center gap-2"><Package size={16} className="text-amber-500" /> Inventory</h3>
       <div className="flex items-center gap-3">
         <button
@@ -1344,7 +1344,7 @@ const MenuItemFormModal: React.FC<Props> = ({
           <form onSubmit={onSubmit}>
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-0">
               {/* Left column — Details & Selling */}
-              <div className="space-y-5 lg:pr-6">
+              <div className="space-y-4 lg:pr-6">
                 {visualAssetSection}
                 {itemDetailsSection}
                 {sellingInfoSection}
@@ -1357,7 +1357,7 @@ const MenuItemFormModal: React.FC<Props> = ({
               <hr className="lg:hidden border-gray-200 dark:border-gray-700 my-4" />
 
               {/* Right column — Variants & Modifiers */}
-              <div className="space-y-5 lg:pl-6">
+              <div className="space-y-4 lg:pl-6">
                 {sizesSection}
                 {thermalSection}
                 {variantSection}

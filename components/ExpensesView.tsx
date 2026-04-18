@@ -500,7 +500,7 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
     return (
       <div>
         {/* Header bar */}
-        <div className="mb-5 flex items-center justify-between">
+        <div className="mb-3 flex items-center justify-between">
           <button
             onClick={() => { setShowForm(false); setEditingId(null); }}
             className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-gray-500 transition hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
@@ -511,7 +511,7 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
         </div>
 
         {/* Title block */}
-        <div className="mb-6 border-b border-gray-200 pb-5 dark:border-gray-700">
+        <div className="mb-4 border-b border-gray-200 pb-3 dark:border-gray-700">
           <div className="flex items-start gap-3">
             <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400">
               <Receipt size={16} />
@@ -537,8 +537,8 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
         </div>
 
         {/* ── Expense Details ── */}
-        <section className="space-y-5">
-          <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Expense Details</h4>
+        <section className="space-y-3">
+          <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Expense Details</h4>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <label className={labelClass}>Date</label>
@@ -571,8 +571,8 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
         {/* ── Payslip form OR normal amount ── */}
         {isPayslipMode ? (
           <>
-            <section className="space-y-5">
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Staff Details</h4>
+            <section className="space-y-3">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Staff Details</h4>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <label className={labelClass}>Employee Name</label>
@@ -602,8 +602,8 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
               </div>
             </section>
 
-            <section className="space-y-5">
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Financials</h4>
+            <section className="space-y-3">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Financials</h4>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div>
                   <label className={labelClass}>Basic Salary ({currencySymbol})</label>
@@ -628,8 +628,8 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
             </section>
           </>
         ) : (
-          <section className="space-y-5">
-            <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Financials</h4>
+          <section className="space-y-3">
+            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Financials</h4>
             <div className="max-w-xl">
               <label className={labelClass}>Amount ({currencySymbol})</label>
               <input type="number" min="0" step="0.01" value={form.amount || ''} onChange={e => setForm(f => ({ ...f, amount: parseFloat(e.target.value) || 0 }))} placeholder="0.00" className={fieldClass} />
@@ -639,8 +639,8 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
         )}
 
         {/* ── Entity & Method ── */}
-        <section className="space-y-5">
-          <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Entity & Method</h4>
+        <section className="space-y-3">
+          <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Entity & Method</h4>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {supplierEnabled && suppliers.length > 0 && (
               <div>
@@ -670,8 +670,8 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
         </section>
 
         {/* ── Additional Information ── */}
-        <section className="space-y-5">
-          <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Additional Information</h4>
+        <section className="space-y-3">
+          <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Additional Information</h4>
           <div>
             <label className={labelClass}>Notes</label>
             <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="Optional notes, references, or context..." className={`${fieldClass} resize-none`} />
@@ -701,7 +701,7 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
         </section>
 
         {/* ── Actions ── */}
-        <div className="mt-8 flex flex-col-reverse gap-3 border-t border-gray-200 pt-5 dark:border-gray-700 sm:flex-row sm:justify-end">
+        <div className="mt-5 flex flex-col-reverse gap-3 border-t border-gray-200 pt-3 dark:border-gray-700 sm:flex-row sm:justify-end">
           <button onClick={() => { setShowForm(false); setEditingId(null); }} className="rounded-xl px-5 py-2.5 text-xs font-semibold text-gray-500 transition hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700">
             Cancel
           </button>
