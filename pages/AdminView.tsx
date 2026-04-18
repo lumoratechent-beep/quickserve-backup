@@ -606,7 +606,8 @@ const AdminView: React.FC<Props> = ({
   onFetchAllFilteredOrders,
   onFetchStats
 }) => {
-  const [activeTab, setActiveTab] = useState<'VENDORS' | 'LOCATIONS' | 'INCOME_REPORT' | 'CASHOUT' | 'SYSTEM'>('VENDORS');
+  const [activeTab, setActiveTab] = useState<'VENDORS' | 'INCOME_REPORT' | 'CASHOUT' | 'SYSTEM'>('VENDORS');
+  const [vendorHubSubTab, setVendorHubSubTab] = useState<'VENDORS' | 'HUBS'>('VENDORS');
   const [incomeReportSubTab, setIncomeReportSubTab] = useState<'INCOME' | 'REPORTS'>('INCOME');
 
   // Cashout requests tab state
@@ -1472,12 +1473,11 @@ const AdminView: React.FC<Props> = ({
         {/* Navigation */}
         <nav className={`flex-1 space-y-1 ${sidebarCollapsed ? 'p-2 pt-4' : 'p-4 pt-5'}`}>
           {([
-            { id: 'VENDORS', label: 'Vendors', icon: Store },
-            { id: 'LOCATIONS', label: 'Hubs', icon: MapPin },
+            { id: 'VENDORS', label: 'Vendor & Hubs', icon: Store },
             { id: 'INCOME_REPORT', label: 'Income & Report', icon: TrendingUp },
             { id: 'CASHOUT', label: 'Cashout', icon: Wallet },
             { id: 'SYSTEM', label: 'System', icon: Database },
-          ] as { id: 'VENDORS' | 'LOCATIONS' | 'INCOME_REPORT' | 'CASHOUT' | 'SYSTEM'; label: string; icon: React.ElementType }[]).map(item => (
+          ] as { id: 'VENDORS' | 'INCOME_REPORT' | 'CASHOUT' | 'SYSTEM'; label: string; icon: React.ElementType }[]).map(item => (
             <button
               key={item.id}
               onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
@@ -1523,8 +1523,7 @@ const AdminView: React.FC<Props> = ({
               <ShieldCheck size={16} className="text-white" />
             </div>
             <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm">
-              {activeTab === 'VENDORS' ? 'Vendors' :
-               activeTab === 'LOCATIONS' ? 'Hubs' :
+              {activeTab === 'VENDORS' ? 'Vendor & Hubs' :
                activeTab === 'INCOME_REPORT' ? 'Income & Report' :
                activeTab === 'CASHOUT' ? 'Cashout' :
                'System'}
@@ -1535,31 +1534,60 @@ const AdminView: React.FC<Props> = ({
         <div className="flex-1 overflow-auto">
         {activeTab === 'VENDORS' && (
           <div>
-            <div className="px-4 md:px-8 py-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-              <div>
-                <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Vendor Directory</h3>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Manage registered kitchens and their subscription plans</p>
+            <div className="px-4 md:px-8 py-6 pb-0">
+              <div className="mb-4">
+                <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Vendor & Hubs</h3>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Manage registered kitchens and hub locations</p>
               </div>
-              <div className="flex flex-col sm:flex-row flex-wrap gap-4">
-                <div className="relative flex-1 sm:flex-none sm:w-64">
-                  <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type="text" placeholder="Search..." className="w-full pl-11 pr-4 py-2.5 bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-sm outline-none font-bold dark:text-white" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+
+              {/* Document-style tab bar */}
+              <div className="flex gap-0 relative">
+                {([
+                  { id: 'VENDORS' as const, label: 'Vendors', icon: <Store size={13} /> },
+                  { id: 'HUBS' as const, label: 'Hubs', icon: <MapPin size={13} /> },
+                ]).map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setVendorHubSubTab(tab.id)}
+                    style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                    className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
+                      vendorHubSubTab === tab.id
+                        ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
+                        : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    {tab.icon} {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tab content container */}
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm mx-4 md:mx-8 rounded-b-2xl rounded-tr-2xl">
+
+            {vendorHubSubTab === 'VENDORS' && (
+              <div>
+            <div className="px-5 md:px-6 pt-5 pb-3 flex flex-col lg:flex-row lg:items-center justify-end gap-4">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+                <div className="relative flex-1 sm:flex-none sm:w-56">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input type="text" placeholder="Search..." className="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-sm outline-none font-bold dark:text-white" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
                 </div>
                 <div className="relative flex-1 sm:flex-none">
-                   <Filter size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                   <select className="w-full pl-11 pr-8 py-2.5 bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-sm appearance-none outline-none font-bold dark:text-white" value={vendorFilter} onChange={e => setVendorFilter(e.target.value as any)}>
+                   <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                   <select className="w-full pl-9 pr-6 py-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-sm appearance-none outline-none font-bold dark:text-white" value={vendorFilter} onChange={e => setVendorFilter(e.target.value as any)}>
                       <option value="ALL">All Activation</option>
                       <option value="ACTIVE">Master Active</option>
                       <option value="INACTIVE">Master Deactive</option>
                    </select>
                 </div>
-                <button onClick={handleOpenAdd} className="w-full sm:w-auto px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg transition-all active:scale-95">+ Register</button>
+                <button onClick={handleOpenAdd} className="w-full sm:w-auto px-5 py-2 bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg transition-all active:scale-95">+ Register</button>
               </div>
             </div>
-            <div className="mx-4 md:mx-8 my-4 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm bg-white dark:bg-gray-800">
+            <div className="max-h-[55vh] overflow-y-auto">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-100 dark:bg-gray-800 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                <thead className="bg-gray-100 dark:bg-gray-800 text-gray-400 text-[10px] font-black uppercase tracking-widest sticky top-0 z-10">
                   <tr>
                     <th className="px-8 py-4 text-left group">
                       <div className="inline-flex items-center gap-1.5">
@@ -1672,33 +1700,31 @@ const AdminView: React.FC<Props> = ({
               </table>
             </div>
             </div>
-          </div>
-        )}
-
-        {activeTab === 'LOCATIONS' && (
-          <div>
-            <div className="px-4 md:px-8 py-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-              <div>
-                <h3 className="font-black dark:text-white uppercase tracking-tighter text-lg">Hub Registry</h3>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Configure service locations and generate table QR codes</p>
               </div>
-              <div className="flex flex-col sm:flex-row flex-wrap gap-4">
-                <div className="relative flex-1 sm:flex-none sm:w-64">
-                  <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type="text" placeholder="Search hubs..." className="w-full pl-11 pr-4 py-2.5 bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-sm outline-none font-bold dark:text-white" value={hubSearchQuery} onChange={e => setHubSearchQuery(e.target.value)} />
+            )}
+
+            {vendorHubSubTab === 'HUBS' && (
+              <div>
+            <div className="px-5 md:px-6 pt-5 pb-3 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div>
+              </div>
+              <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+                <div className="relative flex-1 sm:flex-none sm:w-56">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input type="text" placeholder="Search hubs..." className="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-sm outline-none font-bold dark:text-white" value={hubSearchQuery} onChange={e => setHubSearchQuery(e.target.value)} />
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
-                    <button onClick={() => setIsHubSelectionModalOpen(true)} className="flex-1 sm:flex-none px-4 py-2.5 bg-white dark:bg-gray-900 text-orange-500 border-2 border-orange-500 rounded-xl font-black uppercase tracking-widest text-[9px] shadow-sm flex items-center justify-center gap-2 hover:bg-orange-500 hover:text-white transition-all">
+                    <button onClick={() => setIsHubSelectionModalOpen(true)} className="flex-1 sm:flex-none px-4 py-2 bg-white dark:bg-gray-900 text-orange-500 border-2 border-orange-500 rounded-xl font-black uppercase tracking-widest text-[9px] shadow-sm flex items-center justify-center gap-2 hover:bg-orange-500 hover:text-white transition-all">
                       <QrCode size={16} /> QR
                     </button>
-                    <button onClick={handleOpenHubAdd} className="flex-[2] sm:flex-none px-6 py-2.5 bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg">Register Hub</button>
+                    <button onClick={handleOpenHubAdd} className="flex-[2] sm:flex-none px-5 py-2 bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg">Register Hub</button>
                 </div>
               </div>
             </div>
-            <div className="mx-4 md:mx-8 my-4 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm bg-white dark:bg-gray-800">
+            <div className="max-h-[55vh] overflow-y-auto">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-100 dark:bg-gray-800 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                <thead className="bg-gray-100 dark:bg-gray-800 text-gray-400 text-[10px] font-black uppercase tracking-widest sticky top-0 z-10">
                   <tr>
                     <th className="px-8 py-4 text-left">Hub</th>
                     <th className="px-8 py-4 text-center">Vendors</th>
@@ -1748,6 +1774,10 @@ const AdminView: React.FC<Props> = ({
                 </tbody>
               </table>
             </div>
+            </div>
+              </div>
+            )}
+
             </div>
           </div>
         )}
