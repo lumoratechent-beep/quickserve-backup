@@ -18,6 +18,7 @@ import InventoryManagement from '../components/InventoryManagement';
 import ReportsView from '../components/ReportsView';
 import ContactsManagement from '../components/ContactsManagement';
 import FinanceView from '../components/FinanceView';
+import ExpensesView from '../components/ExpensesView';
 import CashierShiftRecords from '../components/CashierShiftRecords';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
 
@@ -34,7 +35,7 @@ interface Props {
   subscription?: Subscription | null;
 }
 
-type BackOfficeTab = 'DASHBOARD' | 'ITEMS' | 'STAFF' | 'STOCK' | 'INVENTORY' | 'REPORTS' | 'CONTACTS' | 'FINANCE' | 'SHIFTS';
+type BackOfficeTab = 'DASHBOARD' | 'ITEMS' | 'STAFF' | 'STOCK' | 'INVENTORY' | 'REPORTS' | 'CONTACTS' | 'FINANCE' | 'EXPENSES' | 'SHIFTS';
 type DateRange = '7d' | '30d' | '90d' | 'custom';
 
 const COLORS = ['#D97706', '#F59E0B', '#92400E', '#B45309', '#78350F', '#FBBF24', '#FCD34D', '#3B82F6', '#8B5CF6', '#22C55E'];
@@ -83,6 +84,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [inventorySubTab, setInventorySubTab] = useState<string | undefined>(undefined);
   const [contactSubTab, setContactSubTab] = useState<string | undefined>(undefined);
   const [financeSubTab, setFinanceSubTab] = useState<string | undefined>(undefined);
+  const [expensesSubTab, setExpensesSubTab] = useState<string | undefined>(undefined);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
 
   // ─── Items tab state ───
@@ -855,6 +857,19 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       ],
     },
     {
+      key: 'EXPENSES' as BackOfficeTab, label: 'Expenses', icon: <Receipt size={18} />,
+      subItems: [
+        { key: 'all', label: 'All Expenses', icon: <FileBarChart size={14} /> },
+        { key: 'staff', label: 'Staff', icon: <Users size={14} /> },
+        { key: 'food_cost', label: 'Food Cost', icon: <ShoppingBag size={14} /> },
+        { key: 'bills', label: 'Bills', icon: <FileText size={14} /> },
+        { key: 'rent', label: 'Rent & Occupancy', icon: <Building2 size={14} /> },
+        { key: 'marketing', label: 'Marketing', icon: <Activity size={14} /> },
+        { key: 'platform', label: 'Platform Subscription', icon: <CreditCard size={14} /> },
+        { key: 'others', label: 'Others', icon: <MoreVertical size={14} /> },
+      ],
+    },
+    {
       key: 'FINANCE', label: 'Finance', icon: <DollarSign size={18} />,
       subItems: [],
     },
@@ -873,6 +888,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     if (tabKey === 'INVENTORY') return inventorySubTab;
     if (tabKey === 'CONTACTS') return contactSubTab;
     if (tabKey === 'FINANCE') return financeSubTab;
+    if (tabKey === 'EXPENSES') return expensesSubTab;
     return undefined;
   };
 
@@ -881,6 +897,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     else if (tabKey === 'INVENTORY') setInventorySubTab(subKey);
     else if (tabKey === 'CONTACTS') setContactSubTab(subKey);
     else if (tabKey === 'FINANCE') setFinanceSubTab(subKey);
+    else if (tabKey === 'EXPENSES') setExpensesSubTab(subKey);
   };
 
   const handleSeeDetails = (reportTab: string) => {
@@ -2116,6 +2133,24 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
         {/* ════════════════════════════════════ */}
         {activeTab === 'CONTACTS' && (
           <ContactsManagement restaurant={restaurant} currencySymbol={currencySymbol} initialSubTab={contactSubTab as any} />
+        )}
+
+        {/* ════════════════════════════════════ */}
+        {/* EXPENSES TAB                        */}
+        {/* ════════════════════════════════════ */}
+        {activeTab === 'EXPENSES' && (
+          <ExpensesView
+            restaurant={restaurant}
+            orders={orders}
+            currencySymbol={currencySymbol}
+            initialSubTab={expensesSubTab}
+            subscription={subscription}
+            onNavigateToInventory={(sub) => {
+              setInventorySubTab(sub);
+              setActiveTab('INVENTORY');
+              setExpandedMenus(new Set(['INVENTORY']));
+            }}
+          />
         )}
 
         {/* ════════════════════════════════════ */}

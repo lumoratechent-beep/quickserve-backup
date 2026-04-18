@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Restaurant, Order, OrderStatus, Subscription } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 import { loadBackofficeData, syncBackofficeToDb } from '../lib/sharedSettings';
@@ -7,9 +7,9 @@ import {
   LineChart, Line, CartesianGrid, Legend,
 } from 'recharts';
 import {
-  DollarSign, TrendingUp, TrendingDown, Plus, Search, Edit3, Trash2, Filter,
-  ChevronDown, X, Paperclip, FileText, BarChart3, PieChart as PieChartIcon, Activity,
-  AlertCircle, Receipt, ArrowUpRight, ArrowDownRight,
+  DollarSign, TrendingUp, TrendingDown,
+  FileText, BarChart3, PieChart as PieChartIcon, Activity,
+  AlertCircle, ArrowUpRight, ArrowDownRight,
 } from 'lucide-react';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -50,7 +50,7 @@ interface Supplier {
   name: string;
 }
 
-type FinanceSubTab = 'overview' | 'expenses' | 'reports';
+type FinanceSubTab = 'overview' | 'reports';
 type ReportType = 'pl' | 'breakdown' | 'monthly';
 
 interface Props {
@@ -92,12 +92,12 @@ const FinanceView: React.FC<Props> = ({ restaurant, orders, currencySymbol, init
   // ─── Sub-tab ───
   const [subTab, setSubTab] = useState<FinanceSubTab>(() => {
     const v = initialSubTab as FinanceSubTab;
-    return v === 'expenses' || v === 'reports' ? v : 'overview';
+    return v === 'reports' ? v : 'overview';
   });
   useEffect(() => {
     if (initialSubTab) {
       const v = initialSubTab as FinanceSubTab;
-      setSubTab(v === 'expenses' || v === 'reports' ? v : 'overview');
+      setSubTab(v === 'reports' ? v : 'overview');
     }
   }, [initialSubTab]);
 
@@ -200,59 +200,6 @@ const FinanceView: React.FC<Props> = ({ restaurant, orders, currencySymbol, init
 
   // ─── Report type ───
   const [reportType, setReportType] = useState<ReportType>('pl');
-
-  // ─── Add/Edit modal ───
-  const blankForm = (): Omit<Expense, 'id' | 'createdAt' | 'type'> => ({
-    date: today.toISOString().split('T')[0],
-    amount: 0,
-    category: '',
-    subcategory: '',
-    supplierId: '',
-    supplierName: '',
-    paymentMethod: 'Cash',
-    notes: '',
-    attachmentName: '',
-  });
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(blankForm());
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const subcategoryOptions = useMemo(
-    () => FINANCE_CATEGORIES.find(c => c.name === form.category)?.subcategories ?? [],
-    [form.category],
-  );
-
-  const openAdd = () => { setEditingId(null); setForm(blankForm()); setShowForm(true); };
-  const openEdit = (e: Expense) => {
-    setEditingId(e.id);
-    setForm({ date: e.date, amount: e.amount, category: e.category, subcategory: e.subcategory, supplierId: e.supplierId ?? '', supplierName: e.supplierName ?? '', paymentMethod: e.paymentMethod, notes: e.notes, attachmentName: e.attachmentName ?? '' });
-    setShowForm(true);
-  };
-
-  const handleSave = () => {
-    if (!form.date || !form.amount || !form.category || !form.subcategory) return;
-    const type = getCategoryType(form.category);
-    const supplier = suppliers.find(s => s.id === form.supplierId);
-    const entry: Expense = {
-      id: editingId ?? `exp_${Date.now()}`,
-      ...form,
-      amount: Number(form.amount),
-      supplierName: supplier?.name ?? '',
-      type,
-      createdAt: editingId ? (expenses.find(e => e.id === editingId)?.createdAt ?? Date.now()) : Date.now(),
-    };
-    const updated = editingId
-      ? expenses.map(e => e.id === editingId ? entry : e)
-      : [...expenses, entry];
-    saveExpenses(updated);
-    setShowForm(false);
-  };
-
-  const handleDelete = (id: string) => {
-    if (!confirm('Delete this expense?')) return;
-    saveExpenses(expenses.filter(e => e.id !== id));
-  };
 
   // ─── Derived data ─────────────────────────────────────────────────────────
 
@@ -367,7 +314,6 @@ const FinanceView: React.FC<Props> = ({ restaurant, orders, currencySymbol, init
   // ─── Sub-nav tabs ─────────────────────────────────────────────────────────
   const subTabs: { key: FinanceSubTab; label: string; icon: React.ReactNode }[] = [
     { key: 'overview', label: 'Overview', icon: <BarChart3 size={14} /> },
-    { key: 'expenses', label: 'Expenses', icon: <Receipt size={14} /> },
     { key: 'reports', label: 'Reports', icon: <Activity size={14} /> },
   ];
 
@@ -504,131 +450,6 @@ const FinanceView: React.FC<Props> = ({ restaurant, orders, currencySymbol, init
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ══════════════════════════════════════ */}
-      {/* EXPENSES                              */}
-      {/* ══════════════════════════════════════ */}
-      {subTab === 'expenses' && (
-        <div>
-          {/* Toolbar */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="relative">
-                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input type="text" placeholder="Search expenses..." value={expenseSearch} onChange={e => setExpenseSearch(e.target.value)}
-                  className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl pl-8 pr-4 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none w-44" />
-              </div>
-              <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterSubcategory(''); }}
-                className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                <option value="">All Categories</option>
-                {FINANCE_CATEGORIES.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-              </select>
-              {filterSubcatOptions.length > 0 && (
-                <select value={filterSubcategory} onChange={e => setFilterSubcategory(e.target.value)}
-                  className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                  <option value="">All Subcategories</option>
-                  {filterSubcatOptions.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              )}
-              {suppliers.length > 0 && (
-                <select value={filterSupplier} onChange={e => setFilterSupplier(e.target.value)}
-                  className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                  <option value="">All Suppliers</option>
-                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              )}
-              {(filterCategory || filterSubcategory || filterSupplier || expenseSearch) && (
-                <button onClick={() => { setFilterCategory(''); setFilterSubcategory(''); setFilterSupplier(''); setExpenseSearch(''); }}
-                  className="flex items-center gap-1 px-3 py-2 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">
-                  <X size={12} /> Clear
-                </button>
-              )}
-            </div>
-            <button onClick={openAdd}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20 shrink-0">
-              <Plus size={14} /> Add Expense
-            </button>
-          </div>
-
-          {/* Summary strip */}
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            {[
-              { label: 'Total Expenses', value: fmt(totals.totalExp) },
-              { label: 'COGS', value: fmt(totals.cogs) },
-              { label: 'OPEX', value: fmt(totals.opex) },
-            ].map(s => (
-              <div key={s.label} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
-                <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{s.label}</p>
-                <p className="text-lg font-black text-gray-900 dark:text-white mt-1">{s.value}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Expense table */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            {filteredExpenses.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                      <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Date</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Category</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Subcategory</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Amount</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Supplier</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Payment</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Type</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Notes</th>
-                      <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredExpenses.map(e => (
-                      <tr key={e.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                          {new Date(e.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-md">{e.category}</span>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell">{e.subcategory}</td>
-                        <td className="px-4 py-3 text-sm font-black text-gray-900 dark:text-white">{fmt(e.amount)}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 hidden lg:table-cell">{e.supplierName || '–'}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell">{e.paymentMethod}</td>
-                        <td className="px-4 py-3">
-                          <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${e.type === 'COGS' ? 'bg-amber-100 dark:bg-amber-600/20 text-amber-700 dark:text-amber-400' : 'bg-blue-100 dark:bg-blue-600/20 text-blue-700 dark:text-blue-400'}`}>{e.type}</span>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 hidden lg:table-cell max-w-[140px] truncate">{e.notes || '–'}</td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            {e.attachmentName && (
-                              <span title={e.attachmentName} className="p-1.5 rounded-lg text-gray-400 cursor-default"><Paperclip size={13} /></span>
-                            )}
-                            {e.id.startsWith('po_') ? (
-                              <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700" title="Managed from Inventory > Purchase Orders">Auto</span>
-                            ) : (
-                              <>
-                                <button onClick={() => openEdit(e)} className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all"><Edit3 size={13} /></button>
-                                <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"><Trash2 size={13} /></button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="h-48 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
-                <FileText size={40} className="mb-3 opacity-30" />
-                <p className="text-sm font-bold">No expenses found</p>
-                <p className="text-xs mt-1">{filterCategory || filterSubcategory || filterSupplier || expenseSearch ? 'Try adjusting filters' : 'Click "Add Expense" to record your first expense'}</p>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -786,122 +607,6 @@ const FinanceView: React.FC<Props> = ({ restaurant, orders, currencySymbol, init
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {/* ══════════════════════════════════════ */}
-      {/* ADD / EDIT EXPENSE MODAL              */}
-      {/* ══════════════════════════════════════ */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowForm(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-base font-black dark:text-white flex items-center gap-2">
-                <Receipt size={18} className="text-amber-500" />
-                {editingId ? 'Edit Expense' : 'Add Expense'}
-              </h3>
-              <button onClick={() => setShowForm(false)} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"><X size={16} /></button>
-            </div>
-            <div className="space-y-4">
-              {/* Date */}
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Date *</label>
-                <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                  className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
-              </div>
-              {/* Amount */}
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Amount ({currencySymbol}) *</label>
-                <input type="number" min="0" step="0.01" value={form.amount || ''} onChange={e => setForm(f => ({ ...f, amount: parseFloat(e.target.value) || 0 }))}
-                  className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="0.00" />
-              </div>
-              {/* Category */}
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Category *</label>
-                <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value, subcategory: '' }))}
-                  className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                  <option value="">Select category</option>
-                  {FINANCE_CATEGORIES.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-                </select>
-              </div>
-              {/* Subcategory */}
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Subcategory *</label>
-                <select value={form.subcategory} onChange={e => setForm(f => ({ ...f, subcategory: e.target.value }))}
-                  disabled={!form.category}
-                  className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-50">
-                  <option value="">Select subcategory</option>
-                  {subcategoryOptions.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-              {/* Type (auto) */}
-              {form.category && (
-                <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-700">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Auto Type:</span>
-                  <span className={`text-xs font-black px-2 py-1 rounded-md ${getCategoryType(form.category) === 'COGS' ? 'bg-amber-100 dark:bg-amber-600/20 text-amber-700 dark:text-amber-400' : 'bg-blue-100 dark:bg-blue-600/20 text-blue-700 dark:text-blue-400'}`}>
-                    {getCategoryType(form.category)}
-                  </span>
-                </div>
-              )}
-              {/* Supplier */}
-              {suppliers.length > 0 && (
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Supplier</label>
-                  <select value={form.supplierId} onChange={e => setForm(f => ({ ...f, supplierId: e.target.value }))}
-                    className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                    <option value="">No supplier</option>
-                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                </div>
-              )}
-              {/* Payment Method */}
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Payment Method</label>
-                <div className="flex gap-2 flex-wrap">
-                  {PAYMENT_METHODS.map(m => (
-                    <button key={m} type="button" onClick={() => setForm(f => ({ ...f, paymentMethod: m }))}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${form.paymentMethod === m ? 'bg-amber-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'}`}>
-                      {m}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {/* Notes */}
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Notes</label>
-                <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2}
-                  className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none resize-none" placeholder="Optional notes..." />
-              </div>
-              {/* Attachment */}
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Attachment</label>
-                <div className="flex items-center gap-3">
-                  <button type="button" onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all">
-                    <Paperclip size={13} /> {form.attachmentName ? 'Change file' : 'Attach file'}
-                  </button>
-                  {form.attachmentName && (
-                    <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[160px]">{form.attachmentName}</span>
-                  )}
-                  {form.attachmentName && (
-                    <button type="button" onClick={() => setForm(f => ({ ...f, attachmentName: '' }))} className="text-gray-400 hover:text-red-500 transition-colors"><X size={13} /></button>
-                  )}
-                </div>
-                <input ref={fileInputRef} type="file" className="hidden" accept="image/*,.pdf,.doc,.docx"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) setForm(prev => ({ ...prev, attachmentName: f.name })); e.target.value = ''; }} />
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowForm(false)} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
-              <button
-                onClick={handleSave}
-                disabled={!form.date || !form.amount || !form.category || !form.subcategory}
-                className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all disabled:opacity-40 shadow-lg shadow-amber-600/20">
-                {editingId ? 'Save Changes' : 'Add Expense'}
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>
