@@ -361,9 +361,11 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
   };
 
   const fmt = (n: number) => `${currencySymbol}${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const fieldShellClass = 'w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition-all focus:border-amber-300 focus:ring-2 focus:ring-amber-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-white';
+  const fieldShellClass = 'w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition-all focus:border-amber-300 focus:ring-2 focus:ring-amber-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-white';
   const fieldLabelClass = 'mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400';
   const paymentButtonClass = (isActive: boolean) => `rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all ${isActive ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-white text-gray-500 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-gray-700/70'}`;
+  const sectionTitleClass = 'mb-3 text-2xl font-medium tracking-tight text-gray-900 dark:text-white';
+  const sectionWrapClass = 'border-t border-gray-200 pt-5 dark:border-gray-700';
 
   // ─── Payslip Modal ────────────────────────────────────────────────────────
   const PayslipPreview = ({ expense, onClose }: { expense: Expense; onClose: () => void }) => {
@@ -509,60 +511,49 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
             >
               <ArrowLeft size={14} /> Back
             </button>
-            <p className="text-sm font-bold text-gray-900 dark:text-white">{form.category || currentCat?.name || 'Expense'}</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-white">{form.category || currentCat?.name || 'Expense'}</p>
           </div>
 
-          <div className="mb-5 flex items-start justify-between gap-4 border-b border-gray-200 pb-4 dark:border-gray-700">
-            <div className="min-w-0">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-lg shadow-amber-500/20">
-                  <Receipt size={18} />
+          <div className="mb-6 border-b border-gray-200 pb-5 dark:border-gray-700">
+            <div className="mb-2 flex items-start gap-3">
+              <span className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-200">
+                <Receipt size={18} />
+              </span>
+              <div>
+                <h3 className="text-base font-black text-gray-900 dark:text-white">{primaryModalTitle}</h3>
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{modalSubtitle}</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+              <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700">{formCategory?.name || currentCat?.name || 'Select Category'}</span>
+              {form.category && (
+                <span className={`rounded-full px-3 py-1 ${getCategoryType(form.category) === 'COGS' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'}`}>
+                  {getCategoryType(form.category)}
                 </span>
-                <div>
-                  <h3 className="text-base font-black text-gray-900 dark:text-white">{primaryModalTitle}</h3>
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{modalSubtitle}</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-                <span className="rounded-full bg-white px-3 py-1 text-gray-500 shadow-sm ring-1 ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700">{formCategory?.name || currentCat?.name || 'Select Category'}</span>
-                {form.category && (
-                  <span className={`rounded-full px-3 py-1 ${getCategoryType(form.category) === 'COGS' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'}`}>
-                    {getCategoryType(form.category)}
-                  </span>
-                )}
-                {isPayslipMode && (
-                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">Staff Payroll</span>
-                )}
-              </div>
+              )}
+              {isPayslipMode && (
+                <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">Staff Payroll</span>
+              )}
             </div>
           </div>
 
-          <div className="space-y-5">
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-900/50">
-              <h4 className="mb-4 text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white">Expense Details</h4>
+          <div className="space-y-6">
+            <section className={sectionWrapClass}>
+              <h4 className={sectionTitleClass}>Expense Details</h4>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-1">
                   <label className={fieldLabelClass}>Date</label>
-                  <input
-                    type="date"
-                    value={form.date}
-                    onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                    className={fieldShellClass}
-                  />
+                  <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className={fieldShellClass} />
                 </div>
                 <div className="space-y-1">
                   <label className={fieldLabelClass}>Category</label>
                   {subTab !== 'all' && currentCat ? (
                     <div className={`${fieldShellClass} flex items-center justify-between bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200`}>
                       <span>{currentCat.name}</span>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Locked</span>
+                      <span className="rounded-lg bg-gray-200 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-gray-500 dark:bg-gray-700 dark:text-gray-300">Locked</span>
                     </div>
                   ) : (
-                    <select
-                      value={form.category}
-                      onChange={e => setForm(f => ({ ...f, category: e.target.value, subcategory: '', supplierId: '', supplierName: '' }))}
-                      className={fieldShellClass}
-                    >
+                    <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value, subcategory: '', supplierId: '', supplierName: '' }))} className={fieldShellClass}>
                       <option value="">Select category</option>
                       {EXPENSE_CATEGORIES.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                     </select>
@@ -570,46 +561,31 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
                 </div>
                 <div className="space-y-1 md:col-span-2">
                   <label className={fieldLabelClass}>Subcategory</label>
-                  <select
-                    value={form.subcategory}
-                    onChange={e => setForm(f => ({ ...f, subcategory: e.target.value }))}
-                    disabled={!form.category}
-                    className={`${fieldShellClass} disabled:cursor-not-allowed disabled:opacity-50`}
-                  >
+                  <select value={form.subcategory} onChange={e => setForm(f => ({ ...f, subcategory: e.target.value }))} disabled={!form.category} className={`${fieldShellClass} disabled:cursor-not-allowed disabled:opacity-50`}>
                     <option value="">Select subcategory</option>
                     {subcategoryOptions.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
               </div>
-            </div>
+            </section>
 
             {isPayslipMode ? (
               <>
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-900/50">
-                  <h4 className="mb-4 text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white">Staff Details</h4>
+                <section className={sectionWrapClass}>
+                  <h4 className={sectionTitleClass}>Staff Details</h4>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="space-y-1">
                       <label className={fieldLabelClass}>Employee Name</label>
                       {staffList.length > 0 ? (
-                        <select
-                          value={form.staffName}
-                          onChange={e => {
-                            const staff = staffList.find((s: any) => s.username === e.target.value);
-                            setForm(f => ({ ...f, staffName: e.target.value, staffRole: staff?.role ?? '' }));
-                          }}
-                          className={fieldShellClass}
-                        >
+                        <select value={form.staffName} onChange={e => {
+                          const staff = staffList.find((s: any) => s.username === e.target.value);
+                          setForm(f => ({ ...f, staffName: e.target.value, staffRole: staff?.role ?? '' }));
+                        }} className={fieldShellClass}>
                           <option value="">Select employee</option>
                           {staffList.map((s: any) => <option key={s.id} value={s.username}>{s.username} ({s.role})</option>)}
                         </select>
                       ) : (
-                        <input
-                          type="text"
-                          placeholder="Type employee name"
-                          value={form.staffName}
-                          onChange={e => setForm(f => ({ ...f, staffName: e.target.value }))}
-                          className={fieldShellClass}
-                        />
+                        <input type="text" placeholder="Type employee name" value={form.staffName} onChange={e => setForm(f => ({ ...f, staffName: e.target.value }))} className={fieldShellClass} />
                       )}
                       {staffList.length === 0 && (
                         <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400">No staff found in Staff Management yet. You can still enter the employee manually.</p>
@@ -617,29 +593,17 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
                     </div>
                     <div className="space-y-1">
                       <label className={fieldLabelClass}>Role</label>
-                      <input
-                        type="text"
-                        value={form.staffRole}
-                        onChange={e => setForm(f => ({ ...f, staffRole: e.target.value }))}
-                        placeholder="e.g. Cashier, Kitchen"
-                        className={fieldShellClass}
-                      />
+                      <input type="text" value={form.staffRole} onChange={e => setForm(f => ({ ...f, staffRole: e.target.value }))} placeholder="e.g. Cashier, Kitchen" className={fieldShellClass} />
                     </div>
                     <div className="space-y-1 md:col-span-2">
                       <label className={fieldLabelClass}>Pay Period</label>
-                      <input
-                        type="text"
-                        value={form.payPeriod}
-                        onChange={e => setForm(f => ({ ...f, payPeriod: e.target.value }))}
-                        placeholder="e.g. January 2026"
-                        className={fieldShellClass}
-                      />
+                      <input type="text" value={form.payPeriod} onChange={e => setForm(f => ({ ...f, payPeriod: e.target.value }))} placeholder="e.g. January 2026" className={fieldShellClass} />
                     </div>
                   </div>
-                </div>
+                </section>
 
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-900/50">
-                  <h4 className="mb-4 text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white">Compensation Breakdown</h4>
+                <section className={sectionWrapClass}>
+                  <h4 className={sectionTitleClass}>Financials</h4>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <div className="space-y-1">
                       <label className={fieldLabelClass}>Basic Salary ({currencySymbol})</label>
@@ -654,7 +618,7 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
                       <input type="number" min="0" step="0.01" value={form.deductions || ''} onChange={e => setForm(f => ({ ...f, deductions: parseFloat(e.target.value) || 0 }))} placeholder="0.00" className={fieldShellClass} />
                     </div>
                   </div>
-                  <div className="mt-4 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-4 dark:border-amber-800/30 dark:from-amber-900/20 dark:to-orange-900/10">
+                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800/30 dark:bg-amber-900/10">
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">Net Staff Expense</p>
@@ -663,20 +627,21 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
                       <span className="text-xl font-black text-amber-700 dark:text-amber-300">{fmt(netPayPreview)}</span>
                     </div>
                   </div>
-                </div>
+                </section>
               </>
             ) : (
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-900/50">
-                <h4 className="mb-4 text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white">Amount</h4>
-                <div className="space-y-1">
+              <section className={sectionWrapClass}>
+                <h4 className={sectionTitleClass}>Financials</h4>
+                <div className="max-w-xl space-y-1">
                   <label className={fieldLabelClass}>Amount ({currencySymbol})</label>
                   <input type="number" min="0" step="0.01" value={form.amount || ''} onChange={e => setForm(f => ({ ...f, amount: parseFloat(e.target.value) || 0 }))} placeholder="0.00" className={fieldShellClass} />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Please enter the exact amount as on the receipt.</p>
                 </div>
-              </div>
+              </section>
             )}
 
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-900/50">
-              <h4 className="mb-4 text-sm font-black uppercase tracking-tight text-gray-900 dark:text-white">Extra Details</h4>
+            <section className={sectionWrapClass}>
+              <h4 className={sectionTitleClass}>Entity & Method</h4>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {supplierEnabled && suppliers.length > 0 && (
                   <div className="space-y-1">
@@ -687,7 +652,7 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
                     </select>
                   </div>
                 )}
-                <div className="space-y-1 md:col-span-1">
+                <div className="space-y-1">
                   <label className={fieldLabelClass}>Payment Method</label>
                   <div className="flex flex-wrap gap-2 rounded-2xl bg-white p-2 ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
                     {PAYMENT_METHODS.map(m => (
@@ -697,19 +662,25 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
                     ))}
                   </div>
                 </div>
-                <div className="space-y-1 md:col-span-2">
+              </div>
+            </section>
+
+            <section className={sectionWrapClass}>
+              <h4 className={sectionTitleClass}>Additional Information</h4>
+              <div className="space-y-4">
+                <div className="space-y-1">
                   <label className={fieldLabelClass}>Notes</label>
-                  <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} placeholder="Optional notes, references, or context..." className={`${fieldShellClass} resize-none`} />
+                  <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="Optional notes, references, or context..." className={`${fieldShellClass} resize-none`} />
                 </div>
-                <div className="space-y-2 md:col-span-2">
+                <div className="space-y-2">
                   <label className={fieldLabelClass}>Attachment</label>
-                  <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-4 dark:border-gray-600 dark:bg-gray-800">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">Upload receipt or supporting file</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Accepted: images, PDF, DOC, DOCX</p>
+                  <div className="rounded-2xl border border-dashed border-gray-300 bg-white px-4 py-3 dark:border-gray-600 dark:bg-gray-800">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400 md:flex-1 md:justify-start">
+                        <Paperclip size={16} />
+                        <span>{form.attachmentName || 'Drag & Drop receipt or browse files'}</span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center gap-2 md:justify-end">
                         <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 rounded-xl bg-gray-100 px-4 py-2 text-xs font-bold text-gray-700 transition-all hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
                           <Paperclip size={13} /> {form.attachmentName ? 'Change file' : 'Attach file'}
                         </button>
@@ -720,14 +691,11 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
                         )}
                       </div>
                     </div>
-                    {form.attachmentName && (
-                      <div className="mt-3 rounded-xl bg-gray-50 px-3 py-2 text-xs font-medium text-gray-600 dark:bg-gray-900 dark:text-gray-300">{form.attachmentName}</div>
-                    )}
                     <input ref={fileInputRef} type="file" className="hidden" accept="image/*,.pdf,.doc,.docx" onChange={e => { const f = e.target.files?.[0]; if (f) setForm(prev => ({ ...prev, attachmentName: f.name })); e.target.value = ''; }} />
                   </div>
                 </div>
               </div>
-            </div>
+            </section>
           </div>
 
           <div className="mt-6 flex flex-col-reverse gap-3 border-t border-gray-200 pt-5 dark:border-gray-700 sm:flex-row sm:justify-end">
