@@ -610,6 +610,10 @@ const AdminView: React.FC<Props> = ({
   const [vendorHubSubTab, setVendorHubSubTab] = useState<'VENDORS' | 'HUBS'>('VENDORS');
   const [incomeReportSubTab, setIncomeReportSubTab] = useState<'INCOME' | 'REPORTS'>('INCOME');
 
+  // Vendor & Hub pagination state
+  const [vendorPage, setVendorPage] = useState<number>(1);
+  const [hubPage, setHubPage] = useState<number>(1);
+
   // Cashout requests tab state
   const [adminCashouts, setAdminCashouts] = useState<any[]>([]);
   const [adminCashoutsLoading, setAdminCashoutsLoading] = useState(false);
@@ -1188,6 +1192,65 @@ const AdminView: React.FC<Props> = ({
     );
   }, [locations, hubSearchQuery]);
 
+  const vendorTotalPages = Math.ceil(filteredVendors.length / entriesPerPage);
+  const paginatedVendors = useMemo(() => {
+    const start = (vendorPage - 1) * entriesPerPage;
+    return filteredVendors.slice(start, start + entriesPerPage);
+  }, [filteredVendors, vendorPage, entriesPerPage]);
+
+  const hubTotalPages = Math.ceil(filteredHubs.length / entriesPerPage);
+  const paginatedHubsList = useMemo(() => {
+    const start = (hubPage - 1) * entriesPerPage;
+    return filteredHubs.slice(start, start + entriesPerPage);
+  }, [filteredHubs, hubPage, entriesPerPage]);
+
+  // Reset pages when filters change
+  useEffect(() => { setVendorPage(1); }, [searchQuery, vendorFilter, vendorSort]);
+  useEffect(() => { setHubPage(1); }, [hubSearchQuery]);
+
+  const handleDownloadVendors = () => {
+    if (filteredVendors.length === 0) return;
+    const headers = ['Kitchen', 'Username', 'Hub', 'Plan', 'Plan Expiry', 'Master Active', 'Live Status'];
+    const rows = filteredVendors.map(v => {
+      const res = restaurants.find(r => r.id === v.restaurantId);
+      const sub = res ? subscriptions[res.id] : null;
+      const planId = sub?.plan_id || 'basic';
+      const planLabels: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
+      const endDate = sub?.current_period_end || sub?.trial_end;
+      return [
+        res?.name || 'Unknown',
+        v.username,
+        res?.location || 'Unassigned',
+        planLabels[planId] || 'Basic',
+        endDate ? new Date(endDate).toLocaleDateString() : '—',
+        v.isActive ? 'Yes' : 'No',
+        res?.isOnline ? 'Online' : 'Offline'
+      ];
+    });
+    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `vendors_${new Date().toISOString().split('T')[0]}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadHubs = () => {
+    if (filteredHubs.length === 0) return;
+    const headers = ['Hub Name', 'Code', 'State', 'Vendors', 'Status'];
+    const rows = filteredHubs.map(loc => [
+      loc.name,
+      loc.code,
+      loc.state,
+      restaurants.filter(r => r.location === loc.name).length,
+      loc.isActive !== false ? 'Active' : 'Inactive'
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `hubs_${new Date().toISOString().split('T')[0]}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const fetchReport = async (isExport = false) => {
     if (!isExport) setIsReportLoading(true);
     try {
@@ -1566,28 +1629,42 @@ const AdminView: React.FC<Props> = ({
 
             {vendorHubSubTab === 'VENDORS' && (
               <div className="space-y-5">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-end gap-4">
-              <div className="flex flex-col sm:flex-row flex-wrap gap-3">
-                <div className="relative flex-1 sm:flex-none sm:w-56">
-                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type="text" placeholder="Search..." className="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-sm outline-none font-bold dark:text-white" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-2 w-full md:w-auto md:flex-1">
+                <div className="relative w-full md:w-72">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search kitchen or username..."
+                    className="w-full h-[34px] pl-9 pr-3 py-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 transition-all dark:text-white"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                  />
                 </div>
-                <div className="relative flex-1 sm:flex-none">
-                   <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                   <select className="w-full pl-9 pr-6 py-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-sm appearance-none outline-none font-bold dark:text-white" value={vendorFilter} onChange={e => setVendorFilter(e.target.value as any)}>
-                      <option value="ALL">All Activation</option>
-                      <option value="ACTIVE">Master Active</option>
-                      <option value="INACTIVE">Master Deactive</option>
+                <div className="relative">
+                   <Filter size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                   <select className="h-[34px] pl-8 pr-6 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase appearance-none outline-none dark:text-white" value={vendorFilter} onChange={e => setVendorFilter(e.target.value as any)}>
+                      <option value="ALL">All</option>
+                      <option value="ACTIVE">Active</option>
+                      <option value="INACTIVE">Deactive</option>
                    </select>
                 </div>
-                <button onClick={handleOpenAdd} className="w-full sm:w-auto px-5 py-2 bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg transition-all active:scale-95">+ Register</button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDownloadVendors}
+                  disabled={filteredVendors.length === 0}
+                  className="h-[34px] px-4 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-orange-500 hover:text-white transition-all shadow-lg whitespace-nowrap disabled:opacity-30"
+                >
+                  <Download size={14} /> Download
+                </button>
+                <button onClick={handleOpenAdd} className="h-[34px] px-5 py-2 bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg transition-all active:scale-95 whitespace-nowrap">+ Register</button>
               </div>
             </div>
             <div className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden shadow-sm">
-            <div className="max-h-[55vh] overflow-y-auto">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[9px] font-black uppercase tracking-widest sticky top-0 z-10">
+                <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[9px] font-black uppercase tracking-widest">
                   <tr>
                     <th className="px-4 py-2.5 text-left group">
                       <div className="inline-flex items-center gap-1.5">
@@ -1623,7 +1700,7 @@ const AdminView: React.FC<Props> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y dark:divide-gray-700/50">
-                  {filteredVendors.map(vendor => {
+                  {paginatedVendors.map(vendor => {
                     const res = restaurants.find(r => r.id === vendor.restaurantId);
                     const isOnline = res?.isOnline ?? false;
                     return (
@@ -1700,31 +1777,66 @@ const AdminView: React.FC<Props> = ({
               </table>
             </div>
             </div>
-            </div>
+
+                {/* Vendor Pagination */}
+                {vendorTotalPages > 1 && (
+                  <div className="flex items-center justify-center gap-2 overflow-x-auto py-2 no-print">
+                    <button onClick={() => setVendorPage(1)} disabled={vendorPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronFirst size={16} /></button>
+                    <button onClick={() => setVendorPage(prev => Math.max(1, prev - 1))} disabled={vendorPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronLeft size={16} /></button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: vendorTotalPages }, (_, i) => i + 1)
+                        .filter(p => p === 1 || p === vendorTotalPages || (p >= vendorPage - 2 && p <= vendorPage + 2))
+                        .map((p, i, arr) => {
+                          const showEllipsis = i > 0 && p !== arr[i-1] + 1;
+                          return (
+                            <React.Fragment key={p}>
+                              {showEllipsis && <span className="text-gray-400 px-1">...</span>}
+                              <button onClick={() => setVendorPage(p)} className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${vendorPage === p ? 'bg-orange-500 text-white shadow-lg' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>{p}</button>
+                            </React.Fragment>
+                          );
+                        })
+                      }
+                    </div>
+                    <button onClick={() => setVendorPage(prev => Math.min(vendorTotalPages, prev + 1))} disabled={vendorPage === vendorTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronRight size={16} /></button>
+                    <button onClick={() => setVendorPage(vendorTotalPages)} disabled={vendorPage === vendorTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronLast size={16} /></button>
+                  </div>
+                )}
               </div>
             )}
 
             {vendorHubSubTab === 'HUBS' && (
               <div className="space-y-5">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-end gap-4">
-              <div className="flex flex-col sm:flex-row flex-wrap gap-3">
-                <div className="relative flex-1 sm:flex-none sm:w-56">
-                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type="text" placeholder="Search hubs..." className="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-sm outline-none font-bold dark:text-white" value={hubSearchQuery} onChange={e => setHubSearchQuery(e.target.value)} />
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-2 w-full md:w-auto md:flex-1">
+                <div className="relative w-full md:w-72">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search hubs..."
+                    className="w-full h-[34px] pl-9 pr-3 py-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 transition-all dark:text-white"
+                    value={hubSearchQuery}
+                    onChange={e => setHubSearchQuery(e.target.value)}
+                  />
                 </div>
-                <div className="flex gap-2 w-full sm:w-auto">
-                    <button onClick={() => setIsHubSelectionModalOpen(true)} className="flex-1 sm:flex-none px-4 py-2 bg-white dark:bg-gray-900 text-orange-500 border-2 border-orange-500 rounded-xl font-black uppercase tracking-widest text-[9px] shadow-sm flex items-center justify-center gap-2 hover:bg-orange-500 hover:text-white transition-all">
-                      <QrCode size={16} /> QR
-                    </button>
-                    <button onClick={handleOpenHubAdd} className="flex-[2] sm:flex-none px-5 py-2 bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg">Register Hub</button>
-                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDownloadHubs}
+                  disabled={filteredHubs.length === 0}
+                  className="h-[34px] px-4 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-orange-500 hover:text-white transition-all shadow-lg whitespace-nowrap disabled:opacity-30"
+                >
+                  <Download size={14} /> Download
+                </button>
+                <button onClick={() => setIsHubSelectionModalOpen(true)} className="h-[34px] px-4 py-2 bg-white dark:bg-gray-900 text-orange-500 border-2 border-orange-500 rounded-xl font-black uppercase tracking-widest text-[9px] shadow-sm flex items-center justify-center gap-2 hover:bg-orange-500 hover:text-white transition-all whitespace-nowrap">
+                  <QrCode size={14} /> QR
+                </button>
+                <button onClick={handleOpenHubAdd} className="h-[34px] px-5 py-2 bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg whitespace-nowrap">Register Hub</button>
               </div>
             </div>
             <div className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden shadow-sm">
-            <div className="max-h-[55vh] overflow-y-auto">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[9px] font-black uppercase tracking-widest sticky top-0 z-10">
+                <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[9px] font-black uppercase tracking-widest">
                   <tr>
                     <th className="px-4 py-2.5 text-left">Hub</th>
                     <th className="px-4 py-2.5 text-center">Vendors</th>
@@ -1733,7 +1845,7 @@ const AdminView: React.FC<Props> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y dark:divide-gray-700/50">
-                  {filteredHubs.map(loc => (
+                  {paginatedHubsList.map(loc => (
                     <tr key={loc.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors group">
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-3">
@@ -1775,7 +1887,30 @@ const AdminView: React.FC<Props> = ({
               </table>
             </div>
             </div>
-            </div>
+
+                {/* Hub Pagination */}
+                {hubTotalPages > 1 && (
+                  <div className="flex items-center justify-center gap-2 overflow-x-auto py-2 no-print">
+                    <button onClick={() => setHubPage(1)} disabled={hubPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronFirst size={16} /></button>
+                    <button onClick={() => setHubPage(prev => Math.max(1, prev - 1))} disabled={hubPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronLeft size={16} /></button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: hubTotalPages }, (_, i) => i + 1)
+                        .filter(p => p === 1 || p === hubTotalPages || (p >= hubPage - 2 && p <= hubPage + 2))
+                        .map((p, i, arr) => {
+                          const showEllipsis = i > 0 && p !== arr[i-1] + 1;
+                          return (
+                            <React.Fragment key={p}>
+                              {showEllipsis && <span className="text-gray-400 px-1">...</span>}
+                              <button onClick={() => setHubPage(p)} className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${hubPage === p ? 'bg-orange-500 text-white shadow-lg' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>{p}</button>
+                            </React.Fragment>
+                          );
+                        })
+                      }
+                    </div>
+                    <button onClick={() => setHubPage(prev => Math.min(hubTotalPages, prev + 1))} disabled={hubPage === hubTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronRight size={16} /></button>
+                    <button onClick={() => setHubPage(hubTotalPages)} disabled={hubPage === hubTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronLast size={16} /></button>
+                  </div>
+                )}
               </div>
             )}
 
