@@ -814,19 +814,21 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
       </div>
 
       {/* Document-style tab bar */}
-      <div className="flex gap-0 relative overflow-x-auto scrollbar-hide">
+      <div className="flex gap-0 relative">
         {[
-          { key: 'all' as ExpenseSubTab, label: 'All Expenses', icon: <FileText size={13} /> },
+          { key: 'all' as ExpenseSubTab, label: 'All', icon: <FileText size={13} /> },
           ...EXPENSE_TYPE_KEYS.map(k => {
             const cat = getCategoryByKey(k);
-            return { key: k, label: cat?.name ?? k, icon: cat?.icon ?? null };
+            const shortLabels: Record<string, string> = { 'Rent & Occupancy': 'Rent', 'Platform Subscription': 'Platform' };
+            const name = cat?.name ?? k;
+            return { key: k, label: shortLabels[name] ?? name, icon: cat?.icon ?? null };
           }),
         ].map(tab => (
           <button
             key={tab.key}
             onClick={() => setSubTab(tab.key)}
             style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
-            className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative shrink-0 ${
+            className={`flex items-center gap-1.5 px-3 md:px-4 py-2.5 text-[10px] md:text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
               subTab === tab.key
                 ? 'bg-white dark:bg-gray-800 text-amber-600 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-amber-500 z-10'
                 : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
