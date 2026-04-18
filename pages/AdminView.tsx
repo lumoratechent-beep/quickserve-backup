@@ -1843,7 +1843,7 @@ const AdminView: React.FC<Props> = ({
                         <th className="w-[10%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Date</th>
                         <th className="w-[14%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Restaurant</th>
                         <th className="w-[8%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Plan</th>
-                        <th className="w-[8%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Source</th>
+                        <th className="w-[8%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Type</th>
                         <th className="w-[18%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest hidden lg:table-cell">Description</th>
                         <th className="w-[10%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Gross</th>
                         <th className="w-[10%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest hidden md:table-cell">Fee</th>
@@ -1876,12 +1876,10 @@ const AdminView: React.FC<Props> = ({
                             ) : <span className="text-xs text-gray-400">—</span>}
                           </td>
                           <td className="px-3 py-2 text-center">
-                            {txn.extensionType === 'free' ? (
-                              <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-green-50 dark:bg-green-900/20 text-green-600">Free</span>
-                            ) : txn.extensionType === 'paid' ? (
+                            {txn.extensionType === 'paid' ? (
                               <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-orange-50 dark:bg-orange-900/20 text-orange-600">Cash</span>
                             ) : (
-                              <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-900/20 text-blue-600">Stripe</span>
+                              <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-green-50 dark:bg-green-900/20 text-green-600">Free</span>
                             )}
                           </td>
                           <td className="px-3 py-2 text-xs dark:text-gray-300 truncate hidden lg:table-cell">{txn.description}</td>
