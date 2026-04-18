@@ -814,26 +814,28 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
       </div>
 
       {/* Category tabs */}
-      <div className="flex gap-0 border-b border-gray-200 dark:border-gray-700 mb-0">
-        {[
-          { key: 'all' as ExpenseSubTab, label: 'All Expenses', icon: <FileText size={13} /> },
-          ...EXPENSE_TYPE_KEYS.map(k => {
-            const cat = getCategoryByKey(k);
-            return { key: k, label: cat?.name ?? k, icon: cat?.icon ?? null };
-          }),
-        ].map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setSubTab(tab.key)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold uppercase tracking-wider border border-b-0 rounded-t-xl transition-all -mb-px ${
-              subTab === tab.key
-                ? 'bg-white dark:bg-gray-800 text-amber-600 dark:text-amber-400 border-gray-200 dark:border-gray-700 relative z-10'
-                : 'bg-gray-100 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 border-transparent hover:bg-gray-200 dark:hover:bg-gray-800/60 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-          >
-            {tab.icon} {tab.label}
-          </button>
-        ))}
+      <div className="relative border-b border-gray-200 dark:border-gray-700 mb-0">
+        <div className="flex gap-0 overflow-x-auto scrollbar-hide">
+          {[
+            { key: 'all' as ExpenseSubTab, label: 'All Expenses', icon: <FileText size={13} /> },
+            ...EXPENSE_TYPE_KEYS.map(k => {
+              const cat = getCategoryByKey(k);
+              return { key: k, label: cat?.name ?? k, icon: cat?.icon ?? null };
+            }),
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setSubTab(tab.key)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold uppercase tracking-wider whitespace-nowrap border border-b-0 rounded-t-xl transition-all -mb-px shrink-0 ${
+                subTab === tab.key
+                  ? 'bg-white dark:bg-gray-800 text-amber-600 dark:text-amber-400 border-gray-200 dark:border-gray-700 relative z-10'
+                  : 'bg-gray-100 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 border-transparent hover:bg-gray-200 dark:hover:bg-gray-800/60 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Tab content panel */}
