@@ -439,18 +439,27 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
     ? 'Capture salary, allowances, deductions, and generate a clean staff expense record.'
     : 'Add a clean expense entry with only the fields that matter for this category.';
   const netPayPreview = (form.basicSalary || 0) + (form.allowances || 0) - (form.deductions || 0);
+  const pageTitle = subTab === 'all' ? 'All Expenses' : (currentCat?.name ?? 'Expenses');
+  const pageSubtitle = subTab === 'all'
+    ? 'All expense records'
+    : (currentCat?.description ?? 'Manage expenses');
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h2 className="text-lg font-black dark:text-white">Expenses</h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            {subTab === 'all' ? 'All expense records' : (currentCat?.description ?? 'Manage expenses')}
-          </p>
+      {subTab === 'all' ? (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 className="text-lg font-black dark:text-white">{pageTitle}</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{pageSubtitle}</p>
+          </div>
         </div>
-      </div>
+      ) : (
+        !showForm && !showTypePicker && (
+          <div className="mb-5">
+            <h2 className="text-lg font-black dark:text-white">{pageTitle}</h2>
+          </div>
+        )
+      )}
 
       {showTypePicker ? (
         <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
@@ -733,24 +742,22 @@ const ExpensesView: React.FC<Props> = ({ restaurant, orders, currencySymbol, ini
       ) : (
       <>
       {/* Summary strip */}
+      {subTab === 'all' && (
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
         <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
-          <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-            {subTab === 'all' ? 'Total Expenses' : `${currentCat?.name ?? 'Total'}`}
-          </p>
+          <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Expenses</p>
           <p className="text-lg font-black text-gray-900 dark:text-white mt-1">{fmt(totalFiltered)}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
           <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Records</p>
           <p className="text-lg font-black text-gray-900 dark:text-white mt-1">{filteredExpenses.length}</p>
         </div>
-        {subTab === 'all' && (
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
             <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Categories</p>
             <p className="text-lg font-black text-gray-900 dark:text-white mt-1">{new Set(filteredExpenses.map(e => e.category)).size}</p>
           </div>
-        )}
       </div>
+      )}
 
       {/* Food Cost: link to Purchase Orders */}
       {subTab === 'food_cost' && (
