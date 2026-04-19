@@ -2162,7 +2162,7 @@ const PosOnlyView: React.FC<Props> = ({
 
     const printRestaurant = {
       ...restaurant,
-      name: orderListConfig.businessName.trim() || restaurant.name,
+      name: orderListConfig.businessName.trim(),
     };
     const orderForPrint = {
       id: selectedSavedBillEntry.id,
@@ -2431,7 +2431,7 @@ const PosOnlyView: React.FC<Props> = ({
                 setTimeout(() => {
                   const olRestaurant = {
                     ...restaurant,
-                    name: orderListConfig.businessName.trim() || restaurant.name,
+                    name: orderListConfig.businessName.trim(),
                   };
                   printerService
                     .printReceipt(orderForPrint, olRestaurant, getOrderListPrintOptions())
@@ -2463,7 +2463,7 @@ const PosOnlyView: React.FC<Props> = ({
           setTimeout(() => {
             const olRestaurant = {
               ...restaurant,
-              name: orderListConfig.businessName.trim() || restaurant.name,
+              name: orderListConfig.businessName.trim(),
             };
             printerService
               .printReceipt(orderForPrint, olRestaurant, getOrderListPrintOptions())
@@ -4541,7 +4541,7 @@ const PosOnlyView: React.FC<Props> = ({
 
         const printRestaurant = {
           ...restaurant,
-          name: orderListConfig.businessName.trim() || restaurant.name,
+          name: orderListConfig.businessName.trim(),
         };
         const printSuccess = await printerService.printReceipt(orderToPrint, printRestaurant, getOrderListPrintOptions());
         if (!printSuccess) {
@@ -4586,7 +4586,7 @@ const PosOnlyView: React.FC<Props> = ({
 
       const printRestaurant = {
         ...restaurant,
-        name: orderListConfig.businessName.trim() || restaurant.name,
+        name: orderListConfig.businessName.trim(),
       };
       const success = await printerService.printReceipt(orderToPrint, printRestaurant, getOrderListPrintOptions());
       if (success) {
@@ -11734,7 +11734,7 @@ const PosOnlyView: React.FC<Props> = ({
                         if (!pendingOrderData) return;
                         const printRestaurant = {
                           ...restaurant,
-                          name: orderListConfig.businessName.trim() || restaurant.name,
+                          name: orderListConfig.businessName.trim(),
                         };
                         const orderForPrint = {
                           id: pendingOrderData.orderId || pendingOrderData.id || '',
@@ -12116,7 +12116,7 @@ const PosOnlyView: React.FC<Props> = ({
                       }
                       const olRestaurant = {
                         ...restaurant,
-                        name: orderListConfig.businessName.trim() || restaurant.name,
+                        name: orderListConfig.businessName.trim(),
                       };
                       const orderForPrint = {
                         id: selectedReportOrder.id,

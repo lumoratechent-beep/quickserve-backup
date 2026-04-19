@@ -882,7 +882,7 @@ class PrinterService {
       const cols = r.getColumns();
       const now = new Date(order.timestamp);
 
-      const bizName   = this.sanitize(restaurant?.name) || 'RESTAURANT';
+      const bizName   = this.sanitize(restaurant?.name);
       const orderId   = this.sanitize(order.id) || 'ORDER';
       const rawTable  = this.sanitize(order.tableNumber);
       const tableNum  = rawTable ? rawTable.replace(/^Table\s+/i, '') : rawTable;
@@ -911,15 +911,17 @@ class PrinterService {
       const titleAlign = options?.titleAlignment || 'center';
       const titleSz = options?.titleSize || 2;
       const titleFnt = options?.titleFont || 'A';
-      r.align(titleAlign).bold(true).font(titleFnt).size(titleSz, titleSz);
-      r.line(bizName);
-      r.normalSize().bold(false).font('A');
+      if (bizName) {
+        r.align(titleAlign).bold(true).font(titleFnt).size(titleSz, titleSz);
+        r.line(bizName);
+        r.normalSize().bold(false).font('A');
 
-      // ── Address & Phone — centered, normal ──
-      r.align(titleAlign);
-      if (bizAddrLine1) r.line(bizAddrLine1);
-      if (bizAddrLine2) r.line(bizAddrLine2);
-      if (bizPhone) r.line(bizPhone);
+        // ── Address & Phone — centered, normal ──
+        r.align(titleAlign);
+        if (bizAddrLine1) r.line(bizAddrLine1);
+        if (bizAddrLine2) r.line(bizAddrLine2);
+        if (bizPhone) r.line(bizPhone);
+      }
 
       // ── Custom header text — use header customization ──
       if (header) {
@@ -1081,11 +1083,13 @@ class PrinterService {
       if (options?.documentType === 'order-list') {
         const isPaid = !!(order.paymentMethod && order.paymentMethod.trim());
         const label = isPaid ? 'ORDER PAID' : 'NOT YET PAID';
-        r.align(docAlign).normalSize().font('A');
+        r.align(docAlign).normalSize().font('A').bold(false);
         r.line('.'.repeat(cols));
         r.lineSpacing(0);
-        r.bold(true).line(label);
-        r.bold(false).defaultLineSpacing();
+        r.bold(true);
+        r.line(label);
+        r.defaultLineSpacing();
+        r.bold(false);
         r.line('.'.repeat(cols));
         r.align('left');
       }

@@ -941,29 +941,6 @@ const PrinterSettings: React.FC<Props> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-5">
         <div>
-          <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Custom Text</p>
-          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Optional header and footer lines on order lists.</p>
-        </div>
-        <div className="min-w-0 space-y-3">
-          <div>
-            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Header Text</label>
-            <input
-              type="text"
-              value={orderListConfig.headerText}
-              onChange={e => updateOrderListConfig('headerText', e.target.value)}
-              className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-              placeholder="Printed above items (optional)"
-            />
-          </div>
-          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-            <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Footer</p>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Footer is replaced by payment status indicator (ORDER PAID / NOT YET PAID) on order lists.</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-5">
-        <div>
           <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Text Formatting</p>
           <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Control size, font, and alignment per text block.</p>
         </div>
