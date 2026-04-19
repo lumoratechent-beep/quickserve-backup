@@ -76,7 +76,7 @@ export const POS_DEFAULTS = {
     titleSize: 2,
     titleFont: 'A',
     titleAlignment: 'center',
-    documentSize: 1,
+    headerSize: 1,
     headerFont: 'A',
     headerAlignment: 'center',
     footerSize: 1,
