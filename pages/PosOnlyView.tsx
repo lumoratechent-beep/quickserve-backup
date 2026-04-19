@@ -3866,6 +3866,7 @@ const PosOnlyView: React.FC<Props> = ({
   const getReceiptPrintOptions = (): ReceiptPrintOptions => {
     const printer = savedPrinters.length > 0 ? savedPrinters[0] : null;
     return {
+      documentType: 'receipt',
       showDateTime: receiptConfig.showDateTime,
       showOrderId: receiptConfig.showOrderNumber,
       showTableNumber: receiptConfig.showTableNumber,
@@ -3903,6 +3904,7 @@ const PosOnlyView: React.FC<Props> = ({
   const getOrderListPrintOptions = (): ReceiptPrintOptions => {
     const printer = savedPrinters.length > 0 ? savedPrinters[0] : null;
     return {
+      documentType: 'order-list',
       showDateTime: orderListConfig.showDateTime,
       showOrderId: orderListConfig.showOrderNumber,
       showTableNumber: orderListConfig.showTableNumber,

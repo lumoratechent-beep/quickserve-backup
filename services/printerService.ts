@@ -184,6 +184,7 @@ export interface KitchenTicketConfig {
 }
 
 export interface ReceiptPrintOptions {
+  documentType?: 'receipt' | 'order-list';
   showDateTime?: boolean;
   showOrderId?: boolean;
   showTableNumber?: boolean;
@@ -871,6 +872,7 @@ class PrinterService {
       const bizAddrLine1 = this.sanitize(options?.businessAddressLine1 || options?.businessAddress);
       const bizAddrLine2 = this.sanitize(options?.businessAddressLine2);
       const bizPhone  = this.sanitize(options?.businessPhone);
+      const documentTitle = options?.documentType === 'order-list' ? 'ORDER LIST' : 'PAYMENT RECEIPT';
 
       const showDT     = options?.showDateTime !== false;
       const showOrdId  = options?.showOrderId !== false;
@@ -909,8 +911,13 @@ class PrinterService {
         r.normalSize().font('A');
       }
 
-      // ── Separator ──
-      r.align('left').thickSeparator();
+      // ── Document header ──
+      r.align('center').normalSize().font('A').bold(false);
+      r.line('.'.repeat(cols));
+      r.bold(true).line(documentTitle).bold(false);
+      r.line('.'.repeat(cols));
+
+      r.align('left');
 
       // ── Date/Time ──
       if (showDT) {
