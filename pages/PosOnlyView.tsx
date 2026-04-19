@@ -10799,11 +10799,11 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               )}
                   {(showSavedBillFeature || showQrFeature) && (
-                    <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 mb-3">
+                    <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 mb-3">
                       {showSavedBillFeature && (
                         <button
                           onClick={() => { if (editingQrOrderId) return; switchCounterMode('SAVED_BILL'); }}
-                          className={`relative flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                          className={`relative flex h-7 flex-1 items-center justify-center rounded-md text-[9px] font-black uppercase tracking-widest leading-none transition-all ${
                             editingQrOrderId
                               ? 'bg-blue-500 text-white shadow-sm'
                               : counterMode === 'SAVED_BILL' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
@@ -10816,12 +10816,12 @@ const PosOnlyView: React.FC<Props> = ({
                       )}
                       {!showSavedBillFeature && editingQrOrderId && (
                         <button
-                          className="relative flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all bg-blue-500 text-white shadow-sm"
+                          className="relative flex h-7 flex-1 items-center justify-center rounded-md text-[9px] font-black uppercase tracking-widest leading-none transition-all bg-blue-500 text-white shadow-sm"
                         >Edit Order</button>
                       )}
                       <button
                         onClick={() => switchCounterMode('COUNTER_ORDER')}
-                        className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                        className={`flex h-7 flex-1 items-center justify-center rounded-md text-[9px] font-black uppercase tracking-widest leading-none transition-all ${
                           !editingQrOrderId && counterMode === 'COUNTER_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
                         }`}
                       >Counter</button>
@@ -10830,7 +10830,7 @@ const PosOnlyView: React.FC<Props> = ({
                         return (
                         <button
                           onClick={() => switchCounterMode('QR_ORDER')}
-                          className={`relative flex-1 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                          className={`relative flex h-7 flex-1 items-center justify-center rounded-md text-[9px] font-black uppercase tracking-widest leading-none transition-all ${
                             !editingQrOrderId && counterMode === 'QR_ORDER' ? 'bg-white dark:bg-gray-800 text-orange-500 shadow-sm' : 'text-gray-400 dark:text-gray-500'
                           }`}
                         >QR Order
@@ -10861,11 +10861,11 @@ const PosOnlyView: React.FC<Props> = ({
                         disabled={!selectedSavedBillEntry || !realPrinterConnected}
                         className={`inline-flex h-7 items-center gap-2 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest leading-none transition-all ${
                           selectedSavedBillEntry && realPrinterConnected
-                            ? 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:text-orange-500'
+                            ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30'
                             : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                         }`}
                       >
-                        <List size={14} />
+                        <Printer size={14} />
                         Print Order List
                       </button>
                     )}
