@@ -11519,139 +11519,157 @@ const PosOnlyView: React.FC<Props> = ({
             {/* Payment Result View */}
             <div className={`absolute inset-0 flex flex-col transition-transform duration-500 ease-in-out ${showPaymentResult ? 'translate-x-0' : 'translate-x-full'}`}>
               {/* Header */}
-              <div className="px-8 py-5 border-b dark:border-gray-700 flex items-center justify-center flex-shrink-0">
-                <h3 className="font-black dark:text-white uppercase tracking-tighter text-2xl">Payment Complete</h3>
+              <div className="px-8 py-4 border-b dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+                <h3 className="font-black dark:text-white uppercase tracking-wider text-lg">Payment Complete</h3>
               </div>
 
               {/* Content */}
-              <div className="flex-1 flex flex-col items-center justify-center p-8">
-                <div className="w-full max-w-3xl">
-                  <div className="grid grid-cols-1 sm:grid-cols-2">
-                    <div className="sm:pr-8 text-center sm:text-right sm:border-r-2 border-dotted dark:border-gray-700 pb-4 sm:pb-0">
-                      <div className="text-3xl lg:text-5xl font-black text-green-500 tracking-tighter">
+              <div className="flex-1 overflow-y-auto">
+                {/* Totals Area */}
+                <div className="bg-gray-50 dark:bg-gray-900/40 px-8 py-8">
+                  <div className="w-full max-w-3xl mx-auto grid grid-cols-2">
+                    <div className="pr-6 text-center border-r-2 border-dotted border-gray-300 dark:border-gray-600">
+                      <div className="text-4xl lg:text-6xl font-black text-green-500 tracking-tighter leading-none">
                         {currencySymbol}{(selectedCashAmount || 0).toFixed(2)}
                       </div>
-                      <label className="block mt-2 lg:mt-3 text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Total Paid</label>
+                      <label className="block mt-3 text-xs lg:text-sm font-black text-gray-400 uppercase tracking-[0.2em]">Total Paid</label>
                     </div>
-                    <div className="sm:pl-8 text-center sm:text-left border-t sm:border-t-0 border-dotted dark:border-gray-700 pt-4 sm:pt-0">
-                      <div className="text-3xl lg:text-5xl font-black text-blue-500 tracking-tighter">
+                    <div className="pl-6 text-center">
+                      <div className="text-4xl lg:text-6xl font-black text-blue-500 tracking-tighter leading-none">
                         {currencySymbol}{Math.max(0, (selectedCashAmount || 0) - pendingOrderData.total).toFixed(2)}
                       </div>
-                      <label className="block mt-2 lg:mt-3 text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Total Change</label>
+                      <label className="block mt-3 text-xs lg:text-sm font-black text-gray-400 uppercase tracking-[0.2em]">Total Change</label>
                     </div>
                   </div>
                 </div>
 
-                {/* Bluetooth Printer Status */}
-                <div className="w-full max-w-3xl mt-6 flex justify-center">
-                  {realPrinterConnected ? (
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
-                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                      Printer Connected
+                <div className="px-8 pb-6">
+                  {/* Printer Status */}
+                  <div className="w-full max-w-3xl mx-auto mt-5 flex justify-center">
+                    {realPrinterConnected ? (
+                      <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                        Printer Connected
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handlePrinterButtonClick}
+                        disabled={isAutoReconnecting}
+                        className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider ${
+                          isAutoReconnecting
+                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 cursor-wait'
+                            : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 cursor-pointer'
+                        }`}
+                      >
+                        <div className={`w-2 h-2 rounded-full ${isAutoReconnecting ? 'bg-blue-400 animate-pulse' : 'bg-red-400'}`} />
+                        {isAutoReconnecting ? 'Connecting...' : 'Printer Not Connected'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Summary Section */}
+                  <div className="w-full max-w-3xl mx-auto mt-5">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600" />
+                      <span className="text-sm font-black uppercase tracking-wider text-gray-800 dark:text-white">Summary</span>
+                      <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600" />
                     </div>
-                  ) : (
+                    <div className="border-2 border-gray-800 dark:border-gray-400 rounded-lg px-5 py-3">
+                      <p className="text-sm font-black text-gray-800 dark:text-white uppercase tracking-wider text-center">
+                        {pendingOrderData?.tableNumber ? `Table: ${pendingOrderData.tableNumber}` : 'Counter'}
+                        {pendingOrderData?.diningType ? <span className="mx-2 text-gray-400">|</span> : ''}
+                        {pendingOrderData?.diningType ? `Dining Option: ${pendingOrderData.diningType}` : ''}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Disclaimer */}
+                  <div className="w-full max-w-3xl mx-auto mt-4 text-center">
+                    <p className="text-sm text-gray-400 dark:text-gray-500 italic">Please make sure all the balances are correct before completing the payment.</p>
+                  </div>
+
+                  {/* Print / Reprint buttons — single row */}
+                  <div className="w-full max-w-3xl mx-auto mt-4 grid grid-cols-2 gap-3">
                     <button
                       type="button"
-                      onClick={handlePrinterButtonClick}
-                      disabled={isAutoReconnecting}
-                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider ${
-                        isAutoReconnecting
-                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 cursor-wait'
-                          : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 cursor-pointer'
+                      disabled={!realPrinterConnected}
+                      onClick={async () => {
+                        if (!pendingOrderData) return;
+                        const printRestaurant = {
+                          ...restaurant,
+                          name: receiptConfig.businessName.trim() || restaurant.name,
+                        };
+                        const orderForPrint = {
+                          id: pendingOrderData.orderId || pendingOrderData.id || '',
+                          tableNumber: pendingOrderData.tableNumber,
+                          diningType: pendingOrderData.diningType,
+                          timestamp: pendingOrderData.timestamp || new Date().toISOString(),
+                          total: pendingOrderData.total,
+                          items: pendingOrderData.items,
+                          remark: pendingOrderData.remark,
+                          paymentMethod: pendingOrderData.paymentMethod || '',
+                          cashierName: pendingOrderData.cashierName || cashierName || '',
+                          amountReceived: pendingOrderData.amountReceived ?? selectedCashAmount ?? undefined,
+                          changeAmount: pendingOrderData.changeAmount ?? (selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined),
+                          orderSource: pendingOrderData.orderSource || (isQrPaymentMode ? (selectedQrOrderForPayment?.orderSource || 'qr_order') : 'counter'),
+                        };
+                        const success = await printerService.printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions());
+                        if (success) {
+                          toast(featureSettings.autoPrintReceipt ? 'Receipt reprinted!' : 'Receipt printed!', 'success');
+                        } else {
+                          toast('Print failed. Please try again.', 'error');
+                        }
+                      }}
+                      className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-black text-sm uppercase tracking-wider transition-all ${
+                        realPrinterConnected
+                          ? 'bg-gray-800 dark:bg-white text-white dark:text-gray-800 hover:bg-gray-700 dark:hover:bg-gray-100'
+                          : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                       }`}
                     >
-                      <div className={`w-2 h-2 rounded-full ${isAutoReconnecting ? 'bg-blue-400 animate-pulse' : 'bg-red-400'}`} />
-                      {isAutoReconnecting ? 'Connecting...' : 'Printer Not Connected'}
+                      <Receipt size={16} />
+                      {featureSettings.autoPrintReceipt ? 'Reprint Receipt' : 'Print Receipt'}
                     </button>
-                  )}
-                </div>
-
-                {/* Print Receipt Button — only shown when auto-print is off */}
-
-                <div className="w-full max-w-3xl mt-6 text-center">
-                  <p className="text-sm text-gray-400 dark:text-gray-500 italic">Please make sure all the balances are correct before completing the payment.</p>
-                </div>
-
-                {/* Print / Reprint buttons — single row */}
-                <div className="w-full max-w-3xl mt-4 flex justify-center gap-3">
-                  <button
-                    type="button"
-                    disabled={!realPrinterConnected}
-                    onClick={async () => {
-                      if (!pendingOrderData) return;
-                      const printRestaurant = {
-                        ...restaurant,
-                        name: receiptConfig.businessName.trim() || restaurant.name,
-                      };
-                      const orderForPrint = {
-                        id: pendingOrderData.orderId || pendingOrderData.id || '',
-                        tableNumber: pendingOrderData.tableNumber,
-                        diningType: pendingOrderData.diningType,
-                        timestamp: pendingOrderData.timestamp || new Date().toISOString(),
-                        total: pendingOrderData.total,
-                        items: pendingOrderData.items,
-                        remark: pendingOrderData.remark,
-                        paymentMethod: pendingOrderData.paymentMethod || '',
-                        cashierName: pendingOrderData.cashierName || cashierName || '',
-                        amountReceived: pendingOrderData.amountReceived ?? selectedCashAmount ?? undefined,
-                        changeAmount: pendingOrderData.changeAmount ?? (selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined),
-                        orderSource: pendingOrderData.orderSource || (isQrPaymentMode ? (selectedQrOrderForPayment?.orderSource || 'qr_order') : 'counter'),
-                      };
-                      const success = await printerService.printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions());
-                      if (success) {
-                        toast(featureSettings.autoPrintReceipt ? 'Receipt reprinted!' : 'Receipt printed!', 'success');
-                      } else {
-                        toast('Print failed. Please try again.', 'error');
-                      }
-                    }}
-                    className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider transition-all ${
-                      realPrinterConnected
-                        ? 'bg-gray-800 dark:bg-white text-white dark:text-gray-800 hover:bg-gray-700 dark:hover:bg-gray-100'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    <Receipt size={16} />
-                    {featureSettings.autoPrintReceipt ? 'Reprint Receipt' : 'Print Receipt'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!realPrinterConnected}
-                    onClick={async () => {
-                      if (!pendingOrderData) return;
-                      const printRestaurant = {
-                        ...restaurant,
-                        name: orderListConfig.businessName.trim() || restaurant.name,
-                      };
-                      const orderForPrint = {
-                        id: pendingOrderData.orderId || pendingOrderData.id || '',
-                        tableNumber: pendingOrderData.tableNumber,
-                        diningType: pendingOrderData.diningType,
-                        timestamp: pendingOrderData.timestamp || new Date().toISOString(),
-                        total: pendingOrderData.total,
-                        items: pendingOrderData.items,
-                        remark: pendingOrderData.remark,
-                        paymentMethod: pendingOrderData.paymentMethod || '',
-                        cashierName: pendingOrderData.cashierName || cashierName || '',
-                        amountReceived: pendingOrderData.amountReceived ?? selectedCashAmount ?? undefined,
-                        changeAmount: pendingOrderData.changeAmount ?? (selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined),
-                        orderSource: pendingOrderData.orderSource || (isQrPaymentMode ? (selectedQrOrderForPayment?.orderSource || 'qr_order') : 'counter'),
-                      };
-                      const success = await printerService.printReceipt(orderForPrint, printRestaurant, getOrderListPrintOptions());
-                      if (success) {
-                        toast(featureSettings.autoPrintOrderList ? 'Order list reprinted!' : 'Order list printed!', 'success');
-                      } else {
-                        toast('Print failed. Please try again.', 'error');
-                      }
-                    }}
-                    className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider transition-all ${
-                      realPrinterConnected
-                        ? 'bg-gray-800 dark:bg-white text-white dark:text-gray-800 hover:bg-gray-700 dark:hover:bg-gray-100'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    <List size={16} />
-                    {featureSettings.autoPrintOrderList ? 'Reprint Order List' : 'Print Order List'}
-                  </button>
+                    <button
+                      type="button"
+                      disabled={!realPrinterConnected}
+                      onClick={async () => {
+                        if (!pendingOrderData) return;
+                        const printRestaurant = {
+                          ...restaurant,
+                          name: orderListConfig.businessName.trim() || restaurant.name,
+                        };
+                        const orderForPrint = {
+                          id: pendingOrderData.orderId || pendingOrderData.id || '',
+                          tableNumber: pendingOrderData.tableNumber,
+                          diningType: pendingOrderData.diningType,
+                          timestamp: pendingOrderData.timestamp || new Date().toISOString(),
+                          total: pendingOrderData.total,
+                          items: pendingOrderData.items,
+                          remark: pendingOrderData.remark,
+                          paymentMethod: pendingOrderData.paymentMethod || '',
+                          cashierName: pendingOrderData.cashierName || cashierName || '',
+                          amountReceived: pendingOrderData.amountReceived ?? selectedCashAmount ?? undefined,
+                          changeAmount: pendingOrderData.changeAmount ?? (selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined),
+                          orderSource: pendingOrderData.orderSource || (isQrPaymentMode ? (selectedQrOrderForPayment?.orderSource || 'qr_order') : 'counter'),
+                        };
+                        const success = await printerService.printReceipt(orderForPrint, printRestaurant, getOrderListPrintOptions());
+                        if (success) {
+                          toast(featureSettings.autoPrintOrderList ? 'Order list reprinted!' : 'Order list printed!', 'success');
+                        } else {
+                          toast('Print failed. Please try again.', 'error');
+                        }
+                      }}
+                      className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-black text-sm uppercase tracking-wider transition-all ${
+                        realPrinterConnected
+                          ? 'bg-gray-800 dark:bg-white text-white dark:text-gray-800 hover:bg-gray-700 dark:hover:bg-gray-100'
+                          : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      <List size={16} />
+                      {featureSettings.autoPrintOrderList ? 'Reprint Order List' : 'Print Order List'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
