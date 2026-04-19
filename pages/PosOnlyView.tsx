@@ -2165,7 +2165,7 @@ const PosOnlyView: React.FC<Props> = ({
       name: orderListConfig.businessName.trim(),
     };
     const orderForPrint = {
-      id: selectedSavedBillEntry.id,
+      id: '',
       tableNumber: selectedSavedBillEntry.tableNumber,
       diningType: selectedSavedBillEntry.diningType || preferredDiningOption,
       timestamp: new Date(selectedSavedBillEntry.createdAt).toISOString(),

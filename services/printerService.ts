@@ -895,7 +895,7 @@ class PrinterService {
       const now = new Date(order.timestamp);
 
       const bizName   = this.sanitize(restaurant?.name);
-      const orderId   = this.sanitize(order.id) || 'ORDER';
+      const orderId   = this.sanitize(order.id);
       const rawTable  = this.sanitize(order.tableNumber);
       const tableNum  = rawTable ? rawTable.replace(/^Table\s+/i, '') : rawTable;
       const remark    = this.sanitize(order.remark);
@@ -966,7 +966,7 @@ class PrinterService {
       }
 
       // ── Order Number ──
-      if (showOrdId) {
+      if (showOrdId && orderId) {
         r.bold(true).line(`Order #${orderId}`).bold(false);
       }
 
