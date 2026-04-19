@@ -11524,16 +11524,16 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
 
               {/* Content */}
-              <div className="flex-1 overflow-y-auto">
-                {/* Totals Area */}
-                <div className="bg-gray-50 dark:bg-gray-900/40 px-8 py-8">
-                  <div className="w-full max-w-3xl mx-auto flex justify-center">
-                    <div className="grid w-full max-w-2xl grid-cols-2">
+              <div className="flex-1 flex flex-col items-center justify-center px-8 py-8">
+                <div className="w-full max-w-3xl">
+                  {/* Totals Area */}
+                  <div className="bg-gray-50 dark:bg-gray-900/40 px-8 py-8 rounded-sm">
+                    <div className="w-full max-w-2xl mx-auto grid grid-cols-2">
                       <div className="pr-6 text-center border-r-2 border-dotted border-gray-300 dark:border-gray-600">
-                      <div className="text-4xl lg:text-6xl font-black text-green-500 tracking-tighter leading-none">
-                        {currencySymbol}{(selectedCashAmount || 0).toFixed(2)}
-                      </div>
-                      <label className="block mt-3 text-xs lg:text-sm font-black text-gray-400 uppercase tracking-[0.2em]">Total Paid</label>
+                        <div className="text-4xl lg:text-6xl font-black text-green-500 tracking-tighter leading-none">
+                          {currencySymbol}{(selectedCashAmount || 0).toFixed(2)}
+                        </div>
+                        <label className="block mt-3 text-xs lg:text-sm font-black text-gray-400 uppercase tracking-[0.2em]">Total Paid</label>
                       </div>
                       <div className="pl-6 text-center">
                         <div className="text-4xl lg:text-6xl font-black text-blue-500 tracking-tighter leading-none">
@@ -11543,9 +11543,7 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="px-8 pb-6">
                   {/* Printer Status */}
                   <div className="w-full max-w-3xl mx-auto mt-5 flex justify-center">
                     {realPrinterConnected ? (
