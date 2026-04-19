@@ -10842,8 +10842,8 @@ const PosOnlyView: React.FC<Props> = ({
                       })()}
                     </div>
                   )}
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-black dark:text-white uppercase tracking-tighter text-sm">
+                  <div className="flex min-h-8 items-center justify-between">
+                    <h3 className="font-black dark:text-white uppercase tracking-tighter text-sm leading-none">
                       {editingQrOrderId
                         ? `Editing Order #${editingQrOrderId.slice(-6).toUpperCase()}`
                         : showSavedBillFeature && counterMode === 'SAVED_BILL'
@@ -10859,7 +10859,7 @@ const PosOnlyView: React.FC<Props> = ({
                         type="button"
                         onClick={handlePrintSavedBillOrderList}
                         disabled={!selectedSavedBillEntry || !realPrinterConnected}
-                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                        className={`inline-flex h-7 items-center gap-2 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest leading-none transition-all ${
                           selectedSavedBillEntry && realPrinterConnected
                             ? 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:text-orange-500'
                             : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
@@ -11577,7 +11577,7 @@ const PosOnlyView: React.FC<Props> = ({
               <div className="flex-1 flex flex-col px-8 py-8">
                 <div className="w-full max-w-3xl mx-auto flex min-h-0 flex-1 flex-col">
                   {/* Totals Area */}
-                  <div className="px-8 pt-12 pb-8">
+                  <div className="px-8 pt-16 pb-8">
                     <div className="w-full max-w-2xl mx-auto grid grid-cols-2">
                       <div className="pr-6 text-center border-r-2 border-dotted border-gray-300 dark:border-gray-600">
                         <div className="text-4xl lg:text-6xl font-black text-green-500 tracking-tighter leading-none">
