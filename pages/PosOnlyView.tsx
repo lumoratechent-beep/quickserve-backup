@@ -11524,10 +11524,10 @@ const PosOnlyView: React.FC<Props> = ({
               </div>
 
               {/* Content */}
-              <div className="flex-1 flex flex-col items-center justify-center px-8 py-8">
-                <div className="w-full max-w-3xl">
+              <div className="flex-1 flex flex-col px-8 py-8">
+                <div className="w-full max-w-3xl mx-auto flex min-h-0 flex-1 flex-col">
                   {/* Totals Area */}
-                  <div className="bg-gray-50 dark:bg-gray-900/40 px-8 py-8 rounded-sm">
+                  <div className="px-8 py-8">
                     <div className="w-full max-w-2xl mx-auto grid grid-cols-2">
                       <div className="pr-6 text-center border-r-2 border-dotted border-gray-300 dark:border-gray-600">
                         <div className="text-4xl lg:text-6xl font-black text-green-500 tracking-tighter leading-none">
@@ -11545,7 +11545,7 @@ const PosOnlyView: React.FC<Props> = ({
                   </div>
 
                   {/* Printer Status */}
-                  <div className="w-full max-w-3xl mx-auto mt-5 flex justify-center">
+                  <div className="flex flex-1 items-center justify-center">
                     {realPrinterConnected ? (
                       <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
                         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
@@ -11568,14 +11568,15 @@ const PosOnlyView: React.FC<Props> = ({
                     )}
                   </div>
 
+                  <div className="mt-auto">
                   {/* Summary Section */}
-                  <div className="w-full max-w-3xl mx-auto mt-5">
+                  <div className="w-full max-w-3xl mx-auto">
                     <div className="flex items-center gap-3 mb-3">
                       <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600" />
                       <span className="text-sm font-black uppercase tracking-wider text-gray-800 dark:text-white">Summary</span>
                       <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600" />
                     </div>
-                    <div className="border-2 border-gray-800 dark:border-gray-400 rounded-lg px-5 py-3">
+                    <div className="border border-gray-700 dark:border-gray-500 rounded-lg px-5 py-3">
                       <p className="text-sm font-black text-gray-800 dark:text-white uppercase tracking-wider text-center">
                         {pendingOrderData?.tableNumber ? `Table: ${pendingOrderData.tableNumber}` : 'Counter'}
                         {pendingOrderData?.diningType ? <span className="mx-2 text-gray-400">|</span> : ''}
@@ -11590,7 +11591,7 @@ const PosOnlyView: React.FC<Props> = ({
                   </div>
 
                   {/* Print / Reprint buttons — single row */}
-                  <div className="w-full max-w-3xl mx-auto mt-4 grid grid-cols-2 gap-3">
+                  <div className="w-full max-w-3xl mx-auto mt-4 grid grid-cols-2 gap-3 pb-2">
                     <button
                       type="button"
                       disabled={!realPrinterConnected}
@@ -11669,6 +11670,7 @@ const PosOnlyView: React.FC<Props> = ({
                       <List size={16} />
                       {featureSettings.autoPrintOrderList ? 'Reprint Order List' : 'Print Order List'}
                     </button>
+                  </div>
                   </div>
                 </div>
               </div>
