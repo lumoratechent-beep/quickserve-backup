@@ -12072,7 +12072,8 @@ const PosOnlyView: React.FC<Props> = ({
                   This order has been refunded
                 </div>
               ) : (
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
                   <button
                     onClick={async () => {
                       if (!connectedDevice) {
@@ -12107,6 +12108,41 @@ const PosOnlyView: React.FC<Props> = ({
                   >
                     <Printer size={14} /> Reprint Receipt
                   </button>
+                  <button
+                    onClick={async () => {
+                      if (!connectedDevice) {
+                        toast('Printer is not connected. Please connect a printer to reprint.', 'warning');
+                        return;
+                      }
+                      const olRestaurant = {
+                        ...restaurant,
+                        name: orderListConfig.businessName.trim() || restaurant.name,
+                      };
+                      const orderForPrint = {
+                        id: selectedReportOrder.id,
+                        tableNumber: selectedReportOrder.tableNumber,
+                        timestamp: selectedReportOrder.timestamp,
+                        total: selectedReportOrder.total,
+                        items: selectedReportOrder.items,
+                        remark: selectedReportOrder.remark || '',
+                        paymentMethod: (selectedReportOrder as any).paymentMethod || '',
+                        cashierName: (selectedReportOrder as any).cashierName || '',
+                        amountReceived: (selectedReportOrder as any).amountReceived,
+                        changeAmount: (selectedReportOrder as any).changeAmount,
+                        orderSource: (selectedReportOrder as any).orderSource,
+                      };
+                      try {
+                        await printerService.printReceipt(orderForPrint, olRestaurant, getOrderListPrintOptions());
+                      } catch (err) {
+                        console.error('Reprint order list error:', err);
+                      }
+                      setSelectedReportOrder(null);
+                    }}
+                    className="flex-1 py-3 bg-blue-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-2"
+                  >
+                    <List size={14} /> Reprint Order
+                  </button>
+                  </div>
                   {selectedReportOrder.status === OrderStatus.SERVED ? (
                     <button
                       onClick={() => {

@@ -1048,25 +1048,33 @@ class PrinterService {
         }
       }
 
-      // ── Total — bold, double size ──
-      r.separator();
-      if (showTotal) {
-        r.bold(true).size(1, 2);
-        r.columns2('TOTAL', `RM ${this.formatPrice(order.total)}`);
-        r.normalSize().bold(false);
-      }
+      // ── Total / Payment details ──
+      const hasTotal = showTotal;
+      const hasPayment = showPaymentMethod && order.paymentMethod;
+      const hasAmountReceived = options?.showAmountReceived !== false && order.amountReceived != null && Number(order.amountReceived) > 0;
+      const hasChange = options?.showChange !== false && order.changeAmount != null && Number(order.changeAmount) >= 0;
+      const hasTotalSection = hasTotal || hasPayment || hasAmountReceived || hasChange;
 
-      // ── Payment method ──
-      if (showPaymentMethod && order.paymentMethod) {
-        r.line(`Paid: ${this.sanitize(order.paymentMethod)}`);
-      }
-      // ── Amount Received ──
-      if (options?.showAmountReceived !== false && order.amountReceived != null && Number(order.amountReceived) > 0) {
-        r.columns2('Amount Received', `RM ${this.formatPrice(order.amountReceived)}`);
-      }
-      // ── Change ──
-      if (options?.showChange !== false && order.changeAmount != null && Number(order.changeAmount) >= 0) {
-        r.columns2('Change', `RM ${this.formatPrice(order.changeAmount)}`);
+      if (hasTotalSection) {
+        r.separator();
+        if (showTotal) {
+          r.bold(true).size(1, 2);
+          r.columns2('TOTAL', `RM ${this.formatPrice(order.total)}`);
+          r.normalSize().bold(false);
+        }
+
+        // ── Payment method ──
+        if (hasPayment) {
+          r.line(`Paid: ${this.sanitize(order.paymentMethod)}`);
+        }
+        // ── Amount Received ──
+        if (hasAmountReceived) {
+          r.columns2('Amount Received', `RM ${this.formatPrice(order.amountReceived)}`);
+        }
+        // ── Change ──
+        if (hasChange) {
+          r.columns2('Change', `RM ${this.formatPrice(order.changeAmount)}`);
+        }
       }
 
       // ── Footer ──
