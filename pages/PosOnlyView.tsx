@@ -2148,6 +2148,41 @@ const PosOnlyView: React.FC<Props> = ({
     setShowPaymentModal(true);
   };
 
+  const handlePrintSavedBillOrderList = async () => {
+    if (!selectedSavedBillEntry) {
+      toast('Select a pending saved bill first.', 'error');
+      return;
+    }
+    if (!realPrinterConnected) {
+      toast('Printer not connected.', 'error');
+      return;
+    }
+
+    const printRestaurant = {
+      ...restaurant,
+      name: orderListConfig.businessName.trim() || restaurant.name,
+    };
+    const orderForPrint = {
+      id: selectedSavedBillEntry.id,
+      tableNumber: selectedSavedBillEntry.tableNumber,
+      diningType: selectedSavedBillEntry.diningType || preferredDiningOption,
+      timestamp: new Date(selectedSavedBillEntry.createdAt).toISOString(),
+      total: getItemsGrandTotal(selectedSavedBillEntry.items),
+      items: selectedSavedBillEntry.items,
+      remark: selectedSavedBillEntry.remark,
+      paymentMethod: '',
+      cashierName: cashierName || '',
+      orderSource: 'counter',
+    };
+
+    const success = await printerService.printReceipt(orderForPrint, printRestaurant, getOrderListPrintOptions());
+    if (success) {
+      toast('Order list printed!', 'success');
+    } else {
+      toast('Print failed. Please try again.', 'error');
+    }
+  };
+
   const loadSavedBill = (tableNumber: string) => {
     const selectedBill = savedBillsByTable.get(tableNumber);
     if (!selectedBill) return;
@@ -6449,7 +6484,7 @@ const PosOnlyView: React.FC<Props> = ({
                                       ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 shadow-[0_0_0_2px_rgba(249,115,22,0.5)]'
                                       :
                                     hasPending
-                                      ? 'border-transparent bg-orange-50 dark:bg-orange-900/20'
+                                      ? 'border-gray-200 dark:border-gray-700 bg-orange-50 dark:bg-orange-900/20'
                                       : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 opacity-70'
                                   }`}
                                 >
@@ -10819,6 +10854,21 @@ const PosOnlyView: React.FC<Props> = ({
                         ? `Editing Saved Bill: ${activeSavedBillTable}`
                         : 'Current Order'}
                     </h3>
+                    {!editingQrOrderId && showSavedBillFeature && counterMode === 'SAVED_BILL' && (
+                      <button
+                        type="button"
+                        onClick={handlePrintSavedBillOrderList}
+                        disabled={!selectedSavedBillEntry || !realPrinterConnected}
+                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                          selectedSavedBillEntry && realPrinterConnected
+                            ? 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:text-orange-500'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                        }`}
+                      >
+                        <List size={14} />
+                        Print Order List
+                      </button>
+                    )}
                     {!editingQrOrderId && (counterMode === 'COUNTER_ORDER' || (!showQrFeature && counterMode !== 'SAVED_BILL')) && (
                       <button onClick={() => setPosCart([])} className="text-gray-400 hover:text-red-500 transition-colors">
                         <Trash2 size={18} />
@@ -11527,7 +11577,7 @@ const PosOnlyView: React.FC<Props> = ({
               <div className="flex-1 flex flex-col px-8 py-8">
                 <div className="w-full max-w-3xl mx-auto flex min-h-0 flex-1 flex-col">
                   {/* Totals Area */}
-                  <div className="px-8 py-8">
+                  <div className="px-8 pt-12 pb-8">
                     <div className="w-full max-w-2xl mx-auto grid grid-cols-2">
                       <div className="pr-6 text-center border-r-2 border-dotted border-gray-300 dark:border-gray-600">
                         <div className="text-4xl lg:text-6xl font-black text-green-500 tracking-tighter leading-none">
@@ -11587,7 +11637,7 @@ const PosOnlyView: React.FC<Props> = ({
 
                   {/* Disclaimer */}
                   <div className="w-full max-w-3xl mx-auto mt-4 text-center">
-                    <p className="text-sm text-gray-400 dark:text-gray-500 italic">Please make sure all the balances are correct before completing the payment.</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500">Please make sure all the balances are correct before completing the payment.</p>
                   </div>
 
                   {/* Print / Reprint buttons — single row */}
