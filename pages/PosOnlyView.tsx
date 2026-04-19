@@ -10858,11 +10858,13 @@ const PosOnlyView: React.FC<Props> = ({
                       <button
                         type="button"
                         onClick={handlePrintSavedBillOrderList}
-                        disabled={!selectedSavedBillEntry || !realPrinterConnected}
+                        disabled={!selectedSavedBillEntry}
                         className={`inline-flex h-7 items-center gap-2 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest leading-none transition-all ${
                           selectedSavedBillEntry && realPrinterConnected
-                            ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30'
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                            ? 'border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30'
+                            : selectedSavedBillEntry
+                            ? 'border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-orange-500'
+                            : 'border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                         }`}
                       >
                         <Printer size={14} />
