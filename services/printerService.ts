@@ -429,6 +429,17 @@ class EscPosBuilder {
     return this;
   }
 
+  /** Set custom line spacing in dots for tighter or looser text blocks */
+  lineSpacing(dots: number): this {
+    const spacing = Math.max(0, Math.min(255, dots));
+    return this.raw([...CMD.LINE_SPACING_SET, spacing]);
+  }
+
+  /** Reset line spacing to printer default */
+  defaultLineSpacing(): this {
+    return this.raw(CMD.LINE_SPACING_DEFAULT);
+  }
+
   /** Print a separator line of the given character */
   separator(char: string = '-'): this {
     return this.line(char.repeat(this.columns));
@@ -914,7 +925,9 @@ class PrinterService {
       // ── Document header ──
       r.align('center').normalSize().font('A').bold(false);
       r.line('.'.repeat(cols));
-      r.bold(true).line(documentTitle).bold(false);
+      r.lineSpacing(16);
+      r.bold(true).size(2, 2).line(documentTitle);
+      r.normalSize().bold(false).defaultLineSpacing();
       r.line('.'.repeat(cols));
 
       r.align('left');
