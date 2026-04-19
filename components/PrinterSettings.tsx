@@ -955,15 +955,9 @@ const PrinterSettings: React.FC<Props> = ({
               placeholder="Printed above items (optional)"
             />
           </div>
-          <div>
-            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Footer Text</label>
-            <input
-              type="text"
-              value={orderListConfig.footerText}
-              onChange={e => updateOrderListConfig('footerText', e.target.value)}
-              className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-bold dark:text-white"
-              placeholder="Optional footer note"
-            />
+          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+            <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Footer</p>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Footer is replaced by payment status indicator (ORDER PAID / NOT YET PAID) on order lists.</p>
           </div>
         </div>
       </div>
@@ -978,7 +972,6 @@ const PrinterSettings: React.FC<Props> = ({
             { prefix: 'document' as const, label: 'Type (Order List)' },
             { prefix: 'title' as const, label: 'Title (Business Name)' },
             { prefix: 'header' as const, label: 'Header Text' },
-            { prefix: 'footer' as const, label: 'Footer Text' },
           ]).map(({ prefix, label }) => (
             <div key={prefix} className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl space-y-2">
               <p className="text-[9px] font-black text-gray-500 dark:text-gray-300 uppercase tracking-widest">{label}</p>

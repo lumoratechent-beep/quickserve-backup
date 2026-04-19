@@ -888,7 +888,7 @@ class PrinterService {
       const tableNum  = rawTable ? rawTable.replace(/^Table\s+/i, '') : rawTable;
       const remark    = this.sanitize(order.remark);
       const header    = this.sanitize(options?.headerText);
-      const footer    = this.sanitize(options?.footerText || 'Thank you! Please come again.');
+      const footer    = options?.documentType === 'order-list' ? '' : this.sanitize(options?.footerText || 'Thank you! Please come again.');
       const bizAddrLine1 = this.sanitize(options?.businessAddressLine1 || options?.businessAddress);
       const bizAddrLine2 = this.sanitize(options?.businessAddressLine2);
       const bizPhone  = this.sanitize(options?.businessPhone);
@@ -937,11 +937,11 @@ class PrinterService {
       const docFnt = options?.documentFont || 'A';
 
       r.align(docAlign).normalSize().font('A').bold(false);
-      r.line('.'.repeat(cols));
+      r.separator();
       r.lineSpacing(16);
       r.bold(true).font(docFnt).size(docSz, docSz).line(documentTitle);
       r.normalSize().bold(false).defaultLineSpacing();
-      r.line('.'.repeat(cols));
+      r.separator();
 
       r.align('left');
 
@@ -1082,11 +1082,11 @@ class PrinterService {
         const isPaid = !!(order.paymentMethod && order.paymentMethod.trim());
         const label = isPaid ? 'ORDER PAID' : 'NOT YET PAID';
         r.align(docAlign).normalSize().font('A').bold(false);
-        r.line('.'.repeat(cols));
+        r.separator();
         r.lineSpacing(16);
         r.bold(true).font(docFnt).size(docSz, docSz).line(label);
         r.normalSize().bold(false).defaultLineSpacing();
-        r.line('.'.repeat(cols));
+        r.separator();
         r.align('left');
       }
 
