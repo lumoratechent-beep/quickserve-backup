@@ -1077,9 +1077,22 @@ class PrinterService {
         }
       }
 
+      // ── Payment indicator for order lists ──
+      if (options?.documentType === 'order-list') {
+        const isPaid = !!(order.paymentMethod && order.paymentMethod.trim());
+        const label = isPaid ? 'ORDER PAID' : 'NOT YET PAID';
+        r.align(docAlign).normalSize().font('A').bold(false);
+        r.line('.'.repeat(cols));
+        r.lineSpacing(16);
+        r.bold(true).font(docFnt).size(docSz, docSz).line(label);
+        r.normalSize().bold(false).defaultLineSpacing();
+        r.line('.'.repeat(cols));
+        r.align('left');
+      }
+
       // ── Footer ──
-      r.thickSeparator();
       if (footer) {
+        r.thickSeparator();
         const ftrAlign = options?.footerAlignment || 'center';
         const ftrSz = options?.footerSize || 1;
         const ftrFnt = options?.footerFont || 'A';
