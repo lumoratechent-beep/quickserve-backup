@@ -59,6 +59,9 @@ const CMD = {
 
   // Character code table
   CODEPAGE_PC437: [ESC, 0x74, 0x00],              // ESC t 0   PC437 (USA)
+
+  // Buzzer / beep
+  BEEP:           [ESC, 0x42, 0x02, 0x03],        // ESC B 2 3  — 2 beeps, 300ms each
 } as const;
 
 
@@ -465,6 +468,11 @@ class EscPosBuilder {
   /** Open cash drawer (pin 2 or pin 5) */
   openDrawer(pin: 0 | 1 = 0): this {
     return this.raw(pin === 1 ? CMD.DRAWER_PIN5 : CMD.DRAWER_PIN2);
+  }
+
+  /** Sound the buzzer/beep */
+  beep(): this {
+    return this.raw(CMD.BEEP);
   }
 
   /** Cut paper */
@@ -1356,6 +1364,21 @@ class PrinterService {
       return true;
     } catch (error) {
       console.error('Open drawer error:', error);
+      return false;
+    }
+  }
+
+  async beep(): Promise<boolean> {
+    try {
+      if (!await this.ensureConnection()) throw new Error('Printer not connected');
+      if (!this.characteristic) throw new Error('No writable characteristic');
+
+      const r = new EscPosBuilder();
+      r.beep();
+      await this.writeData(r.encode());
+      return true;
+    } catch (error) {
+      console.error('Beep error:', error);
       return false;
     }
   }

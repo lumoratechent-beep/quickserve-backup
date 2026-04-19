@@ -84,6 +84,7 @@ export const POS_DEFAULTS = {
   } as Record<string, unknown>,
   features: {
     autoPrintReceipt: false,
+    autoPrintOrderList: false,
     autoOpenDrawer: false,
     dineInEnabled: true,
     takeawayEnabled: true,

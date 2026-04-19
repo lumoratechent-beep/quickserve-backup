@@ -149,6 +149,7 @@ type SettingsPanel = 'builtin' | 'printer' | 'receipt' | 'orderList' | 'payment'
 
 interface FeatureSettings {
   autoPrintReceipt: boolean;
+  autoPrintOrderList: boolean;
   autoOpenDrawer: boolean;
   dineInEnabled: boolean;
   takeawayEnabled: boolean;
@@ -170,6 +171,7 @@ interface FeatureSettings {
 
 const getDefaultFeatureSettings = (): FeatureSettings => ({
   autoPrintReceipt: false,
+  autoPrintOrderList: false,
   autoOpenDrawer: false,
   dineInEnabled: true,
   takeawayEnabled: true,
@@ -2373,12 +2375,59 @@ const PosOnlyView: React.FC<Props> = ({
             if (!printSuccess) {
               setCheckoutNotice('Order saved. Receipt printing did not complete.');
             }
+            // Auto-print order list after receipt with beep countdown
+            if (featureSettings.autoPrintOrderList && connectedDevice) {
+              setTimeout(() => {
+                printerService.beep().catch(() => {});
+                setTimeout(() => {
+                  const olRestaurant = {
+                    ...restaurant,
+                    name: orderListConfig.businessName.trim() || restaurant.name,
+                  };
+                  printerService
+                    .printReceipt(orderForPrint, olRestaurant, getOrderListPrintOptions())
+                    .then((olSuccess) => {
+                      if (!olSuccess) {
+                        setCheckoutNotice(prev => prev ? prev + ' Order list printing did not complete.' : 'Order list printing did not complete.');
+                      }
+                    })
+                    .catch((olError: any) => {
+                      console.error('Order list print error:', olError);
+                    });
+                }, 1000);
+              }, 2000);
+            }
           })
           .catch((printError: any) => {
             console.error('Receipt print error:', printError);
             const errorMsg = printError?.message || 'Receipt printing failed';
             setCheckoutNotice(`Order saved. ${errorMsg}`);
           });
+      } else {
+        setCheckoutNotice('Order saved. Auto-print is enabled but no printer is connected.');
+      }
+    } else if (featureSettings.autoPrintOrderList) {
+      // Auto-print order list only (no receipt auto-print)
+      if (connectedDevice) {
+        setTimeout(() => {
+          printerService.beep().catch(() => {});
+          setTimeout(() => {
+            const olRestaurant = {
+              ...restaurant,
+              name: orderListConfig.businessName.trim() || restaurant.name,
+            };
+            printerService
+              .printReceipt(orderForPrint, olRestaurant, getOrderListPrintOptions())
+              .then((olSuccess) => {
+                if (!olSuccess) {
+                  setCheckoutNotice('Order saved. Order list printing did not complete.');
+                }
+              })
+              .catch((olError: any) => {
+                console.error('Order list print error:', olError);
+              });
+          }, 1000);
+        }, 2000);
       } else {
         setCheckoutNotice('Order saved. Auto-print is enabled but no printer is connected.');
       }
@@ -5015,6 +5064,20 @@ const PosOnlyView: React.FC<Props> = ({
                 className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.autoOpenDrawer ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
               >
                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.autoOpenDrawer ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5">
+            <div>
+              <p className="text-sm font-medium text-gray-900 dark:text-white">Auto-Print Order List</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Auto-print order list after receipt with beep countdown</p>
+            </div>
+            <div className="flex items-center justify-end">
+              <button
+                onClick={() => updateFeatureSetting('autoPrintOrderList', !featureSettings.autoPrintOrderList)}
+                className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.autoPrintOrderList ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.autoPrintOrderList ? 'left-6' : 'left-1'}`} />
               </button>
             </div>
           </div>
@@ -11530,8 +11593,142 @@ const PosOnlyView: React.FC<Props> = ({
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                     }`}
                   >
-                    <Printer size={16} />
+                    <Receipt size={16} />
                     Print Receipt
+                  </button>
+                </div>
+                )}
+
+                {/* Print Order List Button — only shown when auto-print order list is off */}
+                {!featureSettings.autoPrintOrderList && (
+                <div className="w-full max-w-3xl mt-3 flex justify-center">
+                  <button
+                    type="button"
+                    disabled={!realPrinterConnected}
+                    onClick={async () => {
+                      if (!pendingOrderData) return;
+                      const printRestaurant = {
+                        ...restaurant,
+                        name: orderListConfig.businessName.trim() || restaurant.name,
+                      };
+                      const orderForPrint = {
+                        id: pendingOrderData.orderId || pendingOrderData.id || '',
+                        tableNumber: pendingOrderData.tableNumber,
+                        diningType: pendingOrderData.diningType,
+                        timestamp: new Date().toISOString(),
+                        total: pendingOrderData.total,
+                        items: pendingOrderData.items,
+                        remark: pendingOrderData.remark,
+                        paymentMethod: pendingOrderData.paymentMethod || '',
+                        cashierName: cashierName || '',
+                        amountReceived: selectedCashAmount ?? undefined,
+                        changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined,
+                        orderSource: isQrPaymentMode ? (selectedQrOrderForPayment?.orderSource || 'qr_order') : 'counter',
+                      };
+                      const success = await printerService.printReceipt(orderForPrint, printRestaurant, getOrderListPrintOptions());
+                      if (success) {
+                        toast('Order list printed!', 'success');
+                      } else {
+                        toast('Print failed. Please try again.', 'error');
+                      }
+                    }}
+                    className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider transition-all ${
+                      realPrinterConnected
+                        ? 'bg-gray-800 dark:bg-white text-white dark:text-gray-800 hover:bg-gray-700 dark:hover:bg-gray-100'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    <List size={16} />
+                    Print Order List
+                  </button>
+                </div>
+                )}
+
+                {/* Reprint buttons — shown when auto-print is enabled */}
+                {featureSettings.autoPrintReceipt && (
+                <div className="w-full max-w-3xl mt-4 flex justify-center">
+                  <button
+                    type="button"
+                    disabled={!realPrinterConnected}
+                    onClick={async () => {
+                      if (!pendingOrderData) return;
+                      const printRestaurant = {
+                        ...restaurant,
+                        name: receiptConfig.businessName.trim() || restaurant.name,
+                      };
+                      const orderForPrint = {
+                        id: pendingOrderData.orderId || pendingOrderData.id || '',
+                        tableNumber: pendingOrderData.tableNumber,
+                        diningType: pendingOrderData.diningType,
+                        timestamp: new Date().toISOString(),
+                        total: pendingOrderData.total,
+                        items: pendingOrderData.items,
+                        remark: pendingOrderData.remark,
+                        paymentMethod: pendingOrderData.paymentMethod || '',
+                        cashierName: cashierName || '',
+                        amountReceived: selectedCashAmount ?? undefined,
+                        changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined,
+                        orderSource: isQrPaymentMode ? (selectedQrOrderForPayment?.orderSource || 'qr_order') : 'counter',
+                      };
+                      const success = await printerService.printReceipt(orderForPrint, printRestaurant, getReceiptPrintOptions());
+                      if (success) {
+                        toast('Receipt reprinted!', 'success');
+                      } else {
+                        toast('Reprint failed. Please try again.', 'error');
+                      }
+                    }}
+                    className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider transition-all ${
+                      realPrinterConnected
+                        ? 'bg-gray-800 dark:bg-white text-white dark:text-gray-800 hover:bg-gray-700 dark:hover:bg-gray-100'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    <Receipt size={16} />
+                    Reprint Receipt
+                  </button>
+                </div>
+                )}
+
+                {featureSettings.autoPrintOrderList && (
+                <div className="w-full max-w-3xl mt-3 flex justify-center">
+                  <button
+                    type="button"
+                    disabled={!realPrinterConnected}
+                    onClick={async () => {
+                      if (!pendingOrderData) return;
+                      const printRestaurant = {
+                        ...restaurant,
+                        name: orderListConfig.businessName.trim() || restaurant.name,
+                      };
+                      const orderForPrint = {
+                        id: pendingOrderData.orderId || pendingOrderData.id || '',
+                        tableNumber: pendingOrderData.tableNumber,
+                        diningType: pendingOrderData.diningType,
+                        timestamp: new Date().toISOString(),
+                        total: pendingOrderData.total,
+                        items: pendingOrderData.items,
+                        remark: pendingOrderData.remark,
+                        paymentMethod: pendingOrderData.paymentMethod || '',
+                        cashierName: cashierName || '',
+                        amountReceived: selectedCashAmount ?? undefined,
+                        changeAmount: selectedCashAmount != null ? Math.max(0, selectedCashAmount - pendingOrderData.total) : undefined,
+                        orderSource: isQrPaymentMode ? (selectedQrOrderForPayment?.orderSource || 'qr_order') : 'counter',
+                      };
+                      const success = await printerService.printReceipt(orderForPrint, printRestaurant, getOrderListPrintOptions());
+                      if (success) {
+                        toast('Order list reprinted!', 'success');
+                      } else {
+                        toast('Reprint failed. Please try again.', 'error');
+                      }
+                    }}
+                    className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider transition-all ${
+                      realPrinterConnected
+                        ? 'bg-gray-800 dark:bg-white text-white dark:text-gray-800 hover:bg-gray-700 dark:hover:bg-gray-100'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    <List size={16} />
+                    Reprint Order List
                   </button>
                 </div>
                 )}
