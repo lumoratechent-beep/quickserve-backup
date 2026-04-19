@@ -906,46 +906,6 @@ const PrinterSettings: React.FC<Props> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-5 last:pb-0">
-        <div>
-          <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Printing Behavior</p>
-          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Default print actions after payment and refunds.</p>
-        </div>
-        <div className="min-w-0 divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
-          {([
-            {
-              key: 'autoPrintAfterSale' as const,
-              label: 'Auto-Print After Sale',
-              desc: 'Automatically print receipt when order is completed',
-            },
-            {
-              key: 'printReceiptForRefund' as const,
-              label: 'Print Receipt for Refunds',
-              desc: 'Print a receipt when processing refunds',
-            },
-            {
-              key: 'openCashDrawerOnPayment' as const,
-              label: 'Open Cash Drawer on Payment',
-              desc: 'Open cash drawer when payment is received',
-            },
-          ]).map(field => (
-            <div key={field.key} className="flex flex-col gap-3 py-5 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">{field.label}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{field.desc}</p>
-              </div>
-              <div className="flex items-center self-end sm:self-auto shrink-0">
-                <button
-                  onClick={() => updateReceiptConfig(field.key, !receiptConfig[field.key])}
-                  className={`w-11 h-6 rounded-full transition-all relative ${receiptConfig[field.key] ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                >
-                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${receiptConfig[field.key] ? 'left-6' : 'left-1'}`} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 

@@ -151,6 +151,7 @@ interface FeatureSettings {
   autoPrintReceipt: boolean;
   autoPrintOrderList: boolean;
   autoOpenDrawer: boolean;
+  printReceiptForRefund: boolean;
   dineInEnabled: boolean;
   takeawayEnabled: boolean;
   deliveryEnabled: boolean;
@@ -173,6 +174,7 @@ const getDefaultFeatureSettings = (): FeatureSettings => ({
   autoPrintReceipt: false,
   autoPrintOrderList: false,
   autoOpenDrawer: false,
+  printReceiptForRefund: false,
   dineInEnabled: true,
   takeawayEnabled: true,
   deliveryEnabled: false,
@@ -3273,20 +3275,38 @@ const PosOnlyView: React.FC<Props> = ({
   // Keep receiptConfig in sync with featureSettings toggles (authoritative source for these two flags)
   useEffect(() => {
     setReceiptConfig(prev => {
-      if (prev.autoPrintAfterSale === featureSettings.autoPrintReceipt && prev.openCashDrawerOnPayment === featureSettings.autoOpenDrawer) return prev;
-      return { ...prev, autoPrintAfterSale: featureSettings.autoPrintReceipt, openCashDrawerOnPayment: featureSettings.autoOpenDrawer };
+      if (
+        prev.autoPrintAfterSale === featureSettings.autoPrintReceipt &&
+        prev.openCashDrawerOnPayment === featureSettings.autoOpenDrawer &&
+        prev.printReceiptForRefund === featureSettings.printReceiptForRefund
+      ) return prev;
+      return {
+        ...prev,
+        autoPrintAfterSale: featureSettings.autoPrintReceipt,
+        openCashDrawerOnPayment: featureSettings.autoOpenDrawer,
+        printReceiptForRefund: featureSettings.printReceiptForRefund,
+      };
     });
-  }, [featureSettings.autoPrintReceipt, featureSettings.autoOpenDrawer]);
+  }, [featureSettings.autoPrintReceipt, featureSettings.autoOpenDrawer, featureSettings.printReceiptForRefund]);
 
   // Note: reverse sync useEffect (receiptConfig → featureSettings) removed to prevent toggle oscillation.
   // featureSettings is the authoritative source; updateFeatureSetting() already syncs inline to receiptConfig.
   // When PrinterSettings changes receiptConfig, we sync the two toggles back via this handler:
   const handleReceiptConfigChange = (config: ReceiptConfig) => {
     setReceiptConfig(config);
-    // Sync the two shared toggles back to featureSettings
+    // Sync the shared toggles back to featureSettings
     setFeatureSettings(prev => {
-      if (prev.autoPrintReceipt === config.autoPrintAfterSale && prev.autoOpenDrawer === config.openCashDrawerOnPayment) return prev;
-      return { ...prev, autoPrintReceipt: config.autoPrintAfterSale, autoOpenDrawer: config.openCashDrawerOnPayment };
+      if (
+        prev.autoPrintReceipt === config.autoPrintAfterSale &&
+        prev.autoOpenDrawer === config.openCashDrawerOnPayment &&
+        prev.printReceiptForRefund === config.printReceiptForRefund
+      ) return prev;
+      return {
+        ...prev,
+        autoPrintReceipt: config.autoPrintAfterSale,
+        autoOpenDrawer: config.openCashDrawerOnPayment,
+        printReceiptForRefund: config.printReceiptForRefund,
+      };
     });
   };
 
@@ -3740,6 +3760,8 @@ const PosOnlyView: React.FC<Props> = ({
       setReceiptConfig(prev => ({ ...prev, autoPrintAfterSale: value as boolean }));
     } else if (key === 'autoOpenDrawer') {
       setReceiptConfig(prev => ({ ...prev, openCashDrawerOnPayment: value as boolean }));
+    } else if (key === 'printReceiptForRefund') {
+      setReceiptConfig(prev => ({ ...prev, printReceiptForRefund: value as boolean }));
     }
   };
 
@@ -5133,6 +5155,20 @@ const PosOnlyView: React.FC<Props> = ({
                 className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.autoPrintOrderList ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
               >
                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.autoPrintOrderList ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5">
+            <div>
+              <p className="text-sm font-medium text-gray-900 dark:text-white">Print Receipt for Refunds</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Print a receipt automatically when a refund is processed</p>
+            </div>
+            <div className="flex items-center justify-end">
+              <button
+                onClick={() => updateFeatureSetting('printReceiptForRefund', !featureSettings.printReceiptForRefund)}
+                className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.printReceiptForRefund ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.printReceiptForRefund ? 'left-6' : 'left-1'}`} />
               </button>
             </div>
           </div>

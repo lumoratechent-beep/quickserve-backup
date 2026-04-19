@@ -285,7 +285,7 @@ export const DEFAULT_RECEIPT_CONFIG: ReceiptConfig = {
   autoPrintAfterSale: false,
   printReceiptForRefund: false,
   openCashDrawerOnPayment: false,
-  documentSize: 2,
+  documentSize: 1,
   documentFont: 'A',
   documentAlignment: 'center',
   titleSize: 2,
@@ -933,7 +933,7 @@ class PrinterService {
 
       // ── Document header ──
       const docAlign = options?.documentAlignment || 'center';
-      const docSz = options?.documentSize || 2;
+      const docSz = options?.documentSize || 1;
       const docFnt = options?.documentFont || 'A';
 
       r.align(docAlign).normalSize().font('A').bold(false);
