@@ -159,6 +159,9 @@ export interface ReceiptConfig {
   printReceiptForRefund: boolean;
   openCashDrawerOnPayment: boolean;
   // Text customization
+  documentSize: TextSize;
+  documentFont: TextFont;
+  documentAlignment: TextAlignment;
   titleSize: TextSize;
   titleFont: TextFont;
   titleAlignment: TextAlignment;
@@ -211,6 +214,9 @@ export interface ReceiptPrintOptions {
   showTaxes?: boolean;
   taxes?: Array<{ name: string; amount: number }>;
   // Text customization
+  documentSize?: TextSize;
+  documentFont?: TextFont;
+  documentAlignment?: TextAlignment;
   titleSize?: TextSize;
   titleFont?: TextFont;
   titleAlignment?: TextAlignment;
@@ -279,6 +285,9 @@ export const DEFAULT_RECEIPT_CONFIG: ReceiptConfig = {
   autoPrintAfterSale: false,
   printReceiptForRefund: false,
   openCashDrawerOnPayment: false,
+  documentSize: 2,
+  documentFont: 'A',
+  documentAlignment: 'center',
   titleSize: 2,
   titleFont: 'A',
   titleAlignment: 'center',
@@ -923,10 +932,14 @@ class PrinterService {
       }
 
       // ── Document header ──
-      r.align('center').normalSize().font('A').bold(false);
+      const docAlign = options?.documentAlignment || 'center';
+      const docSz = options?.documentSize || 2;
+      const docFnt = options?.documentFont || 'A';
+
+      r.align(docAlign).normalSize().font('A').bold(false);
       r.line('.'.repeat(cols));
       r.lineSpacing(16);
-      r.bold(true).size(2, 2).line(documentTitle);
+      r.bold(true).font(docFnt).size(docSz, docSz).line(documentTitle);
       r.normalSize().bold(false).defaultLineSpacing();
       r.line('.'.repeat(cols));
 

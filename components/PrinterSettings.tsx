@@ -819,6 +819,7 @@ const PrinterSettings: React.FC<Props> = ({
         </div>
         <div className="min-w-0 space-y-3">
           {([
+            { prefix: 'document' as const, label: 'Type (Payment Receipt)' },
             { prefix: 'title' as const, label: 'Title (Business Name)' },
             { prefix: 'header' as const, label: 'Header Text' },
             { prefix: 'footer' as const, label: 'Footer Text' },
@@ -1014,6 +1015,7 @@ const PrinterSettings: React.FC<Props> = ({
         </div>
         <div className="min-w-0 space-y-3">
           {([
+            { prefix: 'document' as const, label: 'Type (Order List)' },
             { prefix: 'title' as const, label: 'Title (Business Name)' },
             { prefix: 'header' as const, label: 'Header Text' },
             { prefix: 'footer' as const, label: 'Footer Text' },
