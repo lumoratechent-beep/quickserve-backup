@@ -880,6 +880,7 @@ const PrinterSettings: React.FC<Props> = ({
             { key: 'showCashierName' as const, label: 'Cashier Name', desc: 'Show cashier who processed the order' },
             { key: 'showDateTime' as const, label: 'Date & Time', desc: 'Show order date and time' },
             { key: 'showTableNumber' as const, label: 'Table Number', desc: 'Show table number' },
+            { key: 'showDiningOption' as const, label: 'Dining Option', desc: 'Show dining option (Dine-in, Takeaway, etc.)' },
             { key: 'showItems' as const, label: 'Item Details', desc: 'Show ordered items' },
             { key: 'showRemark' as const, label: 'Order Notes', desc: 'Show order remarks/notes' },
             { key: 'showTotal' as const, label: 'Total', desc: 'Show order total' },
@@ -949,6 +950,7 @@ const PrinterSettings: React.FC<Props> = ({
             { prefix: 'document' as const, label: 'Type (Order List)' },
             { prefix: 'title' as const, label: 'Title (Business Name)' },
             { prefix: 'header' as const, label: 'Header Text' },
+            { prefix: 'paymentStatus' as const, label: 'Payment Status' },
           ]).map(({ prefix, label }) => (
             <div key={prefix} className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl space-y-2">
               <p className="text-[9px] font-black text-gray-500 dark:text-gray-300 uppercase tracking-widest">{label}</p>
@@ -1005,6 +1007,7 @@ const PrinterSettings: React.FC<Props> = ({
             { key: 'showOrderNumber' as const, label: 'Order Number', desc: 'Show order number on order list' },
             { key: 'showDateTime' as const, label: 'Date & Time', desc: 'Show order date and time' },
             { key: 'showTableNumber' as const, label: 'Table Number', desc: 'Show table number' },
+            { key: 'showDiningOption' as const, label: 'Dining Option', desc: 'Show dining option (Dine-in, Takeaway, etc.)' },
             { key: 'showItems' as const, label: 'Item Details', desc: 'Show ordered items' },
             { key: 'showItemPrice' as const, label: 'Item Price', desc: 'Show item prices on each line' },
             { key: 'showRemark' as const, label: 'Order Notes', desc: 'Show order remarks/notes' },

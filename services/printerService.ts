@@ -148,6 +148,7 @@ export interface ReceiptConfig {
   showDateTime: boolean;
   showCustomerName: boolean;
   showTableNumber: boolean;
+  showDiningOption: boolean;
   showItems: boolean;
   showRemark: boolean;
   showTotal: boolean;
@@ -171,6 +172,9 @@ export interface ReceiptConfig {
   footerSize: TextSize;
   footerFont: TextFont;
   footerAlignment: TextAlignment;
+  paymentStatusSize: TextSize;
+  paymentStatusFont: TextFont;
+  paymentStatusAlignment: TextAlignment;
 }
 
 /** Order-list content configuration (prep list). */
@@ -191,6 +195,7 @@ export interface ReceiptPrintOptions {
   showDateTime?: boolean;
   showOrderId?: boolean;
   showTableNumber?: boolean;
+  showDiningOption?: boolean;
   showItems?: boolean;
   showItemPrice?: boolean;
   showRemark?: boolean;
@@ -226,6 +231,9 @@ export interface ReceiptPrintOptions {
   footerSize?: TextSize;
   footerFont?: TextFont;
   footerAlignment?: TextAlignment;
+  paymentStatusSize?: TextSize;
+  paymentStatusFont?: TextFont;
+  paymentStatusAlignment?: TextAlignment;
 }
 
 export interface ShiftPrintData {
@@ -275,6 +283,7 @@ export const DEFAULT_RECEIPT_CONFIG: ReceiptConfig = {
   showDateTime: true,
   showCustomerName: false,
   showTableNumber: true,
+  showDiningOption: true,
   showItems: true,
   showRemark: true,
   showTotal: true,
@@ -297,6 +306,9 @@ export const DEFAULT_RECEIPT_CONFIG: ReceiptConfig = {
   footerSize: 1,
   footerFont: 'A',
   footerAlignment: 'center',
+  paymentStatusSize: 1,
+  paymentStatusFont: 'A',
+  paymentStatusAlignment: 'center',
 };
 
 export const DEFAULT_ORDER_LIST_CONFIG: OrderListConfig = {
@@ -897,6 +909,7 @@ class PrinterService {
       const showDT     = options?.showDateTime !== false;
       const showOrdId  = options?.showOrderId !== false;
       const showTable  = options?.showTableNumber !== false;
+      const showDining = options?.showDiningOption !== false;
       const showItems  = options?.showItems !== false;
       const showItemPrice = options?.showItemPrice !== false;
       const showRemark = options?.showRemark !== false;
@@ -976,6 +989,14 @@ class PrinterService {
       if (showTable && tableNum) {
         r.feed(1).bold(true).size(1, 2);
         r.line(`Table: ${tableNum}`);
+        r.normalSize().bold(false);
+      }
+
+      // ── Dining Option — same style as table ──
+      if (showDining && order.diningType) {
+        if (!(showTable && tableNum)) r.feed(1);
+        r.bold(true).size(1, 2);
+        r.line(`Dining: ${this.sanitize(order.diningType)}`);
         r.normalSize().bold(false);
       }
 
@@ -1083,14 +1104,15 @@ class PrinterService {
       if (options?.documentType === 'order-list') {
         const isPaid = !!(order.paymentMethod && order.paymentMethod.trim());
         const label = isPaid ? 'ORDER PAID' : 'NOT YET PAID';
-        r.align(docAlign).normalSize().font('A').bold(false);
-        r.line('.'.repeat(cols));
-        r.lineSpacing(0);
+        const psAlign = options?.paymentStatusAlignment || 'center';
+        const psSz = options?.paymentStatusSize || 1;
+        const psFnt = options?.paymentStatusFont || 'A';
+        const dashes = '--';
+        const padded = `${dashes} ${label} ${dashes}`;
+        r.align(psAlign).font(psFnt).size(psSz, psSz);
         r.bold(true);
-        r.line(label);
-        r.defaultLineSpacing();
-        r.bold(false);
-        r.line('.'.repeat(cols));
+        r.line(padded);
+        r.normalSize().bold(false).font('A');
         r.align('left');
       }
 

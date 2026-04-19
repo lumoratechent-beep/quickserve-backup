@@ -3892,6 +3892,7 @@ const PosOnlyView: React.FC<Props> = ({
       showDateTime: receiptConfig.showDateTime,
       showOrderId: receiptConfig.showOrderNumber,
       showTableNumber: receiptConfig.showTableNumber,
+      showDiningOption: receiptConfig.showDiningOption,
       showItems: receiptConfig.showItems,
       showRemark: receiptConfig.showRemark,
       showTotal: receiptConfig.showTotal,
@@ -3933,6 +3934,7 @@ const PosOnlyView: React.FC<Props> = ({
       showDateTime: orderListConfig.showDateTime,
       showOrderId: orderListConfig.showOrderNumber,
       showTableNumber: orderListConfig.showTableNumber,
+      showDiningOption: orderListConfig.showDiningOption,
       showItems: orderListConfig.showItems,
       showItemPrice: orderListConfig.showItemPrice,
       showRemark: orderListConfig.showRemark,
@@ -3965,6 +3967,9 @@ const PosOnlyView: React.FC<Props> = ({
       footerSize: orderListConfig.footerSize,
       footerFont: orderListConfig.footerFont,
       footerAlignment: orderListConfig.footerAlignment,
+      paymentStatusSize: orderListConfig.paymentStatusSize,
+      paymentStatusFont: orderListConfig.paymentStatusFont,
+      paymentStatusAlignment: orderListConfig.paymentStatusAlignment,
     };
   };
 
