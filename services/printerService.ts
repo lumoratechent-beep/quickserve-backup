@@ -985,19 +985,19 @@ class PrinterService {
         r.line(`Cashier: ${this.sanitize(options.cashierName)}`);
       }
 
-      // ── Table Number — bold, double height ──
+      // ── Table Number — bold ──
       if (showTable && tableNum) {
-        r.feed(1).bold(true).size(1, 2);
+        r.feed(1).bold(true);
         r.line(`Table: ${tableNum}`);
-        r.normalSize().bold(false);
+        r.bold(false);
       }
 
       // ── Dining Option — same style as table ──
       if (showDining && order.diningType) {
         if (!(showTable && tableNum)) r.feed(1);
-        r.bold(true).size(1, 2);
+        r.bold(true);
         r.line(`Dining: ${this.sanitize(order.diningType)}`);
-        r.normalSize().bold(false);
+        r.bold(false);
       }
 
       // ── Items header ──
@@ -1081,9 +1081,9 @@ class PrinterService {
       if (hasTotalSection) {
         r.separator();
         if (showTotal) {
-          r.bold(true).size(1, 2);
+          r.bold(true);
           r.columns2('TOTAL', `RM ${this.formatPrice(order.total)}`);
-          r.normalSize().bold(false);
+          r.bold(false);
         }
 
         // ── Payment method ──
