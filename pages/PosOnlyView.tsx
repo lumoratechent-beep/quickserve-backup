@@ -11527,18 +11527,20 @@ const PosOnlyView: React.FC<Props> = ({
               <div className="flex-1 overflow-y-auto">
                 {/* Totals Area */}
                 <div className="bg-gray-50 dark:bg-gray-900/40 px-8 py-8">
-                  <div className="w-full max-w-3xl mx-auto grid grid-cols-2">
-                    <div className="pr-6 text-center border-r-2 border-dotted border-gray-300 dark:border-gray-600">
+                  <div className="w-full max-w-3xl mx-auto flex justify-center">
+                    <div className="grid w-full max-w-2xl grid-cols-2">
+                      <div className="pr-6 text-center border-r-2 border-dotted border-gray-300 dark:border-gray-600">
                       <div className="text-4xl lg:text-6xl font-black text-green-500 tracking-tighter leading-none">
                         {currencySymbol}{(selectedCashAmount || 0).toFixed(2)}
                       </div>
                       <label className="block mt-3 text-xs lg:text-sm font-black text-gray-400 uppercase tracking-[0.2em]">Total Paid</label>
-                    </div>
-                    <div className="pl-6 text-center">
-                      <div className="text-4xl lg:text-6xl font-black text-blue-500 tracking-tighter leading-none">
-                        {currencySymbol}{Math.max(0, (selectedCashAmount || 0) - pendingOrderData.total).toFixed(2)}
                       </div>
-                      <label className="block mt-3 text-xs lg:text-sm font-black text-gray-400 uppercase tracking-[0.2em]">Total Change</label>
+                      <div className="pl-6 text-center">
+                        <div className="text-4xl lg:text-6xl font-black text-blue-500 tracking-tighter leading-none">
+                          {currencySymbol}{Math.max(0, (selectedCashAmount || 0) - pendingOrderData.total).toFixed(2)}
+                        </div>
+                        <label className="block mt-3 text-xs lg:text-sm font-black text-gray-400 uppercase tracking-[0.2em]">Total Change</label>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -11675,12 +11677,14 @@ const PosOnlyView: React.FC<Props> = ({
 
               {/* Footer */}
               <div className="px-8 py-5 border-t dark:border-gray-700 flex-shrink-0">
-                <button
-                  onClick={finalizePaymentFlow}
-                  className="w-full py-3 border-2 border-orange-700/70 dark:border-orange-300/60 bg-orange-500 text-white rounded-xl font-black text-lg uppercase tracking-wider hover:bg-orange-600 transition-all"
-                >
-                  Complete Payment
-                </button>
+                <div className="w-full max-w-3xl mx-auto">
+                  <button
+                    onClick={finalizePaymentFlow}
+                    className="w-full py-3 border-2 border-orange-700/70 dark:border-orange-300/60 bg-orange-500 text-white rounded-xl font-black text-lg uppercase tracking-wider hover:bg-orange-600 transition-all"
+                  >
+                    Complete Payment
+                  </button>
+                </div>
               </div>
             </div>
 
