@@ -632,7 +632,7 @@ const AdminView: React.FC<Props> = ({
     setDuitnowLoading(true);
     try {
       const statusParam = duitnowFilter === 'all' ? '' : `&status=${duitnowFilter}`;
-      const res = await fetch(`/api/stripe/duitnow?action=list${statusParam}`);
+      const res = await fetch(`/api/stripe/billing?action=duitnow-list${statusParam}`);
       if (res.ok) {
         const data = await res.json();
         setDuitnowPayments(data.payments || []);
@@ -645,7 +645,7 @@ const AdminView: React.FC<Props> = ({
   const handleDuitnowReview = async (paymentId: string, decision: 'approved' | 'rejected', adminNote?: string) => {
     setDuitnowReviewing(paymentId);
     try {
-      const res = await fetch('/api/stripe/duitnow?action=review', {
+      const res = await fetch('/api/stripe/billing?action=duitnow-review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ paymentId, decision, adminNote }),

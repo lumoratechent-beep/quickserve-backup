@@ -112,7 +112,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   const fetchDuitnowPayments = async () => {
     setDuitnowLoading(true);
     try {
-      const res = await fetch(`/api/stripe/duitnow?action=list&restaurantId=${encodeURIComponent(restaurantId)}`);
+      const res = await fetch(`/api/stripe/billing?action=duitnow-list&restaurantId=${encodeURIComponent(restaurantId)}`);
       if (res.ok) {
         const data = await res.json();
         setDuitnowPayments(data.payments || []);
@@ -144,7 +144,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         }
       }
 
-      const res = await fetch('/api/stripe/duitnow?action=submit', {
+      const res = await fetch('/api/stripe/billing?action=duitnow-submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

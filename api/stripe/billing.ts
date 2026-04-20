@@ -632,8 +632,194 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
+      // POST /api/stripe/billing?action=duitnow-submit
+      // Vendor submits a DuitNow QR payment request
+      case 'duitnow-submit': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { restaurantId: dnRestId, planId: dnPlanId, billingInterval: dnInterval, amount: dnAmount, attachmentUrl: dnAttach, referenceNumber: dnRef } = req.body || {};
+
+        if (!dnRestId || !dnPlanId || !dnAmount) {
+          return res.status(400).json({ error: 'restaurantId, planId, and amount are required.' });
+        }
+
+        const { data: dnSub } = await supabase
+          .from('subscriptions')
+          .select('duitnow_enabled')
+          .eq('restaurant_id', dnRestId)
+          .single();
+
+        if (!dnSub?.duitnow_enabled) {
+          return res.status(403).json({ error: 'DuitNow payment is not enabled for this restaurant.' });
+        }
+
+        const { data: dnExisting } = await supabase
+          .from('duitnow_payments')
+          .select('id')
+          .eq('restaurant_id', dnRestId)
+          .eq('status', 'pending')
+          .limit(1);
+
+        if (dnExisting && dnExisting.length > 0) {
+          return res.status(409).json({ error: 'You already have a pending DuitNow payment. Please wait for admin review.' });
+        }
+
+        const safeRef = dnRef ? String(dnRef).slice(0, 100) : null;
+        const safeAttachment = dnAttach ? String(dnAttach).slice(0, 500) : null;
+
+        const { data: dnPayment, error: dnInsertErr } = await supabase
+          .from('duitnow_payments')
+          .insert({
+            restaurant_id: dnRestId,
+            plan_id: dnPlanId,
+            billing_interval: dnInterval || 'monthly',
+            amount: Number(dnAmount),
+            status: 'pending',
+            attachment_url: safeAttachment,
+            reference_number: safeRef,
+          })
+          .select()
+          .single();
+
+        if (dnInsertErr) {
+          console.error('DuitNow submit error:', dnInsertErr);
+          return res.status(500).json({ error: 'Failed to submit payment request.' });
+        }
+
+        return res.status(200).json({ success: true, payment: dnPayment });
+      }
+
+      // GET /api/stripe/billing?action=duitnow-list&restaurantId=...&status=...
+      case 'duitnow-list': {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const dnListRestId = req.query.restaurantId as string;
+        const dnStatusFilter = req.query.status as string;
+
+        let dnQuery = supabase
+          .from('duitnow_payments')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        if (dnListRestId) {
+          dnQuery = dnQuery.eq('restaurant_id', dnListRestId);
+        }
+        if (dnStatusFilter && ['pending', 'approved', 'rejected'].includes(dnStatusFilter)) {
+          dnQuery = dnQuery.eq('status', dnStatusFilter);
+        }
+
+        const { data: dnListData, error: dnListErr } = await dnQuery;
+        if (dnListErr) {
+          return res.status(500).json({ error: 'Failed to fetch DuitNow payments.' });
+        }
+
+        if (!dnListRestId && dnListData) {
+          const dnRestIds = [...new Set(dnListData.map((d: any) => d.restaurant_id))];
+          if (dnRestIds.length > 0) {
+            const { data: dnRests } = await supabase
+              .from('restaurants')
+              .select('id, name')
+              .in('id', dnRestIds);
+
+            const dnNameMap: Record<string, string> = {};
+            dnRests?.forEach((r: any) => { dnNameMap[r.id] = r.name; });
+            dnListData.forEach((d: any) => { d.restaurant_name = dnNameMap[d.restaurant_id] || 'Unknown'; });
+          }
+        }
+
+        return res.status(200).json({ payments: dnListData || [] });
+      }
+
+      // POST /api/stripe/billing?action=duitnow-review  body: { paymentId, decision, adminNote }
+      case 'duitnow-review': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { paymentId: dnPayId, decision: dnDecision, adminNote: dnAdminNote } = req.body || {};
+
+        if (!dnPayId || !dnDecision) {
+          return res.status(400).json({ error: 'paymentId and decision (approved/rejected) are required.' });
+        }
+        if (!['approved', 'rejected'].includes(dnDecision)) {
+          return res.status(400).json({ error: 'decision must be "approved" or "rejected".' });
+        }
+
+        const { data: dnPay, error: dnFetchErr } = await supabase
+          .from('duitnow_payments')
+          .select('*')
+          .eq('id', dnPayId)
+          .single();
+
+        if (dnFetchErr || !dnPay) return res.status(404).json({ error: 'Payment not found.' });
+        if (dnPay.status !== 'pending') return res.status(409).json({ error: 'Payment has already been reviewed.' });
+
+        const { error: dnUpdateErr } = await supabase
+          .from('duitnow_payments')
+          .update({
+            status: dnDecision,
+            admin_note: dnAdminNote ? String(dnAdminNote).slice(0, 500) : null,
+            reviewed_by: 'admin',
+            reviewed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', dnPayId);
+
+        if (dnUpdateErr) return res.status(500).json({ error: 'Failed to update payment.' });
+
+        if (dnDecision === 'approved') {
+          const dnApproveRestId = dnPay.restaurant_id;
+          const dnApprovePlan = dnPay.plan_id || 'basic';
+          const dnApproveInterval = dnPay.billing_interval || 'monthly';
+          const dnIsAnnual = dnApproveInterval === 'annual';
+
+          const { data: dnApproveSub } = await supabase
+            .from('subscriptions')
+            .select('*')
+            .eq('restaurant_id', dnApproveRestId)
+            .single();
+
+          if (dnApproveSub) {
+            const dnCurrentEnd = dnApproveSub.current_period_end || dnApproveSub.trial_end;
+            const dnBaseDate = dnCurrentEnd && new Date(dnCurrentEnd) > new Date()
+              ? new Date(dnCurrentEnd) : new Date();
+            const dnNewEnd = new Date(dnBaseDate);
+            dnNewEnd.setDate(dnNewEnd.getDate() + (dnIsAnnual ? 365 : 30));
+
+            await supabase
+              .from('subscriptions')
+              .update({
+                status: 'active',
+                plan_id: dnApprovePlan,
+                billing_interval: dnApproveInterval,
+                current_period_start: dnBaseDate.toISOString(),
+                current_period_end: dnNewEnd.toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+              .eq('restaurant_id', dnApproveRestId);
+
+            const dnKitchenEnabled = dnApprovePlan === 'pro_plus';
+            await supabase.from('restaurants').update({ kitchen_enabled: dnKitchenEnabled }).eq('id', dnApproveRestId);
+
+            const { data: dnApproveRest } = await supabase.from('restaurants').select('name').eq('id', dnApproveRestId).single();
+            await supabase.from('billing_records').insert({
+              restaurant_id: dnApproveRestId,
+              description: `DuitNow Payment (${dnIsAnnual ? 'Annual' : 'Monthly'})`,
+              amount: Number(dnPay.amount),
+              type: 'paid',
+              gross: Number(dnPay.amount),
+              fee: 0,
+              net: Number(dnPay.amount),
+              plan_id: dnApprovePlan,
+              restaurant_name: dnApproveRest?.name || 'Unknown',
+              created_by: 'duitnow',
+            });
+
+            return res.status(200).json({ success: true, decision: 'approved', newPeriodEnd: dnNewEnd.toISOString() });
+          }
+        }
+
+        return res.status(200).json({ success: true, decision: dnDecision });
+      }
+
       default:
-        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, toggle-auto-renew, renew-direct, cleanup-stale, reconcile-access, admin-extend' });
+        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, toggle-auto-renew, renew-direct, cleanup-stale, reconcile-access, admin-extend, duitnow-submit, duitnow-list, duitnow-review' });
     }
   } catch (err: any) {
     console.error(`Stripe billing error (${action}):`, err);
