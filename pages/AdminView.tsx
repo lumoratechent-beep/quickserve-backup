@@ -2526,119 +2526,147 @@ const AdminView: React.FC<Props> = ({
         )}
 
         {activeTab === 'DUITNOW' && (
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-4 md:p-8">
-              <div className="flex items-center justify-between mb-5">
-                <div>
-                  <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">DuitNow Payments</h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Review DuitNow QR payment submissions from restaurants.</p>
-                </div>
+          <div className="p-4 md:p-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+              <div>
+                <h2 className="text-xl font-black dark:text-white uppercase tracking-tighter flex items-center gap-2">
+                  <QrCode size={20} className="text-orange-500" />
+                  DuitNow Payments
+                </h2>
+                <p className="text-xs text-gray-400 mt-1">Review DuitNow QR payment submissions from restaurants. Approve or reject payments.</p>
+              </div>
+              <div className="flex items-center gap-2">
                 <button
                   onClick={fetchDuitnowPayments}
                   disabled={duitnowLoading}
-                  className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-purple-600 transition-all disabled:opacity-50"
+                  className="px-4 py-2.5 bg-orange-500 text-white rounded-xl font-bold text-xs hover:bg-orange-600 transition-all flex items-center gap-2 disabled:opacity-50"
                 >
                   <RefreshCw size={14} className={duitnowLoading ? 'animate-spin' : ''} /> Refresh
                 </button>
               </div>
+            </div>
 
-              {/* Filter tabs */}
-              <div className="flex gap-2 mb-6">
-                {(['all', 'pending', 'approved', 'rejected'] as const).map(f => (
-                  <button
-                    key={f}
-                    onClick={() => setDuitnowFilter(f)}
-                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                      duitnowFilter === f
-                        ? f === 'pending' ? 'bg-yellow-500 text-white' : f === 'approved' ? 'bg-green-500 text-white' : f === 'rejected' ? 'bg-red-500 text-white' : 'bg-gray-800 dark:bg-white text-white dark:text-gray-800'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    {f === 'all' ? 'All' : f}
-                    {f === 'pending' && duitnowPayments.filter(p => p.status === 'pending').length > 0 && duitnowFilter !== 'pending' && (
-                      <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[8px]">
-                        {duitnowPayments.filter(p => p.status === 'pending').length}
-                      </span>
-                    )}
-                  </button>
-                ))}
+            {/* Status Filter */}
+            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm mb-6 overflow-x-auto hide-scrollbar w-fit">
+              {(['all', 'pending', 'approved', 'rejected'] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => { setDuitnowFilter(f); if (duitnowPayments.length === 0) fetchDuitnowPayments(); }}
+                  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                    duitnowFilter === f
+                      ? 'bg-orange-500 text-white shadow-md'
+                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {f}
+                  {f === 'pending' && duitnowPayments.filter(p => p.status === 'pending').length > 0 && duitnowFilter !== 'pending' && (
+                    <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[8px]">
+                      {duitnowPayments.filter(p => p.status === 'pending').length}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {duitnowLoading && duitnowPayments.length === 0 ? (
+              <div className="text-center py-20">
+                <RefreshCw size={24} className="mx-auto text-gray-300 animate-spin mb-3" />
+                <p className="text-sm text-gray-400 font-bold">Loading DuitNow payments...</p>
               </div>
-
-              {duitnowLoading ? (
-                <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-400" /></div>
-              ) : duitnowPayments.length === 0 ? (
-                <div className="text-center py-16">
-                  <QrCode size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-                  <p className="text-sm font-bold text-gray-400 dark:text-gray-500">No DuitNow payments found</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {duitnowPayments.map((payment: any) => {
-                    const planLabels: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
-                    const statusColors: Record<string, string> = {
-                      pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-                      approved: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-                      rejected: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-                    };
-                    return (
-                      <div key={payment.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
-                        <div className="flex flex-wrap items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h3 className="text-sm font-black dark:text-white truncate">{payment.restaurant_name || 'Unknown'}</h3>
-                              <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${statusColors[payment.status] || ''}`}>
-                                {payment.status}
+            ) : (() => {
+              const filtered = duitnowFilter === 'all' ? duitnowPayments : duitnowPayments.filter((p: any) => p.status === duitnowFilter);
+              if (filtered.length === 0) {
+                return (
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
+                    <QrCode size={32} className="mx-auto text-gray-300 mb-3" />
+                    <p className="text-sm font-black dark:text-white mb-1">No DuitNow Payments</p>
+                    <p className="text-[10px] text-gray-400">
+                      {duitnowPayments.length === 0 ? 'Click Refresh to load payments.' : `No ${duitnowFilter} payments found.`}
+                    </p>
+                  </div>
+                );
+              }
+              const planLabels: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
+              return (
+                <div className="space-y-3">
+                  {filtered.map((payment: any) => (
+                    <div key={payment.id} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                            payment.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900/30' :
+                            payment.status === 'approved' ? 'bg-green-100 dark:bg-green-900/30' :
+                            'bg-red-100 dark:bg-red-900/30'
+                          }`}>
+                            <QrCode size={18} className={
+                              payment.status === 'pending' ? 'text-yellow-600' :
+                              payment.status === 'approved' ? 'text-green-600' :
+                              'text-red-600'
+                            } />
+                          </div>
+                          <div>
+                            <p className="text-sm font-black dark:text-white">{payment.restaurant_name || 'Unknown'}</p>
+                            <p className="text-lg font-black text-orange-500">RM {Number(payment.amount).toFixed(2)}</p>
+                            <div className="flex items-center gap-3 mt-1 flex-wrap">
+                              <span className="text-[9px] text-gray-400">
+                                {planLabels[payment.plan_id] || payment.plan_id} — {payment.billing_interval === 'annual' ? 'Annual' : 'Monthly'}
+                              </span>
+                              {payment.reference_number && (
+                                <span className="text-[9px] text-gray-400">Ref: {payment.reference_number}</span>
+                              )}
+                              <span className="text-[9px] text-gray-400">
+                                {new Date(payment.created_at).toLocaleDateString()} {new Date(payment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
-                            <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-                              <span>Plan: <strong className="text-gray-700 dark:text-gray-200">{planLabels[payment.plan_id] || payment.plan_id}</strong></span>
-                              <span>Interval: <strong className="text-gray-700 dark:text-gray-200">{payment.billing_interval === 'annual' ? 'Annual' : 'Monthly'}</strong></span>
-                              <span>Amount: <strong className="text-orange-500 font-black">RM {Number(payment.amount).toFixed(2)}</strong></span>
-                              {payment.reference_number && <span>Ref: <strong className="text-gray-700 dark:text-gray-200">{payment.reference_number}</strong></span>}
-                              <span>Submitted: <strong className="text-gray-700 dark:text-gray-200">{new Date(payment.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong></span>
-                            </div>
                             {payment.admin_note && (
-                              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 italic">Admin note: {payment.admin_note}</p>
+                              <p className="text-[10px] text-blue-500 mt-1 italic">Admin: {payment.admin_note}</p>
                             )}
                             {payment.reviewed_at && (
-                              <p className="mt-1 text-[10px] text-gray-400">Reviewed: {new Date(payment.reviewed_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {payment.attachment_url && (
-                              <button
-                                onClick={() => setDuitnowImagePreview(payment.attachment_url)}
-                                className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all flex items-center gap-1"
-                              >
-                                <FileImage size={12} /> View Proof
-                              </button>
-                            )}
-                            {payment.status === 'pending' && (
-                              <>
-                                <button
-                                  onClick={() => handleDuitnowReview(payment.id, 'approved')}
-                                  disabled={duitnowReviewing === payment.id}
-                                  className="px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all disabled:opacity-50 flex items-center gap-1"
-                                >
-                                  {duitnowReviewing === payment.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />} Approve
-                                </button>
-                                <button
-                                  onClick={() => { setDuitnowRejectModalId(payment.id); setDuitnowRejectNote(''); }}
-                                  disabled={duitnowReviewing === payment.id}
-                                  className="px-3 py-1.5 bg-red-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-red-600 transition-all disabled:opacity-50 flex items-center gap-1"
-                                >
-                                  <XCircle size={12} /> Reject
-                                </button>
-                              </>
+                              <p className="text-[10px] text-gray-400 mt-0.5">Reviewed: {new Date(payment.reviewed_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                             )}
                           </div>
                         </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${
+                            payment.status === 'pending' ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                            payment.status === 'approved' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
+                            'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                          }`}>
+                            {payment.status}
+                          </span>
+                          {payment.attachment_url && (
+                            <button
+                              onClick={() => setDuitnowImagePreview(payment.attachment_url)}
+                              className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all flex items-center gap-1"
+                            >
+                              <FileImage size={12} /> Proof
+                            </button>
+                          )}
+                          {payment.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => handleDuitnowReview(payment.id, 'approved')}
+                                disabled={duitnowReviewing === payment.id}
+                                className="px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all disabled:opacity-50 flex items-center gap-1"
+                              >
+                                {duitnowReviewing === payment.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />} Approve
+                              </button>
+                              <button
+                                onClick={() => { setDuitnowRejectModalId(payment.id); setDuitnowRejectNote(''); }}
+                                disabled={duitnowReviewing === payment.id}
+                                className="px-3 py-1.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-red-200 transition-all flex items-center gap-1"
+                              >
+                                <X size={12} /> Reject
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
-              )}
-            </div>
+              );
+            })()}
           </div>
         )}
 
