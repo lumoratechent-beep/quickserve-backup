@@ -956,71 +956,72 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         const hasPendingDuitNow = duitnowPayments.some(p => p.status === 'pending');
         return (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden relative flex flex-col md:flex-row max-h-[90vh]">
               <button
                 onClick={() => { if (!duitnowSubmitting) setShowDuitNowModal(false); }}
-                className="absolute top-4 right-4 z-10 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="absolute top-3 right-3 z-10 p-1.5 hover:bg-white/20 md:hover:bg-gray-100 md:dark:hover:bg-gray-700 rounded-lg transition-colors"
                 disabled={duitnowSubmitting}
               >
-                <X size={18} className="text-gray-400" />
+                <X size={18} className="text-white md:text-gray-400" />
               </button>
 
-              {/* Purple header */}
-              <div className="bg-gradient-to-br from-purple-600 to-purple-700 px-6 pt-6 pb-5 text-white">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-                    <QrCode size={22} className="text-white" />
+              {/* ── LEFT: Purple panel with QR + amount ── */}
+              <div className="bg-gradient-to-br from-purple-600 to-purple-700 text-white md:w-[340px] shrink-0 flex flex-col">
+                <div className="px-6 pt-6 pb-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+                      <QrCode size={20} className="text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold leading-tight">Pay via DuitNow</h3>
+                      <p className="text-purple-200 text-[11px]">Scan with any bank app or e-wallet</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-bold">Pay via DuitNow</h3>
-                    <p className="text-purple-200 text-xs">Scan with any bank app or e-wallet</p>
+                  {/* Amount */}
+                  <div className="bg-white/10 rounded-xl p-3.5 backdrop-blur-sm mb-5">
+                    <p className="text-purple-200 text-[10px] font-medium mb-0.5">Amount to pay</p>
+                    <p className="text-3xl font-black tracking-tight leading-none">RM {totalAmount.toFixed(2)}</p>
+                    <p className="text-purple-200 text-[10px] mt-1">{plan?.name} Plan · {intervalLabel}{isAnnual ? ` (RM${monthlyPrice}/mo × 12)` : ''}</p>
                   </div>
                 </div>
-                {/* Amount display */}
-                <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
-                  <p className="text-purple-200 text-xs font-medium mb-1">Amount to pay</p>
-                  <p className="text-3xl font-black tracking-tight">RM {totalAmount.toFixed(2)}</p>
-                  <p className="text-purple-200 text-[11px] mt-1">{plan?.name} Plan · {intervalLabel}{isAnnual ? ` (RM${monthlyPrice}/mo × 12)` : ''}</p>
+                {/* QR */}
+                <div className="flex-1 flex flex-col items-center justify-center px-6 pb-5">
+                  <div className="bg-white rounded-2xl p-3.5 shadow-lg">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('https://www.duitnow.my/qr/quickserve')}`}
+                      alt="DuitNow QR Code"
+                      className="w-40 h-40"
+                    />
+                  </div>
+                  <p className="text-purple-200 text-[10px] font-medium mt-2">QuickServe Sdn Bhd</p>
                 </div>
               </div>
 
-              <div className="px-6 py-5 space-y-5">
+              {/* ── RIGHT: Steps + form ── */}
+              <div className="flex-1 overflow-y-auto">
                 {hasPendingDuitNow ? (
-                  /* Already has a pending payment */
-                  <div className="text-center py-4">
-                    <div className="w-14 h-14 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center mx-auto mb-3">
+                  <div className="flex flex-col items-center justify-center h-full px-6 py-10 text-center">
+                    <div className="w-14 h-14 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center mb-3">
                       <Clock size={28} className="text-yellow-500" />
                     </div>
                     <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-1">Payment Pending Review</h4>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed max-w-xs mx-auto">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed max-w-xs">
                       You already have a DuitNow payment awaiting admin approval. You'll be notified once it's reviewed.
                     </p>
                     <button
                       onClick={() => setShowDuitNowModal(false)}
-                      className="mt-4 px-6 py-2.5 rounded-xl text-sm font-semibold border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      className="mt-5 px-6 py-2.5 rounded-xl text-sm font-semibold border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     >
                       Close
                     </button>
                   </div>
                 ) : (
-                  <>
-                    {/* QR Code */}
-                    <div className="flex justify-center">
-                      <div className="bg-white rounded-2xl border-2 border-gray-100 dark:border-gray-700 p-4 shadow-sm">
-                        <img
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent('https://www.duitnow.my/qr/quickserve')}`}
-                          alt="DuitNow QR Code"
-                          className="w-44 h-44 mx-auto"
-                        />
-                      </div>
-                    </div>
-                    <p className="text-center text-[10px] text-gray-400 font-medium -mt-2">QuickServe Sdn Bhd</p>
-
+                  <div className="px-6 py-5 space-y-4">
                     {/* Steps */}
                     <div className="bg-purple-50 dark:bg-purple-900/10 rounded-xl p-3.5 space-y-2">
                       <div className="flex items-start gap-2.5">
                         <span className="shrink-0 w-5 h-5 rounded-full bg-purple-500 text-white text-[10px] font-bold flex items-center justify-center mt-0.5">1</span>
-                        <p className="text-xs text-gray-700 dark:text-gray-300">Scan the QR above using any banking app or e-wallet</p>
+                        <p className="text-xs text-gray-700 dark:text-gray-300">Scan the QR code on the left using any banking app or e-wallet</p>
                       </div>
                       <div className="flex items-start gap-2.5">
                         <span className="shrink-0 w-5 h-5 rounded-full bg-purple-500 text-white text-[10px] font-bold flex items-center justify-center mt-0.5">2</span>
@@ -1028,7 +1029,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                       </div>
                       <div className="flex items-start gap-2.5">
                         <span className="shrink-0 w-5 h-5 rounded-full bg-purple-500 text-white text-[10px] font-bold flex items-center justify-center mt-0.5">3</span>
-                        <p className="text-xs text-gray-700 dark:text-gray-300">Complete the transfer, then fill in details below and submit</p>
+                        <p className="text-xs text-gray-700 dark:text-gray-300">Complete the transfer, then fill in details below</p>
                       </div>
                     </div>
 
@@ -1054,7 +1055,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                       </label>
                       {duitnowPreviewUrl ? (
                         <div className="relative rounded-xl border-2 border-purple-300 dark:border-purple-700 overflow-hidden">
-                          <img src={duitnowPreviewUrl} alt="Proof" className="w-full max-h-40 object-contain bg-gray-100 dark:bg-gray-700" />
+                          <img src={duitnowPreviewUrl} alt="Proof" className="w-full max-h-32 object-contain bg-gray-100 dark:bg-gray-700" />
                           <button
                             onClick={() => { setDuitnowAttachment(null); setDuitnowPreviewUrl(null); }}
                             className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full"
@@ -1063,7 +1064,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                           </button>
                         </div>
                       ) : (
-                        <label className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 py-4 cursor-pointer hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-all">
+                        <label className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 py-3.5 cursor-pointer hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-all">
                           <Upload size={16} className="text-gray-400" />
                           <span className="text-xs text-gray-500 font-medium">Upload transfer screenshot</span>
                           <input
@@ -1087,7 +1088,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     </div>
 
                     {/* Buttons */}
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 pt-1">
                       <button
                         onClick={() => setShowDuitNowModal(false)}
                         disabled={duitnowSubmitting}
@@ -1111,7 +1112,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     <p className="text-[10px] text-gray-400 text-center leading-relaxed">
                       Admin will verify your payment. Once approved, your plan will be extended automatically.
                     </p>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
