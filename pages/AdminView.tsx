@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, Subscription, PlanId } from '../src/types';
 import { uploadImage } from '../lib/storage';
-import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight, Gift } from 'lucide-react';
+import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight, Gift, Loader2 } from 'lucide-react';
 import ImageCropModal from '../components/ImageCropModal';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
@@ -606,7 +606,7 @@ const AdminView: React.FC<Props> = ({
   onFetchAllFilteredOrders,
   onFetchStats
 }) => {
-  const [activeTab, setActiveTab] = useState<'VENDORS' | 'INCOME_REPORT' | 'CASHOUT' | 'SYSTEM'>('VENDORS');
+  const [activeTab, setActiveTab] = useState<'VENDORS' | 'INCOME_REPORT' | 'CASHOUT' | 'DUITNOW' | 'SYSTEM'>('VENDORS');
   const [vendorHubSubTab, setVendorHubSubTab] = useState<'VENDORS' | 'HUBS'>('VENDORS');
   const [incomeReportSubTab, setIncomeReportSubTab] = useState<'INCOME' | 'REPORTS'>('INCOME');
 
@@ -618,6 +618,62 @@ const AdminView: React.FC<Props> = ({
   const [adminCashouts, setAdminCashouts] = useState<any[]>([]);
   const [adminCashoutsLoading, setAdminCashoutsLoading] = useState(false);
   const [adminCashoutFilter, setAdminCashoutFilter] = useState<'all' | 'pending' | 'approved' | 'completed' | 'rejected'>('pending');
+
+  // DuitNow admin state
+  const [duitnowPayments, setDuitnowPayments] = useState<any[]>([]);
+  const [duitnowLoading, setDuitnowLoading] = useState(false);
+  const [duitnowFilter, setDuitnowFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
+  const [duitnowReviewing, setDuitnowReviewing] = useState<string | null>(null);
+  const [duitnowRejectNote, setDuitnowRejectNote] = useState('');
+  const [duitnowRejectModalId, setDuitnowRejectModalId] = useState<string | null>(null);
+  const [duitnowImagePreview, setDuitnowImagePreview] = useState<string | null>(null);
+
+  const fetchDuitnowPayments = async () => {
+    setDuitnowLoading(true);
+    try {
+      const statusParam = duitnowFilter === 'all' ? '' : `&status=${duitnowFilter}`;
+      const res = await fetch(`/api/stripe/duitnow?action=list${statusParam}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDuitnowPayments(data.payments || []);
+      }
+    } catch { /* silent */ } finally {
+      setDuitnowLoading(false);
+    }
+  };
+
+  const handleDuitnowReview = async (paymentId: string, decision: 'approved' | 'rejected', adminNote?: string) => {
+    setDuitnowReviewing(paymentId);
+    try {
+      const res = await fetch('/api/stripe/duitnow?action=review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentId, decision, adminNote }),
+      });
+      if (res.ok) {
+        toast(`Payment ${decision} successfully`, 'success');
+        fetchDuitnowPayments();
+        // Refresh subscriptions if approved
+        if (decision === 'approved') {
+          const { data: subs } = await supabase.from('subscriptions').select('*');
+          if (subs) {
+            const map: Record<string, Subscription> = {};
+            subs.forEach((s: any) => { map[s.restaurant_id] = s; });
+            setSubscriptions(map);
+          }
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast(err.error || 'Failed to review payment', 'error');
+      }
+    } catch {
+      toast('Connection error', 'error');
+    } finally {
+      setDuitnowReviewing(null);
+      setDuitnowRejectModalId(null);
+      setDuitnowRejectNote('');
+    }
+  };
 
   const fetchAdminCashouts = async () => {
     setAdminCashoutsLoading(true);
@@ -759,6 +815,32 @@ const AdminView: React.FC<Props> = ({
 
   const vendorFileInputRef = useRef<HTMLInputElement>(null);
 
+  // DuitNow toggle state
+  const [togglingDuitNow, setTogglingDuitNow] = useState<string | null>(null);
+
+  const handleToggleDuitNow = async (restaurantId: string, currentValue: boolean) => {
+    setTogglingDuitNow(restaurantId);
+    try {
+      const { error } = await supabase
+        .from('subscriptions')
+        .update({ duitnow_enabled: !currentValue })
+        .eq('restaurant_id', restaurantId);
+      if (error) throw error;
+      // Refresh subscriptions
+      const { data: subs } = await supabase.from('subscriptions').select('*');
+      if (subs) {
+        const map: Record<string, Subscription> = {};
+        subs.forEach((s: any) => { map[s.restaurant_id] = s; });
+        setSubscriptions(map);
+      }
+      toast(`DuitNow ${!currentValue ? 'enabled' : 'disabled'} successfully`, 'success');
+    } catch (err: any) {
+      toast(err.message || 'Failed to toggle DuitNow', 'error');
+    } finally {
+      setTogglingDuitNow(null);
+    }
+  };
+
   // Hub Modal State
   const [isAreaModalOpen, setIsAreaModalOpen] = useState(false);
   const [isSubmittingArea, setIsSubmittingArea] = useState(false);
@@ -801,6 +883,10 @@ const AdminView: React.FC<Props> = ({
   useEffect(() => {
     if (activeTab === 'INCOME_REPORT' && incomeReportSubTab === 'INCOME') fetchIncome();
   }, [activeTab, incomeReportSubTab, incomeStartDate, incomeEndDate]);
+
+  useEffect(() => {
+    if (activeTab === 'DUITNOW') fetchDuitnowPayments();
+  }, [activeTab, duitnowFilter]);
 
   // QR Modal State
   const [generatingQrHub, setGeneratingQrHub] = useState<Area | null>(null);
@@ -1539,8 +1625,9 @@ const AdminView: React.FC<Props> = ({
             { id: 'VENDORS', label: 'Vendor & Hubs', icon: Store },
             { id: 'INCOME_REPORT', label: 'Income & Report', icon: TrendingUp },
             { id: 'CASHOUT', label: 'Cashout', icon: Wallet },
+            { id: 'DUITNOW', label: 'DuitNow', icon: QrCode },
             { id: 'SYSTEM', label: 'System', icon: Database },
-          ] as { id: 'VENDORS' | 'INCOME_REPORT' | 'CASHOUT' | 'SYSTEM'; label: string; icon: React.ElementType }[]).map(item => (
+          ] as { id: 'VENDORS' | 'INCOME_REPORT' | 'CASHOUT' | 'DUITNOW' | 'SYSTEM'; label: string; icon: React.ElementType }[]).map(item => (
             <button
               key={item.id}
               onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
@@ -1589,6 +1676,7 @@ const AdminView: React.FC<Props> = ({
               {activeTab === 'VENDORS' ? 'Vendor & Hubs' :
                activeTab === 'INCOME_REPORT' ? 'Income & Report' :
                activeTab === 'CASHOUT' ? 'Cashout' :
+               activeTab === 'DUITNOW' ? 'DuitNow' :
                'System'}
             </h1>
           </div>
@@ -1694,6 +1782,7 @@ const AdminView: React.FC<Props> = ({
                     </th>
                     <th className="px-4 py-2.5 text-center">Plan</th>
                     <th className="px-4 py-2.5 text-center">Plan Expiry</th>
+                    <th className="px-4 py-2.5 text-center">DuitNow</th>
                     <th className="px-4 py-2.5 text-center">Master Activation</th>
                     <th className="px-4 py-2.5 text-center">Live Status</th>
                     <th className="px-4 py-2.5 text-right">Actions</th>
@@ -1745,6 +1834,26 @@ const AdminView: React.FC<Props> = ({
                                   </button>
                                 )}
                               </div>
+                            );
+                          })()}
+                        </td>
+                        <td className="px-4 py-2.5 text-center">
+                          {(() => {
+                            const sub = res ? subscriptions[res.id] : null;
+                            const isDuitNow = sub?.duitnow_enabled ?? false;
+                            return (
+                              <button
+                                onClick={() => res && handleToggleDuitNow(res.id, isDuitNow)}
+                                disabled={togglingDuitNow === res?.id}
+                                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                                  isDuitNow ? 'bg-purple-500' : 'bg-gray-300 dark:bg-gray-600'
+                                } ${togglingDuitNow === res?.id ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                                title={isDuitNow ? 'DuitNow enabled — click to disable' : 'DuitNow disabled — click to enable'}
+                              >
+                                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                                  isDuitNow ? 'translate-x-4.5' : 'translate-x-0.5'
+                                }`} />
+                              </button>
                             );
                           })()}
                         </td>
@@ -2413,6 +2522,123 @@ const AdminView: React.FC<Props> = ({
                 </div>
               );
             })()}
+          </div>
+        )}
+
+        {activeTab === 'DUITNOW' && (
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-4 md:p-8">
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">DuitNow Payments</h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Review DuitNow QR payment submissions from restaurants.</p>
+                </div>
+                <button
+                  onClick={fetchDuitnowPayments}
+                  disabled={duitnowLoading}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-purple-600 transition-all disabled:opacity-50"
+                >
+                  <RefreshCw size={14} className={duitnowLoading ? 'animate-spin' : ''} /> Refresh
+                </button>
+              </div>
+
+              {/* Filter tabs */}
+              <div className="flex gap-2 mb-6">
+                {(['all', 'pending', 'approved', 'rejected'] as const).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => setDuitnowFilter(f)}
+                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                      duitnowFilter === f
+                        ? f === 'pending' ? 'bg-yellow-500 text-white' : f === 'approved' ? 'bg-green-500 text-white' : f === 'rejected' ? 'bg-red-500 text-white' : 'bg-gray-800 dark:bg-white text-white dark:text-gray-800'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {f === 'all' ? 'All' : f}
+                    {f === 'pending' && duitnowPayments.filter(p => p.status === 'pending').length > 0 && duitnowFilter !== 'pending' && (
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[8px]">
+                        {duitnowPayments.filter(p => p.status === 'pending').length}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {duitnowLoading ? (
+                <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-400" /></div>
+              ) : duitnowPayments.length === 0 ? (
+                <div className="text-center py-16">
+                  <QrCode size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+                  <p className="text-sm font-bold text-gray-400 dark:text-gray-500">No DuitNow payments found</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {duitnowPayments.map((payment: any) => {
+                    const planLabels: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
+                    const statusColors: Record<string, string> = {
+                      pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+                      approved: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+                      rejected: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+                    };
+                    return (
+                      <div key={payment.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="text-sm font-black dark:text-white truncate">{payment.restaurant_name || 'Unknown'}</h3>
+                              <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${statusColors[payment.status] || ''}`}>
+                                {payment.status}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                              <span>Plan: <strong className="text-gray-700 dark:text-gray-200">{planLabels[payment.plan_id] || payment.plan_id}</strong></span>
+                              <span>Interval: <strong className="text-gray-700 dark:text-gray-200">{payment.billing_interval === 'annual' ? 'Annual' : 'Monthly'}</strong></span>
+                              <span>Amount: <strong className="text-orange-500 font-black">RM {Number(payment.amount).toFixed(2)}</strong></span>
+                              {payment.reference_number && <span>Ref: <strong className="text-gray-700 dark:text-gray-200">{payment.reference_number}</strong></span>}
+                              <span>Submitted: <strong className="text-gray-700 dark:text-gray-200">{new Date(payment.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong></span>
+                            </div>
+                            {payment.admin_note && (
+                              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 italic">Admin note: {payment.admin_note}</p>
+                            )}
+                            {payment.reviewed_at && (
+                              <p className="mt-1 text-[10px] text-gray-400">Reviewed: {new Date(payment.reviewed_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {payment.attachment_url && (
+                              <button
+                                onClick={() => setDuitnowImagePreview(payment.attachment_url)}
+                                className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all flex items-center gap-1"
+                              >
+                                <FileImage size={12} /> View Proof
+                              </button>
+                            )}
+                            {payment.status === 'pending' && (
+                              <>
+                                <button
+                                  onClick={() => handleDuitnowReview(payment.id, 'approved')}
+                                  disabled={duitnowReviewing === payment.id}
+                                  className="px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all disabled:opacity-50 flex items-center gap-1"
+                                >
+                                  {duitnowReviewing === payment.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />} Approve
+                                </button>
+                                <button
+                                  onClick={() => { setDuitnowRejectModalId(payment.id); setDuitnowRejectNote(''); }}
+                                  disabled={duitnowReviewing === payment.id}
+                                  className="px-3 py-1.5 bg-red-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-red-600 transition-all disabled:opacity-50 flex items-center gap-1"
+                                >
+                                  <XCircle size={12} /> Reject
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -3412,6 +3638,61 @@ const AdminView: React.FC<Props> = ({
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* DuitNow Reject Modal */}
+      {duitnowRejectModalId && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setDuitnowRejectModalId(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-6 pt-6 pb-3">
+              <h3 className="text-lg font-black dark:text-white uppercase tracking-tight">Reject Payment</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Provide reason for rejection (optional).</p>
+            </div>
+            <div className="px-6 pb-6 space-y-3">
+              <textarea
+                value={duitnowRejectNote}
+                onChange={e => setDuitnowRejectNote(e.target.value)}
+                placeholder="e.g. Amount doesn't match, invalid proof..."
+                maxLength={500}
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm text-gray-700 dark:text-gray-200 resize-none h-20 focus:outline-none focus:ring-2 focus:ring-red-400"
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDuitnowRejectModalId(null)}
+                  className="flex-1 py-2.5 rounded-xl text-xs font-bold border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDuitnowReview(duitnowRejectModalId, 'rejected', duitnowRejectNote || undefined)}
+                  disabled={duitnowReviewing === duitnowRejectModalId}
+                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {duitnowReviewing === duitnowRejectModalId ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />} Reject
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DuitNow Image Preview */}
+      {duitnowImagePreview && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setDuitnowImagePreview(null)}>
+          <div className="relative max-w-lg w-full" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setDuitnowImagePreview(null)}
+              className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-white dark:bg-gray-700 shadow-lg flex items-center justify-center"
+            >
+              <X size={16} className="text-gray-500" />
+            </button>
+            <img
+              src={duitnowImagePreview}
+              alt="Payment proof"
+              className="w-full rounded-2xl shadow-2xl"
+            />
           </div>
         </div>
       )}

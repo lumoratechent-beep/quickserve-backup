@@ -280,8 +280,29 @@ export interface Subscription {
   current_period_start?: string;
   current_period_end?: string;
   cancel_at_period_end?: boolean;
+  duitnow_enabled?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export type DuitNowPaymentStatus = 'pending' | 'approved' | 'rejected';
+
+export interface DuitNowPayment {
+  id: string;
+  restaurant_id: string;
+  plan_id: PlanId;
+  billing_interval: 'monthly' | 'annual';
+  amount: number;
+  status: DuitNowPaymentStatus;
+  attachment_url?: string | null;
+  reference_number?: string | null;
+  admin_note?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined fields (for admin view)
+  restaurant_name?: string;
 }
 
 // Ingredient / non-menu stock items (e.g. ice blocks, sugar, ketchup, packaging)

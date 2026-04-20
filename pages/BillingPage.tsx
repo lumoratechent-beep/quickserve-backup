@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Subscription, PlanId } from '../src/types';
+import { Subscription, PlanId, DuitNowPayment } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 import { daysLeftInTrial, isTrialActive, isSubscriptionActive, getRenewalStatus, daysUntilExpiry, GRACE_PERIOD_DAYS } from '../lib/subscriptionService';
-import { Loader2, Check, Plus, RefreshCw, X, AlertCircle, CheckCircle, ArrowLeftRight } from 'lucide-react';
+import { Loader2, Check, Plus, RefreshCw, X, AlertCircle, CheckCircle, ArrowLeftRight, QrCode, Upload, Clock, XCircle, FileImage } from 'lucide-react';
 import { toast } from '../components/Toast';
 
 interface BillingHistory {
@@ -47,6 +47,16 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   const [isRenewing, setIsRenewing] = useState(false);
   const [showRenewConfirm, setShowRenewConfirm] = useState(false);
   const [renewError, setRenewError] = useState('');
+
+  // DuitNow state
+  const isDuitNowEnabled = subscription?.duitnow_enabled ?? false;
+  const [duitnowPayments, setDuitnowPayments] = useState<DuitNowPayment[]>([]);
+  const [duitnowLoading, setDuitnowLoading] = useState(false);
+  const [showDuitNowModal, setShowDuitNowModal] = useState(false);
+  const [duitnowSubmitting, setDuitnowSubmitting] = useState(false);
+  const [duitnowRef, setDuitnowRef] = useState('');
+  const [duitnowAttachment, setDuitnowAttachment] = useState<File | null>(null);
+  const [duitnowPreviewUrl, setDuitnowPreviewUrl] = useState<string | null>(null);
 
   const hasPendingDowngrade = Boolean(
     subscription?.pending_plan_id &&
@@ -93,6 +103,77 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   useEffect(() => {
     setHistoryPage(1);
   }, [historyPageSize, billingHistory.length]);
+
+  // Fetch DuitNow payments if enabled
+  useEffect(() => {
+    if (isDuitNowEnabled) fetchDuitnowPayments();
+  }, [isDuitNowEnabled]);
+
+  const fetchDuitnowPayments = async () => {
+    setDuitnowLoading(true);
+    try {
+      const res = await fetch(`/api/stripe/duitnow?action=list&restaurantId=${encodeURIComponent(restaurantId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDuitnowPayments(data.payments || []);
+      }
+    } catch { /* silent */ } finally {
+      setDuitnowLoading(false);
+    }
+  };
+
+  const handleDuitNowSubmit = async () => {
+    const plan = PRICING_PLANS.find(p => p.id === currentPlanId);
+    if (!plan) return;
+    const isAnnual = currentPlanInterval === 'annual';
+    const monthlyPrice = isAnnual ? plan.annualPrice : plan.price;
+    const totalAmount = isAnnual ? monthlyPrice * 12 : monthlyPrice;
+
+    setDuitnowSubmitting(true);
+    try {
+      // Upload attachment if provided
+      let attachmentUrl: string | null = null;
+      if (duitnowAttachment) {
+        const formData = new FormData();
+        formData.append('file', duitnowAttachment);
+        formData.append('filename', `duitnow/${restaurantId}/${Date.now()}-${duitnowAttachment.name}`);
+        const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          attachmentUrl = uploadData.url;
+        }
+      }
+
+      const res = await fetch('/api/stripe/duitnow?action=submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          restaurantId,
+          planId: currentPlanId,
+          billingInterval: currentPlanInterval || 'monthly',
+          amount: totalAmount,
+          attachmentUrl,
+          referenceNumber: duitnowRef || undefined,
+        }),
+      });
+
+      if (res.ok) {
+        toast('DuitNow payment submitted! Waiting for admin approval.', 'success');
+        setShowDuitNowModal(false);
+        setDuitnowRef('');
+        setDuitnowAttachment(null);
+        setDuitnowPreviewUrl(null);
+        fetchDuitnowPayments();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast(err.error || 'Failed to submit payment', 'error');
+      }
+    } catch {
+      toast('Connection error. Please try again.', 'error');
+    } finally {
+      setDuitnowSubmitting(false);
+    }
+  };
 
   const fetchBillingHistory = async () => {
     if (!subscription?.stripe_customer_id) return;
@@ -560,6 +641,78 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
           )}
         </section>
 
+        {/* ── DuitNow QR Payment ── */}
+        {isDuitNowEnabled && (
+          <section>
+            <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-3">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">DuitNow QR Payment</h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
+                  Alternative
+                </span>
+              </div>
+              <button
+                onClick={() => { setShowDuitNowModal(true); setDuitnowRef(''); setDuitnowAttachment(null); setDuitnowPreviewUrl(null); }}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-purple-500 text-white hover:bg-purple-600 transition-colors flex items-center gap-2"
+              >
+                <QrCode size={14} /> Pay via DuitNow
+              </button>
+            </div>
+
+            <div className="bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-200 dark:border-purple-800/40 p-4 mb-4">
+              <p className="text-xs text-purple-700 dark:text-purple-300 font-medium leading-relaxed">
+                Scan the DuitNow QR code below to pay your subscription. After payment, click "Pay via DuitNow" to submit your payment details for admin verification. You may attach a screenshot of your transfer receipt.
+              </p>
+            </div>
+
+            {/* DuitNow QR Code Display */}
+            <div className="flex justify-center mb-6">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-purple-200 dark:border-purple-800/40 p-6 text-center">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('https://www.duitnow.my/qr/quickserve')}`}
+                  alt="DuitNow QR Code"
+                  className="w-48 h-48 mx-auto mb-3"
+                />
+                <p className="text-xs font-bold text-gray-700 dark:text-gray-300">QuickServe Sdn Bhd</p>
+                <p className="text-[10px] text-gray-400 mt-1">Scan with any banking app or e-wallet</p>
+              </div>
+            </div>
+
+            {/* Recent DuitNow payments */}
+            {duitnowLoading ? (
+              <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin text-gray-400" /></div>
+            ) : duitnowPayments.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300">Recent DuitNow Payments</h4>
+                {duitnowPayments.slice(0, 5).map(p => {
+                  const statusConfig: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
+                    pending: { icon: <Clock size={14} />, color: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800/40', label: 'Pending Review' },
+                    approved: { icon: <CheckCircle size={14} />, color: 'text-green-600 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800/40', label: 'Approved' },
+                    rejected: { icon: <XCircle size={14} />, color: 'text-red-600 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/40', label: 'Rejected' },
+                  };
+                  const config = statusConfig[p.status] || statusConfig.pending;
+                  return (
+                    <div key={p.id} className={`rounded-xl border p-4 ${config.color}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          {config.icon}
+                          <span className="text-xs font-bold">{config.label}</span>
+                        </div>
+                        <span className="text-xs font-bold">RM {Number(p.amount).toFixed(2)}</span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] opacity-80">
+                        <span>{new Date(p.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                        {p.reference_number && <span>Ref: {p.reference_number}</span>}
+                        {p.admin_note && <span>Note: {p.admin_note}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
         {/* ── Billing History ── */}
         <section>
           <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
@@ -783,6 +936,130 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
               {paymentMethods.length === 0 && (
                 <p className="text-xs text-red-500 mt-3 text-center">No payment method found. Please add a card first.</p>
               )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── DuitNow Submit Modal ── */}
+      {showDuitNowModal && (() => {
+        const plan = PRICING_PLANS.find(p => p.id === currentPlanId);
+        const isAnnual = currentPlanInterval === 'annual';
+        const monthlyPrice = plan ? (isAnnual ? plan.annualPrice : plan.price) : 0;
+        const totalAmount = isAnnual ? monthlyPrice * 12 : monthlyPrice;
+        const intervalLabel = isAnnual ? 'Annually' : 'Monthly';
+        return (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 relative">
+              <button
+                onClick={() => { if (!duitnowSubmitting) setShowDuitNowModal(false); }}
+                className="absolute top-4 right-4 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                disabled={duitnowSubmitting}
+              >
+                <X size={18} className="text-gray-400" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                  <QrCode size={20} className="text-purple-600" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">DuitNow Payment</h3>
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+                Submit payment confirmation for your <span className="font-semibold text-purple-500">{plan?.name}</span> plan ({intervalLabel}).
+              </p>
+
+              {/* Summary */}
+              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 mb-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Plan</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{plan?.name} ({intervalLabel})</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Amount to Pay</span>
+                  <span className="font-bold text-purple-500">RM {totalAmount.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Reference number */}
+              <div className="mb-4">
+                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5">
+                  Bank Reference Number <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={duitnowRef}
+                  onChange={e => setDuitnowRef(e.target.value)}
+                  placeholder="e.g. 20260420123456"
+                  maxLength={100}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                />
+              </div>
+
+              {/* Attachment */}
+              <div className="mb-5">
+                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5">
+                  Payment Proof <span className="text-gray-400 font-normal">(optional — screenshot of transfer)</span>
+                </label>
+                {duitnowPreviewUrl ? (
+                  <div className="relative rounded-xl border-2 border-purple-300 dark:border-purple-700 overflow-hidden">
+                    <img src={duitnowPreviewUrl} alt="Proof" className="w-full max-h-48 object-contain bg-gray-100 dark:bg-gray-700" />
+                    <button
+                      onClick={() => { setDuitnowAttachment(null); setDuitnowPreviewUrl(null); }}
+                      className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 py-6 cursor-pointer hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-all">
+                    <Upload size={24} className="text-gray-400 mb-2" />
+                    <span className="text-xs text-gray-500 font-medium">Click to upload screenshot</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.size > 5 * 1024 * 1024) {
+                            toast('File too large. Max 5MB.', 'error');
+                            return;
+                          }
+                          setDuitnowAttachment(file);
+                          setDuitnowPreviewUrl(URL.createObjectURL(file));
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDuitNowModal(false)}
+                  disabled={duitnowSubmitting}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDuitNowSubmit}
+                  disabled={duitnowSubmitting}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-purple-500 text-white hover:bg-purple-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {duitnowSubmitting ? (
+                    <><Loader2 size={16} className="animate-spin" /> Submitting...</>
+                  ) : (
+                    <><CheckCircle size={16} /> Submit Payment</>
+                  )}
+                </button>
+              </div>
+
+              <p className="text-[10px] text-gray-400 mt-3 text-center leading-relaxed">
+                Your payment will be reviewed by admin. Once approved, your plan will be extended automatically.
+              </p>
             </div>
           </div>
         );
