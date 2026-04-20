@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Subscription, PlanId, DuitNowPayment } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 import { daysLeftInTrial, isTrialActive, isSubscriptionActive, getRenewalStatus, daysUntilExpiry, GRACE_PERIOD_DAYS } from '../lib/subscriptionService';
-import { Loader2, Check, Plus, RefreshCw, X, AlertCircle, CheckCircle, ArrowLeftRight, QrCode, Upload, Clock, XCircle, FileImage } from 'lucide-react';
+import { Loader2, Check, Plus, RefreshCw, X, AlertCircle, CheckCircle, ArrowLeftRight, QrCode, Upload, Clock, FileImage } from 'lucide-react';
 import { toast } from '../components/Toast';
 
 interface BillingHistory {
@@ -10,6 +10,7 @@ interface BillingHistory {
   date: string;
   description: string;
   amount: number;
+  status: 'success' | 'pending' | 'approved' | 'rejected';
   invoiceUrl?: string;
 }
 
@@ -102,7 +103,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
 
   useEffect(() => {
     setHistoryPage(1);
-  }, [historyPageSize, billingHistory.length]);
+  }, [historyPageSize, billingHistory.length, duitnowPayments.length]);
 
   // Fetch DuitNow payments if enabled
   useEffect(() => {
@@ -182,7 +183,10 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
       const res = await fetch(`/api/stripe/billing?action=history&customerId=${encodeURIComponent(subscription.stripe_customer_id)}&restaurantId=${encodeURIComponent(restaurantId)}`);
       if (res.ok) {
         const data = await res.json();
-        setBillingHistory(data.invoices || []);
+        setBillingHistory((data.invoices || []).map((entry: Omit<BillingHistory, 'status'> & { status?: BillingHistory['status'] }) => ({
+          ...entry,
+          status: entry.status || 'success',
+        })));
       }
     } catch { /* silent */ } finally {
       setIsLoadingHistory(false);
@@ -308,6 +312,29 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     return `Invoice ${day} ${month} ${year}`;
   };
 
+  const getStatusBadge = (status: BillingHistory['status']) => {
+    const config: Record<BillingHistory['status'], { label: string; className: string }> = {
+      success: {
+        label: 'Successful',
+        className: 'border-green-200 bg-green-50 text-green-700 dark:border-green-800/40 dark:bg-green-900/20 dark:text-green-300',
+      },
+      pending: {
+        label: 'Pending Review',
+        className: 'border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-800/40 dark:bg-yellow-900/20 dark:text-yellow-300',
+      },
+      approved: {
+        label: 'Approved QR',
+        className: 'border-green-200 bg-green-50 text-green-700 dark:border-green-800/40 dark:bg-green-900/20 dark:text-green-300',
+      },
+      rejected: {
+        label: 'Rejected QR',
+        className: 'border-red-200 bg-red-50 text-red-700 dark:border-red-800/40 dark:bg-red-900/20 dark:text-red-300',
+      },
+    };
+
+    return config[status] || config.success;
+  };
+
   const getDaysLabel = (plan: typeof PRICING_PLANS[number]) => {
     if (plan.id !== currentPlanId) return '';
     if (isTrial) return `${daysLeft} days remaining`;
@@ -339,9 +366,28 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     );
   };
 
-  const totalHistoryPages = Math.max(1, Math.ceil(billingHistory.length / historyPageSize));
-  const paginatedHistory = billingHistory.slice((historyPage - 1) * historyPageSize, historyPage * historyPageSize);
-  const showHistoryPagination = billingHistory.length > 10;
+  const combinedBillingHistory: BillingHistory[] = [
+    ...billingHistory.map((entry) => ({
+      ...entry,
+      status: entry.status || 'success',
+    })),
+    ...duitnowPayments.map((payment) => ({
+      id: payment.id,
+      date: payment.created_at,
+      description: [
+        `DuitNow QR ${payment.plan_id.replace(/_/g, ' ').toUpperCase()} (${payment.billing_interval === 'annual' ? 'Annual' : 'Monthly'})`,
+        payment.reference_number ? `Ref: ${payment.reference_number}` : null,
+        payment.admin_note || null,
+      ].filter(Boolean).join(' · '),
+      amount: Number(payment.amount) || 0,
+      status: payment.status,
+      invoiceUrl: undefined,
+    })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const totalHistoryPages = Math.max(1, Math.ceil(combinedBillingHistory.length / historyPageSize));
+  const paginatedHistory = combinedBillingHistory.slice((historyPage - 1) * historyPageSize, historyPage * historyPageSize);
+  const showHistoryPagination = combinedBillingHistory.length > 10;
 
   const activePlanName = activePlanId
     ? (PRICING_PLANS.find(p => p.id === activePlanId)?.name || activePlanId)
@@ -590,6 +636,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                       <Check size={14} className="text-white" strokeWidth={3} />
                     </div>
                   )}
+                    <p className="text-xs text-[#ED2C67] mb-3 font-semibold">DuitNow QR</p>
                   <div className="flex items-center gap-2.5">
                     <img
                       src="/LOGO/duitnow_logo.png"
@@ -712,37 +759,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
             </div>
           </div>
 
-          {/* DuitNow pending payments */}
-          {isDuitNowEnabled && !duitnowLoading && duitnowPayments.length > 0 && (
-            <div className="mb-4 space-y-2">
-              {duitnowPayments.slice(0, 5).map(p => {
-                const statusConfig: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
-                  pending: { icon: <Clock size={14} />, color: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800/40', label: 'Pending Review' },
-                  approved: { icon: <CheckCircle size={14} />, color: 'text-green-600 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800/40', label: 'Approved' },
-                  rejected: { icon: <XCircle size={14} />, color: 'text-red-600 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/40', label: 'Rejected' },
-                };
-                const config = statusConfig[p.status] || statusConfig.pending;
-                return (
-                  <div key={p.id} className={`rounded-xl border p-3.5 flex items-center justify-between gap-3 ${config.color}`}>
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {config.icon}
-                      <div className="min-w-0">
-                        <span className="text-xs font-bold block">DuitNow · {config.label}</span>
-                        <span className="text-[10px] opacity-80 block truncate">
-                          {new Date(p.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          {p.reference_number ? ` · Ref: ${p.reference_number}` : ''}
-                          {p.admin_note ? ` · ${p.admin_note}` : ''}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold shrink-0">RM {Number(p.amount).toFixed(2)}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {isLoadingHistory ? (
+          {isLoadingHistory || duitnowLoading ? (
             <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-gray-400" /></div>
           ) : (
             <>
@@ -752,14 +769,15 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   <tr className="border-b dark:border-gray-700">
                     <th className="pb-3 pr-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Date</th>
                     <th className="pb-3 pr-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Details</th>
+                    <th className="pb-3 pr-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
                     <th className="pb-3 pr-6 text-xs font-semibold text-gray-400 uppercase tracking-wider text-right">Amount</th>
                     <th className="pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider text-right">Download</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {billingHistory.length === 0 ? (
+                  {combinedBillingHistory.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="py-6 text-sm text-gray-400">
+                      <td colSpan={5} className="py-6 text-sm text-gray-400">
                         No billing history yet.
                       </td>
                     </tr>
@@ -768,6 +786,11 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                       <tr key={inv.id} className="border-b dark:border-gray-700/60 last:border-0">
                         <td className="py-4 pr-6 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{formatDate(inv.date)}</td>
                         <td className="py-4 pr-6 text-sm text-gray-700 dark:text-gray-200">{inv.description}</td>
+                        <td className="py-4 pr-6 whitespace-nowrap">
+                          <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold ${getStatusBadge(inv.status).className}`}>
+                            {getStatusBadge(inv.status).label}
+                          </span>
+                        </td>
                         <td className="py-4 pr-6 text-sm font-semibold text-gray-900 dark:text-white text-right whitespace-nowrap">RM{inv.amount.toFixed(2)}</td>
                         <td className="py-4 text-right">
                           {inv.invoiceUrl ? (
