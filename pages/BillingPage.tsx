@@ -590,13 +590,11 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                       <Check size={14} className="text-white" strokeWidth={3} />
                     </div>
                   )}
-                  <p className="text-xs text-[#ED2C67] mb-3 font-semibold">DuitNow QR</p>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5">
                     <img
-                      src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/DuitNow_logo.svg/1200px-DuitNow_logo.svg.png"
+                      src="/LOGO/duitnow_logo.png"
                       alt="DuitNow"
-                      className="h-7 w-auto object-contain"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      className="h-10 w-auto object-contain"
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300 font-semibold">
                       Bank / e-Wallet
@@ -977,10 +975,9 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                 <div className="px-6 pt-6 pb-4">
                   <div className="flex items-center gap-3 mb-4">
                     <img
-                      src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/DuitNow_logo.svg/1200px-DuitNow_logo.svg.png"
+                      src="/LOGO/duitnow_logo.png"
                       alt="DuitNow"
-                      className="h-8 w-auto object-contain brightness-0 invert"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      className="h-9 w-auto object-contain brightness-0 invert"
                     />
                     <div>
                       <h3 className="text-base font-bold leading-tight">Pay via DuitNow</h3>
