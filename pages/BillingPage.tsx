@@ -490,7 +490,17 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                           </button>
                         )}
                         <button
-                          onClick={() => { setRenewError(''); setShowRenewConfirm(true); }}
+                          onClick={() => {
+                            if (selectedMethodId === 'duitnow') {
+                              setShowDuitNowModal(true);
+                              setDuitnowRef('');
+                              setDuitnowAttachment(null);
+                              setDuitnowPreviewUrl(null);
+                            } else {
+                              setRenewError('');
+                              setShowRenewConfirm(true);
+                            }
+                          }}
                           disabled={isRenewing}
                           className="w-full md:flex-1 min-w-0 px-3 py-2 rounded-lg text-[11px] lg:text-xs font-semibold border border-orange-400 bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 whitespace-nowrap"
                         >
@@ -531,21 +541,25 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         {/* ── Enable auto renew ── */}
         <section>
           <div className="flex items-center justify-between gap-4 mb-1">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Enable auto renew</h3>
+            <h3 className={`text-lg font-bold ${selectedMethodId === 'duitnow' ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>Enable auto renew</h3>
             <button
               onClick={handleToggleAutoRenew}
-              disabled={isTogglingAutoRenew || !subscription?.stripe_subscription_id}
+              disabled={isTogglingAutoRenew || !subscription?.stripe_subscription_id || selectedMethodId === 'duitnow'}
               className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                autoRenew ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
-              } ${isTogglingAutoRenew || !subscription?.stripe_subscription_id ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                selectedMethodId === 'duitnow'
+                  ? 'bg-gray-300 dark:bg-gray-600 opacity-40 cursor-not-allowed'
+                  : autoRenew ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
+              } ${(isTogglingAutoRenew || !subscription?.stripe_subscription_id) && selectedMethodId !== 'duitnow' ? 'opacity-60 cursor-not-allowed' : selectedMethodId !== 'duitnow' ? 'cursor-pointer' : ''}`}
             >
               <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                autoRenew ? 'translate-x-6' : 'translate-x-1'
+                selectedMethodId === 'duitnow' ? 'translate-x-1' : autoRenew ? 'translate-x-6' : 'translate-x-1'
               }`} />
             </button>
           </div>
           <p className="text-[11px] text-gray-400 leading-relaxed max-w-xl">
-            This option, if checked, will renew your productive subscription, if the current plan expires. However, this might prevent you from downgrading.
+            {selectedMethodId === 'duitnow'
+              ? 'Auto-renew is not available with DuitNow. You will need to manually renew each billing cycle by scanning the QR code.'
+              : 'This option, if checked, will renew your productive subscription, if the current plan expires. However, this might prevent you from downgrading.'}
           </p>
         </section>
 
@@ -557,6 +571,39 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
             <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-gray-400" /></div>
           ) : (
             <div className="flex items-stretch gap-4 overflow-x-auto pb-4" onClick={() => setConfirmingDeleteId(null)}>
+              {/* DuitNow payment method card — shown first when enabled */}
+              {isDuitNowEnabled && (
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedMethodId('duitnow');
+                  }}
+                  className={`relative rounded-xl border-2 px-5 py-5 min-w-[220px] cursor-pointer transition-all select-none overflow-hidden ${
+                    selectedMethodId === 'duitnow'
+                      ? 'border-purple-400 bg-white dark:bg-gray-800 ring-2 ring-purple-200 dark:ring-purple-800/40'
+                      : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 hover:border-purple-300'
+                  }`}
+                >
+                  {selectedMethodId === 'duitnow' && (
+                    <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center">
+                      <Check size={14} className="text-white" strokeWidth={3} />
+                    </div>
+                  )}
+                  <p className="text-xs text-purple-600 dark:text-purple-400 mb-3 font-semibold">DuitNow QR</p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center w-10 h-7 rounded bg-purple-600">
+                      <span className="text-[7px] font-black text-white tracking-tight leading-none">DuitNow</span>
+                    </div>
+                    <span className="text-sm text-gray-700 dark:text-gray-300 font-semibold">
+                      Bank / e-Wallet
+                    </span>
+                  </div>
+                  {selectedMethodId === 'duitnow' && (
+                    <p className="text-[9px] text-purple-500 font-medium mt-2">Scan QR to pay · Admin approval</p>
+                  )}
+                </div>
+              )}
+
               {paymentMethods.map(method => {
                 const isSelected = method.id === selectedMethodId;
                 const isConfirming = confirmingDeleteId === method.id;
@@ -641,78 +688,6 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
           )}
         </section>
 
-        {/* ── DuitNow QR Payment ── */}
-        {isDuitNowEnabled && (
-          <section>
-            <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-3">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">DuitNow QR Payment</h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
-                  Alternative
-                </span>
-              </div>
-              <button
-                onClick={() => { setShowDuitNowModal(true); setDuitnowRef(''); setDuitnowAttachment(null); setDuitnowPreviewUrl(null); }}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-purple-500 text-white hover:bg-purple-600 transition-colors flex items-center gap-2"
-              >
-                <QrCode size={14} /> Pay via DuitNow
-              </button>
-            </div>
-
-            <div className="bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-200 dark:border-purple-800/40 p-4 mb-4">
-              <p className="text-xs text-purple-700 dark:text-purple-300 font-medium leading-relaxed">
-                Scan the DuitNow QR code below to pay your subscription. After payment, click "Pay via DuitNow" to submit your payment details for admin verification. You may attach a screenshot of your transfer receipt.
-              </p>
-            </div>
-
-            {/* DuitNow QR Code Display */}
-            <div className="flex justify-center mb-6">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-purple-200 dark:border-purple-800/40 p-6 text-center">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('https://www.duitnow.my/qr/quickserve')}`}
-                  alt="DuitNow QR Code"
-                  className="w-48 h-48 mx-auto mb-3"
-                />
-                <p className="text-xs font-bold text-gray-700 dark:text-gray-300">QuickServe Sdn Bhd</p>
-                <p className="text-[10px] text-gray-400 mt-1">Scan with any banking app or e-wallet</p>
-              </div>
-            </div>
-
-            {/* Recent DuitNow payments */}
-            {duitnowLoading ? (
-              <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin text-gray-400" /></div>
-            ) : duitnowPayments.length > 0 && (
-              <div className="space-y-3">
-                <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300">Recent DuitNow Payments</h4>
-                {duitnowPayments.slice(0, 5).map(p => {
-                  const statusConfig: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
-                    pending: { icon: <Clock size={14} />, color: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800/40', label: 'Pending Review' },
-                    approved: { icon: <CheckCircle size={14} />, color: 'text-green-600 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800/40', label: 'Approved' },
-                    rejected: { icon: <XCircle size={14} />, color: 'text-red-600 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/40', label: 'Rejected' },
-                  };
-                  const config = statusConfig[p.status] || statusConfig.pending;
-                  return (
-                    <div key={p.id} className={`rounded-xl border p-4 ${config.color}`}>
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          {config.icon}
-                          <span className="text-xs font-bold">{config.label}</span>
-                        </div>
-                        <span className="text-xs font-bold">RM {Number(p.amount).toFixed(2)}</span>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] opacity-80">
-                        <span>{new Date(p.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                        {p.reference_number && <span>Ref: {p.reference_number}</span>}
-                        {p.admin_note && <span>Note: {p.admin_note}</span>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        )}
-
         {/* ── Billing History ── */}
         <section>
           <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
@@ -731,6 +706,36 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
               </select>
             </div>
           </div>
+
+          {/* DuitNow pending payments */}
+          {isDuitNowEnabled && !duitnowLoading && duitnowPayments.length > 0 && (
+            <div className="mb-4 space-y-2">
+              {duitnowPayments.slice(0, 5).map(p => {
+                const statusConfig: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
+                  pending: { icon: <Clock size={14} />, color: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800/40', label: 'Pending Review' },
+                  approved: { icon: <CheckCircle size={14} />, color: 'text-green-600 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800/40', label: 'Approved' },
+                  rejected: { icon: <XCircle size={14} />, color: 'text-red-600 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/40', label: 'Rejected' },
+                };
+                const config = statusConfig[p.status] || statusConfig.pending;
+                return (
+                  <div key={p.id} className={`rounded-xl border p-3.5 flex items-center justify-between gap-3 ${config.color}`}>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {config.icon}
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold block">DuitNow · {config.label}</span>
+                        <span className="text-[10px] opacity-80 block truncate">
+                          {new Date(p.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {p.reference_number ? ` · Ref: ${p.reference_number}` : ''}
+                          {p.admin_note ? ` · ${p.admin_note}` : ''}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold shrink-0">RM {Number(p.amount).toFixed(2)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {isLoadingHistory ? (
             <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-gray-400" /></div>
@@ -941,125 +946,174 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         );
       })()}
 
-      {/* ── DuitNow Submit Modal ── */}
+      {/* ── DuitNow Payment Modal ── */}
       {showDuitNowModal && (() => {
         const plan = PRICING_PLANS.find(p => p.id === currentPlanId);
         const isAnnual = currentPlanInterval === 'annual';
         const monthlyPrice = plan ? (isAnnual ? plan.annualPrice : plan.price) : 0;
         const totalAmount = isAnnual ? monthlyPrice * 12 : monthlyPrice;
-        const intervalLabel = isAnnual ? 'Annually' : 'Monthly';
+        const intervalLabel = isAnnual ? 'Annual' : 'Monthly';
+        const hasPendingDuitNow = duitnowPayments.some(p => p.status === 'pending');
         return (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 relative">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative">
               <button
                 onClick={() => { if (!duitnowSubmitting) setShowDuitNowModal(false); }}
-                className="absolute top-4 right-4 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="absolute top-4 right-4 z-10 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                 disabled={duitnowSubmitting}
               >
                 <X size={18} className="text-gray-400" />
               </button>
 
-              <div className="flex items-center gap-3 mb-1">
-                <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                  <QrCode size={20} className="text-purple-600" />
+              {/* Purple header */}
+              <div className="bg-gradient-to-br from-purple-600 to-purple-700 px-6 pt-6 pb-5 text-white">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                    <QrCode size={22} className="text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold">Pay via DuitNow</h3>
+                    <p className="text-purple-200 text-xs">Scan with any bank app or e-wallet</p>
+                  </div>
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">DuitNow Payment</h3>
-              </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
-                Submit payment confirmation for your <span className="font-semibold text-purple-500">{plan?.name}</span> plan ({intervalLabel}).
-              </p>
-
-              {/* Summary */}
-              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 mb-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">Plan</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">{plan?.name} ({intervalLabel})</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">Amount to Pay</span>
-                  <span className="font-bold text-purple-500">RM {totalAmount.toFixed(2)}</span>
+                {/* Amount display */}
+                <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
+                  <p className="text-purple-200 text-xs font-medium mb-1">Amount to pay</p>
+                  <p className="text-3xl font-black tracking-tight">RM {totalAmount.toFixed(2)}</p>
+                  <p className="text-purple-200 text-[11px] mt-1">{plan?.name} Plan · {intervalLabel}{isAnnual ? ` (RM${monthlyPrice}/mo × 12)` : ''}</p>
                 </div>
               </div>
 
-              {/* Reference number */}
-              <div className="mb-4">
-                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5">
-                  Bank Reference Number <span className="text-gray-400 font-normal">(optional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={duitnowRef}
-                  onChange={e => setDuitnowRef(e.target.value)}
-                  placeholder="e.g. 20260420123456"
-                  maxLength={100}
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-400"
-                />
-              </div>
-
-              {/* Attachment */}
-              <div className="mb-5">
-                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5">
-                  Payment Proof <span className="text-gray-400 font-normal">(optional — screenshot of transfer)</span>
-                </label>
-                {duitnowPreviewUrl ? (
-                  <div className="relative rounded-xl border-2 border-purple-300 dark:border-purple-700 overflow-hidden">
-                    <img src={duitnowPreviewUrl} alt="Proof" className="w-full max-h-48 object-contain bg-gray-100 dark:bg-gray-700" />
+              <div className="px-6 py-5 space-y-5">
+                {hasPendingDuitNow ? (
+                  /* Already has a pending payment */
+                  <div className="text-center py-4">
+                    <div className="w-14 h-14 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center mx-auto mb-3">
+                      <Clock size={28} className="text-yellow-500" />
+                    </div>
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-1">Payment Pending Review</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed max-w-xs mx-auto">
+                      You already have a DuitNow payment awaiting admin approval. You'll be notified once it's reviewed.
+                    </p>
                     <button
-                      onClick={() => { setDuitnowAttachment(null); setDuitnowPreviewUrl(null); }}
-                      className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full"
+                      onClick={() => setShowDuitNowModal(false)}
+                      className="mt-4 px-6 py-2.5 rounded-xl text-sm font-semibold border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     >
-                      <X size={12} />
+                      Close
                     </button>
                   </div>
                 ) : (
-                  <label className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 py-6 cursor-pointer hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-all">
-                    <Upload size={24} className="text-gray-400 mb-2" />
-                    <span className="text-xs text-gray-500 font-medium">Click to upload screenshot</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={e => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          if (file.size > 5 * 1024 * 1024) {
-                            toast('File too large. Max 5MB.', 'error');
-                            return;
-                          }
-                          setDuitnowAttachment(file);
-                          setDuitnowPreviewUrl(URL.createObjectURL(file));
-                        }
-                      }}
-                    />
-                  </label>
+                  <>
+                    {/* QR Code */}
+                    <div className="flex justify-center">
+                      <div className="bg-white rounded-2xl border-2 border-gray-100 dark:border-gray-700 p-4 shadow-sm">
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent('https://www.duitnow.my/qr/quickserve')}`}
+                          alt="DuitNow QR Code"
+                          className="w-44 h-44 mx-auto"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-center text-[10px] text-gray-400 font-medium -mt-2">QuickServe Sdn Bhd</p>
+
+                    {/* Steps */}
+                    <div className="bg-purple-50 dark:bg-purple-900/10 rounded-xl p-3.5 space-y-2">
+                      <div className="flex items-start gap-2.5">
+                        <span className="shrink-0 w-5 h-5 rounded-full bg-purple-500 text-white text-[10px] font-bold flex items-center justify-center mt-0.5">1</span>
+                        <p className="text-xs text-gray-700 dark:text-gray-300">Scan the QR above using any banking app or e-wallet</p>
+                      </div>
+                      <div className="flex items-start gap-2.5">
+                        <span className="shrink-0 w-5 h-5 rounded-full bg-purple-500 text-white text-[10px] font-bold flex items-center justify-center mt-0.5">2</span>
+                        <p className="text-xs text-gray-700 dark:text-gray-300">Enter the exact amount: <strong className="text-purple-600 dark:text-purple-400">RM {totalAmount.toFixed(2)}</strong></p>
+                      </div>
+                      <div className="flex items-start gap-2.5">
+                        <span className="shrink-0 w-5 h-5 rounded-full bg-purple-500 text-white text-[10px] font-bold flex items-center justify-center mt-0.5">3</span>
+                        <p className="text-xs text-gray-700 dark:text-gray-300">Complete the transfer, then fill in details below and submit</p>
+                      </div>
+                    </div>
+
+                    {/* Reference number */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5">
+                        Bank Reference Number <span className="text-gray-400 font-normal">(optional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={duitnowRef}
+                        onChange={e => setDuitnowRef(e.target.value)}
+                        placeholder="e.g. 20260420123456"
+                        maxLength={100}
+                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      />
+                    </div>
+
+                    {/* Attachment */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5">
+                        Payment Proof <span className="text-gray-400 font-normal">(optional — screenshot)</span>
+                      </label>
+                      {duitnowPreviewUrl ? (
+                        <div className="relative rounded-xl border-2 border-purple-300 dark:border-purple-700 overflow-hidden">
+                          <img src={duitnowPreviewUrl} alt="Proof" className="w-full max-h-40 object-contain bg-gray-100 dark:bg-gray-700" />
+                          <button
+                            onClick={() => { setDuitnowAttachment(null); setDuitnowPreviewUrl(null); }}
+                            className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 py-4 cursor-pointer hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-all">
+                          <Upload size={16} className="text-gray-400" />
+                          <span className="text-xs text-gray-500 font-medium">Upload transfer screenshot</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={e => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                if (file.size > 5 * 1024 * 1024) {
+                                  toast('File too large. Max 5MB.', 'error');
+                                  return;
+                                }
+                                setDuitnowAttachment(file);
+                                setDuitnowPreviewUrl(URL.createObjectURL(file));
+                              }
+                            }}
+                          />
+                        </label>
+                      )}
+                    </div>
+
+                    {/* Buttons */}
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setShowDuitNowModal(false)}
+                        disabled={duitnowSubmitting}
+                        className="flex-1 py-2.5 rounded-xl text-sm font-semibold border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleDuitNowSubmit}
+                        disabled={duitnowSubmitting}
+                        className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-purple-500 text-white hover:bg-purple-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {duitnowSubmitting ? (
+                          <><Loader2 size={16} className="animate-spin" /> Submitting...</>
+                        ) : (
+                          <><CheckCircle size={16} /> I've Paid · Submit</>
+                        )}
+                      </button>
+                    </div>
+
+                    <p className="text-[10px] text-gray-400 text-center leading-relaxed">
+                      Admin will verify your payment. Once approved, your plan will be extended automatically.
+                    </p>
+                  </>
                 )}
               </div>
-
-              {/* Buttons */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowDuitNowModal(false)}
-                  disabled={duitnowSubmitting}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDuitNowSubmit}
-                  disabled={duitnowSubmitting}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-purple-500 text-white hover:bg-purple-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {duitnowSubmitting ? (
-                    <><Loader2 size={16} className="animate-spin" /> Submitting...</>
-                  ) : (
-                    <><CheckCircle size={16} /> Submit Payment</>
-                  )}
-                </button>
-              </div>
-
-              <p className="text-[10px] text-gray-400 mt-3 text-center leading-relaxed">
-                Your payment will be reviewed by admin. Once approved, your plan will be extended automatically.
-              </p>
             </div>
           </div>
         );
