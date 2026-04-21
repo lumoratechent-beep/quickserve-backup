@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Subscription, PlanId, DuitNowPayment } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 import { daysLeftInTrial, isTrialActive, isSubscriptionActive, getRenewalStatus, daysUntilExpiry, GRACE_PERIOD_DAYS } from '../lib/subscriptionService';
-import { Loader2, Check, Plus, RefreshCw, X, AlertCircle, CheckCircle, ArrowLeftRight, Upload, Clock, FileImage, Wallet } from 'lucide-react';
+import { Loader2, Check, Plus, RefreshCw, X, AlertCircle, CheckCircle, ArrowLeftRight, Upload, Clock, FileImage } from 'lucide-react';
 import { toast } from '../components/Toast';
 import { supabase } from '../lib/supabase';
 
@@ -672,7 +672,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   setSelectedMethodId('wallet');
                   setConfirmingDeleteId(null);
                 }}
-                className={`relative rounded-xl border-2 px-5 py-5 min-w-[220px] cursor-pointer transition-all select-none overflow-hidden ${
+                className={`relative flex h-[132px] w-[220px] flex-none flex-col justify-between rounded-xl border-2 px-5 py-5 cursor-pointer transition-all select-none overflow-hidden ${
                   selectedMethodId === 'wallet'
                     ? 'border-emerald-500 bg-white dark:bg-gray-800 ring-2 ring-emerald-500/20 dark:ring-emerald-500/30'
                     : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 hover:border-emerald-400/60'
@@ -683,19 +683,30 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     <Check size={14} className="text-white" strokeWidth={3} />
                   </div>
                 )}
-                <p className="text-xs text-emerald-600 mb-3 font-semibold">QuickServe Wallet</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                    <Wallet size={18} className="text-emerald-600 dark:text-emerald-400" />
+                <div className="flex items-start justify-between gap-3 pr-8">
+                  <div className="flex h-11 items-center">
+                    <img
+                      src="/LOGO/9.png"
+                      alt="QuickServe"
+                      className="h-8 w-auto object-contain dark:hidden"
+                    />
+                    <img
+                      src="/LOGO/9-dark.png"
+                      alt="QuickServe"
+                      className="hidden h-8 w-auto object-contain dark:block"
+                    />
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-700 dark:text-gray-200 font-semibold">Wallet Balance</p>
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-black">
-                      {walletBalanceLoading ? 'Loading...' : `RM ${walletBalance.toFixed(2)}`}
-                    </p>
-                  </div>
+                  <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                    Wallet
+                  </span>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-3">Use wallet balance to renew your plan without charging a card.</p>
+                <div>
+                  <p className="text-sm text-gray-700 dark:text-gray-200 font-semibold">Wallet Balance</p>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-black">
+                      {walletBalanceLoading ? 'Loading...' : `RM ${walletBalance.toFixed(2)}`}
+                  </p>
+                </div>
+                <p className="text-[10px] text-gray-400">Use wallet balance to renew your plan without charging a card.</p>
               </div>
 
               {/* DuitNow payment method card — shown first when enabled */}
@@ -706,7 +717,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     setSelectedMethodId('duitnow');
                     setConfirmingDeleteId(null);
                   }}
-                  className={`relative rounded-xl border-2 px-5 py-5 min-w-[220px] cursor-pointer transition-all select-none overflow-hidden ${
+                  className={`relative flex h-[132px] w-[220px] flex-none flex-col justify-between rounded-xl border-2 px-5 py-5 cursor-pointer transition-all select-none overflow-hidden ${
                     selectedMethodId === 'duitnow'
                       ? 'border-[#ED2C67] bg-white dark:bg-gray-800 ring-2 ring-[#ED2C67]/20 dark:ring-[#ED2C67]/30'
                       : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 hover:border-[#ED2C67]/50'
@@ -717,7 +728,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                       <Check size={14} className="text-white" strokeWidth={3} />
                     </div>
                   )}
-                  <p className="text-xs text-[#ED2C67] mb-3 font-semibold">DuitNow QR</p>
+                  <p className="text-xs text-[#ED2C67] font-semibold">DuitNow QR</p>
                   <div className="flex items-center gap-2.5">
                     <img
                       src="/LOGO/duitnow-white-theme.png"
@@ -753,7 +764,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                         setConfirmingDeleteId(method.id);
                       }
                     }}
-                    className={`relative rounded-xl border-2 px-5 py-5 min-w-[220px] cursor-pointer transition-all select-none overflow-hidden ${
+                    className={`relative flex h-[132px] w-[220px] flex-none flex-col justify-between rounded-xl border-2 px-5 py-5 cursor-pointer transition-all select-none overflow-hidden ${
                       isConfirming
                         ? 'border-red-400 bg-red-50 dark:bg-red-900/20'
                         : isSelected
@@ -782,14 +793,14 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     )}
 
                     {/* Label */}
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 font-medium">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                       Credit / Debit Card
                     </p>
 
                     {/* Card visual */}
                     <div className="flex items-center gap-3">
                       {brandLogo(method.brand)}
-                      <span className="text-sm text-gray-700 dark:text-gray-300 font-mono tracking-wider">
+                      <span className="whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 font-mono tracking-wider">
                         •••• •••• ••••{method.last4}
                       </span>
                     </div>
@@ -801,7 +812,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
               <button
                 onClick={handleAddCard}
                 disabled={isAddingCard}
-                className="rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 min-w-[140px] min-h-[100px] flex items-center justify-center hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-all"
+                className="flex h-[132px] w-[220px] flex-none items-center justify-center rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-all"
               >
                 {isAddingCard
                   ? <Loader2 size={24} className="animate-spin text-gray-400" />
