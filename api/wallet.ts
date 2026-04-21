@@ -8,6 +8,33 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || ''
 );
 
+const CREDIT_TRANSACTION_TYPES = new Set(['sale', 'deposit']);
+const DEBIT_TRANSACTION_TYPES = new Set(['cashout', 'billing']);
+
+async function getCompletedWalletBalance(restaurantId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('wallet_transactions')
+    .select('amount, type')
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'completed');
+
+  if (error || !data) return 0;
+
+  return data.reduce((total, transaction) => {
+    const amount = Number(transaction.amount) || 0;
+    if (CREDIT_TRANSACTION_TYPES.has(transaction.type)) return total + amount;
+    if (DEBIT_TRANSACTION_TYPES.has(transaction.type)) return total - amount;
+    return total;
+  }, 0);
+}
+
+function buildDepositDescription(method: string, referenceNumber?: string, note?: string): string {
+  const parts = [`Wallet deposit via ${method === 'card' ? 'Card' : 'QR'}`];
+  if (referenceNumber) parts.push(`Ref: ${referenceNumber}`);
+  if (note) parts.push(note);
+  return parts.join(' - ');
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -77,19 +104,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (error) return res.status(500).json({ error: error.message });
 
         // Calculate wallet balance (sales - cashouts)
-        const { data: balanceData, error: balErr } = await supabase
-          .from('wallet_transactions')
-          .select('amount, type')
-          .eq('restaurant_id', restaurantId)
-          .eq('status', 'completed');
-
-        let balance = 0;
-        if (!balErr && balanceData) {
-          balanceData.forEach(t => {
-            if (t.type === 'sale') balance += Number(t.amount);
-            else if (t.type === 'cashout') balance -= Number(t.amount);
-          });
-        }
+        const balance = await getCompletedWalletBalance(restaurantId);
 
         return res.status(200).json({ transactions: data || [], totalCount: count || 0, balance });
       }
@@ -100,19 +115,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const restaurantId = req.query.restaurantId as string;
         if (!restaurantId) return res.status(400).json({ error: 'restaurantId required' });
 
-        const { data, error } = await supabase
-          .from('wallet_transactions')
-          .select('amount, type')
-          .eq('restaurant_id', restaurantId)
-          .eq('status', 'completed');
-
-        let balance = 0;
-        if (!error && data) {
-          data.forEach(t => {
-            if (t.type === 'sale') balance += Number(t.amount);
-            else if (t.type === 'cashout') balance -= Number(t.amount);
-          });
-        }
+        const balance = await getCompletedWalletBalance(restaurantId);
 
         // Also get pending cashout total
         const { data: pendingData } = await supabase
@@ -124,6 +127,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const pendingCashout = pendingData?.reduce((sum, r) => sum + Number(r.amount), 0) || 0;
 
         return res.status(200).json({ balance, pendingCashout });
+      }
+
+      // POST /api/wallet?action=deposit — add wallet funds via QR/manual confirmation
+      case 'deposit': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+        const { restaurantId, amount, method, referenceNumber, note } = req.body || {};
+        const parsedAmount = Number(amount);
+
+        if (!restaurantId || !parsedAmount || parsedAmount <= 0) {
+          return res.status(400).json({ error: 'Valid restaurantId and amount required' });
+        }
+
+        if (!['card', 'qr'].includes(method)) {
+          return res.status(400).json({ error: 'Deposit method must be card or qr' });
+        }
+
+        const { data, error } = await supabase
+          .from('wallet_transactions')
+          .insert({
+            restaurant_id: restaurantId,
+            amount: parsedAmount,
+            type: 'deposit',
+            status: 'completed',
+            description: buildDepositDescription(
+              method,
+              typeof referenceNumber === 'string' ? referenceNumber.slice(0, 100) : undefined,
+              typeof note === 'string' ? note.slice(0, 200) : undefined,
+            ),
+          })
+          .select()
+          .single();
+
+        if (error) return res.status(500).json({ error: error.message });
+
+        const balance = await getCompletedWalletBalance(restaurantId);
+        return res.status(200).json({ transaction: data, balance });
       }
 
       // POST /api/wallet?action=cashout — request a cashout
@@ -161,19 +201,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
 
           // Verify sufficient balance
-          const { data: balanceData } = await supabase
-            .from('wallet_transactions')
-            .select('amount, type')
-            .eq('restaurant_id', restaurantId)
-            .eq('status', 'completed');
-
-          let balance = 0;
-          if (balanceData) {
-            balanceData.forEach(t => {
-              if (t.type === 'sale') balance += Number(t.amount);
-              else if (t.type === 'cashout') balance -= Number(t.amount);
-            });
-          }
+          const balance = await getCompletedWalletBalance(restaurantId);
 
           // Check pending cashouts
           const { data: pendingData } = await supabase

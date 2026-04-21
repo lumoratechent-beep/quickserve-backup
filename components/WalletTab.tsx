@@ -1,11 +1,12 @@
 // components/WalletTab.tsx
 
-import React, { useState, useEffect } from 'react';
-import { Restaurant } from '../src/types';
+import React, { useEffect, useState } from 'react';
+import { Restaurant, Subscription } from '../src/types';
 import { toast } from './Toast';
+import { supabase } from '../lib/supabase';
 import {
   Wallet, RotateCw, Send, Building2, ChevronDown, Edit3, CheckCircle,
-  X, Banknote, Receipt, ArrowUpRight, ArrowDownRight
+  X, Banknote, Receipt, ArrowUpRight, ArrowDownRight, PlusCircle, CreditCard, QrCode, Plus
 } from 'lucide-react';
 
 const MALAYSIA_BANKS = [
@@ -42,9 +43,22 @@ const CURRENCY_OPTIONS = [
 
 interface Props {
   restaurant: Restaurant;
+  subscription?: Subscription | null;
 }
 
-const WalletTab: React.FC<Props> = ({ restaurant }) => {
+interface SavedCard {
+  id: string;
+  brand: string;
+  last4: string;
+  expMonth: number;
+  expYear: number;
+  isDefault: boolean;
+  type: string;
+}
+
+const DEFAULT_QR_SRC = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent('https://www.duitnow.my/qr/quickserve-wallet')}`;
+
+const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
   // Wallet state
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [walletPendingCashout, setWalletPendingCashout] = useState<number>(0);
@@ -60,6 +74,16 @@ const WalletTab: React.FC<Props> = ({ restaurant }) => {
   const [cashoutNotes, setCashoutNotes] = useState('');
   const [isRequestingCashout, setIsRequestingCashout] = useState(false);
   const [showCashoutForm, setShowCashoutForm] = useState(false);
+  const [showDepositForm, setShowDepositForm] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('');
+  const [depositMethod, setDepositMethod] = useState<'card' | 'qr'>('card');
+  const [depositReference, setDepositReference] = useState('');
+  const [isDepositing, setIsDepositing] = useState(false);
+  const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
+  const [loadingCards, setLoadingCards] = useState(false);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [isAddingCard, setIsAddingCard] = useState(false);
+  const [paymentQrImageUrl, setPaymentQrImageUrl] = useState<string | null>(null);
 
   // Currency setup
   const userCurrency = restaurant.settings?.currency || localStorage.getItem(`ux_currency_${restaurant.id}`) || 'MYR';
@@ -69,6 +93,16 @@ const WalletTab: React.FC<Props> = ({ restaurant }) => {
   useEffect(() => {
     fetchWalletData();
   }, []);
+
+  useEffect(() => {
+    fetchPaymentQrImage();
+  }, []);
+
+  useEffect(() => {
+    if (subscription?.stripe_customer_id) {
+      fetchSavedCards(subscription.stripe_customer_id);
+    }
+  }, [subscription?.stripe_customer_id]);
 
   // Wallet function implementations
   const fetchWalletData = async () => {
@@ -92,6 +126,61 @@ const WalletTab: React.FC<Props> = ({ restaurant }) => {
       console.error('Failed to fetch wallet data:', err);
     } finally {
       setWalletLoading(false);
+    }
+  };
+
+  const fetchPaymentQrImage = async () => {
+    try {
+      const { data } = await supabase
+        .from('feature_images')
+        .select('url')
+        .eq('category', 'payment-qr')
+        .order('sort_order', { ascending: false })
+        .limit(1);
+
+      setPaymentQrImageUrl(data?.[0]?.url || null);
+    } catch {
+      setPaymentQrImageUrl(null);
+    }
+  };
+
+  const fetchSavedCards = async (customerId: string) => {
+    setLoadingCards(true);
+    try {
+      const res = await fetch(`/api/stripe/billing?action=payment-methods&customerId=${encodeURIComponent(customerId)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const methods = data.methods || [];
+      setSavedCards(methods);
+      const defaultCard = methods.find((method: SavedCard) => method.isDefault);
+      setSelectedCardId(defaultCard?.id || methods[0]?.id || null);
+    } catch {
+      setSavedCards([]);
+      setSelectedCardId(null);
+    } finally {
+      setLoadingCards(false);
+    }
+  };
+
+  const handleAddCard = async () => {
+    setIsAddingCard(true);
+    try {
+      localStorage.setItem('qs_wallet_billing_subtab', 'WALLET');
+      const res = await fetch('/api/stripe/billing?action=setup-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerId: subscription?.stripe_customer_id, restaurantId: restaurant.id }),
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      toast(data.error || 'Failed to start card setup.', 'error');
+    } catch {
+      toast('Failed to start card setup.', 'error');
+    } finally {
+      setIsAddingCard(false);
     }
   };
 
@@ -144,6 +233,79 @@ const WalletTab: React.FC<Props> = ({ restaurant }) => {
     finally { setIsRequestingCashout(false); }
   };
 
+  const handleDeposit = async () => {
+    const amount = Number(depositAmount);
+    if (!amount || amount <= 0) {
+      toast('Enter a valid deposit amount.', 'warning');
+      return;
+    }
+
+    setIsDepositing(true);
+    try {
+      if (depositMethod === 'card') {
+        if (!selectedCardId) {
+          toast('Please select a card first.', 'warning');
+          return;
+        }
+
+        const res = await fetch('/api/stripe/billing?action=wallet-topup-direct', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            restaurantId: restaurant.id,
+            amount,
+            paymentMethodId: selectedCardId,
+            customerId: subscription?.stripe_customer_id,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          toast(data.error || 'Failed to top up wallet.', 'error');
+          return;
+        }
+      } else {
+        const res = await fetch('/api/wallet?action=deposit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            restaurantId: restaurant.id,
+            amount,
+            method: 'qr',
+            referenceNumber: depositReference || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          toast(data.error || 'Failed to record wallet deposit.', 'error');
+          return;
+        }
+      }
+
+      setDepositAmount('');
+      setDepositReference('');
+      setShowDepositForm(false);
+      toast(`Wallet topped up with ${currencySymbol}${amount.toFixed(2)}.`, 'success');
+      fetchWalletData();
+    } catch {
+      toast('Failed to process wallet deposit.', 'error');
+    } finally {
+      setIsDepositing(false);
+    }
+  };
+
+  const renderCardBadge = (card: SavedCard) => {
+    const brand = card.brand.toLowerCase();
+    if (brand === 'visa') {
+      return <span className="text-[10px] font-black italic text-blue-700">VISA</span>;
+    }
+    if (brand === 'mastercard') {
+      return <span className="text-[9px] font-black text-gray-900">MC</span>;
+    }
+    return <span className="text-[9px] font-black text-gray-700 uppercase">{card.brand.slice(0, 4)}</span>;
+  };
+
+  const isCreditTransaction = (type: string) => type === 'sale' || type === 'deposit';
+
   return (
     <div>
       {/* Wallet Balance Card */}
@@ -168,7 +330,7 @@ const WalletTab: React.FC<Props> = ({ restaurant }) => {
           )}
         </p>
         <div className="flex items-center gap-4 mt-2">
-          <p className="text-[10px] opacity-70">Revenue from completed online orders</p>
+          <p className="text-[10px] opacity-70">Available for renewals, payouts, and online sales</p>
           {walletPendingCashout > 0 && (
             <span className="text-[9px] font-black bg-white/20 px-2 py-0.5 rounded-full">
               Pending Cashout: {currencySymbol}{walletPendingCashout.toFixed(2)}
@@ -176,6 +338,12 @@ const WalletTab: React.FC<Props> = ({ restaurant }) => {
           )}
         </div>
         <div className="flex gap-2 mt-4">
+          <button
+            onClick={() => setShowDepositForm(true)}
+            className="px-4 py-2 bg-white text-emerald-700 hover:bg-emerald-50 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5"
+          >
+            <PlusCircle size={12} /> Deposit
+          </button>
           <button
             onClick={() => {
               if (!bankDetails) { toast('Please save your bank details first.', 'warning'); setShowBankSection(true); setShowBankForm(true); return; }
@@ -191,6 +359,144 @@ const WalletTab: React.FC<Props> = ({ restaurant }) => {
           *Cashout requests typically take 1-3 working days to process
         </p>
       </div>
+
+      {/* Deposit Form */}
+      {showDepositForm && (
+        <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600 p-5 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-black dark:text-white uppercase tracking-widest flex items-center gap-2">
+              <Wallet size={14} className="text-emerald-500" />
+              Deposit to QuickServe Wallet
+            </h3>
+            <button onClick={() => setShowDepositForm(false)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-all">
+              <X size={14} className="text-gray-400" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Amount ({currencySymbol})</label>
+              <input
+                type="number"
+                step="0.01"
+                min="1"
+                value={depositAmount}
+                onChange={e => setDepositAmount(e.target.value)}
+                placeholder="e.g. 100.00"
+                className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Deposit Method</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setDepositMethod('card')}
+                  className={`px-4 py-2.5 rounded-lg border text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 ${depositMethod === 'card' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-300'}`}
+                >
+                  <CreditCard size={13} /> Card
+                </button>
+                <button
+                  onClick={() => setDepositMethod('qr')}
+                  className={`px-4 py-2.5 rounded-lg border text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 ${depositMethod === 'qr' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-300'}`}
+                >
+                  <QrCode size={13} /> QR
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {depositMethod === 'card' ? (
+            <div className="rounded-xl border dark:border-gray-600 bg-white dark:bg-gray-800 p-4 space-y-3 mb-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Saved Cards</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Use a saved card to top up your wallet instantly.</p>
+                </div>
+                <button
+                  onClick={handleAddCard}
+                  disabled={isAddingCard}
+                  className="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-all flex items-center gap-1.5 text-gray-600 dark:text-gray-200 disabled:opacity-50"
+                >
+                  {isAddingCard ? <RotateCw size={12} className="animate-spin" /> : <Plus size={12} />}
+                  Add Card
+                </button>
+              </div>
+
+              {loadingCards ? (
+                <div className="py-5 flex justify-center"><RotateCw size={16} className="animate-spin text-gray-400" /></div>
+              ) : savedCards.length === 0 ? (
+                <div className="rounded-lg border border-dashed dark:border-gray-600 p-4 text-center">
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-300">No saved card found</p>
+                  <p className="text-[10px] text-gray-400 mt-1">Add a card first to enable instant wallet deposits.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {savedCards.map(card => (
+                    <button
+                      key={card.id}
+                      onClick={() => setSelectedCardId(card.id)}
+                      className={`w-full rounded-lg border p-3 flex items-center justify-between gap-3 text-left transition-all ${selectedCardId === card.id ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'border-gray-200 dark:border-gray-600'}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-7 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-center">{renderCardBadge(card)}</div>
+                        <div>
+                          <p className="text-xs font-black dark:text-white">•••• {card.last4}</p>
+                          <p className="text-[9px] text-gray-400">{card.expMonth}/{card.expYear} {card.isDefault ? '• default' : ''}</p>
+                        </div>
+                      </div>
+                      {selectedCardId === card.id && <CheckCircle size={14} className="text-emerald-500" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 items-start mb-4">
+              <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-600 p-4 flex items-center justify-center">
+                <img
+                  src={paymentQrImageUrl || DEFAULT_QR_SRC}
+                  alt="Wallet deposit QR"
+                  className="w-44 h-44 object-contain"
+                  onError={() => setPaymentQrImageUrl(null)}
+                />
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-600 p-4 space-y-3">
+                <div>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">QR Deposit</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Scan the QR with your banking app, then confirm the top-up below.</p>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Reference (Optional)</label>
+                  <input
+                    type="text"
+                    value={depositReference}
+                    onChange={e => setDepositReference(e.target.value)}
+                    placeholder="Bank reference / note"
+                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <p className="text-[10px] text-gray-400">This records the deposit in your wallet after you complete the transfer.</p>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-3">
+            <p className="text-[9px] text-gray-400 flex-1">
+              {depositMethod === 'card'
+                ? 'Card deposits are charged immediately and added to your wallet balance.'
+                : 'QR deposits use the payment QR shown above and are added when you confirm the transfer.'}
+            </p>
+            <button
+              onClick={handleDeposit}
+              disabled={isDepositing || !depositAmount || (depositMethod === 'card' && !selectedCardId)}
+              className="px-5 py-2.5 bg-emerald-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 transition-all disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {isDepositing ? <RotateCw size={12} className="animate-spin" /> : <PlusCircle size={12} />}
+              {depositMethod === 'card' ? 'Top Up by Card' : 'Confirm QR Deposit'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Cashout Request Form */}
       {showCashoutForm && (
@@ -413,7 +719,7 @@ const WalletTab: React.FC<Props> = ({ restaurant }) => {
           <div className="text-center py-10">
             <Receipt size={24} className="mx-auto text-gray-300 mb-2" />
             <p className="text-[10px] text-gray-400 font-bold">No transactions yet</p>
-            <p className="text-[9px] text-gray-300 mt-1">Revenue from online orders will appear here.</p>
+            <p className="text-[9px] text-gray-300 mt-1">Sales, deposits, and wallet billing payments will appear here.</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -421,19 +727,27 @@ const WalletTab: React.FC<Props> = ({ restaurant }) => {
               <div key={tx.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg">
                 <div className="flex items-center gap-3">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    tx.type === 'sale' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'
+                    tx.type === 'sale' ? 'bg-green-100 dark:bg-green-900/30' :
+                    tx.type === 'deposit' ? 'bg-blue-100 dark:bg-blue-900/30' :
+                    tx.type === 'billing' ? 'bg-orange-100 dark:bg-orange-900/30' :
+                    'bg-red-100 dark:bg-red-900/30'
                   }`}>
-                    {tx.type === 'sale' ? (
-                      <ArrowDownRight size={14} className="text-green-600" />
+                    {isCreditTransaction(tx.type) ? (
+                      <ArrowDownRight size={14} className={tx.type === 'deposit' ? 'text-blue-600' : 'text-green-600'} />
                     ) : (
-                      <ArrowUpRight size={14} className="text-red-600" />
+                      <ArrowUpRight size={14} className={tx.type === 'billing' ? 'text-orange-600' : 'text-red-600'} />
                     )}
                   </div>
                   <div>
                     <p className="text-xs font-black dark:text-white">
-                      {tx.type === 'sale' ? '+' : '-'}{currencySymbol}{Number(tx.amount).toFixed(2)}
+                      {isCreditTransaction(tx.type) ? '+' : '-'}{currencySymbol}{Number(tx.amount).toFixed(2)}
                     </p>
-                    <p className="text-[9px] text-gray-400">{tx.description || (tx.type === 'sale' ? 'Online order payment' : 'Cashout')}</p>
+                    <p className="text-[9px] text-gray-400">{tx.description || (
+                      tx.type === 'sale' ? 'Online order payment' :
+                      tx.type === 'deposit' ? 'Wallet deposit' :
+                      tx.type === 'billing' ? 'Subscription payment from wallet' :
+                      'Cashout'
+                    )}</p>
                   </div>
                 </div>
                 <div className="text-right">

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Subscription, PlanId, DuitNowPayment } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 import { daysLeftInTrial, isTrialActive, isSubscriptionActive, getRenewalStatus, daysUntilExpiry, GRACE_PERIOD_DAYS } from '../lib/subscriptionService';
-import { Loader2, Check, Plus, RefreshCw, X, AlertCircle, CheckCircle, ArrowLeftRight, Upload, Clock, FileImage } from 'lucide-react';
+import { Loader2, Check, Plus, RefreshCw, X, AlertCircle, CheckCircle, ArrowLeftRight, Upload, Clock, FileImage, Wallet } from 'lucide-react';
 import { toast } from '../components/Toast';
 import { supabase } from '../lib/supabase';
 
@@ -51,6 +51,8 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   const [isRenewing, setIsRenewing] = useState(false);
   const [showRenewConfirm, setShowRenewConfirm] = useState(false);
   const [renewError, setRenewError] = useState('');
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [walletBalanceLoading, setWalletBalanceLoading] = useState(false);
 
   // DuitNow state
   const isDuitNowEnabled = subscription?.duitnow_enabled ?? false;
@@ -93,6 +95,10 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     }
   }, [subscription?.stripe_customer_id]);
 
+  useEffect(() => {
+    fetchWalletBalance();
+  }, [restaurantId]);
+
   // Re-check for stripe_customer_id after returning from setup session
   useEffect(() => {
     onSubscriptionUpdated?.();
@@ -100,10 +106,13 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   }, []);
 
   useEffect(() => {
+    if (selectedMethodId === 'wallet' || selectedMethodId === 'duitnow') return;
     const def = paymentMethods.find(m => m.isDefault);
     if (def) setSelectedMethodId(def.id);
     else if (paymentMethods.length) setSelectedMethodId(paymentMethods[0].id);
-  }, [paymentMethods]);
+    else if (walletBalance > 0) setSelectedMethodId('wallet');
+    else if (isDuitNowEnabled) setSelectedMethodId('duitnow');
+  }, [paymentMethods, selectedMethodId, walletBalance, isDuitNowEnabled]);
 
   useEffect(() => {
     setHistoryPage(1);
@@ -216,6 +225,19 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     }
   };
 
+  const fetchWalletBalance = async () => {
+    setWalletBalanceLoading(true);
+    try {
+      const res = await fetch(`/api/wallet?action=balance&restaurantId=${encodeURIComponent(restaurantId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setWalletBalance(Number(data.balance) || 0);
+      }
+    } catch { /* silent */ } finally {
+      setWalletBalanceLoading(false);
+    }
+  };
+
   const fetchPaymentMethods = async () => {
     if (!subscription?.stripe_customer_id) return;
     setIsLoadingPayments(true);
@@ -298,12 +320,13 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     setIsRenewing(true);
     setRenewError('');
     try {
-      const res = await fetch('/api/stripe/billing?action=renew-direct', {
+      const action = selectedMethodId === 'wallet' ? 'renew-wallet' : 'renew-direct';
+      const res = await fetch(`/api/stripe/billing?action=${action}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           restaurantId,
-          paymentMethodId: selectedMethodId || undefined,
+          paymentMethodId: selectedMethodId && selectedMethodId !== 'wallet' ? selectedMethodId : undefined,
         }),
       });
       const data = await res.json();
@@ -316,6 +339,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
       toast(`Plan renewed successfully! New expiry: ${new Date(data.newPeriodEnd).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}`, 'success');
       onSubscriptionUpdated?.();
       fetchBillingHistory();
+      fetchWalletBalance();
     } catch {
       setRenewError('Connection error. Please check your internet and try again.');
     } finally {
@@ -610,24 +634,26 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         {/* ── Enable auto renew ── */}
         <section>
           <div className="flex items-center justify-between gap-4 mb-1">
-            <h3 className={`text-lg font-bold ${selectedMethodId === 'duitnow' ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>Enable auto renew</h3>
+            <h3 className={`text-lg font-bold ${selectedMethodId === 'duitnow' || selectedMethodId === 'wallet' ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>Enable auto renew</h3>
             <button
               onClick={handleToggleAutoRenew}
-              disabled={isTogglingAutoRenew || !subscription?.stripe_subscription_id || selectedMethodId === 'duitnow'}
+              disabled={isTogglingAutoRenew || !subscription?.stripe_subscription_id || selectedMethodId === 'duitnow' || selectedMethodId === 'wallet'}
               className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                selectedMethodId === 'duitnow'
+                selectedMethodId === 'duitnow' || selectedMethodId === 'wallet'
                   ? 'bg-gray-300 dark:bg-gray-600 opacity-40 cursor-not-allowed'
                   : autoRenew ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
-              } ${(isTogglingAutoRenew || !subscription?.stripe_subscription_id) && selectedMethodId !== 'duitnow' ? 'opacity-60 cursor-not-allowed' : selectedMethodId !== 'duitnow' ? 'cursor-pointer' : ''}`}
+              } ${(isTogglingAutoRenew || !subscription?.stripe_subscription_id) && selectedMethodId !== 'duitnow' && selectedMethodId !== 'wallet' ? 'opacity-60 cursor-not-allowed' : selectedMethodId !== 'duitnow' && selectedMethodId !== 'wallet' ? 'cursor-pointer' : ''}`}
             >
               <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                selectedMethodId === 'duitnow' ? 'translate-x-1' : autoRenew ? 'translate-x-6' : 'translate-x-1'
+                selectedMethodId === 'duitnow' || selectedMethodId === 'wallet' ? 'translate-x-1' : autoRenew ? 'translate-x-6' : 'translate-x-1'
               }`} />
             </button>
           </div>
           <p className="text-[11px] text-gray-400 leading-relaxed max-w-xl">
-            {selectedMethodId === 'duitnow'
-              ? 'Auto-renew is not available with DuitNow. You will need to manually renew each billing cycle by scanning the QR code.'
+            {selectedMethodId === 'duitnow' || selectedMethodId === 'wallet'
+              ? selectedMethodId === 'wallet'
+                ? 'Auto-renew is not available with QuickServe Wallet. Top up your wallet and renew manually whenever needed.'
+                : 'Auto-renew is not available with DuitNow. You will need to manually renew each billing cycle by scanning the QR code.'
               : 'This option, if checked, will renew your productive subscription, if the current plan expires. However, this might prevent you from downgrading.'}
           </p>
         </section>
@@ -640,6 +666,38 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
             <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-gray-400" /></div>
           ) : (
             <div className="flex items-stretch gap-4 overflow-x-auto pb-4" onClick={() => setConfirmingDeleteId(null)}>
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedMethodId('wallet');
+                  setConfirmingDeleteId(null);
+                }}
+                className={`relative rounded-xl border-2 px-5 py-5 min-w-[220px] cursor-pointer transition-all select-none overflow-hidden ${
+                  selectedMethodId === 'wallet'
+                    ? 'border-emerald-500 bg-white dark:bg-gray-800 ring-2 ring-emerald-500/20 dark:ring-emerald-500/30'
+                    : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 hover:border-emerald-400/60'
+                }`}
+              >
+                {selectedMethodId === 'wallet' && (
+                  <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
+                    <Check size={14} className="text-white" strokeWidth={3} />
+                  </div>
+                )}
+                <p className="text-xs text-emerald-600 mb-3 font-semibold">QuickServe Wallet</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                    <Wallet size={18} className="text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-700 dark:text-gray-200 font-semibold">Wallet Balance</p>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-black">
+                      {walletBalanceLoading ? 'Loading...' : `RM ${walletBalance.toFixed(2)}`}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-3">Use wallet balance to renew your plan without charging a card.</p>
+              </div>
+
               {/* DuitNow payment method card — shown first when enabled */}
               {isDuitNowEnabled && (
                 <div
@@ -903,6 +961,8 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         const totalAmount = isAnnual ? price * 12 : price;
         const intervalLabel = isAnnual ? 'Annually' : 'Monthly';
         const selectedCard = paymentMethods.find(m => m.id === selectedMethodId);
+        const usingWallet = selectedMethodId === 'wallet';
+        const walletRemaining = walletBalance - totalAmount;
         return (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 relative">
@@ -929,6 +989,20 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   <span className="text-gray-500 dark:text-gray-400">Amount</span>
                   <span className="font-bold text-orange-500">RM {totalAmount.toFixed(2)}</span>
                 </div>
+                {usingWallet && (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Wallet Balance</span>
+                      <span className="font-semibold text-gray-900 dark:text-white">RM {walletBalance.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Balance After Payment</span>
+                      <span className={`font-semibold ${walletRemaining >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                        RM {walletRemaining.toFixed(2)}
+                      </span>
+                    </div>
+                  </>
+                )}
                 {selectedCard && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500 dark:text-gray-400">Card</span>
@@ -971,7 +1045,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                 </button>
                 <button
                   onClick={handleRenew}
-                  disabled={isRenewing || paymentMethods.length === 0}
+                  disabled={isRenewing || (!usingWallet && paymentMethods.length === 0) || (usingWallet && walletBalance < totalAmount)}
                   className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isRenewing ? (
@@ -982,8 +1056,11 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                 </button>
               </div>
 
-              {paymentMethods.length === 0 && (
+              {!usingWallet && paymentMethods.length === 0 && (
                 <p className="text-xs text-red-500 mt-3 text-center">No payment method found. Please add a card first.</p>
+              )}
+              {usingWallet && walletBalance < totalAmount && (
+                <p className="text-xs text-red-500 mt-3 text-center">Insufficient wallet balance. Top up your wallet first.</p>
               )}
             </div>
           </div>

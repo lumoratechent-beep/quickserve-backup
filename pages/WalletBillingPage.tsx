@@ -1,6 +1,6 @@
 // pages/WalletBillingPage.tsx
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Restaurant, Subscription } from '../src/types';
 import BillingPage from './BillingPage';
 import WalletTab from '../components/WalletTab';
@@ -23,7 +23,14 @@ const WalletBillingPage: React.FC<Props> = ({
   onSubscriptionUpdated,
   onComparePlans
 }) => {
-  const [activeTab, setActiveTab] = useState<'BILLING' | 'WALLET'>('BILLING');
+  const [activeTab, setActiveTab] = useState<'BILLING' | 'WALLET'>(() => {
+    const storedTab = localStorage.getItem('qs_wallet_billing_subtab');
+    return storedTab === 'WALLET' ? 'WALLET' : 'BILLING';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('qs_wallet_billing_subtab', activeTab);
+  }, [activeTab]);
 
   return (
     <div className="flex-1 overflow-y-auto p-4 md:p-8">
@@ -69,7 +76,7 @@ const WalletBillingPage: React.FC<Props> = ({
           )}
 
           {activeTab === 'WALLET' && (
-            <WalletTab restaurant={restaurant} />
+            <WalletTab restaurant={restaurant} subscription={subscription} />
           )}
         </div>
       </div>

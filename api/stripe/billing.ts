@@ -11,6 +11,70 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || ''
 );
 
+const CREDIT_TRANSACTION_TYPES = new Set(['sale', 'deposit']);
+const DEBIT_TRANSACTION_TYPES = new Set(['cashout', 'billing']);
+const PLAN_PRICES: Record<string, { monthly: number; annual: number }> = {
+  basic: { monthly: 30, annual: 25 },
+  pro: { monthly: 50, annual: 42 },
+  pro_plus: { monthly: 70, annual: 60 },
+};
+const PLAN_NAMES: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
+
+async function getOrCreateStripeCustomerId(restaurantId: string, inputCustomerId?: string): Promise<string> {
+  if (inputCustomerId) return inputCustomerId;
+
+  const { data: sub } = await supabase
+    .from('subscriptions')
+    .select('stripe_customer_id')
+    .eq('restaurant_id', restaurantId)
+    .single();
+
+  if (sub?.stripe_customer_id) return sub.stripe_customer_id;
+
+  const { data: restaurant } = await supabase
+    .from('restaurants')
+    .select('name')
+    .eq('id', restaurantId)
+    .single();
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('email, username')
+    .eq('restaurant_id', restaurantId)
+    .eq('role', 'VENDOR')
+    .single();
+
+  const customer = await stripe.customers.create({
+    name: restaurant?.name || 'QuickServe Customer',
+    email: user?.email || undefined,
+    metadata: { restaurant_id: restaurantId },
+  });
+
+  await supabase
+    .from('subscriptions')
+    .update({ stripe_customer_id: customer.id })
+    .eq('restaurant_id', restaurantId);
+
+  return customer.id;
+}
+
+async function getWalletBalance(restaurantId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('wallet_transactions')
+    .select('amount, type')
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'completed');
+
+  if (error || !data) return 0;
+
+  return data.reduce((total, transaction) => {
+    const amount = Number(transaction.amount) || 0;
+    if (CREDIT_TRANSACTION_TYPES.has(transaction.type)) return total + amount;
+    if (DEBIT_TRANSACTION_TYPES.has(transaction.type)) return total - amount;
+    return total;
+  }, 0);
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = req.query.action as string;
 
@@ -244,6 +308,156 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ success: true });
       }
 
+      // POST /api/stripe/billing?action=wallet-topup-direct  body: { restaurantId, amount, paymentMethodId, customerId? }
+      case 'wallet-topup-direct': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { restaurantId: topupRestaurantId, amount, paymentMethodId, customerId: inputCustomerId } = req.body || {};
+        const parsedAmount = Number(amount);
+
+        if (!topupRestaurantId || !paymentMethodId || !parsedAmount || parsedAmount <= 0) {
+          return res.status(400).json({ error: 'restaurantId, paymentMethodId, and a valid amount are required.' });
+        }
+
+        const customerId = await getOrCreateStripeCustomerId(topupRestaurantId, inputCustomerId);
+
+        let paymentIntent: Stripe.PaymentIntent;
+        try {
+          paymentIntent = await stripe.paymentIntents.create({
+            amount: Math.round(parsedAmount * 100),
+            currency: 'myr',
+            customer: customerId,
+            payment_method: paymentMethodId,
+            confirm: true,
+            off_session: true,
+            description: 'QuickServe Wallet Top-up',
+            metadata: {
+              restaurant_id: topupRestaurantId,
+              type: 'wallet_topup',
+            },
+          });
+        } catch (paymentError: any) {
+          return res.status(402).json({ error: paymentError?.message || 'Card payment failed. Please try another card.' });
+        }
+
+        if (paymentIntent.status !== 'succeeded') {
+          return res.status(402).json({ error: 'Card payment was not completed.' });
+        }
+
+        const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+        const cardBrand = paymentMethod.type === 'card' ? paymentMethod.card?.brand?.toUpperCase() || 'CARD' : 'CARD';
+        const cardLast4 = paymentMethod.type === 'card' ? paymentMethod.card?.last4 || '0000' : '0000';
+
+        const { data: transaction, error: transactionError } = await supabase
+          .from('wallet_transactions')
+          .insert({
+            restaurant_id: topupRestaurantId,
+            amount: parsedAmount,
+            type: 'deposit',
+            status: 'completed',
+            description: `Wallet deposit via Card - ${cardBrand} •••• ${cardLast4}`,
+          })
+          .select()
+          .single();
+
+        if (transactionError) {
+          return res.status(500).json({ error: transactionError.message || 'Wallet top-up succeeded but could not be recorded.' });
+        }
+
+        const balance = await getWalletBalance(topupRestaurantId);
+        return res.status(200).json({ success: true, transaction, balance, paymentIntentId: paymentIntent.id });
+      }
+
+      // POST /api/stripe/billing?action=renew-wallet  body: { restaurantId }
+      case 'renew-wallet': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { restaurantId: renewRestaurantId } = req.body || {};
+        if (!renewRestaurantId) return res.status(400).json({ error: 'restaurantId is required.' });
+
+        const { data: renewSub } = await supabase
+          .from('subscriptions')
+          .select('plan_id, billing_interval, current_period_end, trial_end')
+          .eq('restaurant_id', renewRestaurantId)
+          .single();
+
+        if (!renewSub) {
+          return res.status(404).json({ error: 'Subscription not found.' });
+        }
+
+        const planId = renewSub.plan_id || 'basic';
+        const isAnnual = renewSub.billing_interval === 'annual';
+        const planPrices = PLAN_PRICES[planId] || PLAN_PRICES.basic;
+        const pricePerMonth = isAnnual ? planPrices.annual : planPrices.monthly;
+        const months = isAnnual ? 12 : 1;
+        const grossCharged = pricePerMonth * months;
+        const walletBalance = await getWalletBalance(renewRestaurantId);
+
+        if (walletBalance < grossCharged) {
+          return res.status(400).json({
+            error: `Insufficient wallet balance. Available: RM ${walletBalance.toFixed(2)}. Required: RM ${grossCharged.toFixed(2)}.`,
+          });
+        }
+
+        const renewFrom = renewSub.current_period_end || renewSub.trial_end;
+        let periodStart: Date;
+        if (renewFrom) {
+          const renewDate = new Date(renewFrom);
+          periodStart = renewDate > new Date() ? renewDate : new Date();
+        } else {
+          periodStart = new Date();
+        }
+        const periodEnd = new Date(periodStart);
+        periodEnd.setDate(periodEnd.getDate() + (isAnnual ? 365 : 30));
+
+        await supabase
+          .from('subscriptions')
+          .update({
+            status: 'active',
+            current_period_start: periodStart.toISOString(),
+            current_period_end: periodEnd.toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('restaurant_id', renewRestaurantId);
+
+        const intervalLabel = isAnnual ? 'Annual' : 'Monthly';
+        const planName = PLAN_NAMES[planId] || planId;
+
+        await supabase.from('wallet_transactions').insert({
+          restaurant_id: renewRestaurantId,
+          amount: grossCharged,
+          type: 'billing',
+          status: 'completed',
+          description: `Subscription renewal - ${planName} (${intervalLabel})`,
+        });
+
+        const { data: renewRestaurant } = await supabase
+          .from('restaurants')
+          .select('name')
+          .eq('id', renewRestaurantId)
+          .single();
+
+        await supabase.from('billing_records').insert({
+          restaurant_id: renewRestaurantId,
+          description: `QuickServe Wallet Payment (${intervalLabel})`,
+          amount: grossCharged,
+          type: 'wallet',
+          gross: grossCharged,
+          fee: 0,
+          net: grossCharged,
+          plan_id: planId,
+          restaurant_name: renewRestaurant?.name || 'Unknown',
+          created_by: 'wallet',
+        });
+
+        const balance = await getWalletBalance(renewRestaurantId);
+        return res.status(200).json({
+          success: true,
+          newPeriodEnd: periodEnd.toISOString(),
+          amountCharged: grossCharged,
+          interval: intervalLabel,
+          balance,
+        });
+      }
+
       // POST /api/stripe/billing?action=toggle-auto-renew  body: { subscriptionId, cancelAtPeriodEnd }
       case 'toggle-auto-renew': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -276,11 +490,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const isAnnual = renewSub.billing_interval === 'annual';
 
         // Determine the price
-        const PLAN_PRICES: Record<string, { monthly: number; annual: number }> = {
-          basic: { monthly: 30, annual: 25 },
-          pro: { monthly: 50, annual: 42 },
-          pro_plus: { monthly: 70, annual: 60 },
-        };
         const planPrices = PLAN_PRICES[planId] || PLAN_PRICES.basic;
         const monthlyPrice = isAnnual ? planPrices.annual : planPrices.monthly;
         const months = isAnnual ? 12 : 1;
@@ -306,9 +515,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(400).json({ error: 'No payment method found. Please add a card first.' });
         }
 
-        const planNames: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
         const intervalLabel = isAnnual ? 'Annual' : 'Monthly';
-        const chargeDescription = `QuickServe ${planNames[planId] || planId} Plan Renewal (${intervalLabel})`;
+        const chargeDescription = `QuickServe ${PLAN_NAMES[planId] || planId} Plan Renewal (${intervalLabel})`;
 
         // Create invoice item → invoice → pay in one flow
         try {
@@ -819,7 +1027,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       default:
-        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, toggle-auto-renew, renew-direct, cleanup-stale, reconcile-access, admin-extend, duitnow-submit, duitnow-list, duitnow-review' });
+        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, wallet-topup-direct, renew-wallet, toggle-auto-renew, renew-direct, cleanup-stale, reconcile-access, admin-extend, duitnow-submit, duitnow-list, duitnow-review' });
     }
   } catch (err: any) {
     console.error(`Stripe billing error (${action}):`, err);
