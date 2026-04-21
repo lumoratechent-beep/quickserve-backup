@@ -862,6 +862,14 @@ const AdminView: React.FC<Props> = ({
 
   const duitnowTransactionRows = useMemo(() => {
     const planLabels: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
+    const buildSortedReference = (prefix: string, createdAt?: string, id?: string) => {
+      const date = createdAt ? new Date(createdAt) : new Date();
+      const timestamp = Number.isNaN(date.getTime())
+        ? '00000000-000000'
+        : `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}-${String(date.getHours()).padStart(2, '0')}${String(date.getMinutes()).padStart(2, '0')}${String(date.getSeconds()).padStart(2, '0')}`;
+      const suffix = String(id || '').replace(/-/g, '').slice(-4).toUpperCase() || '0000';
+      return `${prefix}-${timestamp}-${suffix}`;
+    };
 
     const normalizedPlanPayments = duitnowPayments.map((payment: any) => {
       const planLabel = planLabels[payment.plan_id] || payment.plan_id || 'Unknown Plan';
@@ -877,7 +885,7 @@ const AdminView: React.FC<Props> = ({
         transactionTypeLabel: 'Plan Extension',
         restaurantDisplayName: payment.restaurant_name || 'Unknown',
         methodLabel: 'QR',
-        referenceLabel: payment.reference_number || `DN-${String(payment.id || '').slice(0, 8).toUpperCase()}`,
+        referenceLabel: buildSortedReference('DNB', payment.created_at, payment.id),
         cleanDescription: descriptionParts.join(' · '),
         formattedDate: new Date(payment.created_at).toLocaleDateString(),
         formattedTime: new Date(payment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -891,7 +899,7 @@ const AdminView: React.FC<Props> = ({
       transactionTypeLabel: 'Wallet Top Up',
       restaurantDisplayName: transaction.restaurantName || 'Unknown Vendor',
       methodLabel: 'QR',
-      referenceLabel: `WQR-${String(transaction.id || '').slice(0, 8).toUpperCase()}`,
+      referenceLabel: buildSortedReference('DNW', transaction.created_at, transaction.id),
       cleanDescription: transaction.description || 'Wallet QR top up',
       formattedDate: new Date(transaction.created_at).toLocaleDateString(),
       formattedTime: new Date(transaction.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -2684,17 +2692,10 @@ const AdminView: React.FC<Props> = ({
             ) : (
               <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm">
                 <div className="p-5 border-b border-gray-100 dark:border-gray-700">
-                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                    <div>
-                      <h3 className="text-sm font-black dark:text-white uppercase tracking-widest flex items-center gap-2">
-                        <Receipt size={14} className="text-orange-500" />
-                        DuitNow Payments
-                      </h3>
-                      <p className="text-[10px] text-gray-400 mt-1">All QR plan extensions and wallet top ups reviewed through DuitNow.</p>
-                    </div>
+                  <div className="flex items-center gap-2 sm:gap-3 flex-nowrap overflow-x-auto hide-scrollbar">
                     {duitnowTransactionRows.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-3">
-                        <div className="relative min-w-[220px] flex-1 lg:flex-none">
+                      <>
+                        <div className="relative min-w-[180px] sm:min-w-[220px] flex-1">
                           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                           <input
                             type="text"
@@ -2707,7 +2708,7 @@ const AdminView: React.FC<Props> = ({
                         <select
                           value={duitnowFilter}
                           onChange={(e) => setDuitnowFilter(e.target.value as 'all' | 'pending' | 'approved' | 'completed' | 'rejected')}
-                          className="py-2 px-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500"
+                          className="h-9 min-w-[96px] py-2 px-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500 shrink-0"
                         >
                           <option value="all">All Status</option>
                           <option value="pending">Pending</option>
@@ -2718,7 +2719,7 @@ const AdminView: React.FC<Props> = ({
                         <select
                           value={duitnowTypeFilter}
                           onChange={(e) => setDuitnowTypeFilter(e.target.value)}
-                          className="py-2 px-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500"
+                          className="h-9 min-w-[108px] py-2 px-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500 shrink-0"
                         >
                           <option value="ALL">All Type</option>
                           {duitnowTypeOptions.map((type) => (
@@ -2728,19 +2729,19 @@ const AdminView: React.FC<Props> = ({
                         <select
                           value={duitnowMethodFilter}
                           onChange={(e) => setDuitnowMethodFilter(e.target.value)}
-                          className="py-2 px-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500"
+                          className="h-9 min-w-[102px] py-2 px-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500 shrink-0"
                         >
                           <option value="ALL">All Method</option>
                           {duitnowMethodOptions.map((method) => (
                             <option key={method} value={method}>{method}</option>
                           ))}
                         </select>
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
                           <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Show</span>
                           <select
                             value={duitnowEntriesPerPage}
                             onChange={(e) => setDuitnowEntriesPerPage(Number(e.target.value))}
-                            className="bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5 outline-none cursor-pointer"
+                            className="h-9 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white px-2 outline-none cursor-pointer"
                           >
                             <option value={30}>30</option>
                             <option value={50}>50</option>
@@ -2748,7 +2749,7 @@ const AdminView: React.FC<Props> = ({
                           </select>
                           <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Entries</span>
                         </div>
-                      </div>
+                      </>
                     )}
                   </div>
                 </div>
@@ -2762,37 +2763,37 @@ const AdminView: React.FC<Props> = ({
                 ) : (
                   <>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left">
+                      <table className="w-full text-left table-auto">
                         <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
                           <tr>
-                            <th className="px-4 py-3 text-left">Reference</th>
-                            <th className="px-4 py-3 text-left">Vendor</th>
-                            <th className="px-4 py-3 text-left">Date</th>
-                            <th className="px-4 py-3 text-left">Time</th>
-                            <th className="px-4 py-3 text-left">Status</th>
-                            <th className="px-4 py-3 text-left">Method</th>
-                            <th className="px-4 py-3 text-left">Type</th>
-                            <th className="px-4 py-3 text-left">Description</th>
-                            <th className="px-4 py-3 text-right">Amount</th>
-                            <th className="px-4 py-3 text-right">Action</th>
+                            <th className="px-2 sm:px-3 py-3 text-left whitespace-nowrap">Reference</th>
+                            <th className="px-2 sm:px-3 py-3 text-left whitespace-nowrap">Vendor</th>
+                            <th className="px-2 sm:px-3 py-3 text-left whitespace-nowrap">Date</th>
+                            <th className="px-2 sm:px-3 py-3 text-left whitespace-nowrap">Time</th>
+                            <th className="px-2 sm:px-3 py-3 text-left whitespace-nowrap">Status</th>
+                            <th className="px-2 sm:px-3 py-3 text-left whitespace-nowrap">Method</th>
+                            <th className="px-2 sm:px-3 py-3 text-left whitespace-nowrap">Type</th>
+                            <th className="px-2 sm:px-3 py-3 text-left whitespace-nowrap">Description</th>
+                            <th className="px-2 sm:px-3 py-3 text-right whitespace-nowrap">Amount</th>
+                            <th className="px-2 sm:px-3 py-3 text-right whitespace-nowrap">Action</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y dark:divide-gray-700">
                           {paginatedDuitnowTransactions.map((payment: any) => (
                             <tr key={`${payment.entryKind}-${payment.id}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                              <td className="px-4 py-2">
-                                <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">{payment.referenceLabel}</span>
+                              <td className="px-2 sm:px-3 py-2 whitespace-nowrap">
+                                <span className="text-[9px] sm:text-[10px] font-black text-orange-500 uppercase tracking-tight">{payment.referenceLabel}</span>
                               </td>
-                              <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tighter whitespace-nowrap">
+                              <td className="px-2 sm:px-3 py-2 text-[9px] sm:text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tight whitespace-nowrap max-w-[132px] truncate">
                                 {payment.restaurantDisplayName}
                               </td>
-                              <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tighter whitespace-nowrap">
+                              <td className="px-2 sm:px-3 py-2 text-[9px] sm:text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tight whitespace-nowrap">
                                 {payment.formattedDate}
                               </td>
-                              <td className="px-4 py-2 text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap">
+                              <td className="px-2 sm:px-3 py-2 text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap">
                                 {payment.formattedTime}
                               </td>
-                              <td className="px-4 py-2">
+                              <td className="px-2 sm:px-3 py-2 whitespace-nowrap">
                                 <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
                                   payment.status === 'approved' || payment.status === 'completed' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
                                   payment.status === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
@@ -2801,10 +2802,10 @@ const AdminView: React.FC<Props> = ({
                                   {payment.status}
                                 </span>
                               </td>
-                              <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase whitespace-nowrap">
+                              <td className="px-2 sm:px-3 py-2 text-[9px] sm:text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase whitespace-nowrap">
                                 {payment.methodLabel}
                               </td>
-                              <td className="px-4 py-2">
+                              <td className="px-2 sm:px-3 py-2 whitespace-nowrap">
                                 <span className={`inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
                                   payment.entryKind === 'wallet_topup'
                                     ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
@@ -2814,16 +2815,16 @@ const AdminView: React.FC<Props> = ({
                                   {payment.transactionTypeLabel}
                                 </span>
                               </td>
-                              <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-200 min-w-[280px]">
+                              <td className="px-2 sm:px-3 py-2 text-[9px] sm:text-[10px] font-black text-gray-700 dark:text-gray-200 min-w-[180px] max-w-[240px] truncate">
                                 {payment.cleanDescription}
                               </td>
-                              <td className="px-4 py-2 text-right whitespace-nowrap">
-                                <span className="text-xs font-black text-green-600 dark:text-green-400">
+                              <td className="px-2 sm:px-3 py-2 text-right whitespace-nowrap">
+                                <span className="text-[10px] sm:text-xs font-black text-green-600 dark:text-green-400">
                                   +RM{Number(payment.amount).toFixed(2)}
                                 </span>
                               </td>
-                              <td className="px-4 py-2">
-                                <div className="flex items-center justify-end gap-2 flex-wrap">
+                              <td className="px-2 sm:px-3 py-2">
+                                <div className="flex items-center justify-end gap-1.5 sm:gap-2 whitespace-nowrap">
                                   {payment.attachmentUrl && (
                                     <button
                                       onClick={() => setDuitnowImagePreview(payment.attachmentUrl)}
@@ -2838,14 +2839,14 @@ const AdminView: React.FC<Props> = ({
                                         <button
                                           onClick={() => handleDuitnowReview(payment.id, 'approved')}
                                           disabled={duitnowReviewing === payment.id}
-                                          className="px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all disabled:opacity-50 flex items-center gap-1"
+                                          className="w-[84px] sm:w-[92px] px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all disabled:opacity-50 inline-flex items-center justify-center gap-1"
                                         >
                                           {duitnowReviewing === payment.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />} Approve
                                         </button>
                                         <button
                                           onClick={() => { setDuitnowRejectModalId(payment.id); setDuitnowRejectNote(''); }}
                                           disabled={duitnowReviewing === payment.id}
-                                          className="px-3 py-1.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-red-200 transition-all flex items-center gap-1"
+                                          className="w-[84px] sm:w-[92px] px-3 py-1.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-red-200 transition-all inline-flex items-center justify-center gap-1"
                                         >
                                           <X size={12} /> Reject
                                         </button>
@@ -2855,14 +2856,14 @@ const AdminView: React.FC<Props> = ({
                                         <button
                                           onClick={() => handleUpdateWalletTopup(payment.id, 'completed')}
                                           disabled={adminWalletTopupReviewing === payment.id}
-                                          className="px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all disabled:opacity-50 flex items-center gap-1"
+                                          className="w-[84px] sm:w-[92px] px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all disabled:opacity-50 inline-flex items-center justify-center gap-1"
                                         >
                                           {adminWalletTopupReviewing === payment.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />} Approve
                                         </button>
                                         <button
                                           onClick={() => handleUpdateWalletTopup(payment.id, 'rejected')}
                                           disabled={adminWalletTopupReviewing === payment.id}
-                                          className="px-3 py-1.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-red-200 transition-all disabled:opacity-50 flex items-center gap-1"
+                                          className="w-[84px] sm:w-[92px] px-3 py-1.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-red-200 transition-all disabled:opacity-50 inline-flex items-center justify-center gap-1"
                                         >
                                           <X size={12} /> Reject
                                         </button>
