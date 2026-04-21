@@ -366,25 +366,6 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     );
   };
 
-  const duitNowCardLogo = () => (
-    <>
-      <img
-        src="/LOGO/duitnow_logo.png"
-        alt="DuitNow"
-        className="h-10 w-auto object-contain dark:hidden"
-      />
-      <div className="hidden dark:flex items-center gap-2.5">
-        <div className="w-9 h-9 rounded-xl bg-[#ED2C67] flex items-center justify-center shadow-sm">
-          <QrCode size={20} className="text-white" strokeWidth={2.25} />
-        </div>
-        <span className="text-[22px] leading-none font-black tracking-tight">
-          <span className="text-white">Duit</span>
-          <span className="text-[#ED2C67]">Now</span>
-        </span>
-      </div>
-    </>
-  );
-
   const combinedBillingHistory: BillingHistory[] = [
     ...billingHistory.map((entry) => ({
       ...entry,
@@ -655,13 +636,20 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                       <Check size={14} className="text-white" strokeWidth={3} />
                     </div>
                   )}
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 font-medium">DuitNow QR</p>
+                  <p className="text-xs text-[#ED2C67] mb-3 font-semibold">DuitNow QR</p>
                   <div className="flex items-center gap-2.5">
-                    {duitNowCardLogo()}
+                    <img
+                      src="/LOGO/duitnow_logo.png"
+                      alt="DuitNow"
+                      className="h-10 w-auto object-contain"
+                    />
                     <span className="text-sm text-gray-700 dark:text-gray-300 font-semibold">
                       Bank / e-Wallet
                     </span>
                   </div>
+                  {selectedMethodId === 'duitnow' && (
+                    <p className="text-[9px] text-[#ED2C67] font-medium mt-2">Scan QR to pay · Admin approval</p>
+                  )}
                 </div>
               )}
 
