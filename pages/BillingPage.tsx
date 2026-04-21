@@ -684,32 +684,21 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   </div>
                 )}
                 <p className="text-xs text-emerald-600 font-semibold">QuickServe Wallet</p>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src="/LOGO/icon-192x192.png"
-                      alt="QuickServe logo"
-                      className="h-9 w-9 rounded-xl object-contain"
-                      onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="16" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="32" font-weight="900" fill="%23f97316">QS</text></svg>')}`;
-                      }}
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-300 font-semibold">
+                <div className="flex items-center gap-3">
+                  <img
+                    src="/LOGO/icon-192x192.png"
+                    alt="QuickServe logo"
+                    className="h-9 w-9 rounded-xl object-contain"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="16" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="32" font-weight="900" fill="%23f97316">QS</text></svg>')}`;
+                    }}
+                  />
+                  <div className="flex flex-col justify-center">
+                    <span className="text-sm text-gray-700 dark:text-gray-300 font-semibold leading-tight">
                       Wallet Balance
                     </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <img
-                      src="/LOGO/icon-192x192.png"
-                      alt="QuickServe logo"
-                      className="h-9 w-9 rounded-xl object-contain"
-                      onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="16" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="32" font-weight="900" fill="%23f97316">QS</text></svg>')}`;
-                      }}
-                    />
-                    <span className="text-sm text-emerald-600 dark:text-emerald-400 font-black">
+                    <span className="text-sm text-emerald-600 dark:text-emerald-400 font-black leading-tight mt-1">
                       {walletBalanceLoading ? 'Loading...' : `RM ${walletBalance.toFixed(2)}`}
                     </span>
                   </div>
