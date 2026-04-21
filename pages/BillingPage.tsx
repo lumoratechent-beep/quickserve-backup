@@ -672,7 +672,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   setSelectedMethodId('wallet');
                   setConfirmingDeleteId(null);
                 }}
-                className={`relative flex h-[132px] w-[220px] flex-none flex-col justify-between rounded-xl border-2 px-5 py-5 cursor-pointer transition-all select-none overflow-hidden ${
+                className={`relative flex h-[132px] w-[220px] flex-none flex-col gap-3 rounded-xl border-2 px-5 py-5 cursor-pointer transition-all select-none overflow-hidden ${
                   selectedMethodId === 'wallet'
                     ? 'border-emerald-500 bg-white dark:bg-gray-800 ring-2 ring-emerald-500/20 dark:ring-emerald-500/30'
                     : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 hover:border-emerald-400/60'
@@ -683,7 +683,10 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     <Check size={14} className="text-white" strokeWidth={3} />
                   </div>
                 )}
-                <p className="text-xs text-emerald-600 font-semibold">QuickServe Wallet</p>
+                <div className="space-y-1">
+                  <p className="text-xs text-emerald-600 font-semibold">QuickServe Wallet</p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">Use your wallet balance for manual renewals.</p>
+                </div>
                 <div className="flex items-center gap-3">
                   <img
                     src="/LOGO/icon-192x192.png"
@@ -713,7 +716,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     setSelectedMethodId('duitnow');
                     setConfirmingDeleteId(null);
                   }}
-                  className={`relative flex h-[132px] w-[220px] flex-none flex-col justify-between rounded-xl border-2 px-5 py-5 cursor-pointer transition-all select-none overflow-hidden ${
+                  className={`relative flex h-[132px] w-[220px] flex-none flex-col gap-3 rounded-xl border-2 px-5 py-5 cursor-pointer transition-all select-none overflow-hidden ${
                     selectedMethodId === 'duitnow'
                       ? 'border-[#ED2C67] bg-white dark:bg-gray-800 ring-2 ring-[#ED2C67]/20 dark:ring-[#ED2C67]/30'
                       : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 hover:border-[#ED2C67]/50'
@@ -724,7 +727,10 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                       <Check size={14} className="text-white" strokeWidth={3} />
                     </div>
                   )}
-                  <p className="text-xs text-[#ED2C67] font-semibold">DuitNow QR</p>
+                  <div className="space-y-1">
+                    <p className="text-xs text-[#ED2C67] font-semibold">DuitNow QR</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">Scan the QR code and complete payment manually.</p>
+                  </div>
                   <div className="flex items-center gap-2.5">
                     <img
                       src="/LOGO/duitnow-white-theme.png"
@@ -760,7 +766,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                         setConfirmingDeleteId(method.id);
                       }
                     }}
-                    className={`relative flex h-[132px] w-[220px] flex-none flex-col justify-between rounded-xl border-2 px-5 py-5 cursor-pointer transition-all select-none overflow-hidden ${
+                    className={`relative flex h-[132px] w-[220px] flex-none flex-col gap-3 rounded-xl border-2 px-5 py-5 cursor-pointer transition-all select-none overflow-hidden ${
                       isConfirming
                         ? 'border-red-400 bg-red-50 dark:bg-red-900/20'
                         : isSelected
@@ -789,9 +795,14 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     )}
 
                     {/* Label */}
-                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                      Credit / Debit Card
-                    </p>
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                        Credit / Debit Card
+                      </p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">
+                        Saved card for faster renewals.
+                      </p>
+                    </div>
 
                     {/* Card visual */}
                     <div className="flex items-center gap-3 pr-7">
@@ -808,14 +819,31 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
               <button
                 onClick={handleAddCard}
                 disabled={isAddingCard}
-                className="flex h-[132px] w-[220px] flex-none items-center justify-center rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-all"
+                className={`flex h-[132px] w-[220px] flex-none rounded-xl border-2 transition-all ${paymentMethods.length === 0
+                  ? 'flex-col gap-3 border-dashed border-gray-300 dark:border-gray-600 px-5 py-5 text-left hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/10'
+                  : 'items-center justify-center border-dashed border-gray-300 dark:border-gray-600 hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/10'
+                }`}
               >
-                {isAddingCard
-                  ? <Loader2 size={24} className="animate-spin text-gray-400" />
-                  : <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                      <Plus size={22} className="text-gray-400" />
+                {isAddingCard ? (
+                  <Loader2 size={24} className="animate-spin text-gray-400" />
+                ) : paymentMethods.length === 0 ? (
+                  <>
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Debit / Credit Card</p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">Add a card to enable faster payments and auto-renew.</p>
                     </div>
-                }
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                        <Plus size={20} className="text-gray-400" />
+                      </div>
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Add card</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                    <Plus size={22} className="text-gray-400" />
+                  </div>
+                )}
               </button>
             </div>
           )}
