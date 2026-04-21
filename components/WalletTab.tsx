@@ -59,6 +59,8 @@ interface SavedCard {
 
 const DEFAULT_QR_SRC = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent('https://www.duitnow.my/qr/quickserve-wallet')}`;
 
+const HISTORY_VISIBLE_CASHOUT_STATUSES = new Set(['pending', 'approved', 'rejected']);
+
 const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
   // Wallet state
   const [walletBalance, setWalletBalance] = useState<number>(0);
@@ -241,6 +243,23 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
     finally { setIsRequestingCashout(false); }
   };
 
+  const handleOpenDepositForm = () => {
+    setShowCashoutForm(false);
+    setShowDepositForm(true);
+  };
+
+  const handleOpenCashoutForm = () => {
+    if (!bankDetails) {
+      toast('Please save your bank details first.', 'warning');
+      setShowBankSection(true);
+      setShowBankForm(true);
+      return;
+    }
+
+    setShowDepositForm(false);
+    setShowCashoutForm(true);
+  };
+
   const handleDeposit = async () => {
     const amount = Number(depositAmount);
     if (!amount || amount <= 0) {
@@ -361,7 +380,30 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
   };
 
   const walletTransactionsWithMeta = useMemo(() => {
-    return walletTransactions.map((tx: any) => {
+    const pendingCashoutTransactions = cashoutRequests
+      .filter((request: any) => HISTORY_VISIBLE_CASHOUT_STATUSES.has(request.status))
+      .map((request: any) => ({
+        id: `cashout-request-${request.id}`,
+        cashout_request_id: request.id,
+        amount: request.amount,
+        type: 'cashout',
+        status: request.status,
+        created_at: request.created_at,
+        description: request.notes
+          ? `Cashout request - ${request.notes}`
+          : `Cashout request to ${request.bank_name}`,
+        order_id: null,
+        reference_code: request.reference_code || null,
+        bank_name: request.bank_name,
+        account_holder_name: request.account_holder_name,
+        account_number: request.account_number,
+        notes: request.notes,
+        source: 'cashout_request',
+      }));
+
+    return [...pendingCashoutTransactions, ...walletTransactions]
+      .sort((left: any, right: any) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime())
+      .map((tx: any) => {
       const createdAt = new Date(tx.created_at);
       const cleanDescription = getCleanTransactionDescription(tx);
       const methodLabel = getTransactionMethodLabel(tx);
@@ -375,8 +417,8 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
         formattedDate: createdAt.toLocaleDateString(),
         formattedTime: createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
-    });
-  }, [walletTransactions]);
+      });
+  }, [cashoutRequests, walletTransactions]);
 
   const walletMethodOptions = useMemo(() => {
     return Array.from(new Set(walletTransactionsWithMeta.map((tx) => tx.methodLabel))).sort((a, b) => a.localeCompare(b));
@@ -476,16 +518,13 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
         </div>
         <div className="flex gap-2 mt-4">
           <button
-            onClick={() => setShowDepositForm(true)}
+            onClick={handleOpenDepositForm}
             className="px-4 py-2 bg-white text-emerald-700 hover:bg-emerald-50 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5"
           >
             <PlusCircle size={12} /> Top Up
           </button>
           <button
-            onClick={() => {
-              if (!bankDetails) { toast('Please save your bank details first.', 'warning'); setShowBankSection(true); setShowBankForm(true); return; }
-              setShowCashoutForm(true);
-            }}
+            onClick={handleOpenCashoutForm}
             className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5"
           >
             <Send size={12} /> Request Cashout
@@ -805,49 +844,6 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
         )}
       </div>
 
-      {/* Cashout Request History */}
-      {cashoutRequests.length > 0 && (
-        <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600 p-5 mb-6">
-          <h3 className="text-sm font-black dark:text-white uppercase tracking-widest mb-4 flex items-center gap-2">
-            <Banknote size={14} className="text-orange-500" />
-            Cashout Requests
-          </h3>
-          <div className="space-y-2">
-            {cashoutRequests.map((req: any) => (
-              <div key={req.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    req.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900/30' :
-                    req.status === 'approved' ? 'bg-blue-100 dark:bg-blue-900/30' :
-                    req.status === 'completed' ? 'bg-green-100 dark:bg-green-900/30' :
-                    'bg-red-100 dark:bg-red-900/30'
-                  }`}>
-                    <ArrowUpRight size={14} className={
-                      req.status === 'pending' ? 'text-yellow-600' :
-                      req.status === 'approved' ? 'text-blue-600' :
-                      req.status === 'completed' ? 'text-green-600' :
-                      'text-red-600'
-                    } />
-                  </div>
-                  <div>
-                    <p className="text-xs font-black dark:text-white">{currencySymbol}{Number(req.amount).toFixed(2)}</p>
-                    <p className="text-[9px] text-gray-400">{new Date(req.created_at).toLocaleDateString()} — {req.bank_name} •••{req.account_number.slice(-4)}</p>
-                  </div>
-                </div>
-                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
-                  req.status === 'pending' ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                  req.status === 'approved' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
-                  req.status === 'completed' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
-                  'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                }`}>
-                  {req.status}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Transaction History */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 overflow-hidden shadow-sm">
         <div className="p-4 border-b dark:border-gray-700 flex flex-col gap-3">
@@ -855,7 +851,7 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
             <Receipt size={14} className="text-orange-500" />
             Transaction History
           </h3>
-          {walletTransactions.length > 0 && (
+          {walletTransactionsWithMeta.length > 0 && (
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="relative flex-1 min-w-0">
                 <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -913,11 +909,11 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
             </div>
           )}
         </div>
-        {walletTransactions.length === 0 ? (
+        {walletTransactionsWithMeta.length === 0 ? (
           <div className="text-center py-10">
             <Receipt size={24} className="mx-auto text-gray-300 mb-2" />
             <p className="text-[10px] text-gray-400 font-bold">No transactions yet</p>
-            <p className="text-[9px] text-gray-300 mt-1">Sales, deposits, and wallet billing payments will appear here.</p>
+            <p className="text-[9px] text-gray-300 mt-1">Sales, deposits, cashout requests, and wallet billing payments will appear here.</p>
           </div>
         ) : (
           <>
