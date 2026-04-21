@@ -742,48 +742,71 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
               <thead>
                 <tr className="border-b dark:border-gray-600">
                   <th className="pb-2 pr-4 text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Date</th>
+                  <th className="pb-2 pr-4 text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Time</th>
                   <th className="pb-2 pr-4 text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Description</th>
+                  <th className="pb-2 pr-4 text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Method</th>
                   <th className="pb-2 pr-4 text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Type</th>
                   <th className="pb-2 text-[9px] font-semibold text-gray-400 uppercase tracking-wider text-right">Amount</th>
                 </tr>
               </thead>
               <tbody>
-                {walletTransactions.map((tx: any) => (
-                  <tr key={tx.id} className="border-b dark:border-gray-700/50 last:border-0 hover:bg-white/60 dark:hover:bg-gray-800/40 transition-colors">
-                    <td className="py-2 pr-4 whitespace-nowrap">
-                      <p className="text-[10px] text-gray-600 dark:text-gray-300">{new Date(tx.created_at).toLocaleDateString()}</p>
-                      <p className="text-[9px] text-gray-400">{new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                    </td>
-                    <td className="py-2 pr-4 text-[10px] text-gray-700 dark:text-gray-200">
-                      {tx.description || (
-                        tx.type === 'sale' ? 'Online order payment' :
-                        tx.type === 'deposit' ? 'Wallet deposit' :
-                        tx.type === 'billing' ? 'Subscription payment from wallet' :
-                        'Cashout'
-                      )}
-                    </td>
-                    <td className="py-2 pr-4">
-                      <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tight ${
-                        tx.type === 'sale' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
-                        tx.type === 'deposit' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
-                        tx.type === 'billing' ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' :
-                        'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                      }`}>
-                        {isCreditTransaction(tx.type)
-                          ? <ArrowDownRight size={9} />
-                          : <ArrowUpRight size={9} />}
-                        {tx.type}
-                      </span>
-                    </td>
-                    <td className="py-2 text-right whitespace-nowrap">
-                      <span className={`text-xs font-black ${
-                        isCreditTransaction(tx.type) ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'
-                      }`}>
-                        {isCreditTransaction(tx.type) ? '+' : '-'}{currencySymbol}{Number(tx.amount).toFixed(2)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {walletTransactions.map((tx: any) => {
+                  const rawDesc = tx.description || (
+                    tx.type === 'sale' ? 'Online order payment' :
+                    tx.type === 'deposit' ? 'Wallet deposit' :
+                    tx.type === 'billing' ? 'Subscription payment from wallet' :
+                    'Cashout'
+                  );
+                  // Strip Stripe session IDs (cs_test_xxx / cs_live_xxx)
+                  const cleanDesc = rawDesc.replace(/\bcs_(test|live)_\S+/gi, '').replace(/\s{2,}/g, ' ').trim();
+
+                  // Derive payment type label
+                  const descLower = rawDesc.toLowerCase();
+                  const paymentType =
+                    descLower.includes('via card') ? 'via Card' :
+                    descLower.includes('via qr') ? 'via QR' :
+                    tx.type === 'billing' ? 'via Wallet' :
+                    tx.type === 'cashout' ? 'via Bank Transfer' :
+                    tx.type === 'sale' ? 'via Stripe' :
+                    '—';
+
+                  return (
+                    <tr key={tx.id} className="border-b dark:border-gray-700/50 last:border-0 hover:bg-white/60 dark:hover:bg-gray-800/40 transition-colors">
+                      <td className="py-2 pr-4 text-[10px] text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        {new Date(tx.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="py-2 pr-4 text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                        {new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td className="py-2 pr-4 text-[10px] text-gray-700 dark:text-gray-200">
+                        {cleanDesc}
+                      </td>
+                      <td className="py-2 pr-4">
+                        <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tight ${
+                          tx.type === 'sale' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
+                          tx.type === 'deposit' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
+                          tx.type === 'billing' ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' :
+                          'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                        }`}>
+                          {isCreditTransaction(tx.type)
+                            ? <ArrowDownRight size={9} />
+                            : <ArrowUpRight size={9} />}
+                          {tx.type}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-4 text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                        {paymentType}
+                      </td>
+                      <td className="py-2 text-right whitespace-nowrap">
+                        <span className={`text-xs font-black ${
+                          isCreditTransaction(tx.type) ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'
+                        }`}>
+                          {isCreditTransaction(tx.type) ? '+' : '-'}{currencySymbol}{Number(tx.amount).toFixed(2)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
