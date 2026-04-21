@@ -929,6 +929,7 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
                     <th className="px-4 py-3 text-left">Time</th>
                     <th className="px-4 py-3 text-left">Status</th>
                     <th className="px-4 py-3 text-left">Method</th>
+                    <th className="px-4 py-3 text-left">Type</th>
                     <th className="px-4 py-3 text-left">Details</th>
                     <th className="px-4 py-3 text-right">Amount</th>
                     <th className="px-4 py-3 text-right">Action</th>
@@ -955,21 +956,21 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
                       <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase whitespace-nowrap">
                         {tx.methodLabel}
                       </td>
+                      <td className="px-4 py-2">
+                        <span className={`inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                          tx.type === 'sale' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
+                          tx.type === 'deposit' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
+                          tx.type === 'billing' ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' :
+                          'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                        }`}>
+                          {isCreditTransaction(tx.type)
+                            ? <ArrowDownRight size={9} />
+                            : <ArrowUpRight size={9} />}
+                          {tx.type}
+                        </span>
+                      </td>
                       <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-200 min-w-[240px]">
-                        <div className="flex flex-col gap-1">
-                          <span>{tx.cleanDescription}</span>
-                          <span className={`inline-flex w-fit items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
-                            tx.type === 'sale' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
-                            tx.type === 'deposit' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
-                            tx.type === 'billing' ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' :
-                            'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                          }`}>
-                            {isCreditTransaction(tx.type)
-                              ? <ArrowDownRight size={9} />
-                              : <ArrowUpRight size={9} />}
-                            {tx.type}
-                          </span>
-                        </div>
+                        {tx.cleanDescription}
                       </td>
                       <td className="px-4 py-2 text-right whitespace-nowrap">
                         <span className={`text-xs font-black ${
@@ -991,7 +992,7 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
                   ))}
                   {paginatedWalletTransactions.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="py-16 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                      <td colSpan={8} className="py-16 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
                         No matching records found.
                       </td>
                     </tr>
