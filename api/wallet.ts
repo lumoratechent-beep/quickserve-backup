@@ -372,7 +372,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .from('wallet_transactions')
           .update({
             status,
-            updated_at: new Date().toISOString(),
           })
           .eq('id', transactionId)
           .select()

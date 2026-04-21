@@ -547,14 +547,17 @@ const AdminView: React.FC<Props> = ({
   const [duitnowImagePreview, setDuitnowImagePreview] = useState<string | null>(null);
   const [adminWalletTopups, setAdminWalletTopups] = useState<any[]>([]);
   const [adminWalletTopupsLoading, setAdminWalletTopupsLoading] = useState(false);
-  const [adminWalletTopupFilter, setAdminWalletTopupFilter] = useState<'all' | 'pending' | 'completed' | 'rejected'>('pending');
   const [adminWalletTopupReviewing, setAdminWalletTopupReviewing] = useState<string | null>(null);
+  const [duitnowSearchQuery, setDuitnowSearchQuery] = useState('');
+  const [duitnowTypeFilter, setDuitnowTypeFilter] = useState('ALL');
+  const [duitnowMethodFilter, setDuitnowMethodFilter] = useState('ALL');
+  const [duitnowEntriesPerPage, setDuitnowEntriesPerPage] = useState(30);
+  const [duitnowCurrentPage, setDuitnowCurrentPage] = useState(1);
 
   const fetchDuitnowPayments = async () => {
     setDuitnowLoading(true);
     try {
-      const statusParam = duitnowFilter === 'all' ? '' : `&status=${duitnowFilter}`;
-      const res = await fetch(`/api/stripe/billing?action=duitnow-list${statusParam}`);
+      const res = await fetch('/api/stripe/billing?action=duitnow-list');
       if (res.ok) {
         const data = await res.json();
         setDuitnowPayments(data.payments || []);
@@ -637,8 +640,7 @@ const AdminView: React.FC<Props> = ({
   const fetchAdminWalletTopups = async () => {
     setAdminWalletTopupsLoading(true);
     try {
-      const statusParam = adminWalletTopupFilter === 'all' ? '' : `&status=${adminWalletTopupFilter}`;
-      const res = await fetch(`/api/wallet?action=admin_topups${statusParam}`);
+      const res = await fetch('/api/wallet?action=admin_topups');
       const data = await res.json();
       if (res.ok && data.transactions) {
         const enriched = data.transactions.map((tx: any) => {
@@ -850,13 +852,120 @@ const AdminView: React.FC<Props> = ({
       fetchDuitnowPayments();
       fetchAdminWalletTopups();
     }
-  }, [activeTab, duitnowFilter, adminWalletTopupFilter]);
+  }, [activeTab]);
 
   useEffect(() => {
     if (activeTab === 'CASHOUT') {
       fetchAdminCashouts();
     }
   }, [activeTab, adminCashoutFilter]);
+
+  const duitnowTransactionRows = useMemo(() => {
+    const planLabels: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
+
+    const normalizedPlanPayments = duitnowPayments.map((payment: any) => {
+      const planLabel = planLabels[payment.plan_id] || payment.plan_id || 'Unknown Plan';
+      const descriptionParts = [
+        `DuitNow ${planLabel} (${payment.billing_interval === 'annual' ? 'Annual' : 'Monthly'})`,
+        payment.reference_number ? `Ref: ${payment.reference_number}` : null,
+        payment.admin_note || null,
+      ].filter(Boolean);
+
+      return {
+        ...payment,
+        entryKind: 'plan_extension' as const,
+        transactionTypeLabel: 'Plan Extension',
+        restaurantDisplayName: payment.restaurant_name || 'Unknown',
+        methodLabel: 'QR',
+        referenceLabel: payment.reference_number || `DN-${String(payment.id || '').slice(0, 8).toUpperCase()}`,
+        cleanDescription: descriptionParts.join(' · '),
+        formattedDate: new Date(payment.created_at).toLocaleDateString(),
+        formattedTime: new Date(payment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        attachmentUrl: payment.attachment_url || null,
+      };
+    });
+
+    const normalizedWalletTopups = adminWalletTopups.map((transaction: any) => ({
+      ...transaction,
+      entryKind: 'wallet_topup' as const,
+      transactionTypeLabel: 'Wallet Top Up',
+      restaurantDisplayName: transaction.restaurantName || 'Unknown Vendor',
+      methodLabel: 'QR',
+      referenceLabel: `WQR-${String(transaction.id || '').slice(0, 8).toUpperCase()}`,
+      cleanDescription: transaction.description || 'Wallet QR top up',
+      formattedDate: new Date(transaction.created_at).toLocaleDateString(),
+      formattedTime: new Date(transaction.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      attachmentUrl: null,
+    }));
+
+    return [...normalizedPlanPayments, ...normalizedWalletTopups]
+      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [adminWalletTopups, duitnowPayments]);
+
+  const duitnowTypeOptions = useMemo(() => {
+    return Array.from(new Set(duitnowTransactionRows.map((tx: any) => tx.transactionTypeLabel))).sort((a, b) => a.localeCompare(b));
+  }, [duitnowTransactionRows]);
+
+  const duitnowMethodOptions = useMemo(() => {
+    return Array.from(new Set(duitnowTransactionRows.map((tx: any) => tx.methodLabel))).sort((a, b) => a.localeCompare(b));
+  }, [duitnowTransactionRows]);
+
+  const filteredDuitnowTransactions = useMemo(() => {
+    const query = duitnowSearchQuery.trim().toLowerCase();
+
+    return duitnowTransactionRows.filter((tx: any) => {
+      if (duitnowFilter !== 'all' && tx.status !== duitnowFilter) return false;
+      if (duitnowTypeFilter !== 'ALL' && tx.transactionTypeLabel !== duitnowTypeFilter) return false;
+      if (duitnowMethodFilter !== 'ALL' && tx.methodLabel !== duitnowMethodFilter) return false;
+
+      if (!query) return true;
+
+      const searchableFields = [
+        tx.referenceLabel,
+        tx.restaurantDisplayName,
+        tx.cleanDescription,
+        tx.methodLabel,
+        tx.transactionTypeLabel,
+        tx.status,
+        tx.formattedDate,
+        String(tx.amount),
+      ].filter(Boolean);
+
+      return searchableFields.some((value) => String(value).toLowerCase().includes(query));
+    });
+  }, [duitnowFilter, duitnowMethodFilter, duitnowSearchQuery, duitnowTransactionRows, duitnowTypeFilter]);
+
+  const duitnowTotalPages = Math.max(1, Math.ceil(filteredDuitnowTransactions.length / duitnowEntriesPerPage));
+
+  const paginatedDuitnowTransactions = useMemo(() => {
+    const startIndex = (duitnowCurrentPage - 1) * duitnowEntriesPerPage;
+    return filteredDuitnowTransactions.slice(startIndex, startIndex + duitnowEntriesPerPage);
+  }, [duitnowCurrentPage, duitnowEntriesPerPage, filteredDuitnowTransactions]);
+
+  useEffect(() => {
+    setDuitnowCurrentPage(1);
+  }, [duitnowEntriesPerPage, duitnowFilter, duitnowMethodFilter, duitnowSearchQuery, duitnowTypeFilter]);
+
+  useEffect(() => {
+    if (duitnowCurrentPage > duitnowTotalPages) {
+      setDuitnowCurrentPage(duitnowTotalPages);
+    }
+  }, [duitnowCurrentPage, duitnowTotalPages]);
+
+  const duitnowVisiblePages = useMemo(() => {
+    const maxVisible = 10;
+    let start = Math.max(1, duitnowCurrentPage - Math.floor(maxVisible / 2));
+    let end = start + maxVisible - 1;
+
+    if (end > duitnowTotalPages) {
+      end = duitnowTotalPages;
+      start = Math.max(1, end - maxVisible + 1);
+    }
+
+    const pages: number[] = [];
+    for (let page = start; page <= end; page += 1) pages.push(page);
+    return pages;
+  }, [duitnowCurrentPage, duitnowTotalPages]);
 
   // QR Modal State
   const [generatingQrHub, setGeneratingQrHub] = useState<Area | null>(null);
@@ -2567,176 +2676,248 @@ const AdminView: React.FC<Props> = ({
               </div>
             </div>
 
-            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm mb-6 overflow-x-auto hide-scrollbar w-fit">
-              {(['all', 'pending', 'approved', 'completed', 'rejected'] as const).map(f => (
-                <button
-                  key={f}
-                  onClick={() => {
-                    setDuitnowFilter(f);
-                    if (f !== 'approved') {
-                      setAdminWalletTopupFilter(f as 'all' | 'pending' | 'completed' | 'rejected');
-                    }
-                    if (duitnowPayments.length === 0) fetchDuitnowPayments();
-                    if (adminWalletTopups.length === 0) fetchAdminWalletTopups();
-                  }}
-                  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                    duitnowFilter === f
-                      ? 'bg-orange-500 text-white shadow-md'
-                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {f}
-                  {f === 'pending' && (duitnowPayments.filter(p => p.status === 'pending').length + adminWalletTopups.filter(p => p.status === 'pending').length) > 0 && duitnowFilter !== 'pending' && (
-                    <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[8px]">
-                      {duitnowPayments.filter(p => p.status === 'pending').length + adminWalletTopups.filter(p => p.status === 'pending').length}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {duitnowLoading && adminWalletTopupsLoading && duitnowPayments.length === 0 && adminWalletTopups.length === 0 ? (
+            {duitnowLoading && adminWalletTopupsLoading && duitnowTransactionRows.length === 0 ? (
               <div className="text-center py-20">
                 <RefreshCw size={24} className="mx-auto text-gray-300 animate-spin mb-3" />
                 <p className="text-sm text-gray-400 font-bold">Loading DuitNow payments...</p>
               </div>
-            ) : (() => {
-              const normalizedPlanPayments = duitnowPayments.map((payment: any) => ({
-                ...payment,
-                entryKind: 'plan_extension' as const,
-                transactionTypeLabel: 'Plan Extension',
-                attachmentUrl: payment.attachment_url,
-                restaurantDisplayName: payment.restaurant_name || 'Unknown',
-              }));
-              const normalizedWalletTopups = adminWalletTopups.map((transaction: any) => ({
-                ...transaction,
-                entryKind: 'wallet_topup' as const,
-                transactionTypeLabel: 'Wallet Top Up',
-                attachmentUrl: null,
-                restaurantDisplayName: transaction.restaurantName || 'Unknown Vendor',
-              }));
-              const combinedPayments = [...normalizedPlanPayments, ...normalizedWalletTopups]
-                .filter((entry: any) => duitnowFilter === 'all' || entry.status === duitnowFilter)
-                .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-              if (combinedPayments.length === 0) {
-                return (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
-                    <QrCode size={32} className="mx-auto text-gray-300 mb-3" />
-                    <p className="text-sm font-black dark:text-white mb-1">No DuitNow Payments</p>
-                    <p className="text-[10px] text-gray-400">
-                      {duitnowPayments.length === 0 && adminWalletTopups.length === 0 ? 'Click Refresh to load payments.' : `No ${duitnowFilter} payments found.`}
-                    </p>
-                  </div>
-                );
-              }
-
-              const planLabels: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
-
-              return (
-                <div className="space-y-3">
-                  {combinedPayments.map((payment: any) => (
-                    <div key={`${payment.entryKind}-${payment.id}`} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                            payment.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900/30' :
-                            payment.status === 'approved' || payment.status === 'completed' ? 'bg-green-100 dark:bg-green-900/30' :
-                            'bg-red-100 dark:bg-red-900/30'
-                          }`}>
-                            <QrCode size={18} className={
-                              payment.status === 'pending' ? 'text-yellow-600' :
-                              payment.status === 'approved' || payment.status === 'completed' ? 'text-green-600' :
-                              'text-red-600'
-                            } />
-                          </div>
-                          <div>
-                            <p className="text-sm font-black dark:text-white">{payment.restaurantDisplayName}</p>
-                            <p className="text-lg font-black text-orange-500">RM {Number(payment.amount).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                            <div className="flex items-center gap-3 mt-1 flex-wrap">
-                              <span className="text-[9px] font-black uppercase tracking-widest text-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-300 px-2 py-0.5 rounded-full">
-                                {payment.transactionTypeLabel}
-                              </span>
-                              {payment.entryKind === 'plan_extension' ? (
-                                <span className="text-[9px] text-gray-400">
-                                  {planLabels[payment.plan_id] || payment.plan_id} — {payment.billing_interval === 'annual' ? 'Annual' : 'Monthly'}
-                                </span>
-                              ) : (
-                                <span className="text-[9px] text-gray-400">{payment.description}</span>
-                              )}
-                              {payment.reference_number && <span className="text-[9px] text-gray-400">Ref: {payment.reference_number}</span>}
-                              <span className="text-[9px] text-gray-400">
-                                {new Date(payment.created_at).toLocaleDateString()} {new Date(payment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </div>
-                            {payment.admin_note && <p className="text-[10px] text-blue-500 mt-1 italic">Admin: {payment.admin_note}</p>}
-                            {payment.reviewed_at && (
-                              <p className="text-[10px] text-gray-400 mt-0.5">Reviewed: {new Date(payment.reviewed_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                            )}
-                          </div>
+            ) : (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm">
+                <div className="p-5 border-b border-gray-100 dark:border-gray-700">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div>
+                      <h3 className="text-sm font-black dark:text-white uppercase tracking-widest flex items-center gap-2">
+                        <Receipt size={14} className="text-orange-500" />
+                        DuitNow Payments
+                      </h3>
+                      <p className="text-[10px] text-gray-400 mt-1">All QR plan extensions and wallet top ups reviewed through DuitNow.</p>
+                    </div>
+                    {duitnowTransactionRows.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="relative min-w-[220px] flex-1 lg:flex-none">
+                          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <input
+                            type="text"
+                            placeholder="Search reference / vendor..."
+                            value={duitnowSearchQuery}
+                            onChange={(e) => setDuitnowSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white outline-none focus:ring-1 focus:ring-orange-500"
+                          />
                         </div>
+                        <select
+                          value={duitnowFilter}
+                          onChange={(e) => setDuitnowFilter(e.target.value as 'all' | 'pending' | 'approved' | 'completed' | 'rejected')}
+                          className="py-2 px-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500"
+                        >
+                          <option value="all">All Status</option>
+                          <option value="pending">Pending</option>
+                          <option value="approved">Approved</option>
+                          <option value="completed">Completed</option>
+                          <option value="rejected">Rejected</option>
+                        </select>
+                        <select
+                          value={duitnowTypeFilter}
+                          onChange={(e) => setDuitnowTypeFilter(e.target.value)}
+                          className="py-2 px-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500"
+                        >
+                          <option value="ALL">All Type</option>
+                          {duitnowTypeOptions.map((type) => (
+                            <option key={type} value={type}>{type}</option>
+                          ))}
+                        </select>
+                        <select
+                          value={duitnowMethodFilter}
+                          onChange={(e) => setDuitnowMethodFilter(e.target.value)}
+                          className="py-2 px-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500"
+                        >
+                          <option value="ALL">All Method</option>
+                          {duitnowMethodOptions.map((method) => (
+                            <option key={method} value={method}>{method}</option>
+                          ))}
+                        </select>
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className={`text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${
-                            payment.status === 'pending' ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                            payment.status === 'approved' || payment.status === 'completed' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
-                            'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                          }`}>
-                            {payment.status}
-                          </span>
-                          {payment.attachmentUrl && (
-                            <button
-                              onClick={() => setDuitnowImagePreview(payment.attachmentUrl)}
-                              className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all flex items-center gap-1"
-                            >
-                              <FileImage size={12} /> Proof
-                            </button>
-                          )}
-                          {payment.status === 'pending' && (
-                            <>
-                              {payment.entryKind === 'plan_extension' ? (
-                                <>
-                                  <button
-                                    onClick={() => handleDuitnowReview(payment.id, 'approved')}
-                                    disabled={duitnowReviewing === payment.id}
-                                    className="px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all disabled:opacity-50 flex items-center gap-1"
-                                  >
-                                    {duitnowReviewing === payment.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />} Approve
-                                  </button>
-                                  <button
-                                    onClick={() => { setDuitnowRejectModalId(payment.id); setDuitnowRejectNote(''); }}
-                                    disabled={duitnowReviewing === payment.id}
-                                    className="px-3 py-1.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-red-200 transition-all flex items-center gap-1"
-                                  >
-                                    <X size={12} /> Reject
-                                  </button>
-                                </>
-                              ) : (
-                                <>
-                                  <button
-                                    onClick={() => handleUpdateWalletTopup(payment.id, 'completed')}
-                                    disabled={adminWalletTopupReviewing === payment.id}
-                                    className="px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all disabled:opacity-50 flex items-center gap-1"
-                                  >
-                                    {adminWalletTopupReviewing === payment.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />} Approve
-                                  </button>
-                                  <button
-                                    onClick={() => handleUpdateWalletTopup(payment.id, 'rejected')}
-                                    disabled={adminWalletTopupReviewing === payment.id}
-                                    className="px-3 py-1.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-red-200 transition-all disabled:opacity-50 flex items-center gap-1"
-                                  >
-                                    <X size={12} /> Reject
-                                  </button>
-                                </>
-                              )}
-                            </>
-                          )}
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Show</span>
+                          <select
+                            value={duitnowEntriesPerPage}
+                            onChange={(e) => setDuitnowEntriesPerPage(Number(e.target.value))}
+                            className="bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5 outline-none cursor-pointer"
+                          >
+                            <option value={30}>30</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                          </select>
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Entries</span>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    )}
+                  </div>
                 </div>
-              );
-            })()}
+
+                {duitnowTransactionRows.length === 0 ? (
+                  <div className="text-center py-10">
+                    <Receipt size={24} className="mx-auto text-gray-300 mb-2" />
+                    <p className="text-[10px] text-gray-400 font-bold">No DuitNow transactions yet</p>
+                    <p className="text-[9px] text-gray-300 mt-1">Plan extensions and wallet top ups will appear here.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                          <tr>
+                            <th className="px-4 py-3 text-left">Reference</th>
+                            <th className="px-4 py-3 text-left">Vendor</th>
+                            <th className="px-4 py-3 text-left">Date</th>
+                            <th className="px-4 py-3 text-left">Time</th>
+                            <th className="px-4 py-3 text-left">Status</th>
+                            <th className="px-4 py-3 text-left">Method</th>
+                            <th className="px-4 py-3 text-left">Type</th>
+                            <th className="px-4 py-3 text-left">Description</th>
+                            <th className="px-4 py-3 text-right">Amount</th>
+                            <th className="px-4 py-3 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y dark:divide-gray-700">
+                          {paginatedDuitnowTransactions.map((payment: any) => (
+                            <tr key={`${payment.entryKind}-${payment.id}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                              <td className="px-4 py-2">
+                                <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">{payment.referenceLabel}</span>
+                              </td>
+                              <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tighter whitespace-nowrap">
+                                {payment.restaurantDisplayName}
+                              </td>
+                              <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tighter whitespace-nowrap">
+                                {payment.formattedDate}
+                              </td>
+                              <td className="px-4 py-2 text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap">
+                                {payment.formattedTime}
+                              </td>
+                              <td className="px-4 py-2">
+                                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                                  payment.status === 'approved' || payment.status === 'completed' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
+                                  payment.status === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                  'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                                }`}>
+                                  {payment.status}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase whitespace-nowrap">
+                                {payment.methodLabel}
+                              </td>
+                              <td className="px-4 py-2">
+                                <span className={`inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                                  payment.entryKind === 'wallet_topup'
+                                    ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                                    : 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400'
+                                }`}>
+                                  <ArrowDownRight size={9} />
+                                  {payment.transactionTypeLabel}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-200 min-w-[280px]">
+                                {payment.cleanDescription}
+                              </td>
+                              <td className="px-4 py-2 text-right whitespace-nowrap">
+                                <span className="text-xs font-black text-green-600 dark:text-green-400">
+                                  +RM{Number(payment.amount).toFixed(2)}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2">
+                                <div className="flex items-center justify-end gap-2 flex-wrap">
+                                  {payment.attachmentUrl && (
+                                    <button
+                                      onClick={() => setDuitnowImagePreview(payment.attachmentUrl)}
+                                      className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all flex items-center gap-1"
+                                    >
+                                      <FileImage size={12} /> Proof
+                                    </button>
+                                  )}
+                                  {payment.status === 'pending' && (
+                                    payment.entryKind === 'plan_extension' ? (
+                                      <>
+                                        <button
+                                          onClick={() => handleDuitnowReview(payment.id, 'approved')}
+                                          disabled={duitnowReviewing === payment.id}
+                                          className="px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all disabled:opacity-50 flex items-center gap-1"
+                                        >
+                                          {duitnowReviewing === payment.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />} Approve
+                                        </button>
+                                        <button
+                                          onClick={() => { setDuitnowRejectModalId(payment.id); setDuitnowRejectNote(''); }}
+                                          disabled={duitnowReviewing === payment.id}
+                                          className="px-3 py-1.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-red-200 transition-all flex items-center gap-1"
+                                        >
+                                          <X size={12} /> Reject
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <button
+                                          onClick={() => handleUpdateWalletTopup(payment.id, 'completed')}
+                                          disabled={adminWalletTopupReviewing === payment.id}
+                                          className="px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all disabled:opacity-50 flex items-center gap-1"
+                                        >
+                                          {adminWalletTopupReviewing === payment.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />} Approve
+                                        </button>
+                                        <button
+                                          onClick={() => handleUpdateWalletTopup(payment.id, 'rejected')}
+                                          disabled={adminWalletTopupReviewing === payment.id}
+                                          className="px-3 py-1.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-red-200 transition-all disabled:opacity-50 flex items-center gap-1"
+                                        >
+                                          <X size={12} /> Reject
+                                        </button>
+                                      </>
+                                    )
+                                  )}
+                                  {payment.status !== 'pending' && !payment.attachmentUrl && (
+                                    <span className="text-[9px] font-bold text-gray-300">-</span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                          {paginatedDuitnowTransactions.length === 0 && (
+                            <tr>
+                              <td colSpan={10} className="py-16 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                No matching records found.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {duitnowTotalPages > 1 && (
+                      <div className="mt-8 flex items-center justify-center gap-2 overflow-x-auto py-2 px-4 no-print">
+                        <button onClick={() => setDuitnowCurrentPage(1)} disabled={duitnowCurrentPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
+                          <ChevronFirst size={16} />
+                        </button>
+                        <button onClick={() => setDuitnowCurrentPage((prev) => Math.max(1, prev - 1))} disabled={duitnowCurrentPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
+                          <ChevronLeft size={16} />
+                        </button>
+                        <div className="flex items-center gap-1">
+                          {duitnowVisiblePages.map((page) => (
+                            <button
+                              key={page}
+                              onClick={() => setDuitnowCurrentPage(page)}
+                              className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${duitnowCurrentPage === page ? 'bg-orange-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                            >
+                              {page}
+                            </button>
+                          ))}
+                        </div>
+                        <button onClick={() => setDuitnowCurrentPage((prev) => Math.min(duitnowTotalPages, prev + 1))} disabled={duitnowCurrentPage === duitnowTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
+                          <ChevronRight size={16} />
+                        </button>
+                        <button onClick={() => setDuitnowCurrentPage(duitnowTotalPages)} disabled={duitnowCurrentPage === duitnowTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
+                          <ChevronLast size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
 
