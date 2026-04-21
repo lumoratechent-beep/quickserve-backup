@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Subscription, PlanId, DuitNowPayment } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 import { daysLeftInTrial, isTrialActive, isSubscriptionActive, getRenewalStatus, daysUntilExpiry, GRACE_PERIOD_DAYS } from '../lib/subscriptionService';
-import { Loader2, Check, Plus, RefreshCw, X, AlertCircle, CheckCircle, ArrowLeftRight, Upload, Clock, FileImage } from 'lucide-react';
+import { Loader2, Check, Plus, RefreshCw, X, AlertCircle, CheckCircle, ArrowLeftRight, Upload, Clock, FileImage, Search, ChevronLeft, ChevronRight, ChevronFirst, ChevronLast } from 'lucide-react';
 import { toast } from '../components/Toast';
 import { supabase } from '../lib/supabase';
 
@@ -38,7 +38,10 @@ const DEFAULT_DUITNOW_QR_SRC = `https://api.qrserver.com/v1/create-qr-code/?size
 const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeClick, onSubscriptionUpdated, onComparePlans }) => {
   const [billingHistory, setBillingHistory] = useState<BillingHistory[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
-  const [historyPageSize, setHistoryPageSize] = useState(10);
+  const [historyPageSize, setHistoryPageSize] = useState(30);
+  const [historySearchQuery, setHistorySearchQuery] = useState('');
+  const [historyStatusFilter, setHistoryStatusFilter] = useState('ALL');
+  const [historyMethodFilter, setHistoryMethodFilter] = useState('ALL');
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [autoRenew, setAutoRenew] = useState(!subscription?.cancel_at_period_end);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -116,7 +119,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
 
   useEffect(() => {
     setHistoryPage(1);
-  }, [historyPageSize, billingHistory.length, duitnowPayments.length]);
+  }, [historyPageSize, billingHistory.length, duitnowPayments.length, historySearchQuery, historyStatusFilter, historyMethodFilter]);
 
   // Fetch DuitNow payments if enabled
   useEffect(() => {
@@ -413,28 +416,96 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     );
   };
 
-  const combinedBillingHistory: BillingHistory[] = [
-    ...billingHistory.map((entry) => ({
-      ...entry,
-      status: entry.status || 'success',
-    })),
-    ...duitnowPayments.map((payment) => ({
-      id: payment.id,
-      date: payment.created_at,
-      description: [
-        `DuitNow QR ${payment.plan_id.replace(/_/g, ' ').toUpperCase()} (${payment.billing_interval === 'annual' ? 'Annual' : 'Monthly'})`,
-        payment.reference_number ? `Ref: ${payment.reference_number}` : null,
-        payment.admin_note || null,
-      ].filter(Boolean).join(' · '),
-      amount: Number(payment.amount) || 0,
-      status: payment.status,
-      invoiceUrl: undefined,
-    })),
-  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const combinedBillingHistory = useMemo(() => {
+    return [
+      ...billingHistory.map((entry) => ({
+        ...entry,
+        status: entry.status || 'success',
+      })),
+      ...duitnowPayments.map((payment) => ({
+        id: payment.id,
+        date: payment.created_at,
+        description: [
+          `DuitNow QR ${payment.plan_id.replace(/_/g, ' ').toUpperCase()} (${payment.billing_interval === 'annual' ? 'Annual' : 'Monthly'})`,
+          payment.reference_number ? `Ref: ${payment.reference_number}` : null,
+          payment.admin_note || null,
+        ].filter(Boolean).join(' · '),
+        amount: Number(payment.amount) || 0,
+        status: payment.status,
+        invoiceUrl: undefined,
+      })),
+    ]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .map((entry) => {
+        const sourceLabel = entry.description.toLowerCase().includes('duitnow')
+          ? 'DuitNow'
+          : entry.description.toLowerCase().includes('wallet')
+            ? 'Wallet'
+            : 'Card';
 
-  const totalHistoryPages = Math.max(1, Math.ceil(combinedBillingHistory.length / historyPageSize));
-  const paginatedHistory = combinedBillingHistory.slice((historyPage - 1) * historyPageSize, historyPage * historyPageSize);
-  const showHistoryPagination = combinedBillingHistory.length > 10;
+        return {
+          ...entry,
+          sourceLabel,
+          formattedDate: formatDate(entry.date),
+          formattedTime: new Date(entry.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          referenceLabel: `BIL-${String(entry.id).slice(0, 8).toUpperCase()}`,
+        };
+      });
+  }, [billingHistory, duitnowPayments]);
+
+  const historyMethodOptions = useMemo(() => {
+    return Array.from(new Set(combinedBillingHistory.map((entry) => entry.sourceLabel))).sort((a, b) => a.localeCompare(b));
+  }, [combinedBillingHistory]);
+
+  const filteredBillingHistory = useMemo(() => {
+    const query = historySearchQuery.trim().toLowerCase();
+
+    return combinedBillingHistory.filter((entry) => {
+      if (historyStatusFilter !== 'ALL' && entry.status !== historyStatusFilter) return false;
+      if (historyMethodFilter !== 'ALL' && entry.sourceLabel !== historyMethodFilter) return false;
+
+      if (!query) return true;
+
+      const searchableFields = [
+        entry.referenceLabel,
+        entry.description,
+        entry.status,
+        entry.sourceLabel,
+        entry.formattedDate,
+        String(entry.amount),
+      ];
+
+      return searchableFields.some((value) => String(value).toLowerCase().includes(query));
+    });
+  }, [combinedBillingHistory, historyMethodFilter, historySearchQuery, historyStatusFilter]);
+
+  const totalHistoryPages = Math.max(1, Math.ceil(filteredBillingHistory.length / historyPageSize));
+
+  const paginatedHistory = useMemo(() => {
+    const startIndex = (historyPage - 1) * historyPageSize;
+    return filteredBillingHistory.slice(startIndex, startIndex + historyPageSize);
+  }, [filteredBillingHistory, historyPage, historyPageSize]);
+
+  useEffect(() => {
+    if (historyPage > totalHistoryPages) {
+      setHistoryPage(totalHistoryPages);
+    }
+  }, [historyPage, totalHistoryPages]);
+
+  const historyVisiblePages = useMemo(() => {
+    const maxVisible = 10;
+    let start = Math.max(1, historyPage - Math.floor(maxVisible / 2));
+    let end = start + maxVisible - 1;
+
+    if (end > totalHistoryPages) {
+      end = totalHistoryPages;
+      start = Math.max(1, end - maxVisible + 1);
+    }
+
+    const pages: number[] = [];
+    for (let page = start; page <= end; page += 1) pages.push(page);
+    return pages;
+  }, [historyPage, totalHistoryPages]);
 
   const activePlanName = activePlanId
     ? (PRICING_PLANS.find(p => p.id === activePlanId)?.name || activePlanId)
