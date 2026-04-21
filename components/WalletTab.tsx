@@ -1,12 +1,13 @@
 // components/WalletTab.tsx
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Restaurant, Subscription } from '../src/types';
 import { toast } from './Toast';
 import { supabase } from '../lib/supabase';
 import {
   Wallet, RotateCw, Send, Building2, ChevronDown, Edit3, CheckCircle,
-  X, Banknote, Receipt, ArrowUpRight, ArrowDownRight, PlusCircle, CreditCard, QrCode, Plus
+  X, Banknote, Receipt, ArrowUpRight, ArrowDownRight, PlusCircle, CreditCard, QrCode, Plus,
+  Search, ChevronLeft, ChevronRight, ChevronFirst, ChevronLast
 } from 'lucide-react';
 
 const MALAYSIA_BANKS = [
@@ -84,6 +85,12 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [isAddingCard, setIsAddingCard] = useState(false);
   const [paymentQrImageUrl, setPaymentQrImageUrl] = useState<string | null>(null);
+  const [walletSearchQuery, setWalletSearchQuery] = useState('');
+  const [walletStatusFilter, setWalletStatusFilter] = useState('ALL');
+  const [walletTypeFilter, setWalletTypeFilter] = useState('ALL');
+  const [walletMethodFilter, setWalletMethodFilter] = useState('ALL');
+  const [walletEntriesPerPage, setWalletEntriesPerPage] = useState(30);
+  const [walletCurrentPage, setWalletCurrentPage] = useState(1);
 
   // Currency setup
   const userCurrency = restaurant.settings?.currency || localStorage.getItem(`ux_currency_${restaurant.id}`) || 'MYR';
@@ -110,7 +117,7 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
     try {
       const [balRes, txRes, bankRes, cashRes] = await Promise.all([
         fetch(`/api/wallet?action=balance&restaurantId=${restaurant.id}`).then(r => r.json()),
-        fetch(`/api/wallet?action=transactions&restaurantId=${restaurant.id}`).then(r => r.json()),
+        fetch(`/api/wallet?action=transactions&restaurantId=${restaurant.id}&limit=200`).then(r => r.json()),
         fetch(`/api/wallet?action=bank&restaurantId=${restaurant.id}`).then(r => r.json()),
         fetch(`/api/wallet?action=cashout&restaurantId=${restaurant.id}`).then(r => r.json()),
       ]);
@@ -319,6 +326,115 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
 
   const isCreditTransaction = (type: string) => type === 'sale' || type === 'deposit';
 
+  const getRawTransactionDescription = (tx: any) => (
+    tx.description || (
+      tx.type === 'sale' ? 'Online order payment' :
+      tx.type === 'deposit' ? 'Wallet deposit' :
+      tx.type === 'billing' ? 'Subscription payment from wallet' :
+      'Cashout'
+    )
+  );
+
+  const getCleanTransactionDescription = (tx: any) => (
+    getRawTransactionDescription(tx)
+      .replace(/\bcs_(test|live)_\S+/gi, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+  );
+
+  const getTransactionMethodLabel = (tx: any) => {
+    const descLower = getRawTransactionDescription(tx).toLowerCase();
+    if (descLower.includes('via card')) return 'Card';
+    if (descLower.includes('via qr')) return 'QR';
+    if (tx.type === 'billing') return 'Wallet';
+    if (tx.type === 'cashout') return 'Bank Transfer';
+    if (tx.type === 'sale') return 'Stripe';
+    return 'Other';
+  };
+
+  const walletTransactionsWithMeta = useMemo(() => {
+    return walletTransactions.map((tx: any) => {
+      const createdAt = new Date(tx.created_at);
+      const cleanDescription = getCleanTransactionDescription(tx);
+      const methodLabel = getTransactionMethodLabel(tx);
+      const referenceLabel = tx.order_id || `TXN-${String(tx.id || '').slice(0, 8).toUpperCase()}`;
+
+      return {
+        ...tx,
+        cleanDescription,
+        methodLabel,
+        referenceLabel,
+        formattedDate: createdAt.toLocaleDateString(),
+        formattedTime: createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+    });
+  }, [walletTransactions]);
+
+  const walletMethodOptions = useMemo(() => {
+    return Array.from(new Set(walletTransactionsWithMeta.map((tx) => tx.methodLabel))).sort((a, b) => a.localeCompare(b));
+  }, [walletTransactionsWithMeta]);
+
+  const walletTypeOptions = useMemo(() => {
+    return Array.from(new Set(walletTransactionsWithMeta.map((tx) => tx.type))).sort((a, b) => a.localeCompare(b));
+  }, [walletTransactionsWithMeta]);
+
+  const filteredWalletTransactions = useMemo(() => {
+    const query = walletSearchQuery.trim().toLowerCase();
+
+    return walletTransactionsWithMeta.filter((tx) => {
+      if (walletStatusFilter !== 'ALL' && tx.status !== walletStatusFilter) return false;
+      if (walletTypeFilter !== 'ALL' && tx.type !== walletTypeFilter) return false;
+      if (walletMethodFilter !== 'ALL' && tx.methodLabel !== walletMethodFilter) return false;
+
+      if (!query) return true;
+
+      const searchableFields = [
+        tx.referenceLabel,
+        tx.order_id,
+        tx.cleanDescription,
+        tx.methodLabel,
+        tx.type,
+        tx.status,
+        tx.formattedDate,
+        String(tx.amount),
+      ].filter(Boolean);
+
+      return searchableFields.some((value) => String(value).toLowerCase().includes(query));
+    });
+  }, [walletMethodFilter, walletSearchQuery, walletStatusFilter, walletTransactionsWithMeta, walletTypeFilter]);
+
+  const walletTotalPages = Math.max(1, Math.ceil(filteredWalletTransactions.length / walletEntriesPerPage));
+
+  const paginatedWalletTransactions = useMemo(() => {
+    const startIndex = (walletCurrentPage - 1) * walletEntriesPerPage;
+    return filteredWalletTransactions.slice(startIndex, startIndex + walletEntriesPerPage);
+  }, [filteredWalletTransactions, walletCurrentPage, walletEntriesPerPage]);
+
+  useEffect(() => {
+    setWalletCurrentPage(1);
+  }, [walletEntriesPerPage, walletMethodFilter, walletSearchQuery, walletStatusFilter, walletTypeFilter]);
+
+  useEffect(() => {
+    if (walletCurrentPage > walletTotalPages) {
+      setWalletCurrentPage(walletTotalPages);
+    }
+  }, [walletCurrentPage, walletTotalPages]);
+
+  const walletVisiblePages = useMemo(() => {
+    const maxVisible = 10;
+    let start = Math.max(1, walletCurrentPage - Math.floor(maxVisible / 2));
+    let end = start + maxVisible - 1;
+
+    if (end > walletTotalPages) {
+      end = walletTotalPages;
+      start = Math.max(1, end - maxVisible + 1);
+    }
+
+    const pages: number[] = [];
+    for (let page = start; page <= end; page += 1) pages.push(page);
+    return pages;
+  }, [walletCurrentPage, walletTotalPages]);
+
   return (
     <div>
       {/* Wallet Balance Card */}
@@ -353,11 +469,70 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
         <div className="flex gap-2 mt-4">
           <button
             onClick={() => setShowDepositForm(true)}
-            className="px-4 py-2 bg-white text-emerald-700 hover:bg-emerald-50 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5"
-          >
-            <PlusCircle size={12} /> Top Up
-          </button>
-          <button
+            <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 overflow-hidden shadow-sm">
+              <div className="p-4 border-b dark:border-gray-700 flex flex-col gap-3">
+                <h3 className="text-sm font-black dark:text-white uppercase tracking-widest flex items-center gap-2">
+                  <Receipt size={14} className="text-orange-500" />
+                  Transaction History
+                </h3>
+                {walletTransactions.length > 0 && (
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="relative flex-1 min-w-0">
+                      <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search Transaction / Order ID..."
+                        value={walletSearchQuery}
+                        onChange={(e) => setWalletSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white outline-none focus:ring-1 focus:ring-orange-500"
+                      />
+                    </div>
+                    <select
+                      value={walletStatusFilter}
+                      onChange={(e) => setWalletStatusFilter(e.target.value)}
+                      className="py-2 px-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500"
+                    >
+                      <option value="ALL">All Status</option>
+                      <option value="completed">Completed</option>
+                      <option value="pending">Pending</option>
+                      <option value="failed">Failed</option>
+                    </select>
+                    <select
+                      value={walletTypeFilter}
+                      onChange={(e) => setWalletTypeFilter(e.target.value)}
+                      className="py-2 px-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500"
+                    >
+                      <option value="ALL">All Type</option>
+                      {walletTypeOptions.map((type) => (
+                        <option key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1)}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={walletMethodFilter}
+                      onChange={(e) => setWalletMethodFilter(e.target.value)}
+                      className="py-2 px-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500"
+                    >
+                      <option value="ALL">All Method</option>
+                      {walletMethodOptions.map((method) => (
+                        <option key={method} value={method}>{method}</option>
+                      ))}
+                    </select>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Show</span>
+                      <select
+                        value={walletEntriesPerPage}
+                        onChange={(e) => setWalletEntriesPerPage(Number(e.target.value))}
+                        className="bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5 outline-none cursor-pointer"
+                      >
+                        <option value={30}>30</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                      </select>
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Entries</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             onClick={() => {
               if (!bankDetails) { toast('Please save your bank details first.', 'warning'); setShowBankSection(true); setShowBankForm(true); return; }
               setShowCashoutForm(true);
@@ -365,88 +540,116 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
             className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5"
           >
             <Send size={12} /> Request Cashout
-          </button>
-        </div>
-        {/* Cashout Processing Note */}
-        <p className="text-xs text-white/70 mt-2">
-          Cashout requests typically take 1-3 working days to process
-        </p>
-      </div>
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                        <tr>
+                          <th className="px-4 py-3 text-left">Reference</th>
+                          <th className="px-4 py-3 text-left">Date</th>
+                          <th className="px-4 py-3 text-left">Time</th>
+                          <th className="px-4 py-3 text-left">Status</th>
+                          <th className="px-4 py-3 text-left">Method</th>
+                          <th className="px-4 py-3 text-left">Type</th>
+                          <th className="px-4 py-3 text-left">Description</th>
+                          <th className="px-4 py-3 text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y dark:divide-gray-700">
+                        {paginatedWalletTransactions.map((tx: any) => (
+                          <tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                            <td className="px-4 py-2">
+                              <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">{tx.referenceLabel}</span>
+                                {tx.order_id && (
+                                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">Order</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tighter whitespace-nowrap">
+                              {tx.formattedDate}
+                            </td>
+                            <td className="px-4 py-2 text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap">
+                              {tx.formattedTime}
+                            </td>
+                            <td className="px-4 py-2">
+                              <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                                tx.status === 'completed' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
+                                tx.status === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                              }`}>
+                                {tx.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase whitespace-nowrap">
+                              {tx.methodLabel}
+                            </td>
+                            <td className="px-4 py-2">
+                              <span className={`inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                                tx.type === 'sale' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
+                                tx.type === 'deposit' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
+                                tx.type === 'billing' ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' :
+                                'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                              }`}>
+                                {isCreditTransaction(tx.type)
+                                  ? <ArrowDownRight size={9} />
+                                  : <ArrowUpRight size={9} />}
+                                {tx.type}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-200 min-w-[240px]">
+                              {tx.cleanDescription}
+                            </td>
+                            <td className="px-4 py-2 text-right whitespace-nowrap">
+                              <span className={`text-xs font-black ${
+                                isCreditTransaction(tx.type) ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'
+                              }`}>
+                                {isCreditTransaction(tx.type) ? '+' : '-'}{currencySymbol}{Number(tx.amount).toFixed(2)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                        {paginatedWalletTransactions.length === 0 && (
+                          <tr>
+                            <td colSpan={8} className="py-16 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                              No matching records found.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
 
-      {/* Deposit Form */}
-      {showDepositForm && (
-        <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-600 p-5 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-black dark:text-white uppercase tracking-widest flex items-center gap-2">
-              <Wallet size={14} className="text-emerald-500" />
-              Top Up QuickServe Wallet
-            </h3>
-            <button onClick={() => setShowDepositForm(false)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-all">
-              <X size={14} className="text-gray-400" />
-            </button>
-          </div>
+                  {walletTotalPages > 1 && (
+                    <div className="mt-8 flex items-center justify-center gap-2 overflow-x-auto py-2 px-4 no-print">
+                      <button onClick={() => setWalletCurrentPage(1)} disabled={walletCurrentPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
+                        <ChevronFirst size={16} />
+                      </button>
+                      <button onClick={() => setWalletCurrentPage((prev) => Math.max(1, prev - 1))} disabled={walletCurrentPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
+                        <ChevronLeft size={16} />
+                      </button>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Amount ({currencySymbol})</label>
-              <input
-                type="number"
-                step="0.01"
-                min="20"
-                max="1000"
-                value={depositAmount}
-                onChange={e => setDepositAmount(e.target.value)}
-                placeholder="e.g. 100.00"
-                className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-              <p className="text-[9px] text-gray-400 mt-1 ml-1">Min: RM20 · Max: RM1,000</p>
-            </div>
-            <div>
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Top Up Method</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setDepositMethod('card')}
-                  className={`px-4 py-2.5 rounded-lg border text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 ${depositMethod === 'card' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-300'}`}
-                >
-                  <CreditCard size={13} /> Card
-                </button>
-                <button
-                  onClick={() => setDepositMethod('qr')}
-                  className={`px-4 py-2.5 rounded-lg border text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 ${depositMethod === 'qr' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-300'}`}
-                >
-                  <QrCode size={13} /> QR
-                </button>
-              </div>
-            </div>
-          </div>
+                      <div className="flex items-center gap-1">
+                        {walletVisiblePages.map((page) => (
+                          <button
+                            key={page}
+                            onClick={() => setWalletCurrentPage(page)}
+                            className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${walletCurrentPage === page ? 'bg-orange-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                          >
+                            {page}
+                          </button>
+                        ))}
+                      </div>
 
-          {depositMethod === 'card' ? (
-            <div className="rounded-xl border dark:border-gray-600 bg-white dark:bg-gray-800 p-4 space-y-3 mb-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Saved Cards</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Use a saved card to top up your wallet instantly.</p>
-                </div>
-                <button
-                  onClick={handleAddCard}
-                  disabled={isAddingCard}
-                  className="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-all flex items-center gap-1.5 text-gray-600 dark:text-gray-200 disabled:opacity-50"
-                >
-                  {isAddingCard ? <RotateCw size={12} className="animate-spin" /> : <Plus size={12} />}
-                  Add Card
-                </button>
-              </div>
-
-              {loadingCards ? (
-                <div className="py-5 flex justify-center"><RotateCw size={16} className="animate-spin text-gray-400" /></div>
-              ) : savedCards.length === 0 ? (
-                <div className="rounded-lg border border-dashed dark:border-gray-600 p-4 text-center">
-                  <p className="text-xs font-bold text-gray-500 dark:text-gray-300">No saved card found</p>
-                  <p className="text-[10px] text-gray-400 mt-1">Add a card first to enable instant wallet top ups.</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {savedCards.map(card => (
+                      <button onClick={() => setWalletCurrentPage((prev) => Math.min(walletTotalPages, prev + 1))} disabled={walletCurrentPage === walletTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
+                        <ChevronRight size={16} />
+                      </button>
+                      <button onClick={() => setWalletCurrentPage(walletTotalPages)} disabled={walletCurrentPage === walletTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
+                        <ChevronLast size={16} />
+                      </button>
+                    </div>
+                  )}
+                </>
                     <button
                       key={card.id}
                       onClick={() => setSelectedCardId(card.id)}
