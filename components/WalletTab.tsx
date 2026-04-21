@@ -342,7 +342,7 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
             onClick={() => setShowDepositForm(true)}
             className="px-4 py-2 bg-white text-emerald-700 hover:bg-emerald-50 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5"
           >
-            <PlusCircle size={12} /> Deposit
+            <PlusCircle size={12} /> Top Up
           </button>
           <button
             onClick={() => {
@@ -355,8 +355,8 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
           </button>
         </div>
         {/* Cashout Processing Note */}
-        <p className="text-xs text-white/70 mt-2 italic">
-          *Cashout requests typically take 1-3 working days to process
+        <p className="text-xs text-white/70 mt-2">
+          Cashout requests typically take 1-3 working days to process
         </p>
       </div>
 
@@ -366,7 +366,7 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-black dark:text-white uppercase tracking-widest flex items-center gap-2">
               <Wallet size={14} className="text-emerald-500" />
-              Deposit to QuickServe Wallet
+              Top Up QuickServe Wallet
             </h3>
             <button onClick={() => setShowDepositForm(false)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-all">
               <X size={14} className="text-gray-400" />
@@ -387,7 +387,7 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
               />
             </div>
             <div>
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Deposit Method</label>
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Top Up Method</label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setDepositMethod('card')}
@@ -427,7 +427,7 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
               ) : savedCards.length === 0 ? (
                 <div className="rounded-lg border border-dashed dark:border-gray-600 p-4 text-center">
                   <p className="text-xs font-bold text-gray-500 dark:text-gray-300">No saved card found</p>
-                  <p className="text-[10px] text-gray-400 mt-1">Add a card first to enable instant wallet deposits.</p>
+                  <p className="text-[10px] text-gray-400 mt-1">Add a card first to enable instant wallet top ups.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -455,14 +455,14 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
               <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-600 p-4 flex items-center justify-center">
                 <img
                   src={paymentQrImageUrl || DEFAULT_QR_SRC}
-                  alt="Wallet deposit QR"
+                  alt="Wallet top up QR"
                   className="w-44 h-44 object-contain"
                   onError={() => setPaymentQrImageUrl(null)}
                 />
               </div>
               <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-600 p-4 space-y-3">
                 <div>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">QR Deposit</p>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">QR Top Up</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Scan the QR with your banking app, then confirm the top-up below.</p>
                 </div>
                 <div>
@@ -475,7 +475,7 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
                     className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
-                <p className="text-[10px] text-gray-400">This records the deposit in your wallet after you complete the transfer.</p>
+                <p className="text-[10px] text-gray-400">This records the top up in your wallet after you complete the transfer.</p>
               </div>
             </div>
           )}
@@ -483,8 +483,8 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
           <div className="flex items-center gap-3">
             <p className="text-[9px] text-gray-400 flex-1">
               {depositMethod === 'card'
-                ? 'Card deposits are charged immediately and added to your wallet balance.'
-                : 'QR deposits use the payment QR shown above and are added when you confirm the transfer.'}
+                ? 'Card top ups are charged immediately and added to your wallet balance.'
+                : 'QR top ups use the payment QR shown above and are added when you confirm the transfer.'}
             </p>
             <button
               onClick={handleDeposit}
@@ -492,7 +492,7 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
               className="px-5 py-2.5 bg-emerald-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 transition-all disabled:opacity-50 flex items-center gap-1.5"
             >
               {isDepositing ? <RotateCw size={12} className="animate-spin" /> : <PlusCircle size={12} />}
-              {depositMethod === 'card' ? 'Top Up by Card' : 'Confirm QR Deposit'}
+              {depositMethod === 'card' ? 'Top Up by Card' : 'Confirm QR Top Up'}
             </button>
           </div>
         </div>

@@ -685,20 +685,22 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                 )}
                 <p className="text-xs text-emerald-600 font-semibold">QuickServe Wallet</p>
                 <div className="flex flex-1 items-center gap-3">
-                  <img
-                    src="/LOGO/icon-192x192.png"
-                    alt="QuickServe logo"
-                    className="h-9 w-9 rounded-xl object-contain"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="16" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="32" font-weight="900" fill="%23f97316">QS</text></svg>')}`;
-                    }}
-                  />
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center">
+                    <img
+                      src="/LOGO/icon-192x192.png"
+                      alt="QuickServe logo"
+                      className="h-9 w-9 rounded-xl object-contain"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="16" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="32" font-weight="900" fill="%23f97316">QS</text></svg>')}`;
+                      }}
+                    />
+                  </div>
                   <div className="flex flex-col justify-center">
                     <span className="text-sm text-gray-700 dark:text-gray-300 font-semibold leading-tight">
                       Wallet Balance
                     </span>
-                    <span className="text-sm text-emerald-600 dark:text-emerald-400 font-black leading-tight mt-1">
+                    <span className="text-sm text-emerald-600 dark:text-emerald-400 font-black leading-tight">
                       {walletBalanceLoading ? 'Loading...' : `RM ${walletBalance.toFixed(2)}`}
                     </span>
                   </div>
@@ -726,18 +728,20 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     </div>
                   )}
                   <p className="text-xs text-[#ED2C67] font-semibold">DuitNow QR</p>
-                  <div className="flex flex-1 items-center gap-2.5">
-                    <img
-                      src="/LOGO/duitnow-white-theme.png"
-                      alt="DuitNow"
-                      className="h-10 w-auto object-contain dark:hidden"
-                    />
-                    <img
-                      src="/LOGO/duitnow-dark-theme.png"
-                      alt="DuitNow"
-                      className="hidden h-10 w-auto object-contain dark:block"
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-300 font-semibold">
+                  <div className="flex flex-1 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center">
+                      <img
+                        src="/LOGO/duitnow-white-theme.png"
+                        alt="DuitNow"
+                        className="h-10 w-auto object-contain dark:hidden"
+                      />
+                      <img
+                        src="/LOGO/duitnow-dark-theme.png"
+                        alt="DuitNow"
+                        className="hidden h-10 w-auto object-contain dark:block"
+                      />
+                    </div>
+                    <span className="text-sm text-gray-700 dark:text-gray-300 font-semibold leading-tight">
                       Bank / e-Wallet
                     </span>
                   </div>
@@ -797,7 +801,9 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
 
                     {/* Card visual */}
                     <div className="flex flex-1 items-center gap-3 pr-7">
-                      {brandLogo(method.brand)}
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center">
+                        {brandLogo(method.brand)}
+                      </div>
                       <span className="min-w-0 whitespace-nowrap text-[11px] text-gray-700 dark:text-gray-300 font-mono tracking-[0.14em]">
                         •••• •••• ••••{method.last4}
                       </span>
