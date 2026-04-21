@@ -366,6 +366,25 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     );
   };
 
+  const duitNowCardLogo = () => (
+    <>
+      <img
+        src="/LOGO/duitnow_logo.png"
+        alt="DuitNow"
+        className="h-10 w-auto object-contain dark:hidden"
+      />
+      <div className="hidden dark:flex items-center gap-2.5">
+        <div className="w-9 h-9 rounded-xl bg-[#ED2C67] flex items-center justify-center shadow-sm">
+          <QrCode size={20} className="text-white" strokeWidth={2.25} />
+        </div>
+        <span className="text-[22px] leading-none font-black tracking-tight">
+          <span className="text-white">Duit</span>
+          <span className="text-[#ED2C67]">Now</span>
+        </span>
+      </div>
+    </>
+  );
+
   const combinedBillingHistory: BillingHistory[] = [
     ...billingHistory.map((entry) => ({
       ...entry,
@@ -636,20 +655,13 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                       <Check size={14} className="text-white" strokeWidth={3} />
                     </div>
                   )}
-                    <p className="text-xs text-[#ED2C67] mb-3 font-semibold">DuitNow QR</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 font-medium">DuitNow QR</p>
                   <div className="flex items-center gap-2.5">
-                    <img
-                      src="/LOGO/duitnow_logo.png"
-                      alt="DuitNow"
-                      className="h-10 w-auto object-contain"
-                    />
+                    {duitNowCardLogo()}
                     <span className="text-sm text-gray-700 dark:text-gray-300 font-semibold">
                       Bank / e-Wallet
                     </span>
                   </div>
-                  {selectedMethodId === 'duitnow' && (
-                    <p className="text-[9px] text-[#ED2C67] font-medium mt-2">Scan QR to pay · Admin approval</p>
-                  )}
                 </div>
               )}
 
@@ -670,8 +682,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                         setConfirmingDeleteId(method.id);
                       }
                     }}
-                    onMouseLeave={() => { if (isConfirming) setConfirmingDeleteId(null); }}
-                    className={`group relative rounded-xl border-2 px-5 py-5 min-w-[220px] cursor-pointer transition-all select-none overflow-hidden ${
+                    className={`relative rounded-xl border-2 px-5 py-5 min-w-[220px] cursor-pointer transition-all select-none overflow-hidden ${
                       isConfirming
                         ? 'border-red-400 bg-red-50 dark:bg-red-900/20'
                         : isSelected
@@ -686,22 +697,14 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                       </div>
                     )}
 
-                    {/* Hover delete hint — shows on hover only when card is active/selected */}
-                    {isSelected && !isConfirming && (
-                      <div className="absolute inset-0 rounded-xl bg-red-500/80 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity z-10">
-                        <p className="text-white text-xs font-bold">Click to delete</p>
-                      </div>
-                    )}
-
-                    {/* Delete confirmation state */}
                     {isConfirming && (
                       <div className="absolute inset-0 rounded-xl bg-red-500/90 flex flex-col items-center justify-center z-10">
                         {isDeletingCard === method.id ? (
                           <Loader2 size={20} className="animate-spin text-white" />
                         ) : (
                           <>
-                            <p className="text-white text-xs font-bold">Confirm delete?</p>
-                            <p className="text-white/70 text-[10px] mt-1">Click to confirm · Hover away to cancel</p>
+                            <p className="text-white text-xs font-bold">Click to delete</p>
+                            <p className="text-white/70 text-[10px] mt-1">Click elsewhere to cancel</p>
                           </>
                         )}
                       </div>
@@ -709,7 +712,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
 
                     {/* Label */}
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 font-medium">
-                      {method.type === 'debit' ? 'Debit Card' : 'Credit Card'}
+                      Credit / Debit Card
                     </p>
 
                     {/* Card visual */}
