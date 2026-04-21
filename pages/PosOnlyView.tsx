@@ -12356,3 +12356,639 @@ const PosOnlyView: React.FC<Props> = ({
                             <button
                               key={`collect-quick-${index}-${amount}`}
                               onClick={() => { setCollectCashAmount(amount); setCollectCashAmountInput(amount.toFixed(2)); }}
+                              className={`p-3 rounded-xl font-black text-base uppercase tracking-widest transition-all border-2 ${
+                                collectCashAmount === amount
+                                  ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
+                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
+                              }`}
+                            >
+                              {currencySymbol} {amount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Payment method */}
+                      <div className="space-y-2">
+                        <label className="block text-xs font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
+                        <select
+                          value={collectPaymentType}
+                          onChange={(e) => setCollectPaymentType(e.target.value)}
+                          className="w-full p-3 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-base font-black dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
+                        >
+                          {enabledPaymentTypes.map((type) => (
+                            <option key={type.id} value={type.id}>{type.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-5 py-4 border-t dark:border-gray-700 flex gap-3 flex-shrink-0">
+                  <button
+                    onClick={() => { setShowCollectPaymentSidebar(false); setCollectPaymentSuccess(false); }}
+                    disabled={collectPaymentProcessing}
+                    className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (shiftRequired) {
+                        toast('Please open your shift before completing a payment.', 'error');
+                        return;
+                      }
+                      if (!collectCashAmount || collectCashAmount < selectedReportOrder.total) {
+                        toast('Amount received cannot be less than the total.', 'error');
+                        return;
+                      }
+                      if (!collectPaymentType) return;
+                      setCollectPaymentProcessing(true);
+                      const paymentName = paymentTypes.find(p => p.id === collectPaymentType)?.name || collectPaymentType;
+                      const changeAmt = Math.max(0, collectCashAmount - selectedReportOrder.total);
+                      try {
+                        onUpdateOrder(selectedReportOrder.id, OrderStatus.COMPLETED, {
+                          paymentMethod: paymentName,
+                          cashierName: cashierName || '',
+                          amountReceived: collectCashAmount,
+                          changeAmount: changeAmt,
+                        });
+                        counterOrdersCache.mergeReportOrdersCache(restaurant.id, [{
+                          id: selectedReportOrder.id,
+                          items: selectedReportOrder.items,
+                          total: selectedReportOrder.total,
+                          status: OrderStatus.COMPLETED,
+                          timestamp: selectedReportOrder.timestamp,
+                          restaurantId: restaurant.id,
+                          tableNumber: selectedReportOrder.tableNumber,
+                          diningType: selectedReportOrder.diningType,
+                          remark: selectedReportOrder.remark || '',
+                          customerId: '',
+                          paymentMethod: paymentName,
+                          cashierName: cashierName || '',
+                          amountReceived: collectCashAmount,
+                          changeAmount: changeAmt,
+                          orderSource: selectedReportOrder.orderSource,
+                        }]);
+                        setCollectPaymentSuccess(true);
+                      } catch (err: any) {
+                        toast(`Payment failed: ${err?.message || 'Unknown error'}`, 'error');
+                      } finally {
+                        setCollectPaymentProcessing(false);
+                      }
+                    }}
+                    disabled={collectPaymentProcessing || !collectPaymentType || !collectCashAmount}
+                    className="flex-1 py-3 bg-green-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-green-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {collectPaymentProcessing ? (
+                      <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Processing...</>
+                    ) : (
+                      <><CreditCard size={14} /> Confirm Payment</>
+                    )}
+                  </button>
+                </div>
+                  </div>
+
+                  {/* Collect amount keypad view */}
+                  <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-in-out ${showCollectAmountKeypad ? 'translate-x-0' : 'translate-x-full'}`}>
+                    <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-6 pt-8 space-y-4">
+                      <div className="text-center space-y-3">
+                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Amount Received</p>
+                        <div className="mx-auto w-56 relative flex items-end border-b-2 border-orange-500 pb-1">
+                          <span className="absolute left-0 bottom-1 text-lg font-black text-orange-500">{currencySymbol}</span>
+                          <span className="w-full text-3xl font-black text-orange-500 tracking-tighter text-center">
+                            {collectAmountKeypadInput || '0.00'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((token) => (
+                          <button
+                            key={`collect-keypad-${token}`}
+                            type="button"
+                            onClick={() => appendCollectKeypadValue(token)}
+                            className="py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xl font-black hover:border-orange-500 dark:hover:border-orange-500 transition-all"
+                          >
+                            {token}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => appendCollectKeypadValue('.')}
+                          className="py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xl font-black hover:border-orange-500 dark:hover:border-orange-500 transition-all"
+                        >
+                          .
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => appendCollectKeypadValue('0')}
+                          className="py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xl font-black hover:border-orange-500 dark:hover:border-orange-500 transition-all"
+                        >
+                          0
+                        </button>
+                        <button
+                          type="button"
+                          onClick={backspaceCollectKeypadValue}
+                          className="py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 flex items-center justify-center hover:border-orange-500 dark:hover:border-orange-500 transition-all"
+                        >
+                          <Delete size={20} />
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setCollectAmountKeypadInput('')}
+                        className="w-full py-2.5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-black text-sm uppercase tracking-widest hover:border-orange-500 dark:hover:border-orange-500 transition-all"
+                      >
+                        Clear
+                      </button>
+                    </div>
+
+                    <div className="px-5 py-4 border-t dark:border-gray-700 flex gap-3 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCollectAmountKeypadInput(collectCashAmountInput);
+                          setShowCollectAmountKeypad(false);
+                        }}
+                        className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={saveCollectAmountFromKeypad}
+                        className="flex-1 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              /* Success state */
+              <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-6">
+                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                  <CheckCircle2 size={36} className="text-green-500" />
+                </div>
+                <div className="text-center">
+                  <h3 className="text-xl font-black dark:text-white uppercase tracking-tighter mb-1">Payment Complete</h3>
+                  <p className="text-xs text-gray-400 uppercase tracking-widest">Order #{selectedReportOrder.id} marked as paid</p>
+                </div>
+                <div className="w-full grid grid-cols-2 gap-4 text-center">
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                    <p className="text-2xl font-black text-green-500">{currencySymbol}{(collectCashAmount || 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1">Received</p>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                    <p className="text-2xl font-black text-blue-500">{currencySymbol}{Math.max(0, (collectCashAmount || 0) - selectedReportOrder.total).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1">Change</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowCollectPaymentSidebar(false);
+                    setCollectPaymentSuccess(false);
+                    setSelectedReportOrder(null);
+                    toast('Payment collected successfully.', 'success');
+                  }}
+                  className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
+                >
+                  Done
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* QR Order Rejection Modal */}
+      {rejectingQrOrderId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[130] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in fade-in duration-200">
+            <h3 className="text-lg font-black dark:text-white uppercase tracking-tighter mb-4">Reject QR Order</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Reason</label>
+                <div className="space-y-2">
+                  {['Item out of stock', 'Kitchen too busy', 'Restaurant closed early', 'Other'].map(reason => (
+                    <button
+                      key={reason}
+                      onClick={() => setQrRejectionReason(reason)}
+                      className={`w-full text-left px-4 py-3 rounded-xl border font-bold text-sm transition-all ${
+                        qrRejectionReason === reason
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                      }`}
+                    >
+                      {reason}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Note (optional)</label>
+                <textarea
+                  value={qrRejectionNote}
+                  onChange={e => setQrRejectionNote(e.target.value)}
+                  rows={2}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none text-sm font-medium dark:text-white resize-none"
+                  placeholder="Add a note..."
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => { setRejectingQrOrderId(null); setQrRejectionNote(''); }}
+                  className="flex-1 py-3 rounded-xl border dark:border-gray-600 font-black text-[10px] uppercase tracking-widest text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    onUpdateOrder(rejectingQrOrderId, OrderStatus.CANCELLED);
+                    setRejectingQrOrderId(null);
+                    setQrRejectionNote('');
+                  }}
+                  className="flex-1 py-3 rounded-xl bg-red-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all"
+                >
+                  Confirm Reject
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Kitchen Order Rejection Modal */}
+      {rejectingKitchenOrderId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[130] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in fade-in duration-200">
+            <h3 className="text-lg font-black dark:text-white uppercase tracking-tighter mb-4">Reject Kitchen Order</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Reason</label>
+                <div className="space-y-2">
+                  {REJECTION_REASONS.map(reason => (
+                    <button
+                      key={reason}
+                      onClick={() => setKitchenRejectionReason(reason)}
+                      className={`w-full text-left px-4 py-3 rounded-xl border font-bold text-sm transition-all ${
+                        kitchenRejectionReason === reason
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                      }`}
+                    >
+                      {reason}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Note (optional)</label>
+                <textarea
+                  value={kitchenRejectionNote}
+                  onChange={e => setKitchenRejectionNote(e.target.value)}
+                  rows={2}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none text-sm font-medium dark:text-white resize-none"
+                  placeholder="Add a note..."
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => { setRejectingKitchenOrderId(null); setKitchenRejectionNote(''); }}
+                  className="flex-1 py-3 rounded-xl border dark:border-gray-600 font-black text-[10px] uppercase tracking-widest text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleKitchenConfirmRejection}
+                  className="flex-1 py-3 rounded-xl bg-red-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all"
+                >
+                  Confirm Reject
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Kitchen Order Alert */}
+      {showNewOrderAlert && showKitchenFeature && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-right fade-in duration-300">
+          <div className="bg-orange-500 text-white rounded-2xl shadow-2xl px-6 py-4 flex items-center gap-4">
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+              <Coffee size={20} />
+            </div>
+            <div>
+              <p className="font-black text-sm uppercase tracking-tight">New Order!</p>
+              <p className="text-[10px] font-bold opacity-80">A new order has arrived in the kitchen</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .saved-table-scroll {
+          overflow-x: auto;
+          padding-bottom: 2px;
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .saved-table-scroll::-webkit-scrollbar {
+          display: none;
+        }
+        .saved-table-row {
+          --visible-cols: 3;
+          display: grid;
+          gap: 0.5rem;
+          width: calc((var(--total-cols) / var(--visible-cols)) * 100%);
+          grid-template-columns: repeat(var(--total-cols), minmax(0, 1fr));
+        }
+        .saved-table-cell {
+          min-width: 0;
+        }
+        .saved-table-cell-empty {
+          border: 1px dashed transparent;
+          background: transparent;
+          pointer-events: none;
+        }
+        @media (min-width: 768px) {
+          .saved-table-row {
+            --visible-cols: 4;
+          }
+        }
+        @media (min-width: 1024px) {
+          .saved-table-row {
+            --visible-cols: 5;
+          }
+        }
+        @keyframes slideLeft {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+        .animate-slide-left {
+          animation: slideLeft 0.3s ease-out;
+        }
+        @keyframes slideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        .animate-slide-up {
+          animation: slideUp 0.3s ease-out;
+        }
+      `}</style>
+
+      {/* Upgrade Plan Modal */}
+      {showUpgradeModal && (
+        <UpgradePlanModal
+          currentPlanId={vendorPlan}
+          restaurantId={restaurant.id}
+          subscription={subscription}
+          onClose={() => setShowUpgradeModal(false)}
+          onUpgraded={() => {
+            setShowUpgradeModal(false);
+            onSubscriptionUpdated?.();
+          }}
+        />
+      )}
+
+      {/* ── Profile / Account Panel ─────────────────────────────────────── */}
+      {/* Backdrop */}
+        <div
+          className={`fixed inset-0 bg-black/40 z-[130] transition-opacity duration-300 ${showProfilePanel ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+          onClick={() => setShowProfilePanel(false)}
+        />
+        {/* Panel */}
+        <div className={`fixed inset-y-0 left-0 z-[130] w-80 bg-white dark:bg-gray-800 shadow-2xl flex flex-col overflow-hidden transition-transform duration-300 ease-in-out ${showProfilePanel ? 'translate-x-0' : '-translate-x-full'}`}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b dark:border-gray-700">
+              <div className="flex items-center gap-2">
+                <User size={18} className="text-orange-500" />
+                <h2 className="font-black text-sm uppercase tracking-tight dark:text-white">Account & Settings</h2>
+              </div>
+              <button
+                onClick={() => setShowProfilePanel(false)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+
+              {/* ── Restaurant Logo ── */}
+              <div>
+                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">Restaurant Logo</p>
+                <div className="flex flex-col items-center gap-4">
+                  {/* Photo Frame with hover-delete */}
+                  <div
+                    className="relative cursor-pointer"
+                    onMouseEnter={() => profileLogoPreview ? setProfileLogoHovered(true) : undefined}
+                    onMouseLeave={() => setProfileLogoHovered(false)}
+                  >
+                    <div className="w-28 h-28 rounded-2xl border-2 border-gray-200 dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-700 shadow-sm">
+                      {profileLogoPreview ? (
+                        <img
+                          src={profileLogoPreview}
+                          alt="Restaurant logo"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ImagePlus size={28} className="text-gray-300 dark:text-gray-500" />
+                        </div>
+                      )}
+                    </div>
+                    {/* Hover overlay – delete */}
+                    {profileLogoHovered && profileLogoPreview && (
+                      <div className="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center">
+                        <button
+                          onClick={handleDeleteLogo}
+                          className="flex flex-col items-center gap-1 text-white hover:text-red-300 transition-colors"
+                        >
+                          <Trash2 size={20} />
+                          <span className="text-[9px] font-black uppercase tracking-widest">Remove</span>
+                        </button>
+                      </div>
+                    )}
+                    {profileLogoUploading && (
+                      <div className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center">
+                        <RotateCw size={20} className="text-white animate-spin" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 w-full">
+                    <button
+                      onClick={() => profileLogoInputRef.current?.click()}
+                      disabled={profileLogoUploading}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors disabled:opacity-50 border border-orange-200 dark:border-orange-800/40"
+                    >
+                      <Upload size={13} /> Upload
+                    </button>
+                    <button
+                      onClick={() => setProfileShowLinkInput(v => !v)}
+                      className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold rounded-lg transition-colors border ${
+                        profileShowLinkInput
+                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800/40'
+                          : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      <Link2 size={13} /> Add Link
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500">PNG or JPEG recommended</p>
+                  <input
+                    ref={profileLogoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleProfileLogoFileSelect}
+                  />
+                </div>
+
+                {/* Link Input */}
+                {profileShowLinkInput && (
+                  <div className="mt-3">
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        value={profileImageLinkInput}
+                        onChange={e => setProfileImageLinkInput(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSaveImageLink()}
+                        className="flex-1 border dark:border-gray-600 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                        placeholder="https://example.com/image.png"
+                        autoFocus
+                      />
+                      <button
+                        onClick={handleSaveImageLink}
+                        disabled={profileSaving || !profileImageLinkInput.trim()}
+                        className="px-3 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        {profileSaving ? <RotateCw size={12} className="animate-spin" /> : 'Set'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Restaurant Info ── */}
+              <div>
+                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Restaurant Info</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Restaurant Name</label>
+                    <input
+                      type="text"
+                      value={profileRestaurantName}
+                      onChange={e => setProfileRestaurantName(e.target.value)}
+                      className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      placeholder="Restaurant name"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSaveProfileInfo}
+                    disabled={profileSaving}
+                    className="w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {profileSaving ? <RotateCw size={13} className="animate-spin" /> : null}
+                    Save Info
+                  </button>
+                </div>
+              </div>
+
+              {/* ── Change Password ── */}
+              <div>
+                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Change Password</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Current Password</label>
+                    <div className="relative">
+                      <input
+                        type={profileShowCurrentPw ? 'text' : 'password'}
+                        value={profileCurrentPassword}
+                        onChange={e => setProfileCurrentPassword(e.target.value)}
+                        className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400 pr-9"
+                        placeholder="Current password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setProfileShowCurrentPw(v => !v)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                      >
+                        {profileShowCurrentPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">New Password</label>
+                    <div className="relative">
+                      <input
+                        type={profileShowNewPw ? 'text' : 'password'}
+                        value={profileNewPassword}
+                        onChange={e => setProfileNewPassword(e.target.value)}
+                        className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400 pr-9"
+                        placeholder="New password (min 6 chars)"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setProfileShowNewPw(v => !v)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                      >
+                        {profileShowNewPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Confirm New Password</label>
+                    <input
+                      type="password"
+                      value={profileConfirmPassword}
+                      onChange={e => setProfileConfirmPassword(e.target.value)}
+                      className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      placeholder="Confirm new password"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSaveProfilePassword}
+                    disabled={profileSaving}
+                    className="w-full py-2 rounded-lg bg-gray-800 dark:bg-gray-200 hover:bg-gray-700 dark:hover:bg-white text-white dark:text-gray-900 text-xs font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {profileSaving ? <RotateCw size={13} className="animate-spin" /> : <Lock size={13} />}
+                    Update Password
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* Logo Crop Modal */}
+          {profileCropFile && (
+            <ImageCropModal
+              imageFile={profileCropFile}
+              onCrop={handleProfileLogoCropped}
+              onCancel={() => setProfileCropFile(null)}
+            />
+          )}
+
+
+      {/* ─────────────────────────────────────────────────────────────────── */}
+
+      </div>
+    </div>
+  );
+};
+
+export default PosOnlyView;
