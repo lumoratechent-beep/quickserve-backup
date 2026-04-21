@@ -299,6 +299,13 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
           toast(data.error || 'Failed to record wallet deposit.', 'error');
           return;
         }
+
+        setDepositAmount('');
+        setDepositReference('');
+        setShowDepositForm(false);
+        toast(`QR top up submitted for admin approval. ${currencySymbol}${amount.toFixed(2)} is now pending.`, 'success');
+        fetchWalletData();
+        return;
       }
 
       setDepositAmount('');
@@ -594,7 +601,7 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
               <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-600 p-4 space-y-3">
                 <div>
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">QR Top Up</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Scan the QR with your banking app, then confirm the top-up below.</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Scan the QR with your banking app, then submit the transfer for admin approval.</p>
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Reference (Optional)</label>
@@ -606,7 +613,7 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
                     className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
-                <p className="text-[10px] text-gray-400">This records the top up in your wallet after you complete the transfer.</p>
+                <p className="text-[10px] text-gray-400">This creates a pending wallet top up. Admin approval usually takes a few minutes to a few hours.</p>
               </div>
             </div>
           )}
@@ -615,7 +622,7 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
             <p className="text-[9px] text-gray-400 flex-1">
               {depositMethod === 'card'
                 ? 'Card top ups are charged immediately and added to your wallet balance.'
-                : 'QR top ups use the payment QR shown above and are added when you confirm the transfer.'}
+                : 'QR top ups stay pending until an admin reviews and approves the transfer.'}
             </p>
             <button
               onClick={handleDeposit}
@@ -623,7 +630,7 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
               className="px-5 py-2.5 bg-emerald-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 transition-all disabled:opacity-50 flex items-center gap-1.5"
             >
               {isDepositing ? <RotateCw size={12} className="animate-spin" /> : <PlusCircle size={12} />}
-              {depositMethod === 'card' ? 'Top Up by Card' : 'Confirm QR Top Up'}
+              {depositMethod === 'card' ? 'Top Up by Card' : 'Submit QR Top Up'}
             </button>
           </div>
         </div>

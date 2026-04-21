@@ -35,6 +35,10 @@ function buildDepositDescription(method: string, referenceNumber?: string, note?
   return parts.join(' - ');
 }
 
+function isQrDepositDescription(description?: string | null): boolean {
+  return typeof description === 'string' && description.toLowerCase().startsWith('wallet deposit via qr');
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -144,13 +148,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(400).json({ error: 'Deposit method must be card or qr' });
         }
 
+        if (method === 'qr') {
+          const { data: pendingTopups, error: pendingTopupError } = await supabase
+            .from('wallet_transactions')
+            .select('id')
+            .eq('restaurant_id', restaurantId)
+            .eq('type', 'deposit')
+            .eq('status', 'pending')
+            .ilike('description', 'Wallet deposit via QR%')
+            .limit(1);
+
+          if (pendingTopupError) return res.status(500).json({ error: pendingTopupError.message });
+          if ((pendingTopups || []).length > 0) {
+            return res.status(409).json({ error: 'You already have a pending QR top up awaiting admin approval.' });
+          }
+        }
+
+        const depositStatus = method === 'qr' ? 'pending' : 'completed';
+
         const { data, error } = await supabase
           .from('wallet_transactions')
           .insert({
             restaurant_id: restaurantId,
             amount: parsedAmount,
             type: 'deposit',
-            status: 'completed',
+            status: depositStatus,
             description: buildDepositDescription(
               method,
               typeof referenceNumber === 'string' ? referenceNumber.slice(0, 100) : undefined,
@@ -163,7 +185,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (error) return res.status(500).json({ error: error.message });
 
         const balance = await getCompletedWalletBalance(restaurantId);
-        return res.status(200).json({ transaction: data, balance });
+        return res.status(200).json({
+          transaction: data,
+          balance,
+          pendingApproval: method === 'qr',
+        });
       }
 
       // POST /api/wallet?action=cashout — request a cashout
@@ -258,6 +284,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ requests: data || [] });
       }
 
+      // GET /api/wallet?action=admin_topups — list QR wallet top-up requests (admin only)
+      case 'admin_topups': {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const status = req.query.status as string;
+
+        let query = supabase
+          .from('wallet_transactions')
+          .select('*')
+          .eq('type', 'deposit')
+          .ilike('description', 'Wallet deposit via QR%')
+          .order('created_at', { ascending: false });
+
+        if (status && status !== 'ALL') {
+          query = query.eq('status', status);
+        }
+
+        const { data, error } = await query;
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(200).json({ transactions: data || [] });
+      }
+
       // POST /api/wallet?action=admin_update_cashout — update cashout status (admin)
       case 'admin_update_cashout': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -288,6 +335,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         return res.status(200).json({ request: updatedRequest });
+      }
+
+      // POST /api/wallet?action=admin_update_topup — approve or reject QR wallet top-ups (admin)
+      case 'admin_update_topup': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { transactionId, status } = req.body || {};
+
+        if (!transactionId || !status) {
+          return res.status(400).json({ error: 'transactionId and status required' });
+        }
+
+        if (!['completed', 'rejected'].includes(status)) {
+          return res.status(400).json({ error: 'status must be completed or rejected' });
+        }
+
+        const { data: existingTransaction, error: existingTransactionError } = await supabase
+          .from('wallet_transactions')
+          .select('*')
+          .eq('id', transactionId)
+          .single();
+
+        if (existingTransactionError || !existingTransaction) {
+          return res.status(404).json({ error: 'Top up request not found' });
+        }
+
+        if (existingTransaction.type !== 'deposit' || !isQrDepositDescription(existingTransaction.description)) {
+          return res.status(400).json({ error: 'Transaction is not a QR wallet top up' });
+        }
+
+        if (existingTransaction.status !== 'pending') {
+          return res.status(409).json({ error: 'Top up request has already been reviewed' });
+        }
+
+        const { data: updatedTransaction, error: updateError } = await supabase
+          .from('wallet_transactions')
+          .update({
+            status,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', transactionId)
+          .select()
+          .single();
+
+        if (updateError) return res.status(500).json({ error: updateError.message });
+
+        const balance = await getCompletedWalletBalance(existingTransaction.restaurant_id);
+        return res.status(200).json({ transaction: updatedTransaction, balance });
       }
 
       // POST /api/wallet?action=record_sale — record an online sale transaction
