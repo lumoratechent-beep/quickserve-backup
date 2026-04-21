@@ -337,88 +337,7 @@ const SystemStatusDashboard: React.FC = () => {
           <p className="text-[10px] font-medium text-gray-600 dark:text-gray-300 truncate">{status.database?.message || 'Not checked yet'}</p>
         </div>
 
-        {/* Upload System */}
-        <div className={`p-3 rounded-xl border transition-all ${
-          status.upload?.status === 'OK' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/20' :
-          status.upload?.status === 'ERROR' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/20' :
-          'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-        }`}>
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <Upload size={16} className={status.upload?.status === 'OK' ? 'text-green-500' : status.upload?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
-              <div>
-                <h4 className="font-black dark:text-white text-xs leading-tight">Upload</h4>
-                <p className="text-[9px] font-bold text-gray-500 dark:text-gray-400">Blob Storage</p>
-              </div>
-            </div>
-            {status.upload?.status === 'CHECKING' && <div className="w-3 h-3 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />}
-            {status.upload?.status === 'OK' && <CheckCircle2 size={16} className="text-green-500" />}
-            {status.upload?.status === 'ERROR' && <AlertCircle size={16} className="text-red-500" />}
-          </div>
-          <p className="text-[10px] font-medium text-gray-600 dark:text-gray-300 truncate">{status.upload?.message || 'Not checked yet'}</p>
-        </div>
-
-        {/* Hubs/Locations */}
-        <div className={`p-3 rounded-xl border transition-all ${
-          status.hubs?.status === 'OK' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/20' :
-          status.hubs?.status === 'ERROR' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/20' :
-          'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-        }`}>
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <MapPin size={16} className={status.hubs?.status === 'OK' ? 'text-green-500' : status.hubs?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
-              <div>
-                <h4 className="font-black dark:text-white text-xs leading-tight">Hubs</h4>
-                <p className="text-[9px] font-bold text-gray-500 dark:text-gray-400">Locations</p>
-              </div>
-            </div>
-            {status.hubs?.status === 'OK' && <CheckCircle2 size={16} className="text-green-500" />}
-            {status.hubs?.status === 'ERROR' && <AlertCircle size={16} className="text-red-500" />}
-          </div>
-          <p className="text-[10px] font-medium text-gray-600 dark:text-gray-300 truncate">{status.hubs?.message || 'Not checked yet'}</p>
-        </div>
-
-        {/* Vendors */}
-        <div className={`p-3 rounded-xl border transition-all ${
-          status.vendors?.status === 'OK' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/20' :
-          status.vendors?.status === 'ERROR' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/20' :
-          'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-        }`}>
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <Store size={16} className={status.vendors?.status === 'OK' ? 'text-green-500' : status.vendors?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
-              <div>
-                <h4 className="font-black dark:text-white text-xs leading-tight">Vendors</h4>
-                <p className="text-[9px] font-bold text-gray-500 dark:text-gray-400">Users</p>
-              </div>
-            </div>
-            {status.vendors?.status === 'OK' && <CheckCircle2 size={16} className="text-green-500" />}
-            {status.vendors?.status === 'ERROR' && <AlertCircle size={16} className="text-red-500" />}
-          </div>
-          <p className="text-[10px] font-medium text-gray-600 dark:text-gray-300 truncate">{status.vendors?.message || 'Not checked yet'}</p>
-        </div>
-
         {/* Restaurants */}
-        <div className={`p-3 rounded-xl border transition-all ${
-          status.restaurants?.status === 'OK' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/20' :
-          status.restaurants?.status === 'ERROR' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/20' :
-          'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-        }`}>
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <ShoppingBag size={16} className={status.restaurants?.status === 'OK' ? 'text-green-500' : status.restaurants?.status === 'ERROR' ? 'text-red-500' : 'text-gray-400'} />
-              <div>
-                <h4 className="font-black dark:text-white text-xs leading-tight">Restaurants</h4>
-                <p className="text-[9px] font-bold text-gray-500 dark:text-gray-400">Stores</p>
-              </div>
-            </div>
-            {status.restaurants?.status === 'OK' && <CheckCircle2 size={16} className="text-green-500" />}
-            {status.restaurants?.status === 'ERROR' && <AlertCircle size={16} className="text-red-500" />}
-          </div>
-          <p className="text-[10px] font-medium text-gray-600 dark:text-gray-300 truncate">{status.restaurants?.message || 'Not checked yet'}</p>
-        </div>
-
-        {/* Menu Items */}
         <div className={`p-3 rounded-xl border transition-all ${
           status.menu?.status === 'OK' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/20' :
           status.menu?.status === 'ERROR' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/20' :
@@ -618,19 +537,18 @@ const AdminView: React.FC<Props> = ({
   const [adminCashouts, setAdminCashouts] = useState<any[]>([]);
   const [adminCashoutsLoading, setAdminCashoutsLoading] = useState(false);
   const [adminCashoutFilter, setAdminCashoutFilter] = useState<'all' | 'pending' | 'approved' | 'completed' | 'rejected'>('pending');
-  const [adminWalletTopups, setAdminWalletTopups] = useState<any[]>([]);
-  const [adminWalletTopupsLoading, setAdminWalletTopupsLoading] = useState(false);
-  const [adminWalletTopupFilter, setAdminWalletTopupFilter] = useState<'all' | 'pending' | 'completed' | 'rejected'>('pending');
-  const [adminWalletTopupReviewing, setAdminWalletTopupReviewing] = useState<string | null>(null);
-
   // DuitNow admin state
   const [duitnowPayments, setDuitnowPayments] = useState<any[]>([]);
   const [duitnowLoading, setDuitnowLoading] = useState(false);
-  const [duitnowFilter, setDuitnowFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
+  const [duitnowFilter, setDuitnowFilter] = useState<'all' | 'pending' | 'approved' | 'completed' | 'rejected'>('pending');
   const [duitnowReviewing, setDuitnowReviewing] = useState<string | null>(null);
   const [duitnowRejectNote, setDuitnowRejectNote] = useState('');
   const [duitnowRejectModalId, setDuitnowRejectModalId] = useState<string | null>(null);
   const [duitnowImagePreview, setDuitnowImagePreview] = useState<string | null>(null);
+  const [adminWalletTopups, setAdminWalletTopups] = useState<any[]>([]);
+  const [adminWalletTopupsLoading, setAdminWalletTopupsLoading] = useState(false);
+  const [adminWalletTopupFilter, setAdminWalletTopupFilter] = useState<'all' | 'pending' | 'completed' | 'rejected'>('pending');
+  const [adminWalletTopupReviewing, setAdminWalletTopupReviewing] = useState<string | null>(null);
 
   const fetchDuitnowPayments = async () => {
     setDuitnowLoading(true);
@@ -928,15 +846,17 @@ const AdminView: React.FC<Props> = ({
   }, [activeTab, incomeReportSubTab, incomeStartDate, incomeEndDate]);
 
   useEffect(() => {
-    if (activeTab === 'DUITNOW') fetchDuitnowPayments();
-  }, [activeTab, duitnowFilter]);
+    if (activeTab === 'DUITNOW') {
+      fetchDuitnowPayments();
+      fetchAdminWalletTopups();
+    }
+  }, [activeTab, duitnowFilter, adminWalletTopupFilter]);
 
   useEffect(() => {
     if (activeTab === 'CASHOUT') {
       fetchAdminCashouts();
-      fetchAdminWalletTopups();
     }
-  }, [activeTab, adminCashoutFilter, adminWalletTopupFilter]);
+  }, [activeTab, adminCashoutFilter]);
 
   // QR Modal State
   const [generatingQrHub, setGeneratingQrHub] = useState<Area | null>(null);
@@ -2496,125 +2416,6 @@ const AdminView: React.FC<Props> = ({
 
         {activeTab === 'CASHOUT' && (
           <div className="p-4 md:p-8">
-            <div className="mb-10">
-              <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-                <div>
-                  <h2 className="text-xl font-black dark:text-white uppercase tracking-tighter flex items-center gap-2">
-                    <QrCode size={20} className="text-orange-500" />
-                    Wallet QR Top Ups
-                  </h2>
-                  <p className="text-xs text-gray-400 mt-1">Approve or reject pending wallet top ups submitted through DuitNow QR.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={fetchAdminWalletTopups}
-                    disabled={adminWalletTopupsLoading}
-                    className="px-4 py-2.5 bg-orange-500 text-white rounded-xl font-bold text-xs hover:bg-orange-600 transition-all flex items-center gap-2 disabled:opacity-50"
-                  >
-                    <RefreshCw size={14} className={adminWalletTopupsLoading ? 'animate-spin' : ''} /> Refresh
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm mb-6 overflow-x-auto hide-scrollbar w-fit">
-                {(['all', 'pending', 'completed', 'rejected'] as const).map(f => (
-                  <button
-                    key={f}
-                    onClick={() => setAdminWalletTopupFilter(f)}
-                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                      adminWalletTopupFilter === f
-                        ? 'bg-orange-500 text-white shadow-md'
-                        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
-
-              {adminWalletTopupsLoading && adminWalletTopups.length === 0 ? (
-                <div className="text-center py-20">
-                  <RefreshCw size={24} className="mx-auto text-gray-300 animate-spin mb-3" />
-                  <p className="text-sm text-gray-400 font-bold">Loading wallet top ups...</p>
-                </div>
-              ) : (() => {
-                const filteredTopups = adminWalletTopupFilter === 'all'
-                  ? adminWalletTopups
-                  : adminWalletTopups.filter((tx: any) => tx.status === adminWalletTopupFilter);
-
-                if (filteredTopups.length === 0) {
-                  return (
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
-                      <QrCode size={32} className="mx-auto text-gray-300 mb-3" />
-                      <p className="text-sm font-black dark:text-white mb-1">No Wallet Top Ups</p>
-                      <p className="text-[10px] text-gray-400">
-                        {adminWalletTopups.length === 0 ? 'Click Refresh to load wallet top ups.' : `No ${adminWalletTopupFilter} wallet top ups found.`}
-                      </p>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div className="space-y-3">
-                    {filteredTopups.map((tx: any) => (
-                      <div key={tx.id} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                          <div className="flex items-center gap-4">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                              tx.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900/30' :
-                              tx.status === 'completed' ? 'bg-green-100 dark:bg-green-900/30' :
-                              'bg-red-100 dark:bg-red-900/30'
-                            }`}>
-                              <QrCode size={18} className={
-                                tx.status === 'pending' ? 'text-yellow-600' :
-                                tx.status === 'completed' ? 'text-green-600' :
-                                'text-red-600'
-                              } />
-                            </div>
-                            <div>
-                              <p className="text-sm font-black dark:text-white">{tx.restaurantName}</p>
-                              <p className="text-lg font-black text-orange-500">RM{Number(tx.amount).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                              <div className="flex items-center gap-3 mt-1 flex-wrap">
-                                <span className="text-[9px] text-gray-400">{new Date(tx.created_at).toLocaleDateString()} {new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                <span className="text-[9px] text-gray-400">{tx.description}</span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className={`text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${
-                              tx.status === 'pending' ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                              tx.status === 'completed' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
-                              'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                            }`}>
-                              {tx.status}
-                            </span>
-                            {tx.status === 'pending' && (
-                              <>
-                                <button
-                                  onClick={() => handleUpdateWalletTopup(tx.id, 'completed')}
-                                  disabled={adminWalletTopupReviewing === tx.id}
-                                  className="px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all disabled:opacity-50 flex items-center gap-1"
-                                >
-                                  {adminWalletTopupReviewing === tx.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />} Approve
-                                </button>
-                                <button
-                                  onClick={() => handleUpdateWalletTopup(tx.id, 'rejected')}
-                                  disabled={adminWalletTopupReviewing === tx.id}
-                                  className="px-3 py-1.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-red-200 transition-all disabled:opacity-50 flex items-center gap-1"
-                                >
-                                  <X size={12} /> Reject
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
-            </div>
-
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
               <div>
                 <h2 className="text-xl font-black dark:text-white uppercase tracking-tighter flex items-center gap-2">
@@ -2634,7 +2435,6 @@ const AdminView: React.FC<Props> = ({
               </div>
             </div>
 
-            {/* Status Filter */}
             <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm mb-6 overflow-x-auto hide-scrollbar w-fit">
               {(['all', 'pending', 'approved', 'completed', 'rejected'] as const).map(f => (
                 <button
@@ -2699,12 +2499,8 @@ const AdminView: React.FC<Props> = ({
                                 {new Date(req.created_at).toLocaleDateString()} {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
-                            {req.notes && (
-                              <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 italic">Note: {req.notes}</p>
-                            )}
-                            {req.admin_notes && (
-                              <p className="text-[10px] text-blue-500 mt-1 italic">Admin: {req.admin_notes}</p>
-                            )}
+                            {req.notes && <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 italic">Note: {req.notes}</p>}
+                            {req.admin_notes && <p className="text-[10px] text-blue-500 mt-1 italic">Admin: {req.admin_notes}</p>}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -2758,25 +2554,31 @@ const AdminView: React.FC<Props> = ({
                   <QrCode size={20} className="text-orange-500" />
                   DuitNow Payments
                 </h2>
-                <p className="text-xs text-gray-400 mt-1">Review DuitNow QR payment submissions from restaurants. Approve or reject payments.</p>
+                <p className="text-xs text-gray-400 mt-1">Review DuitNow submissions for both wallet top ups and plan extensions.</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={fetchDuitnowPayments}
-                  disabled={duitnowLoading}
+                  onClick={() => { fetchDuitnowPayments(); fetchAdminWalletTopups(); }}
+                  disabled={duitnowLoading || adminWalletTopupsLoading}
                   className="px-4 py-2.5 bg-orange-500 text-white rounded-xl font-bold text-xs hover:bg-orange-600 transition-all flex items-center gap-2 disabled:opacity-50"
                 >
-                  <RefreshCw size={14} className={duitnowLoading ? 'animate-spin' : ''} /> Refresh
+                  <RefreshCw size={14} className={duitnowLoading || adminWalletTopupsLoading ? 'animate-spin' : ''} /> Refresh
                 </button>
               </div>
             </div>
 
-            {/* Status Filter */}
             <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm mb-6 overflow-x-auto hide-scrollbar w-fit">
-              {(['all', 'pending', 'approved', 'rejected'] as const).map(f => (
+              {(['all', 'pending', 'approved', 'completed', 'rejected'] as const).map(f => (
                 <button
                   key={f}
-                  onClick={() => { setDuitnowFilter(f); if (duitnowPayments.length === 0) fetchDuitnowPayments(); }}
+                  onClick={() => {
+                    setDuitnowFilter(f);
+                    if (f !== 'approved') {
+                      setAdminWalletTopupFilter(f as 'all' | 'pending' | 'completed' | 'rejected');
+                    }
+                    if (duitnowPayments.length === 0) fetchDuitnowPayments();
+                    if (adminWalletTopups.length === 0) fetchAdminWalletTopups();
+                  }}
                   className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                     duitnowFilter === f
                       ? 'bg-orange-500 text-white shadow-md'
@@ -2784,68 +2586,90 @@ const AdminView: React.FC<Props> = ({
                   }`}
                 >
                   {f}
-                  {f === 'pending' && duitnowPayments.filter(p => p.status === 'pending').length > 0 && duitnowFilter !== 'pending' && (
+                  {f === 'pending' && (duitnowPayments.filter(p => p.status === 'pending').length + adminWalletTopups.filter(p => p.status === 'pending').length) > 0 && duitnowFilter !== 'pending' && (
                     <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[8px]">
-                      {duitnowPayments.filter(p => p.status === 'pending').length}
+                      {duitnowPayments.filter(p => p.status === 'pending').length + adminWalletTopups.filter(p => p.status === 'pending').length}
                     </span>
                   )}
                 </button>
               ))}
             </div>
 
-            {duitnowLoading && duitnowPayments.length === 0 ? (
+            {duitnowLoading && adminWalletTopupsLoading && duitnowPayments.length === 0 && adminWalletTopups.length === 0 ? (
               <div className="text-center py-20">
                 <RefreshCw size={24} className="mx-auto text-gray-300 animate-spin mb-3" />
                 <p className="text-sm text-gray-400 font-bold">Loading DuitNow payments...</p>
               </div>
             ) : (() => {
-              const filtered = duitnowFilter === 'all' ? duitnowPayments : duitnowPayments.filter((p: any) => p.status === duitnowFilter);
-              if (filtered.length === 0) {
+              const normalizedPlanPayments = duitnowPayments.map((payment: any) => ({
+                ...payment,
+                entryKind: 'plan_extension' as const,
+                transactionTypeLabel: 'Plan Extension',
+                attachmentUrl: payment.attachment_url,
+                restaurantDisplayName: payment.restaurant_name || 'Unknown',
+              }));
+              const normalizedWalletTopups = adminWalletTopups.map((transaction: any) => ({
+                ...transaction,
+                entryKind: 'wallet_topup' as const,
+                transactionTypeLabel: 'Wallet Top Up',
+                attachmentUrl: null,
+                restaurantDisplayName: transaction.restaurantName || 'Unknown Vendor',
+              }));
+              const combinedPayments = [...normalizedPlanPayments, ...normalizedWalletTopups]
+                .filter((entry: any) => duitnowFilter === 'all' || entry.status === duitnowFilter)
+                .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+              if (combinedPayments.length === 0) {
                 return (
                   <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
                     <QrCode size={32} className="mx-auto text-gray-300 mb-3" />
                     <p className="text-sm font-black dark:text-white mb-1">No DuitNow Payments</p>
                     <p className="text-[10px] text-gray-400">
-                      {duitnowPayments.length === 0 ? 'Click Refresh to load payments.' : `No ${duitnowFilter} payments found.`}
+                      {duitnowPayments.length === 0 && adminWalletTopups.length === 0 ? 'Click Refresh to load payments.' : `No ${duitnowFilter} payments found.`}
                     </p>
                   </div>
                 );
               }
+
               const planLabels: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
+
               return (
                 <div className="space-y-3">
-                  {filtered.map((payment: any) => (
-                    <div key={payment.id} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all">
+                  {combinedPayments.map((payment: any) => (
+                    <div key={`${payment.entryKind}-${payment.id}`} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
                             payment.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900/30' :
-                            payment.status === 'approved' ? 'bg-green-100 dark:bg-green-900/30' :
+                            payment.status === 'approved' || payment.status === 'completed' ? 'bg-green-100 dark:bg-green-900/30' :
                             'bg-red-100 dark:bg-red-900/30'
                           }`}>
                             <QrCode size={18} className={
                               payment.status === 'pending' ? 'text-yellow-600' :
-                              payment.status === 'approved' ? 'text-green-600' :
+                              payment.status === 'approved' || payment.status === 'completed' ? 'text-green-600' :
                               'text-red-600'
                             } />
                           </div>
                           <div>
-                            <p className="text-sm font-black dark:text-white">{payment.restaurant_name || 'Unknown'}</p>
+                            <p className="text-sm font-black dark:text-white">{payment.restaurantDisplayName}</p>
                             <p className="text-lg font-black text-orange-500">RM {Number(payment.amount).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                             <div className="flex items-center gap-3 mt-1 flex-wrap">
-                              <span className="text-[9px] text-gray-400">
-                                {planLabels[payment.plan_id] || payment.plan_id} — {payment.billing_interval === 'annual' ? 'Annual' : 'Monthly'}
+                              <span className="text-[9px] font-black uppercase tracking-widest text-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                                {payment.transactionTypeLabel}
                               </span>
-                              {payment.reference_number && (
-                                <span className="text-[9px] text-gray-400">Ref: {payment.reference_number}</span>
+                              {payment.entryKind === 'plan_extension' ? (
+                                <span className="text-[9px] text-gray-400">
+                                  {planLabels[payment.plan_id] || payment.plan_id} — {payment.billing_interval === 'annual' ? 'Annual' : 'Monthly'}
+                                </span>
+                              ) : (
+                                <span className="text-[9px] text-gray-400">{payment.description}</span>
                               )}
+                              {payment.reference_number && <span className="text-[9px] text-gray-400">Ref: {payment.reference_number}</span>}
                               <span className="text-[9px] text-gray-400">
                                 {new Date(payment.created_at).toLocaleDateString()} {new Date(payment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
-                            {payment.admin_note && (
-                              <p className="text-[10px] text-blue-500 mt-1 italic">Admin: {payment.admin_note}</p>
-                            )}
+                            {payment.admin_note && <p className="text-[10px] text-blue-500 mt-1 italic">Admin: {payment.admin_note}</p>}
                             {payment.reviewed_at && (
                               <p className="text-[10px] text-gray-400 mt-0.5">Reviewed: {new Date(payment.reviewed_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                             )}
@@ -2854,14 +2678,14 @@ const AdminView: React.FC<Props> = ({
                         <div className="flex items-center gap-2 shrink-0">
                           <span className={`text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${
                             payment.status === 'pending' ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                            payment.status === 'approved' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
+                            payment.status === 'approved' || payment.status === 'completed' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
                             'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
                           }`}>
                             {payment.status}
                           </span>
-                          {payment.attachment_url && (
+                          {payment.attachmentUrl && (
                             <button
-                              onClick={() => setDuitnowImagePreview(payment.attachment_url)}
+                              onClick={() => setDuitnowImagePreview(payment.attachmentUrl)}
                               className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all flex items-center gap-1"
                             >
                               <FileImage size={12} /> Proof
@@ -2869,20 +2693,41 @@ const AdminView: React.FC<Props> = ({
                           )}
                           {payment.status === 'pending' && (
                             <>
-                              <button
-                                onClick={() => handleDuitnowReview(payment.id, 'approved')}
-                                disabled={duitnowReviewing === payment.id}
-                                className="px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all disabled:opacity-50 flex items-center gap-1"
-                              >
-                                {duitnowReviewing === payment.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />} Approve
-                              </button>
-                              <button
-                                onClick={() => { setDuitnowRejectModalId(payment.id); setDuitnowRejectNote(''); }}
-                                disabled={duitnowReviewing === payment.id}
-                                className="px-3 py-1.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-red-200 transition-all flex items-center gap-1"
-                              >
-                                <X size={12} /> Reject
-                              </button>
+                              {payment.entryKind === 'plan_extension' ? (
+                                <>
+                                  <button
+                                    onClick={() => handleDuitnowReview(payment.id, 'approved')}
+                                    disabled={duitnowReviewing === payment.id}
+                                    className="px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all disabled:opacity-50 flex items-center gap-1"
+                                  >
+                                    {duitnowReviewing === payment.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />} Approve
+                                  </button>
+                                  <button
+                                    onClick={() => { setDuitnowRejectModalId(payment.id); setDuitnowRejectNote(''); }}
+                                    disabled={duitnowReviewing === payment.id}
+                                    className="px-3 py-1.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-red-200 transition-all flex items-center gap-1"
+                                  >
+                                    <X size={12} /> Reject
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => handleUpdateWalletTopup(payment.id, 'completed')}
+                                    disabled={adminWalletTopupReviewing === payment.id}
+                                    className="px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all disabled:opacity-50 flex items-center gap-1"
+                                  >
+                                    {adminWalletTopupReviewing === payment.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />} Approve
+                                  </button>
+                                  <button
+                                    onClick={() => handleUpdateWalletTopup(payment.id, 'rejected')}
+                                    disabled={adminWalletTopupReviewing === payment.id}
+                                    className="px-3 py-1.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-red-200 transition-all disabled:opacity-50 flex items-center gap-1"
+                                  >
+                                    <X size={12} /> Reject
+                                  </button>
+                                </>
+                              )}
                             </>
                           )}
                         </div>
