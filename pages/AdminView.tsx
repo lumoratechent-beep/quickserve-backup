@@ -899,13 +899,21 @@ const AdminView: React.FC<Props> = ({
   const [isHubSelectionModalOpen, setIsHubSelectionModalOpen] = useState(false);
 
   // Feature Images State
-  const [systemSubTab, setSystemSubTab] = useState<'STATUS' | 'FEATURE_IMAGES' | 'ANNOUNCEMENTS' | 'JOIN_TEAM' | 'TEAM_MEMBERS'>('STATUS');
+  const [systemSubTab, setSystemSubTab] = useState<'STATUS' | 'FEATURE_IMAGES' | 'PAYMENT_QR' | 'ANNOUNCEMENTS' | 'JOIN_TEAM' | 'TEAM_MEMBERS'>('STATUS');
   const [showPitchDeck, setShowPitchDeck] = useState(false);
   const [featureImages, setFeatureImages] = useState<{ id: string; url: string; alt: string; crop_shape: string; display_width: number; display_height: number; sort_order: number; category: string }[]>([]);
   const [isLoadingFeatureImages, setIsLoadingFeatureImages] = useState(false);
   const [featureCropFile, setFeatureCropFile] = useState<File | null>(null);
   const featureFileRef = useRef<HTMLInputElement>(null);
+  const [paymentQrCropFile, setPaymentQrCropFile] = useState<File | null>(null);
+  const paymentQrFileRef = useRef<HTMLInputElement>(null);
+  const [isSavingPaymentQr, setIsSavingPaymentQr] = useState(false);
   const [featureImageCategory, setFeatureImageCategory] = useState<string>('partner');
+  const paymentQrImages = useMemo(
+    () => featureImages.filter((image) => (image.category || 'partner') === 'payment-qr'),
+    [featureImages]
+  );
+  const currentPaymentQr = paymentQrImages.length > 0 ? paymentQrImages[paymentQrImages.length - 1] : null;
 
   const fetchFeatureImages = async () => {
     setIsLoadingFeatureImages(true);
@@ -914,7 +922,9 @@ const AdminView: React.FC<Props> = ({
     setIsLoadingFeatureImages(false);
   };
 
-  useEffect(() => { if (systemSubTab === 'FEATURE_IMAGES') fetchFeatureImages(); }, [systemSubTab]);
+  useEffect(() => {
+    if (systemSubTab === 'FEATURE_IMAGES' || systemSubTab === 'PAYMENT_QR') fetchFeatureImages();
+  }, [systemSubTab]);
 
   const handleFeatureImageCropped = async (blob: Blob, cropShape: string, width: number, height: number) => {
     try {
@@ -928,6 +938,52 @@ const AdminView: React.FC<Props> = ({
       toast(err.message || 'Upload failed', 'error');
     }
     setFeatureCropFile(null);
+  };
+
+  const handlePaymentQrCropped = async (blob: Blob, cropShape: string, width: number, height: number) => {
+    setIsSavingPaymentQr(true);
+    try {
+      const file = new File([blob], `payment-qr-${Date.now()}.webp`, { type: 'image/webp' });
+      const url = await uploadImage(file, 'quickserve', 'payment-qr');
+
+      if (paymentQrImages.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('feature_images')
+          .delete()
+          .in('id', paymentQrImages.map((image) => image.id));
+        if (deleteError) throw deleteError;
+      }
+
+      const { error } = await supabase.from('feature_images').insert({
+        url,
+        alt: 'QuickServe payment QR',
+        crop_shape: cropShape,
+        display_width: width,
+        display_height: height,
+        sort_order: 0,
+        category: 'payment-qr',
+      });
+      if (error) throw error;
+
+      toast('Payment QR updated!', 'success');
+      fetchFeatureImages();
+    } catch (err: any) {
+      toast(err.message || 'Failed to save payment QR', 'error');
+    }
+
+    setPaymentQrCropFile(null);
+    setIsSavingPaymentQr(false);
+  };
+
+  const deletePaymentQr = async () => {
+    if (!currentPaymentQr) return;
+    const { error } = await supabase.from('feature_images').delete().eq('id', currentPaymentQr.id);
+    if (error) {
+      toast(error.message || 'Failed to remove payment QR', 'error');
+      return;
+    }
+    toast('Payment QR removed. Billing will fall back to the default QR.', 'success');
+    fetchFeatureImages();
   };
 
   const deleteFeatureImage = async (id: string) => {
@@ -2691,6 +2747,7 @@ const AdminView: React.FC<Props> = ({
                 {([
                   { id: 'STATUS' as const, label: 'System Status', icon: <Activity size={13} /> },
                   { id: 'FEATURE_IMAGES' as const, label: 'Feature Images', icon: <ImageIcon size={13} /> },
+                  { id: 'PAYMENT_QR' as const, label: 'Payment QR', icon: <QrCode size={13} /> },
                   { id: 'ANNOUNCEMENTS' as const, label: 'Announcements', icon: <Megaphone size={13} /> },
                   { id: 'JOIN_TEAM' as const, label: 'Join Team Forms', icon: <Users size={13} /> },
                   { id: 'TEAM_MEMBERS' as const, label: 'Team Members', icon: <Users size={13} /> },
@@ -2814,6 +2871,90 @@ const AdminView: React.FC<Props> = ({
                     </div>
                   );
                 })()}
+              </div>
+            )}
+
+            {systemSubTab === 'PAYMENT_QR' && (
+              <div className="space-y-6">
+                <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-black dark:text-white uppercase tracking-tight">Payment QR</h3>
+                    <p className="text-xs text-gray-400 mt-1 max-w-2xl">Upload the actual QR image vendors will see when they renew using DuitNow. The latest saved image replaces the current payment QR across billing.</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => paymentQrFileRef.current?.click()}
+                      disabled={isSavingPaymentQr}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-orange-500 text-white rounded-xl font-bold text-sm hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/25 disabled:opacity-50"
+                    >
+                      <Upload size={16} /> {currentPaymentQr ? 'Replace QR' : 'Upload QR'}
+                    </button>
+                    {currentPaymentQr && (
+                      <button
+                        onClick={deletePaymentQr}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-red-200 dark:border-red-900/40 text-red-500 dark:text-red-400 font-bold text-sm hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      >
+                        <Trash2 size={15} /> Remove
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    ref={paymentQrFileRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) setPaymentQrCropFile(file);
+                      e.target.value = '';
+                    }}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)] gap-6">
+                  <div className="bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-200 dark:border-gray-700 p-5">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Current QR</p>
+                    {currentPaymentQr ? (
+                      <div className="space-y-4">
+                        <div className="bg-white dark:bg-gray-950 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 flex items-center justify-center min-h-[260px]">
+                          <img src={currentPaymentQr.url} alt="Payment QR" className="max-h-60 w-auto object-contain rounded-xl" />
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                          <span>{currentPaymentQr.display_width}x{currentPaymentQr.display_height}</span>
+                          <span className="px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300">{currentPaymentQr.crop_shape}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 py-14 px-6 text-center">
+                        <QrCode size={36} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                        <p className="text-sm font-bold text-gray-500 dark:text-gray-300">No custom payment QR uploaded</p>
+                        <p className="text-xs text-gray-400 mt-1">Billing will continue using the built-in fallback QR until you upload one here.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-gradient-to-br from-orange-50 to-white dark:from-gray-900 dark:to-gray-900/40 rounded-2xl border border-orange-100 dark:border-gray-700 p-5 space-y-4">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-orange-500 mb-2">Recommended</p>
+                      <h4 className="text-base font-black dark:text-white uppercase tracking-tight">Square QR With Margin</h4>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">Upload the final payment QR image from your bank or DuitNow portal, then crop it tightly so the code stays centered with a small white margin around it.</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Step 1</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-300">Upload the original QR image.</p>
+                      </div>
+                      <div className="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Step 2</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-300">Use the crop tool to keep only the QR and its scan-safe margin.</p>
+                      </div>
+                      <div className="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Step 3</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-300">Save it once and every billing page will use the new QR.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -3279,6 +3420,15 @@ const AdminView: React.FC<Props> = ({
             imageFile={featureCropFile}
             onCrop={handleFeatureImageCropped}
             onCancel={() => setFeatureCropFile(null)}
+          />
+        )}
+
+        {paymentQrCropFile && (
+          <ImageCropModal
+            imageFile={paymentQrCropFile}
+            mode="payment-qr"
+            onCrop={handlePaymentQrCropped}
+            onCancel={() => setPaymentQrCropFile(null)}
           />
         )}
 

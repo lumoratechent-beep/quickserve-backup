@@ -8,7 +8,7 @@ interface Props {
   onCrop: (blob: Blob, shape: CropShape, width: number, height: number) => void;
   onCancel: () => void;
   /** When 'team-member', locks to portrait 4:5 crop with a visual guide showing the colored bg zone */
-  mode?: 'default' | 'team-member';
+  mode?: 'default' | 'team-member' | 'payment-qr';
 }
 
 const SHAPES: { id: CropShape; label: string; icon: React.ReactNode; aspect?: number }[] = [
@@ -24,6 +24,7 @@ type DragMode = 'move' | 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w' | nul
 
 const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel, mode = 'default' }) => {
   const isTeamMode = mode === 'team-member';
+  const isPaymentQrMode = mode === 'payment-qr';
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [img, setImg] = useState<HTMLImageElement | null>(null);
   const [shape, setShape] = useState<CropShape>(isTeamMode ? 'portrait' : 'square');
@@ -376,7 +377,19 @@ const ImageCropModal: React.FC<Props> = ({ imageFile, onCrop, onCancel, mode = '
           )}
 
           {/* Shape picker */}
-          {!isTeamMode && (
+          {isPaymentQrMode && (
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800/50">
+              <div className="w-10 h-10 flex-shrink-0 rounded-lg bg-white dark:bg-gray-900 border border-orange-200 dark:border-orange-700 flex items-center justify-center">
+                <Square size={16} className="text-orange-500" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-orange-800 dark:text-orange-300">Payment QR Crop Guide</p>
+                <p className="text-[11px] text-orange-700 dark:text-orange-400 mt-0.5 leading-relaxed">This crop is locked to a square so the QR remains scannable. Keep the full code visible and leave a small white margin around it.</p>
+              </div>
+            </div>
+          )}
+
+          {!isTeamMode && !isPaymentQrMode && (
           <div>
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Shape</label>
             <div className="flex gap-2">

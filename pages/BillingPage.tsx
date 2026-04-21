@@ -4,6 +4,7 @@ import { PRICING_PLANS } from '../lib/pricingPlans';
 import { daysLeftInTrial, isTrialActive, isSubscriptionActive, getRenewalStatus, daysUntilExpiry, GRACE_PERIOD_DAYS } from '../lib/subscriptionService';
 import { Loader2, Check, Plus, RefreshCw, X, AlertCircle, CheckCircle, ArrowLeftRight, Upload, Clock, FileImage } from 'lucide-react';
 import { toast } from '../components/Toast';
+import { supabase } from '../lib/supabase';
 
 interface BillingHistory {
   id: string;
@@ -32,6 +33,8 @@ interface Props {
   onComparePlans?: () => void;
 }
 
+const DEFAULT_DUITNOW_QR_SRC = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('https://www.duitnow.my/qr/quickserve')}`;
+
 const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeClick, onSubscriptionUpdated, onComparePlans }) => {
   const [billingHistory, setBillingHistory] = useState<BillingHistory[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
@@ -58,6 +61,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   const [duitnowRef, setDuitnowRef] = useState('');
   const [duitnowAttachment, setDuitnowAttachment] = useState<File | null>(null);
   const [duitnowPreviewUrl, setDuitnowPreviewUrl] = useState<string | null>(null);
+  const [paymentQrImageUrl, setPaymentQrImageUrl] = useState<string | null>(null);
 
   const hasPendingDowngrade = Boolean(
     subscription?.pending_plan_id &&
@@ -109,6 +113,25 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   useEffect(() => {
     if (isDuitNowEnabled) fetchDuitnowPayments();
   }, [isDuitNowEnabled]);
+
+  useEffect(() => {
+    if (isDuitNowEnabled) fetchPaymentQrImage();
+  }, [isDuitNowEnabled]);
+
+  const fetchPaymentQrImage = async () => {
+    try {
+      const { data } = await supabase
+        .from('feature_images')
+        .select('url')
+        .eq('category', 'payment-qr')
+        .order('sort_order', { ascending: false })
+        .limit(1);
+
+      setPaymentQrImageUrl(data?.[0]?.url || null);
+    } catch {
+      setPaymentQrImageUrl(null);
+    }
+  };
 
   const fetchDuitnowPayments = async () => {
     setDuitnowLoading(true);
@@ -1011,9 +1034,10 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                 <div className="flex-1 flex flex-col items-center justify-center px-6 pb-5">
                   <div className="bg-white rounded-2xl p-3.5 shadow-lg">
                     <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('https://www.duitnow.my/qr/quickserve')}`}
+                      src={paymentQrImageUrl || DEFAULT_DUITNOW_QR_SRC}
                       alt="DuitNow QR Code"
                       className="w-40 h-40"
+                      onError={() => setPaymentQrImageUrl(null)}
                     />
                   </div>
                   <p className="text-white/70 text-[10px] font-medium mt-2">Lumora HQ</p>
