@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Subscription, PlanId, DuitNowPayment } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 import { daysLeftInTrial, isTrialActive, isSubscriptionActive, getRenewalStatus, daysUntilExpiry, GRACE_PERIOD_DAYS } from '../lib/subscriptionService';
@@ -77,6 +78,11 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   const [duitnowPreviewUrl, setDuitnowPreviewUrl] = useState<string | null>(null);
   const [paymentQrImageUrl, setPaymentQrImageUrl] = useState<string | null>(null);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<BillingHistoryRow | null>(null);
+
+  const renderBodyModal = (modal: React.ReactNode) => {
+    if (typeof document === 'undefined') return null;
+    return createPortal(modal, document.body);
+  };
 
   const hasPendingDowngrade = Boolean(
     subscription?.pending_plan_id &&
@@ -1180,8 +1186,8 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         const selectedCard = paymentMethods.find(m => m.id === selectedMethodId);
         const usingWallet = selectedMethodId === 'wallet';
         const walletRemaining = walletBalance - totalAmount;
-        return (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        return renderBodyModal(
+          <div className="fixed inset-0 z-[100001] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 relative">
               <button
                 onClick={() => { if (!isRenewing) { setShowRenewConfirm(false); setRenewError(''); } }}
@@ -1292,8 +1298,8 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         const totalAmount = isAnnual ? monthlyPrice * 12 : monthlyPrice;
         const intervalLabel = isAnnual ? 'Annual' : 'Monthly';
         const hasPendingDuitNow = duitnowPayments.some(p => p.status === 'pending');
-        return (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        return renderBodyModal(
+          <div className="fixed inset-0 z-[100001] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden relative flex flex-col md:flex-row max-h-[90vh]">
               <button
                 onClick={() => { if (!duitnowSubmitting) setShowDuitNowModal(false); }}
