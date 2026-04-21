@@ -684,24 +684,36 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   </div>
                 )}
                 <p className="text-xs text-emerald-600 font-semibold">QuickServe Wallet</p>
-                <div className="flex h-11 items-center">
-                  <img
-                    src="/LOGO/icon-192x192.png"
-                    alt="QuickServe logo"
-                    className="h-10 w-10 rounded-xl object-contain"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="16" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="32" font-weight="900" fill="%23f97316">QS</text></svg>')}`;
-                    }}
-                  />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-700 dark:text-gray-200 font-semibold">Wallet Balance</p>
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-black">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src="/LOGO/icon-192x192.png"
+                      alt="QuickServe logo"
+                      className="h-9 w-9 rounded-xl object-contain"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="16" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="32" font-weight="900" fill="%23f97316">QS</text></svg>')}`;
+                      }}
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300 font-semibold">
+                      Wallet Balance
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <img
+                      src="/LOGO/icon-192x192.png"
+                      alt="QuickServe logo"
+                      className="h-9 w-9 rounded-xl object-contain"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="16" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="32" font-weight="900" fill="%23f97316">QS</text></svg>')}`;
+                      }}
+                    />
+                    <span className="text-sm text-emerald-600 dark:text-emerald-400 font-black">
                       {walletBalanceLoading ? 'Loading...' : `RM ${walletBalance.toFixed(2)}`}
-                  </p>
+                    </span>
+                  </div>
                 </div>
-                <p className="text-[10px] text-gray-400">Use wallet balance to renew your plan without charging a card.</p>
               </div>
 
               {/* DuitNow payment method card — shown first when enabled */}
@@ -793,9 +805,9 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     </p>
 
                     {/* Card visual */}
-                    <div className="flex items-center gap-3 pr-5">
+                    <div className="flex items-center gap-3 pr-7">
                       {brandLogo(method.brand)}
-                      <span className="min-w-0 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300 font-mono tracking-[0.18em]">
+                      <span className="min-w-0 whitespace-nowrap text-[11px] text-gray-700 dark:text-gray-300 font-mono tracking-[0.14em]">
                         •••• •••• ••••{method.last4}
                       </span>
                     </div>
