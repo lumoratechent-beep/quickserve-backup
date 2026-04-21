@@ -354,14 +354,6 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     return new Date(dateStr).toLocaleDateString('en-MY', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
-  const formatInvoiceLabel = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = d.toLocaleDateString('en-US', { month: 'long' });
-    const year = String(d.getFullYear()).slice(-2);
-    return `Invoice ${day} ${month} ${year}`;
-  };
-
   const getStatusBadge = (status: BillingHistory['status']) => {
     const config: Record<BillingHistory['status'], { label: string; className: string }> = {
       success: {
@@ -704,26 +696,24 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         {/* ── Enable auto renew ── */}
         <section>
           <div className="flex items-center justify-between gap-4 mb-1">
-            <h3 className={`text-lg font-bold ${selectedMethodId === 'duitnow' || selectedMethodId === 'wallet' ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>Enable auto renew</h3>
+            <h3 className={`text-lg font-bold ${selectedMethodId === 'duitnow' ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>Enable auto renew</h3>
             <button
               onClick={handleToggleAutoRenew}
-              disabled={isTogglingAutoRenew || !subscription?.stripe_subscription_id || selectedMethodId === 'duitnow' || selectedMethodId === 'wallet'}
+              disabled={isTogglingAutoRenew || !subscription?.stripe_subscription_id || selectedMethodId === 'duitnow'}
               className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                selectedMethodId === 'duitnow' || selectedMethodId === 'wallet'
+                selectedMethodId === 'duitnow'
                   ? 'bg-gray-300 dark:bg-gray-600 opacity-40 cursor-not-allowed'
                   : autoRenew ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
-              } ${(isTogglingAutoRenew || !subscription?.stripe_subscription_id) && selectedMethodId !== 'duitnow' && selectedMethodId !== 'wallet' ? 'opacity-60 cursor-not-allowed' : selectedMethodId !== 'duitnow' && selectedMethodId !== 'wallet' ? 'cursor-pointer' : ''}`}
+              } ${(isTogglingAutoRenew || !subscription?.stripe_subscription_id) && selectedMethodId !== 'duitnow' ? 'opacity-60 cursor-not-allowed' : selectedMethodId !== 'duitnow' ? 'cursor-pointer' : ''}`}
             >
               <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                selectedMethodId === 'duitnow' || selectedMethodId === 'wallet' ? 'translate-x-1' : autoRenew ? 'translate-x-6' : 'translate-x-1'
+                selectedMethodId === 'duitnow' ? 'translate-x-1' : autoRenew ? 'translate-x-6' : 'translate-x-1'
               }`} />
             </button>
           </div>
           <p className="text-[11px] text-gray-400 leading-relaxed max-w-xl">
-            {selectedMethodId === 'duitnow' || selectedMethodId === 'wallet'
-              ? selectedMethodId === 'wallet'
-                ? 'Auto-renew is not available with QuickServe Wallet. Top up your wallet and renew manually whenever needed.'
-                : 'Auto-renew is not available with DuitNow. You will need to manually renew each billing cycle by scanning the QR code.'
+            {selectedMethodId === 'duitnow'
+              ? 'Auto-renew is not available with DuitNow. You will need to manually renew each billing cycle by scanning the QR code.'
               : 'This option, if checked, will renew your productive subscription, if the current plan expires. However, this might prevent you from downgrading.'}
           </p>
         </section>
@@ -984,7 +974,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                       <th className="px-4 py-3 text-left">Method</th>
                       <th className="px-4 py-3 text-left">Details</th>
                       <th className="px-4 py-3 text-right">Amount</th>
-                      <th className="px-4 py-3 text-right">Download</th>
+                      <th className="px-4 py-3 text-right">Invoice</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y dark:divide-gray-700">
@@ -1044,7 +1034,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                                 }}
                                 className="text-[10px] font-black text-orange-500 hover:text-orange-600 uppercase tracking-widest underline decoration-dotted underline-offset-4 transition-colors"
                               >
-                                {formatInvoiceLabel(inv.date)}
+                                Download
                               </button>
                             ) : (
                               <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">—</span>
