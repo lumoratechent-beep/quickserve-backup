@@ -127,7 +127,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
         <p className="text-xs font-bold text-gray-900 dark:text-white mb-1">{label}</p>
         {payload.map((p: any, i: number) => (
           <p key={i} className="text-xs text-gray-600 dark:text-gray-300">
-            {p.name}: <span className="text-amber-600 dark:text-amber-400 font-bold">{typeof p.value === 'number' ? `${currencySymbol}${p.value.toFixed(2)}` : p.value}</span>
+            {p.name}: <span className="text-amber-600 dark:text-amber-400 font-bold">{typeof p.value === 'number' ? `${currencySymbol}${p.value.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : p.value}</span>
           </p>
         ))}
       </div>
@@ -177,11 +177,11 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
     doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
     doc.text('Sales Summary', margin, y); y += 6;
     const kpis = [
-      ['Gross Sales', `${currencySymbol}${salesSummary.totalRevenue.toFixed(2)}`],
-      ['Net Sales', `${currencySymbol}${salesSummary.netSales.toFixed(2)}`],
+      ['Gross Sales', `${currencySymbol}${salesSummary.totalRevenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+      ['Net Sales', `${currencySymbol}${salesSummary.netSales.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
       ['Orders', `${salesSummary.totalOrders}`],
-      ['Average Order Value', `${currencySymbol}${salesSummary.avgOrder.toFixed(2)}`],
-      ['Refunds / Cancelled', `${currencySymbol}${salesSummary.refunds.toFixed(2)}`],
+      ['Average Order Value', `${currencySymbol}${salesSummary.avgOrder.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+      ['Refunds / Cancelled', `${currencySymbol}${salesSummary.refunds.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
     ];
     autoTable(doc, {
       startY: y, head: [['Metric', 'Value']], body: kpis, margin: { left: margin, right: margin },
@@ -196,7 +196,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
       doc.text('Sales by Payment Type', margin, y); y += 6;
       autoTable(doc, {
         startY: y, head: [['Payment Method', 'Transactions', 'Revenue', '% of Total']],
-        body: salesByPayment.map(p => [p.name, `${p.transactions}`, `${currencySymbol}${p.revenue.toFixed(2)}`, `${p.percentage.toFixed(1)}%`]),
+        body: salesByPayment.map(p => [p.name, `${p.transactions}`, `${currencySymbol}${p.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, `${p.percentage.toFixed(1)}%`]),
         margin: { left: margin, right: margin }, styles: { fontSize: 8, cellPadding: 2.5 },
         headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [254, 243, 199] }, theme: 'grid',
@@ -211,7 +211,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
       doc.text('Sales by Item (Top 30)', margin, y); y += 6;
       autoTable(doc, {
         startY: y, head: [['Item', 'Qty Sold', 'Revenue', 'Avg Price']],
-        body: salesByItem.slice(0, 30).map(i => [i.name, `${i.quantity}`, `${currencySymbol}${i.revenue.toFixed(2)}`, `${currencySymbol}${i.avgPrice.toFixed(2)}`]),
+        body: salesByItem.slice(0, 30).map(i => [i.name, `${i.quantity}`, `${currencySymbol}${i.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, `${currencySymbol}${i.avgPrice.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]),
         margin: { left: margin, right: margin }, styles: { fontSize: 7, cellPadding: 2 },
         headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [254, 243, 199] }, theme: 'grid',
@@ -226,7 +226,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
       doc.text('Sales by Category', margin, y); y += 6;
       autoTable(doc, {
         startY: y, head: [['Category', 'Items Sold', 'Orders', 'Revenue']],
-        body: salesByCategory.map(c => [c.name, `${c.itemsSold}`, `${c.orderCount}`, `${currencySymbol}${c.revenue.toFixed(2)}`]),
+        body: salesByCategory.map(c => [c.name, `${c.itemsSold}`, `${c.orderCount}`, `${currencySymbol}${c.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]),
         margin: { left: margin, right: margin }, styles: { fontSize: 8, cellPadding: 2.5 },
         headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [254, 243, 199] }, theme: 'grid',
@@ -241,7 +241,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
       doc.text('Cashier Performance', margin, y); y += 6;
       autoTable(doc, {
         startY: y, head: [['Cashier', 'Orders', 'Revenue', 'Avg Order', 'Items Sold', 'Cancelled']],
-        body: salesByEmployee.map(e => [e.name, `${e.orders}`, `${currencySymbol}${e.revenue.toFixed(2)}`, `${currencySymbol}${e.avgOrder.toFixed(2)}`, `${e.itemsSold}`, `${e.cancelled}`]),
+        body: salesByEmployee.map(e => [e.name, `${e.orders}`, `${currencySymbol}${e.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, `${currencySymbol}${e.avgOrder.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, `${e.itemsSold}`, `${e.cancelled}`]),
         margin: { left: margin, right: margin }, styles: { fontSize: 8, cellPadding: 2.5 },
         headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [254, 243, 199] }, theme: 'grid',
@@ -256,7 +256,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
       doc.text('Modifier Usage (Top 20)', margin, y); y += 6;
       autoTable(doc, {
         startY: y, head: [['Modifier', 'Times Used', 'Revenue', 'Used In']],
-        body: salesByModifier.slice(0, 20).map(m => [m.name, `${m.timesUsed}`, `${currencySymbol}${m.revenue.toFixed(2)}`, m.items.slice(0, 3).join(', ') + (m.items.length > 3 ? '...' : '')]),
+        body: salesByModifier.slice(0, 20).map(m => [m.name, `${m.timesUsed}`, `${currencySymbol}${m.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, m.items.slice(0, 3).join(', ') + (m.items.length > 3 ? '...' : '')]),
         margin: { left: margin, right: margin }, styles: { fontSize: 7, cellPadding: 2 },
         headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [254, 243, 199] }, theme: 'grid',
@@ -573,10 +573,10 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
           {/* KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {[
-              { label: 'Gross Sales', value: `${currencySymbol}${salesSummary.totalRevenue.toFixed(2)}`, change: salesSummary.revenueChange, icon: <DollarSign size={20} className="text-amber-600 dark:text-amber-500" />, bg: 'bg-amber-100 dark:bg-amber-600/20' },
-              { label: 'Net Sales', value: `${currencySymbol}${salesSummary.netSales.toFixed(2)}`, change: salesSummary.revenueChange, icon: <TrendingUp size={20} className="text-green-600 dark:text-green-400" />, bg: 'bg-green-100 dark:bg-green-600/20' },
+              { label: 'Gross Sales', value: `${currencySymbol}${salesSummary.totalRevenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, change: salesSummary.revenueChange, icon: <DollarSign size={20} className="text-amber-600 dark:text-amber-500" />, bg: 'bg-amber-100 dark:bg-amber-600/20' },
+              { label: 'Net Sales', value: `${currencySymbol}${salesSummary.netSales.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, change: salesSummary.revenueChange, icon: <TrendingUp size={20} className="text-green-600 dark:text-green-400" />, bg: 'bg-green-100 dark:bg-green-600/20' },
               { label: 'Orders', value: salesSummary.totalOrders.toLocaleString(), change: salesSummary.ordersChange, icon: <ShoppingBag size={20} className="text-blue-600 dark:text-blue-400" />, bg: 'bg-blue-100 dark:bg-blue-600/20' },
-              { label: 'Avg. Order Value', value: `${currencySymbol}${salesSummary.avgOrder.toFixed(2)}`, change: salesSummary.avgChange, icon: <Receipt size={20} className="text-purple-600 dark:text-purple-400" />, bg: 'bg-purple-100 dark:bg-purple-600/20' },
+              { label: 'Avg. Order Value', value: `${currencySymbol}${salesSummary.avgOrder.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, change: salesSummary.avgChange, icon: <Receipt size={20} className="text-purple-600 dark:text-purple-400" />, bg: 'bg-purple-100 dark:bg-purple-600/20' },
             ].map(kpi => (
               <div key={kpi.label} className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
                 <div className="flex items-center gap-3 mb-3">
@@ -596,12 +596,12 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
               <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Refunds / Cancelled</h3>
-              <p className="text-xl font-black text-red-600 dark:text-red-400">{currencySymbol}{salesSummary.refunds.toFixed(2)}</p>
+              <p className="text-xl font-black text-red-600 dark:text-red-400">{currencySymbol}{salesSummary.refunds.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{filteredOrders.filter(o => o.status === OrderStatus.CANCELLED).length} cancelled orders</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
               <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">Total Tax Collected</h3>
-              <p className="text-xl font-black text-amber-600 dark:text-amber-400">{currencySymbol}{totalTaxCollected.toFixed(2)}</p>
+              <p className="text-xl font-black text-amber-600 dark:text-amber-400">{currencySymbol}{totalTaxCollected.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{taxesReport.length} tax{taxesReport.length !== 1 ? 'es' : ''} configured</p>
             </div>
           </div>
@@ -656,8 +656,8 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                         <tr key={row.sortKey} className="border-b border-gray-100 dark:border-gray-700/50">
                           <td className="py-2 font-medium text-xs dark:text-gray-300">{row.label}</td>
                           <td className="py-2 text-right text-xs text-gray-600 dark:text-gray-400">{row.orders}</td>
-                          <td className="py-2 text-right text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{row.grossSales.toFixed(2)}</td>
-                          <td className="py-2 text-right text-xs text-gray-600 dark:text-gray-400">{currencySymbol}{(row.orders > 0 ? row.grossSales / row.orders : 0).toFixed(2)}</td>
+                          <td className="py-2 text-right text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{row.grossSales.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="py-2 text-right text-xs text-gray-600 dark:text-gray-400">{currencySymbol}{(row.orders > 0 ? row.grossSales / row.orders : 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -694,7 +694,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
               <p className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">Total Item Revenue</p>
-              <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{currencySymbol}{salesByItem.reduce((s, i) => s + i.revenue, 0).toFixed(2)}</p>
+              <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{currencySymbol}{salesByItem.reduce((s, i) => s + i.revenue, 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
           </div>
 
@@ -738,8 +738,8 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                           <td className="px-5 py-4 text-xs text-gray-500">{idx + 1}</td>
                           <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400 underline decoration-dotted underline-offset-2">{item.name}</td>
                           <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{item.quantity}</td>
-                          <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{currencySymbol}{item.avgPrice.toFixed(2)}</td>
-                          <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{item.revenue.toFixed(2)}</td>
+                          <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{currencySymbol}{item.avgPrice.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{item.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                           <td className="px-5 py-4 text-xs text-gray-500 hidden md:table-cell">{totalRev > 0 ? ((item.revenue / totalRev) * 100).toFixed(1) : '0'}%</td>
                         </tr>
                       );
@@ -777,7 +777,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                   </div>
                   <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
                     <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Total Revenue</p>
-                    <p className="text-lg font-black text-amber-600 dark:text-amber-400">{currencySymbol}{selectedItemSales.reduce((s, o) => s + o.revenue, 0).toFixed(2)}</p>
+                    <p className="text-lg font-black text-amber-600 dark:text-amber-400">{currencySymbol}{selectedItemSales.reduce((s, o) => s + o.revenue, 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   </div>
                   <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
                     <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Orders</p>
@@ -812,10 +812,10 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                                 </div>
                               </td>
                               <td className="px-3 py-3 text-xs font-bold text-gray-900 dark:text-white">{sale.quantity}</td>
-                              <td className="px-3 py-3 text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{sale.revenue.toFixed(2)}</td>
+                              <td className="px-3 py-3 text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{sale.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                               <td className="px-3 py-3 text-xs text-gray-600 dark:text-gray-300 hidden sm:table-cell">{sale.paymentMethod}</td>
                               <td className="px-3 py-3 text-xs text-gray-600 dark:text-gray-300 hidden sm:table-cell">{sale.cashier}</td>
-                              <td className="px-3 py-3 text-xs text-gray-600 dark:text-gray-300">{currencySymbol}{sale.orderTotal.toFixed(2)}</td>
+                              <td className="px-3 py-3 text-xs text-gray-600 dark:text-gray-300">{currencySymbol}{sale.orderTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                             </tr>
                           );
                         })}
@@ -850,7 +850,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
               <p className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">Top Category Revenue</p>
-              <p className="text-2xl font-black text-green-600 dark:text-green-400">{currencySymbol}{(salesByCategory[0]?.revenue || 0).toFixed(2)}</p>
+              <p className="text-2xl font-black text-green-600 dark:text-green-400">{currencySymbol}{(salesByCategory[0]?.revenue || 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
           </div>
 
@@ -868,7 +868,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                       <Tooltip content={({ active, payload }) => {
                         if (!active || !payload?.length) return null;
                         const d = payload[0].payload;
-                        return <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 shadow-xl"><p className="text-xs font-bold text-gray-900 dark:text-white">{d.name}</p><p className="text-xs text-gray-600 dark:text-gray-300">{currencySymbol}{d.revenue.toFixed(2)}</p></div>;
+                        return <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 shadow-xl"><p className="text-xs font-bold text-gray-900 dark:text-white">{d.name}</p><p className="text-xs text-gray-600 dark:text-gray-300">{currencySymbol}{d.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p></div>;
                       }} />
                     </PieChart>
                   </ResponsiveContainer>
@@ -890,7 +890,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                           <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
                           <span className="text-xs font-bold text-gray-900 dark:text-white">{cat.name}</span>
                         </div>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">{currencySymbol}{cat.revenue.toFixed(2)} ({cat.itemsSold} items)</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{currencySymbol}{cat.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({cat.itemsSold} items)</span>
                       </div>
                       <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                         <div className="h-full rounded-full transition-all" style={{ width: `${width}%`, backgroundColor: COLORS[i % COLORS.length] }} />
@@ -923,7 +923,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                         <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{cat.name}</td>
                         <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{cat.itemsSold}</td>
                         <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{cat.orderCount}</td>
-                        <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{cat.revenue.toFixed(2)}</td>
+                        <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{cat.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         <td className="px-5 py-4 text-xs text-gray-500 hidden md:table-cell">{totalRev > 0 ? ((cat.revenue / totalRev) * 100).toFixed(1) : '0'}%</td>
                       </tr>
                     );
@@ -978,8 +978,8 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                       <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{emp.name}</td>
                       <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{emp.orders}</td>
                       <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{emp.itemsSold}</td>
-                      <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{emp.revenue.toFixed(2)}</td>
-                      <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{currencySymbol}{emp.avgOrder.toFixed(2)}</td>
+                      <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{emp.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{currencySymbol}{emp.avgOrder.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                       <td className="px-5 py-4 text-xs text-red-600 dark:text-red-400 hidden md:table-cell">{emp.cancelled}</td>
                     </tr>
                   ))}
@@ -1012,7 +1012,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                         <Tooltip content={({ active, payload }) => {
                           if (!active || !payload?.length) return null;
                           const d = payload[0].payload;
-                          return <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 shadow-xl"><p className="text-xs font-bold text-gray-900 dark:text-white">{d.name}</p><p className="text-xs text-gray-600 dark:text-gray-300">{currencySymbol}{d.revenue.toFixed(2)} ({d.percentage.toFixed(1)}%)</p></div>;
+                          return <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 shadow-xl"><p className="text-xs font-bold text-gray-900 dark:text-white">{d.name}</p><p className="text-xs text-gray-600 dark:text-gray-300">{currencySymbol}{d.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({d.percentage.toFixed(1)}%)</p></div>;
                         }} />
                       </PieChart>
                     </ResponsiveContainer>
@@ -1042,7 +1042,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                     <p className="text-xs text-gray-500 dark:text-gray-400">{pm.transactions} transactions</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-black text-amber-600 dark:text-amber-400">{currencySymbol}{pm.revenue.toFixed(2)}</p>
+                    <p className="text-sm font-black text-amber-600 dark:text-amber-400">{currencySymbol}{pm.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{pm.percentage.toFixed(1)}%</p>
                   </div>
                 </div>
@@ -1075,7 +1075,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
               <p className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">Add-on Revenue</p>
-              <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{currencySymbol}{salesByModifier.reduce((s, m) => s + m.revenue, 0).toFixed(2)}</p>
+              <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{currencySymbol}{salesByModifier.reduce((s, m) => s + m.revenue, 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
           </div>
 
@@ -1098,7 +1098,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                         <tr key={mod.name} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                           <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{mod.name}</td>
                           <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{mod.timesUsed}</td>
-                          <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400">{mod.revenue > 0 ? `${currencySymbol}${mod.revenue.toFixed(2)}` : '-'}</td>
+                          <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400">{mod.revenue > 0 ? `${currencySymbol}${mod.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}</td>
                           <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell truncate max-w-[200px]">{mod.items.join(', ')}</td>
                         </tr>
                       ))}
@@ -1129,7 +1129,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                 <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-600/20 flex items-center justify-center"><Percent size={20} className="text-amber-600 dark:text-amber-500" /></div>
                 <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Total Discounts</span>
               </div>
-              <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{currencySymbol}{discountsReport.totalDiscountValue.toFixed(2)}</p>
+              <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{currencySymbol}{discountsReport.totalDiscountValue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">No discount codes configured</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
@@ -1137,7 +1137,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                 <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-600/20 flex items-center justify-center"><Receipt size={20} className="text-red-600 dark:text-red-400" /></div>
                 <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Cancelled Value</span>
               </div>
-              <p className="text-2xl font-black text-red-600 dark:text-red-400">{currencySymbol}{discountsReport.totalCancelledValue.toFixed(2)}</p>
+              <p className="text-2xl font-black text-red-600 dark:text-red-400">{currencySymbol}{discountsReport.totalCancelledValue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{discountsReport.cancelledCount} cancelled orders</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
@@ -1182,14 +1182,14 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                 <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-600/20 flex items-center justify-center"><Receipt size={20} className="text-amber-600 dark:text-amber-500" /></div>
                 <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Total Tax Collected</span>
               </div>
-              <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{currencySymbol}{totalTaxCollected.toFixed(2)}</p>
+              <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{currencySymbol}{totalTaxCollected.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-600/20 flex items-center justify-center"><DollarSign size={20} className="text-blue-600 dark:text-blue-400" /></div>
                 <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Taxable Revenue</span>
               </div>
-              <p className="text-2xl font-black text-gray-900 dark:text-white">{currencySymbol}{completedOrders.reduce((s, o) => s + o.total, 0).toFixed(2)}</p>
+              <p className="text-2xl font-black text-gray-900 dark:text-white">{currencySymbol}{completedOrders.reduce((s, o) => s + o.total, 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
           </div>
 
@@ -1212,8 +1212,8 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                       <tr key={tax.name} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                         <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{tax.name}</td>
                         <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{tax.percentage}%</td>
-                        <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{currencySymbol}{tax.taxableAmount.toFixed(2)}</td>
-                        <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{tax.taxCollected.toFixed(2)}</td>
+                        <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">{currencySymbol}{tax.taxableAmount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{tax.taxCollected.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         <td className="px-5 py-4 text-xs text-gray-500 hidden md:table-cell">{tax.orderCount}</td>
                       </tr>
                     ))}
@@ -1222,7 +1222,7 @@ const ReportsView: React.FC<Props> = ({ orders, currencySymbol, taxes, initialSu
                       <td className="px-5 py-4 text-xs text-gray-900 dark:text-white">Total</td>
                       <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">-</td>
                       <td className="px-5 py-4 text-xs text-gray-600 dark:text-gray-300">-</td>
-                      <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{totalTaxCollected.toFixed(2)}</td>
+                      <td className="px-5 py-4 text-xs font-bold text-amber-600 dark:text-amber-400">{currencySymbol}{totalTaxCollected.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                       <td className="px-5 py-4 hidden md:table-cell"></td>
                     </tr>
                   </tbody>

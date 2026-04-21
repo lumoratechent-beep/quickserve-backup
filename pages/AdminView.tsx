@@ -2126,21 +2126,21 @@ const AdminView: React.FC<Props> = ({
                         <div className="w-8 h-8 bg-green-50 dark:bg-green-900/20 rounded-lg flex items-center justify-center"><ArrowUpRight size={16} className="text-green-500" /></div>
                         <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Gross Income</span>
                       </div>
-                      <p className="text-xl font-black dark:text-white">RM {incomeSummary.totalGross.toFixed(2)}</p>
+                      <p className="text-xl font-black dark:text-white">RM {incomeSummary.totalGross.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                     <div className="bg-gray-50 dark:bg-gray-900/50 rounded-2xl border dark:border-gray-700 p-4">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="w-8 h-8 bg-red-50 dark:bg-red-900/20 rounded-lg flex items-center justify-center"><ArrowDownRight size={16} className="text-red-500" /></div>
                         <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Fees</span>
                       </div>
-                      <p className="text-xl font-black dark:text-white">RM {incomeSummary.totalFees.toFixed(2)}</p>
+                      <p className="text-xl font-black dark:text-white">RM {incomeSummary.totalFees.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                     <div className="bg-gray-50 dark:bg-gray-900/50 rounded-2xl border dark:border-gray-700 p-4">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="w-8 h-8 bg-orange-50 dark:bg-orange-900/20 rounded-lg flex items-center justify-center"><DollarSign size={16} className="text-orange-500" /></div>
                         <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Net Income</span>
                       </div>
-                      <p className="text-xl font-black text-orange-500">RM {incomeSummary.totalNet.toFixed(2)}</p>
+                      <p className="text-xl font-black text-orange-500">RM {incomeSummary.totalNet.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                     <div className="bg-gray-50 dark:bg-gray-900/50 rounded-2xl border dark:border-gray-700 p-4">
                       <div className="flex items-center gap-2 mb-1">
@@ -2217,9 +2217,9 @@ const AdminView: React.FC<Props> = ({
                             )}
                           </td>
                           <td className="px-3 py-2 text-xs dark:text-gray-300 truncate hidden lg:table-cell">{txn.description}</td>
-                          <td className="px-3 py-2 text-xs font-bold dark:text-gray-300 text-right">{txn.amount.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-xs text-red-400 text-right hidden md:table-cell">-{txn.fee.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-xs font-black text-orange-500 text-right">{txn.net.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-xs font-bold dark:text-gray-300 text-right">{txn.amount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="px-3 py-2 text-xs text-red-400 text-right hidden md:table-cell">-{txn.fee.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="px-3 py-2 text-xs font-black text-orange-500 text-right">{txn.net.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                           <td className="px-3 py-2 text-center">
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
                               txn.status === 'succeeded' ? 'bg-green-50 dark:bg-green-900/20 text-green-600' :
@@ -2344,7 +2344,7 @@ const AdminView: React.FC<Props> = ({
                   <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
                     <p className="text-gray-400 dark:text-gray-500 text-[9px] font-black mb-1 uppercase tracking-widest">Platform Revenue</p>
                     <p className="text-lg font-black text-gray-900 dark:text-white tracking-tighter leading-none">
-                      RM{reportData?.summary.totalRevenue.toFixed(2) || '0.00'}
+                      RM{reportData?.summary.totalRevenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
                     </p>
                   </div>
                   <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
@@ -2399,7 +2399,7 @@ const AdminView: React.FC<Props> = ({
                               </td>
                               <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">{report.paymentMethod || '-'}</td>
                               <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300">{report.cashierName || '-'}</td>
-                              <td className="px-4 py-2 text-right font-black dark:text-white text-[10px]">RM{report.total.toFixed(2)}</td>
+                              <td className="px-4 py-2 text-right font-black dark:text-white text-[10px]">RM{report.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                             </tr>
                           );
                         })}
@@ -2521,7 +2521,7 @@ const AdminView: React.FC<Props> = ({
                           </div>
                           <div>
                             <p className="text-sm font-black dark:text-white">{req.restaurantName}</p>
-                            <p className="text-lg font-black text-orange-500">RM{Number(req.amount).toFixed(2)}</p>
+                            <p className="text-lg font-black text-orange-500">RM{Number(req.amount).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                             <div className="flex items-center gap-3 mt-1 flex-wrap">
                               <span className="text-[9px] text-gray-400">
                                 {req.bank_name} — {req.account_holder_name} — •••{req.account_number?.slice(-4)}
@@ -2662,7 +2662,7 @@ const AdminView: React.FC<Props> = ({
                           </div>
                           <div>
                             <p className="text-sm font-black dark:text-white">{payment.restaurant_name || 'Unknown'}</p>
-                            <p className="text-lg font-black text-orange-500">RM {Number(payment.amount).toFixed(2)}</p>
+                            <p className="text-lg font-black text-orange-500">RM {Number(payment.amount).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                             <div className="flex items-center gap-3 mt-1 flex-wrap">
                               <span className="text-[9px] text-gray-400">
                                 {planLabels[payment.plan_id] || payment.plan_id} — {payment.billing_interval === 'annual' ? 'Annual' : 'Monthly'}

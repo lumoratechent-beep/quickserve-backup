@@ -974,7 +974,7 @@ const PosOnlyView: React.FC<Props> = ({
     if (next !== '' && next !== '.') {
       const parsed = parseFloat(next);
       if (!isNaN(parsed)) {
-        const rounded = parseFloat(parsed.toFixed(2));
+        const rounded = parseFloat(parsed.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
         setSelectedCashAmount(rounded);
         setCashAmountInput(rounded.toFixed(2));
       }
@@ -1014,7 +1014,7 @@ const PosOnlyView: React.FC<Props> = ({
     if (next !== '' && next !== '.') {
       const parsed = parseFloat(next);
       if (!isNaN(parsed)) {
-        const rounded = parseFloat(parsed.toFixed(2));
+        const rounded = parseFloat(parsed.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
         setCollectCashAmount(rounded);
         setCollectCashAmountInput(rounded.toFixed(2));
       }
@@ -4058,10 +4058,10 @@ const PosOnlyView: React.FC<Props> = ({
     const cardW = (contentW - 6) / 4;
     const cardH = 24;
     const kpiCards = [
-      { label: 'Total Revenue', value: `RM ${totalRevenue.toFixed(2)}`, sub: `${completed.length} paid orders`, color: amber },
+      { label: 'Total Revenue', value: `RM ${totalRevenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, sub: `${completed.length} paid orders`, color: amber },
       { label: 'Total Orders', value: `${allOrders.length}`, sub: `${completed.length} completed`, color: blue },
-      { label: 'Avg Order Value', value: `RM ${avgOrder.toFixed(2)}`, sub: 'per completed order', color: green },
-      { label: 'Cancelled', value: `${cancelled.length}`, sub: `RM ${cancelledValue.toFixed(2)} lost`, color: red },
+      { label: 'Avg Order Value', value: `RM ${avgOrder.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, sub: 'per completed order', color: green },
+      { label: 'Cancelled', value: `${cancelled.length}`, sub: `RM ${cancelledValue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} lost`, color: red },
     ];
     kpiCards.forEach((card, i) => {
       const cx = margin + i * (cardW + 2);
@@ -4304,8 +4304,8 @@ const PosOnlyView: React.FC<Props> = ({
         startY: y,
         head: [['Cashier', 'Orders', 'Revenue', 'Avg Order', 'Cancelled']],
         body: cashierEntries.map(([name, d]) => [
-          name, `${d.orders}`, `RM ${d.revenue.toFixed(2)}`,
-          `RM ${(d.orders > 0 ? d.revenue / d.orders : 0).toFixed(2)}`, `${d.cancelled}`
+          name, `${d.orders}`, `RM ${d.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          `RM ${(d.orders > 0 ? d.revenue / d.orders : 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, `${d.cancelled}`
         ]),
         margin: { left: margin, right: margin },
         styles: { fontSize: 7.5, cellPadding: 2 },
@@ -4325,7 +4325,7 @@ const PosOnlyView: React.FC<Props> = ({
 
     // Payment Type Detailed Table
     const paymentRows = paymentEntries
-      .map(([method, d]) => [method, `${d.count}`, `RM ${d.total.toFixed(2)}`, `${totalRevenue > 0 ? ((d.total / totalRevenue) * 100).toFixed(1) : '0'}%`]);
+      .map(([method, d]) => [method, `${d.count}`, `RM ${d.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, `${totalRevenue > 0 ? ((d.total / totalRevenue) * 100).toFixed(1) : '0'}%`]);
     if (paymentRows.length > 0) {
       doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
       doc.text('Sales by Payment Type', margin, y); y += 6;
@@ -4348,7 +4348,7 @@ const PosOnlyView: React.FC<Props> = ({
     }));
     const itemRows = Object.entries(itemMap)
       .sort((a, b) => b[1].revenue - a[1].revenue)
-      .map(([name, d]) => [name, `${d.qty}`, `RM ${d.revenue.toFixed(2)}`, `RM ${(d.qty > 0 ? d.revenue / d.qty : 0).toFixed(2)}`]);
+      .map(([name, d]) => [name, `${d.qty}`, `RM ${d.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, `RM ${(d.qty > 0 ? d.revenue / d.qty : 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]);
     if (itemRows.length > 0) {
       if (y > 240) { doc.addPage(); y = 14; }
       doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
@@ -4377,7 +4377,7 @@ const PosOnlyView: React.FC<Props> = ({
     });
     const catRows = Object.entries(catMap)
       .sort((a, b) => b[1].revenue - a[1].revenue)
-      .map(([name, d]) => [name, `${d.items}`, `${d.orders}`, `RM ${d.revenue.toFixed(2)}`]);
+      .map(([name, d]) => [name, `${d.items}`, `${d.orders}`, `RM ${d.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]);
     if (catRows.length > 0) {
       if (y > 240) { doc.addPage(); y = 14; }
       doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
@@ -4404,7 +4404,7 @@ const PosOnlyView: React.FC<Props> = ({
       .sort((a, b) => Number(a[0]) - Number(b[0]))
       .map(([h, d]) => {
         const hr = Number(h); const ampm = hr >= 12 ? 'PM' : 'AM'; const h12 = hr % 12 || 12;
-        return [`${h12}:00 ${ampm}`, `${d.orders}`, `RM ${d.revenue.toFixed(2)}`];
+        return [`${h12}:00 ${ampm}`, `${d.orders}`, `RM ${d.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`];
       });
     if (hourlyRows.length > 0) {
       if (y > 240) { doc.addPage(); y = 14; }
@@ -6542,7 +6542,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     {hasPending ? 'Pending' : 'Available'}
                                   </p>
                                   <p className="text-[9px] text-gray-500 dark:text-gray-300 line-clamp-1">
-                                    {hasPending ? `${tableItemCount} ${tableItemCount === 1 ? 'item' : 'items'} ${currencySymbol}${tableGrandTotal.toFixed(2)}` : `0 item ${currencySymbol}0.00`}
+                                    {hasPending ? `${tableItemCount} ${tableItemCount === 1 ? 'item' : 'items'} ${currencySymbol}${tableGrandTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `0 item ${currencySymbol}0.00`}
                                   </p>
                                 </button>
                               );
@@ -6623,7 +6623,7 @@ const PosOnlyView: React.FC<Props> = ({
                                 <span className="text-xs font-black dark:text-white uppercase truncate">{order.tableNumber}</span>
                                 <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest truncate">#{order.id.slice(-7)}</span>
                               </div>
-                              <span className="text-xs font-black text-orange-500 shrink-0 whitespace-nowrap">{currencySymbol}{order.total.toFixed(2)}</span>
+                              <span className="text-xs font-black text-orange-500 shrink-0 whitespace-nowrap">{currencySymbol}{order.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                             <div className="space-y-0.5">
                               {order.items.map((item, idx) => (
@@ -6745,7 +6745,7 @@ const PosOnlyView: React.FC<Props> = ({
                             </div>
                             <div className={`${mobileMenuLayout === 'list' ? 'flex-1' : 'mt-3'} ${menuLayout === 'list' ? 'lg:flex-1 lg:mt-0' : 'lg:flex-none lg:mt-3'}`}>
                               <h4 className="font-black text-xs dark:text-white uppercase tracking-tighter mb-1 line-clamp-1">{item.name}</h4>
-                              <p className="text-orange-500 font-black text-sm">{currencySymbol}{item.price.toFixed(2)}</p>
+                              <p className="text-orange-500 font-black text-sm">{currencySymbol}{item.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                             </div>
                           </button>
                         ))}
@@ -6968,7 +6968,7 @@ const PosOnlyView: React.FC<Props> = ({
                             <div className="p-2">
                               <h3 className="font-black text-xs text-gray-900 dark:text-white mb-1 uppercase tracking-tight line-clamp-1">{item.name}</h3>
                               <div className="flex justify-between items-center">
-                                <span className="text-sm font-black text-orange-500">{currencySymbol}{item.price.toFixed(2)}</span>
+                                <span className="text-sm font-black text-orange-500">{currencySymbol}{item.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 <span className="text-[8px] font-black uppercase tracking-widest text-gray-400 truncate ml-1">{item.category}</span>
                               </div>
                             </div>
@@ -7006,7 +7006,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     </div>
                                   </td>
                                   <td className="px-4 py-3 text-[9px] font-black uppercase text-gray-400">{item.category}</td>
-                                  <td className="px-4 py-3 font-black text-gray-900 dark:text-white text-xs">{currencySymbol}{item.price.toFixed(2)}</td>
+                                  <td className="px-4 py-3 font-black text-gray-900 dark:text-white text-xs">{currencySymbol}{item.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                   <td className="px-4 py-3 text-right">
                                     <div className="flex justify-end items-center gap-1">
                                       {menuStatusFilter === 'ACTIVE' ? (
@@ -7170,7 +7170,7 @@ const PosOnlyView: React.FC<Props> = ({
                                 {modifier.options.slice(0, 3).map((option, idx) => (
                                   <div key={idx} className="flex items-center justify-between text-[8px]">
                                     <span className="font-bold text-gray-600 dark:text-gray-300">{option.name}</span>
-                                    <span className="font-black text-orange-500">+{currencySymbol}{option.price.toFixed(2)}</span>
+                                    <span className="font-black text-orange-500">+{currencySymbol}{option.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                   </div>
                                 ))}
                                 {modifier.options.length > 3 && (
@@ -7203,7 +7203,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     {modifier.options.slice(0, 3).map((option, idx) => (
                                       <span key={idx} className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-[9px]">
                                         <span className="font-bold text-gray-600 dark:text-gray-300">{option.name}</span>
-                                        <span className="font-black text-orange-500">+{currencySymbol}{option.price.toFixed(2)}</span>
+                                        <span className="font-black text-orange-500">+{currencySymbol}{option.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                       </span>
                                     ))}
                                     {modifier.options.length > 3 && (
@@ -9206,7 +9206,7 @@ const PosOnlyView: React.FC<Props> = ({
                                 </span>
                               </div>
                               <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
-                                Requested by {request.requested_by_username}{request.order_total != null ? ` • ${currencySymbol}${request.order_total.toFixed(2)}` : ''}
+                                Requested by {request.requested_by_username}{request.order_total != null ? ` • ${currencySymbol}${request.order_total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}
                               </p>
                               {request.note && <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">{request.note}</p>}
                             </div>
@@ -9468,7 +9468,7 @@ const PosOnlyView: React.FC<Props> = ({
                                           <p className="text-[10px] text-gray-500 dark:text-gray-400">{order.tableNumber}</p>
                                         </div>
                                       </div>
-                                      <div className="text-right">{statusPill}<p className="text-lg font-black text-gray-900 dark:text-white mt-1">{currencySymbol}{order.total.toFixed(2)}</p></div>
+                                      <div className="text-right">{statusPill}<p className="text-lg font-black text-gray-900 dark:text-white mt-1">{currencySymbol}{order.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p></div>
                                     </div>
                                     <div className="px-3 pb-3" onClick={(e) => e.stopPropagation()}>{actionButtons()}</div>
                                   </div>
@@ -9521,7 +9521,7 @@ const PosOnlyView: React.FC<Props> = ({
                                           <td className="px-5 py-3 text-center text-[10px] text-gray-500 dark:text-gray-400">{orderTimeStr}</td>
                                           <td className="px-5 py-3 text-center text-[10px] text-gray-500 dark:text-gray-400">{totalQty}</td>
                                           <td className="px-5 py-3 text-center"><button onClick={(e) => { e.stopPropagation(); setViewingQrOrderDetail(order); }} className="text-orange-500 hover:text-orange-600 text-[10px] font-black uppercase tracking-wider transition-colors whitespace-nowrap">View Details →</button></td>
-                                          <td className="px-5 py-3 text-center text-[10px] font-black text-gray-900 dark:text-white whitespace-nowrap">{currencySymbol}{order.total.toFixed(2)}</td>
+                                          <td className="px-5 py-3 text-center text-[10px] font-black text-gray-900 dark:text-white whitespace-nowrap">{currencySymbol}{order.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                           <td className="px-5 py-3 text-center" onClick={(e) => e.stopPropagation()}>{actionButtons(true)}</td>
                                         </tr>
                                       );
@@ -9590,7 +9590,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     <p className="text-sm font-bold text-gray-800 dark:text-white">{item.name}</p>
                                     {modLine(item) && <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{modLine(item)}</p>}
                                   </div>
-                                  <span className="text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap shrink-0">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                                  <span className="text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap shrink-0">{currencySymbol}{(item.price * item.quantity).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </div>
                               ))}
                             </div>
@@ -9607,7 +9607,7 @@ const PosOnlyView: React.FC<Props> = ({
                             <div className="border-t border-gray-100 dark:border-gray-700 px-5 pt-4 pb-6 shrink-0">
                               <div className="flex items-center justify-between mb-4">
                                 <span className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Grand Total</span>
-                                <span className="text-2xl font-black text-gray-900 dark:text-white">{currencySymbol}{o.total.toFixed(2)}</span>
+                                <span className="text-2xl font-black text-gray-900 dark:text-white">{currencySymbol}{o.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               </div>
                               {(o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING) && (
                                 <button onClick={() => handleEditQrOrder(o)} className="w-full py-3 mb-3 rounded-xl font-black text-xs uppercase tracking-widest border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all">
@@ -9895,7 +9895,7 @@ const PosOnlyView: React.FC<Props> = ({
                                 {order.items.map((item, idx) => (
                                   <div key={idx} className="flex items-center justify-between text-xs">
                                     <span className="text-gray-600 dark:text-gray-300">{item.quantity}x {item.name}</span>
-                                    <span className="font-bold dark:text-white">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                                    <span className="font-bold dark:text-white">{currencySymbol}{(item.price * item.quantity).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                   </div>
                                 ))}
                               </div>
@@ -9906,7 +9906,7 @@ const PosOnlyView: React.FC<Props> = ({
                               )}
                               <div className="flex items-center justify-between pt-3 border-t dark:border-gray-600">
                                 <span className="text-[10px] text-gray-400">{new Date(order.timestamp).toLocaleString()}</span>
-                                <span className="text-sm font-black dark:text-white">{currencySymbol}{order.total.toFixed(2)}</span>
+                                <span className="text-sm font-black dark:text-white">{currencySymbol}{order.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               </div>
                               {(order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) && (
                                 <div className="flex gap-2 mt-3">
@@ -9973,7 +9973,7 @@ const PosOnlyView: React.FC<Props> = ({
                             {onlineEditItem.image && <img src={onlineEditItem.image} alt={onlineEditItem.name} className="w-10 h-10 rounded-lg object-cover" />}
                             <div>
                               <h3 className="text-sm font-black dark:text-white">{onlineEditItem.name}</h3>
-                              <p className="text-[9px] text-gray-400">{onlineEditItem.category} · {currencySymbol}{onlineEditItem.price.toFixed(2)}</p>
+                              <p className="text-[9px] text-gray-400">{onlineEditItem.category} · {currencySymbol}{onlineEditItem.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                             </div>
                           </div>
                         </div>
@@ -10066,7 +10066,7 @@ const PosOnlyView: React.FC<Props> = ({
                                 {/* Online Price */}
                                 <div>
                                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Online Selling Price</label>
-                                  <p className="text-[9px] text-gray-400 mb-2 ml-1">In-store: {currencySymbol} {onlineEditItem.price.toFixed(2)}</p>
+                                  <p className="text-[9px] text-gray-400 mb-2 ml-1">In-store: {currencySymbol} {onlineEditItem.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                   <div className="relative">
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400 select-none pointer-events-none">{currencySymbol}</span>
                                     <input
@@ -10336,8 +10336,8 @@ const PosOnlyView: React.FC<Props> = ({
                                         </div>
                                       </td>
                                       <td className="px-4 py-2.5 text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase">{item.category}</td>
-                                      <td className="px-4 py-2.5 text-right text-xs font-black text-gray-500 dark:text-gray-400">{currencySymbol}{item.price.toFixed(2)}</td>
-                                      <td className="px-4 py-2.5 text-right text-xs font-black text-orange-500">{currencySymbol}{(item.onlinePrice ?? item.price).toFixed(2)}</td>
+                                      <td className="px-4 py-2.5 text-right text-xs font-black text-gray-500 dark:text-gray-400">{currencySymbol}{item.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                      <td className="px-4 py-2.5 text-right text-xs font-black text-orange-500">{currencySymbol}{(item.onlinePrice ?? item.price).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                       <td className="px-4 py-2.5 text-center">
                                         <button
                                           onClick={() => { const updated = { ...item, onlineDisabled: !item.onlineDisabled }; onUpdateMenu?.(restaurant.id, updated); }}
@@ -10400,11 +10400,11 @@ const PosOnlyView: React.FC<Props> = ({
                                           <div className="flex items-center gap-2 mt-0.5">
                                             {item.onlinePrice != null && item.onlinePrice !== item.price ? (
                                               <>
-                                                <p className="text-xs font-black text-gray-400 line-through">{currencySymbol}{item.price.toFixed(2)}</p>
-                                                <p className="text-xs font-black text-orange-500">{currencySymbol}{item.onlinePrice.toFixed(2)}</p>
+                                                <p className="text-xs font-black text-gray-400 line-through">{currencySymbol}{item.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                                <p className="text-xs font-black text-orange-500">{currencySymbol}{item.onlinePrice.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                               </>
                                             ) : (
-                                              <p className="text-xs font-black text-orange-500">{currencySymbol}{item.price.toFixed(2)}</p>
+                                              <p className="text-xs font-black text-orange-500">{currencySymbol}{item.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                             )}
                                           </div>
                                         </div>
@@ -10737,7 +10737,7 @@ const PosOnlyView: React.FC<Props> = ({
                                         ))}
                                       </div>
                                     </div>
-                                    <span className="text-gray-500 dark:text-gray-400 font-bold">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                                    <span className="text-gray-500 dark:text-gray-400 font-bold">{currencySymbol}{(item.price * item.quantity).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                   </div>
                                 ))}
                               </div>
@@ -10757,7 +10757,7 @@ const PosOnlyView: React.FC<Props> = ({
                           )}
                           <div className="mt-4 pt-4 border-t dark:border-gray-700 flex justify-between items-center">
                             <span className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Grand Total</span>
-                            <span className="text-2xl font-black text-gray-900 dark:text-white">{currencySymbol}{order.total.toFixed(2)}</span>
+                            <span className="text-2xl font-black text-gray-900 dark:text-white">{currencySymbol}{order.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
                         </div>
                         <div className="flex md:flex-col gap-2 min-w-[140px] mt-2 md:mt-0">
@@ -10952,7 +10952,7 @@ const PosOnlyView: React.FC<Props> = ({
                       <div key={`saved-${item.id}-${idx}`} className="flex items-center gap-4">
                         <div className="flex-1">
                           <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                          <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toFixed(2)}</p>
+                          <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                           <div className="mt-1 space-y-0.5">
                             {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
                             {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Temperature: {item.selectedTemp}</p>}
@@ -10988,17 +10988,17 @@ const PosOnlyView: React.FC<Props> = ({
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                     <span>Subtotal</span>
-                    <span>{currencySymbol}{selectedSavedBillSubtotal.toFixed(2)}</span>
+                    <span>{currencySymbol}{selectedSavedBillSubtotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   {selectedSavedBillTaxLines.map(tax => (
                     <div key={`saved-tax-${tax.id}`} className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
-                      <span>{tax.name} ({tax.percentage.toFixed(2)}%)</span>
-                      <span>{currencySymbol}{tax.amount.toFixed(2)}</span>
+                      <span>{tax.name} ({tax.percentage.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)</span>
+                      <span>{currencySymbol}{tax.amount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   ))}
                   <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
                     <span className="uppercase">Total</span>
-                    <span className="text-orange-500">{currencySymbol}{selectedSavedBillGrandTotal.toFixed(2)}</span>
+                    <span className="text-orange-500">{currencySymbol}{selectedSavedBillGrandTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                 </div>
 
@@ -11038,7 +11038,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <div key={`qr-${item.id}-${idx}`} className="flex items-center gap-4">
                           <div className="flex-1">
                             <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                            <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toFixed(2)}</p>
+                            <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                             <div className="mt-1 space-y-0.5">
                               {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
                               {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Temp: {item.selectedTemp}</p>}
@@ -11061,17 +11061,17 @@ const PosOnlyView: React.FC<Props> = ({
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                       <span>Subtotal</span>
-                      <span>{currencySymbol}{selectedQrOrderSubtotal.toFixed(2)}</span>
+                      <span>{currencySymbol}{selectedQrOrderSubtotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     {selectedQrTaxLines.map(tax => (
                       <div key={`qr-tax-${tax.id}`} className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
-                        <span>{tax.name} ({tax.percentage.toFixed(2)}%)</span>
-                        <span>{currencySymbol}{tax.amount.toFixed(2)}</span>
+                        <span>{tax.name} ({tax.percentage.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)</span>
+                        <span>{currencySymbol}{tax.amount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                     ))}
                     <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
                       <span className="uppercase">Total</span>
-                      <span className="text-orange-500">{currencySymbol}{selectedQrGrandTotal.toFixed(2)}</span>
+                      <span className="text-orange-500">{currencySymbol}{selectedQrGrandTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   </div>
 
@@ -11130,7 +11130,7 @@ const PosOnlyView: React.FC<Props> = ({
                     <div key={`${item.id}-${idx}`} className="flex items-center gap-4">
                       <div className="flex-1">
                         <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                        <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toFixed(2)}</p>
+                        <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                         <div className="mt-1 space-y-0.5">
                           {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Size: {item.selectedSize}</p>}
                           {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">• Temperature: {item.selectedTemp}</p>}
@@ -11176,17 +11176,17 @@ const PosOnlyView: React.FC<Props> = ({
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                   <span>Subtotal</span>
-                  <span>{currencySymbol}{cartTotal.toFixed(2)}</span>
+                  <span>{currencySymbol}{cartTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 {cartTaxLines.map(tax => (
                   <div key={`cart-tax-${tax.id}`} className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
-                    <span>{tax.name} ({tax.percentage.toFixed(2)}%)</span>
-                    <span>{currencySymbol}{tax.amount.toFixed(2)}</span>
+                    <span>{tax.name} ({tax.percentage.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)</span>
+                    <span>{currencySymbol}{tax.amount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                 ))}
                 <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
                   <span className="uppercase">Total</span>
-                  <span className="text-orange-500">{currencySymbol}{cartGrandTotal.toFixed(2)}</span>
+                  <span className="text-orange-500">{currencySymbol}{cartGrandTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
 
@@ -11311,7 +11311,7 @@ const PosOnlyView: React.FC<Props> = ({
                 <div key={`${item.id}-${idx}`} className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
                   <div className="flex-1 min-w-0">
                     <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter truncate">{item.name}</h4>
-                    <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toFixed(2)}</p>
+                    <p className="text-xs text-orange-500 font-black">{currencySymbol}{item.price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     <div className="mt-0.5 space-y-0.5">
                       {item.selectedSize && <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• Size: {item.selectedSize}</p>}
                       {item.selectedTemp && <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">• Temp: {item.selectedTemp}</p>}
@@ -11356,7 +11356,7 @@ const PosOnlyView: React.FC<Props> = ({
 
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black dark:text-white uppercase tracking-widest">Total</span>
-                <span className="text-xl font-black text-orange-500">{currencySymbol}{cartGrandTotal.toFixed(2)}</span>
+                <span className="text-xl font-black text-orange-500">{currencySymbol}{cartGrandTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -11390,12 +11390,12 @@ const PosOnlyView: React.FC<Props> = ({
                     <Receipt size={15} /> Save Bill
                   </button>
                   <button onClick={() => { setShowMobileCart(false); handleCheckout(); }} disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2">
-                    <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : `Pay ${currencySymbol}${cartGrandTotal.toFixed(2)}`}
+                    <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : `Pay ${currencySymbol}${cartGrandTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                   </button>
                 </div>
               ) : (
                 <button onClick={() => { setShowMobileCart(false); handleCheckout(); }} disabled={posCart.length === 0 || isCompletingPayment || showPaymentSuccess} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2">
-                  <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : `Pay ${currencySymbol}${cartGrandTotal.toFixed(2)}`}
+                  <CreditCard size={16} /> {isCompletingPayment ? 'Processing...' : showPaymentSuccess ? 'Completed' : `Pay ${currencySymbol}${cartGrandTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 </button>
               )}
             </div>
@@ -11428,7 +11428,7 @@ const PosOnlyView: React.FC<Props> = ({
                     <div className="text-center space-y-2 lg:space-y-3">
                       <label className="block text-xs lg:text-sm font-black text-gray-400 uppercase tracking-widest">Total Amount Due</label>
                       <div className="text-4xl lg:text-6xl font-black text-orange-500 tracking-tighter">
-                        {currencySymbol}{pendingOrderData.total.toFixed(2)}
+                        {currencySymbol}{pendingOrderData.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                     </div>
 
@@ -11461,7 +11461,7 @@ const PosOnlyView: React.FC<Props> = ({
                                 : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
                             }`}
                           >
-                            {currencySymbol} {amount.toFixed(2)}
+                            {currencySymbol} {amount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </button>
                         ))}
                       </div>
@@ -11632,13 +11632,13 @@ const PosOnlyView: React.FC<Props> = ({
                     <div className="w-full max-w-2xl mx-auto grid grid-cols-2">
                       <div className="pr-6 text-center border-r-2 border-dotted border-gray-300 dark:border-gray-600">
                         <div className="text-4xl lg:text-6xl font-black text-green-500 tracking-tighter leading-none">
-                          {currencySymbol}{(selectedCashAmount || 0).toFixed(2)}
+                          {currencySymbol}{(selectedCashAmount || 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
                         <label className="block mt-3 text-xs lg:text-sm font-black text-gray-400 uppercase tracking-[0.2em]">Total Paid</label>
                       </div>
                       <div className="pl-6 text-center">
                         <div className="text-4xl lg:text-6xl font-black text-blue-500 tracking-tighter leading-none">
-                          {currencySymbol}{Math.max(0, (selectedCashAmount || 0) - pendingOrderData.total).toFixed(2)}
+                          {currencySymbol}{Math.max(0, (selectedCashAmount || 0) - pendingOrderData.total).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
                         <label className="block mt-3 text-xs lg:text-sm font-black text-gray-400 uppercase tracking-[0.2em]">Total Change</label>
                       </div>
@@ -12017,7 +12017,7 @@ const PosOnlyView: React.FC<Props> = ({
                           <p key={aIdx} className="text-[9px] text-gray-400 ml-3">-{addon.name}{addon.quantity > 1 ? ` x${addon.quantity}` : ''}</p>
                         ))}
                       </div>
-                      <span className="text-xs font-bold dark:text-white shrink-0 ml-2">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                      <span className="text-xs font-bold dark:text-white shrink-0 ml-2">{currencySymbol}{(item.price * item.quantity).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   ))}
                 </div>
@@ -12043,12 +12043,12 @@ const PosOnlyView: React.FC<Props> = ({
                     <>
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400 uppercase tracking-widest">Subtotal</span>
-                        <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{subtotal.toFixed(2)}</span>
+                        <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{subtotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                       {taxLines.map(tax => (
                         <div key={tax.id} className="flex items-center justify-between">
-                          <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400">{tax.name} ({tax.percentage.toFixed(2)}%)</span>
-                          <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{tax.amount.toFixed(2)}</span>
+                          <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400">{tax.name} ({tax.percentage.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)</span>
+                          <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{tax.amount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
                       ))}
                     </>
@@ -12056,17 +12056,17 @@ const PosOnlyView: React.FC<Props> = ({
                 })()}
                 <div className="flex items-center justify-between pt-2 border-t dark:border-gray-700">
                   <span className="text-sm font-black dark:text-white uppercase tracking-widest">Total</span>
-                  <span className="text-2xl font-black text-orange-500">{currencySymbol}{selectedReportOrder.total.toFixed(2)}</span>
+                  <span className="text-2xl font-black text-orange-500">{currencySymbol}{selectedReportOrder.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 {selectedReportOrder.amountReceived != null && (
                   <>
                     <div className="flex items-center justify-between mt-0.5">
                       <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400">Received Amount</span>
-                      <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{selectedReportOrder.amountReceived.toFixed(2)}</span>
+                      <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{selectedReportOrder.amountReceived.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex items-center justify-between mt-0.5">
                       <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400">Total Change</span>
-                      <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{(selectedReportOrder.changeAmount ?? Math.max(0, selectedReportOrder.amountReceived - selectedReportOrder.total)).toFixed(2)}</span>
+                      <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{currencySymbol}{(selectedReportOrder.changeAmount ?? Math.max(0, selectedReportOrder.amountReceived - selectedReportOrder.total)).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   </>
                 )}
@@ -12330,7 +12330,7 @@ const PosOnlyView: React.FC<Props> = ({
                       {/* Total due */}
                       <div className="text-center">
                         <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Total Amount Due</p>
-                        <p className="text-5xl font-black text-orange-500 tracking-tighter">{currencySymbol}{selectedReportOrder.total.toFixed(2)}</p>
+                        <p className="text-5xl font-black text-orange-500 tracking-tighter">{currencySymbol}{selectedReportOrder.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                       </div>
 
                       {/* Amount received - Tap to keypad */}
@@ -12356,639 +12356,3 @@ const PosOnlyView: React.FC<Props> = ({
                             <button
                               key={`collect-quick-${index}-${amount}`}
                               onClick={() => { setCollectCashAmount(amount); setCollectCashAmountInput(amount.toFixed(2)); }}
-                              className={`p-3 rounded-xl font-black text-base uppercase tracking-widest transition-all border-2 ${
-                                collectCashAmount === amount
-                                  ? 'bg-orange-500 text-white border-orange-600 shadow-lg'
-                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500'
-                              }`}
-                            >
-                              {currencySymbol} {amount.toFixed(2)}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Payment method */}
-                      <div className="space-y-2">
-                        <label className="block text-xs font-black text-gray-400 uppercase tracking-widest">Payment Method</label>
-                        <select
-                          value={collectPaymentType}
-                          onChange={(e) => setCollectPaymentType(e.target.value)}
-                          className="w-full p-3 bg-white dark:bg-gray-700 border-2 dark:border-gray-600 rounded-xl text-base font-black dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500"
-                        >
-                          {enabledPaymentTypes.map((type) => (
-                            <option key={type.id} value={type.id}>{type.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Footer */}
-                    <div className="px-5 py-4 border-t dark:border-gray-700 flex gap-3 flex-shrink-0">
-                  <button
-                    onClick={() => { setShowCollectPaymentSidebar(false); setCollectPaymentSuccess(false); }}
-                    disabled={collectPaymentProcessing}
-                    className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (shiftRequired) {
-                        toast('Please open your shift before completing a payment.', 'error');
-                        return;
-                      }
-                      if (!collectCashAmount || collectCashAmount < selectedReportOrder.total) {
-                        toast('Amount received cannot be less than the total.', 'error');
-                        return;
-                      }
-                      if (!collectPaymentType) return;
-                      setCollectPaymentProcessing(true);
-                      const paymentName = paymentTypes.find(p => p.id === collectPaymentType)?.name || collectPaymentType;
-                      const changeAmt = Math.max(0, collectCashAmount - selectedReportOrder.total);
-                      try {
-                        onUpdateOrder(selectedReportOrder.id, OrderStatus.COMPLETED, {
-                          paymentMethod: paymentName,
-                          cashierName: cashierName || '',
-                          amountReceived: collectCashAmount,
-                          changeAmount: changeAmt,
-                        });
-                        counterOrdersCache.mergeReportOrdersCache(restaurant.id, [{
-                          id: selectedReportOrder.id,
-                          items: selectedReportOrder.items,
-                          total: selectedReportOrder.total,
-                          status: OrderStatus.COMPLETED,
-                          timestamp: selectedReportOrder.timestamp,
-                          restaurantId: restaurant.id,
-                          tableNumber: selectedReportOrder.tableNumber,
-                          diningType: selectedReportOrder.diningType,
-                          remark: selectedReportOrder.remark || '',
-                          customerId: '',
-                          paymentMethod: paymentName,
-                          cashierName: cashierName || '',
-                          amountReceived: collectCashAmount,
-                          changeAmount: changeAmt,
-                          orderSource: selectedReportOrder.orderSource,
-                        }]);
-                        setCollectPaymentSuccess(true);
-                      } catch (err: any) {
-                        toast(`Payment failed: ${err?.message || 'Unknown error'}`, 'error');
-                      } finally {
-                        setCollectPaymentProcessing(false);
-                      }
-                    }}
-                    disabled={collectPaymentProcessing || !collectPaymentType || !collectCashAmount}
-                    className="flex-1 py-3 bg-green-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-green-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {collectPaymentProcessing ? (
-                      <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Processing...</>
-                    ) : (
-                      <><CreditCard size={14} /> Confirm Payment</>
-                    )}
-                  </button>
-                </div>
-                  </div>
-
-                  {/* Collect amount keypad view */}
-                  <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ease-in-out ${showCollectAmountKeypad ? 'translate-x-0' : 'translate-x-full'}`}>
-                    <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-6 pt-8 space-y-4">
-                      <div className="text-center space-y-3">
-                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Amount Received</p>
-                        <div className="mx-auto w-56 relative flex items-end border-b-2 border-orange-500 pb-1">
-                          <span className="absolute left-0 bottom-1 text-lg font-black text-orange-500">{currencySymbol}</span>
-                          <span className="w-full text-3xl font-black text-orange-500 tracking-tighter text-center">
-                            {collectAmountKeypadInput || '0.00'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2">
-                        {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((token) => (
-                          <button
-                            key={`collect-keypad-${token}`}
-                            type="button"
-                            onClick={() => appendCollectKeypadValue(token)}
-                            className="py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xl font-black hover:border-orange-500 dark:hover:border-orange-500 transition-all"
-                          >
-                            {token}
-                          </button>
-                        ))}
-                        <button
-                          type="button"
-                          onClick={() => appendCollectKeypadValue('.')}
-                          className="py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xl font-black hover:border-orange-500 dark:hover:border-orange-500 transition-all"
-                        >
-                          .
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => appendCollectKeypadValue('0')}
-                          className="py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xl font-black hover:border-orange-500 dark:hover:border-orange-500 transition-all"
-                        >
-                          0
-                        </button>
-                        <button
-                          type="button"
-                          onClick={backspaceCollectKeypadValue}
-                          className="py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 flex items-center justify-center hover:border-orange-500 dark:hover:border-orange-500 transition-all"
-                        >
-                          <Delete size={20} />
-                        </button>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setCollectAmountKeypadInput('')}
-                        className="w-full py-2.5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-black text-sm uppercase tracking-widest hover:border-orange-500 dark:hover:border-orange-500 transition-all"
-                      >
-                        Clear
-                      </button>
-                    </div>
-
-                    <div className="px-5 py-4 border-t dark:border-gray-700 flex gap-3 flex-shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCollectAmountKeypadInput(collectCashAmountInput);
-                          setShowCollectAmountKeypad(false);
-                        }}
-                        className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={saveCollectAmountFromKeypad}
-                        className="flex-1 py-2.5 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              /* Success state */
-              <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-6">
-                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                  <CheckCircle2 size={36} className="text-green-500" />
-                </div>
-                <div className="text-center">
-                  <h3 className="text-xl font-black dark:text-white uppercase tracking-tighter mb-1">Payment Complete</h3>
-                  <p className="text-xs text-gray-400 uppercase tracking-widest">Order #{selectedReportOrder.id} marked as paid</p>
-                </div>
-                <div className="w-full grid grid-cols-2 gap-4 text-center">
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
-                    <p className="text-2xl font-black text-green-500">{currencySymbol}{(collectCashAmount || 0).toFixed(2)}</p>
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1">Received</p>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
-                    <p className="text-2xl font-black text-blue-500">{currencySymbol}{Math.max(0, (collectCashAmount || 0) - selectedReportOrder.total).toFixed(2)}</p>
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1">Change</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowCollectPaymentSidebar(false);
-                    setCollectPaymentSuccess(false);
-                    setSelectedReportOrder(null);
-                    toast('Payment collected successfully.', 'success');
-                  }}
-                  className="w-full py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all"
-                >
-                  Done
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* QR Order Rejection Modal */}
-      {rejectingQrOrderId && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[130] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in fade-in duration-200">
-            <h3 className="text-lg font-black dark:text-white uppercase tracking-tighter mb-4">Reject QR Order</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Reason</label>
-                <div className="space-y-2">
-                  {['Item out of stock', 'Kitchen too busy', 'Restaurant closed early', 'Other'].map(reason => (
-                    <button
-                      key={reason}
-                      onClick={() => setQrRejectionReason(reason)}
-                      className={`w-full text-left px-4 py-3 rounded-xl border font-bold text-sm transition-all ${
-                        qrRejectionReason === reason
-                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
-                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-                      }`}
-                    >
-                      {reason}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Note (optional)</label>
-                <textarea
-                  value={qrRejectionNote}
-                  onChange={e => setQrRejectionNote(e.target.value)}
-                  rows={2}
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none text-sm font-medium dark:text-white resize-none"
-                  placeholder="Add a note..."
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => { setRejectingQrOrderId(null); setQrRejectionNote(''); }}
-                  className="flex-1 py-3 rounded-xl border dark:border-gray-600 font-black text-[10px] uppercase tracking-widest text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    onUpdateOrder(rejectingQrOrderId, OrderStatus.CANCELLED);
-                    setRejectingQrOrderId(null);
-                    setQrRejectionNote('');
-                  }}
-                  className="flex-1 py-3 rounded-xl bg-red-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all"
-                >
-                  Confirm Reject
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Kitchen Order Rejection Modal */}
-      {rejectingKitchenOrderId && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[130] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in fade-in duration-200">
-            <h3 className="text-lg font-black dark:text-white uppercase tracking-tighter mb-4">Reject Kitchen Order</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Reason</label>
-                <div className="space-y-2">
-                  {REJECTION_REASONS.map(reason => (
-                    <button
-                      key={reason}
-                      onClick={() => setKitchenRejectionReason(reason)}
-                      className={`w-full text-left px-4 py-3 rounded-xl border font-bold text-sm transition-all ${
-                        kitchenRejectionReason === reason
-                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
-                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-                      }`}
-                    >
-                      {reason}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Note (optional)</label>
-                <textarea
-                  value={kitchenRejectionNote}
-                  onChange={e => setKitchenRejectionNote(e.target.value)}
-                  rows={2}
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none text-sm font-medium dark:text-white resize-none"
-                  placeholder="Add a note..."
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => { setRejectingKitchenOrderId(null); setKitchenRejectionNote(''); }}
-                  className="flex-1 py-3 rounded-xl border dark:border-gray-600 font-black text-[10px] uppercase tracking-widest text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleKitchenConfirmRejection}
-                  className="flex-1 py-3 rounded-xl bg-red-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all"
-                >
-                  Confirm Reject
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* New Kitchen Order Alert */}
-      {showNewOrderAlert && showKitchenFeature && (
-        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-right fade-in duration-300">
-          <div className="bg-orange-500 text-white rounded-2xl shadow-2xl px-6 py-4 flex items-center gap-4">
-            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-              <Coffee size={20} />
-            </div>
-            <div>
-              <p className="font-black text-sm uppercase tracking-tight">New Order!</p>
-              <p className="text-[10px] font-bold opacity-80">A new order has arrived in the kitchen</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <style>{`
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .saved-table-scroll {
-          overflow-x: auto;
-          padding-bottom: 2px;
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .saved-table-scroll::-webkit-scrollbar {
-          display: none;
-        }
-        .saved-table-row {
-          --visible-cols: 3;
-          display: grid;
-          gap: 0.5rem;
-          width: calc((var(--total-cols) / var(--visible-cols)) * 100%);
-          grid-template-columns: repeat(var(--total-cols), minmax(0, 1fr));
-        }
-        .saved-table-cell {
-          min-width: 0;
-        }
-        .saved-table-cell-empty {
-          border: 1px dashed transparent;
-          background: transparent;
-          pointer-events: none;
-        }
-        @media (min-width: 768px) {
-          .saved-table-row {
-            --visible-cols: 4;
-          }
-        }
-        @media (min-width: 1024px) {
-          .saved-table-row {
-            --visible-cols: 5;
-          }
-        }
-        @keyframes slideLeft {
-          from { transform: translateX(100%); }
-          to { transform: translateX(0); }
-        }
-        .animate-slide-left {
-          animation: slideLeft 0.3s ease-out;
-        }
-        @keyframes slideUp {
-          from { transform: translateY(100%); }
-          to { transform: translateY(0); }
-        }
-        .animate-slide-up {
-          animation: slideUp 0.3s ease-out;
-        }
-      `}</style>
-
-      {/* Upgrade Plan Modal */}
-      {showUpgradeModal && (
-        <UpgradePlanModal
-          currentPlanId={vendorPlan}
-          restaurantId={restaurant.id}
-          subscription={subscription}
-          onClose={() => setShowUpgradeModal(false)}
-          onUpgraded={() => {
-            setShowUpgradeModal(false);
-            onSubscriptionUpdated?.();
-          }}
-        />
-      )}
-
-      {/* ── Profile / Account Panel ─────────────────────────────────────── */}
-      {/* Backdrop */}
-        <div
-          className={`fixed inset-0 bg-black/40 z-[130] transition-opacity duration-300 ${showProfilePanel ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
-          onClick={() => setShowProfilePanel(false)}
-        />
-        {/* Panel */}
-        <div className={`fixed inset-y-0 left-0 z-[130] w-80 bg-white dark:bg-gray-800 shadow-2xl flex flex-col overflow-hidden transition-transform duration-300 ease-in-out ${showProfilePanel ? 'translate-x-0' : '-translate-x-full'}`}>
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b dark:border-gray-700">
-              <div className="flex items-center gap-2">
-                <User size={18} className="text-orange-500" />
-                <h2 className="font-black text-sm uppercase tracking-tight dark:text-white">Account & Settings</h2>
-              </div>
-              <button
-                onClick={() => setShowProfilePanel(false)}
-                className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Scrollable content */}
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
-
-              {/* ── Restaurant Logo ── */}
-              <div>
-                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">Restaurant Logo</p>
-                <div className="flex flex-col items-center gap-4">
-                  {/* Photo Frame with hover-delete */}
-                  <div
-                    className="relative cursor-pointer"
-                    onMouseEnter={() => profileLogoPreview ? setProfileLogoHovered(true) : undefined}
-                    onMouseLeave={() => setProfileLogoHovered(false)}
-                  >
-                    <div className="w-28 h-28 rounded-2xl border-2 border-gray-200 dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-700 shadow-sm">
-                      {profileLogoPreview ? (
-                        <img
-                          src={profileLogoPreview}
-                          alt="Restaurant logo"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <ImagePlus size={28} className="text-gray-300 dark:text-gray-500" />
-                        </div>
-                      )}
-                    </div>
-                    {/* Hover overlay – delete */}
-                    {profileLogoHovered && profileLogoPreview && (
-                      <div className="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center">
-                        <button
-                          onClick={handleDeleteLogo}
-                          className="flex flex-col items-center gap-1 text-white hover:text-red-300 transition-colors"
-                        >
-                          <Trash2 size={20} />
-                          <span className="text-[9px] font-black uppercase tracking-widest">Remove</span>
-                        </button>
-                      </div>
-                    )}
-                    {profileLogoUploading && (
-                      <div className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center">
-                        <RotateCw size={20} className="text-white animate-spin" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 w-full">
-                    <button
-                      onClick={() => profileLogoInputRef.current?.click()}
-                      disabled={profileLogoUploading}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors disabled:opacity-50 border border-orange-200 dark:border-orange-800/40"
-                    >
-                      <Upload size={13} /> Upload
-                    </button>
-                    <button
-                      onClick={() => setProfileShowLinkInput(v => !v)}
-                      className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold rounded-lg transition-colors border ${
-                        profileShowLinkInput
-                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800/40'
-                          : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
-                      }`}
-                    >
-                      <Link2 size={13} /> Add Link
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500">PNG or JPEG recommended</p>
-                  <input
-                    ref={profileLogoInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleProfileLogoFileSelect}
-                  />
-                </div>
-
-                {/* Link Input */}
-                {profileShowLinkInput && (
-                  <div className="mt-3">
-                    <div className="flex gap-2">
-                      <input
-                        type="url"
-                        value={profileImageLinkInput}
-                        onChange={e => setProfileImageLinkInput(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleSaveImageLink()}
-                        className="flex-1 border dark:border-gray-600 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
-                        placeholder="https://example.com/image.png"
-                        autoFocus
-                      />
-                      <button
-                        onClick={handleSaveImageLink}
-                        disabled={profileSaving || !profileImageLinkInput.trim()}
-                        className="px-3 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                      >
-                        {profileSaving ? <RotateCw size={12} className="animate-spin" /> : 'Set'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* ── Restaurant Info ── */}
-              <div>
-                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Restaurant Info</p>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Restaurant Name</label>
-                    <input
-                      type="text"
-                      value={profileRestaurantName}
-                      onChange={e => setProfileRestaurantName(e.target.value)}
-                      className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
-                      placeholder="Restaurant name"
-                    />
-                  </div>
-                  <button
-                    onClick={handleSaveProfileInfo}
-                    disabled={profileSaving}
-                    className="w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {profileSaving ? <RotateCw size={13} className="animate-spin" /> : null}
-                    Save Info
-                  </button>
-                </div>
-              </div>
-
-              {/* ── Change Password ── */}
-              <div>
-                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Change Password</p>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Current Password</label>
-                    <div className="relative">
-                      <input
-                        type={profileShowCurrentPw ? 'text' : 'password'}
-                        value={profileCurrentPassword}
-                        onChange={e => setProfileCurrentPassword(e.target.value)}
-                        className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400 pr-9"
-                        placeholder="Current password"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setProfileShowCurrentPw(v => !v)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                      >
-                        {profileShowCurrentPw ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">New Password</label>
-                    <div className="relative">
-                      <input
-                        type={profileShowNewPw ? 'text' : 'password'}
-                        value={profileNewPassword}
-                        onChange={e => setProfileNewPassword(e.target.value)}
-                        className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400 pr-9"
-                        placeholder="New password (min 6 chars)"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setProfileShowNewPw(v => !v)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                      >
-                        {profileShowNewPw ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Confirm New Password</label>
-                    <input
-                      type="password"
-                      value={profileConfirmPassword}
-                      onChange={e => setProfileConfirmPassword(e.target.value)}
-                      className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
-                      placeholder="Confirm new password"
-                    />
-                  </div>
-                  <button
-                    onClick={handleSaveProfilePassword}
-                    disabled={profileSaving}
-                    className="w-full py-2 rounded-lg bg-gray-800 dark:bg-gray-200 hover:bg-gray-700 dark:hover:bg-white text-white dark:text-gray-900 text-xs font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {profileSaving ? <RotateCw size={13} className="animate-spin" /> : <Lock size={13} />}
-                    Update Password
-                  </button>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          {/* Logo Crop Modal */}
-          {profileCropFile && (
-            <ImageCropModal
-              imageFile={profileCropFile}
-              onCrop={handleProfileLogoCropped}
-              onCancel={() => setProfileCropFile(null)}
-            />
-          )}
-
-
-      {/* ─────────────────────────────────────────────────────────────────── */}
-
-      </div>
-    </div>
-  );
-};
-
-export default PosOnlyView;

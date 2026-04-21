@@ -163,7 +163,7 @@ const StandardReport: React.FC<Props> = ({
         {/* Total Revenue */}
         <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm">
           <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Total Revenue</p>
-          <p className="text-xl md:text-2xl font-black dark:text-white">RM{reportData?.summary.totalRevenue.toFixed(2) || '0.00'}</p>
+          <p className="text-xl md:text-2xl font-black dark:text-white">RM{reportData?.summary.totalRevenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}</p>
           <p className="text-sm text-gray-500 dark:text-gray-400 font-black mt-1">{reportData?.summary.orderVolume || 0} orders</p>
         </div>
 
@@ -181,7 +181,7 @@ const StandardReport: React.FC<Props> = ({
                     <p className="text-xs font-black dark:text-white">{t.name}</p>
                     <p className="text-[10px] text-gray-400 font-bold">{t.count} order{t.count !== 1 ? 's' : ''}</p>
                   </div>
-                  <p className="text-sm font-black text-orange-500">RM{t.total.toFixed(2)}</p>
+                  <p className="text-sm font-black text-orange-500">RM{t.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 </div>
               ))}
             </div>
@@ -209,7 +209,7 @@ const StandardReport: React.FC<Props> = ({
                       <p className="text-[10px] text-gray-400 font-bold">{c.count} order{c.count !== 1 ? 's' : ''}</p>
                     </div>
                   </div>
-                  <p className="text-sm font-black text-orange-500">RM{c.total.toFixed(2)}</p>
+                  <p className="text-sm font-black text-orange-500">RM{c.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 </div>
               ))}
             </div>
@@ -310,7 +310,7 @@ const StandardReport: React.FC<Props> = ({
                   <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">{report.paymentMethod || '-'}</td>
                   <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300">{report.cashierName || '-'}</td>
                   <td className="px-4 py-2 text-right font-black dark:text-white text-xs">
-                    {report.status === OrderStatus.CANCELLED ? 'RM0.00' : `RM${report.total.toFixed(2)}`}
+                    {report.status === OrderStatus.CANCELLED ? 'RM0.00' : `RM${report.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                   </td>
                 </tr>
               ))}
