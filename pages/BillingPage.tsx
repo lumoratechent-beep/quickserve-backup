@@ -520,8 +520,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     : 0;
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 md:p-8">
-      <div className="w-full space-y-10">
+    <div className="w-full space-y-10">
 
         {/* ── Plan ── */}
         <section>
@@ -1090,7 +1089,6 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
             </div>
           )}
         </section>
-      </div>
 
       {/* ── Renew Confirmation Modal ── */}
       {showRenewConfirm && (() => {
@@ -1245,18 +1243,18 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     <p className="text-3xl font-black tracking-tight leading-none">RM {totalAmount.toFixed(2)}</p>
                     <p className="text-white/70 text-[10px] mt-1">{plan?.name} Plan · {intervalLabel}{isAnnual ? ` (RM${monthlyPrice}/mo × 12)` : ''}</p>
                   </div>
-                </div>
-                {/* QR */}
-                <div className="flex-1 flex flex-col items-center justify-center px-6 pb-5">
-                  <div className="bg-white rounded-2xl p-3.5 shadow-lg">
-                    <img
-                      src={paymentQrImageUrl || DEFAULT_DUITNOW_QR_SRC}
-                      alt="DuitNow QR Code"
-                      className="w-40 h-40"
-                      onError={() => setPaymentQrImageUrl(null)}
-                    />
+                  {/* QR */}
+                  <div className="flex-1 flex flex-col items-center justify-center px-6 pb-5">
+                    <div className="bg-white rounded-2xl p-3.5 shadow-lg">
+                      <img
+                        src={paymentQrImageUrl || DEFAULT_DUITNOW_QR_SRC}
+                        alt="DuitNow QR Code"
+                        className="w-40 h-40"
+                        onError={() => setPaymentQrImageUrl(null)}
+                      />
+                    </div>
+                    <p className="text-white/70 text-[10px] font-medium mt-2">Lumora HQ</p>
                   </div>
-                  <p className="text-white/70 text-[10px] font-medium mt-2">Lumora HQ</p>
                 </div>
               </div>
 
