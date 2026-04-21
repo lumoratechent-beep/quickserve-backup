@@ -239,6 +239,14 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
       toast('Enter a valid deposit amount.', 'warning');
       return;
     }
+    if (amount < 20) {
+      toast('Minimum top up amount is RM20.', 'warning');
+      return;
+    }
+    if (amount > 1000) {
+      toast('Maximum top up amount is RM1,000.', 'warning');
+      return;
+    }
 
     setIsDepositing(true);
     try {
@@ -384,12 +392,14 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
               <input
                 type="number"
                 step="0.01"
-                min="1"
+                min="20"
+                max="1000"
                 value={depositAmount}
                 onChange={e => setDepositAmount(e.target.value)}
                 placeholder="e.g. 100.00"
                 className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-lg text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
               />
+              <p className="text-[9px] text-gray-400 mt-1 ml-1">Min: RM20 · Max: RM1,000</p>
             </div>
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Top Up Method</label>
@@ -727,40 +737,55 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
             <p className="text-[9px] text-gray-300 mt-1">Sales, deposits, and wallet billing payments will appear here.</p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {walletTransactions.map((tx: any) => (
-              <div key={tx.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    tx.type === 'sale' ? 'bg-green-100 dark:bg-green-900/30' :
-                    tx.type === 'deposit' ? 'bg-blue-100 dark:bg-blue-900/30' :
-                    tx.type === 'billing' ? 'bg-orange-100 dark:bg-orange-900/30' :
-                    'bg-red-100 dark:bg-red-900/30'
-                  }`}>
-                    {isCreditTransaction(tx.type) ? (
-                      <ArrowDownRight size={14} className={tx.type === 'deposit' ? 'text-blue-600' : 'text-green-600'} />
-                    ) : (
-                      <ArrowUpRight size={14} className={tx.type === 'billing' ? 'text-orange-600' : 'text-red-600'} />
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-xs font-black dark:text-white">
-                      {isCreditTransaction(tx.type) ? '+' : '-'}{currencySymbol}{Number(tx.amount).toFixed(2)}
-                    </p>
-                    <p className="text-[9px] text-gray-400">{tx.description || (
-                      tx.type === 'sale' ? 'Online order payment' :
-                      tx.type === 'deposit' ? 'Wallet deposit' :
-                      tx.type === 'billing' ? 'Subscription payment from wallet' :
-                      'Cashout'
-                    )}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-[9px] text-gray-400">{new Date(tx.created_at).toLocaleDateString()}</p>
-                  <p className="text-[8px] text-gray-300">{new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                </div>
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b dark:border-gray-600">
+                  <th className="pb-2 pr-4 text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Date</th>
+                  <th className="pb-2 pr-4 text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Description</th>
+                  <th className="pb-2 pr-4 text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Type</th>
+                  <th className="pb-2 text-[9px] font-semibold text-gray-400 uppercase tracking-wider text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {walletTransactions.map((tx: any) => (
+                  <tr key={tx.id} className="border-b dark:border-gray-700/50 last:border-0 hover:bg-white/60 dark:hover:bg-gray-800/40 transition-colors">
+                    <td className="py-2 pr-4 whitespace-nowrap">
+                      <p className="text-[10px] text-gray-600 dark:text-gray-300">{new Date(tx.created_at).toLocaleDateString()}</p>
+                      <p className="text-[9px] text-gray-400">{new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    </td>
+                    <td className="py-2 pr-4 text-[10px] text-gray-700 dark:text-gray-200">
+                      {tx.description || (
+                        tx.type === 'sale' ? 'Online order payment' :
+                        tx.type === 'deposit' ? 'Wallet deposit' :
+                        tx.type === 'billing' ? 'Subscription payment from wallet' :
+                        'Cashout'
+                      )}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tight ${
+                        tx.type === 'sale' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
+                        tx.type === 'deposit' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
+                        tx.type === 'billing' ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' :
+                        'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                      }`}>
+                        {isCreditTransaction(tx.type)
+                          ? <ArrowDownRight size={9} />
+                          : <ArrowUpRight size={9} />}
+                        {tx.type}
+                      </span>
+                    </td>
+                    <td className="py-2 text-right whitespace-nowrap">
+                      <span className={`text-xs font-black ${
+                        isCreditTransaction(tx.type) ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'
+                      }`}>
+                        {isCreditTransaction(tx.type) ? '+' : '-'}{currencySymbol}{Number(tx.amount).toFixed(2)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
