@@ -537,10 +537,13 @@ const AdminView: React.FC<Props> = ({
   const [adminCashouts, setAdminCashouts] = useState<any[]>([]);
   const [adminCashoutsLoading, setAdminCashoutsLoading] = useState(false);
   const [adminCashoutFilter, setAdminCashoutFilter] = useState<'all' | 'pending' | 'approved' | 'completed' | 'rejected'>('pending');
+  const [adminCashoutSearchQuery, setAdminCashoutSearchQuery] = useState('');
+  const [adminCashoutEntriesPerPage, setAdminCashoutEntriesPerPage] = useState(30);
+  const [adminCashoutCurrentPage, setAdminCashoutCurrentPage] = useState(1);
   // DuitNow admin state
   const [duitnowPayments, setDuitnowPayments] = useState<any[]>([]);
   const [duitnowLoading, setDuitnowLoading] = useState(false);
-  const [duitnowFilter, setDuitnowFilter] = useState<'all' | 'pending' | 'approved' | 'completed' | 'rejected'>('pending');
+  const [duitnowFilter, setDuitnowFilter] = useState<'all' | 'pending' | 'approved' | 'completed' | 'rejected'>('all');
   const [duitnowReviewing, setDuitnowReviewing] = useState<string | null>(null);
   const [duitnowImagePreview, setDuitnowImagePreview] = useState<string | null>(null);
   const [adminWalletTopups, setAdminWalletTopups] = useState<any[]>([]);
@@ -857,6 +860,12 @@ const AdminView: React.FC<Props> = ({
     }
   }, [activeTab, adminCashoutFilter]);
 
+  useEffect(() => {
+    fetchAdminCashouts();
+    fetchDuitnowPayments();
+    fetchAdminWalletTopups();
+  }, []);
+
   const duitnowTransactionRows = useMemo(() => {
     const planLabels: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
 
@@ -955,6 +964,80 @@ const AdminView: React.FC<Props> = ({
     for (let page = start; page <= end; page += 1) pages.push(page);
     return pages;
   }, [duitnowCurrentPage, duitnowTotalPages]);
+
+  const adminCashoutRows = useMemo(() => {
+    return adminCashouts
+      .map((request: any) => ({
+        ...request,
+        referenceLabel: request.reference_code || `CSH-${String(request.id || '').slice(0, 8).toUpperCase()}`,
+        bankSummary: [request.bank_name, request.account_holder_name, request.account_number ? `•••${String(request.account_number).slice(-4)}` : null]
+          .filter(Boolean)
+          .join(' · '),
+        cleanDescription: [request.notes ? `Vendor note: ${request.notes}` : null, request.admin_notes ? `Admin note: ${request.admin_notes}` : null]
+          .filter(Boolean)
+          .join(' · ') || 'Cashout request',
+        formattedDate: new Date(request.created_at).toLocaleDateString(),
+        formattedTime: new Date(request.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      }))
+      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [adminCashouts]);
+
+  const filteredAdminCashoutRows = useMemo(() => {
+    const query = adminCashoutSearchQuery.trim().toLowerCase();
+
+    return adminCashoutRows.filter((request: any) => {
+      if (adminCashoutFilter !== 'all' && request.status !== adminCashoutFilter) return false;
+
+      if (!query) return true;
+
+      const searchableFields = [
+        request.referenceLabel,
+        request.restaurantName,
+        request.bankSummary,
+        request.cleanDescription,
+        request.status,
+        request.formattedDate,
+        String(request.amount),
+      ].filter(Boolean);
+
+      return searchableFields.some((value) => String(value).toLowerCase().includes(query));
+    });
+  }, [adminCashoutFilter, adminCashoutRows, adminCashoutSearchQuery]);
+
+  const adminCashoutTotalPages = Math.max(1, Math.ceil(filteredAdminCashoutRows.length / adminCashoutEntriesPerPage));
+
+  const paginatedAdminCashoutRows = useMemo(() => {
+    const startIndex = (adminCashoutCurrentPage - 1) * adminCashoutEntriesPerPage;
+    return filteredAdminCashoutRows.slice(startIndex, startIndex + adminCashoutEntriesPerPage);
+  }, [adminCashoutCurrentPage, adminCashoutEntriesPerPage, filteredAdminCashoutRows]);
+
+  useEffect(() => {
+    setAdminCashoutCurrentPage(1);
+  }, [adminCashoutEntriesPerPage, adminCashoutFilter, adminCashoutSearchQuery]);
+
+  useEffect(() => {
+    if (adminCashoutCurrentPage > adminCashoutTotalPages) {
+      setAdminCashoutCurrentPage(adminCashoutTotalPages);
+    }
+  }, [adminCashoutCurrentPage, adminCashoutTotalPages]);
+
+  const adminCashoutVisiblePages = useMemo(() => {
+    const maxVisible = 10;
+    let start = Math.max(1, adminCashoutCurrentPage - Math.floor(maxVisible / 2));
+    let end = start + maxVisible - 1;
+
+    if (end > adminCashoutTotalPages) {
+      end = adminCashoutTotalPages;
+      start = Math.max(1, end - maxVisible + 1);
+    }
+
+    const pages: number[] = [];
+    for (let page = start; page <= end; page += 1) pages.push(page);
+    return pages;
+  }, [adminCashoutCurrentPage, adminCashoutTotalPages]);
+
+  const hasPendingCashouts = useMemo(() => adminCashouts.some((request: any) => request.status === 'pending'), [adminCashouts]);
+  const hasPendingDuitnow = useMemo(() => [...duitnowPayments, ...adminWalletTopups].some((item: any) => item.status === 'pending'), [adminWalletTopups, duitnowPayments]);
 
   // QR Modal State
   const [generatingQrHub, setGeneratingQrHub] = useState<Area | null>(null);
@@ -1762,7 +1845,12 @@ const AdminView: React.FC<Props> = ({
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
               }`}
             >
-              <item.icon size={20} />
+              <div className="relative shrink-0">
+                <item.icon size={20} />
+                {((item.id === 'CASHOUT' && hasPendingCashouts) || (item.id === 'DUITNOW' && hasPendingDuitnow)) && (
+                  <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-gray-800" />
+                )}
+              </div>
               {!sidebarCollapsed && <span className="text-sm font-semibold">{item.label}</span>}
             </button>
           ))}
@@ -2533,114 +2621,192 @@ const AdminView: React.FC<Props> = ({
               </div>
             </div>
 
-            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 border dark:border-gray-600 shadow-sm mb-6 overflow-x-auto hide-scrollbar w-fit">
-              {(['all', 'pending', 'approved', 'completed', 'rejected'] as const).map(f => (
-                <button
-                  key={f}
-                  onClick={() => { setAdminCashoutFilter(f); if (adminCashouts.length === 0) fetchAdminCashouts(); }}
-                  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                    adminCashoutFilter === f
-                      ? 'bg-orange-500 text-white shadow-md'
-                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-
-            {adminCashoutsLoading && adminCashouts.length === 0 ? (
+            {adminCashoutsLoading && adminCashoutRows.length === 0 ? (
               <div className="text-center py-20">
                 <RefreshCw size={24} className="mx-auto text-gray-300 animate-spin mb-3" />
                 <p className="text-sm text-gray-400 font-bold">Loading cashout requests...</p>
               </div>
-            ) : (() => {
-              const filtered = adminCashoutFilter === 'all' ? adminCashouts : adminCashouts.filter(c => c.status === adminCashoutFilter);
-              if (filtered.length === 0) {
-                return (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
-                    <Wallet size={32} className="mx-auto text-gray-300 mb-3" />
-                    <p className="text-sm font-black dark:text-white mb-1">No Cashout Requests</p>
-                    <p className="text-[10px] text-gray-400">
-                      {adminCashouts.length === 0 ? 'Click Refresh to load requests.' : `No ${adminCashoutFilter} requests found.`}
-                    </p>
+            ) : (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm">
+                <div className="p-5 border-b border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-nowrap overflow-x-auto hide-scrollbar">
+                    {adminCashoutRows.length > 0 && (
+                      <>
+                        <div className="relative min-w-[180px] sm:min-w-[220px] flex-1">
+                          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <input
+                            type="text"
+                            placeholder="Search reference / vendor..."
+                            value={adminCashoutSearchQuery}
+                            onChange={(e) => setAdminCashoutSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white outline-none focus:ring-1 focus:ring-orange-500"
+                          />
+                        </div>
+                        <select
+                          value={adminCashoutFilter}
+                          onChange={(e) => setAdminCashoutFilter(e.target.value as 'all' | 'pending' | 'approved' | 'completed' | 'rejected')}
+                          className="h-9 min-w-[96px] py-2 px-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500 shrink-0"
+                        >
+                          <option value="all">All Status</option>
+                          <option value="pending">Pending</option>
+                          <option value="approved">Approved</option>
+                          <option value="completed">Completed</option>
+                          <option value="rejected">Rejected</option>
+                        </select>
+                        <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Show</span>
+                          <select
+                            value={adminCashoutEntriesPerPage}
+                            onChange={(e) => setAdminCashoutEntriesPerPage(Number(e.target.value))}
+                            className="h-9 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white px-2 outline-none cursor-pointer"
+                          >
+                            <option value={30}>30</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                          </select>
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Entries</span>
+                        </div>
+                      </>
+                    )}
                   </div>
-                );
-              }
-              return (
-                <div className="space-y-3">
-                  {filtered.map((req: any) => (
-                    <div key={req.id} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                            req.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900/30' :
-                            req.status === 'approved' ? 'bg-blue-100 dark:bg-blue-900/30' :
-                            req.status === 'completed' ? 'bg-green-100 dark:bg-green-900/30' :
-                            'bg-red-100 dark:bg-red-900/30'
-                          }`}>
-                            <Banknote size={18} className={
-                              req.status === 'pending' ? 'text-yellow-600' :
-                              req.status === 'approved' ? 'text-blue-600' :
-                              req.status === 'completed' ? 'text-green-600' :
-                              'text-red-600'
-                            } />
-                          </div>
-                          <div>
-                            <p className="text-sm font-black dark:text-white">{req.restaurantName}</p>
-                            <p className="text-lg font-black text-orange-500">RM{Number(req.amount).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                            <div className="flex items-center gap-3 mt-1 flex-wrap">
-                              <span className="text-[9px] text-gray-400">
-                                {req.bank_name} — {req.account_holder_name} — •••{req.account_number?.slice(-4)}
-                              </span>
-                              <span className="text-[9px] text-gray-400">
-                                {new Date(req.created_at).toLocaleDateString()} {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </div>
-                            {req.notes && <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 italic">Note: {req.notes}</p>}
-                            {req.admin_notes && <p className="text-[10px] text-blue-500 mt-1 italic">Admin: {req.admin_notes}</p>}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className={`text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${
-                            req.status === 'pending' ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                            req.status === 'approved' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
-                            req.status === 'completed' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
-                            'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                          }`}>
-                            {req.status}
-                          </span>
-                          {req.status === 'pending' && (
-                            <>
-                              <button
-                                onClick={() => handleUpdateCashout(req.id, 'approved')}
-                                className="px-3 py-1.5 bg-blue-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center gap-1"
-                              >
-                                <CheckCircle size={12} /> Approve
-                              </button>
-                              <button
-                                onClick={() => handleUpdateCashout(req.id, 'rejected')}
-                                className="px-3 py-1.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-red-200 transition-all flex items-center gap-1"
-                              >
-                                <X size={12} /> Reject
-                              </button>
-                            </>
-                          )}
-                          {req.status === 'approved' && (
-                            <button
-                              onClick={() => handleUpdateCashout(req.id, 'completed', 'Funds transferred')}
-                              className="px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all flex items-center gap-1"
-                            >
-                              <Send size={12} /> Mark Transferred
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
                 </div>
-              );
-            })()}
+
+                {adminCashoutRows.length === 0 ? (
+                  <div className="text-center py-10">
+                    <Receipt size={24} className="mx-auto text-gray-300 mb-2" />
+                    <p className="text-[10px] text-gray-400 font-bold">No cashout requests yet</p>
+                    <p className="text-[9px] text-gray-300 mt-1">Vendor withdrawal requests will appear here.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left table-auto">
+                        <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                          <tr>
+                            <th className="px-2 sm:px-3 py-3 text-left whitespace-nowrap">Reference</th>
+                            <th className="px-2 sm:px-3 py-3 text-left whitespace-nowrap">Vendor</th>
+                            <th className="px-2 sm:px-3 py-3 text-left whitespace-nowrap">Date</th>
+                            <th className="px-2 sm:px-3 py-3 text-left whitespace-nowrap">Time</th>
+                            <th className="px-2 sm:px-3 py-3 text-left whitespace-nowrap">Status</th>
+                            <th className="px-2 sm:px-3 py-3 text-left whitespace-nowrap">Bank</th>
+                            <th className="px-2 sm:px-3 py-3 text-left whitespace-nowrap">Description</th>
+                            <th className="px-2 sm:px-3 py-3 text-right whitespace-nowrap">Amount</th>
+                            <th className="px-2 sm:px-3 py-3 text-right whitespace-nowrap">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y dark:divide-gray-700">
+                          {paginatedAdminCashoutRows.map((req: any) => (
+                            <tr key={req.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                              <td className="px-2 sm:px-3 py-2 whitespace-nowrap">
+                                <span className="text-[9px] sm:text-[10px] font-black text-orange-500 uppercase tracking-tight">{req.referenceLabel}</span>
+                              </td>
+                              <td className="px-2 sm:px-3 py-2 text-[9px] sm:text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tight whitespace-nowrap max-w-[132px] truncate">
+                                {req.restaurantName}
+                              </td>
+                              <td className="px-2 sm:px-3 py-2 text-[9px] sm:text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tight whitespace-nowrap">
+                                {req.formattedDate}
+                              </td>
+                              <td className="px-2 sm:px-3 py-2 text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap">
+                                {req.formattedTime}
+                              </td>
+                              <td className="px-2 sm:px-3 py-2 whitespace-nowrap">
+                                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                                  req.status === 'completed' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
+                                  req.status === 'approved' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
+                                  req.status === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                  'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                                }`}>
+                                  {req.status}
+                                </span>
+                              </td>
+                              <td className="px-2 sm:px-3 py-2 text-[9px] sm:text-[10px] font-black text-gray-700 dark:text-gray-200 min-w-[180px] max-w-[220px] truncate">
+                                {req.bankSummary}
+                              </td>
+                              <td className="px-2 sm:px-3 py-2 text-[9px] sm:text-[10px] font-black text-gray-700 dark:text-gray-200 min-w-[180px] max-w-[240px] truncate">
+                                {req.cleanDescription}
+                              </td>
+                              <td className="px-2 sm:px-3 py-2 text-right whitespace-nowrap">
+                                <span className="text-[10px] sm:text-xs font-black text-orange-500">
+                                  RM{Number(req.amount).toFixed(2)}
+                                </span>
+                              </td>
+                              <td className="px-2 sm:px-3 py-2">
+                                <div className="flex items-center justify-end gap-1.5 sm:gap-2 whitespace-nowrap">
+                                  {req.status === 'pending' && (
+                                    <>
+                                      <button
+                                        onClick={() => handleUpdateCashout(req.id, 'approved')}
+                                        className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all flex items-center gap-1"
+                                      >
+                                        <CheckCircle size={12} /> Approve
+                                      </button>
+                                      <button
+                                        onClick={() => handleUpdateCashout(req.id, 'rejected')}
+                                        className="px-3 py-1.5 bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-red-200 transition-all flex items-center gap-1"
+                                      >
+                                        <X size={12} /> Reject
+                                      </button>
+                                    </>
+                                  )}
+                                  {req.status === 'approved' && (
+                                    <button
+                                      onClick={() => handleUpdateCashout(req.id, 'completed', 'Funds transferred')}
+                                      className="px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:bg-green-600 transition-all flex items-center gap-1"
+                                    >
+                                      <Send size={12} /> Mark Transferred
+                                    </button>
+                                  )}
+                                  {(req.status === 'completed' || req.status === 'rejected') && (
+                                    <span className="text-[9px] font-bold text-gray-300">-</span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                          {paginatedAdminCashoutRows.length === 0 && (
+                            <tr>
+                              <td colSpan={9} className="py-16 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                No matching records found.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {adminCashoutTotalPages > 1 && (
+                      <div className="mt-8 flex items-center justify-center gap-2 overflow-x-auto py-2 px-4 no-print">
+                        <button onClick={() => setAdminCashoutCurrentPage(1)} disabled={adminCashoutCurrentPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
+                          <ChevronFirst size={16} />
+                        </button>
+                        <button onClick={() => setAdminCashoutCurrentPage((prev) => Math.max(1, prev - 1))} disabled={adminCashoutCurrentPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
+                          <ChevronLeft size={16} />
+                        </button>
+
+                        <div className="flex items-center gap-1">
+                          {adminCashoutVisiblePages.map((page) => (
+                            <button
+                              key={page}
+                              onClick={() => setAdminCashoutCurrentPage(page)}
+                              className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${adminCashoutCurrentPage === page ? 'bg-orange-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                            >
+                              {page}
+                            </button>
+                          ))}
+                        </div>
+
+                        <button onClick={() => setAdminCashoutCurrentPage((prev) => Math.min(adminCashoutTotalPages, prev + 1))} disabled={adminCashoutCurrentPage === adminCashoutTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
+                          <ChevronRight size={16} />
+                        </button>
+                        <button onClick={() => setAdminCashoutCurrentPage(adminCashoutTotalPages)} disabled={adminCashoutCurrentPage === adminCashoutTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
+                          <ChevronLast size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
 
