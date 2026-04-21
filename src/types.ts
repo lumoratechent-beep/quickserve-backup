@@ -295,6 +295,7 @@ export interface DuitNowPayment {
   amount: number;
   status: DuitNowPaymentStatus;
   attachment_url?: string | null;
+  reference_code?: string | null;
   reference_number?: string | null;
   admin_note?: string | null;
   reviewed_by?: string | null;

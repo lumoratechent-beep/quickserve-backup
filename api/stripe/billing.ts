@@ -124,11 +124,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           });
 
         // Fetch local billing records (admin-granted extensions, etc.)
-        let localEntries: Array<{ id: string; date: string; description: string; amount: number; invoiceUrl: string | null }> = [];
+        let localEntries: Array<{ id: string; date: string; description: string; amount: number; invoiceUrl: string | null; referenceCode?: string | null }> = [];
         if (historyRestaurantId) {
           const { data: localRecords } = await supabase
             .from('billing_records')
-            .select('id, description, amount, created_at')
+            .select('id, description, amount, created_at, reference_code')
             .eq('restaurant_id', historyRestaurantId)
             .order('created_at', { ascending: false })
             .limit(50);
@@ -139,6 +139,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               description: r.description,
               amount: Number(r.amount) || 0,
               invoiceUrl: null,
+              referenceCode: r.reference_code || null,
             }));
           }
         }
@@ -468,13 +469,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const intervalLabel = isAnnual ? 'Annual' : 'Monthly';
         const planName = PLAN_NAMES[planId] || planId;
 
-        await supabase.from('wallet_transactions').insert({
+        const { data: walletBillingTransaction, error: walletBillingInsertError } = await supabase.from('wallet_transactions').insert({
           restaurant_id: renewRestaurantId,
           amount: grossCharged,
           type: 'billing',
           status: 'completed',
           description: `Subscription renewal - ${planName} (${intervalLabel})`,
-        });
+        }).select('reference_code').single();
+
+        if (walletBillingInsertError) {
+          return res.status(500).json({ error: walletBillingInsertError.message || 'Failed to record wallet billing transaction.' });
+        }
 
         const { data: renewRestaurant } = await supabase
           .from('restaurants')
@@ -493,6 +498,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           plan_id: planId,
           restaurant_name: renewRestaurant?.name || 'Unknown',
           created_by: 'wallet',
+          reference_code: walletBillingTransaction?.reference_code || null,
         });
 
         const balance = await getWalletBalance(renewRestaurantId);
@@ -1064,6 +1070,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               plan_id: dnApprovePlan,
               restaurant_name: dnApproveRest?.name || 'Unknown',
               created_by: 'duitnow',
+              reference_code: dnPay.reference_code || null,
             });
 
             return res.status(200).json({ success: true, decision: 'approved', newPeriodEnd: dnNewEnd.toISOString() });

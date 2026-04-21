@@ -13,6 +13,7 @@ interface BillingHistory {
   amount: number;
   status: 'success' | 'pending' | 'approved' | 'rejected';
   invoiceUrl?: string;
+  referenceCode?: string | null;
 }
 
 interface PaymentMethod {
@@ -425,6 +426,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         amount: Number(payment.amount) || 0,
         status: payment.status,
         invoiceUrl: undefined,
+        referenceCode: payment.reference_code || null,
       })),
     ]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -440,7 +442,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
           sourceLabel,
           formattedDate: formatDate(entry.date),
           formattedTime: new Date(entry.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          referenceLabel: `BIL-${String(entry.id).slice(0, 8).toUpperCase()}`,
+          referenceLabel: entry.referenceCode || `BIL-${String(entry.id).slice(0, 8).toUpperCase()}`,
         };
       });
   }, [billingHistory, duitnowPayments]);

@@ -364,7 +364,7 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
       const createdAt = new Date(tx.created_at);
       const cleanDescription = getCleanTransactionDescription(tx);
       const methodLabel = getTransactionMethodLabel(tx);
-      const referenceLabel = tx.order_id || `TXN-${String(tx.id || '').slice(0, 8).toUpperCase()}`;
+      const referenceLabel = tx.reference_code || tx.order_id || `TXN-${String(tx.id || '').slice(0, 8).toUpperCase()}`;
 
       return {
         ...tx,
