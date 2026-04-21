@@ -920,139 +920,174 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
 
         {/* ── Billing History ── */}
         <section>
-          <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Billing History</h3>
-            <div className="flex items-center gap-2">
-              <label htmlFor="billing-history-page-size" className="text-xs font-medium text-gray-500 dark:text-gray-400">View</label>
-              <select
-                id="billing-history-page-size"
-                value={historyPageSize}
-                onChange={(e) => setHistoryPageSize(Number(e.target.value))}
-                className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-semibold text-gray-700 dark:text-gray-200"
-              >
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={30}>30</option>
-              </select>
-            </div>
-          </div>
-
           {isLoadingHistory || duitnowLoading ? (
             <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-gray-400" /></div>
           ) : (
-            <>
+            <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 overflow-hidden shadow-sm">
+              <div className="p-4 border-b dark:border-gray-700 flex flex-col gap-3">
+                <h3 className="text-sm font-black dark:text-white uppercase tracking-widest">Billing History</h3>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="relative flex-1 min-w-0">
+                    <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search Billing / Invoice..."
+                      value={historySearchQuery}
+                      onChange={(e) => setHistorySearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white outline-none focus:ring-1 focus:ring-orange-500"
+                    />
+                  </div>
+                  <select
+                    value={historyStatusFilter}
+                    onChange={(e) => setHistoryStatusFilter(e.target.value)}
+                    className="py-2 px-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500"
+                  >
+                    <option value="ALL">All Status</option>
+                    <option value="success">Successful</option>
+                    <option value="pending">Pending Review</option>
+                    <option value="approved">Approved QR</option>
+                    <option value="rejected">Rejected QR</option>
+                  </select>
+                  <select
+                    value={historyMethodFilter}
+                    onChange={(e) => setHistoryMethodFilter(e.target.value)}
+                    className="py-2 px-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500"
+                  >
+                    <option value="ALL">All Method</option>
+                    {historyMethodOptions.map((method) => (
+                      <option key={method} value={method}>{method}</option>
+                    ))}
+                  </select>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Show</span>
+                    <select
+                      value={historyPageSize}
+                      onChange={(e) => setHistoryPageSize(Number(e.target.value))}
+                      className="bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5 outline-none cursor-pointer"
+                    >
+                      <option value={30}>30</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Entries</span>
+                  </div>
+                </div>
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b dark:border-gray-700">
-                    <th className="pb-3 pr-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Date</th>
-                    <th className="pb-3 pr-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Details</th>
-                    <th className="pb-3 pr-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
-                    <th className="pb-3 pr-6 text-xs font-semibold text-gray-400 uppercase tracking-wider text-right">Amount</th>
-                    <th className="pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider text-right">Download</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {combinedBillingHistory.length === 0 ? (
+                  <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
                     <tr>
-                      <td colSpan={5} className="py-6 text-sm text-gray-400">
-                        No billing history yet.
-                      </td>
+                      <th className="px-4 py-3 text-left">Reference</th>
+                      <th className="px-4 py-3 text-left">Date</th>
+                      <th className="px-4 py-3 text-left">Time</th>
+                      <th className="px-4 py-3 text-left">Status</th>
+                      <th className="px-4 py-3 text-left">Method</th>
+                      <th className="px-4 py-3 text-left">Details</th>
+                      <th className="px-4 py-3 text-right">Amount</th>
+                      <th className="px-4 py-3 text-right">Download</th>
                     </tr>
-                  ) : (
-                    paginatedHistory.map(inv => (
-                      <tr key={inv.id} className="border-b dark:border-gray-700/60 last:border-0">
-                        <td className="py-4 pr-6 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{formatDate(inv.date)}</td>
-                        <td className="py-4 pr-6 text-sm text-gray-700 dark:text-gray-200">{inv.description}</td>
-                        <td className="py-4 pr-6 whitespace-nowrap">
-                          <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold ${getStatusBadge(inv.status).className}`}>
-                            {getStatusBadge(inv.status).label}
-                          </span>
-                        </td>
-                        <td className="py-4 pr-6 text-sm font-semibold text-gray-900 dark:text-white text-right whitespace-nowrap">RM{inv.amount.toFixed(2)}</td>
-                        <td className="py-4 text-right">
-                          {inv.invoiceUrl ? (
-                            <button
-                              onClick={async () => {
-                                try {
-                                  const resp = await fetch(`/api/stripe/billing?action=download-invoice&invoiceId=${encodeURIComponent(inv.id)}`);
-                                  if (!resp.ok) throw new Error('Download failed');
-
-                                  const contentType = resp.headers.get('content-type') || '';
-
-                                  // If server returned a redirect URL (for charge receipts or fallback)
-                                  if (contentType.includes('application/json')) {
-                                    const data = await resp.json();
-                                    if (data.redirect) {
-                                      window.open(data.redirect, '_blank', 'noopener,noreferrer');
-                                      return;
-                                    }
-                                    throw new Error('No document available');
-                                  }
-
-                                  // It's a real PDF — trigger download
-                                  const blob = await resp.blob();
-                                  const url = URL.createObjectURL(blob);
-                                  const a = document.createElement('a');
-                                  a.href = url;
-                                  a.download = `invoice-${inv.id}.pdf`;
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  document.body.removeChild(a);
-                                  URL.revokeObjectURL(url);
-                                } catch {
-                                  window.open(inv.invoiceUrl, '_blank', 'noopener,noreferrer');
-                                }
-                              }}
-                              className="text-sm text-orange-500 hover:text-orange-600 font-medium transition-colors"
-                            >
-                              {formatInvoiceLabel(inv.date)}
-                            </button>
-                          ) : (
-                            <span className="text-sm text-gray-400">—</span>
-                          )}
+                  </thead>
+                  <tbody className="divide-y dark:divide-gray-700">
+                    {paginatedHistory.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-16 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                          No matching records found.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
+                    ) : (
+                      paginatedHistory.map(inv => (
+                        <tr key={inv.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                          <td className="px-4 py-2">
+                            <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">{inv.referenceLabel}</span>
+                          </td>
+                          <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tighter whitespace-nowrap">{inv.formattedDate}</td>
+                          <td className="px-4 py-2 text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap">{inv.formattedTime}</td>
+                          <td className="px-4 py-2 whitespace-nowrap">
+                            <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${getStatusBadge(inv.status).className}`}>
+                              {getStatusBadge(inv.status).label}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase whitespace-nowrap">{inv.sourceLabel}</td>
+                          <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-200 min-w-[260px]">{inv.description}</td>
+                          <td className="px-4 py-2 text-right font-black dark:text-white text-xs whitespace-nowrap">RM{inv.amount.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-right whitespace-nowrap">
+                            {inv.invoiceUrl ? (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const resp = await fetch(`/api/stripe/billing?action=download-invoice&invoiceId=${encodeURIComponent(inv.id)}`);
+                                    if (!resp.ok) throw new Error('Download failed');
+
+                                    const contentType = resp.headers.get('content-type') || '';
+
+                                    if (contentType.includes('application/json')) {
+                                      const data = await resp.json();
+                                      if (data.redirect) {
+                                        window.open(data.redirect, '_blank', 'noopener,noreferrer');
+                                        return;
+                                      }
+                                      throw new Error('No document available');
+                                    }
+
+                                    const blob = await resp.blob();
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `invoice-${inv.id}.pdf`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                  } catch {
+                                    window.open(inv.invoiceUrl, '_blank', 'noopener,noreferrer');
+                                  }
+                                }}
+                                className="text-[10px] font-black text-orange-500 hover:text-orange-600 uppercase tracking-widest underline decoration-dotted underline-offset-4 transition-colors"
+                              >
+                                {formatInvoiceLabel(inv.date)}
+                              </button>
+                            ) : (
+                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
                 </table>
               </div>
 
-              {showHistoryPagination && (
-                <div className="mt-4 flex items-center justify-end gap-2 flex-wrap">
-                  <button
-                    onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
-                    disabled={historyPage === 1}
-                    className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-600 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Prev
+              {totalHistoryPages > 1 && (
+                <div className="mt-8 flex items-center justify-center gap-2 overflow-x-auto py-2 px-4 no-print">
+                  <button onClick={() => setHistoryPage(1)} disabled={historyPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
+                    <ChevronFirst size={16} />
+                  </button>
+                  <button onClick={() => setHistoryPage((prev) => Math.max(1, prev - 1))} disabled={historyPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
+                    <ChevronLeft size={16} />
                   </button>
 
-                  {Array.from({ length: totalHistoryPages }, (_, i) => i + 1).map((pageNum) => (
-                    <button
-                      key={pageNum}
-                      onClick={() => setHistoryPage(pageNum)}
-                      className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${
-                        historyPage === pageNum
-                          ? 'border-orange-400 bg-orange-500 text-white'
-                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  ))}
+                  <div className="flex items-center gap-1">
+                    {historyVisiblePages.map((pageNum) => (
+                      <button
+                        key={pageNum}
+                        onClick={() => setHistoryPage(pageNum)}
+                        className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${historyPage === pageNum ? 'bg-orange-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                      >
+                        {pageNum}
+                      </button>
+                    ))}
+                  </div>
 
-                  <button
-                    onClick={() => setHistoryPage((p) => Math.min(totalHistoryPages, p + 1))}
-                    disabled={historyPage === totalHistoryPages}
-                    className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-600 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Next
+                  <button onClick={() => setHistoryPage((prev) => Math.min(totalHistoryPages, prev + 1))} disabled={historyPage === totalHistoryPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
+                    <ChevronRight size={16} />
+                  </button>
+                  <button onClick={() => setHistoryPage(totalHistoryPages)} disabled={historyPage === totalHistoryPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
+                    <ChevronLast size={16} />
                   </button>
                 </div>
               )}
-            </>
+            </div>
           )}
         </section>
       </div>
