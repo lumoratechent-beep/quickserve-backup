@@ -298,6 +298,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ url: session.url, customerId });
       }
 
+      // POST /api/stripe/billing?action=wallet-topup-session  body: { restaurantId, amount, customerId? }
+      case 'wallet-topup-session': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { restaurantId: topupRestaurantId, amount, customerId: inputCustomerId } = req.body || {};
+        const parsedAmount = Number(amount);
+
+        if (!topupRestaurantId || !parsedAmount || parsedAmount <= 0) {
+          return res.status(400).json({ error: 'restaurantId and a valid amount are required.' });
+        }
+
+        const customerId = await getOrCreateStripeCustomerId(topupRestaurantId, inputCustomerId);
+        const baseUrl = (req.headers.origin || req.headers.referer || 'https://quickserve.my').replace(/\/$/, '');
+
+        const session = await stripe.checkout.sessions.create({
+          customer: customerId,
+          mode: 'payment',
+          payment_method_types: ['card'],
+          line_items: [{
+            price_data: {
+              currency: 'myr',
+              unit_amount: Math.round(parsedAmount * 100),
+              product_data: {
+                name: 'QuickServe Wallet Top Up',
+              },
+            },
+            quantity: 1,
+          }],
+          success_url: `${baseUrl}?payment=success&source=wallet_topup&checkout_session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${baseUrl}?payment=cancelled&source=wallet_topup`,
+          payment_intent_data: {
+            description: `QuickServe Wallet Top Up - RM ${parsedAmount.toFixed(2)}`,
+            metadata: {
+              restaurant_id: topupRestaurantId,
+              type: 'wallet_topup',
+              amount: parsedAmount.toFixed(2),
+            },
+          },
+          metadata: {
+            restaurant_id: topupRestaurantId,
+            type: 'wallet_topup',
+            amount: parsedAmount.toFixed(2),
+          },
+        });
+
+        return res.status(200).json({ url: session.url, customerId });
+      }
+
       // POST /api/stripe/billing?action=delete-payment-method  body: { paymentMethodId }
       case 'delete-payment-method': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });

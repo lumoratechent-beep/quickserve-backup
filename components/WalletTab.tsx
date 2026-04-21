@@ -243,26 +243,31 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
     setIsDepositing(true);
     try {
       if (depositMethod === 'card') {
-        if (!selectedCardId) {
-          toast('Please select a card first.', 'warning');
-          return;
-        }
+        localStorage.setItem('qs_return_tab', 'BILLING');
+        localStorage.setItem('qs_wallet_billing_subtab', 'WALLET');
 
-        const res = await fetch('/api/stripe/billing?action=wallet-topup-direct', {
+        const res = await fetch('/api/stripe/billing?action=wallet-topup-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             restaurantId: restaurant.id,
             amount,
-            paymentMethodId: selectedCardId,
             customerId: subscription?.stripe_customer_id,
           }),
         });
         const data = await res.json();
         if (!res.ok) {
-          toast(data.error || 'Failed to top up wallet.', 'error');
+          toast(data.error || 'Failed to start wallet top up.', 'error');
           return;
         }
+
+        if (data.url) {
+          window.location.href = data.url;
+          return;
+        }
+
+        toast('Failed to start wallet top up.', 'error');
+        return;
       } else {
         const res = await fetch('/api/wallet?action=deposit', {
           method: 'POST',
@@ -488,7 +493,7 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
             </p>
             <button
               onClick={handleDeposit}
-              disabled={isDepositing || !depositAmount || (depositMethod === 'card' && !selectedCardId)}
+              disabled={isDepositing || !depositAmount}
               className="px-5 py-2.5 bg-emerald-500 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 transition-all disabled:opacity-50 flex items-center gap-1.5"
             >
               {isDepositing ? <RotateCw size={12} className="animate-spin" /> : <PlusCircle size={12} />}

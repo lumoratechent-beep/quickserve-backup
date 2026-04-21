@@ -16,6 +16,23 @@ const PLAN_KITCHEN_MAP: Record<string, { kitchenEnabled: boolean }> = {
   pro_plus: { kitchenEnabled: true },
 };
 
+async function getWalletBalance(restaurantId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('wallet_transactions')
+    .select('amount, type')
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'completed');
+
+  if (error || !data) return 0;
+
+  return data.reduce((total, transaction) => {
+    const amount = Number(transaction.amount) || 0;
+    if (transaction.type === 'sale' || transaction.type === 'deposit') return total + amount;
+    if (transaction.type === 'cashout' || transaction.type === 'billing') return total - amount;
+    return total;
+  }, 0);
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!supabaseServiceKey) {
     return res.status(500).json({ error: 'SUPABASE_SERVICE_KEY is not configured.' });
@@ -50,6 +67,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!restaurantId) {
       return res.status(400).json({ error: 'Missing restaurant_id metadata in checkout session.' });
+    }
+
+    if (session.metadata?.type === 'wallet_topup') {
+      const amount = Number(session.metadata?.amount || 0);
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ error: 'Invalid wallet top-up amount.' });
+      }
+
+      const transactionDescription = `Wallet top up via Stripe Checkout - ${session.id}`;
+      const { data: existingTransaction } = await supabase
+        .from('wallet_transactions')
+        .select('id, amount, description')
+        .eq('restaurant_id', restaurantId)
+        .eq('description', transactionDescription)
+        .maybeSingle();
+
+      if (!existingTransaction) {
+        const { error: transactionError } = await supabase
+          .from('wallet_transactions')
+          .insert({
+            restaurant_id: restaurantId,
+            amount,
+            type: 'deposit',
+            status: 'completed',
+            description: transactionDescription,
+          });
+
+        if (transactionError) {
+          return res.status(500).json({ error: transactionError.message || 'Wallet top up succeeded but could not be recorded.' });
+        }
+      }
+
+      const balance = await getWalletBalance(restaurantId);
+      return res.status(200).json({
+        success: true,
+        restaurantId,
+        mode: session.mode,
+        walletTopup: true,
+        amount,
+        balance,
+      });
     }
 
     if (session.mode === 'subscription' && session.subscription) {

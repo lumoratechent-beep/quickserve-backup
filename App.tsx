@@ -251,8 +251,11 @@ const App: React.FC = () => {
       window.history.replaceState({}, '', window.location.pathname);
     }
     // Flag PosOnlyView to open on BILLING tab after redirect
-    if ((payment && source === 'upgrade') || setup) {
+    if ((payment && (source === 'upgrade' || source === 'wallet_topup')) || setup) {
       localStorage.setItem('qs_return_tab', 'BILLING');
+    }
+    if (payment && source === 'wallet_topup') {
+      localStorage.setItem('qs_wallet_billing_subtab', 'WALLET');
     }
     return { payment, source, checkoutSessionId, setup };
   });
@@ -264,13 +267,13 @@ const App: React.FC = () => {
     
     // Handle Stripe payment redirect
     if (stripeRedirect.payment === 'success') {
-      if (stripeRedirect.source === 'upgrade') {
+      if (stripeRedirect.source === 'upgrade' || stripeRedirect.source === 'wallet_topup') {
         return savedView || 'APP';
       }
       return 'LOGIN';
     }
     if (stripeRedirect.payment === 'cancelled') {
-      if (stripeRedirect.source === 'upgrade') {
+      if (stripeRedirect.source === 'upgrade' || stripeRedirect.source === 'wallet_topup') {
         return savedView || 'APP';
       }
       return 'LOGIN';
@@ -325,6 +328,35 @@ const App: React.FC = () => {
         };
 
         syncAfterCheckout();
+      } else if (stripeRedirect.source === 'wallet_topup') {
+        const confirmWalletTopup = async () => {
+          if (stripeRedirect.checkoutSessionId) {
+            toast('Payment successful. Finalizing wallet top up...', 'info');
+            try {
+              const res = await fetch('/api/stripe/confirm-checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ checkoutSessionId: stripeRedirect.checkoutSessionId }),
+              });
+              const data = await res.json();
+              if (!res.ok) {
+                throw new Error(data?.error || 'Unable to confirm wallet top up.');
+              }
+              await refreshPlanState();
+              const amountLabel = typeof data?.amount === 'number'
+                ? `RM ${data.amount.toFixed(2)}`
+                : 'your amount';
+              toast(`Wallet topped up successfully with ${amountLabel}.`, 'success');
+              return;
+            } catch (err) {
+              console.error('Wallet top-up confirm-checkout failed:', err);
+            }
+          }
+
+          toast('Payment received. Wallet balance sync may take a few seconds to appear.', 'warning');
+        };
+
+        confirmWalletTopup();
       } else {
         // New registration: confirm checkout to activate the account
         const activateAfterRegistration = async () => {
@@ -356,6 +388,8 @@ const App: React.FC = () => {
     } else if (stripeRedirect.payment === 'cancelled') {
       if (stripeRedirect.source === 'upgrade') {
         toast('Checkout was cancelled. You can try again anytime.', 'warning');
+      } else if (stripeRedirect.source === 'wallet_topup') {
+        toast('Wallet top up was cancelled.', 'warning');
       } else {
         toast('Card setup was cancelled. You can try again by registering.', 'error');
         setView('LOGIN');
