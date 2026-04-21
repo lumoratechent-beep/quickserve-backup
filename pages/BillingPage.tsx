@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Subscription, PlanId, DuitNowPayment } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 import { daysLeftInTrial, isTrialActive, isSubscriptionActive, getRenewalStatus, daysUntilExpiry, GRACE_PERIOD_DAYS } from '../lib/subscriptionService';
-import { Loader2, Check, Plus, RefreshCw, X, AlertCircle, CheckCircle, ArrowLeftRight, QrCode, Upload, Clock, FileImage } from 'lucide-react';
+import { Loader2, Check, Plus, RefreshCw, X, AlertCircle, CheckCircle, ArrowLeftRight, Upload, Clock, FileImage } from 'lucide-react';
 import { toast } from '../components/Toast';
 
 interface BillingHistory {
@@ -639,17 +639,19 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   <p className="text-xs text-[#ED2C67] mb-3 font-semibold">DuitNow QR</p>
                   <div className="flex items-center gap-2.5">
                     <img
-                      src="/LOGO/duitnow_logo.png"
+                      src="/LOGO/duitnow-white-theme.png"
                       alt="DuitNow"
-                      className="h-10 w-auto object-contain"
+                      className="h-10 w-auto object-contain dark:hidden"
+                    />
+                    <img
+                      src="/LOGO/duitnow-dark-theme.png"
+                      alt="DuitNow"
+                      className="hidden h-10 w-auto object-contain dark:block"
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300 font-semibold">
                       Bank / e-Wallet
                     </span>
                   </div>
-                  {selectedMethodId === 'duitnow' && (
-                    <p className="text-[9px] text-[#ED2C67] font-medium mt-2">Scan QR to pay · Admin approval</p>
-                  )}
                 </div>
               )}
 
