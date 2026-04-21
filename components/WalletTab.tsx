@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase';
 import {
   Wallet, RotateCw, Send, Building2, ChevronDown, Edit3, CheckCircle,
   X, Banknote, Receipt, ArrowUpRight, ArrowDownRight, PlusCircle, CreditCard, QrCode, Plus,
-  Search, ChevronLeft, ChevronRight, ChevronFirst, ChevronLast
+  Search, ChevronLeft, ChevronRight, ChevronFirst, ChevronLast, Menu
 } from 'lucide-react';
 
 const MALAYSIA_BANKS = [
@@ -91,6 +91,7 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
   const [walletMethodFilter, setWalletMethodFilter] = useState('ALL');
   const [walletEntriesPerPage, setWalletEntriesPerPage] = useState(30);
   const [walletCurrentPage, setWalletCurrentPage] = useState(1);
+  const [selectedWalletTransaction, setSelectedWalletTransaction] = useState<any | null>(null);
 
   // Currency setup
   const userCurrency = restaurant.settings?.currency || localStorage.getItem(`ux_currency_${restaurant.id}`) || 'MYR';
@@ -924,27 +925,18 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
               <table className="w-full text-left">
                 <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
                   <tr>
-                    <th className="px-4 py-3 text-left">Reference</th>
                     <th className="px-4 py-3 text-left">Date</th>
                     <th className="px-4 py-3 text-left">Time</th>
                     <th className="px-4 py-3 text-left">Status</th>
                     <th className="px-4 py-3 text-left">Method</th>
-                    <th className="px-4 py-3 text-left">Type</th>
-                    <th className="px-4 py-3 text-left">Description</th>
+                    <th className="px-4 py-3 text-left">Details</th>
                     <th className="px-4 py-3 text-right">Amount</th>
+                    <th className="px-4 py-3 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y dark:divide-gray-700">
                   {paginatedWalletTransactions.map((tx: any) => (
                     <tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                      <td className="px-4 py-2">
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">{tx.referenceLabel}</span>
-                          {tx.order_id && (
-                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">Order</span>
-                          )}
-                        </div>
-                      </td>
                       <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tighter whitespace-nowrap">
                         {tx.formattedDate}
                       </td>
@@ -963,21 +955,21 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
                       <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase whitespace-nowrap">
                         {tx.methodLabel}
                       </td>
-                      <td className="px-4 py-2">
-                        <span className={`inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
-                          tx.type === 'sale' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
-                          tx.type === 'deposit' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
-                          tx.type === 'billing' ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' :
-                          'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                        }`}>
-                          {isCreditTransaction(tx.type)
-                            ? <ArrowDownRight size={9} />
-                            : <ArrowUpRight size={9} />}
-                          {tx.type}
-                        </span>
-                      </td>
                       <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-200 min-w-[240px]">
-                        {tx.cleanDescription}
+                        <div className="flex flex-col gap-1">
+                          <span>{tx.cleanDescription}</span>
+                          <span className={`inline-flex w-fit items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                            tx.type === 'sale' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
+                            tx.type === 'deposit' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
+                            tx.type === 'billing' ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' :
+                            'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                          }`}>
+                            {isCreditTransaction(tx.type)
+                              ? <ArrowDownRight size={9} />
+                              : <ArrowUpRight size={9} />}
+                            {tx.type}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-4 py-2 text-right whitespace-nowrap">
                         <span className={`text-xs font-black ${
@@ -986,11 +978,20 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
                           {isCreditTransaction(tx.type) ? '+' : '-'}{currencySymbol}{Number(tx.amount).toFixed(2)}
                         </span>
                       </td>
+                      <td className="px-4 py-2 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => setSelectedWalletTransaction(tx)}
+                          className="h-8 w-8 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors inline-flex items-center justify-center"
+                          aria-label={`Open ${tx.referenceLabel} details`}
+                        >
+                          <Menu size={14} />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                   {paginatedWalletTransactions.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="py-16 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                      <td colSpan={7} className="py-16 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
                         No matching records found.
                       </td>
                     </tr>
@@ -998,6 +999,85 @@ const WalletTab: React.FC<Props> = ({ restaurant, subscription }) => {
                 </tbody>
               </table>
             </div>
+
+            {selectedWalletTransaction && (
+              <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setSelectedWalletTransaction(null)}>
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden" onClick={(event) => event.stopPropagation()}>
+                  <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-700 flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-lg font-black dark:text-white uppercase tracking-tight">Wallet Transaction Details</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">View the full wallet transaction details, including reference and order information.</p>
+                    </div>
+                    <button
+                      onClick={() => setSelectedWalletTransaction(null)}
+                      className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Reference</p>
+                        <p className="mt-1 text-sm font-black text-orange-500 uppercase tracking-tight break-all">{selectedWalletTransaction.referenceLabel}</p>
+                      </div>
+                      <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</p>
+                        <p className="mt-1 text-sm font-black dark:text-white uppercase tracking-tight">{selectedWalletTransaction.status}</p>
+                      </div>
+                      <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Method</p>
+                        <p className="mt-1 text-sm font-black dark:text-white uppercase tracking-tight">{selectedWalletTransaction.methodLabel}</p>
+                      </div>
+                      <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Type</p>
+                        <p className="mt-1 text-sm font-black dark:text-white uppercase tracking-tight">{selectedWalletTransaction.type}</p>
+                      </div>
+                      <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</p>
+                        <p className="mt-1 text-sm font-black dark:text-white">{selectedWalletTransaction.formattedDate}</p>
+                      </div>
+                      <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Time</p>
+                        <p className="mt-1 text-sm font-black dark:text-white">{selectedWalletTransaction.formattedTime}</p>
+                      </div>
+                      <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 md:col-span-2">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Amount</p>
+                        <p className={`mt-1 text-sm font-black ${isCreditTransaction(selectedWalletTransaction.type) ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+                          {isCreditTransaction(selectedWalletTransaction.type) ? '+' : '-'}{currencySymbol}{Number(selectedWalletTransaction.amount || 0).toFixed(2)}
+                        </p>
+                      </div>
+                      {selectedWalletTransaction.order_id && (
+                        <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 md:col-span-2">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Order ID</p>
+                          <p className="mt-1 text-sm font-bold text-gray-700 dark:text-gray-200 break-all">{selectedWalletTransaction.order_id}</p>
+                        </div>
+                      )}
+                      {selectedWalletTransaction.reference_code && (
+                        <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 md:col-span-2">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Reference Code</p>
+                          <p className="mt-1 text-sm font-bold text-gray-700 dark:text-gray-200 break-all">{selectedWalletTransaction.reference_code}</p>
+                        </div>
+                      )}
+                      <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 md:col-span-2">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Details</p>
+                        <p className="mt-1 text-sm font-bold text-gray-700 dark:text-gray-200 break-words">{selectedWalletTransaction.cleanDescription}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 pt-2">
+                      <button
+                        onClick={() => setSelectedWalletTransaction(null)}
+                        className="px-4 py-2.5 rounded-xl text-xs font-bold border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {walletTotalPages > 1 && (
               <div className="mt-8 flex items-center justify-center gap-2 overflow-x-auto py-2 px-4 no-print">

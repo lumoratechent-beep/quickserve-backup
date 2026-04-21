@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Subscription, PlanId, DuitNowPayment } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
 import { daysLeftInTrial, isTrialActive, isSubscriptionActive, getRenewalStatus, daysUntilExpiry, GRACE_PERIOD_DAYS } from '../lib/subscriptionService';
-import { Loader2, Check, Plus, RefreshCw, X, AlertCircle, CheckCircle, ArrowLeftRight, Upload, Clock, FileImage, Search, ChevronLeft, ChevronRight, ChevronFirst, ChevronLast } from 'lucide-react';
+import { Loader2, Check, Plus, RefreshCw, X, AlertCircle, CheckCircle, ArrowLeftRight, Upload, Clock, FileImage, Search, ChevronLeft, ChevronRight, ChevronFirst, ChevronLast, Menu } from 'lucide-react';
 import { toast } from '../components/Toast';
 import { supabase } from '../lib/supabase';
 
@@ -14,6 +14,14 @@ interface BillingHistory {
   status: 'success' | 'pending' | 'approved' | 'rejected';
   invoiceUrl?: string;
   referenceCode?: string | null;
+}
+
+interface BillingHistoryRow extends BillingHistory {
+  sourceLabel: string;
+  formattedDate: string;
+  formattedTime: string;
+  referenceLabel: string;
+  referenceNumber?: string | null;
 }
 
 interface PaymentMethod {
@@ -68,6 +76,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   const [duitnowAttachment, setDuitnowAttachment] = useState<File | null>(null);
   const [duitnowPreviewUrl, setDuitnowPreviewUrl] = useState<string | null>(null);
   const [paymentQrImageUrl, setPaymentQrImageUrl] = useState<string | null>(null);
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<BillingHistoryRow | null>(null);
 
   const hasPendingDowngrade = Boolean(
     subscription?.pending_plan_id &&
@@ -130,6 +139,38 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
   useEffect(() => {
     if (isDuitNowEnabled) fetchPaymentQrImage();
   }, [isDuitNowEnabled]);
+
+  const downloadInvoice = async (historyItem: BillingHistoryRow) => {
+    if (!historyItem.invoiceUrl) return;
+
+    try {
+      const resp = await fetch(`/api/stripe/billing?action=download-invoice&invoiceId=${encodeURIComponent(historyItem.id)}`);
+      if (!resp.ok) throw new Error('Download failed');
+
+      const contentType = resp.headers.get('content-type') || '';
+
+      if (contentType.includes('application/json')) {
+        const data = await resp.json();
+        if (data.redirect) {
+          window.open(data.redirect, '_blank', 'noopener,noreferrer');
+          return;
+        }
+        throw new Error('No document available');
+      }
+
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `invoice-${historyItem.id}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open(historyItem.invoiceUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
 
   const fetchPaymentQrImage = async () => {
     try {
@@ -409,11 +450,12 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
     );
   };
 
-  const combinedBillingHistory = useMemo(() => {
+  const combinedBillingHistory = useMemo<BillingHistoryRow[]>(() => {
     return [
       ...billingHistory.map((entry) => ({
         ...entry,
         status: entry.status || 'success',
+        referenceNumber: null,
       })),
       ...duitnowPayments.map((payment) => ({
         id: payment.id,
@@ -427,6 +469,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         status: payment.status,
         invoiceUrl: undefined,
         referenceCode: payment.reference_code || null,
+        referenceNumber: payment.reference_number || null,
       })),
     ]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -969,29 +1012,25 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                 <table className="w-full text-left">
                   <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
                     <tr>
-                      <th className="px-4 py-3 text-left">Reference</th>
                       <th className="px-4 py-3 text-left">Date</th>
                       <th className="px-4 py-3 text-left">Time</th>
                       <th className="px-4 py-3 text-left">Status</th>
                       <th className="px-4 py-3 text-left">Method</th>
                       <th className="px-4 py-3 text-left">Details</th>
                       <th className="px-4 py-3 text-right">Amount</th>
-                      <th className="px-4 py-3 text-right">Invoice</th>
+                      <th className="px-4 py-3 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y dark:divide-gray-700">
                     {paginatedHistory.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-16 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        <td colSpan={7} className="py-16 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
                           No matching records found.
                         </td>
                       </tr>
                     ) : (
-                      paginatedHistory.map(inv => (
+                      paginatedHistory.map((inv) => (
                         <tr key={inv.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                          <td className="px-4 py-2">
-                            <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">{inv.referenceLabel}</span>
-                          </td>
                           <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tighter whitespace-nowrap">{inv.formattedDate}</td>
                           <td className="px-4 py-2 text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap">{inv.formattedTime}</td>
                           <td className="px-4 py-2 whitespace-nowrap">
@@ -1003,44 +1042,13 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                           <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-200 min-w-[260px]">{inv.description}</td>
                           <td className="px-4 py-2 text-right font-black dark:text-white text-xs whitespace-nowrap">RM{inv.amount.toFixed(2)}</td>
                           <td className="px-4 py-2 text-right whitespace-nowrap">
-                            {inv.invoiceUrl ? (
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    const resp = await fetch(`/api/stripe/billing?action=download-invoice&invoiceId=${encodeURIComponent(inv.id)}`);
-                                    if (!resp.ok) throw new Error('Download failed');
-
-                                    const contentType = resp.headers.get('content-type') || '';
-
-                                    if (contentType.includes('application/json')) {
-                                      const data = await resp.json();
-                                      if (data.redirect) {
-                                        window.open(data.redirect, '_blank', 'noopener,noreferrer');
-                                        return;
-                                      }
-                                      throw new Error('No document available');
-                                    }
-
-                                    const blob = await resp.blob();
-                                    const url = URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = `invoice-${inv.id}.pdf`;
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    document.body.removeChild(a);
-                                    URL.revokeObjectURL(url);
-                                  } catch {
-                                    window.open(inv.invoiceUrl, '_blank', 'noopener,noreferrer');
-                                  }
-                                }}
-                                className="text-[10px] font-black text-orange-500 hover:text-orange-600 uppercase tracking-widest underline decoration-dotted underline-offset-4 transition-colors"
-                              >
-                                Download
-                              </button>
-                            ) : (
-                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">—</span>
-                            )}
+                            <button
+                              onClick={() => setSelectedHistoryItem(inv)}
+                              className="h-8 w-8 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors inline-flex items-center justify-center"
+                              aria-label={`Open ${inv.referenceLabel} details`}
+                            >
+                              <Menu size={14} />
+                            </button>
                           </td>
                         </tr>
                       ))
@@ -1048,6 +1056,86 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                   </tbody>
                 </table>
               </div>
+
+              {selectedHistoryItem && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setSelectedHistoryItem(null)}>
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden" onClick={(event) => event.stopPropagation()}>
+                    <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-700 flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-lg font-black dark:text-white uppercase tracking-tight">Billing Transaction Details</h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">View the full billing entry details before downloading the invoice.</p>
+                      </div>
+                      <button
+                        onClick={() => setSelectedHistoryItem(null)}
+                        className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+
+                    <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Reference</p>
+                          <p className="mt-1 text-sm font-black text-orange-500 uppercase tracking-tight break-all">{selectedHistoryItem.referenceLabel}</p>
+                        </div>
+                        <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Method</p>
+                          <p className="mt-1 text-sm font-black dark:text-white uppercase tracking-tight">{selectedHistoryItem.sourceLabel}</p>
+                        </div>
+                        <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</p>
+                          <p className="mt-1 text-sm font-black dark:text-white">{getStatusBadge(selectedHistoryItem.status).label}</p>
+                        </div>
+                        <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Amount</p>
+                          <p className="mt-1 text-sm font-black text-green-600 dark:text-green-400">RM{Number(selectedHistoryItem.amount || 0).toFixed(2)}</p>
+                        </div>
+                        <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</p>
+                          <p className="mt-1 text-sm font-black dark:text-white">{selectedHistoryItem.formattedDate}</p>
+                        </div>
+                        <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Time</p>
+                          <p className="mt-1 text-sm font-black dark:text-white">{selectedHistoryItem.formattedTime}</p>
+                        </div>
+                        {selectedHistoryItem.referenceCode && (
+                          <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 md:col-span-2">
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Reference Code</p>
+                            <p className="mt-1 text-sm font-bold text-gray-700 dark:text-gray-200 break-all">{selectedHistoryItem.referenceCode}</p>
+                          </div>
+                        )}
+                        {selectedHistoryItem.referenceNumber && (
+                          <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 md:col-span-2">
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Reference Number</p>
+                            <p className="mt-1 text-sm font-bold text-gray-700 dark:text-gray-200 break-all">{selectedHistoryItem.referenceNumber}</p>
+                          </div>
+                        )}
+                        <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 md:col-span-2">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Details</p>
+                          <p className="mt-1 text-sm font-bold text-gray-700 dark:text-gray-200 break-words">{selectedHistoryItem.description}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-3 pt-2">
+                        <button
+                          onClick={() => setSelectedHistoryItem(null)}
+                          className="px-4 py-2.5 rounded-xl text-xs font-bold border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => void downloadInvoice(selectedHistoryItem)}
+                          disabled={!selectedHistoryItem.invoiceUrl}
+                          className="px-4 py-2.5 rounded-xl text-xs font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Download Invoice
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {totalHistoryPages > 1 && (
                 <div className="mt-8 flex items-center justify-center gap-2 overflow-x-auto py-2 px-4 no-print">
