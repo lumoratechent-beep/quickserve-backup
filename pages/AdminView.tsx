@@ -536,7 +536,7 @@ const AdminView: React.FC<Props> = ({
   // Cashout requests tab state
   const [adminCashouts, setAdminCashouts] = useState<any[]>([]);
   const [adminCashoutsLoading, setAdminCashoutsLoading] = useState(false);
-  const [adminCashoutFilter, setAdminCashoutFilter] = useState<'all' | 'pending' | 'approved' | 'completed' | 'rejected'>('pending');
+  const [adminCashoutFilter, setAdminCashoutFilter] = useState<'all' | 'pending' | 'approved' | 'completed' | 'rejected'>('all');
   const [adminCashoutSearchQuery, setAdminCashoutSearchQuery] = useState('');
   const [adminCashoutEntriesPerPage, setAdminCashoutEntriesPerPage] = useState(30);
   const [adminCashoutCurrentPage, setAdminCashoutCurrentPage] = useState(1);
@@ -1896,346 +1896,357 @@ const AdminView: React.FC<Props> = ({
 
         <div className="flex-1 overflow-auto">
         {activeTab === 'VENDORS' && (
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-4 md:p-8 pb-0 md:pb-0">
-              <div className="mb-5">
-                <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">Vendor & Hubs</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Manage registered kitchens and hub locations</p>
-              </div>
-
-              {/* Document-style tab bar */}
-              <div className="flex gap-0 relative">
-                {([
-                  { id: 'VENDORS' as const, label: 'Vendors', icon: <Store size={13} /> },
-                  { id: 'HUBS' as const, label: 'Hubs', icon: <MapPin size={13} /> },
-                ]).map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setVendorHubSubTab(tab.id)}
-                    style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
-                    className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
-                      vendorHubSubTab === tab.id
-                        ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
-                        : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
-                    }`}
-                  >
-                    {tab.icon} {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Tab content container */}
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl rounded-tr-2xl">
-
-            {vendorHubSubTab === 'VENDORS' && (
-              <div className="space-y-5">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-2 w-full md:w-auto md:flex-1">
-                <div className="relative w-full md:w-72">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search kitchen or username..."
-                    className="w-full h-[34px] pl-9 pr-3 py-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 transition-all dark:text-white"
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                  />
-                </div>
-                <div className="relative">
-                   <Filter size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                   <select className="h-[34px] pl-8 pr-6 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase appearance-none outline-none dark:text-white" value={vendorFilter} onChange={e => setVendorFilter(e.target.value as any)}>
-                      <option value="ALL">All</option>
-                      <option value="ACTIVE">Active</option>
-                      <option value="INACTIVE">Deactive</option>
-                   </select>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleDownloadVendors}
-                  disabled={filteredVendors.length === 0}
-                  className="h-[34px] px-4 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-orange-500 hover:text-white transition-all shadow-lg whitespace-nowrap disabled:opacity-30"
-                >
-                  <Download size={14} /> Download
-                </button>
-                <button onClick={handleOpenAdd} className="h-[34px] px-5 py-2 bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg transition-all active:scale-95 whitespace-nowrap">+ Register</button>
+          <div className="p-4 md:p-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+              <div>
+                <h2 className="text-xl font-black dark:text-white uppercase tracking-tighter flex items-center gap-2">
+                  <Store size={20} className="text-orange-500" />
+                  Vendor & Hubs
+                </h2>
+                <p className="text-xs text-gray-400 mt-1">Manage registered kitchens and hub locations from one workspace.</p>
               </div>
             </div>
-            <div className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[9px] font-black uppercase tracking-widest">
-                  <tr>
-                    <th className="px-4 py-2.5 text-left group">
-                      <div className="inline-flex items-center gap-1.5">
-                        <span>Kitchen</span>
-                        <button
-                          onClick={() => handleVendorSort('KITCHEN')}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-orange-500"
-                          aria-label="Sort Kitchen"
-                          title="Sort Kitchen"
-                        >
-                          {vendorSort?.field === 'KITCHEN' && vendorSort.direction === 'desc' ? '▼' : '▲'}
-                        </button>
-                      </div>
-                    </th>
-                    <th className="px-4 py-2.5 text-left group">
-                      <div className="inline-flex items-center gap-1.5">
-                        <span>Hub</span>
-                        <button
-                          onClick={() => handleVendorSort('HUB')}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-orange-500"
-                          aria-label="Sort Hub"
-                          title="Sort Hub"
-                        >
-                          {vendorSort?.field === 'HUB' && vendorSort.direction === 'desc' ? '▼' : '▲'}
-                        </button>
-                      </div>
-                    </th>
-                    <th className="px-4 py-2.5 text-center">Plan</th>
-                    <th className="px-4 py-2.5 text-center">Plan Expiry</th>
-                    <th className="px-4 py-2.5 text-center">DuitNow</th>
-                    <th className="px-4 py-2.5 text-center">Master Activation</th>
-                    <th className="px-4 py-2.5 text-center">Live Status</th>
-                    <th className="px-4 py-2.5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y dark:divide-gray-700/50">
-                  {paginatedVendors.map(vendor => {
-                    const res = restaurants.find(r => r.id === vendor.restaurantId);
-                    const isOnline = res?.isOnline ?? false;
-                    return (
-                      <tr key={vendor.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                        <td className="px-4 py-2.5">
-                          <div className="flex items-center gap-3">
-                            <img src={res?.logo} className="w-7 h-7 rounded-lg shadow-sm object-cover border dark:border-gray-600" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="12" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${res?.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
-                            <div>
-                                <span className="font-black dark:text-white text-xs block">{res?.name}</span>
-                                <span className="text-[8px] font-black text-orange-500 uppercase tracking-widest">@{vendor.username}</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-2.5 text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase truncate max-w-[120px]">{res?.location || 'Unassigned'}</td>
-                        <td className="px-4 py-2.5 text-center">
-                          {(() => {
-                            const sub = res ? subscriptions[res.id] : null;
-                            const planId = sub?.plan_id || 'basic';
-                            const planColors: Record<string, string> = { basic: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300', pro: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', pro_plus: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' };
-                            const planLabels: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
-                            return <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${planColors[planId] || planColors.basic}`}>{planLabels[planId] || 'Basic'}</span>;
-                          })()}
-                        </td>
-                        <td className="px-4 py-2.5 text-center">
-                          {(() => {
-                            const sub = res ? subscriptions[res.id] : null;
-                            if (!sub) return <span className="text-[9px] font-bold text-gray-400">—</span>;
-                            const endDate = sub.current_period_end || sub.trial_end;
-                            if (!endDate) return <span className="text-[9px] font-bold text-gray-400">—</span>;
-                            const d = new Date(endDate);
-                            const isExpired = d < new Date();
-                            return (
-                              <div className="flex flex-col items-center gap-1">
-                                <span className={`text-[9px] font-black ${isExpired ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>{d.toLocaleDateString()}</span>
-                                {res && (
-                                  <button
-                                    onClick={() => handleAdminExtend(res.id, res.name)}
-                                    disabled={extendingRestId === res.id}
-                                    className="text-[8px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50"
-                                  >
-                                    {extendingRestId === res.id ? '...' : '+ 1 Month'}
-                                  </button>
-                                )}
-                              </div>
-                            );
-                          })()}
-                        </td>
-                        <td className="px-4 py-2.5 text-center">
-                          {(() => {
-                            const sub = res ? subscriptions[res.id] : null;
-                            const isDuitNow = sub?.duitnow_enabled ?? false;
-                            return (
-                              <button
-                                onClick={() => res && handleToggleDuitNow(res.id, isDuitNow)}
-                                disabled={togglingDuitNow === res?.id}
-                                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-                                  isDuitNow ? 'bg-purple-500' : 'bg-gray-300 dark:bg-gray-600'
-                                } ${togglingDuitNow === res?.id ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
-                                title={isDuitNow ? 'DuitNow enabled — click to disable' : 'DuitNow disabled — click to enable'}
-                              >
-                                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-                                  isDuitNow ? 'translate-x-4.5' : 'translate-x-0.5'
-                                }`} />
-                              </button>
-                            );
-                          })()}
-                        </td>
-                        <td className="px-4 py-2.5 text-center">
-                          <button onClick={() => toggleVendorStatus(vendor)} className={`p-1.5 rounded-lg transition-all ${vendor.isActive ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 bg-gray-50 dark:bg-gray-700'}`}>
-                             {vendor.isActive ? <CheckCircle2 size={16} /> : <Power size={16} />}
-                          </button>
-                        </td>
-                        <td className="px-4 py-2.5 text-center">
-                          <button 
-                            onClick={() => res && onToggleOnline(res.id, isOnline)} 
-                            className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${isOnline ? 'bg-green-500 text-white shadow-lg' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'}`}
-                          >
-                            {isOnline ? 'Online' : 'Offline'}
-                          </button>
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <div className="flex justify-end gap-1">
-                            <button onClick={() => handleOpenEdit(vendor)} className="p-1.5 text-gray-400 hover:text-blue-500"><Edit3 size={15} /></button>
-                            {!res && (
-                              <button onClick={() => { if (confirm(`Remove orphaned vendor "${vendor.username}"?`)) onDeleteVendor(vendor.id, vendor.restaurantId || '').catch(() => {}); }} className="p-1.5 text-gray-400 hover:text-red-500" title="Delete orphaned vendor"><Trash2 size={15} /></button>
-                            )}
-                            <button onClick={() => onImpersonateVendor(vendor)} className="p-1.5 text-gray-400 hover:text-orange-500"><LogIn size={15} /></button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            </div>
 
-                {/* Vendor Pagination */}
-                {vendorTotalPages > 1 && (
-                  <div className="flex items-center justify-center gap-2 overflow-x-auto py-2 no-print">
-                    <button onClick={() => setVendorPage(1)} disabled={vendorPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronFirst size={16} /></button>
-                    <button onClick={() => setVendorPage(prev => Math.max(1, prev - 1))} disabled={vendorPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronLeft size={16} /></button>
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: vendorTotalPages }, (_, i) => i + 1)
-                        .filter(p => p === 1 || p === vendorTotalPages || (p >= vendorPage - 2 && p <= vendorPage + 2))
-                        .map((p, i, arr) => {
-                          const showEllipsis = i > 0 && p !== arr[i-1] + 1;
-                          return (
-                            <React.Fragment key={p}>
-                              {showEllipsis && <span className="text-gray-400 px-1">...</span>}
-                              <button onClick={() => setVendorPage(p)} className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${vendorPage === p ? 'bg-orange-500 text-white shadow-lg' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>{p}</button>
-                            </React.Fragment>
-                          );
-                        })
-                      }
-                    </div>
-                    <button onClick={() => setVendorPage(prev => Math.min(vendorTotalPages, prev + 1))} disabled={vendorPage === vendorTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronRight size={16} /></button>
-                    <button onClick={() => setVendorPage(vendorTotalPages)} disabled={vendorPage === vendorTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronLast size={16} /></button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {vendorHubSubTab === 'HUBS' && (
-              <div className="space-y-5">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-2 w-full md:w-auto md:flex-1">
-                <div className="relative w-full md:w-72">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search hubs..."
-                    className="w-full h-[34px] pl-9 pr-3 py-2 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 transition-all dark:text-white"
-                    value={hubSearchQuery}
-                    onChange={e => setHubSearchQuery(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleDownloadHubs}
-                  disabled={filteredHubs.length === 0}
-                  className="h-[34px] px-4 py-2 bg-black dark:bg-white text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-orange-500 hover:text-white transition-all shadow-lg whitespace-nowrap disabled:opacity-30"
-                >
-                  <Download size={14} /> Download
-                </button>
-                <button onClick={() => setIsHubSelectionModalOpen(true)} className="h-[34px] px-4 py-2 bg-white dark:bg-gray-900 text-orange-500 border-2 border-orange-500 rounded-xl font-black uppercase tracking-widest text-[9px] shadow-sm flex items-center justify-center gap-2 hover:bg-orange-500 hover:text-white transition-all whitespace-nowrap">
-                  <QrCode size={14} /> QR
-                </button>
-                <button onClick={handleOpenHubAdd} className="h-[34px] px-5 py-2 bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg whitespace-nowrap">Register Hub</button>
-              </div>
-            </div>
-            <div className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[9px] font-black uppercase tracking-widest">
-                  <tr>
-                    <th className="px-4 py-2.5 text-left">Hub</th>
-                    <th className="px-4 py-2.5 text-center">Vendors</th>
-                    <th className="px-4 py-2.5 text-center">Status</th>
-                    <th className="px-4 py-2.5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y dark:divide-gray-700/50">
-                  {paginatedHubsList.map(loc => (
-                    <tr key={loc.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors group">
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-orange-50 dark:bg-orange-900/30 text-orange-500 rounded-xl flex items-center justify-center shadow-inner group-hover:bg-orange-500 group-hover:text-white transition-all"><MapPin size={20} /></div>
-                          <div>
-                            <span className="font-black dark:text-white text-sm block uppercase tracking-tight">{loc.name}</span>
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{loc.code} | {loc.state}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-2.5 text-center">
-                        {(() => {
-                          const count = restaurants.filter(r => r.location === loc.name).length;
-                          return (
-                            <button
-                              onClick={() => setViewingHubVendors(loc)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:text-orange-500 text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50"
-                            >
-                              <Users size={14} />
-                              {count}
-                            </button>
-                          );
-                        })()}
-                      </td>
-                      <td className="px-4 py-2.5 text-center">
-                        <button onClick={() => toggleHubStatus(loc)} className={`p-1.5 rounded-lg transition-all ${loc.isActive !== false ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 bg-gray-50 dark:bg-gray-700'}`}>
-                           {loc.isActive !== false ? <Power size={16} /> : <Power size={16} className="opacity-40" />}
-                        </button>
-                      </td>
-                      <td className="px-4 py-2.5 text-right">
-                        <div className="flex justify-end gap-1">
-                          <button onClick={() => setGeneratingQrHub(loc)} className="p-1.5 text-gray-400 hover:text-orange-500"><QrCode size={15} /></button>
-                          <button onClick={() => handleOpenHubEdit(loc)} className="p-1.5 text-gray-400 hover:text-blue-500"><Edit3 size={15} /></button>
-                        </div>
-                      </td>
-                    </tr>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm">
+              <div className="p-5 border-b border-gray-100 dark:border-gray-700 space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  {([
+                    { id: 'VENDORS' as const, label: 'Vendors', icon: <Store size={14} /> },
+                    { id: 'HUBS' as const, label: 'Hubs', icon: <MapPin size={14} /> },
+                  ]).map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setVendorHubSubTab(tab.id)}
+                      className={`h-9 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all inline-flex items-center gap-2 ${
+                        vendorHubSubTab === tab.id
+                          ? 'bg-orange-500 text-white shadow-sm'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {tab.icon}
+                      {tab.label}
+                    </button>
                   ))}
-                </tbody>
-              </table>
-            </div>
-            </div>
+                </div>
 
-                {/* Hub Pagination */}
-                {hubTotalPages > 1 && (
-                  <div className="flex items-center justify-center gap-2 overflow-x-auto py-2 no-print">
-                    <button onClick={() => setHubPage(1)} disabled={hubPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronFirst size={16} /></button>
-                    <button onClick={() => setHubPage(prev => Math.max(1, prev - 1))} disabled={hubPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronLeft size={16} /></button>
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: hubTotalPages }, (_, i) => i + 1)
-                        .filter(p => p === 1 || p === hubTotalPages || (p >= hubPage - 2 && p <= hubPage + 2))
-                        .map((p, i, arr) => {
-                          const showEllipsis = i > 0 && p !== arr[i-1] + 1;
-                          return (
-                            <React.Fragment key={p}>
-                              {showEllipsis && <span className="text-gray-400 px-1">...</span>}
-                              <button onClick={() => setHubPage(p)} className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${hubPage === p ? 'bg-orange-500 text-white shadow-lg' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>{p}</button>
-                            </React.Fragment>
-                          );
-                        })
-                      }
+                {vendorHubSubTab === 'VENDORS' && (
+                  <div className="flex items-center gap-2 sm:gap-3 flex-nowrap overflow-x-auto hide-scrollbar">
+                    <div className="relative min-w-[180px] sm:min-w-[220px] flex-1">
+                      <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search kitchen or username..."
+                        className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white outline-none focus:ring-1 focus:ring-orange-500"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                      />
                     </div>
-                    <button onClick={() => setHubPage(prev => Math.min(hubTotalPages, prev + 1))} disabled={hubPage === hubTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronRight size={16} /></button>
-                    <button onClick={() => setHubPage(hubTotalPages)} disabled={hubPage === hubTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronLast size={16} /></button>
+                    <div className="relative shrink-0">
+                      <Filter size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <select
+                        className="h-9 min-w-[108px] py-2 pl-10 pr-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black uppercase dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500"
+                        value={vendorFilter}
+                        onChange={e => setVendorFilter(e.target.value as any)}
+                      >
+                        <option value="ALL">All</option>
+                        <option value="ACTIVE">Active</option>
+                        <option value="INACTIVE">Deactive</option>
+                      </select>
+                    </div>
+                    <button
+                      onClick={handleDownloadVendors}
+                      disabled={filteredVendors.length === 0}
+                      className="h-9 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-orange-500 hover:text-white transition-all whitespace-nowrap disabled:opacity-30 shrink-0"
+                    >
+                      <Download size={14} /> Download
+                    </button>
+                    <button onClick={handleOpenAdd} className="h-9 px-4 bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest text-[10px] transition-all whitespace-nowrap shrink-0">Register</button>
+                  </div>
+                )}
+
+                {vendorHubSubTab === 'HUBS' && (
+                  <div className="flex items-center gap-2 sm:gap-3 flex-nowrap overflow-x-auto hide-scrollbar">
+                    <div className="relative min-w-[180px] sm:min-w-[220px] flex-1">
+                      <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search hubs..."
+                        className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white outline-none focus:ring-1 focus:ring-orange-500"
+                        value={hubSearchQuery}
+                        onChange={e => setHubSearchQuery(e.target.value)}
+                      />
+                    </div>
+                    <button
+                      onClick={handleDownloadHubs}
+                      disabled={filteredHubs.length === 0}
+                      className="h-9 px-4 bg-black dark:bg-white text-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-orange-500 hover:text-white transition-all whitespace-nowrap disabled:opacity-30 shrink-0"
+                    >
+                      <Download size={14} /> Download
+                    </button>
+                    <button onClick={() => setIsHubSelectionModalOpen(true)} className="h-9 px-4 bg-white dark:bg-gray-700 text-orange-500 border border-orange-200 dark:border-orange-500/40 rounded-lg font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all whitespace-nowrap shrink-0">
+                      <QrCode size={14} /> QR
+                    </button>
+                    <button onClick={handleOpenHubAdd} className="h-9 px-4 bg-orange-500 text-white rounded-lg font-black uppercase tracking-widest text-[10px] whitespace-nowrap shrink-0">Register Hub</button>
                   </div>
                 )}
               </div>
-            )}
 
-            </div>
+              {vendorHubSubTab === 'VENDORS' && (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                        <tr>
+                          <th className="px-4 py-3 text-left group">
+                            <div className="inline-flex items-center gap-1.5">
+                              <span>Kitchen</span>
+                              <button
+                                onClick={() => handleVendorSort('KITCHEN')}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-orange-500"
+                                aria-label="Sort Kitchen"
+                                title="Sort Kitchen"
+                              >
+                                {vendorSort?.field === 'KITCHEN' && vendorSort.direction === 'desc' ? '▼' : '▲'}
+                              </button>
+                            </div>
+                          </th>
+                          <th className="px-4 py-3 text-left group">
+                            <div className="inline-flex items-center gap-1.5">
+                              <span>Hub</span>
+                              <button
+                                onClick={() => handleVendorSort('HUB')}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-orange-500"
+                                aria-label="Sort Hub"
+                                title="Sort Hub"
+                              >
+                                {vendorSort?.field === 'HUB' && vendorSort.direction === 'desc' ? '▼' : '▲'}
+                              </button>
+                            </div>
+                          </th>
+                          <th className="px-4 py-3 text-center">Plan</th>
+                          <th className="px-4 py-3 text-center">Plan Expiry</th>
+                          <th className="px-4 py-3 text-center">DuitNow</th>
+                          <th className="px-4 py-3 text-center">Master Activation</th>
+                          <th className="px-4 py-3 text-center">Live Status</th>
+                          <th className="px-4 py-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y dark:divide-gray-700/50">
+                        {paginatedVendors.map(vendor => {
+                          const res = restaurants.find(r => r.id === vendor.restaurantId);
+                          const isOnline = res?.isOnline ?? false;
+                          return (
+                            <tr key={vendor.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                              <td className="px-4 py-2.5">
+                                <div className="flex items-center gap-3">
+                                  <img src={res?.logo} className="w-7 h-7 rounded-lg shadow-sm object-cover border dark:border-gray-600" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="12" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${res?.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
+                                  <div>
+                                      <span className="font-black dark:text-white text-xs block">{res?.name}</span>
+                                      <span className="text-[8px] font-black text-orange-500 uppercase tracking-widest">@{vendor.username}</span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-2.5 text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase truncate max-w-[120px]">{res?.location || 'Unassigned'}</td>
+                              <td className="px-4 py-2.5 text-center">
+                                {(() => {
+                                  const sub = res ? subscriptions[res.id] : null;
+                                  const planId = sub?.plan_id || 'basic';
+                                  const planColors: Record<string, string> = { basic: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300', pro: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', pro_plus: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' };
+                                  const planLabels: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
+                                  return <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${planColors[planId] || planColors.basic}`}>{planLabels[planId] || 'Basic'}</span>;
+                                })()}
+                              </td>
+                              <td className="px-4 py-2.5 text-center">
+                                {(() => {
+                                  const sub = res ? subscriptions[res.id] : null;
+                                  if (!sub) return <span className="text-[9px] font-bold text-gray-400">—</span>;
+                                  const endDate = sub.current_period_end || sub.trial_end;
+                                  if (!endDate) return <span className="text-[9px] font-bold text-gray-400">—</span>;
+                                  const d = new Date(endDate);
+                                  const isExpired = d < new Date();
+                                  return (
+                                    <div className="flex flex-col items-center gap-1">
+                                      <span className={`text-[9px] font-black ${isExpired ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>{d.toLocaleDateString()}</span>
+                                      {res && (
+                                        <button
+                                          onClick={() => handleAdminExtend(res.id, res.name)}
+                                          disabled={extendingRestId === res.id}
+                                          className="text-[8px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50"
+                                        >
+                                          {extendingRestId === res.id ? '...' : '+ 1 Month'}
+                                        </button>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </td>
+                              <td className="px-4 py-2.5 text-center">
+                                {(() => {
+                                  const sub = res ? subscriptions[res.id] : null;
+                                  const isDuitNow = sub?.duitnow_enabled ?? false;
+                                  return (
+                                    <button
+                                      onClick={() => res && handleToggleDuitNow(res.id, isDuitNow)}
+                                      disabled={togglingDuitNow === res?.id}
+                                      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                                        isDuitNow ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
+                                      } ${togglingDuitNow === res?.id ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                                      title={isDuitNow ? 'DuitNow enabled — click to disable' : 'DuitNow disabled — click to enable'}
+                                    >
+                                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                                        isDuitNow ? 'translate-x-4.5' : 'translate-x-0.5'
+                                      }`} />
+                                    </button>
+                                  );
+                                })()}
+                              </td>
+                              <td className="px-4 py-2.5 text-center">
+                                <button onClick={() => toggleVendorStatus(vendor)} className={`p-1.5 rounded-lg transition-all ${vendor.isActive ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 bg-gray-50 dark:bg-gray-700'}`}>
+                                   {vendor.isActive ? <CheckCircle2 size={16} /> : <Power size={16} />}
+                                </button>
+                              </td>
+                              <td className="px-4 py-2.5 text-center">
+                                <button 
+                                  onClick={() => res && onToggleOnline(res.id, isOnline)} 
+                                  className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${isOnline ? 'bg-green-500 text-white shadow-lg' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'}`}
+                                >
+                                  {isOnline ? 'Online' : 'Offline'}
+                                </button>
+                              </td>
+                              <td className="px-4 py-2.5 text-right">
+                                <div className="flex justify-end gap-1">
+                                  <button onClick={() => handleOpenEdit(vendor)} className="p-1.5 text-gray-400 hover:text-blue-500"><Edit3 size={15} /></button>
+                                  {!res && (
+                                    <button onClick={() => { if (confirm(`Remove orphaned vendor "${vendor.username}"?`)) onDeleteVendor(vendor.id, vendor.restaurantId || '').catch(() => {}); }} className="p-1.5 text-gray-400 hover:text-red-500" title="Delete orphaned vendor"><Trash2 size={15} /></button>
+                                  )}
+                                  <button onClick={() => onImpersonateVendor(vendor)} className="p-1.5 text-gray-400 hover:text-orange-500"><LogIn size={15} /></button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {paginatedVendors.length === 0 && (
+                          <tr>
+                            <td colSpan={8} className="py-16 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                              No matching vendors found.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {vendorTotalPages > 1 && (
+                    <div className="mt-8 flex items-center justify-center gap-2 overflow-x-auto py-2 px-4 no-print">
+                      <button onClick={() => setVendorPage(1)} disabled={vendorPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronFirst size={16} /></button>
+                      <button onClick={() => setVendorPage(prev => Math.max(1, prev - 1))} disabled={vendorPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronLeft size={16} /></button>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: vendorTotalPages }, (_, i) => i + 1)
+                          .filter(p => p === 1 || p === vendorTotalPages || (p >= vendorPage - 2 && p <= vendorPage + 2))
+                          .map((p, i, arr) => {
+                            const showEllipsis = i > 0 && p !== arr[i-1] + 1;
+                            return (
+                              <React.Fragment key={p}>
+                                {showEllipsis && <span className="text-gray-400 px-1">...</span>}
+                                <button onClick={() => setVendorPage(p)} className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${vendorPage === p ? 'bg-orange-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>{p}</button>
+                              </React.Fragment>
+                            );
+                          })
+                        }
+                      </div>
+                      <button onClick={() => setVendorPage(prev => Math.min(vendorTotalPages, prev + 1))} disabled={vendorPage === vendorTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronRight size={16} /></button>
+                      <button onClick={() => setVendorPage(vendorTotalPages)} disabled={vendorPage === vendorTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronLast size={16} /></button>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {vendorHubSubTab === 'HUBS' && (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                        <tr>
+                          <th className="px-4 py-3 text-left">Hub</th>
+                          <th className="px-4 py-3 text-center">Vendors</th>
+                          <th className="px-4 py-3 text-center">Status</th>
+                          <th className="px-4 py-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y dark:divide-gray-700/50">
+                        {paginatedHubsList.map(loc => (
+                          <tr key={loc.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors group">
+                            <td className="px-4 py-2.5">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-orange-50 dark:bg-orange-900/30 text-orange-500 rounded-xl flex items-center justify-center shadow-inner group-hover:bg-orange-500 group-hover:text-white transition-all"><MapPin size={20} /></div>
+                                <div>
+                                  <span className="font-black dark:text-white text-sm block uppercase tracking-tight">{loc.name}</span>
+                                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{loc.code} | {loc.state}</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-2.5 text-center">
+                              {(() => {
+                                const count = restaurants.filter(r => r.location === loc.name).length;
+                                return (
+                                  <button
+                                    onClick={() => setViewingHubVendors(loc)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:text-orange-500 text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50"
+                                  >
+                                    <Users size={14} />
+                                    {count}
+                                  </button>
+                                );
+                              })()}
+                            </td>
+                            <td className="px-4 py-2.5 text-center">
+                              <button onClick={() => toggleHubStatus(loc)} className={`p-1.5 rounded-lg transition-all ${loc.isActive !== false ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 bg-gray-50 dark:bg-gray-700'}`}>
+                                 {loc.isActive !== false ? <Power size={16} /> : <Power size={16} className="opacity-40" />}
+                              </button>
+                            </td>
+                            <td className="px-4 py-2.5 text-right">
+                              <div className="flex justify-end gap-1">
+                                <button onClick={() => setGeneratingQrHub(loc)} className="p-1.5 text-gray-400 hover:text-orange-500"><QrCode size={15} /></button>
+                                <button onClick={() => handleOpenHubEdit(loc)} className="p-1.5 text-gray-400 hover:text-blue-500"><Edit3 size={15} /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                        {paginatedHubsList.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="py-16 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                              No matching hubs found.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {hubTotalPages > 1 && (
+                    <div className="mt-8 flex items-center justify-center gap-2 overflow-x-auto py-2 px-4 no-print">
+                      <button onClick={() => setHubPage(1)} disabled={hubPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronFirst size={16} /></button>
+                      <button onClick={() => setHubPage(prev => Math.max(1, prev - 1))} disabled={hubPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronLeft size={16} /></button>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: hubTotalPages }, (_, i) => i + 1)
+                          .filter(p => p === 1 || p === hubTotalPages || (p >= hubPage - 2 && p <= hubPage + 2))
+                          .map((p, i, arr) => {
+                            const showEllipsis = i > 0 && p !== arr[i-1] + 1;
+                            return (
+                              <React.Fragment key={p}>
+                                {showEllipsis && <span className="text-gray-400 px-1">...</span>}
+                                <button onClick={() => setHubPage(p)} className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${hubPage === p ? 'bg-orange-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>{p}</button>
+                              </React.Fragment>
+                            );
+                          })
+                        }
+                      </div>
+                      <button onClick={() => setHubPage(prev => Math.min(hubTotalPages, prev + 1))} disabled={hubPage === hubTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronRight size={16} /></button>
+                      <button onClick={() => setHubPage(hubTotalPages)} disabled={hubPage === hubTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all"><ChevronLast size={16} /></button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         )}
@@ -2630,44 +2641,40 @@ const AdminView: React.FC<Props> = ({
               <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm">
                 <div className="p-5 border-b border-gray-100 dark:border-gray-700">
                   <div className="flex items-center gap-2 sm:gap-3 flex-nowrap overflow-x-auto hide-scrollbar">
-                    {adminCashoutRows.length > 0 && (
-                      <>
-                        <div className="relative min-w-[180px] sm:min-w-[220px] flex-1">
-                          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder="Search reference / vendor..."
-                            value={adminCashoutSearchQuery}
-                            onChange={(e) => setAdminCashoutSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white outline-none focus:ring-1 focus:ring-orange-500"
-                          />
-                        </div>
-                        <select
-                          value={adminCashoutFilter}
-                          onChange={(e) => setAdminCashoutFilter(e.target.value as 'all' | 'pending' | 'approved' | 'completed' | 'rejected')}
-                          className="h-9 min-w-[96px] py-2 px-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500 shrink-0"
-                        >
-                          <option value="all">All Status</option>
-                          <option value="pending">Pending</option>
-                          <option value="approved">Approved</option>
-                          <option value="completed">Completed</option>
-                          <option value="rejected">Rejected</option>
-                        </select>
-                        <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
-                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Show</span>
-                          <select
-                            value={adminCashoutEntriesPerPage}
-                            onChange={(e) => setAdminCashoutEntriesPerPage(Number(e.target.value))}
-                            className="h-9 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white px-2 outline-none cursor-pointer"
-                          >
-                            <option value={30}>30</option>
-                            <option value={50}>50</option>
-                            <option value={100}>100</option>
-                          </select>
-                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Entries</span>
-                        </div>
-                      </>
-                    )}
+                    <div className="relative min-w-[180px] sm:min-w-[220px] flex-1">
+                      <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search reference / vendor..."
+                        value={adminCashoutSearchQuery}
+                        onChange={(e) => setAdminCashoutSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white outline-none focus:ring-1 focus:ring-orange-500"
+                      />
+                    </div>
+                    <select
+                      value={adminCashoutFilter}
+                      onChange={(e) => setAdminCashoutFilter(e.target.value as 'all' | 'pending' | 'approved' | 'completed' | 'rejected')}
+                      className="h-9 min-w-[96px] py-2 px-2.5 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500 shrink-0"
+                    >
+                      <option value="all">All Status</option>
+                      <option value="pending">Pending</option>
+                      <option value="approved">Approved</option>
+                      <option value="completed">Completed</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                    <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Show</span>
+                      <select
+                        value={adminCashoutEntriesPerPage}
+                        onChange={(e) => setAdminCashoutEntriesPerPage(Number(e.target.value))}
+                        className="h-9 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white px-2 outline-none cursor-pointer"
+                      >
+                        <option value={30}>30</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                      </select>
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Entries</span>
+                    </div>
                   </div>
                 </div>
 
