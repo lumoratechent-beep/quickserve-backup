@@ -3,7 +3,7 @@ import { Order, OrderStatus, ReportResponse, CashierShift } from '../src/types';
 import { Calendar, Download, Search, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, CreditCard, Users } from 'lucide-react';
 
 export type ReportDownloadInfoType = 'all' | 'summary' | 'transactions' | 'dailyBreakdown';
-export type ReportDownloadFileType = 'all' | 'csv' | 'pdf';
+export type ReportDownloadFileType = 'csv' | 'pdf';
 
 export interface ReportDownloadOptions {
   infoType: ReportDownloadInfoType;
@@ -66,7 +66,7 @@ const StandardReport: React.FC<Props> = ({
   const [filterCashier, setFilterCashier] = useState<string>('ALL');
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
   const [downloadInfoType, setDownloadInfoType] = useState<ReportDownloadInfoType>('all');
-  const [downloadFileType, setDownloadFileType] = useState<ReportDownloadFileType>('all');
+  const [downloadFileType, setDownloadFileType] = useState<ReportDownloadFileType>('pdf');
   const [showTimeRangeModal, setShowTimeRangeModal] = useState(false);
   const [timeStartMinutes, setTimeStartMinutes] = useState(0);
   const [timeEndMinutes, setTimeEndMinutes] = useState(1439);
@@ -324,10 +324,6 @@ const StandardReport: React.FC<Props> = ({
             <div>
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">File Type</p>
               <div className="space-y-2">
-                <label className="flex items-center gap-2 text-xs dark:text-gray-200">
-                  <input type="radio" name="download-file-type" checked={downloadFileType === 'all'} onChange={() => setDownloadFileType('all')} />
-                  All
-                </label>
                 <label className="flex items-center gap-2 text-xs dark:text-gray-200">
                   <input type="radio" name="download-file-type" checked={downloadFileType === 'csv'} onChange={() => setDownloadFileType('csv')} />
                   CSV

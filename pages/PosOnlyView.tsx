@@ -4001,7 +4001,7 @@ const PosOnlyView: React.FC<Props> = ({
 
   const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
 
-  const handleDownloadPDF = async () => {
+  const handleDownloadPDF = async (options?: ReportDownloadOptions) => {
     setIsDownloadingPDF(true);
     try {
     const allOrders = await fetchReport(true) as Order[];
@@ -4335,6 +4335,65 @@ const PosOnlyView: React.FC<Props> = ({
         styles: { fontSize: 8, cellPadding: 2.5 },
         headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: lightAmber },
+        theme: 'grid',
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Daily Sales Breakdown (daily totals with dynamic payment method columns)
+    const basePaymentColumns = ['CASH', 'QR', 'CARD'];
+    const customPaymentColumns = paymentTypes
+      .map((type) => type.name.trim().toUpperCase())
+      .filter((name) => name && !basePaymentColumns.includes(name));
+    const dailyPaymentColumns = [...basePaymentColumns, ...customPaymentColumns, 'OTHER'];
+    const dailyRowsMap = new Map<string, { label: string; sortKey: number; totalSales: number; totalTransactions: number; paymentTotals: Record<string, number> }>();
+
+    completed.forEach((order) => {
+      const date = new Date(order.timestamp);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      const label = date.toLocaleDateString('en-US', { month: 'long', day: '2-digit' }); // e.g. January 26
+      const method = String(order.paymentMethod || 'CASH').trim().toUpperCase();
+      const column = dailyPaymentColumns.includes(method) ? method : 'OTHER';
+
+      if (!dailyRowsMap.has(key)) {
+        const paymentTotals: Record<string, number> = {};
+        dailyPaymentColumns.forEach((c) => { paymentTotals[c] = 0; });
+        dailyRowsMap.set(key, {
+          label,
+          sortKey: date.getTime(),
+          totalSales: 0,
+          totalTransactions: 0,
+          paymentTotals,
+        });
+      }
+
+      const row = dailyRowsMap.get(key)!;
+      row.totalSales += order.total;
+      row.totalTransactions += 1;
+      row.paymentTotals[column] += order.total;
+    });
+
+    const dailyBreakdownRows = Array.from(dailyRowsMap.values())
+      .sort((a, b) => a.sortKey - b.sortKey)
+      .map((row) => [
+        row.label,
+        `RM ${row.totalSales.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        `${row.totalTransactions}`,
+        ...dailyPaymentColumns.map((c) => `RM ${row.paymentTotals[c].toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`),
+      ]);
+
+    if (dailyBreakdownRows.length > 0) {
+      if (y > 220) { doc.addPage(); y = 14; }
+      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+      doc.text('Daily Sales Breakdown', margin, y); y += 6;
+      autoTable(doc, {
+        startY: y,
+        head: [['Date', 'Total Sales', 'Total Transactions', ...dailyPaymentColumns]],
+        body: dailyBreakdownRows,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 7.2, cellPadding: 2 },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [254, 243, 199] },
         theme: 'grid',
       });
       y = (doc as any).lastAutoTable.finalY + 8;
@@ -4680,6 +4739,58 @@ const PosOnlyView: React.FC<Props> = ({
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
+    // Daily Sales Breakdown (daily totals + dynamic payment columns)
+    const basePaymentColumns = ['CASH', 'QR', 'CARD'];
+    const customPaymentColumns = paymentTypes
+      .map((type) => type.name.trim().toUpperCase())
+      .filter((name) => name && !basePaymentColumns.includes(name));
+    const dailyPaymentColumns = [...basePaymentColumns, ...customPaymentColumns, 'OTHER'];
+    const dailyRowsMap = new Map<string, { sortKey: number; totalSales: number; totalTransactions: number; paymentTotals: Record<string, number> }>();
+    completed.forEach((order) => {
+      const date = new Date(order.timestamp);
+      const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      const dateLabel = date.toLocaleDateString('en-US', { month: 'long', day: '2-digit' });
+      const method = String(order.paymentMethod || 'CASH').trim().toUpperCase();
+      const paymentKey = dailyPaymentColumns.includes(method) ? method : 'OTHER';
+
+      if (!dailyRowsMap.has(dateKey)) {
+        const paymentTotals: Record<string, number> = {};
+        dailyPaymentColumns.forEach((col) => { paymentTotals[col] = 0; });
+        dailyRowsMap.set(dateKey, { sortKey: date.getTime(), totalSales: 0, totalTransactions: 0, paymentTotals });
+      }
+
+      const row = dailyRowsMap.get(dateKey)!;
+      row.totalSales += order.total;
+      row.totalTransactions += 1;
+      row.paymentTotals[paymentKey] += order.total;
+      // Keep readable label while sorting by stable key
+      (row as any).dateLabel = dateLabel;
+    });
+    const dailyBreakdownRows = Array.from(dailyRowsMap.values())
+      .sort((a, b) => a.sortKey - b.sortKey)
+      .map((row: any) => [
+        row.dateLabel as string,
+        `RM ${row.totalSales.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        `${row.totalTransactions}`,
+        ...dailyPaymentColumns.map((col) => `RM ${row.paymentTotals[col].toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`),
+      ]);
+    if (dailyBreakdownRows.length > 0) {
+      if (y > 220) { doc.addPage(); y = 14; }
+      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...darkGray);
+      doc.text('Daily Sales Breakdown', margin, y); y += 6;
+      autoTable(doc, {
+        startY: y,
+        head: [['Date', 'Total Sales', 'Total Transactions', ...dailyPaymentColumns]],
+        body: dailyBreakdownRows,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 7.2, cellPadding: 2 },
+        headStyles: { fillColor: amber, textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [254, 243, 199] },
+        theme: 'grid',
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
     if (options.infoType === 'all' || options.infoType === 'transactions') {
       section('Transactions');
       autoTable(doc, {
@@ -4715,18 +4826,15 @@ const PosOnlyView: React.FC<Props> = ({
   const handleDownloadReportWithOptions = async (options: ReportDownloadOptions) => {
     setIsDownloadingReport(true);
     try {
-      const allOrders = await fetchReport(true) as Order[];
-      if (!allOrders || allOrders.length === 0) {
-        toast('No report data found for the selected filters.', 'warning');
-        return;
-      }
-
-      if (options.fileType === 'all' || options.fileType === 'csv') {
+      if (options.fileType === 'csv') {
+        const allOrders = await fetchReport(true) as Order[];
+        if (!allOrders || allOrders.length === 0) {
+          toast('No report data found for the selected filters.', 'warning');
+          return;
+        }
         buildExportCsv(allOrders, options);
-      }
-
-      if (options.fileType === 'all' || options.fileType === 'pdf') {
-        await buildExportPdf(allOrders, options);
+      } else {
+        await handleDownloadPDF(options);
       }
     } catch (error) {
       console.error('Report download error:', error);
