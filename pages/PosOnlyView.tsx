@@ -6771,28 +6771,26 @@ const PosOnlyView: React.FC<Props> = ({
                   </p>
                 </div>
               )}
-              {/* Report Type Toggle */}
-              <div className="mb-4 flex gap-2">
-                <button
-                  onClick={() => setReportsSubMenu('salesReport')}
-                  className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all ${
-                    reportsSubMenu === 'salesReport'
-                      ? 'bg-orange-500 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  Sales Report
-                </button>
-                <button
-                  onClick={() => setReportsSubMenu('shiftReport')}
-                  className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all ${
-                    reportsSubMenu === 'shiftReport'
-                      ? 'bg-orange-500 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  Shift Management
-                </button>
+              {/* Report Type Tabs */}
+              <div className="flex gap-0 relative mb-4">
+                {([
+                  { id: 'salesReport' as const, label: 'Sales Report', icon: <BarChart3 size={13} /> },
+                  { id: 'shiftReport' as const, label: 'Shift Report', icon: <Clock size={13} /> },
+                ]).map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setReportsSubMenu(tab.id)}
+                    style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                    className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
+                      reportsSubMenu === tab.id
+                        ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
+                        : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    {tab.icon}
+                    {tab.label}
+                  </button>
+                ))}
               </div>
               {reportsSubMenu === 'salesReport' && (
                 <StandardReport
@@ -6818,31 +6816,39 @@ const PosOnlyView: React.FC<Props> = ({
                 />
               )}
               {reportsSubMenu === 'shiftReport' && (
-                <StandardReport
-                  title="Shift Report"
-                  description="Current shift sales and transaction summary."
-                  reportStart={reportStart}
-                  reportEnd={reportEnd}
-                  reportStatus={reportStatus}
-                  reportSearchQuery={reportSearchQuery}
-                  entriesPerPage={entriesPerPage}
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  paginatedReports={paginatedReports}
-                  reportData={reportData}
-                  onChangeReportStart={setReportStart}
-                  onChangeReportEnd={setReportEnd}
-                  onChangeReportStatus={(value) => setReportStatus(value as any)}
-                  onChangeReportSearchQuery={setReportSearchQuery}
-                  onChangeEntriesPerPage={setEntriesPerPage}
-                  onChangeCurrentPage={setCurrentPage}
-                  onDownloadReport={handleDownloadReport}
-                  onDownloadPDF={handleDownloadPDF}
-                  isDownloadingPDF={isDownloadingPDF}
-                  onSelectOrder={(order) => setSelectedReportOrder(order)}
-                  activeShift={activeShift}
-                  applyCurrentShiftFilter={true}
-                />
+                featureSettings.shiftEnabled ? (
+                  <StandardReport
+                    title="Shift Report"
+                    description="Current shift sales and transaction summary."
+                    reportStart={reportStart}
+                    reportEnd={reportEnd}
+                    reportStatus={reportStatus}
+                    reportSearchQuery={reportSearchQuery}
+                    entriesPerPage={entriesPerPage}
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    paginatedReports={paginatedReports}
+                    reportData={reportData}
+                    onChangeReportStart={setReportStart}
+                    onChangeReportEnd={setReportEnd}
+                    onChangeReportStatus={(value) => setReportStatus(value as any)}
+                    onChangeReportSearchQuery={setReportSearchQuery}
+                    onChangeEntriesPerPage={setEntriesPerPage}
+                    onChangeCurrentPage={setCurrentPage}
+                    onDownloadReport={handleDownloadReport}
+                    onDownloadPDF={handleDownloadPDF}
+                    isDownloadingPDF={isDownloadingPDF}
+                    onSelectOrder={(order) => setSelectedReportOrder(order)}
+                    activeShift={activeShift}
+                    applyCurrentShiftFilter={true}
+                  />
+                ) : (
+                  <div className="min-h-[60vh] flex items-center justify-center">
+                    <p className="text-center text-xs md:text-sm font-bold text-gray-500 dark:text-gray-400">
+                      Shift Management is not installed yet. Install it in Add-ons to view Shift Report.
+                    </p>
+                  </div>
+                )
               )}
             </div>
           )}
