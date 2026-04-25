@@ -6784,9 +6784,9 @@ const PosOnlyView: React.FC<Props> = ({
                   Sales Report
                 </button>
                 <button
-                  onClick={() => setReportsSubMenu('shiftManagement')}
+                  onClick={() => setReportsSubMenu('shiftReport')}
                   className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all ${
-                    reportsSubMenu === 'shiftManagement'
+                    reportsSubMenu === 'shiftReport'
                       ? 'bg-orange-500 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
@@ -6817,7 +6817,7 @@ const PosOnlyView: React.FC<Props> = ({
                   onSelectOrder={(order) => setSelectedReportOrder(order)}
                 />
               )}
-              {reportsSubMenu === 'shiftManagement' && (
+              {reportsSubMenu === 'shiftReport' && (
                 <StandardReport
                   title="Shift Report"
                   description="Current shift sales and transaction summary."
