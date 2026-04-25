@@ -54,6 +54,7 @@ const StandardReport: React.FC<Props> = ({
   applyCurrentShiftFilter = false,
 }) => {
   const [detailRange, setDetailRange] = useState<'today' | 'week' | 'month'>('month');
+  const [dateSelectionMode, setDateSelectionMode] = useState<'period' | 'range'>('period');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [filterPayment, setFilterPayment] = useState<string>('ALL');
   const [filterCashier, setFilterCashier] = useState<string>('ALL');
@@ -208,13 +209,16 @@ const StandardReport: React.FC<Props> = ({
       {showTopRangeAndExportControls && (
         <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm flex flex-col md:flex-row items-center gap-4 mb-6">
           <div className="flex-1 flex flex-col sm:flex-row gap-4 w-full">
-            <div>
+            <div className={`transition-opacity ${dateSelectionMode === 'range' ? 'opacity-45' : 'opacity-100'}`}>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Period Selection</label>
               <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
                 {(['today', 'week', 'month'] as const).map(range => (
                   <button
                     key={range}
-                    onClick={() => setDetailRange(range)}
+                    onClick={() => {
+                      setDetailRange(range);
+                      setDateSelectionMode('period');
+                    }}
                     className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
                       detailRange === range
                         ? 'bg-orange-500 text-white shadow-sm'
@@ -226,15 +230,18 @@ const StandardReport: React.FC<Props> = ({
                 ))}
               </div>
             </div>
-            <div className="flex-1">
+            <div className={`flex-1 transition-opacity ${dateSelectionMode === 'period' ? 'opacity-45' : 'opacity-100'}`}>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Custom Range</label>
               <div className="flex items-center gap-2 flex-wrap">
                 <Calendar size={14} className="text-orange-500 shrink-0" />
-                <input type="date" value={reportStart} onChange={(e) => { onChangeReportStart(e.target.value); }} className="flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
+                <input type="date" value={reportStart} onChange={(e) => { setDateSelectionMode('range'); onChangeReportStart(e.target.value); }} className="w-[150px] md:w-[170px] bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
                 <span className="text-gray-400 font-black">to</span>
-                <input type="date" value={reportEnd} onChange={(e) => { onChangeReportEnd(e.target.value); }} className="flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
+                <input type="date" value={reportEnd} onChange={(e) => { setDateSelectionMode('range'); onChangeReportEnd(e.target.value); }} className="w-[150px] md:w-[170px] bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
                 <button
-                  onClick={() => setShowTimeRangeModal(true)}
+                  onClick={() => {
+                    setDateSelectionMode('range');
+                    setShowTimeRangeModal(true);
+                  }}
                   className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
                     hasCustomTimeRange
                       ? 'bg-orange-500 text-white'
