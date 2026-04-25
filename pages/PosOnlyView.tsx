@@ -587,7 +587,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [reportData, setReportData] = useState<ReportResponse | null>(null);
   const [isReportLoading, setIsReportLoading] = useState(false);
-  const [reportsSubMenu, setReportsSubMenu] = useState<'salesReport' | 'statistics' | 'shiftManagement'>('salesReport');
+  const [reportsSubMenu, setReportsSubMenu] = useState<'salesReport' | 'statistics' | 'shiftReport'>('salesReport');
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
   const paginatedReports = reportData?.orders || [];
 
@@ -6819,7 +6819,7 @@ const PosOnlyView: React.FC<Props> = ({
               )}
               {reportsSubMenu === 'shiftManagement' && (
                 <StandardReport
-                  title="Shift Management"
+                  title="Shift Report"
                   description="Current shift sales and transaction summary."
                   reportStart={reportStart}
                   reportEnd={reportEnd}

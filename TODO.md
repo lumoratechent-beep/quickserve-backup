@@ -1,0 +1,7 @@
+- [x] Inspect report tabs block in `pages/PosOnlyView.tsx`
+- [x] Inspect menu editor tabs design in `pages/PosOnlyView.tsx`
+- [ ] Rework reports section to use menu-editor-style tabs
+- [ ] Rename report tab label from "Shift Management" to "Shift Report"
+- [ ] Rename report card/title text from "Shift Management" to "Shift Report"
+- [ ] Verify no unrelated feature/add-on labels are changed
+- [ ] Run build sanity check

@@ -57,6 +57,7 @@ const StandardReport: React.FC<Props> = ({
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [filterPayment, setFilterPayment] = useState<string>('ALL');
   const [filterCashier, setFilterCashier] = useState<string>('ALL');
+  const isShiftReportWithoutActiveShift = applyCurrentShiftFilter && !activeShift;
 
   // Auto-set date pickers when range preset changes
   useEffect(() => {
@@ -89,6 +90,8 @@ const StandardReport: React.FC<Props> = ({
   }, [paginatedReports]);
 
   const filteredReports = useMemo(() => {
+    if (isShiftReportWithoutActiveShift) return [];
+
     let filtered = paginatedReports;
 
     // Apply shift filtering only when explicitly enabled
@@ -108,7 +111,7 @@ const StandardReport: React.FC<Props> = ({
       if (filterCashier !== 'ALL' && (o.cashierName || '-') !== filterCashier) return false;
       return true;
     });
-  }, [paginatedReports, filterStatus, filterPayment, filterCashier, activeShift, applyCurrentShiftFilter]);
+  }, [paginatedReports, filterStatus, filterPayment, filterCashier, activeShift, applyCurrentShiftFilter, isShiftReportWithoutActiveShift]);
 
   // Calculate filtered total pages
   const filteredTotalPages = useMemo(() => {
@@ -180,6 +183,13 @@ const StandardReport: React.FC<Props> = ({
     <div className="animate-in fade-in duration-500">
       <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">{title}</h1>
       <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">{description}</p>
+      {isShiftReportWithoutActiveShift && (
+        <div className="mb-4 px-4 py-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700">
+          <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">
+            No active shift. Open your shift to view shift transactions.
+          </p>
+        </div>
+      )}
 
       <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm flex flex-col md:flex-row items-center gap-4 mb-6">
         <div className="flex-1 flex flex-col sm:flex-row gap-4 w-full">
@@ -328,50 +338,58 @@ const StandardReport: React.FC<Props> = ({
               </tr>
             </thead>
             <tbody className="divide-y dark:divide-gray-700">
-              {filteredReports.map(report => (
-                <tr key={report.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                  <td className="px-4 py-2">
-                    {onSelectOrder ? (
-                      <button
-                        onClick={() => onSelectOrder(report)}
-                        className="text-[10px] font-black text-orange-500 hover:text-orange-600 uppercase tracking-widest underline decoration-dotted underline-offset-4"
-                      >
-                        {report.id}
-                      </button>
-                    ) : (
-                      <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">{report.id}</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2 text-[10px] font-black text-gray-900 dark:text-white">#{report.tableNumber}</td>
-                  <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tighter">{new Date(report.timestamp).toLocaleDateString()}</td>
-                  <td className="px-4 py-2 text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase">{new Date(report.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                  <td className="px-4 py-2">
-                    <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
-                      report.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-600' :
-                      report.status === OrderStatus.SERVED ? 'bg-blue-100 text-blue-600' :
-                      'bg-orange-100 text-orange-600'
-                    }`}>
-                      {report.status === OrderStatus.COMPLETED ? 'Paid' : report.status === OrderStatus.SERVED ? 'Served' : report.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2">
-                    <span className="text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">
-                      {report.orderSource === 'counter' ? 'Counter' :
-                       report.orderSource === 'qr_order' ? 'QR Order' :
-                       report.orderSource === 'tableside' ? 'Tableside' :
-                       report.orderSource === 'online' ? 'Online' : '-'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">
-                    {report.diningType || '-'}
-                  </td>
-                  <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">{report.paymentMethod || '-'}</td>
-                  <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300">{report.cashierName || '-'}</td>
-                  <td className="px-4 py-2 text-right font-black dark:text-white text-xs">
-                    {report.status === OrderStatus.CANCELLED ? 'RM0.00' : `RM${report.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              {filteredReports.length > 0 ? (
+                filteredReports.map(report => (
+                  <tr key={report.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <td className="px-4 py-2">
+                      {onSelectOrder ? (
+                        <button
+                          onClick={() => onSelectOrder(report)}
+                          className="text-[10px] font-black text-orange-500 hover:text-orange-600 uppercase tracking-widest underline decoration-dotted underline-offset-4"
+                        >
+                          {report.id}
+                        </button>
+                      ) : (
+                        <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">{report.id}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-[10px] font-black text-gray-900 dark:text-white">#{report.tableNumber}</td>
+                    <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-tighter">{new Date(report.timestamp).toLocaleDateString()}</td>
+                    <td className="px-4 py-2 text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase">{new Date(report.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                    <td className="px-4 py-2">
+                      <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                        report.status === OrderStatus.COMPLETED ? 'bg-green-100 text-green-600' :
+                        report.status === OrderStatus.SERVED ? 'bg-blue-100 text-blue-600' :
+                        'bg-orange-100 text-orange-600'
+                      }`}>
+                        {report.status === OrderStatus.COMPLETED ? 'Paid' : report.status === OrderStatus.SERVED ? 'Served' : report.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2">
+                      <span className="text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">
+                        {report.orderSource === 'counter' ? 'Counter' :
+                         report.orderSource === 'qr_order' ? 'QR Order' :
+                         report.orderSource === 'tableside' ? 'Tableside' :
+                         report.orderSource === 'online' ? 'Online' : '-'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">
+                      {report.diningType || '-'}
+                    </td>
+                    <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase">{report.paymentMethod || '-'}</td>
+                    <td className="px-4 py-2 text-[10px] font-black text-gray-700 dark:text-gray-300">{report.cashierName || '-'}</td>
+                    <td className="px-4 py-2 text-right font-black dark:text-white text-xs">
+                      {report.status === OrderStatus.CANCELLED ? 'RM0.00' : `RM${report.total.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={10} className="px-4 py-6 text-center text-[10px] font-black uppercase tracking-widest text-gray-400">
+                    {isShiftReportWithoutActiveShift ? 'No active shift. Please open shift to view transactions.' : 'No transactions found.'}
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
