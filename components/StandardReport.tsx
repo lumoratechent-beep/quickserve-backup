@@ -256,7 +256,7 @@ const StandardReport: React.FC<Props> = ({
       {showTopRangeAndExportControls && (
         <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm flex flex-col md:flex-row md:items-end gap-3 md:gap-4 mb-6">
           <div className="flex-1 grid grid-cols-1 xl:grid-cols-2 gap-3 w-full">
-            <div className={`transition-opacity rounded-lg bg-gray-50 dark:bg-gray-700/40 p-2.5 ${dateSelectionMode === 'range' ? 'opacity-45' : 'opacity-100'}`}>
+            <div className={`transition-opacity ${dateSelectionMode === 'range' ? 'opacity-45' : 'opacity-100'}`}>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Period Selection</label>
               <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
                 {(['today', 'week', 'month'] as const).map(range => (
@@ -277,7 +277,7 @@ const StandardReport: React.FC<Props> = ({
                 ))}
               </div>
             </div>
-            <div className={`transition-opacity rounded-lg bg-gray-50 dark:bg-gray-700/40 p-2.5 ${dateSelectionMode === 'period' ? 'opacity-45' : 'opacity-100'}`}>
+            <div className={`transition-opacity ${dateSelectionMode === 'period' ? 'opacity-45' : 'opacity-100'}`}>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Custom Range</label>
               <div className="flex items-center gap-2 flex-wrap">
                 <button
@@ -313,6 +313,7 @@ const StandardReport: React.FC<Props> = ({
             </div>
           </div>
           <div className="w-full md:w-auto md:min-w-[170px]">
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Download Report</label>
             <button
               onClick={() => setShowDownloadOptions(true)}
               disabled={isDownloadingReport}
