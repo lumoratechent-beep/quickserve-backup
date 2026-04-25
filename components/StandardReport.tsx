@@ -67,6 +67,9 @@ const StandardReport: React.FC<Props> = ({
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
   const [downloadInfoType, setDownloadInfoType] = useState<ReportDownloadInfoType>('all');
   const [downloadFileType, setDownloadFileType] = useState<ReportDownloadFileType>('pdf');
+  const [showDateRangeModal, setShowDateRangeModal] = useState(false);
+  const [draftReportStart, setDraftReportStart] = useState(reportStart);
+  const [draftReportEnd, setDraftReportEnd] = useState(reportEnd);
   const [showTimeRangeModal, setShowTimeRangeModal] = useState(false);
   const [timeStartMinutes, setTimeStartMinutes] = useState(0);
   const [timeEndMinutes, setTimeEndMinutes] = useState(1439);
@@ -78,6 +81,31 @@ const StandardReport: React.FC<Props> = ({
     const hour = Math.floor(minutes / 60);
     const minute = minutes % 60;
     return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+  };
+
+  const formatDisplayDate = (value: string) => {
+    if (!value) return '--';
+    const [year, month, day] = value.split('-').map(Number);
+    if (!year || !month || !day) return value;
+    return new Date(year, month - 1, day).toLocaleDateString('en-MY', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  const getQuickDateRange = (range: 'today' | 'week' | 'month') => {
+    const now = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const toLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const today = toLocal(now);
+    if (range === 'today') return { start: today, end: today };
+    if (range === 'week') {
+      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+      return { start: toLocal(startOfWeek), end: today };
+    }
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { start: toLocal(startOfMonth), end: today };
   };
 
   // Auto-set date pickers when range preset changes
@@ -242,10 +270,20 @@ const StandardReport: React.FC<Props> = ({
             <div className={`flex-1 transition-opacity ${dateSelectionMode === 'period' ? 'opacity-45' : 'opacity-100'}`}>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Custom Range</label>
               <div className="flex items-center gap-2 flex-wrap">
-                <Calendar size={14} className="text-orange-500 shrink-0" />
-                <input type="date" value={reportStart} onChange={(e) => { setDateSelectionMode('range'); onChangeReportStart(e.target.value); }} className="w-[150px] md:w-[170px] bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
-                <span className="text-gray-400 font-black">to</span>
-                <input type="date" value={reportEnd} onChange={(e) => { setDateSelectionMode('range'); onChangeReportEnd(e.target.value); }} className="w-[150px] md:w-[170px] bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
+                <button
+                  onClick={() => {
+                    setDraftReportStart(reportStart);
+                    setDraftReportEnd(reportEnd);
+                    setDateSelectionMode('range');
+                    setShowDateRangeModal(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-700 rounded-lg text-[10px] font-black dark:text-white uppercase tracking-widest border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                >
+                  <Calendar size={14} className="text-orange-500 shrink-0" />
+                  <span>{formatDisplayDate(reportStart)}</span>
+                  <span className="text-gray-400">to</span>
+                  <span>{formatDisplayDate(reportEnd)}</span>
+                </button>
                 <button
                   onClick={() => {
                     setDateSelectionMode('range');
@@ -283,7 +321,7 @@ const StandardReport: React.FC<Props> = ({
               ) : (
                 <>
                   <Download size={16} />
-                  Download Report
+                  Download
                 </>
               )}
             </button>
@@ -294,7 +332,7 @@ const StandardReport: React.FC<Props> = ({
       {showDownloadOptions && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 md:p-5 shadow-xl">
-            <p className="text-sm font-black dark:text-white uppercase tracking-wider mb-1">Download Report</p>
+            <p className="text-sm font-black dark:text-white uppercase tracking-wider mb-1">Download report</p>
             <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">
               Choose report info and file type.
             </p>
@@ -350,6 +388,81 @@ const StandardReport: React.FC<Props> = ({
                 className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-orange-500 text-white hover:bg-orange-600 transition-colors"
               >
                 Download
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDateRangeModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 md:p-5 shadow-xl">
+            <p className="text-sm font-black dark:text-white uppercase tracking-wider mb-1">Date Selection</p>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">
+              Choose date range to filter report data.
+            </p>
+
+            <div className="flex gap-2 mb-4">
+              {(['today', 'week', 'month'] as const).map((range) => (
+                <button
+                  key={range}
+                  onClick={() => {
+                    const quick = getQuickDateRange(range);
+                    setDraftReportStart(quick.start);
+                    setDraftReportEnd(quick.end);
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  {range === 'today' ? 'Today' : range === 'week' ? 'This Week' : 'This Month'}
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">From</p>
+                <input
+                  type="date"
+                  value={draftReportStart}
+                  onChange={(e) => setDraftReportStart(e.target.value)}
+                  className="w-full bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white p-2"
+                />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">To</p>
+                <input
+                  type="date"
+                  value={draftReportEnd}
+                  onChange={(e) => setDraftReportEnd(e.target.value)}
+                  className="w-full bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white p-2"
+                />
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setShowDateRangeModal(false)}
+                className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const nextStart = draftReportStart || reportStart;
+                  const nextEnd = draftReportEnd || reportEnd;
+                  if (nextStart <= nextEnd) {
+                    onChangeReportStart(nextStart);
+                    onChangeReportEnd(nextEnd);
+                  } else {
+                    onChangeReportStart(nextEnd);
+                    onChangeReportEnd(nextStart);
+                  }
+                  setDateSelectionMode('range');
+                  setShowDateRangeModal(false);
+                }}
+                className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-orange-500 text-white hover:bg-orange-600 transition-colors"
+              >
+                Apply
               </button>
             </div>
           </div>
