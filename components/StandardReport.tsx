@@ -1,6 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, OrderStatus, ReportResponse, CashierShift } from '../src/types';
-import { Calendar, Download, Search, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, CreditCard, Users, FileText } from 'lucide-react';
+import { Calendar, Download, Search, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, CreditCard, Users } from 'lucide-react';
+
+export type ReportDownloadInfoType = 'all' | 'summary' | 'transactions' | 'dailyBreakdown';
+export type ReportDownloadFileType = 'all' | 'csv' | 'pdf';
+
+export interface ReportDownloadOptions {
+  infoType: ReportDownloadInfoType;
+  fileType: ReportDownloadFileType;
+}
 
 interface Props {
   reportStart: string;
@@ -18,9 +26,8 @@ interface Props {
   onChangeReportSearchQuery: (value: string) => void;
   onChangeEntriesPerPage: (value: number) => void;
   onChangeCurrentPage: (value: number | ((prev: number) => number)) => void;
-  onDownloadReport: () => void;
-  onDownloadPDF?: () => void;
-  isDownloadingPDF?: boolean;
+  onDownloadReport: (options: ReportDownloadOptions) => void | Promise<void>;
+  isDownloadingReport?: boolean;
   onSelectOrder?: (order: Order) => void;
   title?: string;
   description?: string;
@@ -45,8 +52,7 @@ const StandardReport: React.FC<Props> = ({
   onChangeEntriesPerPage,
   onChangeCurrentPage,
   onDownloadReport,
-  onDownloadPDF,
-  isDownloadingPDF,
+  isDownloadingReport,
   onSelectOrder,
   title = "Sales Report",
   description = "Financial performance and order history.",
@@ -58,6 +64,9 @@ const StandardReport: React.FC<Props> = ({
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [filterPayment, setFilterPayment] = useState<string>('ALL');
   const [filterCashier, setFilterCashier] = useState<string>('ALL');
+  const [showDownloadOptions, setShowDownloadOptions] = useState(false);
+  const [downloadInfoType, setDownloadInfoType] = useState<ReportDownloadInfoType>('all');
+  const [downloadFileType, setDownloadFileType] = useState<ReportDownloadFileType>('all');
   const [showTimeRangeModal, setShowTimeRangeModal] = useState(false);
   const [timeStartMinutes, setTimeStartMinutes] = useState(0);
   const [timeEndMinutes, setTimeEndMinutes] = useState(1439);
@@ -254,8 +263,99 @@ const StandardReport: React.FC<Props> = ({
             </div>
           </div>
           <div className="flex flex-col gap-2 w-full md:w-auto">
-            <button onClick={onDownloadReport} className="w-full md:w-auto px-6 py-2 bg-black text-white dark:bg-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-orange-500 transition-all"><Download size={16} /> Export CSV</button>
-            {onDownloadPDF && <button onClick={onDownloadPDF} disabled={isDownloadingPDF} className={`w-full md:w-auto px-6 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${isDownloadingPDF ? 'bg-red-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'} text-white`}>{isDownloadingPDF ? (<><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> Generating...</>) : (<><FileText size={16} /> Download PDF</>)}</button>}
+            <button
+              onClick={() => setShowDownloadOptions(true)}
+              disabled={isDownloadingReport}
+              className={`w-full md:w-auto px-6 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
+                isDownloadingReport
+                  ? 'bg-orange-300 text-white cursor-not-allowed'
+                  : 'bg-black text-white dark:bg-white dark:text-gray-900 hover:bg-orange-500'
+              }`}
+            >
+              {isDownloadingReport ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Downloading...
+                </>
+              ) : (
+                <>
+                  <Download size={16} />
+                  Download Report
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showDownloadOptions && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 md:p-5 shadow-xl">
+            <p className="text-sm font-black dark:text-white uppercase tracking-wider mb-1">Download Report</p>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">
+              Choose report info and file type.
+            </p>
+
+            <div className="mb-4">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Report Info</p>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-xs dark:text-gray-200">
+                  <input type="radio" name="download-info-type" checked={downloadInfoType === 'all'} onChange={() => setDownloadInfoType('all')} />
+                  All
+                </label>
+                <label className="flex items-center gap-2 text-xs dark:text-gray-200">
+                  <input type="radio" name="download-info-type" checked={downloadInfoType === 'summary'} onChange={() => setDownloadInfoType('summary')} />
+                  Summary
+                </label>
+                <label className="flex items-center gap-2 text-xs dark:text-gray-200">
+                  <input type="radio" name="download-info-type" checked={downloadInfoType === 'transactions'} onChange={() => setDownloadInfoType('transactions')} />
+                  Transactions
+                </label>
+                <label className="flex items-center gap-2 text-xs dark:text-gray-200">
+                  <input type="radio" name="download-info-type" checked={downloadInfoType === 'dailyBreakdown'} onChange={() => setDownloadInfoType('dailyBreakdown')} />
+                  Daily Sales Breakdown
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">File Type</p>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-xs dark:text-gray-200">
+                  <input type="radio" name="download-file-type" checked={downloadFileType === 'all'} onChange={() => setDownloadFileType('all')} />
+                  All
+                </label>
+                <label className="flex items-center gap-2 text-xs dark:text-gray-200">
+                  <input type="radio" name="download-file-type" checked={downloadFileType === 'csv'} onChange={() => setDownloadFileType('csv')} />
+                  CSV
+                </label>
+                <label className="flex items-center gap-2 text-xs dark:text-gray-200">
+                  <input type="radio" name="download-file-type" checked={downloadFileType === 'pdf'} onChange={() => setDownloadFileType('pdf')} />
+                  PDF
+                </label>
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setShowDownloadOptions(false)}
+                className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  await onDownloadReport({ infoType: downloadInfoType, fileType: downloadFileType });
+                  setShowDownloadOptions(false);
+                }}
+                className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-orange-500 text-white hover:bg-orange-600 transition-colors"
+              >
+                Download
+              </button>
+            </div>
           </div>
         </div>
       )}
