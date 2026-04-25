@@ -6841,6 +6841,7 @@ const PosOnlyView: React.FC<Props> = ({
                   isDownloadingPDF={isDownloadingPDF}
                   onSelectOrder={(order) => setSelectedReportOrder(order)}
                   activeShift={activeShift}
+                  applyCurrentShiftFilter={true}
                 />
               )}
             </div>

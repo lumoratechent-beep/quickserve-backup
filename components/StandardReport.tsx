@@ -25,6 +25,7 @@ interface Props {
   title?: string;
   description?: string;
   activeShift?: CashierShift | null;
+  applyCurrentShiftFilter?: boolean;
 }
 
 const StandardReport: React.FC<Props> = ({
@@ -50,6 +51,7 @@ const StandardReport: React.FC<Props> = ({
   title = "Sales Report",
   description = "Financial performance and order history.",
   activeShift,
+  applyCurrentShiftFilter = false,
 }) => {
   const [detailRange, setDetailRange] = useState<'today' | 'week' | 'month'>('month');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
@@ -89,8 +91,8 @@ const StandardReport: React.FC<Props> = ({
   const filteredReports = useMemo(() => {
     let filtered = paginatedReports;
 
-    // Apply shift filtering first if activeShift is provided
-    if (activeShift) {
+    // Apply shift filtering only when explicitly enabled
+    if (applyCurrentShiftFilter && activeShift) {
       const shiftStart = new Date(activeShift.opened_at).getTime();
       const shiftEnd = activeShift.closed_at ? new Date(activeShift.closed_at).getTime() : Date.now();
       filtered = filtered.filter(o => {
@@ -106,7 +108,7 @@ const StandardReport: React.FC<Props> = ({
       if (filterCashier !== 'ALL' && (o.cashierName || '-') !== filterCashier) return false;
       return true;
     });
-  }, [paginatedReports, filterStatus, filterPayment, filterCashier, activeShift]);
+  }, [paginatedReports, filterStatus, filterPayment, filterCashier, activeShift, applyCurrentShiftFilter]);
 
   // Calculate filtered total pages
   const filteredTotalPages = useMemo(() => {
