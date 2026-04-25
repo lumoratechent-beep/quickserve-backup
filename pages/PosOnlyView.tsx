@@ -6792,34 +6792,9 @@ const PosOnlyView: React.FC<Props> = ({
                   </button>
                 ))}
               </div>
-              {reportsSubMenu === 'salesReport' && (
-                <StandardReport
-                  reportStart={reportStart}
-                  reportEnd={reportEnd}
-                  reportStatus={reportStatus}
-                  reportSearchQuery={reportSearchQuery}
-                  entriesPerPage={entriesPerPage}
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  paginatedReports={paginatedReports}
-                  reportData={reportData}
-                  onChangeReportStart={setReportStart}
-                  onChangeReportEnd={setReportEnd}
-                  onChangeReportStatus={(value) => setReportStatus(value as any)}
-                  onChangeReportSearchQuery={setReportSearchQuery}
-                  onChangeEntriesPerPage={setEntriesPerPage}
-                  onChangeCurrentPage={setCurrentPage}
-                  onDownloadReport={handleDownloadReport}
-                  onDownloadPDF={handleDownloadPDF}
-                  isDownloadingPDF={isDownloadingPDF}
-                  onSelectOrder={(order) => setSelectedReportOrder(order)}
-                />
-              )}
-              {reportsSubMenu === 'shiftReport' && (
-                featureSettings.shiftEnabled ? (
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-b-lg rounded-tr-lg p-4 md:p-5">
+                {reportsSubMenu === 'salesReport' && (
                   <StandardReport
-                    title="Shift Report"
-                    description="Current shift sales and transaction summary."
                     reportStart={reportStart}
                     reportEnd={reportEnd}
                     reportStatus={reportStatus}
@@ -6839,17 +6814,44 @@ const PosOnlyView: React.FC<Props> = ({
                     onDownloadPDF={handleDownloadPDF}
                     isDownloadingPDF={isDownloadingPDF}
                     onSelectOrder={(order) => setSelectedReportOrder(order)}
-                    activeShift={activeShift}
-                    applyCurrentShiftFilter={true}
                   />
-                ) : (
-                  <div className="min-h-[60vh] flex items-center justify-center">
-                    <p className="text-center text-xs md:text-sm font-bold text-gray-500 dark:text-gray-400">
-                      Shift Management is not installed yet. Install it in Add-ons to view Shift Report.
-                    </p>
-                  </div>
-                )
-              )}
+                )}
+                {reportsSubMenu === 'shiftReport' && (
+                  featureSettings.shiftEnabled ? (
+                    <StandardReport
+                      title="Shift Report"
+                      description="Current shift sales and transaction summary."
+                      reportStart={reportStart}
+                      reportEnd={reportEnd}
+                      reportStatus={reportStatus}
+                      reportSearchQuery={reportSearchQuery}
+                      entriesPerPage={entriesPerPage}
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      paginatedReports={paginatedReports}
+                      reportData={reportData}
+                      onChangeReportStart={setReportStart}
+                      onChangeReportEnd={setReportEnd}
+                      onChangeReportStatus={(value) => setReportStatus(value as any)}
+                      onChangeReportSearchQuery={setReportSearchQuery}
+                      onChangeEntriesPerPage={setEntriesPerPage}
+                      onChangeCurrentPage={setCurrentPage}
+                      onDownloadReport={handleDownloadReport}
+                      onDownloadPDF={handleDownloadPDF}
+                      isDownloadingPDF={isDownloadingPDF}
+                      onSelectOrder={(order) => setSelectedReportOrder(order)}
+                      activeShift={activeShift}
+                      applyCurrentShiftFilter={true}
+                    />
+                  ) : (
+                    <div className="min-h-[60vh] flex items-center justify-center">
+                      <p className="text-center text-xs md:text-sm font-bold text-gray-500 dark:text-gray-400">
+                        Shift Management is not installed yet. Install it in Add-ons to view Shift Report.
+                      </p>
+                    </div>
+                  )
+                )}
+              </div>
             </div>
           )}
 

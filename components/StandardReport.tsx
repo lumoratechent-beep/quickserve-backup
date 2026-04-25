@@ -58,6 +58,7 @@ const StandardReport: React.FC<Props> = ({
   const [filterPayment, setFilterPayment] = useState<string>('ALL');
   const [filterCashier, setFilterCashier] = useState<string>('ALL');
   const isShiftReportWithoutActiveShift = applyCurrentShiftFilter && !activeShift;
+  const showTopRangeAndExportControls = !applyCurrentShiftFilter;
 
   // Auto-set date pickers when range preset changes
   useEffect(() => {
@@ -191,41 +192,43 @@ const StandardReport: React.FC<Props> = ({
         </div>
       )}
 
-      <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm flex flex-col md:flex-row items-center gap-4 mb-6">
-        <div className="flex-1 flex flex-col sm:flex-row gap-4 w-full">
-          <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Period Selection</label>
-            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
-              {(['today', 'week', 'month'] as const).map(range => (
-                <button
-                  key={range}
-                  onClick={() => setDetailRange(range)}
-                  className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
-                    detailRange === range
-                      ? 'bg-orange-500 text-white shadow-sm'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                  }`}
-                >
-                  {range === 'today' ? "Today" : range === 'week' ? 'This Week' : 'This Month'}
-                </button>
-              ))}
+      {showTopRangeAndExportControls && (
+        <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm flex flex-col md:flex-row items-center gap-4 mb-6">
+          <div className="flex-1 flex flex-col sm:flex-row gap-4 w-full">
+            <div>
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Period Selection</label>
+              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+                {(['today', 'week', 'month'] as const).map(range => (
+                  <button
+                    key={range}
+                    onClick={() => setDetailRange(range)}
+                    className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                      detailRange === range
+                        ? 'bg-orange-500 text-white shadow-sm'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    {range === 'today' ? "Today" : range === 'week' ? 'This Week' : 'This Month'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex-1">
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Custom Range</label>
+              <div className="flex items-center gap-2">
+                <Calendar size={14} className="text-orange-500 shrink-0" />
+                <input type="date" value={reportStart} onChange={(e) => { onChangeReportStart(e.target.value); }} className="flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
+                <span className="text-gray-400 font-black">to</span>
+                <input type="date" value={reportEnd} onChange={(e) => { onChangeReportEnd(e.target.value); }} className="flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
+              </div>
             </div>
           </div>
-          <div className="flex-1">
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Custom Range</label>
-            <div className="flex items-center gap-2">
-              <Calendar size={14} className="text-orange-500 shrink-0" />
-              <input type="date" value={reportStart} onChange={(e) => { onChangeReportStart(e.target.value); }} className="flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
-              <span className="text-gray-400 font-black">to</span>
-              <input type="date" value={reportEnd} onChange={(e) => { onChangeReportEnd(e.target.value); }} className="flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
-            </div>
+          <div className="flex gap-2 w-full md:w-auto">
+            <button onClick={onDownloadReport} className="flex-1 md:flex-none px-6 py-2 bg-black text-white dark:bg-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-orange-500 transition-all"><Download size={16} /> Export CSV</button>
+            {onDownloadPDF && <button onClick={onDownloadPDF} disabled={isDownloadingPDF} className={`flex-1 md:flex-none px-6 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${isDownloadingPDF ? 'bg-red-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'} text-white`}>{isDownloadingPDF ? (<><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> Generating...</>) : (<><FileText size={16} /> Download PDF</>)}</button>}
           </div>
         </div>
-        <div className="flex gap-2 w-full md:w-auto">
-          <button onClick={onDownloadReport} className="flex-1 md:flex-none px-6 py-2 bg-black text-white dark:bg-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-orange-500 transition-all"><Download size={16} /> Export CSV</button>
-          {onDownloadPDF && <button onClick={onDownloadPDF} disabled={isDownloadingPDF} className={`flex-1 md:flex-none px-6 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${isDownloadingPDF ? 'bg-red-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'} text-white`}>{isDownloadingPDF ? (<><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> Generating...</>) : (<><FileText size={16} /> Download PDF</>)}</button>}
-        </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6">
         {/* Total Revenue */}
