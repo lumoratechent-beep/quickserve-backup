@@ -57,8 +57,18 @@ const StandardReport: React.FC<Props> = ({
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [filterPayment, setFilterPayment] = useState<string>('ALL');
   const [filterCashier, setFilterCashier] = useState<string>('ALL');
+  const [showTimeRangeModal, setShowTimeRangeModal] = useState(false);
+  const [timeStartMinutes, setTimeStartMinutes] = useState(0);
+  const [timeEndMinutes, setTimeEndMinutes] = useState(1439);
   const isShiftReportWithoutActiveShift = applyCurrentShiftFilter && !activeShift;
   const showTopRangeAndExportControls = !applyCurrentShiftFilter;
+  const hasCustomTimeRange = timeStartMinutes !== 0 || timeEndMinutes !== 1439;
+
+  const formatMinuteToTime = (minutes: number) => {
+    const hour = Math.floor(minutes / 60);
+    const minute = minutes % 60;
+    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+  };
 
   // Auto-set date pickers when range preset changes
   useEffect(() => {
@@ -107,12 +117,15 @@ const StandardReport: React.FC<Props> = ({
 
     // Apply other filters
     return filtered.filter(o => {
+      const orderDate = new Date(o.timestamp);
+      const orderMinutes = orderDate.getHours() * 60 + orderDate.getMinutes();
+      if (orderMinutes < timeStartMinutes || orderMinutes > timeEndMinutes) return false;
       if (filterStatus !== 'ALL' && o.status !== filterStatus) return false;
       if (filterPayment !== 'ALL' && (o.paymentMethod || '-') !== filterPayment) return false;
       if (filterCashier !== 'ALL' && (o.cashierName || '-') !== filterCashier) return false;
       return true;
     });
-  }, [paginatedReports, filterStatus, filterPayment, filterCashier, activeShift, applyCurrentShiftFilter, isShiftReportWithoutActiveShift]);
+  }, [paginatedReports, filterStatus, filterPayment, filterCashier, activeShift, applyCurrentShiftFilter, isShiftReportWithoutActiveShift, timeStartMinutes, timeEndMinutes]);
 
   // Calculate filtered total pages
   const filteredTotalPages = useMemo(() => {
@@ -215,17 +228,96 @@ const StandardReport: React.FC<Props> = ({
             </div>
             <div className="flex-1">
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Custom Range</label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Calendar size={14} className="text-orange-500 shrink-0" />
                 <input type="date" value={reportStart} onChange={(e) => { onChangeReportStart(e.target.value); }} className="flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
                 <span className="text-gray-400 font-black">to</span>
                 <input type="date" value={reportEnd} onChange={(e) => { onChangeReportEnd(e.target.value); }} className="flex-1 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-[10px] font-black dark:text-white p-1.5" />
+                <button
+                  onClick={() => setShowTimeRangeModal(true)}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                    hasCustomTimeRange
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  Time Selection
+                </button>
               </div>
             </div>
           </div>
-          <div className="flex gap-2 w-full md:w-auto">
-            <button onClick={onDownloadReport} className="flex-1 md:flex-none px-6 py-2 bg-black text-white dark:bg-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-orange-500 transition-all"><Download size={16} /> Export CSV</button>
-            {onDownloadPDF && <button onClick={onDownloadPDF} disabled={isDownloadingPDF} className={`flex-1 md:flex-none px-6 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${isDownloadingPDF ? 'bg-red-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'} text-white`}>{isDownloadingPDF ? (<><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> Generating...</>) : (<><FileText size={16} /> Download PDF</>)}</button>}
+          <div className="flex flex-col gap-2 w-full md:w-auto">
+            <button onClick={onDownloadReport} className="w-full md:w-auto px-6 py-2 bg-black text-white dark:bg-white dark:text-gray-900 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-orange-500 transition-all"><Download size={16} /> Export CSV</button>
+            {onDownloadPDF && <button onClick={onDownloadPDF} disabled={isDownloadingPDF} className={`w-full md:w-auto px-6 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${isDownloadingPDF ? 'bg-red-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'} text-white`}>{isDownloadingPDF ? (<><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> Generating...</>) : (<><FileText size={16} /> Download PDF</>)}</button>}
+          </div>
+        </div>
+      )}
+
+      {showTimeRangeModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 md:p-5 shadow-xl">
+            <p className="text-sm font-black dark:text-white uppercase tracking-wider mb-1">Time Selection</p>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">
+              Select time range by sliding from and to.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">From</span>
+                  <span className="text-xs font-black text-orange-500">{formatMinuteToTime(timeStartMinutes)}</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={1439}
+                  step={5}
+                  value={timeStartMinutes}
+                  onChange={(e) => {
+                    const next = Number(e.target.value);
+                    setTimeStartMinutes(Math.min(next, timeEndMinutes));
+                  }}
+                  className="w-full accent-orange-500"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">To</span>
+                  <span className="text-xs font-black text-orange-500">{formatMinuteToTime(timeEndMinutes)}</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={1439}
+                  step={5}
+                  value={timeEndMinutes}
+                  onChange={(e) => {
+                    const next = Number(e.target.value);
+                    setTimeEndMinutes(Math.max(next, timeStartMinutes));
+                  }}
+                  className="w-full accent-orange-500"
+                />
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                onClick={() => {
+                  setTimeStartMinutes(0);
+                  setTimeEndMinutes(1439);
+                }}
+                className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Reset
+              </button>
+              <button
+                onClick={() => setShowTimeRangeModal(false)}
+                className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-orange-500 text-white hover:bg-orange-600 transition-colors"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -6817,7 +6817,19 @@ const PosOnlyView: React.FC<Props> = ({
                   />
                 )}
                 {reportsSubMenu === 'shiftReport' && (
-                  featureSettings.shiftEnabled ? (
+                  !featureSettings.shiftEnabled ? (
+                    <div className="min-h-[60vh] flex items-center justify-center">
+                      <p className="text-center text-xs md:text-sm font-bold text-gray-500 dark:text-gray-400">
+                        Shift Management is not installed yet. Install it in Add-ons to view Shift Report.
+                      </p>
+                    </div>
+                  ) : !activeShift ? (
+                    <div className="min-h-[60vh] flex items-center justify-center">
+                      <p className="text-center text-xs md:text-sm font-bold text-gray-500 dark:text-gray-400">
+                        No active shift. Open your shift to view shift transactions.
+                      </p>
+                    </div>
+                  ) : (
                     <StandardReport
                       title="Shift Report"
                       description="Current shift sales and transaction summary."
@@ -6843,12 +6855,6 @@ const PosOnlyView: React.FC<Props> = ({
                       activeShift={activeShift}
                       applyCurrentShiftFilter={true}
                     />
-                  ) : (
-                    <div className="min-h-[60vh] flex items-center justify-center">
-                      <p className="text-center text-xs md:text-sm font-bold text-gray-500 dark:text-gray-400">
-                        Shift Management is not installed yet. Install it in Add-ons to view Shift Report.
-                      </p>
-                    </div>
                   )
                 )}
               </div>
