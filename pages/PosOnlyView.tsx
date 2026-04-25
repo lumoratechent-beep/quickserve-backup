@@ -71,8 +71,8 @@ const CASHIER_ACCESS_SETTINGS: Array<{
 }> = [
   {
     key: 'viewOwnSalesOnly',
-    label: 'View Own Sales Only',
-    description: 'Restrict this staff to see only their own transactions in the Sales Report.',
+    label: 'View Sales Report',
+    description: 'Allow this cashier to open and view the Sales Report tab.',
   },
   {
     key: 'requireManagerApprovalForRefund',
@@ -1077,7 +1077,7 @@ const PosOnlyView: React.FC<Props> = ({
 
     staffList.forEach((staff: any, index: number) => {
       if (staff.role !== 'CASHIER') return;
-      const currentValue = staff.access_permissions?.[permissionKey] === true;
+      const currentValue = isCashierPermissionEnabled(staff, permissionKey);
       if (currentValue === enabled) return;
 
       const nextStaff = {
@@ -2561,7 +2561,8 @@ const PosOnlyView: React.FC<Props> = ({
     [staffList]
   );
   const currentStaffAccessPermissions = currentStaff?.access_permissions || {};
-  const isOwnSalesOnlyAccess = !!cashierName && currentStaff?.role !== 'MANAGER' && currentStaffAccessPermissions?.viewOwnSalesOnly === true;
+  const isCashierSession = currentStaff?.role === 'CASHIER';
+  const hasSalesReportAccess = !isCashierSession || currentStaffAccessPermissions?.viewOwnSalesOnly !== false;
   const hasManagerStaff = staffList.some((staff: any) => staff.role === 'MANAGER');
   const refundApprovalRoleForCurrentCashier = getRefundApprovalRole(currentStaffAccessPermissions);
   const refundApprovalRoleForCashiers = useMemo<RefundApprovalRole>(() => {
@@ -2584,9 +2585,16 @@ const PosOnlyView: React.FC<Props> = ({
   const showRefundApprovalSection = canReviewRefundRequests && (hasRefundApprovalEnabled || refundApprovalRequests.length > 0);
   const combinedMailUnreadCount = unreadMailCount + (showRefundApprovalSection ? refundApprovalRequests.length : 0);
 
+  function isCashierPermissionEnabled(staff: any, permissionKey: CashierAccessPermissionKey): boolean {
+    if (permissionKey === 'viewOwnSalesOnly') {
+      return staff?.access_permissions?.viewOwnSalesOnly !== false;
+    }
+    return staff?.access_permissions?.[permissionKey] === true;
+  }
+
   const getCashierPermissionSummary = (permissionKey: CashierAccessPermissionKey) => {
     const total = cashierStaffEntries.length;
-    const enabledCount = cashierStaffEntries.filter(({ staff }) => staff.access_permissions?.[permissionKey] === true).length;
+    const enabledCount = cashierStaffEntries.filter(({ staff }) => isCashierPermissionEnabled(staff, permissionKey)).length;
     return {
       total,
       enabledCount,
@@ -2796,8 +2804,7 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const applyReportAccess = (orders: Order[]): Order[] => {
-    if (!isOwnSalesOnlyAccess || !cashierName) return orders;
-    return orders.filter(order => (order.cashierName || '') === cashierName);
+    return orders;
   };
 
   const buildReportSummary = (orders: Order[]) => {
@@ -2897,37 +2904,6 @@ const PosOnlyView: React.FC<Props> = ({
         return applyReportAccess(orders);
       }
 
-      if (!isExport && isOwnSalesOnlyAccess) {
-        let allOrders: Order[] = [];
-        if (onFetchAllFilteredOrders) {
-          allOrders = await onFetchAllFilteredOrders(filters);
-        } else {
-          const allParams = new URLSearchParams({
-            ...filters as any,
-            page: '1',
-            limit: '10000',
-          });
-          const allResponse = await fetch(`/api/orders/report?${allParams.toString()}`);
-          if (!allResponse.ok) throw new Error('Failed to fetch report');
-          const allData: ReportResponse = await allResponse.json();
-          allOrders = allData.orders || [];
-        }
-
-        const sortedAccessibleOrders = applyReportAccess(allOrders)
-          .slice()
-          .sort((a, b) => b.timestamp - a.timestamp);
-        const pageStart = (currentPage - 1) * entriesPerPage;
-        const pageOrders = sortedAccessibleOrders.slice(pageStart, pageStart + entriesPerPage);
-        const data: ReportResponse = {
-          orders: pageOrders,
-          summary: buildReportSummary(sortedAccessibleOrders),
-          totalCount: sortedAccessibleOrders.length,
-        };
-        counterOrdersCache.mergeReportOrdersCache(restaurant.id, pageOrders);
-        setReportData(data);
-        return;
-      }
-
       if (!isExport && onFetchPaginatedOrders) {
         const data = await onFetchPaginatedOrders(filters, currentPage, entriesPerPage);
         // Persist fetched orders into local cache for offline access
@@ -2938,8 +2914,8 @@ const PosOnlyView: React.FC<Props> = ({
 
       const params = new URLSearchParams({
         ...filters as any,
-        page: (isExport || isOwnSalesOnlyAccess) ? '1' : currentPage.toString(),
-        limit: (isExport || isOwnSalesOnlyAccess) ? '10000' : entriesPerPage.toString()
+        page: isExport ? '1' : currentPage.toString(),
+        limit: isExport ? '10000' : entriesPerPage.toString()
       });
 
       const response = await fetch(`/api/orders/report?${params.toString()}`);
@@ -2949,19 +2925,6 @@ const PosOnlyView: React.FC<Props> = ({
       if (isExport) {
         counterOrdersCache.mergeReportOrdersCache(restaurant.id, data.orders);
         return applyReportAccess(data.orders);
-      } else if (isOwnSalesOnlyAccess) {
-        const sortedAccessibleOrders = applyReportAccess(data.orders)
-          .slice()
-          .sort((a, b) => b.timestamp - a.timestamp);
-        const pageStart = (currentPage - 1) * entriesPerPage;
-        const pageOrders = sortedAccessibleOrders.slice(pageStart, pageStart + entriesPerPage);
-        const accessData: ReportResponse = {
-          orders: pageOrders,
-          summary: buildReportSummary(sortedAccessibleOrders),
-          totalCount: sortedAccessibleOrders.length,
-        };
-        counterOrdersCache.mergeReportOrdersCache(restaurant.id, pageOrders);
-        setReportData(accessData);
       } else {
         counterOrdersCache.mergeReportOrdersCache(restaurant.id, data.orders);
         setReportData(data);
@@ -4852,10 +4815,16 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const handleReportsClick = () => {
-    setReportsSubMenu('salesReport');
+    setReportsSubMenu(hasSalesReportAccess ? 'salesReport' : 'shiftReport');
     setActiveTab('REPORTS');
     setIsMobileMenuOpen(false);
   };
+
+  useEffect(() => {
+    if (!hasSalesReportAccess && reportsSubMenu === 'salesReport') {
+      setReportsSubMenu('shiftReport');
+    }
+  }, [hasSalesReportAccess, reportsSubMenu]);
 
   // --- Kitchen Feature Logic ---
   // Plan-based feature gating
@@ -5363,7 +5332,7 @@ const PosOnlyView: React.FC<Props> = ({
                       <div className="mt-3 ml-7 rounded-xl border border-slate-200/80 bg-slate-50/70 dark:border-gray-700/80 dark:bg-gray-900/30 overflow-hidden animate-in slide-in-from-top-1 fade-in duration-200">
                         <div className="divide-y divide-slate-200/80 dark:divide-gray-700/80">
                           {cashierStaffEntries.map(({ staff, index }) => {
-                            const isEnabled = staff.access_permissions?.[setting.key] === true;
+                            const isEnabled = isCashierPermissionEnabled(staff, setting.key);
                             return (
                               <div key={staff.id || `${staff.username}-${index}`} className="flex items-center justify-between gap-3 px-4 py-3">
                                 <div className="min-w-0 flex-1">
@@ -5438,8 +5407,8 @@ const PosOnlyView: React.FC<Props> = ({
                           {staff.role === 'KITCHEN' && (
                             <span className="text-[9px] font-semibold text-slate-400 dark:text-gray-500">{staff.kitchen_categories && staff.kitchen_categories.length > 0 ? staff.kitchen_categories.join(', ') : 'General Kitchen'}</span>
                           )}
-                          {!isManager && perms.viewOwnSalesOnly && (
-                            <span className="text-[9px] bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Own Sales Only</span>
+                          {!isManager && staff.role === 'CASHIER' && perms.viewOwnSalesOnly === false && (
+                            <span className="text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Sales Report Off</span>
                           )}
                           {!isManager && perms.requireManagerApprovalForRefund && (
                             <span className="text-[9px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Refund: Manager</span>
@@ -7180,7 +7149,7 @@ const PosOnlyView: React.FC<Props> = ({
               {/* Report Type Tabs */}
               <div className="flex gap-0 relative">
                 {([
-                  { id: 'salesReport' as const, label: 'Sales Report', icon: <BarChart3 size={13} /> },
+                  ...(hasSalesReportAccess ? [{ id: 'salesReport' as const, label: 'Sales Report', icon: <BarChart3 size={13} /> }] : []),
                   { id: 'shiftReport' as const, label: 'Shift Report', icon: <Clock size={13} /> },
                 ]).map(tab => (
                   <button
@@ -7199,7 +7168,7 @@ const PosOnlyView: React.FC<Props> = ({
                 ))}
               </div>
               <div className="-mt-px bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-b-lg rounded-tr-lg p-4 md:p-5">
-                {reportsSubMenu === 'salesReport' && (
+                {hasSalesReportAccess && reportsSubMenu === 'salesReport' && (
                   <StandardReport
                     reportStart={reportStart}
                     reportEnd={reportEnd}
