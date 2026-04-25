@@ -587,7 +587,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [reportData, setReportData] = useState<ReportResponse | null>(null);
   const [isReportLoading, setIsReportLoading] = useState(false);
-  const [reportsSubMenu, setReportsSubMenu] = useState<'salesReport' | 'statistics'>('salesReport');
+  const [reportsSubMenu, setReportsSubMenu] = useState<'salesReport' | 'statistics' | 'shiftManagement'>('salesReport');
   const totalPages = reportData ? Math.ceil(reportData.totalCount / entriesPerPage) : 0;
   const paginatedReports = reportData?.orders || [];
 
@@ -6760,8 +6760,8 @@ const PosOnlyView: React.FC<Props> = ({
             </>
           )}
 
-          {/* Reports Tab - Same as PosView */}
-          {activeTab === 'REPORTS' && reportsSubMenu === 'salesReport' && (
+          {/* Reports Tab */}
+          {activeTab === 'REPORTS' && (
             <div className="flex-1 overflow-y-auto p-4 md:p-8">
               {!isOnline && (
                 <div className="mb-4 flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl">
@@ -6771,27 +6771,78 @@ const PosOnlyView: React.FC<Props> = ({
                   </p>
                 </div>
               )}
-              <StandardReport
-                reportStart={reportStart}
-                reportEnd={reportEnd}
-                reportStatus={reportStatus}
-                reportSearchQuery={reportSearchQuery}
-                entriesPerPage={entriesPerPage}
-                currentPage={currentPage}
-                totalPages={totalPages}
-                paginatedReports={paginatedReports}
-                reportData={reportData}
-                onChangeReportStart={setReportStart}
-                onChangeReportEnd={setReportEnd}
-                onChangeReportStatus={(value) => setReportStatus(value as any)}
-                onChangeReportSearchQuery={setReportSearchQuery}
-                onChangeEntriesPerPage={setEntriesPerPage}
-                onChangeCurrentPage={setCurrentPage}
-                onDownloadReport={handleDownloadReport}
-                onDownloadPDF={handleDownloadPDF}
-                isDownloadingPDF={isDownloadingPDF}
-                onSelectOrder={(order) => setSelectedReportOrder(order)}
-              />
+              {/* Report Type Toggle */}
+              <div className="mb-4 flex gap-2">
+                <button
+                  onClick={() => setReportsSubMenu('salesReport')}
+                  className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all ${
+                    reportsSubMenu === 'salesReport'
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  Sales Report
+                </button>
+                <button
+                  onClick={() => setReportsSubMenu('shiftManagement')}
+                  className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all ${
+                    reportsSubMenu === 'shiftManagement'
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  Shift Management
+                </button>
+              </div>
+              {reportsSubMenu === 'salesReport' && (
+                <StandardReport
+                  reportStart={reportStart}
+                  reportEnd={reportEnd}
+                  reportStatus={reportStatus}
+                  reportSearchQuery={reportSearchQuery}
+                  entriesPerPage={entriesPerPage}
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  paginatedReports={paginatedReports}
+                  reportData={reportData}
+                  onChangeReportStart={setReportStart}
+                  onChangeReportEnd={setReportEnd}
+                  onChangeReportStatus={(value) => setReportStatus(value as any)}
+                  onChangeReportSearchQuery={setReportSearchQuery}
+                  onChangeEntriesPerPage={setEntriesPerPage}
+                  onChangeCurrentPage={setCurrentPage}
+                  onDownloadReport={handleDownloadReport}
+                  onDownloadPDF={handleDownloadPDF}
+                  isDownloadingPDF={isDownloadingPDF}
+                  onSelectOrder={(order) => setSelectedReportOrder(order)}
+                />
+              )}
+              {reportsSubMenu === 'shiftManagement' && (
+                <StandardReport
+                  title="Shift Management"
+                  description="Current shift sales and transaction summary."
+                  reportStart={reportStart}
+                  reportEnd={reportEnd}
+                  reportStatus={reportStatus}
+                  reportSearchQuery={reportSearchQuery}
+                  entriesPerPage={entriesPerPage}
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  paginatedReports={paginatedReports}
+                  reportData={reportData}
+                  onChangeReportStart={setReportStart}
+                  onChangeReportEnd={setReportEnd}
+                  onChangeReportStatus={(value) => setReportStatus(value as any)}
+                  onChangeReportSearchQuery={setReportSearchQuery}
+                  onChangeEntriesPerPage={setEntriesPerPage}
+                  onChangeCurrentPage={setCurrentPage}
+                  onDownloadReport={handleDownloadReport}
+                  onDownloadPDF={handleDownloadPDF}
+                  isDownloadingPDF={isDownloadingPDF}
+                  onSelectOrder={(order) => setSelectedReportOrder(order)}
+                  activeShift={activeShift}
+                />
+              )}
             </div>
           )}
 

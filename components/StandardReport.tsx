@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Order, OrderStatus, ReportResponse } from '../src/types';
+import { Order, OrderStatus, ReportResponse, CashierShift } from '../src/types';
 import { Calendar, Download, Search, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, CreditCard, Users, FileText } from 'lucide-react';
 
 interface Props {
@@ -22,6 +22,9 @@ interface Props {
   onDownloadPDF?: () => void;
   isDownloadingPDF?: boolean;
   onSelectOrder?: (order: Order) => void;
+  title?: string;
+  description?: string;
+  activeShift?: CashierShift | null;
 }
 
 const StandardReport: React.FC<Props> = ({
@@ -44,6 +47,9 @@ const StandardReport: React.FC<Props> = ({
   onDownloadPDF,
   isDownloadingPDF,
   onSelectOrder,
+  title = "Sales Report",
+  description = "Financial performance and order history.",
+  activeShift,
 }) => {
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [filterPayment, setFilterPayment] = useState<string>('ALL');
@@ -81,13 +87,26 @@ const StandardReport: React.FC<Props> = ({
   }, [paginatedReports]);
 
   const filteredReports = useMemo(() => {
-    return paginatedReports.filter(o => {
+    let filtered = paginatedReports;
+
+    // Apply shift filtering first if activeShift is provided
+    if (activeShift) {
+      const shiftStart = new Date(activeShift.opened_at).getTime();
+      const shiftEnd = activeShift.closed_at ? new Date(activeShift.closed_at).getTime() : Date.now();
+      filtered = filtered.filter(o => {
+        const orderTime = new Date(o.timestamp).getTime();
+        return orderTime >= shiftStart && orderTime <= shiftEnd;
+      });
+    }
+
+    // Apply other filters
+    return filtered.filter(o => {
       if (filterStatus !== 'ALL' && o.status !== filterStatus) return false;
       if (filterPayment !== 'ALL' && (o.paymentMethod || '-') !== filterPayment) return false;
       if (filterCashier !== 'ALL' && (o.cashierName || '-') !== filterCashier) return false;
       return true;
     });
-  }, [paginatedReports, filterStatus, filterPayment, filterCashier]);
+  }, [paginatedReports, filterStatus, filterPayment, filterCashier, activeShift]);
 
   // Transaction type and cashier breakdowns from the full report summary
   const detailTransactions = useMemo(() => {
@@ -120,8 +139,8 @@ const StandardReport: React.FC<Props> = ({
 
   return (
     <div className="animate-in fade-in duration-500">
-      <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Sales Report</h1>
-      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">Financial performance and order history.</p>
+      <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">{title}</h1>
+      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">{description}</p>
 
       <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm flex flex-col md:flex-row items-center gap-4 mb-6">
         <div className="flex-1 flex flex-col sm:flex-row gap-4 w-full">
