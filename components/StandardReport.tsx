@@ -51,10 +51,10 @@ const StandardReport: React.FC<Props> = ({
   description = "Financial performance and order history.",
   activeShift,
 }) => {
+  const [detailRange, setDetailRange] = useState<'today' | 'week' | 'month'>('month');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [filterPayment, setFilterPayment] = useState<string>('ALL');
   const [filterCashier, setFilterCashier] = useState<string>('ALL');
-  const [detailRange, setDetailRange] = useState<'today' | 'week' | 'month'>('month');
 
   // Auto-set date pickers when range preset changes
   useEffect(() => {
@@ -108,11 +108,30 @@ const StandardReport: React.FC<Props> = ({
     });
   }, [paginatedReports, filterStatus, filterPayment, filterCashier, activeShift]);
 
-  // Transaction type and cashier breakdowns from the full report summary
+  // Calculate filtered total pages
+  const filteredTotalPages = useMemo(() => {
+    return Math.ceil(filteredReports.length / entriesPerPage);
+  }, [filteredReports.length, entriesPerPage]);
+
+  // Reset to page 1 if current page exceeds filtered total pages
+  useEffect(() => {
+    if (currentPage > filteredTotalPages && filteredTotalPages > 0) {
+      onChangeCurrentPage(1);
+    }
+  }, [currentPage, filteredTotalPages, onChangeCurrentPage]);
+
+  // Calculate filtered summary statistics
+  const filteredSummary = useMemo(() => {
+    const nonCancelled = filteredReports.filter(o => o.status !== OrderStatus.CANCELLED);
+    const totalRevenue = nonCancelled.reduce((sum, o) => sum + o.total, 0);
+    const orderVolume = nonCancelled.length;
+    return { totalRevenue, orderVolume };
+  }, [filteredReports]);
+
+  // Transaction type and cashier breakdowns from filtered data
   const detailTransactions = useMemo(() => {
-    if (reportData?.summary?.byTransactionType) return reportData.summary.byTransactionType;
-    // Fallback: compute from paginated data (legacy)
-    const nonCancelled = paginatedReports.filter(o => o.status !== OrderStatus.CANCELLED);
+    // Always compute from filtered data for consistency
+    const nonCancelled = filteredReports.filter(o => o.status !== OrderStatus.CANCELLED);
     const map: Record<string, { count: number; total: number }> = {};
     nonCancelled.forEach(o => {
       const method = o.paymentMethod || '-';
@@ -121,12 +140,11 @@ const StandardReport: React.FC<Props> = ({
       map[method].total += o.total;
     });
     return Object.entries(map).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.total - a.total);
-  }, [reportData, paginatedReports]);
+  }, [filteredReports]);
 
   const detailCashiers = useMemo(() => {
-    if (reportData?.summary?.byCashier) return reportData.summary.byCashier;
-    // Fallback: compute from paginated data (legacy)
-    const nonCancelled = paginatedReports.filter(o => o.status !== OrderStatus.CANCELLED);
+    // Always compute from filtered data for consistency
+    const nonCancelled = filteredReports.filter(o => o.status !== OrderStatus.CANCELLED);
     const map: Record<string, { count: number; total: number }> = {};
     nonCancelled.forEach(o => {
       const name = o.cashierName || '-';
@@ -135,7 +153,7 @@ const StandardReport: React.FC<Props> = ({
       map[name].total += o.total;
     });
     return Object.entries(map).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.total - a.total);
-  }, [reportData, paginatedReports]);
+  }, [filteredReports]);
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -182,8 +200,8 @@ const StandardReport: React.FC<Props> = ({
         {/* Total Revenue */}
         <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm">
           <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Total Revenue</p>
-          <p className="text-xl md:text-2xl font-black dark:text-white">RM{reportData?.summary.totalRevenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400 font-black mt-1">{reportData?.summary.orderVolume || 0} orders</p>
+          <p className="text-xl md:text-2xl font-black dark:text-white">RM{filteredSummary.totalRevenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 font-black mt-1">{filteredSummary.orderVolume} orders</p>
         </div>
 
         {/* By Transaction Type */}
@@ -338,7 +356,7 @@ const StandardReport: React.FC<Props> = ({
         </div>
       </div>
 
-      {totalPages > 1 && (
+      {filteredTotalPages > 1 && (
         <div className="mt-8 flex items-center justify-center gap-2 overflow-x-auto py-2 no-print">
           <button onClick={() => onChangeCurrentPage(1)} disabled={currentPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
             <ChevronFirst size={16} />
@@ -352,8 +370,8 @@ const StandardReport: React.FC<Props> = ({
               const maxVisible = 10;
               let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
               let end = start + maxVisible - 1;
-              if (end > totalPages) {
-                end = totalPages;
+              if (end > filteredTotalPages) {
+                end = filteredTotalPages;
                 start = Math.max(1, end - maxVisible + 1);
               }
               const pages: number[] = [];
@@ -370,10 +388,10 @@ const StandardReport: React.FC<Props> = ({
             ))}
           </div>
 
-          <button onClick={() => onChangeCurrentPage((prev) => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
+          <button onClick={() => onChangeCurrentPage((prev) => Math.min(filteredTotalPages, prev + 1))} disabled={currentPage === filteredTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
             <ChevronRight size={16} />
           </button>
-          <button onClick={() => onChangeCurrentPage(totalPages)} disabled={currentPage === totalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
+          <button onClick={() => onChangeCurrentPage(filteredTotalPages)} disabled={currentPage === filteredTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-orange-500 disabled:opacity-30 transition-all">
             <ChevronLast size={16} />
           </button>
         </div>
