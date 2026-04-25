@@ -4515,7 +4515,7 @@ const PosOnlyView: React.FC<Props> = ({
       orders.forEach((o) => {
         rows.push([
           o.id,
-          o.tableNumber,
+          o.tableNumber || '-',
           o.diningType || '-',
           new Date(o.timestamp).toLocaleDateString('en-MY'),
           new Date(o.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -4559,7 +4559,7 @@ const PosOnlyView: React.FC<Props> = ({
       orders.forEach((o) => {
         rows.push([
           o.id,
-          o.tableNumber,
+          o.tableNumber || '-',
           o.diningType || '-',
           new Date(o.timestamp).toLocaleDateString('en-MY'),
           new Date(o.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
