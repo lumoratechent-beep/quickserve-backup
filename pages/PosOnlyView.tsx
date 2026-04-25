@@ -6772,7 +6772,7 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               )}
               {/* Report Type Tabs */}
-              <div className="flex gap-0 relative mb-4">
+              <div className="flex gap-0 relative">
                 {([
                   { id: 'salesReport' as const, label: 'Sales Report', icon: <BarChart3 size={13} /> },
                   { id: 'shiftReport' as const, label: 'Shift Report', icon: <Clock size={13} /> },
@@ -6792,7 +6792,7 @@ const PosOnlyView: React.FC<Props> = ({
                   </button>
                 ))}
               </div>
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-b-lg rounded-tr-lg p-4 md:p-5">
+              <div className="-mt-px bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-b-lg rounded-tr-lg p-4 md:p-5">
                 {reportsSubMenu === 'salesReport' && (
                   <StandardReport
                     reportStart={reportStart}
