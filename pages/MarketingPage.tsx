@@ -103,9 +103,9 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
   const showcaseSlides = [
     {
       id: 'cashier',
-      label: 'Counter Sales',
-      title: 'Cashier view for fast front-of-house flow.',
-      description: 'A clean billing workspace that keeps orders, totals, and action buttons visible without clutter.',
+      label: 'Front Counter',
+      title: 'Cashier workspace built for fast, accurate checkout.',
+      description: 'A focused counter view that keeps orders, totals, and payment actions clear during busy service.',
       metric: '01',
       src: '/marketing-img/cashier-view.png',
       frameClass: 'bg-[#5f7f9b]',
@@ -114,9 +114,9 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
     },
     {
       id: 'order-taker',
-      label: 'Staff Ordering',
-      title: 'Tableside order taking with live service context.',
-      description: 'Staff can capture dine-in orders on the move while keeping table details and item controls close.',
+      label: 'Tableside Service',
+      title: 'Order taking that keeps staff quick and confident on the floor.',
+      description: 'A service-friendly layout for taking orders at the table with table context and item controls in view.',
       metric: '02',
       src: '/marketing-img/order-taker-view.png',
       frameClass: 'bg-[#f4f0e8]',
@@ -125,9 +125,9 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
     },
     {
       id: 'mobile',
-      label: 'Customer Mobile',
-      title: 'A customer menu that feels polished on any phone.',
-      description: 'Guests browse, choose, and send orders from a responsive mobile menu built for quick decisions.',
+      label: 'Guest Mobile',
+      title: 'A mobile ordering experience designed for clarity and speed.',
+      description: 'Guests can browse the menu, review items, and place orders from a polished mobile interface.',
       metric: '03',
       src: '/marketing-img/customer-mobile-view.png',
       frameClass: 'bg-[#efe7dc]',
@@ -137,9 +137,9 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
   ];
 
   const showcaseNotes = [
-    'Desktop and mobile layouts adapt from one system.',
-    'Soft motion gives the section a premium presentation feel.',
-    'Local images now replace the previous remote view assets.',
+    'Three connected views support counter, staff, and guest ordering in one system.',
+    'Each screen is presented with clearer hierarchy and more realistic product framing.',
+    'All mockups in this section now use the local marketing assets from your project.',
   ];
 
   return (
@@ -466,10 +466,10 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
                 Product Views
               </span>
               <h2 className="mt-5 text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 dark:text-white tracking-tighter leading-[0.95]">
-                Portfolio-style previews with a more editorial feel.
+                A clearer look at how QuickServe works across every service touchpoint.
               </h2>
               <p className="mt-4 text-sm sm:text-base text-gray-700 dark:text-gray-200 font-medium leading-relaxed max-w-md">
-                The showcase now uses your local marketing screenshots and presents them like a premium product deck instead of a generic device view.
+                From counter checkout to tableside ordering and guest mobile browsing, each interface is presented with a more polished and professional product mockup.
               </p>
 
               <div className="mt-8 grid grid-cols-3 gap-3">
@@ -477,6 +477,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
                   <div key={slide.id} className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-white/5 px-3 py-4 backdrop-blur-sm">
                     <div className="text-[9px] font-black uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">{slide.metric}</div>
                     <div className="mt-2 text-[11px] sm:text-xs font-black uppercase tracking-wide text-gray-900 dark:text-white">{slide.label}</div>
+                    <div className="mt-1 text-[11px] sm:text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{slide.id === 'cashier' ? 'Checkout and billing' : slide.id === 'order-taker' ? 'Staff-led ordering' : 'Self-service browsing'}</div>
                   </div>
                 ))}
               </div>
@@ -495,28 +496,32 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
 
             <div className={`transition-all duration-700 delay-150 ${mockupRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
               <div className="rounded-[2rem] sm:rounded-[2.5rem] border border-black/10 dark:border-white/10 bg-white/75 dark:bg-white/5 p-3 sm:p-5 backdrop-blur-2xl shadow-[0_30px_100px_rgba(15,23,42,0.12)] dark:shadow-[0_30px_100px_rgba(0,0,0,0.35)]">
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,1.28fr)_minmax(250px,0.86fr)] lg:items-start">
-                  <article className="relative self-start rounded-[1.6rem] sm:rounded-[2rem] border border-black/10 dark:border-white/10 bg-[#5f7f9b] p-3 sm:p-5 text-white overflow-hidden mockup-float-card">
-                    <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.16),transparent_35%,rgba(15,23,42,0.15))] pointer-events-none" />
-                    <div className="relative flex items-start justify-between gap-4 mb-4">
-                      <div>
-                        <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.22em] text-white/70">Desktop Command View</p>
-                        <h3 className="mt-2 text-2xl sm:text-3xl font-black tracking-tight leading-none">Cashier View</h3>
-                      </div>
-                      <div className="hidden sm:flex flex-col text-right text-[10px] font-bold uppercase tracking-[0.18em] text-white/70">
-                        <span>Fast checkout</span>
-                        <span>Live order sync</span>
-                      </div>
-                    </div>
-                    <div className="relative rounded-[1.2rem] sm:rounded-[1.6rem] overflow-hidden border border-white/25 shadow-2xl shadow-slate-900/20">
-                      <img src="/marketing-img/cashier-view.png" alt="QuickServe cashier view" className="w-full aspect-[16/9.2] object-cover object-left-top" />
-                    </div>
-                    <div className="relative mt-4 grid grid-cols-3 gap-2 text-[10px] sm:text-[11px]">
-                      {['Counter-ready layout', 'Readable controls', 'Responsive components'].map((item) => (
-                        <div key={item} className="rounded-xl bg-white/12 px-3 py-2 text-white/80 font-bold backdrop-blur-sm border border-white/10">
-                          {item}
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)] lg:items-stretch">
+                  <article className="relative rounded-[1.8rem] sm:rounded-[2.2rem] border border-black/10 dark:border-white/10 bg-[#f7f5f1] dark:bg-slate-900/80 overflow-hidden shadow-[0_24px_70px_rgba(15,23,42,0.14)] dark:shadow-[0_24px_70px_rgba(0,0,0,0.35)]">
+                    <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.6),transparent_38%,rgba(15,23,42,0.06))] dark:bg-[linear-gradient(135deg,rgba(255,255,255,0.06),transparent_40%,rgba(249,115,22,0.08))] pointer-events-none" />
+                    <div className="relative p-4 sm:p-6">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Primary Workspace</p>
+                          <h3 className="mt-2 text-2xl sm:text-3xl font-black tracking-tight text-gray-900 dark:text-white leading-none">Cashier View</h3>
+                          <p className="mt-3 max-w-lg text-xs sm:text-sm text-gray-600 dark:text-gray-300 font-medium leading-relaxed">
+                            {showcaseSlides[0].description}
+                          </p>
                         </div>
-                      ))}
+                        <div className="grid grid-cols-2 gap-2 text-[10px] sm:text-[11px] font-black uppercase tracking-[0.16em] text-gray-600 dark:text-gray-300">
+                          {['Fast checkout', 'Live totals', 'Clear actions', 'Front-of-house ready'].map((item) => (
+                            <div key={item} className="rounded-full border border-black/10 dark:border-white/10 bg-white/80 dark:bg-white/5 px-3 py-2 text-center backdrop-blur-sm">
+                              {item}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="mt-5 rounded-[1.4rem] sm:rounded-[1.8rem] border border-black/10 dark:border-white/10 bg-[#5f7f9b] p-3 sm:p-4 shadow-2xl shadow-slate-900/10">
+                        <div className="rounded-[1.1rem] sm:rounded-[1.4rem] overflow-hidden border border-white/25">
+                          <img src="/marketing-img/cashier-view.png" alt="QuickServe cashier view" className="w-full aspect-[16/9.1] object-cover object-left-top" />
+                        </div>
+                      </div>
                     </div>
                   </article>
 
@@ -527,7 +532,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
                         className={`relative rounded-[1.6rem] sm:rounded-[2rem] border border-black/10 dark:border-white/10 ${slide.frameClass} overflow-hidden shadow-[0_18px_50px_rgba(15,23,42,0.12)] dark:shadow-[0_18px_50px_rgba(0,0,0,0.25)] mockup-float-card`}
                         style={{ animationDelay: `${index * 1.2}s` }}
                       >
-                        <div className="p-4 sm:p-5 pb-0 relative z-10">
+                        <div className="p-4 sm:p-5 pb-3 relative z-10">
                           <div className="flex items-start justify-between gap-4">
                             <div>
                               <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.22em] text-gray-500 dark:text-gray-700/80">{slide.label}</p>
@@ -539,9 +544,9 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
                               {slide.metric}
                             </div>
                           </div>
-                          <p className="mt-3 text-xs sm:text-sm text-gray-600 dark:text-gray-700 font-medium leading-relaxed max-w-xs">{slide.description}</p>
+                          <p className="mt-3 text-xs sm:text-sm text-gray-600 dark:text-gray-700 font-medium leading-relaxed">{slide.description}</p>
                         </div>
-                        <div className="p-3 sm:p-4">
+                        <div className="px-3 sm:px-4 pb-3 sm:pb-4">
                           <div className={`rounded-[1.1rem] sm:rounded-[1.4rem] overflow-hidden border border-black/10 dark:border-black/10 ${slide.imageWrapClass}`}>
                             <img src={slide.src} alt={slide.title} className={`w-full aspect-[16/9.5] ${slide.imageClass}`} />
                           </div>
