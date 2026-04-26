@@ -110,7 +110,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
       description: 'Billing, orders, and payments stay clear in one focused workspace.',
       metric: '01',
       src: '/marketing-img/cashier-view.png',
-      frameClass: 'bg-[#5f7f9b]',
+      frameClass: 'bg-transparent',
       imageWrapClass: 'bg-transparent',
       imageClass: 'object-cover object-left-top',
     },
@@ -121,8 +121,8 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
       description: 'Tables, modifiers, and item actions are easy to reach while serving guests.',
       metric: '02',
       src: '/marketing-img/order-taker-view.png',
-      frameClass: 'bg-[#f4f0e8]',
-      imageWrapClass: 'bg-[#676c77]',
+      frameClass: 'bg-transparent',
+      imageWrapClass: 'bg-transparent',
       imageClass: 'object-contain object-center p-4 sm:p-5',
     },
     {
@@ -132,8 +132,8 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
       description: 'Guests browse, customize, and place orders in a clean self-service flow.',
       metric: '03',
       src: '/marketing-img/customer-mobile-view.png',
-      frameClass: 'bg-[#efe7dc]',
-      imageWrapClass: 'bg-[#676c77]',
+      frameClass: 'bg-transparent',
+      imageWrapClass: 'bg-transparent',
       imageClass: 'object-contain object-center p-4 sm:p-6',
     },
   ];
@@ -147,7 +147,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
     if (showcasePaused) return;
     const timer = window.setInterval(() => {
       setShowcaseIndex((prev) => (prev + 1) % showcaseSlides.length);
-    }, 4500);
+    }, 1500);
     return () => window.clearInterval(timer);
   }, [showcasePaused, showcaseSlides.length]);
 
@@ -520,7 +520,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
               >
                 <div className="relative flex-1 overflow-hidden rounded-[1.4rem] border border-black/10 dark:border-white/10 bg-white/70 dark:bg-slate-900/70">
                   <div
-                    className="flex h-full transition-transform duration-700 ease-out"
+                    className="flex h-full transition-transform duration-1000 ease-in-out"
                     style={{ transform: `translateX(-${showcaseIndex * 100}%)` }}
                   >
                     {showcaseSlides.map((slide) => (
