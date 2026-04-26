@@ -109,6 +109,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
       metric: '01',
       src: '/marketing-img/cashier-view.png',
       frameClass: 'bg-[#5f7f9b]',
+      imageWrapClass: 'bg-transparent',
       imageClass: 'object-cover object-left-top',
     },
     {
@@ -119,7 +120,8 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
       metric: '02',
       src: '/marketing-img/order-taker-view.png',
       frameClass: 'bg-[#f4f0e8]',
-      imageClass: 'object-cover object-center',
+      imageWrapClass: 'bg-[#676c77]',
+      imageClass: 'object-contain object-center p-4 sm:p-5',
     },
     {
       id: 'mobile',
@@ -129,14 +131,15 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
       metric: '03',
       src: '/marketing-img/customer-mobile-view.png',
       frameClass: 'bg-[#efe7dc]',
-      imageClass: 'object-cover object-right',
+      imageWrapClass: 'bg-[#676c77]',
+      imageClass: 'object-contain object-center p-4 sm:p-6',
     },
   ];
 
   const showcaseNotes = [
     'Desktop and mobile layouts adapt from one system.',
     'Soft motion gives the section a premium presentation feel.',
-    'Local images now replace the previous remote mockup assets.',
+    'Local images now replace the previous remote view assets.',
   ];
 
   return (
@@ -457,16 +460,16 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
         <div className="absolute bottom-4 left-0 w-48 h-48 sm:w-80 sm:h-80 rounded-full bg-orange-200/50 dark:bg-slate-500/10 blur-3xl pointer-events-none mockup-orb-drift" style={{ animationDelay: '2.4s' }} />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)] items-start">
-            <div className={`transition-all duration-700 ${mockupRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/5 text-[10px] font-black uppercase tracking-[0.24em] text-gray-700 dark:text-gray-300 backdrop-blur-xl">
-                Product Mockups
+          <div className="grid gap-8 lg:gap-10 lg:grid-cols-[minmax(0,0.98fr)_minmax(0,1.02fr)] items-start">
+            <div className={`transition-all duration-700 lg:flex lg:flex-col lg:justify-between lg:min-h-[720px] ${mockupRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/5 text-[10px] font-black uppercase tracking-[0.24em] text-gray-700 dark:text-gray-200 backdrop-blur-xl">
+                Product Views
               </span>
               <h2 className="mt-5 text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 dark:text-white tracking-tighter leading-[0.95]">
                 Portfolio-style previews with a more editorial feel.
               </h2>
-              <p className="mt-4 text-sm sm:text-base text-gray-700 dark:text-gray-300 font-medium leading-relaxed max-w-sm">
-                The showcase now uses your local marketing screenshots and presents them like a premium product deck instead of a generic device mockup.
+              <p className="mt-4 text-sm sm:text-base text-gray-700 dark:text-gray-200 font-medium leading-relaxed max-w-md">
+                The showcase now uses your local marketing screenshots and presents them like a premium product deck instead of a generic device view.
               </p>
 
               <div className="mt-8 grid grid-cols-3 gap-3">
@@ -484,7 +487,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
                     <div className="mt-0.5 w-7 h-7 rounded-full bg-gray-900 text-white dark:bg-orange-500 dark:text-white text-[10px] font-black flex items-center justify-center shrink-0">
                       0{index + 1}
                     </div>
-                    <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed">{note}</p>
+                    <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-200 font-medium leading-relaxed">{note}</p>
                   </div>
                 ))}
               </div>
@@ -492,13 +495,13 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
 
             <div className={`transition-all duration-700 delay-150 ${mockupRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
               <div className="rounded-[2rem] sm:rounded-[2.5rem] border border-black/10 dark:border-white/10 bg-white/75 dark:bg-white/5 p-3 sm:p-5 backdrop-blur-2xl shadow-[0_30px_100px_rgba(15,23,42,0.12)] dark:shadow-[0_30px_100px_rgba(0,0,0,0.35)]">
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(260px,0.9fr)]">
-                  <article className="relative rounded-[1.6rem] sm:rounded-[2rem] border border-black/10 dark:border-white/10 bg-[#5f7f9b] p-3 sm:p-5 text-white overflow-hidden mockup-float-card">
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1.28fr)_minmax(250px,0.86fr)] lg:items-start">
+                  <article className="relative self-start rounded-[1.6rem] sm:rounded-[2rem] border border-black/10 dark:border-white/10 bg-[#5f7f9b] p-3 sm:p-5 text-white overflow-hidden mockup-float-card">
                     <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.16),transparent_35%,rgba(15,23,42,0.15))] pointer-events-none" />
                     <div className="relative flex items-start justify-between gap-4 mb-4">
                       <div>
                         <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.22em] text-white/70">Desktop Command View</p>
-                        <h3 className="mt-2 text-2xl sm:text-3xl font-black tracking-tight leading-none">Cashier Mockup</h3>
+                        <h3 className="mt-2 text-2xl sm:text-3xl font-black tracking-tight leading-none">Cashier View</h3>
                       </div>
                       <div className="hidden sm:flex flex-col text-right text-[10px] font-bold uppercase tracking-[0.18em] text-white/70">
                         <span>Fast checkout</span>
@@ -506,7 +509,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
                       </div>
                     </div>
                     <div className="relative rounded-[1.2rem] sm:rounded-[1.6rem] overflow-hidden border border-white/25 shadow-2xl shadow-slate-900/20">
-                      <img src="/marketing-img/cashier-view.png" alt="QuickServe cashier view" className="w-full aspect-[16/10] object-cover object-left-top" />
+                      <img src="/marketing-img/cashier-view.png" alt="QuickServe cashier view" className="w-full aspect-[16/9.2] object-cover object-left-top" />
                     </div>
                     <div className="relative mt-4 grid grid-cols-3 gap-2 text-[10px] sm:text-[11px]">
                       {['Counter-ready layout', 'Readable controls', 'Responsive components'].map((item) => (
@@ -527,20 +530,20 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
                         <div className="p-4 sm:p-5 pb-0 relative z-10">
                           <div className="flex items-start justify-between gap-4">
                             <div>
-                              <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">{slide.label}</p>
-                              <h3 className="mt-2 text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
-                                {slide.id === 'order-taker' ? 'Order Taker Mockup' : 'Customer Mobile Mockup'}
+                              <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.22em] text-gray-500 dark:text-gray-700/80">{slide.label}</p>
+                              <h3 className="mt-2 text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-gray-900 leading-none">
+                                {slide.id === 'order-taker' ? 'Order Taker View' : 'Customer Mobile View'}
                               </h3>
                             </div>
-                            <div className="w-9 h-9 rounded-full border border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/10 text-gray-900 dark:text-white text-[11px] font-black flex items-center justify-center backdrop-blur-sm">
+                            <div className="w-9 h-9 rounded-full border border-black/10 dark:border-black/10 bg-white/70 dark:bg-white/40 text-gray-900 dark:text-gray-900 text-[11px] font-black flex items-center justify-center backdrop-blur-sm">
                               {slide.metric}
                             </div>
                           </div>
-                          <p className="mt-3 text-xs sm:text-sm text-gray-600 dark:text-gray-300 font-medium leading-relaxed max-w-xs">{slide.description}</p>
+                          <p className="mt-3 text-xs sm:text-sm text-gray-600 dark:text-gray-700 font-medium leading-relaxed max-w-xs">{slide.description}</p>
                         </div>
                         <div className="p-3 sm:p-4">
-                          <div className="rounded-[1.1rem] sm:rounded-[1.4rem] overflow-hidden border border-black/10 dark:border-white/10 bg-white/80 dark:bg-slate-900/70">
-                            <img src={slide.src} alt={slide.title} className={`w-full aspect-[16/10] ${slide.imageClass}`} />
+                          <div className={`rounded-[1.1rem] sm:rounded-[1.4rem] overflow-hidden border border-black/10 dark:border-black/10 ${slide.imageWrapClass}`}>
+                            <img src={slide.src} alt={slide.title} className={`w-full aspect-[16/9.5] ${slide.imageClass}`} />
                           </div>
                         </div>
                       </article>
