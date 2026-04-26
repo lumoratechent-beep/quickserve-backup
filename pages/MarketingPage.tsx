@@ -465,14 +465,14 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/5 text-[10px] font-black uppercase tracking-[0.24em] text-gray-700 dark:text-gray-200 backdrop-blur-xl">
                 Product Views
               </span>
-              <h2 className="mt-5 text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 dark:text-white tracking-tighter leading-[0.95]">
-                One ordering platform, designed for staff speed and customer clarity.
+              <h2 className="mt-5 max-w-[10ch] text-3xl sm:text-4xl lg:text-[4.2rem] font-black text-gray-900 dark:text-white tracking-tighter leading-[0.92]">
+                A clearer look at how QuickServe works across every service touchpoint.
               </h2>
-              <p className="mt-4 text-sm sm:text-base text-gray-700 dark:text-gray-200 font-medium leading-relaxed max-w-lg">
-                QuickServe gives your team and your guests a consistent experience across front counter checkout, tableside ordering, and mobile browsing.
+              <p className="mt-6 text-sm sm:text-base text-gray-700 dark:text-gray-200 font-medium leading-relaxed max-w-xl">
+                From counter checkout to tableside ordering and guest mobile browsing, each interface is presented with a more polished and professional product mockup.
               </p>
 
-              <div className="mt-8 grid grid-cols-3 gap-3">
+              <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {showcaseSlides.map((slide) => (
                   <div key={slide.id} className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-white/5 px-3 py-4 backdrop-blur-sm min-w-0">
                     <div className="text-[9px] font-black uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">{slide.metric}</div>
@@ -482,7 +482,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
                 ))}
               </div>
 
-              <div className="mt-8 space-y-3">
+              <div className="mt-10 space-y-4 max-w-xl">
                 {showcaseNotes.map((note, index) => (
                   <div key={note} className="flex items-start gap-3">
                     <div className="mt-0.5 w-7 h-7 rounded-full bg-gray-900 text-white dark:bg-orange-500 dark:text-white text-[10px] font-black flex items-center justify-center shrink-0">
@@ -495,77 +495,19 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
             </div>
 
             <div className={`transition-all duration-700 delay-150 ${mockupRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-              <div className="rounded-[2rem] sm:rounded-[2.5rem] border border-black/10 dark:border-white/10 bg-white/75 dark:bg-white/5 p-3 sm:p-5 backdrop-blur-2xl shadow-[0_30px_100px_rgba(15,23,42,0.12)] dark:shadow-[0_30px_100px_rgba(0,0,0,0.35)]">
-                <div className="grid gap-4 md:grid-cols-2 md:auto-rows-fr">
-                  <article className="md:col-span-2 relative rounded-[1.8rem] sm:rounded-[2.2rem] border border-black/10 dark:border-white/10 bg-[linear-gradient(135deg,#5f7f9b_0%,#7d9ab3_100%)] p-4 sm:p-6 text-white overflow-hidden shadow-[0_24px_70px_rgba(15,23,42,0.16)]">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_30%)] pointer-events-none" />
-                    <div className="relative grid gap-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-end">
-                      <div className="min-w-0">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-white/80">
-                          Front Counter
-                        </div>
-                        <h3 className="mt-4 text-2xl sm:text-4xl font-black tracking-tight leading-[0.95]">Cashier View</h3>
-                        <p className="mt-3 max-w-sm text-sm sm:text-base text-white/80 font-medium leading-relaxed">
-                          Process orders, review totals, and complete payment with a layout built for speed during peak hours.
-                        </p>
-                        <div className="mt-5 flex flex-wrap gap-2">
-                          {['Fast checkout', 'Live totals', 'Clear actions', 'Counter ready'].map((item) => (
-                            <div key={item} className="rounded-full border border-white/20 bg-white/10 px-3 py-2 text-[10px] sm:text-[11px] font-black uppercase tracking-[0.12em] text-white/85">
-                              {item}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="rounded-[1.4rem] sm:rounded-[1.8rem] border border-white/20 bg-white/10 p-3 sm:p-4 backdrop-blur-sm">
-                        <div className="rounded-[1.1rem] sm:rounded-[1.4rem] overflow-hidden border border-white/25 bg-[#4f6980]">
-                          <img src="/marketing-img/cashier-view.png" alt="QuickServe cashier view" className="w-full aspect-[16/9.1] object-cover object-left-top" />
-                        </div>
-                      </div>
-                    </div>
-                  </article>
+              <div className="rounded-[2rem] sm:rounded-[2.5rem] border border-black/10 dark:border-white/10 bg-[#d9d9d9] dark:bg-slate-800/80 p-5 sm:p-8 lg:p-10 shadow-[0_30px_100px_rgba(15,23,42,0.12)] dark:shadow-[0_30px_100px_rgba(0,0,0,0.35)] min-h-[420px] sm:min-h-[520px] lg:min-h-[760px] flex flex-col justify-between overflow-hidden">
+                <div className="flex-1 flex items-center justify-center">
+                  <img
+                    src="/marketing-img/order-taker-view.png"
+                    alt="QuickServe tableside ordering view"
+                    className="w-full max-w-[700px] object-contain drop-shadow-[0_30px_60px_rgba(15,23,42,0.22)]"
+                  />
+                </div>
 
-                  {showcaseSlides.slice(1).map((slide, index) => (
-                    <article
-                      key={slide.id}
-                      className={`relative rounded-[1.6rem] sm:rounded-[2rem] border border-black/10 dark:border-white/10 ${slide.frameClass} overflow-hidden shadow-[0_18px_50px_rgba(15,23,42,0.12)] dark:shadow-[0_18px_50px_rgba(0,0,0,0.25)] mockup-float-card min-w-0`}
-                      style={{ animationDelay: `${index * 1.2}s` }}
-                    >
-                      <div className="p-4 sm:p-5">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.22em] text-gray-500 dark:text-gray-700/80">{slide.label}</p>
-                            <h3 className="mt-2 text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-gray-900 leading-none break-words">
-                              {slide.id === 'order-taker' ? 'Order Taker View' : 'Customer Mobile View'}
-                            </h3>
-                          </div>
-                          <div className="w-9 h-9 rounded-full border border-black/10 dark:border-black/10 bg-white/70 dark:bg-white/40 text-gray-900 dark:text-gray-900 text-[11px] font-black flex items-center justify-center backdrop-blur-sm shrink-0">
-                            {slide.metric}
-                          </div>
-                        </div>
-                        <p className="mt-3 text-xs sm:text-sm text-gray-600 dark:text-gray-700 font-medium leading-relaxed">
-                          {slide.description}
-                        </p>
-                        <div className="mt-4 rounded-[1.1rem] sm:rounded-[1.4rem] overflow-hidden border border-black/10 dark:border-black/10 bg-white/40">
-                          <div className={`${slide.imageWrapClass}`}>
-                            <img src={slide.src} alt={slide.title} className={`w-full aspect-[16/10] ${slide.imageClass}`} />
-                          </div>
-                        </div>
-                      </div>
-                    </article>
-                  ))}
-
-                  <div className="md:col-span-2 grid gap-3 sm:grid-cols-3">
-                    {[
-                      { title: 'Front Counter', body: 'Built for quick billing, accurate totals, and smooth payment flow.' },
-                      { title: 'Tableside Service', body: 'Helps staff take orders faster without losing table context.' },
-                      { title: 'Guest Mobile', body: 'Makes browsing and ordering easy from the customer’s own device.' },
-                    ].map((item) => (
-                      <div key={item.title} className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-4 backdrop-blur-sm">
-                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">{item.title}</div>
-                        <p className="mt-2 text-xs sm:text-sm text-gray-700 dark:text-gray-200 font-medium leading-relaxed">{item.body}</p>
-                      </div>
-                    ))}
-                  </div>
+                <div className="mt-6 flex items-center justify-center gap-3">
+                  <span className="w-4 h-4 rounded-full bg-orange-300 dark:bg-orange-300/80" />
+                  <span className="w-5 h-5 rounded-full bg-orange-400 dark:bg-orange-400/90" />
+                  <span className="w-4 h-4 rounded-full bg-orange-200 dark:bg-orange-200/90" />
                 </div>
               </div>
             </div>
