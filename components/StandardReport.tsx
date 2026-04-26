@@ -343,7 +343,7 @@ const StandardReport: React.FC<Props> = ({
       )}
 
       {showDownloadOptions && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[140] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 md:p-5 shadow-xl">
             <p className="text-sm font-black dark:text-white uppercase tracking-wider mb-1">Download report</p>
             <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">
@@ -408,7 +408,7 @@ const StandardReport: React.FC<Props> = ({
       )}
 
       {showDateRangeModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[140] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 md:p-5 shadow-xl">
             <p className="text-sm font-black dark:text-white uppercase tracking-wider mb-1">Date Selection</p>
             <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">
@@ -494,7 +494,7 @@ const StandardReport: React.FC<Props> = ({
       )}
 
       {showTimeRangeModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[140] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 md:p-5 shadow-xl">
             <p className="text-sm font-black dark:text-white uppercase tracking-wider mb-1">Time Selection</p>
             <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">
