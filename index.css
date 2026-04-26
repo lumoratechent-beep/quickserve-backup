@@ -235,3 +235,35 @@
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
+
+.mockup-orb-drift {
+  animation: mockupOrbDrift 12s ease-in-out infinite;
+}
+
+@keyframes mockupOrbDrift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(0, -18px, 0) scale(1.06); }
+}
+
+.mockup-float-card {
+  animation: mockupFloatCard 7s ease-in-out infinite;
+}
+
+@keyframes mockupFloatCard {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -8px, 0); }
+}
+
+.mockup-marquee-track {
+  width: max-content;
+  animation: mockupMarquee 26s linear infinite;
+}
+
+.mockup-marquee-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes mockupMarquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}

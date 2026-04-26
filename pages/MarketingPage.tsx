@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Zap, DollarSign, MessageSquare, ArrowRight, ShieldCheck, Globe, Clock, Check, QrCode, Smartphone, Monitor, ChefHat, BarChart3, Headphones, ChevronDown, Star, Users, TrendingUp, Wifi, Sun, Moon, MapPin, UtensilsCrossed, PackageCheck, Receipt, Menu, X } from 'lucide-react';
 import { PRICING_PLANS, TRIAL_DAYS } from '../lib/pricingPlans';
 import { supabase } from '../lib/supabase';
@@ -21,29 +21,6 @@ const useInView = (options?: IntersectionObserverInit) => {
     return () => observer.disconnect();
   }, []);
   return { ref, isInView };
-};
-
-// 3D tilt hook for mouse tracking
-const useTilt = () => {
-  const ref = useRef<HTMLDivElement>(null);
-  const [transform, setTransform] = useState('');
-
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const el = ref.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top) / rect.height;
-    const rotateX = (0.5 - y) * 12;
-    const rotateY = (x - 0.5) * 12;
-    setTransform(`perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02,1.02,1.02)`);
-  }, []);
-
-  const handleMouseLeave = useCallback(() => {
-    setTransform('perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1,1,1)');
-  }, []);
-
-  return { ref, transform, handleMouseMove, handleMouseLeave };
 };
 
 // FAQ Accordion item
@@ -76,8 +53,6 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [testimonialIdx, setTestimonialIdx] = useState(0);
-  const [pricingIdx, setPricingIdx] = useState(1);
   const heroRef = useInView();
   const statsRef = useInView({ threshold: 0.2 });
   const mockupRef = useInView({ threshold: 0.1 });
@@ -89,8 +64,6 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
   const ctaRef = useInView({ threshold: 0.15 });
   const footerRef = useInView({ threshold: 0.2 });
   const addonsRef = useInView({ threshold: 0.1 });
-  const laptopTilt = useTilt();
-  const phoneTilt = useTilt();
 
   const [partnerLogos, setPartnerLogos] = useState<{ url: string; alt: string; crop_shape: string; display_width: number; display_height: number; category: string }[]>([]);
   const [addonImages, setAddonImages] = useState<Record<string, { url: string; alt: string; crop_shape: string; display_width: number; display_height: number }[]>>({});
@@ -125,6 +98,45 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
     { q: 'Can staff place orders at the table or counter?', a: 'Absolutely. Staff can place dine-in table orders, counter orders, and takeaways — all from any device with a browser. No special hardware needed.' },
     { q: 'Can I use this for multiple areas or branches?', a: 'Yes. QuickServe supports multiple areas and tables per venue. Multi-branch support is available on higher plans.' },
     { q: 'What happens after the free trial?', a: 'Your selected plan activates automatically. You can change or cancel your plan at any time from the billing page.' },
+  ];
+
+  const showcaseSlides = [
+    {
+      id: 'cashier',
+      label: 'Counter Sales',
+      title: 'Cashier view for fast front-of-house flow.',
+      description: 'A clean billing workspace that keeps orders, totals, and action buttons visible without clutter.',
+      metric: '01',
+      src: '/marketing-img/cashier-view.png',
+      frameClass: 'bg-[#5f7f9b]',
+      imageClass: 'object-cover object-left-top',
+    },
+    {
+      id: 'order-taker',
+      label: 'Staff Ordering',
+      title: 'Tableside order taking with live service context.',
+      description: 'Staff can capture dine-in orders on the move while keeping table details and item controls close.',
+      metric: '02',
+      src: '/marketing-img/order-taker-view.png',
+      frameClass: 'bg-[#f4f0e8]',
+      imageClass: 'object-cover object-center',
+    },
+    {
+      id: 'mobile',
+      label: 'Customer Mobile',
+      title: 'A customer menu that feels polished on any phone.',
+      description: 'Guests browse, choose, and send orders from a responsive mobile menu built for quick decisions.',
+      metric: '03',
+      src: '/marketing-img/customer-mobile-view.png',
+      frameClass: 'bg-[#efe7dc]',
+      imageClass: 'object-cover object-right',
+    },
+  ];
+
+  const showcaseNotes = [
+    'Desktop and mobile layouts adapt from one system.',
+    'Soft motion gives the section a premium presentation feel.',
+    'Local images now replace the previous remote mockup assets.',
   ];
 
   return (
@@ -438,62 +450,114 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
       </section>
 
       {/* ═══════════════════════ MOCKUP SECTION ═══════════════════════ */}
-      <section id="mockup" ref={mockupRef.ref} className="py-14 sm:py-24 overflow-hidden relative">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className={`text-center mb-16 transition-all duration-700 ${mockupRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-            <span className="text-[11px] font-black text-orange-500 uppercase tracking-[0.2em] mb-3 block">See It In Action</span>
-            <h2 className="text-3xl md:text-5xl font-black text-gray-900 dark:text-white uppercase tracking-tighter mb-4">Powerful Simplicity</h2>
-            <p className="text-gray-700 dark:text-gray-400 font-medium">One platform, beautifully crafted for every role.</p>
-          </div>
+      <section id="mockup" ref={mockupRef.ref} className="py-16 sm:py-24 overflow-hidden relative bg-[#f6f1e8] dark:bg-[#111827]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(234,88,12,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(15,23,42,0.08),transparent_28%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(249,115,22,0.12),transparent_22%),radial-gradient(circle_at_bottom_right,rgba(148,163,184,0.08),transparent_26%)] pointer-events-none" />
+        <div className="absolute inset-0 marketing-grid-bg opacity-40 dark:opacity-10 pointer-events-none" />
+        <div className="absolute top-10 right-10 w-40 h-40 sm:w-72 sm:h-72 rounded-full bg-white/70 dark:bg-orange-500/10 blur-3xl pointer-events-none mockup-orb-drift" />
+        <div className="absolute bottom-4 left-0 w-48 h-48 sm:w-80 sm:h-80 rounded-full bg-orange-200/50 dark:bg-slate-500/10 blur-3xl pointer-events-none mockup-orb-drift" style={{ animationDelay: '2.4s' }} />
 
-          <div className="relative flex flex-col lg:flex-row items-center justify-center gap-12 lg:gap-16">
-            {/* Laptop Mockup (Vendor) */}
-            <div className={`relative w-full max-w-3xl group transition-all duration-700 delay-200 ${mockupRef.isInView ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-16'}`}>
-              <div className="absolute -inset-4 bg-orange-500/10 rounded-[2.5rem] blur-2xl animate-glow-pulse"></div>
-              <div
-                ref={laptopTilt.ref}
-                onMouseMove={laptopTilt.handleMouseMove}
-                onMouseLeave={laptopTilt.handleMouseLeave}
-                className="relative bg-gray-900 rounded-[2rem] p-4 shadow-2xl border-8 border-gray-800 overflow-hidden tilt-card cursor-pointer"
-                style={{ transform: laptopTilt.transform || undefined }}
-              >
-                <div className="bg-white dark:bg-gray-900 rounded-xl aspect-video overflow-hidden relative">
-                  <img
-                    src="https://qao3rwoi4hh7qspq.public.blob.vercel-storage.com/marketing-img/VENDOR%20VIEW-P0bv7W1mQ2wbxBpN8nDKPwxznuKvx9.png"
-                    alt="Vendor Dashboard Mockup"
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)] items-start">
+            <div className={`transition-all duration-700 ${mockupRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/5 text-[10px] font-black uppercase tracking-[0.24em] text-gray-700 dark:text-gray-300 backdrop-blur-xl">
+                Product Mockups
+              </span>
+              <h2 className="mt-5 text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 dark:text-white tracking-tighter leading-[0.95]">
+                Portfolio-style previews with a more editorial feel.
+              </h2>
+              <p className="mt-4 text-sm sm:text-base text-gray-700 dark:text-gray-300 font-medium leading-relaxed max-w-sm">
+                The showcase now uses your local marketing screenshots and presents them like a premium product deck instead of a generic device mockup.
+              </p>
+
+              <div className="mt-8 grid grid-cols-3 gap-3">
+                {showcaseSlides.map((slide) => (
+                  <div key={slide.id} className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-white/5 px-3 py-4 backdrop-blur-sm">
+                    <div className="text-[9px] font-black uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">{slide.metric}</div>
+                    <div className="mt-2 text-[11px] sm:text-xs font-black uppercase tracking-wide text-gray-900 dark:text-white">{slide.label}</div>
+                  </div>
+                ))}
               </div>
-              <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 px-6 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl">
-                Vendor Dashboard (Laptop View)
+
+              <div className="mt-8 space-y-3">
+                {showcaseNotes.map((note, index) => (
+                  <div key={note} className="flex items-start gap-3">
+                    <div className="mt-0.5 w-7 h-7 rounded-full bg-gray-900 text-white dark:bg-orange-500 dark:text-white text-[10px] font-black flex items-center justify-center shrink-0">
+                      0{index + 1}
+                    </div>
+                    <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed">{note}</p>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Mobile Mockup (Customer) */}
-            <div className={`relative w-56 sm:w-64 md:w-72 shrink-0 group transition-all duration-700 delay-[400ms] ${mockupRef.isInView ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-16'}`}>
-              <div className="absolute -inset-4 bg-orange-500/10 rounded-[3rem] blur-2xl animate-glow-pulse" style={{ animationDelay: '1.5s' }}></div>
-              <div
-                ref={phoneTilt.ref}
-                onMouseMove={phoneTilt.handleMouseMove}
-                onMouseLeave={phoneTilt.handleMouseLeave}
-                className="relative bg-gray-900 rounded-[3rem] p-3 shadow-2xl border-[12px] border-gray-800 h-[440px] sm:h-[500px] md:h-[580px] overflow-hidden tilt-card cursor-pointer"
-                style={{ transform: phoneTilt.transform || undefined }}
-              >
-                <div className="bg-white dark:bg-gray-900 rounded-[2rem] h-full overflow-hidden relative">
-                  <img
-                    src="https://qao3rwoi4hh7qspq.public.blob.vercel-storage.com/marketing-img/mobile-view-Fjp7UIn86T3yZtpuXltMyAIjKEE1eo"
-                    alt="Customer Menu Mockup"
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
+            <div className={`transition-all duration-700 delay-150 ${mockupRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+              <div className="rounded-[2rem] sm:rounded-[2.5rem] border border-black/10 dark:border-white/10 bg-white/75 dark:bg-white/5 p-3 sm:p-5 backdrop-blur-2xl shadow-[0_30px_100px_rgba(15,23,42,0.12)] dark:shadow-[0_30px_100px_rgba(0,0,0,0.35)]">
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(260px,0.9fr)]">
+                  <article className="relative rounded-[1.6rem] sm:rounded-[2rem] border border-black/10 dark:border-white/10 bg-[#5f7f9b] p-3 sm:p-5 text-white overflow-hidden mockup-float-card">
+                    <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.16),transparent_35%,rgba(15,23,42,0.15))] pointer-events-none" />
+                    <div className="relative flex items-start justify-between gap-4 mb-4">
+                      <div>
+                        <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.22em] text-white/70">Desktop Command View</p>
+                        <h3 className="mt-2 text-2xl sm:text-3xl font-black tracking-tight leading-none">Cashier Mockup</h3>
+                      </div>
+                      <div className="hidden sm:flex flex-col text-right text-[10px] font-bold uppercase tracking-[0.18em] text-white/70">
+                        <span>Fast checkout</span>
+                        <span>Live order sync</span>
+                      </div>
+                    </div>
+                    <div className="relative rounded-[1.2rem] sm:rounded-[1.6rem] overflow-hidden border border-white/25 shadow-2xl shadow-slate-900/20">
+                      <img src="/marketing-img/cashier-view.png" alt="QuickServe cashier view" className="w-full aspect-[16/10] object-cover object-left-top" />
+                    </div>
+                    <div className="relative mt-4 grid grid-cols-3 gap-2 text-[10px] sm:text-[11px]">
+                      {['Counter-ready layout', 'Readable controls', 'Responsive components'].map((item) => (
+                        <div key={item} className="rounded-xl bg-white/12 px-3 py-2 text-white/80 font-bold backdrop-blur-sm border border-white/10">
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+
+                  <div className="grid gap-4">
+                    {showcaseSlides.slice(1).map((slide, index) => (
+                      <article
+                        key={slide.id}
+                        className={`relative rounded-[1.6rem] sm:rounded-[2rem] border border-black/10 dark:border-white/10 ${slide.frameClass} overflow-hidden shadow-[0_18px_50px_rgba(15,23,42,0.12)] dark:shadow-[0_18px_50px_rgba(0,0,0,0.25)] mockup-float-card`}
+                        style={{ animationDelay: `${index * 1.2}s` }}
+                      >
+                        <div className="p-4 sm:p-5 pb-0 relative z-10">
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">{slide.label}</p>
+                              <h3 className="mt-2 text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
+                                {slide.id === 'order-taker' ? 'Order Taker Mockup' : 'Customer Mobile Mockup'}
+                              </h3>
+                            </div>
+                            <div className="w-9 h-9 rounded-full border border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/10 text-gray-900 dark:text-white text-[11px] font-black flex items-center justify-center backdrop-blur-sm">
+                              {slide.metric}
+                            </div>
+                          </div>
+                          <p className="mt-3 text-xs sm:text-sm text-gray-600 dark:text-gray-300 font-medium leading-relaxed max-w-xs">{slide.description}</p>
+                        </div>
+                        <div className="p-3 sm:p-4">
+                          <div className="rounded-[1.1rem] sm:rounded-[1.4rem] overflow-hidden border border-black/10 dark:border-white/10 bg-white/80 dark:bg-slate-900/70">
+                            <img src={slide.src} alt={slide.title} className={`w-full aspect-[16/10] ${slide.imageClass}`} />
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
                 </div>
-                {/* Notch */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-gray-800 rounded-b-2xl z-10"></div>
-              </div>
-              <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 px-6 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl whitespace-nowrap">
-                Customer Menu (Mobile View)
+
+                <div className="mt-4 sm:mt-5 overflow-hidden rounded-2xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/5">
+                  <div className="mockup-marquee-track flex items-center gap-3 py-3 px-3 sm:px-4 whitespace-nowrap">
+                    {[...showcaseSlides, ...showcaseSlides].map((slide, index) => (
+                      <div key={`${slide.id}-${index}`} className="inline-flex items-center gap-2 rounded-full border border-black/10 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 px-3 sm:px-4 py-2 text-[10px] sm:text-[11px] font-black uppercase tracking-[0.18em] text-gray-700 dark:text-gray-200">
+                        <span className="w-2 h-2 rounded-full bg-orange-500" />
+                        {slide.label}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
