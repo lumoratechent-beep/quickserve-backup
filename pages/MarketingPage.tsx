@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Zap, DollarSign, MessageSquare, ArrowRight, ShieldCheck, Globe, Clock, Check, QrCode, Smartphone, Monitor, ChefHat, BarChart3, Headphones, ChevronDown, Star, Users, TrendingUp, Wifi, Sun, Moon, MapPin, UtensilsCrossed, PackageCheck, Receipt, Menu, X } from 'lucide-react';
+import { Zap, DollarSign, MessageSquare, ArrowRight, ShieldCheck, Globe, Clock, Check, QrCode, Smartphone, Monitor, ChefHat, BarChart3, Headphones, ChevronDown, ChevronLeft, ChevronRight, Star, Users, TrendingUp, Wifi, Sun, Moon, MapPin, UtensilsCrossed, PackageCheck, Receipt, Menu, X } from 'lucide-react';
 import { PRICING_PLANS, TRIAL_DAYS } from '../lib/pricingPlans';
 import { supabase } from '../lib/supabase';
 
@@ -53,6 +53,8 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showcaseIndex, setShowcaseIndex] = useState(0);
+  const [showcasePaused, setShowcasePaused] = useState(false);
   const heroRef = useInView();
   const statsRef = useInView({ threshold: 0.2 });
   const mockupRef = useInView({ threshold: 0.1 });
@@ -104,8 +106,8 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
     {
       id: 'cashier',
       label: 'Front Counter',
-      title: 'Cashier workspace built for fast, accurate checkout.',
-      description: 'A focused counter view that keeps orders, totals, and payment actions clear during busy service.',
+      title: 'Fast checkout for peak-hour speed.',
+      description: 'Billing, orders, and payments stay clear in one focused workspace.',
       metric: '01',
       src: '/marketing-img/cashier-view.png',
       frameClass: 'bg-[#5f7f9b]',
@@ -115,8 +117,8 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
     {
       id: 'order-taker',
       label: 'Tableside Service',
-      title: 'Order taking that keeps staff quick and confident on the floor.',
-      description: 'A service-friendly layout for taking orders at the table with table context and item controls in view.',
+      title: 'Staff ordering built for floor flow.',
+      description: 'Tables, modifiers, and item actions are easy to reach while serving guests.',
       metric: '02',
       src: '/marketing-img/order-taker-view.png',
       frameClass: 'bg-[#f4f0e8]',
@@ -126,8 +128,8 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
     {
       id: 'mobile',
       label: 'Guest Mobile',
-      title: 'A mobile ordering experience designed for clarity and speed.',
-      description: 'Guests can browse the menu, review items, and place orders from a polished mobile interface.',
+      title: 'Mobile ordering guests understand instantly.',
+      description: 'Guests browse, customize, and place orders in a clean self-service flow.',
       metric: '03',
       src: '/marketing-img/customer-mobile-view.png',
       frameClass: 'bg-[#efe7dc]',
@@ -137,10 +139,17 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
   ];
 
   const showcaseNotes = [
-    'Three connected views support counter, staff, and guest ordering in one system.',
-    'Each screen is presented with clearer hierarchy and more realistic product framing.',
-    'All mockups in this section now use the local marketing assets from your project.',
+    'Counter, staff, and guest journeys stay connected in one system.',
+    'Kitchen, order taker, reports, and many more views are ready as your operation grows.',
   ];
+
+  useEffect(() => {
+    if (showcasePaused) return;
+    const timer = window.setInterval(() => {
+      setShowcaseIndex((prev) => (prev + 1) % showcaseSlides.length);
+    }, 4500);
+    return () => window.clearInterval(timer);
+  }, [showcasePaused, showcaseSlides.length]);
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 font-sans selection:bg-orange-100 selection:text-orange-900 overflow-x-hidden">
@@ -453,36 +462,45 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
       </section>
 
       {/* ═══════════════════════ MOCKUP SECTION ═══════════════════════ */}
-      <section id="mockup" ref={mockupRef.ref} className="py-16 sm:py-24 overflow-hidden relative bg-[#f6f1e8] dark:bg-[#111827]">
+      <section id="mockup" ref={mockupRef.ref} className="py-12 sm:py-16 lg:py-20 overflow-hidden relative bg-[#f6f1e8] dark:bg-[#111827]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(234,88,12,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(15,23,42,0.08),transparent_28%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(249,115,22,0.12),transparent_22%),radial-gradient(circle_at_bottom_right,rgba(148,163,184,0.08),transparent_26%)] pointer-events-none" />
         <div className="absolute inset-0 marketing-grid-bg opacity-40 dark:opacity-10 pointer-events-none" />
         <div className="absolute top-10 right-10 w-40 h-40 sm:w-72 sm:h-72 rounded-full bg-white/70 dark:bg-orange-500/10 blur-3xl pointer-events-none mockup-orb-drift" />
         <div className="absolute bottom-4 left-0 w-48 h-48 sm:w-80 sm:h-80 rounded-full bg-orange-200/50 dark:bg-slate-500/10 blur-3xl pointer-events-none mockup-orb-drift" style={{ animationDelay: '2.4s' }} />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
-          <div className="grid gap-8 lg:gap-10 lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)] items-start">
+          <div className="grid gap-8 lg:gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] items-center">
             <div className={`transition-all duration-700 ${mockupRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/5 text-[10px] font-black uppercase tracking-[0.24em] text-gray-700 dark:text-gray-200 backdrop-blur-xl">
                 Product Views
               </span>
-              <h2 className="mt-5 max-w-[10ch] text-3xl sm:text-4xl lg:text-[4.2rem] font-black text-gray-900 dark:text-white tracking-tighter leading-[0.92]">
-                A clearer look at how QuickServe works across every service touchpoint.
+              <h2 className="mt-4 max-w-[14ch] text-[1.8rem] sm:text-[2.2rem] lg:text-[2.8rem] font-black text-gray-900 dark:text-white tracking-[-0.03em] leading-[1.02]">
+                One connected flow for counter, table, mobile, and more.
               </h2>
-              <p className="mt-6 text-sm sm:text-base text-gray-700 dark:text-gray-200 font-medium leading-relaxed max-w-xl">
-                From counter checkout to tableside ordering and guest mobile browsing, each interface is presented with a more polished and professional product mockup.
+              <p className="mt-4 text-sm sm:text-[15px] text-gray-700 dark:text-gray-200 font-medium leading-relaxed max-w-xl">
+                Explore the live product views in a compact preview built to stay clean on tablet and desktop screens.
               </p>
 
-              <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {showcaseSlides.map((slide) => (
-                  <div key={slide.id} className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-white/5 px-3 py-4 backdrop-blur-sm min-w-0">
+              <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {showcaseSlides.map((slide, index) => (
+                  <button
+                    key={slide.id}
+                    onClick={() => setShowcaseIndex(index)}
+                    className={`rounded-2xl border px-3 py-3 sm:py-4 text-left backdrop-blur-sm min-w-0 transition-all duration-300 ${showcaseIndex === index ? 'border-orange-400/70 bg-white dark:bg-white/10 shadow-[0_12px_30px_rgba(249,115,22,0.15)]' : 'border-black/10 dark:border-white/10 bg-white/80 dark:bg-white/5 hover:border-orange-300/40'}`}
+                  >
                     <div className="text-[9px] font-black uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">{slide.metric}</div>
-                    <div className="mt-2 text-[11px] sm:text-xs font-black uppercase tracking-wide text-gray-900 dark:text-white break-words">{slide.label}</div>
-                    <div className="mt-1 text-[11px] sm:text-xs text-gray-600 dark:text-gray-300 leading-relaxed break-words">{slide.id === 'cashier' ? 'Checkout and billing' : slide.id === 'order-taker' ? 'Staff-led ordering' : 'Self-service browsing'}</div>
-                  </div>
+                    <div className="mt-2 text-[11px] sm:text-xs font-black uppercase tracking-[0.06em] text-gray-900 dark:text-white break-words">{slide.label}</div>
+                    <div className="mt-1 text-[11px] sm:text-xs text-gray-600 dark:text-gray-300 leading-relaxed break-words">{slide.id === 'cashier' ? 'Checkout' : slide.id === 'order-taker' ? 'Tableside' : 'Guest self-order'}</div>
+                  </button>
                 ))}
+                <div className="rounded-2xl border border-dashed border-orange-400/40 bg-orange-50/70 dark:bg-orange-500/10 px-3 py-3 sm:py-4">
+                  <div className="text-[9px] font-black uppercase tracking-[0.22em] text-orange-500/80">04+</div>
+                  <div className="mt-2 text-[11px] sm:text-xs font-black uppercase tracking-[0.06em] text-gray-900 dark:text-white">And Many More</div>
+                  <div className="mt-1 text-[11px] sm:text-xs text-gray-600 dark:text-gray-300 leading-relaxed">Kitchen, reports, ops</div>
+                </div>
               </div>
 
-              <div className="mt-10 space-y-4 max-w-xl">
+              <div className="mt-6 space-y-3 max-w-xl">
                 {showcaseNotes.map((note, index) => (
                   <div key={note} className="flex items-start gap-3">
                     <div className="mt-0.5 w-7 h-7 rounded-full bg-gray-900 text-white dark:bg-orange-500 dark:text-white text-[10px] font-black flex items-center justify-center shrink-0">
@@ -495,19 +513,62 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
             </div>
 
             <div className={`transition-all duration-700 delay-150 ${mockupRef.isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-              <div className="rounded-[2rem] sm:rounded-[2.5rem] border border-black/10 dark:border-white/10 bg-[#d9d9d9] dark:bg-slate-800/80 p-5 sm:p-8 lg:p-10 shadow-[0_30px_100px_rgba(15,23,42,0.12)] dark:shadow-[0_30px_100px_rgba(0,0,0,0.35)] min-h-[420px] sm:min-h-[520px] lg:min-h-[760px] flex flex-col justify-between overflow-hidden">
-                <div className="flex-1 flex items-center justify-center">
-                  <img
-                    src="/marketing-img/order-taker-view.png"
-                    alt="QuickServe tableside ordering view"
-                    className="w-full max-w-[700px] object-contain drop-shadow-[0_30px_60px_rgba(15,23,42,0.22)]"
-                  />
+              <div
+                className="rounded-[2rem] sm:rounded-[2.2rem] border border-black/10 dark:border-white/10 bg-[#d9d9d9] dark:bg-slate-800/80 p-4 sm:p-6 shadow-[0_24px_70px_rgba(15,23,42,0.14)] dark:shadow-[0_24px_70px_rgba(0,0,0,0.35)] min-h-[320px] sm:min-h-[390px] lg:min-h-[460px] flex flex-col overflow-hidden"
+                onMouseEnter={() => setShowcasePaused(true)}
+                onMouseLeave={() => setShowcasePaused(false)}
+              >
+                <div className="relative flex-1 overflow-hidden rounded-[1.4rem] border border-black/10 dark:border-white/10 bg-white/70 dark:bg-slate-900/70">
+                  <div
+                    className="flex h-full transition-transform duration-700 ease-out"
+                    style={{ transform: `translateX(-${showcaseIndex * 100}%)` }}
+                  >
+                    {showcaseSlides.map((slide) => (
+                      <div key={slide.id} className={`w-full h-full flex-shrink-0 p-4 sm:p-5 ${slide.frameClass}`}>
+                        <div className={`w-full h-full rounded-2xl overflow-hidden ${slide.imageWrapClass}`}>
+                          <img
+                            src={slide.src}
+                            alt={`${slide.label} view`}
+                            className={`w-full h-full ${slide.imageClass} drop-shadow-[0_20px_40px_rgba(15,23,42,0.2)]`}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="absolute top-3 right-3 flex items-center gap-2">
+                    <button
+                      onClick={() => setShowcaseIndex((prev) => (prev - 1 + showcaseSlides.length) % showcaseSlides.length)}
+                      className="w-8 h-8 rounded-full bg-white/90 dark:bg-gray-900/90 border border-black/10 dark:border-white/10 flex items-center justify-center text-gray-700 dark:text-gray-200 hover:text-orange-500 transition-colors"
+                      aria-label="Previous slide"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button
+                      onClick={() => setShowcaseIndex((prev) => (prev + 1) % showcaseSlides.length)}
+                      className="w-8 h-8 rounded-full bg-white/90 dark:bg-gray-900/90 border border-black/10 dark:border-white/10 flex items-center justify-center text-gray-700 dark:text-gray-200 hover:text-orange-500 transition-colors"
+                      aria-label="Next slide"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
                 </div>
 
-                <div className="mt-6 flex items-center justify-center gap-3">
-                  <span className="w-4 h-4 rounded-full bg-orange-300 dark:bg-orange-300/80" />
-                  <span className="w-5 h-5 rounded-full bg-orange-400 dark:bg-orange-400/90" />
-                  <span className="w-4 h-4 rounded-full bg-orange-200 dark:bg-orange-200/90" />
+                <div className="mt-4 flex items-center justify-between gap-4">
+                  <div>
+                    <div className="text-[11px] font-black uppercase tracking-[0.12em] text-gray-900 dark:text-white">{showcaseSlides[showcaseIndex].label}</div>
+                    <div className="mt-1 text-xs text-gray-600 dark:text-gray-300">{showcaseSlides[showcaseIndex].title}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {showcaseSlides.map((slide, index) => (
+                      <button
+                        key={slide.id}
+                        onClick={() => setShowcaseIndex(index)}
+                        className={`h-2.5 rounded-full transition-all duration-300 ${showcaseIndex === index ? 'w-7 bg-orange-500' : 'w-2.5 bg-gray-400/60 dark:bg-gray-500/80'}`}
+                        aria-label={`Go to ${slide.label}`}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
