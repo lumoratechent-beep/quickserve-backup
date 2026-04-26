@@ -147,7 +147,7 @@ const MarketingPage: React.FC<Props> = ({ onGetStarted, onLogin, onCompany, onCo
     if (showcasePaused) return;
     const timer = window.setInterval(() => {
       setShowcaseIndex((prev) => (prev + 1) % showcaseSlides.length);
-    }, 1500);
+    }, 5000);
     return () => window.clearInterval(timer);
   }, [showcasePaused, showcaseSlides.length]);
 
