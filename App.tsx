@@ -81,15 +81,14 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
     .filter(Boolean) as KitchenDepartment[];
 };
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
-  let timerId: ReturnType<typeof setTimeout>;
-  const timeoutP = new Promise<null>(resolve => {
-    timerId = setTimeout(() => resolve(null), ms);
+function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T | null> {
+  return new Promise<T | null>((resolve) => {
+    const timerId = setTimeout(() => resolve(null), ms);
+    Promise.resolve(promise).then(
+      (value) => { clearTimeout(timerId); resolve(value); },
+      () => { clearTimeout(timerId); resolve(null); }
+    );
   });
-  return Promise.race([
-    promise.finally(() => clearTimeout(timerId)),
-    timeoutP,
-  ]);
 }
 
 const App: React.FC = () => {
