@@ -13,7 +13,7 @@ import OnlineShopPage from './pages/OnlineShopPage';
 import TableSideOrderPage from './pages/TableSideOrderPage';
 import { supabase } from './lib/supabase';
 import { expandPosSettings } from './lib/sharedSettings';
-import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, Clock } from 'lucide-react';
+import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, Clock, AlertCircle } from 'lucide-react';
 import * as offlineQueue from './lib/offlineOrdersQueue';
 import { getConnectivityMonitor, destroyConnectivityMonitor } from './lib/connectivityMonitor';
 import { toast } from './components/Toast';
@@ -2283,6 +2283,27 @@ const App: React.FC = () => {
     return <CompanyPage onBack={() => setView('MARKETING')} onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
   }
 
+  if (view === 'BACK_OFFICE' && !isOnline) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-gray-950/30 backdrop-blur-sm" />
+        <div className="relative z-10 w-full max-w-sm rounded-2xl border border-red-200 bg-white/95 p-6 text-center shadow-2xl dark:border-red-900/50 dark:bg-gray-900/95">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-500 dark:bg-red-900/30 dark:text-red-300">
+            <AlertCircle size={24} />
+          </div>
+          <h2 className="text-lg font-black uppercase tracking-tight text-gray-900 dark:text-white">You're offline</h2>
+          <p className="mt-2 text-sm font-semibold text-gray-600 dark:text-gray-300">Back Office needs an internet connection.</p>
+          <button
+            onClick={() => setView('APP')}
+            className="mt-5 w-full rounded-xl bg-orange-500 px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-orange-600"
+          >
+            Back to POS
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (view === 'BACK_OFFICE' && currentRole === 'VENDOR' && activeVendorRes) {
     const CURRENCY_MAP: Record<string, string> = { MYR: 'RM', USD: '$', EUR: '€', GBP: '£', SGD: 'S$', JPY: '¥', KRW: '₩', INR: '₹', AUD: 'A$', CNY: '¥', TWD: 'NT$', BND: 'B$' };
     const currCode = activeVendorRes.settings?.currency || localStorage.getItem(`ux_currency_${activeVendorRes.id}`) || 'MYR';
@@ -2317,7 +2338,15 @@ const App: React.FC = () => {
     <div className="flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors" style={{ height: 'var(--app-height, 100dvh)' }}>
       <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 lg:px-8 shadow-sm">
         <div className="flex items-center gap-2 cursor-pointer min-w-0" onClick={() => setView('MARKETING')}>
-          <img src={isDarkMode ? "/LOGO/9-dark.png" : "/LOGO/9.png"} alt="QuickServe" className="h-8 sm:h-10 w-auto" />
+          <img
+            src={isDarkMode ? "/LOGO/9-dark.png" : "/LOGO/9.png"}
+            alt="QuickServe"
+            className="h-8 sm:h-10 w-auto"
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="40"><text x="0" y="28" font-family="Arial,sans-serif" font-size="24" font-weight="900" fill="%23f97316">QuickServe</text></svg>')}`;
+            }}
+          />
         </div>
         <div className="flex items-center gap-1.5 sm:gap-3">
           {/* Shift button — rectangular, before mail. Only if shiftEnabled feature is on */}

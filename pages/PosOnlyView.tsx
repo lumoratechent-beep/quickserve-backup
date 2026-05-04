@@ -377,10 +377,11 @@ const PosOnlyView: React.FC<Props> = ({
 
   const [activeTab, setActiveTab] = useState<'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING' | 'ADDONS' | 'ONLINE_ORDERS' | 'MAIL'>(() => {
     const returnTab = localStorage.getItem('qs_return_tab');
-    if (returnTab === 'BILLING') {
+    if (returnTab === 'BILLING' && isOnline) {
       localStorage.removeItem('qs_return_tab');
       return 'BILLING';
     }
+    if (returnTab === 'BILLING') localStorage.removeItem('qs_return_tab');
     return userRole === 'KITCHEN' ? 'KITCHEN' : 'COUNTER';
   });
   const [counterMode, setCounterMode] = useState<'SAVED_BILL' | 'COUNTER_ORDER' | 'QR_ORDER'>('COUNTER_ORDER');
@@ -435,6 +436,7 @@ const PosOnlyView: React.FC<Props> = ({
   // Profile panel state
   const [showProfilePanel, setShowProfilePanel] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<AnnouncementRecord | null>(null);
+  const [offlineBlockedMessage, setOfflineBlockedMessage] = useState<string | null>(null);
   const [profileRestaurantName, setProfileRestaurantName] = useState('');
   const [profileCurrentPassword, setProfileCurrentPassword] = useState('');
   const [profileNewPassword, setProfileNewPassword] = useState('');
@@ -2954,11 +2956,17 @@ const PosOnlyView: React.FC<Props> = ({
   // Open BILLING tab when triggered from outside (renewal banner)
   useEffect(() => {
     if (openBillingTab) {
+      if (!isOnline) {
+        setOfflineBlockedMessage("You're offline - Wallet & billing needs an internet connection.");
+        setIsMobileMenuOpen(false);
+        onBillingTabOpened?.();
+        return;
+      }
       setActiveTab('BILLING');
       setIsMobileMenuOpen(false);
       onBillingTabOpened?.();
     }
-  }, [openBillingTab]);
+  }, [openBillingTab, isOnline]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -4807,7 +4815,21 @@ const PosOnlyView: React.FC<Props> = ({
     }
   };
 
+  const showOfflineBlocked = (featureName: string) => {
+    setOfflineBlockedMessage(`You're offline - ${featureName} needs an internet connection.`);
+    setIsMobileMenuOpen(false);
+  };
+
   const handleTabSelection = (tab: 'COUNTER' | 'REPORTS' | 'MENU_EDITOR' | 'SETTINGS' | 'QR_ORDERS' | 'KITCHEN' | 'BILLING' | 'ADDONS' | 'ONLINE_ORDERS' | 'MAIL') => {
+    if (!isOnline && tab === 'ADDONS') {
+      showOfflineBlocked('Add-on Feature');
+      return;
+    }
+    if (!isOnline && tab === 'BILLING') {
+      showOfflineBlocked('Wallet & billing');
+      return;
+    }
+
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
     if (tab !== 'ADDONS') { setAddonDetailView(null); setAddonDetailTab('details'); }
@@ -6465,6 +6487,24 @@ const PosOnlyView: React.FC<Props> = ({
         </div>
       )}
 
+      {offlineBlockedMessage && (
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-gray-950/35 backdrop-blur-sm p-4 no-print">
+          <div className="w-full max-w-sm rounded-2xl border border-red-200 bg-white/95 p-6 text-center shadow-2xl dark:border-red-900/50 dark:bg-gray-900/95">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-500 dark:bg-red-900/30 dark:text-red-300">
+              <WifiOff size={24} />
+            </div>
+            <h2 className="text-lg font-black uppercase tracking-tight text-gray-900 dark:text-white">Offline</h2>
+            <p className="mt-2 text-sm font-semibold text-gray-600 dark:text-gray-300">{offlineBlockedMessage}</p>
+            <button
+              onClick={() => setOfflineBlockedMessage(null)}
+              className="mt-5 w-full rounded-xl bg-orange-500 px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-orange-600"
+            >
+              Back to POS
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-1 overflow-hidden">
       {isMobileMenuOpen && (
         <div 
@@ -6483,10 +6523,10 @@ const PosOnlyView: React.FC<Props> = ({
         <div className={`flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
           {isSidebarCollapsed ? (
             <button onClick={openProfilePanel} title="Account & Settings" className="rounded-lg hover:ring-2 hover:ring-orange-300 transition-all">
-              <img key={restaurant.logo || 'fallback'} src={restaurant.logo} className="w-8 h-8 rounded-lg shadow-sm cursor-pointer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${restaurant.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
+              <img key={restaurant.logo || 'fallback'} src={restaurant.logo || '/LOGO/icon-192x192.png'} className="w-8 h-8 rounded-lg shadow-sm cursor-pointer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${restaurant.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
             </button>
           ) : (
-            <img key={restaurant.logo || 'fallback'} src={restaurant.logo} className="w-10 h-10 rounded-lg shadow-sm flex-shrink-0" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${restaurant.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
+            <img key={restaurant.logo || 'fallback'} src={restaurant.logo || '/LOGO/icon-192x192.png'} className="w-10 h-10 rounded-lg shadow-sm flex-shrink-0" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${restaurant.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
           )}
           {!isSidebarCollapsed && (
             <>
@@ -6717,7 +6757,13 @@ const PosOnlyView: React.FC<Props> = ({
           </button>
           {isVendorUser && onNavigateBackOffice && (
             <button
-              onClick={onNavigateBackOffice}
+              onClick={() => {
+                if (!isOnline) {
+                  showOfflineBlocked('Back Office');
+                  return;
+                }
+                onNavigateBackOffice();
+              }}
               title="Back Office"
               className={`w-full py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg bg-gray-700 dark:bg-gray-600 text-white hover:bg-gray-800 dark:hover:bg-gray-500`}
             >
@@ -6740,7 +6786,7 @@ const PosOnlyView: React.FC<Props> = ({
               <Menu size={24} />
             </button>
             <div className="ml-4 flex items-center gap-2 flex-1 min-w-0">
-              <img key={restaurant.logo || 'fallback'} src={restaurant.logo} className="w-8 h-8 landscape:w-6 landscape:h-6 rounded-lg shadow-sm flex-shrink-0" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${restaurant.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
+              <img key={restaurant.logo || 'fallback'} src={restaurant.logo || '/LOGO/icon-192x192.png'} className="w-8 h-8 landscape:w-6 landscape:h-6 rounded-lg shadow-sm flex-shrink-0" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${restaurant.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
               <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm landscape:text-xs truncate">
                 {activeTab === 'COUNTER' ? 'POS Counter' : 
                  activeTab === 'MENU_EDITOR' ? (isFormModalOpen ? (formItem.id ? 'Edit Item' : 'New Item') : 'Menu Editor') : 
@@ -8143,7 +8189,15 @@ const PosOnlyView: React.FC<Props> = ({
                                 </button>
                               )}
                               <button
-                                onClick={() => { handleTabSelection('ADDONS'); setAddonDetailView(addonPanelMeta[activeSettingsPanel].addonId); setAddonDetailTab('details'); }}
+                                onClick={() => {
+                                  if (!isOnline) {
+                                    showOfflineBlocked('Add-on Feature');
+                                    return;
+                                  }
+                                  handleTabSelection('ADDONS');
+                                  setAddonDetailView(addonPanelMeta[activeSettingsPanel].addonId);
+                                  setAddonDetailTab('details');
+                                }}
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:border-orange-300 hover:bg-orange-50 hover:text-orange-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-orange-500/50 dark:hover:text-orange-400"
                               >
                                 <Info size={12} /> Learn More

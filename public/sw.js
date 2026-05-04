@@ -9,6 +9,8 @@ const APP_SHELL = [
   '/LOGO/icon-192x192.png',
   '/LOGO/icon-512x512.png',
   '/LOGO/apple-touch-icon.png',
+  '/LOGO/9.png',
+  '/LOGO/9-dark.png',
 ];
 
 // Install: pre-cache the app shell and the offline refresh page.
