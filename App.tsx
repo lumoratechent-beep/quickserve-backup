@@ -81,6 +81,17 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
     .filter(Boolean) as KitchenDepartment[];
 };
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  let timerId: ReturnType<typeof setTimeout>;
+  const timeoutP = new Promise<null>(resolve => {
+    timerId = setTimeout(() => resolve(null), ms);
+  });
+  return Promise.race([
+    promise.finally(() => clearTimeout(timerId)),
+    timeoutP,
+  ]);
+}
+
 const App: React.FC = () => {
   // --- HYDRATED STATE ---
   const [allUsers, setAllUsers] = useState<User[]>(() => {
@@ -576,7 +587,9 @@ const App: React.FC = () => {
     // Only fetch users if the user is an admin
     if (currentRole !== 'ADMIN') return;
     
-    const { data, error } = await supabase.from('users').select('id, username, role, restaurant_id, is_active, email, phone, kitchen_categories');
+    const result = await withTimeout(supabase.from('users').select('id, username, role, restaurant_id, is_active, email, phone, kitchen_categories'), 6000);
+    if (!result) return;
+    const { data, error } = result;
     if (!error && data) {
       const mapped = data.map(u => ({
         id: u.id, 
@@ -594,7 +607,9 @@ const App: React.FC = () => {
   }, [currentRole]);
 
   const fetchLocations = useCallback(async () => {
-    const { data, error } = await supabase.from('areas').select('*').order('name');
+    const result = await withTimeout(supabase.from('areas').select('*').order('name'), 6000);
+    if (!result) return;
+    const { data, error } = result;
     if (!error && data) {
       const mapped = data.map(l => ({
         id: l.id, name: l.name, city: l.city, state: l.state, code: l.code, isActive: l.is_active ?? true
@@ -617,17 +632,21 @@ const App: React.FC = () => {
       query = query.eq('location_name', sessionLocation).eq('is_online', true);
     }
 
-    const { data: resData, error: resError } = await query;
+    const resResult = await withTimeout(query, 8000);
+    if (!resResult) return;
+    const { data: resData, error: resError } = resResult;
     if (resError || !resData) return;
 
     const restaurantIds = resData.map(r => r.id);
     let menuQuery = supabase.from('menu_items').select('*').in('restaurant_id', restaurantIds);
-    
+
     if (currentRole === 'CUSTOMER') {
       menuQuery = menuQuery.eq('is_archived', false);
     }
 
-    const { data: menuData, error: menuError } = await menuQuery;
+    const menuResult = await withTimeout(menuQuery, 8000);
+    if (!menuResult) return;
+    const { data: menuData, error: menuError } = menuResult;
 
     if (!menuError && menuData) {
       const formatted: Restaurant[] = resData.map(res => ({
@@ -700,7 +719,9 @@ const App: React.FC = () => {
   }, [currentRole, sessionLocation, sessionRestaurantId, sessionRestaurantSlug]);
 
   const fetchSubscriptions = useCallback(async () => {
-    const { data, error } = await supabase.from('subscriptions').select('*');
+    const result = await withTimeout(supabase.from('subscriptions').select('*'), 6000);
+    if (!result) return;
+    const { data, error } = result;
     if (!error && data) {
       const map: Record<string, Subscription> = {};
       data.forEach((s: any) => { map[s.restaurant_id] = s; });
@@ -754,7 +775,9 @@ const App: React.FC = () => {
         query = query.eq('restaurant_id', currentUser.restaurantId);
       }
 
-      const { data, error } = await query;
+      const queryResult = await withTimeout(query, 6000);
+      if (!queryResult) { isFetchingRef.current = false; return; }
+      const { data, error } = queryResult;
       if (!error && data) {
         setOrders(prev => {
           const mapped = data.map(o => {
@@ -830,11 +853,16 @@ const App: React.FC = () => {
 
     isFetchingRef.current = true;
     try {
-      const { data, error } = await supabase.from('orders')
-        .select('*')
-        .eq('restaurant_id', user.restaurantId)
-        .gt('timestamp', lastOrderTimestampRef.current)
-        .order('timestamp', { ascending: false });
+      const pollResult = await withTimeout(
+        supabase.from('orders')
+          .select('*')
+          .eq('restaurant_id', user.restaurantId)
+          .gt('timestamp', lastOrderTimestampRef.current)
+          .order('timestamp', { ascending: false }),
+        5000
+      );
+      if (!pollResult) return;
+      const { data, error } = pollResult;
 
       if (!error && data && data.length > 0) {
         const newMapped = data.map(o => ({
