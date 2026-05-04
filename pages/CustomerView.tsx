@@ -16,9 +16,10 @@ interface Props {
   onLoginClick?: () => void;
   areaType?: 'MULTI' | 'SINGLE';
   allRestaurants?: Restaurant[]; // For cart offline validation
+  isOnline?: boolean; // Network connectivity status
 }
 
-const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, orders: propOrders, onAddToCart, onRemoveFromCart, onPlaceOrder, locationName, tableNo, onLoginClick, areaType = 'MULTI', allRestaurants = [] }) => {
+const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, orders: propOrders, onAddToCart, onRemoveFromCart, onPlaceOrder, locationName, tableNo, onLoginClick, areaType = 'MULTI', allRestaurants = [], isOnline = true }) => {
   const [restaurants, setRestaurants] = useState<Restaurant[]>(propRestaurants);
   const [orders, setOrders] = useState<Order[]>(propOrders);
   const [activeRestaurant, setActiveRestaurant] = useState('');
@@ -150,6 +151,14 @@ const CustomerView: React.FC<Props> = ({ restaurants: propRestaurants, cart, ord
 
   return (
     <div ref={scrollContainerRef} className="relative flex-1 min-h-0 overflow-y-auto pb-28 bg-gray-50 dark:bg-gray-900 transition-colors">
+      {/* Network Offline Banner */}
+      {!isOnline && (
+        <div className="sticky top-0 z-40 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 px-4 py-1.5 flex items-center gap-2">
+          <WifiOff className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
+          <p className="text-xs font-semibold text-red-900 dark:text-red-200">You're Offline — <span className="font-normal text-red-700 dark:text-red-300">Orders will be saved and synced when you're back online</span></p>
+        </div>
+      )}
+
       {/* Restaurant Navbar - Only shown for MULTI vendor hubs */}
       {areaType !== 'SINGLE' && (
         <div className="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b dark:border-gray-700 shadow-md">

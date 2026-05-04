@@ -15,6 +15,7 @@ import { supabase } from './lib/supabase';
 import { expandPosSettings } from './lib/sharedSettings';
 import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, Clock } from 'lucide-react';
 import * as offlineQueue from './lib/offlineOrdersQueue';
+import { getConnectivityMonitor, destroyConnectivityMonitor } from './lib/connectivityMonitor';
 import { toast } from './components/Toast';
 import CashierShiftModal from './components/CashierShiftModal';
 import RenewalBanner from './components/RenewalBanner';
@@ -229,25 +230,47 @@ const App: React.FC = () => {
     };
   }, [])
 
-  // Online/Offline status listener
+  // Online/Offline status listener with connectivity monitor
   useEffect(() => {
-    const unsubscribe = offlineQueue.onOnlineStatusChange((isOnlineNow) => {
+    // Get the connectivity monitor instance
+    const monitor = getConnectivityMonitor();
+
+    // Subscribe to connectivity changes
+    const unsubscribeMonitor = monitor.subscribe((isOnlineNow) => {
+      console.log('[App] Connectivity status changed:', isOnlineNow);
       setIsOnline(isOnlineNow);
       if (isOnlineNow) {
         // Try to sync offline orders when back online
+        console.log('[App] Going online, triggering sync of offline orders');
+        syncOfflineOrdersRef.current();
+      }
+    });
+
+    // Also keep the native event listeners as a backup
+    const unsubscribeNative = offlineQueue.onOnlineStatusChange((isOnlineNow) => {
+      console.log('[App] Native online/offline event:', isOnlineNow);
+      setIsOnline(isOnlineNow);
+      if (isOnlineNow) {
         syncOfflineOrdersRef.current();
       }
     });
 
     // Update pending count on mount
-    setPendingOfflineOrdersCount(offlineQueue.getUnsyncedOrders().length);
+    const pendingCount = offlineQueue.getUnsyncedOrders().length;
+    setPendingOfflineOrdersCount(pendingCount);
+    console.log('[App] Mounted with pending orders:', pendingCount);
 
-    // If already online on mount with pending orders, trigger sync
-    if (navigator.onLine && offlineQueue.getUnsyncedOrders().length > 0) {
+    // If already online on mount with pending orders, trigger sync immediately
+    if (monitor.getIsOnline() && pendingCount > 0) {
+      console.log('[App] Online on mount with pending orders, triggering sync');
       syncOfflineOrdersRef.current();
     }
 
-    return unsubscribe;
+    // Cleanup function
+    return () => {
+      unsubscribeMonitor();
+      unsubscribeNative();
+    };
   }, []);
   
   // Capture Stripe redirect params ONCE before any state initializer clears the URL
@@ -2427,6 +2450,7 @@ const App: React.FC = () => {
             tableNo={sessionTable || undefined}
             areaType={isSingle ? 'SINGLE' : 'MULTI'}
             allRestaurants={restaurants}
+            isOnline={isOnline}
           />;
         })()}
         
