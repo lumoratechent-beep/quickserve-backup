@@ -26,16 +26,16 @@ if ('serviceWorker' in navigator) {
       .then((registration) => {
         registration.update().catch(() => undefined);
 
-        const cacheOfflinePage = () => {
+        const cachePwaShell = () => {
           const worker = registration.active || navigator.serviceWorker.controller;
-          worker?.postMessage({ type: 'PRECACHE_OFFLINE_PAGE' });
+          worker?.postMessage({ type: 'PRECACHE_BASIC_PWA' });
         };
 
         if (registration.active) {
-          cacheOfflinePage();
+          cachePwaShell();
         }
 
-        navigator.serviceWorker.ready.then(cacheOfflinePage).catch(() => undefined);
+        navigator.serviceWorker.ready.then(cachePwaShell).catch(() => undefined);
       })
       .catch((err) => {
         console.log('SW registration failed: ', err);

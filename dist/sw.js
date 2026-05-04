@@ -1,6 +1,15 @@
-const CACHE_NAME = 'quickserve-v4';
+const CACHE_NAME = 'quickserve-v5';
 const OFFLINE_URL = '/offline.html';
-const APP_SHELL = ['/', '/index.html', '/manifest.json', OFFLINE_URL];
+const APP_SHELL = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  OFFLINE_URL,
+  '/LOGO/icon-96x96.png',
+  '/LOGO/icon-192x192.png',
+  '/LOGO/icon-512x512.png',
+  '/LOGO/apple-touch-icon.png',
+];
 
 // Install: pre-cache the app shell and the offline refresh page.
 self.addEventListener('install', (event) => {
@@ -21,10 +30,12 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('message', (event) => {
-  if (!event.data || event.data.type !== 'PRECACHE_OFFLINE_PAGE') return;
+  if (!event.data || !['PRECACHE_OFFLINE_PAGE', 'PRECACHE_BASIC_PWA'].includes(event.data.type)) return;
 
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.add(OFFLINE_URL))
+    caches.open(CACHE_NAME).then((cache) =>
+      cache.addAll(event.data.type === 'PRECACHE_BASIC_PWA' ? APP_SHELL : [OFFLINE_URL])
+    )
   );
 });
 
@@ -53,20 +64,31 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Full page loads (refresh/open PWA) -> network first, offline page fallback.
-  // This prevents installed tablets from booting a stale app shell that cannot
-  // finish startup while the device has no network.
+  // Full page loads (refresh/open PWA) -> network first, cached app fallback.
+  // This lets the React app boot from local data after an offline refresh.
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
-        .then((response) => response)
-        .catch(() =>
-          caches.match(OFFLINE_URL).then((cached) => {
-            return cached || new Response("You're offline", {
-              status: 503,
-              headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put('/', copy.clone());
+              cache.put('/index.html', copy);
             });
-          })
+          }
+          return response;
+        })
+        .catch(() =>
+          caches.match('/index.html')
+            .then((cachedApp) => cachedApp || caches.match('/'))
+            .then((cachedApp) => cachedApp || caches.match(OFFLINE_URL))
+            .then((cached) =>
+              cached || new Response("You're offline", {
+                status: 503,
+                headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+              })
+            )
         )
     );
     return;

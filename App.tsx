@@ -92,6 +92,17 @@ function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T | null> 
   });
 }
 
+const precacheBasicPwaShell = () => {
+  if (!('serviceWorker' in navigator)) return;
+
+  navigator.serviceWorker.ready
+    .then((registration) => {
+      const worker = registration.active || navigator.serviceWorker.controller;
+      worker?.postMessage({ type: 'PRECACHE_BASIC_PWA' });
+    })
+    .catch(() => undefined);
+};
+
 const App: React.FC = () => {
   // --- HYDRATED STATE ---
   const [allUsers, setAllUsers] = useState<User[]>(() => {
@@ -1279,6 +1290,7 @@ const App: React.FC = () => {
     localStorage.setItem('qs_user', JSON.stringify(user));
     localStorage.setItem('qs_role', user.role);
     localStorage.setItem('qs_view', 'APP');
+    precacheBasicPwaShell();
 
     // Check shift-related prompts for VENDOR/CASHIER
     if ((user.role === 'VENDOR' || user.role === 'CASHIER') && user.restaurantId) {
