@@ -99,12 +99,14 @@ class ConnectivityMonitor {
     // Browser says online - validate by pinging server
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // Shorter 3 second timeout for ping only
 
       const response = await fetch('/api/health', {
         method: 'GET',
         signal: controller.signal,
         cache: 'no-cache',
+        // Prevent service worker from spending time on this - we need fast failure
+        headers: { 'X-Connectivity-Check': 'true' }
       });
 
       clearTimeout(timeoutId);
@@ -119,7 +121,7 @@ class ConnectivityMonitor {
         return this.state.isOnline;
       }
     } catch (error) {
-      // Network error or timeout
+      // Network error or timeout - fail fast
       console.warn('[ConnectivityMonitor] API ping failed:', error);
       this.recordFailure();
       return this.state.isOnline;
