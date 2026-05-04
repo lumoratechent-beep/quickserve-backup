@@ -22,8 +22,23 @@ root.render(
 // Register Service Worker for PWA support
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((err) => {
-      console.log('SW registration failed: ', err);
-    });
+    navigator.serviceWorker.register('/sw.js')
+      .then((registration) => {
+        registration.update().catch(() => undefined);
+
+        const cacheOfflinePage = () => {
+          const worker = registration.active || navigator.serviceWorker.controller;
+          worker?.postMessage({ type: 'PRECACHE_OFFLINE_PAGE' });
+        };
+
+        if (registration.active) {
+          cacheOfflinePage();
+        }
+
+        navigator.serviceWorker.ready.then(cacheOfflinePage).catch(() => undefined);
+      })
+      .catch((err) => {
+        console.log('SW registration failed: ', err);
+      });
   });
 }
