@@ -23,6 +23,7 @@ export interface OfflineOrder {
 
 const QUEUE_STORAGE_KEY = 'qs_offline_orders_queue';
 const ORDER_NUMBER_TRACKER_KEY = 'qs_offline_order_numbers';
+const ORDER_ID_CACHE_KEY = 'qs_successful_order_ids';
 
 /**
  * Track the highest order number per location code
@@ -44,6 +45,35 @@ const getOrderNumberTracker = (): OrderNumberTracker => {
   }
 };
 
+const readJsonArray = <T = any>(key: string): T[] => {
+  try {
+    const data = localStorage.getItem(key);
+    const parsed = data ? JSON.parse(data) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error(`Failed to read ${key}:`, error);
+    return [];
+  }
+};
+
+const getCachedOrderIds = (): string[] => {
+  const ids = new Set<string>();
+
+  readJsonArray<{ id?: string }>('qs_cache_orders').forEach(order => {
+    if (typeof order?.id === 'string') ids.add(order.id);
+  });
+
+  readJsonArray<OfflineOrder>(QUEUE_STORAGE_KEY).forEach(order => {
+    if (typeof order?.id === 'string') ids.add(order.id);
+  });
+
+  readJsonArray<string>(ORDER_ID_CACHE_KEY).forEach(id => {
+    if (typeof id === 'string') ids.add(id);
+  });
+
+  return Array.from(ids);
+};
+
 /**
  * Update order number tracker with highest number for a code
  */
@@ -60,16 +90,42 @@ export const updateOrderNumberTracker = (code: string, nextNum: number): void =>
   }
 };
 
+export const rememberOrderId = (code: string, orderId: string): void => {
+  try {
+    const num = extractOrderNumber(orderId, code);
+    if (num > 0) updateOrderNumberTracker(code, num);
+
+    const cachedIds = readJsonArray<string>(ORDER_ID_CACHE_KEY);
+    if (!cachedIds.includes(orderId)) {
+      const updated = [...cachedIds, orderId].slice(-1000);
+      localStorage.setItem(ORDER_ID_CACHE_KEY, JSON.stringify(updated));
+    }
+  } catch (error) {
+    console.error('Failed to remember order ID:', error, { code, orderId });
+  }
+};
+
 /**
  * Get the next order number for a location code
  */
 export const getNextOrderNumber = (code: string): number => {
   try {
     const tracker = getOrderNumberTracker();
-    return (tracker[code] || 0) + 1;
+    let highest = tracker[code] || 0;
+
+    for (const orderId of getCachedOrderIds()) {
+      const num = extractOrderNumber(orderId, code);
+      if (num > highest) highest = num;
+    }
+
+    if (highest > (tracker[code] || 0)) {
+      updateOrderNumberTracker(code, highest);
+    }
+
+    return highest + 1;
   } catch (error) {
     console.error('Failed to get next order number:', error);
-    return 1;
+    return (getOrderNumberTracker()[code] || 0) + 1;
   }
 };
 
@@ -121,6 +177,8 @@ export const addOfflineOrder = (order: OfflineOrder): void => {
     const existing = getOfflineOrders();
     const updated = [...existing, order];
     localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(updated));
+    const code = order.id.match(/^[A-Z]+/)?.[0];
+    if (code) rememberOrderId(code, order.id);
   } catch (error) {
     console.error('Failed to add order to offline queue:', error);
   }

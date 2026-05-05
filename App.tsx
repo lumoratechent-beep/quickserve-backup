@@ -624,6 +624,17 @@ const App: React.FC = () => {
     return Date.now();
   };
 
+  const rememberKnownOrderId = useCallback((
+    restaurantId: string | undefined,
+    orderId: string,
+    restaurantList: Restaurant[] = restaurants,
+    areaList: Area[] = locations
+  ) => {
+    const restaurant = restaurantList.find(r => r.id === restaurantId);
+    const code = resolveOrderCode(restaurant, areaList);
+    offlineQueue.rememberOrderId(code, orderId);
+  }, [restaurants, locations]);
+
   const fetchUsers = useCallback(async () => {
     // Only fetch users if the user is an admin
     if (currentRole !== 'ADMIN') return;
@@ -872,6 +883,7 @@ const App: React.FC = () => {
             if (maxTs > lastOrderTimestampRef.current) {
               lastOrderTimestampRef.current = maxTs;
             }
+            mapped.forEach(order => rememberKnownOrderId(order.restaurantId, order.id));
           }
 
           persistCache('qs_cache_orders', mapped);
@@ -883,7 +895,7 @@ const App: React.FC = () => {
     } finally {
       isFetchingRef.current = false;
     }
-  }, [currentRole, sessionLocation, sessionTable, currentUser]);
+  }, [currentRole, sessionLocation, sessionTable, currentUser, rememberKnownOrderId]);
 
   const fetchNewOrders = useCallback(async () => {
     if (isFetchingRef.current) return;
@@ -932,6 +944,7 @@ const App: React.FC = () => {
           if (filteredNew.length === 0) return prev;
           const updated = [...filteredNew, ...prev].slice(0, 200);
           persistCache('qs_cache_orders', updated);
+          filteredNew.forEach(order => rememberKnownOrderId(order.restaurantId, order.id));
           
           const maxTs = Math.max(...updated.map(o => o.timestamp));
           if (maxTs > lastOrderTimestampRef.current) {
@@ -947,7 +960,7 @@ const App: React.FC = () => {
     } finally {
       isFetchingRef.current = false;
     }
-  }, []);
+  }, [rememberKnownOrderId]);
 
   // Combined refresh function to ensure heartbeat works reliably
   const refreshAppData = useCallback(async () => {
@@ -1099,6 +1112,7 @@ const App: React.FC = () => {
           if (prev.some(existing => existing.id === mappedOrder.id)) return prev;
           const updated = [mappedOrder, ...prev].slice(0, 200);
           persistCache('qs_cache_orders', updated);
+          rememberKnownOrderId(mappedOrder.restaurantId, mappedOrder.id);
           if (mappedOrder.timestamp > lastOrderTimestampRef.current) {
             lastOrderTimestampRef.current = mappedOrder.timestamp;
           }
@@ -1184,7 +1198,7 @@ const App: React.FC = () => {
     return () => { 
       supabase.removeChannel(channel); 
     };
-  }, [currentRole, sessionLocation, sessionRestaurantId, currentUser]);
+  }, [currentRole, sessionLocation, sessionRestaurantId, currentUser, rememberKnownOrderId]);
 
   // Vendor Polling Fallback (poll for all vendors since kitchen/QR features are now dynamic toggles)
   useEffect(() => {
@@ -1287,7 +1301,11 @@ const App: React.FC = () => {
       ({ error } = await supabase.from('orders').insert(stripped));
     }
     if (error) toast("Placement Error: " + error.message, 'error');
-    else { setCart([]); toast(`Your order(s) have been placed! Reference: ${orderIds.join(', ')}`, 'success'); }
+    else {
+      ordersToInsert.forEach(order => rememberKnownOrderId(order.restaurant_id, order.id));
+      setCart([]);
+      toast(`Your order(s) have been placed! Reference: ${orderIds.join(', ')}`, 'success');
+    }
   };
 
   const handleLogin = async (user: User) => {
@@ -1862,10 +1880,23 @@ const App: React.FC = () => {
     const initializeOrderNumberTracker = async () => {
       if (!currentUser?.restaurantId) return;
       try {
-        const restaurantList = restaurants.filter(r => r.id === currentUser.restaurantId);
+        let restaurantSource = restaurants;
+        let locationSource = locations;
+        if (restaurantSource.length === 0) {
+          try {
+            restaurantSource = JSON.parse(localStorage.getItem('qs_cache_restaurants') || '[]');
+          } catch { restaurantSource = []; }
+        }
+        if (locationSource.length === 0) {
+          try {
+            locationSource = JSON.parse(localStorage.getItem('qs_cache_locations') || '[]');
+          } catch { locationSource = []; }
+        }
+
+        const restaurantList = restaurantSource.filter(r => r.id === currentUser.restaurantId);
         if (restaurantList.length === 0) return;
         for (const restaurant of restaurantList) {
-          const code = resolveOrderCode(restaurant, locations);
+          const code = resolveOrderCode(restaurant, locationSource);
           const { data: recentOrders, error } = await supabase.from('orders')
             .select('id')
             .eq('restaurant_id', currentUser.restaurantId)
@@ -1876,7 +1907,7 @@ const App: React.FC = () => {
             for (const order of recentOrders) {
               const num = offlineQueue.extractOrderNumber(order.id, code);
               if (num > 0) {
-                offlineQueue.updateOrderNumberTracker(code, num);
+                offlineQueue.rememberOrderId(code, order.id);
                 console.log(`[INIT] Tracker for ${code}: highest=${num}`);
                 break;
               }
@@ -1940,7 +1971,7 @@ const App: React.FC = () => {
             for (const order of recentOrders) {
               const lastNum = offlineQueue.extractOrderNumber(order.id, code);
               if (lastNum > 0) {
-                offlineQueue.updateOrderNumberTracker(code, lastNum);
+                offlineQueue.rememberOrderId(code, order.id);
                 console.log(`Updated tracker for ${code} (restaurant ${restaurantId}): highest sequential number is ${lastNum} from ${order.id}`);
                 break;
               }
@@ -1984,19 +2015,15 @@ const App: React.FC = () => {
 
           if (!error) {
             console.log(`Successfully synced order ${orderId}`);
+            offlineQueue.rememberOrderId(code, orderId);
             offlineQueue.markOrderAsSynced(offlineOrder.id);
             break;
           } else if (error.code === '23505') {
-            if (orderId === offlineOrder.id) {
-              console.warn(`Queued order ${orderId} already exists online; marking local retry as synced`);
-              offlineQueue.markOrderAsSynced(offlineOrder.id);
-              break;
-            }
             // Duplicate key error - generate new ID
             retries++;
             const nextNum = offlineQueue.getNextOrderNumber(code);
             orderId = `${code}${String(nextNum).padStart(7, '0')}`;
-            offlineQueue.updateOrderNumberTracker(code, nextNum);
+            offlineQueue.rememberOrderId(code, orderId);
             console.warn(`Duplicate order ID, regenerating to ${orderId} (attempt ${retries})`);
           } else {
             console.error(`Failed to sync order ${orderId}:`, error.message);
@@ -2053,6 +2080,7 @@ const App: React.FC = () => {
       };
 
       offlineQueue.addOfflineOrder(offlineOrder);
+      offlineQueue.rememberOrderId(code, orderId);
       setPendingOfflineOrdersCount(prevCount => prevCount + 1);
       console.log(`Order queued for later sync (${reason}): ${orderId}`);
       return orderId;
@@ -2065,9 +2093,7 @@ const App: React.FC = () => {
       // Get next sequential number from local tracker
       const nextNum = offlineQueue.getNextOrderNumber(code);
       const orderId = `${code}${String(nextNum).padStart(7, '0')}`;
-      
-      // Update the tracker
-      offlineQueue.updateOrderNumberTracker(code, nextNum);
+      offlineQueue.rememberOrderId(code, orderId);
       return queuePosOrderForSync(orderId, 'offline');
     }
 
@@ -2109,14 +2135,14 @@ const App: React.FC = () => {
         console.warn(`No existing orders found for code ${code}`, queryError);
       }
       
-      // Update local tracker with the latest number from DB
-      offlineQueue.updateOrderNumberTracker(code, nextNum);
+      // Respect any locally reserved offline IDs that are waiting to sync.
+      nextNum = Math.max(nextNum, offlineQueue.getNextOrderNumber(code));
     } catch (error) {
       console.error('Error fetching last order number:', error);
       // If we can't reach the server, fall back to offline mode
       const localNextNum = offlineQueue.getNextOrderNumber(code);
       const orderId = `${code}${String(localNextNum).padStart(7, '0')}`;
-      offlineQueue.updateOrderNumberTracker(code, localNextNum);
+      offlineQueue.rememberOrderId(code, orderId);
       return queuePosOrderForSync(orderId, 'connection error');
     }
 
@@ -2153,7 +2179,7 @@ const App: React.FC = () => {
       queuePosOrderForSync(orderId, 'insert error');
     } else {
       // Successfully inserted - update tracker to remember this number
-      offlineQueue.updateOrderNumberTracker(code, nextNum);
+      offlineQueue.rememberOrderId(code, orderId);
       console.log(`Order ${orderId} successfully created online`);
     }
     
@@ -2200,7 +2226,7 @@ const App: React.FC = () => {
 
     const { error } = await insertOrderSafe(orderToInsert);
     if (error) throw new Error(error.message || 'Failed to place order');
-    offlineQueue.updateOrderNumberTracker(code, nextNum);
+    offlineQueue.rememberOrderId(code, orderId);
   };
 
   const updateRestaurantSettings = async (restaurantId: string, settings: any) => {
