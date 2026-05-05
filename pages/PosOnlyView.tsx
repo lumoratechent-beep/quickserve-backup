@@ -2303,9 +2303,10 @@ const PosOnlyView: React.FC<Props> = ({
     setIsCompletingPayment(true);
     setCheckoutNotice('');
 
-    const paymentName = paymentTypes.find(p => p.id === selectedPaymentType)?.name || selectedPaymentType;
-    const nowTs = Date.now();
-    let actualOrderId: string = '';
+    try {
+      const paymentName = paymentTypes.find(p => p.id === selectedPaymentType)?.name || selectedPaymentType;
+      const nowTs = Date.now();
+      let actualOrderId: string = '';
 
     if (isQrPaymentMode && selectedQrOrderForPayment) {
       // QR order already exists in DB — update its status and record payment
@@ -2499,6 +2500,12 @@ const PosOnlyView: React.FC<Props> = ({
       } else {
         setCheckoutNotice('Order saved. Cash drawer is enabled but no printer is connected.');
       }
+    }
+    } catch (error: any) {
+      console.error('Unexpected payment completion error:', error);
+      toast(`Payment could not complete: ${error?.message || 'Unknown error'}`, 'error');
+      setCheckoutNotice(error?.message ? `Payment could not complete. ${error.message}` : 'Payment could not complete. Please try again.');
+      setIsCompletingPayment(false);
     }
   };
 

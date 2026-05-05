@@ -1979,6 +1979,11 @@ const App: React.FC = () => {
             offlineQueue.markOrderAsSynced(offlineOrder.id);
             break;
           } else if (error.code === '23505') {
+            if (orderId === offlineOrder.id) {
+              console.warn(`Queued order ${orderId} already exists online; marking local retry as synced`);
+              offlineQueue.markOrderAsSynced(offlineOrder.id);
+              break;
+            }
             // Duplicate key error - generate new ID
             retries++;
             const nextNum = offlineQueue.getNextOrderNumber(code);
@@ -2017,17 +2022,7 @@ const App: React.FC = () => {
     // Calculate total
     const total = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
-    // Check if user is online
-    if (!offlineQueue.isOnline()) {
-      console.warn('User is offline - queueing order locally');
-      
-      // Get next sequential number from local tracker
-      const nextNum = offlineQueue.getNextOrderNumber(code);
-      const orderId = `${code}${String(nextNum).padStart(7, '0')}`;
-      
-      // Update the tracker
-      offlineQueue.updateOrderNumberTracker(code, nextNum);
-
+    const queuePosOrderForSync = (orderId: string, reason: string): string => {
       const offlineOrder: offlineQueue.OfflineOrder = {
         id: orderId,
         items,
@@ -2035,7 +2030,7 @@ const App: React.FC = () => {
         status: OrderStatus.COMPLETED,
         timestamp: Date.now(),
         customer_id: 'pos_user',
-        restaurant_id: currentUser.restaurantId,
+        restaurant_id: currentUser.restaurantId!,
         table_number: tableNumber,
         dining_type: diningType,
         location_name: res?.location || 'Unspecified',
@@ -2049,16 +2044,23 @@ const App: React.FC = () => {
         synced: false
       };
 
-      // Queue the order locally
       offlineQueue.addOfflineOrder(offlineOrder);
-
-      // Update pending count
       setPendingOfflineOrdersCount(prevCount => prevCount + 1);
-
-      // Show notification
-      console.log(`Order queued for later sync: ${orderId}`);
-
+      console.log(`Order queued for later sync (${reason}): ${orderId}`);
       return orderId;
+    };
+
+    // Check if user is online
+    if (!offlineQueue.isOnline()) {
+      console.warn('User is offline - queueing order locally');
+      
+      // Get next sequential number from local tracker
+      const nextNum = offlineQueue.getNextOrderNumber(code);
+      const orderId = `${code}${String(nextNum).padStart(7, '0')}`;
+      
+      // Update the tracker
+      offlineQueue.updateOrderNumberTracker(code, nextNum);
+      return queuePosOrderForSync(orderId, 'offline');
     }
 
     // User is online - proceed with normal flow
@@ -2066,12 +2068,18 @@ const App: React.FC = () => {
     try {
       // Query for recent orders and find the HIGHEST new-format sequential order
       // (ignoring old timestamp-based orders)
-      const { data: recentOrders, error: queryError } = await supabase.from('orders')
-        .select('id')
-        .eq('restaurant_id', currentUser.restaurantId)
-        .ilike('id', `${code}%`)
-        .order('id', { ascending: false })
-        .limit(50);  // Check last 50 orders to find new format
+      const queryResult = await withTimeout(
+        supabase.from('orders')
+          .select('id')
+          .eq('restaurant_id', currentUser.restaurantId)
+          .ilike('id', `${code}%`)
+          .order('id', { ascending: false })
+          .limit(50),
+        7000
+      );
+
+      if (!queryResult) throw new Error('Order number lookup timed out');
+      const { data: recentOrders, error: queryError } = queryResult;
 
       console.log(`Queried last 50 orders for restaurant ${currentUser.restaurantId}, code ${code}`);
 
@@ -2101,32 +2109,7 @@ const App: React.FC = () => {
       const localNextNum = offlineQueue.getNextOrderNumber(code);
       const orderId = `${code}${String(localNextNum).padStart(7, '0')}`;
       offlineQueue.updateOrderNumberTracker(code, localNextNum);
-
-      const offlineOrder: offlineQueue.OfflineOrder = {
-        id: orderId,
-        items,
-        total,
-        status: OrderStatus.COMPLETED,
-        timestamp: Date.now(),
-        customer_id: 'pos_user',
-        restaurant_id: currentUser.restaurantId,
-        table_number: tableNumber,
-        dining_type: diningType,
-        location_name: res?.location || 'Unspecified',
-        remark,
-        payment_method: paymentMethod,
-        cashier_name: cashierName,
-        amount_received: amountReceived,
-        change_amount: amountReceived != null ? Math.max(0, amountReceived - total) : undefined,
-        order_source: 'counter',
-        createdAt: Date.now(),
-        synced: false
-      };
-
-      offlineQueue.addOfflineOrder(offlineOrder);
-      setPendingOfflineOrdersCount(prevCount => prevCount + 1);
-      console.log(`Order queued due to connection error: ${orderId}`);
-      return orderId;
+      return queuePosOrderForSync(orderId, 'connection error');
     }
 
     const orderId = `${code}${String(nextNum).padStart(7, '0')}`;
@@ -2150,34 +2133,16 @@ const App: React.FC = () => {
       order_source: 'counter'
     };
 
-    const { error } = await insertOrderSafe(orderToInsert);
+    const insertResult = await withTimeout(insertOrderSafe(orderToInsert), 10000);
+    if (!insertResult) {
+      console.warn(`Order insert timed out, queueing ${orderId} for retry`);
+      return queuePosOrderForSync(orderId, 'insert timeout');
+    }
+
+    const { error } = insertResult;
     if (error) {
       console.error('Failed to insert order:', error);
-      // If insert fails, queue it for later
-      const offlineOrder: offlineQueue.OfflineOrder = {
-        id: orderId,
-        items,
-        total,
-        status: OrderStatus.COMPLETED,
-        timestamp: Date.now(),
-        customer_id: 'pos_user',
-        restaurant_id: currentUser.restaurantId,
-        table_number: tableNumber,
-        dining_type: diningType,
-        location_name: res?.location || 'Unspecified',
-        remark,
-        payment_method: paymentMethod,
-        cashier_name: cashierName,
-        amount_received: amountReceived,
-        change_amount: amountReceived != null ? Math.max(0, amountReceived - total) : undefined,
-        order_source: 'counter',
-        createdAt: Date.now(),
-        synced: false
-      };
-
-      offlineQueue.addOfflineOrder(offlineOrder);
-      setPendingOfflineOrdersCount(prevCount => prevCount + 1);
-      console.log(`Order queued due to insert error: ${orderId}`);
+      queuePosOrderForSync(orderId, 'insert error');
     } else {
       // Successfully inserted - update tracker to remember this number
       offlineQueue.updateOrderNumberTracker(code, nextNum);
