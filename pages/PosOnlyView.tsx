@@ -2858,13 +2858,33 @@ const PosOnlyView: React.FC<Props> = ({
     return cachedCounterOrders;
   }, [cachedCounterOrders]);
 
-  const buildOfflineReportData = (isExport = false): ReportResponse | Order[] => {
+  const getLocalReportSeedOrders = (): Order[] => {
+    let globalCachedOrders: Order[] = [];
+    try {
+      const parsed = JSON.parse(localStorage.getItem('qs_cache_orders') || '[]');
+      globalCachedOrders = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      globalCachedOrders = [];
+    }
+
+    const map = new Map<string, Order>();
+    counterOrdersCache.getReportOrdersCache(restaurant.id).forEach(order => map.set(order.id, order));
+    orders.filter(order => order.restaurantId === restaurant.id).forEach(order => map.set(order.id, order));
+    globalCachedOrders
+      .filter(order => order?.restaurantId === restaurant.id)
+      .forEach(order => map.set(order.id, order));
+
+    return Array.from(map.values()).sort((a, b) => b.timestamp - a.timestamp);
+  };
+
+  const buildCachedReportData = (isExport = false): ReportResponse | Order[] => {
     const startTs = new Date(reportStart + 'T00:00:00').getTime();
     const endTs = new Date(reportEnd + 'T23:59:59').getTime();
 
-    // Use the dedicated report cache (contains both locally-placed orders &
-    // previously-fetched server data) instead of the unpaid-queue cache.
-    const allCachedOrders = counterOrdersCache.getReportOrdersCache(restaurant.id);
+    const allCachedOrders = getLocalReportSeedOrders();
+    if (allCachedOrders.length > 0) {
+      counterOrdersCache.mergeReportOrdersCache(restaurant.id, allCachedOrders);
+    }
 
     const filtered = allCachedOrders
       .filter(order => {

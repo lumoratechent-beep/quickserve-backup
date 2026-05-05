@@ -172,6 +172,7 @@ const App: React.FC = () => {
   const lockedOrderIds = useRef<Set<string>>(new Set());
   const isStatusLocked = useRef<boolean>(false);
   const isFetchingRef = useRef(false);
+  const isSyncingOfflineOrdersRef = useRef(false);
   const lastOrderTimestampRef = useRef<number>(0);
   const syncOfflineOrdersRef = useRef<() => Promise<void>>(async () => {});
   
@@ -1937,113 +1938,119 @@ const App: React.FC = () => {
    * Sync offline orders to Supabase when back online
    */
   const syncOfflineOrders = async () => {
+    if (isSyncingOfflineOrdersRef.current) return;
     const unsyncedOrders = offlineQueue.getUnsyncedOrders();
+    setPendingOfflineOrdersCount(unsyncedOrders.length);
     if (unsyncedOrders.length === 0) return;
 
+    isSyncingOfflineOrdersRef.current = true;
     console.log(`Syncing ${unsyncedOrders.length} offline orders...`);
 
-    // First, fetch the highest order number for each restaurant/code combination from the database
-    // This ensures we don't create duplicates
-    const restaurantCodes = new Map<string, Set<string>>(); // restaurant_id -> codes
-    for (const order of unsyncedOrders) {
-      if (!restaurantCodes.has(order.restaurant_id)) {
-        restaurantCodes.set(order.restaurant_id, new Set());
+    try {
+      // First, fetch the highest order number for each restaurant/code combination from the database
+      // This ensures we don't create duplicates
+      const restaurantCodes = new Map<string, Set<string>>(); // restaurant_id -> codes
+      for (const order of unsyncedOrders) {
+        if (!restaurantCodes.has(order.restaurant_id)) {
+          restaurantCodes.set(order.restaurant_id, new Set());
+        }
+        const res = restaurants.find(r => r.id === order.restaurant_id);
+        const code = resolveOrderCode(res, locations);
+        restaurantCodes.get(order.restaurant_id)!.add(code);
       }
-      const res = restaurants.find(r => r.id === order.restaurant_id);
-      const code = resolveOrderCode(res, locations);
-      restaurantCodes.get(order.restaurant_id)!.add(code);
-    }
 
-    // Update local tracker with actual DB values for each restaurant/code
-    for (const [restaurantId, codes] of restaurantCodes) {
-      for (const code of codes) {
-        try {
-          // Check last 50 orders to find highest new-format sequential order
-          const { data: recentOrders, error } = await supabase.from('orders')
-            .select('id')
-            .eq('restaurant_id', restaurantId)
-            .ilike('id', `${code}%`)
-            .order('id', { ascending: false })
-            .limit(50);
+      // Update local tracker with actual DB values for each restaurant/code
+      for (const [restaurantId, codes] of restaurantCodes) {
+        for (const code of codes) {
+          try {
+            // Check last 50 orders to find highest new-format sequential order
+            const { data: recentOrders, error } = await supabase.from('orders')
+              .select('id')
+              .eq('restaurant_id', restaurantId)
+              .ilike('id', `${code}%`)
+              .order('id', { ascending: false })
+              .limit(50);
 
-          if (!error && recentOrders && recentOrders.length > 0) {
-            // Find the first new-format order
-            for (const order of recentOrders) {
-              const lastNum = offlineQueue.extractOrderNumber(order.id, code);
-              if (lastNum > 0) {
-                offlineQueue.rememberOrderId(code, order.id);
-                console.log(`Updated tracker for ${code} (restaurant ${restaurantId}): highest sequential number is ${lastNum} from ${order.id}`);
-                break;
+            if (!error && recentOrders && recentOrders.length > 0) {
+              // Find the first new-format order
+              for (const order of recentOrders) {
+                const lastNum = offlineQueue.extractOrderNumber(order.id, code);
+                if (lastNum > 0) {
+                  offlineQueue.rememberOrderId(code, order.id);
+                  console.log(`Updated tracker for ${code} (restaurant ${restaurantId}): highest sequential number is ${lastNum} from ${order.id}`);
+                  break;
+                }
               }
             }
+          } catch (err) {
+            console.error(`Failed to fetch last order for ${code}:`, err);
+          }
+        }
+      }
+
+      // Now sync all orders, regenerating IDs if they conflict
+      for (const offlineOrder of unsyncedOrders) {
+        try {
+          const res = restaurants.find(r => r.id === offlineOrder.restaurant_id);
+          const code = resolveOrderCode(res, locations);
+          let orderId = offlineOrder.id;
+          let retries = 0;
+          const maxRetries = 5;
+
+          // Try to insert; if duplicate, regenerate ID and retry
+          while (retries < maxRetries) {
+            const { error } = await insertOrderSafe({
+              id: orderId,
+              items: offlineOrder.items,
+              total: offlineOrder.total,
+              status: offlineOrder.status,
+              timestamp: offlineOrder.timestamp,
+              customer_id: offlineOrder.customer_id,
+              restaurant_id: offlineOrder.restaurant_id,
+              table_number: offlineOrder.table_number,
+              dining_type: offlineOrder.dining_type ?? null,
+              location_name: offlineOrder.location_name,
+              remark: offlineOrder.remark,
+              payment_method: offlineOrder.payment_method,
+              cashier_name: offlineOrder.cashier_name,
+              amount_received: offlineOrder.amount_received ?? null,
+              change_amount: offlineOrder.change_amount ?? null,
+              order_source: offlineOrder.order_source ?? null
+            });
+
+            if (!error) {
+              console.log(`Successfully synced order ${orderId}`);
+              offlineQueue.rememberOrderId(code, orderId);
+              offlineQueue.markOrderAsSynced(offlineOrder.id);
+              setPendingOfflineOrdersCount(offlineQueue.getUnsyncedOrders().length);
+              break;
+            } else if (error.code === '23505') {
+              // Duplicate key error - generate new ID
+              retries++;
+              const nextNum = offlineQueue.getNextOrderNumber(code);
+              orderId = `${code}${String(nextNum).padStart(7, '0')}`;
+              offlineQueue.rememberOrderId(code, orderId);
+              console.warn(`Duplicate order ID, regenerating to ${orderId} (attempt ${retries})`);
+            } else {
+              console.error(`Failed to sync order ${orderId}:`, error.message);
+              break;
+            }
+          }
+
+          if (retries >= maxRetries) {
+            console.error(`Failed to sync order ${offlineOrder.id} after ${maxRetries} retries`);
           }
         } catch (err) {
-          console.error(`Failed to fetch last order for ${code}:`, err);
+          console.error(`Error syncing order ${offlineOrder.id}:`, err);
         }
       }
+
+      // Refresh orders list after syncing
+      await fetchOrders();
+    } finally {
+      isSyncingOfflineOrdersRef.current = false;
+      setPendingOfflineOrdersCount(offlineQueue.getUnsyncedOrders().length);
     }
-
-    // Now sync all orders, regenerating IDs if they conflict
-    for (const offlineOrder of unsyncedOrders) {
-      try {
-        const res = restaurants.find(r => r.id === offlineOrder.restaurant_id);
-        const code = resolveOrderCode(res, locations);
-        let orderId = offlineOrder.id;
-        let retries = 0;
-        const maxRetries = 5;
-
-        // Try to insert; if duplicate, regenerate ID and retry
-        while (retries < maxRetries) {
-          const { error } = await insertOrderSafe({
-            id: orderId,
-            items: offlineOrder.items,
-            total: offlineOrder.total,
-            status: offlineOrder.status,
-            timestamp: offlineOrder.timestamp,
-            customer_id: offlineOrder.customer_id,
-            restaurant_id: offlineOrder.restaurant_id,
-            table_number: offlineOrder.table_number,
-            dining_type: offlineOrder.dining_type ?? null,
-            location_name: offlineOrder.location_name,
-            remark: offlineOrder.remark,
-            payment_method: offlineOrder.payment_method,
-            cashier_name: offlineOrder.cashier_name,
-            amount_received: offlineOrder.amount_received ?? null,
-            change_amount: offlineOrder.change_amount ?? null,
-            order_source: offlineOrder.order_source ?? null
-          });
-
-          if (!error) {
-            console.log(`Successfully synced order ${orderId}`);
-            offlineQueue.rememberOrderId(code, orderId);
-            offlineQueue.markOrderAsSynced(offlineOrder.id);
-            break;
-          } else if (error.code === '23505') {
-            // Duplicate key error - generate new ID
-            retries++;
-            const nextNum = offlineQueue.getNextOrderNumber(code);
-            orderId = `${code}${String(nextNum).padStart(7, '0')}`;
-            offlineQueue.rememberOrderId(code, orderId);
-            console.warn(`Duplicate order ID, regenerating to ${orderId} (attempt ${retries})`);
-          } else {
-            console.error(`Failed to sync order ${orderId}:`, error.message);
-            break;
-          }
-        }
-
-        if (retries >= maxRetries) {
-          console.error(`Failed to sync order ${offlineOrder.id} after ${maxRetries} retries`);
-        }
-      } catch (err) {
-        console.error(`Error syncing order ${offlineOrder.id}:`, err);
-      }
-    }
-
-    // Refresh orders list after syncing
-    fetchOrders();
-    
-    // Update pending count
-    setPendingOfflineOrdersCount(offlineQueue.getUnsyncedOrders().length);
   };
 
   const placePosOrder = async (items: CartItem[], remark: string, tableNumber: string, diningType?: string, paymentMethod?: string, cashierName?: string, amountReceived?: number): Promise<string> => {
