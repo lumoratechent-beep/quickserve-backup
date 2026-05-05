@@ -96,11 +96,11 @@ class ConnectivityMonitor {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000); // Shorter 3 second timeout for ping only
 
-      const response = await fetch('/api/health', {
+      const response = await fetch(`/manifest.json?connectivity=${Date.now()}`, {
         method: 'GET',
         signal: controller.signal,
         cache: 'no-cache',
-        // Prevent service worker from spending time on this - we need fast failure
+        // Tell the service worker to bypass cache for this network-only ping.
         headers: { 'X-Connectivity-Check': 'true' }
       });
 

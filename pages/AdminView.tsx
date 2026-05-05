@@ -251,7 +251,7 @@ const SystemStatusDashboard: React.FC = () => {
     }
 
     try {
-      const response = await fetch('/api/health');
+      const response = await fetch('/api/login', { method: 'OPTIONS' });
       if (response.ok) {
         setStatus(prev => ({
           ...prev,
@@ -266,7 +266,7 @@ const SystemStatusDashboard: React.FC = () => {
           ...prev,
           login: {
             status: 'ERROR',
-            message: 'API health check failed',
+            message: 'API endpoint check failed',
             lastChecked: timestamp
           }
         }));

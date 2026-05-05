@@ -50,6 +50,12 @@ self.addEventListener('fetch', (event) => {
   // because caching API responses can cause stale business data.
   if (url.origin !== self.location.origin) return;
 
+  // Connectivity checks must prove the network is actually reachable.
+  if (event.request.headers.get('X-Connectivity-Check') === 'true') {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   // Content-hashed assets (/assets/*.js, /assets/*.css) -> cache-first.
   if (url.pathname.startsWith('/assets/')) {
     event.respondWith(
