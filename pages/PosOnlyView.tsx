@@ -2912,13 +2912,16 @@ const PosOnlyView: React.FC<Props> = ({
   const fetchReport = async (isExport = false) => {
     // ─── OFFLINE: serve directly from local cache ───────────────────────────
     if (!isOnline) {
-      if (isExport) return buildOfflineReportData(true) as Order[];
-      setReportData(buildOfflineReportData(false) as ReportResponse);
+      if (isExport) return buildCachedReportData(true) as Order[];
+      setReportData(buildCachedReportData(false) as ReportResponse);
       return;
     }
 
     // ─── ONLINE: fetch from server ──────────────────────────────────────────
-    if (!isExport) setIsReportLoading(true);
+    if (!isExport) {
+      setReportData(buildCachedReportData(false) as ReportResponse);
+      setIsReportLoading(true);
+    }
     try {
       const filters: ReportFilters = {
         restaurantId: restaurant.id,
@@ -2930,6 +2933,7 @@ const PosOnlyView: React.FC<Props> = ({
 
       if (isExport && onFetchAllFilteredOrders) {
         const orders = await onFetchAllFilteredOrders(filters);
+        counterOrdersCache.mergeReportOrdersCache(restaurant.id, orders);
         return applyReportAccess(orders);
       }
 
