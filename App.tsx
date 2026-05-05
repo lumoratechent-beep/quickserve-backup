@@ -142,6 +142,17 @@ const App: React.FC = () => {
     } catch { return []; }
   });
 
+  const restaurantsRef = useRef<Restaurant[]>(restaurants);
+  const locationsRef = useRef<Area[]>(locations);
+
+  useEffect(() => {
+    restaurantsRef.current = restaurants;
+  }, [restaurants]);
+
+  useEffect(() => {
+    locationsRef.current = locations;
+  }, [locations]);
+
   const [vendorSubscriptions, setVendorSubscriptions] = useState<Record<string, Subscription>>({});
 
   const [isLoading, setIsLoading] = useState(() => {
@@ -628,13 +639,13 @@ const App: React.FC = () => {
   const rememberKnownOrderId = useCallback((
     restaurantId: string | undefined,
     orderId: string,
-    restaurantList: Restaurant[] = restaurants,
-    areaList: Area[] = locations
+    restaurantList: Restaurant[] = restaurantsRef.current,
+    areaList: Area[] = locationsRef.current
   ) => {
     const restaurant = restaurantList.find(r => r.id === restaurantId);
     const code = resolveOrderCode(restaurant, areaList);
     offlineQueue.rememberOrderId(code, orderId);
-  }, [restaurants, locations]);
+  }, []);
 
   const fetchUsers = useCallback(async () => {
     // Only fetch users if the user is an admin
