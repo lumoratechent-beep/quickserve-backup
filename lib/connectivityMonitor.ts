@@ -90,13 +90,8 @@ class ConnectivityMonitor {
     // First check: is navigator.onLine true?
     const navOnLine = navigator.onLine;
 
-    if (!navOnLine) {
-      // Browser says offline - trust it immediately
-      this.setOnlineStatus(false);
-      return false;
-    }
-
-    // Browser says online - validate by pinging server
+    // Validate with the server even if navigator.onLine is false. Browser/PWA
+    // startup can briefly report a stale offline value while requests work.
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000); // Shorter 3 second timeout for ping only
@@ -123,6 +118,10 @@ class ConnectivityMonitor {
     } catch (error) {
       // Network error or timeout - fail fast
       console.warn('[ConnectivityMonitor] API ping failed:', error);
+      if (!navOnLine) {
+        this.setOnlineStatus(false);
+        return false;
+      }
       this.recordFailure();
       return this.state.isOnline;
     }

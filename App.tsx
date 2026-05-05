@@ -245,6 +245,7 @@ const App: React.FC = () => {
   useEffect(() => {
     // Get the connectivity monitor instance
     const monitor = getConnectivityMonitor();
+    let isMounted = true;
 
     // Subscribe to connectivity changes
     const unsubscribeMonitor = monitor.subscribe((isOnlineNow) => {
@@ -271,14 +272,21 @@ const App: React.FC = () => {
     setPendingOfflineOrdersCount(pendingCount);
     console.log('[App] Mounted with pending orders:', pendingCount);
 
-    // If already online on mount with pending orders, trigger sync immediately
-    if (monitor.getIsOnline() && pendingCount > 0) {
-      console.log('[App] Online on mount with pending orders, triggering sync');
-      syncOfflineOrdersRef.current();
-    }
+    // Verify the initial status instead of trusting navigator.onLine during app boot.
+    // Some browsers/PWAs can briefly report offline on a fresh login despite a
+    // working connection, which showed a confusing offline banner until refresh.
+    monitor.forceCheck().then((isOnlineNow) => {
+      if (!isMounted) return;
+      setIsOnline(isOnlineNow);
+      if (isOnlineNow && pendingCount > 0) {
+        console.log('[App] Initial connectivity verified online, triggering sync');
+        syncOfflineOrdersRef.current();
+      }
+    });
 
     // Cleanup function
     return () => {
+      isMounted = false;
       unsubscribeMonitor();
       unsubscribeNative();
     };
@@ -468,7 +476,7 @@ const App: React.FC = () => {
       (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
 
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isOnline, setIsOnline] = useState(true);
   const [pendingOfflineOrdersCount, setPendingOfflineOrdersCount] = useState(0);
 
   // Announcements / Mail state
