@@ -2155,7 +2155,12 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
         {/* CASHIER SHIFTS TAB                  */}
         {/* ════════════════════════════════════ */}
         {activeTab === 'SHIFTS' && (
-          <CashierShiftRecords restaurantId={restaurant.id} currencySymbol={currencySymbol} />
+          <CashierShiftRecords
+            restaurantId={restaurant.id}
+            restaurantName={restaurant.name}
+            currencySymbol={currencySymbol}
+            orders={orders}
+          />
         )}
       </div>
       </div>
