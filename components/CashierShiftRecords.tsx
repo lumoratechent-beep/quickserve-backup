@@ -92,7 +92,7 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
 
     const hasSelectedShift = filtered.some((shift) => shift.id === selectedShiftId);
     if (!hasSelectedShift) {
-      setSelectedShiftId(filtered[0].id);
+      setSelectedShiftId(null);
     }
   }, [filtered, selectedShiftId]);
 
@@ -165,6 +165,12 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
       order.items.map((item) => `${item.name} x${item.quantity}`).join('; '),
       order.total.toFixed(2),
     ]))
+  );
+
+  const buildOrderItemsText = (order: Order) => (
+    order.items.length
+      ? order.items.map((item) => `${item.name} x${item.quantity}`).join(', ')
+      : '-'
   );
 
   const getShiftExportFilename = (shift: CashierShift, extension: string) => {
@@ -253,7 +259,7 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
 
       autoTable(doc, {
         startY: (doc as any).lastAutoTable.finalY + 8,
-        head: [['Time', 'Order ID', 'Status', 'Payment', 'Cashier', 'Total']],
+        head: [['Time', 'Order ID', 'Status', 'Payment', 'Cashier', 'Items', 'Total']],
         body: shiftTransactions.length
           ? shiftTransactions.map((order) => [
               new Date(order.timestamp).toLocaleString('en-GB'),
@@ -261,14 +267,18 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
               order.status,
               order.paymentMethod || '-',
               order.cashierName || selectedShift.cashier_name || '-',
+              buildOrderItemsText(order),
               fmt(order.total),
             ])
-          : [['No transactions found', '', '', '', '', '']],
+          : [['No transactions found', '', '', '', '', '', '']],
         margin: { left: margin, right: margin },
         styles: { fontSize: 7.5, cellPadding: 2 },
         headStyles: { fillColor: accent, textColor: [255, 255, 255], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [255, 247, 237] },
         theme: 'grid',
+        columnStyles: {
+          5: { cellWidth: 60 },
+        },
       });
 
       doc.save(getShiftExportFilename(selectedShift, 'pdf'));
@@ -307,10 +317,11 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
               <td>${escapeHtml(order.status)}</td>
               <td>${escapeHtml(order.paymentMethod || '-')}</td>
               <td>${escapeHtml(order.cashierName || selectedShift.cashier_name || '-')}</td>
+              <td>${escapeHtml(buildOrderItemsText(order))}</td>
               <td>${escapeHtml(`${currencySymbol}${order.total.toFixed(2)}`)}</td>
             </tr>
           `).join('')
-        : '<tr><td colspan="6">No transactions found during this shift.</td></tr>';
+        : '<tr><td colspan="7">No transactions found during this shift.</td></tr>';
 
       const noteMarkup = selectedShift.close_note
         ? `<div class="note"><strong>Note:</strong> ${escapeHtml(selectedShift.close_note)}</div>`
@@ -367,6 +378,7 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
                   <th>Status</th>
                   <th>Payment</th>
                   <th>Cashier</th>
+                  <th>Items</th>
                   <th>Total</th>
                 </tr>
               </thead>
@@ -485,7 +497,10 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
                             ? 'bg-amber-50 dark:bg-amber-900/20'
                             : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
                         }`}
-                        onClick={() => setSelectedShiftId(shift.id)}
+                        onClick={() => {
+                          setShowDownloadMenu(false);
+                          setSelectedShiftId(shift.id);
+                        }}
                       >
                         <td className="px-4 py-3">
                           <span className="font-black text-gray-700 dark:text-gray-100">{shift.shift_code || shift.id}</span>
@@ -535,7 +550,17 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
           </div>
 
           {selectedShift && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 overflow-hidden">
+            <div
+              className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-950/45 backdrop-blur-md p-4"
+              onClick={() => {
+                setShowDownloadMenu(false);
+                setSelectedShiftId(null);
+              }}
+            >
+              <div
+                className="w-full max-w-6xl max-h-[92vh] overflow-hidden rounded-3xl border border-white/20 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800"
+                onClick={(e) => e.stopPropagation()}
+              >
               <div className="flex flex-col gap-4 border-b dark:border-gray-700 px-6 py-5 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <p className="text-[11px] font-black uppercase tracking-[0.24em] text-amber-600">Shift Detail</p>
@@ -546,6 +571,16 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDownloadMenu(false);
+                      setSelectedShiftId(null);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-xl border-2 border-gray-200 px-4 py-2.5 text-sm font-black text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                  >
+                    Close
+                  </button>
                   <div className="relative" ref={downloadMenuRef}>
                     <button
                       type="button"
@@ -591,7 +626,7 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
                 </div>
               </div>
 
-              <div className="space-y-6 p-6">
+              <div className="max-h-[calc(92vh-96px)] overflow-y-auto space-y-6 p-6">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                   <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-700/60">
                     <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-300">Opened</p>
@@ -680,6 +715,7 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
                               <th className="px-4 py-3 text-left font-bold text-gray-500 dark:text-gray-400">Order ID</th>
                               <th className="px-4 py-3 text-left font-bold text-gray-500 dark:text-gray-400">Status</th>
                               <th className="px-4 py-3 text-left font-bold text-gray-500 dark:text-gray-400">Payment</th>
+                              <th className="px-4 py-3 text-left font-bold text-gray-500 dark:text-gray-400">Items</th>
                               <th className="px-4 py-3 text-right font-bold text-gray-500 dark:text-gray-400">Total</th>
                             </tr>
                           </thead>
@@ -700,6 +736,7 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
                                   </span>
                                 </td>
                                 <td className="px-4 py-3 text-gray-600 capitalize dark:text-gray-300">{order.paymentMethod || '-'}</td>
+                                <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{buildOrderItemsText(order)}</td>
                                 <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-white">{fmt(order.total)}</td>
                               </tr>
                             ))}
@@ -759,6 +796,7 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
                     </div>
                   </div>
                 </div>
+              </div>
               </div>
             </div>
           )}
