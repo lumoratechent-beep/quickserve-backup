@@ -33,6 +33,7 @@ interface Props {
   description?: string;
   activeShift?: CashierShift | null;
   applyCurrentShiftFilter?: boolean;
+  isSidebarCollapsed?: boolean;
 }
 
 const StandardReport: React.FC<Props> = ({
@@ -58,6 +59,7 @@ const StandardReport: React.FC<Props> = ({
   description = "Financial performance and order history.",
   activeShift,
   applyCurrentShiftFilter = false,
+  isSidebarCollapsed = false,
 }) => {
   const [detailRange, setDetailRange] = useState<'today' | 'week' | 'month' | 'lastMonth'>('month');
   const [dateSelectionMode, setDateSelectionMode] = useState<'period' | 'range'>('period');
@@ -256,7 +258,7 @@ const StandardReport: React.FC<Props> = ({
             <div className={`transition-opacity ${dateSelectionMode === 'range' ? 'opacity-45' : 'opacity-100'}`}>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Period Selection</label>
               <div className="inline-flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
-                {(['today', 'week', 'month', 'lastMonth'] as const).map(range => (
+                {((isSidebarCollapsed ? ['today', 'week', 'month', 'lastMonth'] : ['today', 'week', 'month']) as ('today' | 'week' | 'month' | 'lastMonth')[]).map(range => (
                   <button
                     key={range}
                     onClick={() => {

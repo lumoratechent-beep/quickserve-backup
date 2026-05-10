@@ -7265,6 +7265,7 @@ const PosOnlyView: React.FC<Props> = ({
                     onDownloadReport={handleDownloadReportWithOptions}
                     isDownloadingReport={isDownloadingReport}
                     onSelectOrder={(order) => setSelectedReportOrder(order)}
+                    isSidebarCollapsed={isSidebarCollapsed}
                   />
                 )}
                 {reportsSubMenu === 'shiftReport' && (
@@ -7304,6 +7305,7 @@ const PosOnlyView: React.FC<Props> = ({
                       onSelectOrder={(order) => setSelectedReportOrder(order)}
                       activeShift={activeShift}
                       applyCurrentShiftFilter={true}
+                      isSidebarCollapsed={isSidebarCollapsed}
                     />
                   )
                 )}
