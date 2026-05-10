@@ -255,7 +255,7 @@ const StandardReport: React.FC<Props> = ({
           <div className="flex-1 grid grid-cols-1 xl:grid-cols-2 gap-3 w-full">
             <div className={`transition-opacity ${dateSelectionMode === 'range' ? 'opacity-45' : 'opacity-100'}`}>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Period Selection</label>
-              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+              <div className="inline-flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
                 {(['today', 'week', 'month', 'lastMonth'] as const).map(range => (
                   <button
                     key={range}
@@ -564,6 +564,7 @@ const StandardReport: React.FC<Props> = ({
         <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm">
           <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Total Revenue</p>
           <p className="text-xl md:text-2xl font-black dark:text-white">RM{displaySummary.totalRevenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 font-black mt-1">{displaySummary.orderVolume} sales</p>
           <p className="text-[11px] text-gray-500 dark:text-gray-400 font-black mt-1">{revenuePeriodLabel}</p>
         </div>
 
