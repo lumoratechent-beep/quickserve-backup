@@ -627,26 +627,81 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
               </div>
 
               <div className="max-h-[calc(92vh-96px)] overflow-y-auto space-y-6 p-6">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-700/60">
-                    <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-300">Opened</p>
-                    <p className="mt-2 text-base font-black text-gray-900 dark:text-white">{fmtTime(selectedShift.opened_at)}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{fmtDate(selectedShift.opened_at)}</p>
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+                  <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900/30">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Shift Overview</p>
+                        <h4 className="mt-2 text-lg font-black text-gray-900 dark:text-white">{selectedShift.cashier_name}</h4>
+                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                          {selectedShift.status === 'open' ? 'Active shift' : 'Closed shift'} for {restaurantName}
+                        </p>
+                      </div>
+                      <span className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
+                        selectedShift.status === 'open'
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
+                      }`}>
+                        {selectedShift.status === 'open' ? 'Active' : 'Closed'}
+                      </span>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800/80">
+                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-300">Opened</p>
+                        <p className="mt-2 text-base font-black text-gray-900 dark:text-white">{fmtTime(selectedShift.opened_at)}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{fmtDate(selectedShift.opened_at)}</p>
+                      </div>
+                      <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800/80">
+                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-300">Closed</p>
+                        <p className="mt-2 text-base font-black text-gray-900 dark:text-white">{selectedShift.closed_at ? fmtTime(selectedShift.closed_at) : '—'}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{selectedShift.closed_at ? fmtDate(selectedShift.closed_at) : 'Still active'}</p>
+                      </div>
+                      <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800/80">
+                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-300">Duration</p>
+                        <p className="mt-2 text-base font-black text-gray-900 dark:text-white">{duration(selectedShift.opened_at, selectedShift.closed_at)}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Shift span</p>
+                      </div>
+                      <div className="rounded-2xl bg-amber-50 p-4 dark:bg-amber-900/20">
+                        <p className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">Orders In Report</p>
+                        <p className="mt-2 text-base font-black text-amber-800 dark:text-amber-200">{shiftTransactions.length}</p>
+                        <p className="text-xs text-amber-700/80 dark:text-amber-300/80">Included in PDF and CSV export</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-700/60">
-                    <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-300">Closed</p>
-                    <p className="mt-2 text-base font-black text-gray-900 dark:text-white">{selectedShift.closed_at ? fmtTime(selectedShift.closed_at) : '—'}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{selectedShift.closed_at ? fmtDate(selectedShift.closed_at) : 'Still active'}</p>
-                  </div>
-                  <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-700/60">
-                    <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-300">Duration</p>
-                    <p className="mt-2 text-base font-black text-gray-900 dark:text-white">{duration(selectedShift.opened_at, selectedShift.closed_at)}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Shift span</p>
-                  </div>
-                  <div className="rounded-2xl bg-amber-50 p-4 dark:bg-amber-900/20">
-                    <p className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">Transactions In Shift</p>
-                    <p className="mt-2 text-base font-black text-amber-800 dark:text-amber-200">{shiftTransactions.length}</p>
-                    <p className="text-xs text-amber-700/80 dark:text-amber-300/80">All order statuses</p>
+
+                  <div className="rounded-3xl border border-gray-200 bg-gray-50 p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900/40">
+                    <p className="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Cash Drawer</p>
+                    <div className="mt-5 space-y-4">
+                      <div className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 dark:bg-gray-800">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Opening Amount</span>
+                        <span className="font-black text-gray-900 dark:text-white">{fmt(selectedShift.opening_amount)}</span>
+                      </div>
+                      <div className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 dark:bg-gray-800">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Expected Closing</span>
+                        <span className="font-black text-gray-900 dark:text-white">{fmt(selectedShift.expected_closing_amount)}</span>
+                      </div>
+                      <div className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 dark:bg-gray-800">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Actual Closing</span>
+                        <span className="font-black text-gray-900 dark:text-white">{fmt(selectedShift.actual_closing_amount)}</span>
+                      </div>
+                      <div className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 dark:bg-gray-800">
+                        <span className="text-sm font-bold text-gray-700 dark:text-gray-200">
+                          {selectedShift.status === 'closed'
+                            ? (selectedShift.difference || 0) === 0 ? 'Balanced' : (selectedShift.difference || 0) > 0 ? 'Overage' : 'Shortage'
+                            : 'Difference'}
+                        </span>
+                        <span className={`text-lg font-black ${
+                          selectedShift.status !== 'closed'
+                            ? 'text-gray-400'
+                            : (selectedShift.difference || 0) === 0 ? 'text-green-600' : (selectedShift.difference || 0) > 0 ? 'text-blue-600' : 'text-red-600'
+                        }`}>
+                          {selectedShift.status === 'closed'
+                            ? `${(selectedShift.difference || 0) > 0 ? '+' : ''}${fmt(selectedShift.difference)}`
+                            : 'Pending'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -689,112 +744,39 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-                  <div className="rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                    <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/40">
-                      <div>
-                        <h4 className="text-sm font-black text-gray-900 dark:text-white">Transactions During This Shift</h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Only orders within the shift time range are shown here.</p>
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+                  <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900/30">
+                    <p className="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Report Scope</p>
+                    <p className="mt-3 text-sm leading-6 text-gray-700 dark:text-gray-300">
+                      Downloads and printouts include only transactions between {fmtDateTime(selectedShift.opened_at)} and {selectedShift.closed_at ? fmtDateTime(selectedShift.closed_at) : 'the current time'}.
+                    </p>
+                    <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                      <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800/80">
+                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Shift ID</p>
+                        <p className="mt-2 break-all text-sm font-black text-gray-900 dark:text-white">{selectedShift.shift_code || selectedShift.id}</p>
                       </div>
-                      <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                        {shiftTransactions.length} orders
-                      </span>
+                      <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800/80">
+                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Cashier</p>
+                        <p className="mt-2 text-sm font-black text-gray-900 dark:text-white">{selectedShift.cashier_name}</p>
+                      </div>
+                      <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800/80">
+                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Transactions</p>
+                        <p className="mt-2 text-sm font-black text-gray-900 dark:text-white">{shiftTransactions.length}</p>
+                      </div>
                     </div>
-
-                    {shiftTransactions.length === 0 ? (
-                      <div className="px-4 py-10 text-center text-gray-500 dark:text-gray-400">
-                        <FileText size={32} className="mx-auto mb-3 opacity-40" />
-                        <p className="font-bold">No transactions found during this shift.</p>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead className="bg-white dark:bg-gray-800">
-                            <tr>
-                              <th className="px-4 py-3 text-left font-bold text-gray-500 dark:text-gray-400">Time</th>
-                              <th className="px-4 py-3 text-left font-bold text-gray-500 dark:text-gray-400">Order ID</th>
-                              <th className="px-4 py-3 text-left font-bold text-gray-500 dark:text-gray-400">Status</th>
-                              <th className="px-4 py-3 text-left font-bold text-gray-500 dark:text-gray-400">Payment</th>
-                              <th className="px-4 py-3 text-left font-bold text-gray-500 dark:text-gray-400">Items</th>
-                              <th className="px-4 py-3 text-right font-bold text-gray-500 dark:text-gray-400">Total</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y dark:divide-gray-700">
-                            {shiftTransactions.map((order) => (
-                              <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                                <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{new Date(order.timestamp).toLocaleString('en-GB')}</td>
-                                <td className="px-4 py-3 font-bold text-gray-900 dark:text-white">{order.id}</td>
-                                <td className="px-4 py-3">
-                                  <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-                                    order.status === 'COMPLETED'
-                                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-                                      : order.status === 'CANCELLED'
-                                        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                                        : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
-                                  }`}>
-                                    {order.status}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3 text-gray-600 capitalize dark:text-gray-300">{order.paymentMethod || '-'}</td>
-                                <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{buildOrderItemsText(order)}</td>
-                                <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-white">{fmt(order.total)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-700">
-                      <h4 className="text-sm font-black text-gray-900 dark:text-white">Cash Drawer</h4>
-                      <div className="mt-4 space-y-3 text-sm">
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-500 dark:text-gray-400">Opening Amount</span>
-                          <span className="font-bold text-gray-900 dark:text-white">{fmt(selectedShift.opening_amount)}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-500 dark:text-gray-400">Expected Closing</span>
-                          <span className="font-bold text-gray-900 dark:text-white">{fmt(selectedShift.expected_closing_amount)}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-500 dark:text-gray-400">Actual Closing</span>
-                          <span className="font-bold text-gray-900 dark:text-white">{fmt(selectedShift.actual_closing_amount)}</span>
-                        </div>
-                        <div className="flex items-center justify-between border-t border-gray-200 pt-3 dark:border-gray-700">
-                          <span className="font-bold text-gray-700 dark:text-gray-200">
-                            {selectedShift.status === 'closed'
-                              ? (selectedShift.difference || 0) === 0 ? 'Balanced' : (selectedShift.difference || 0) > 0 ? 'Overage' : 'Shortage'
-                              : 'Difference'}
-                          </span>
-                          <span className={`text-lg font-black ${
-                            selectedShift.status !== 'closed'
-                              ? 'text-gray-400'
-                              : (selectedShift.difference || 0) === 0 ? 'text-green-600' : (selectedShift.difference || 0) > 0 ? 'text-blue-600' : 'text-red-600'
-                          }`}>
-                            {selectedShift.status === 'closed'
-                              ? `${(selectedShift.difference || 0) > 0 ? '+' : ''}${fmt(selectedShift.difference)}`
-                              : 'Pending'}
-                          </span>
-                        </div>
-                      </div>
+                  {selectedShift.close_note ? (
+                    <div className="rounded-3xl bg-yellow-50 p-5 shadow-sm dark:bg-yellow-900/20">
+                      <p className="text-xs font-bold uppercase tracking-wider text-yellow-700 dark:text-yellow-300">Close Note</p>
+                      <p className="mt-3 text-sm leading-6 text-yellow-900 dark:text-yellow-100">{selectedShift.close_note}</p>
                     </div>
-
-                    {selectedShift.close_note && (
-                      <div className="rounded-2xl bg-yellow-50 p-4 dark:bg-yellow-900/20">
-                        <p className="text-xs font-bold uppercase tracking-wider text-yellow-700 dark:text-yellow-300">Close Note</p>
-                        <p className="mt-2 text-sm text-yellow-900 dark:text-yellow-100">{selectedShift.close_note}</p>
-                      </div>
-                    )}
-
-                    <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-900/40">
-                      <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Export Scope</p>
-                      <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
-                        Downloads and printouts include only transactions between {fmtDateTime(selectedShift.opened_at)} and {selectedShift.closed_at ? fmtDateTime(selectedShift.closed_at) : 'the current time'}.
-                      </p>
+                  ) : (
+                    <div className="rounded-3xl border border-dashed border-gray-200 bg-gray-50 p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900/30">
+                      <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Close Note</p>
+                      <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">No closing note was added for this shift.</p>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
               </div>
