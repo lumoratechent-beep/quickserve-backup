@@ -59,7 +59,7 @@ const StandardReport: React.FC<Props> = ({
   activeShift,
   applyCurrentShiftFilter = false,
 }) => {
-  const [detailRange, setDetailRange] = useState<'today' | 'week' | 'month'>('month');
+  const [detailRange, setDetailRange] = useState<'today' | 'week' | 'month' | 'lastMonth'>('month');
   const [dateSelectionMode, setDateSelectionMode] = useState<'period' | 'range'>('period');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [filterPayment, setFilterPayment] = useState<string>('ALL');
@@ -70,7 +70,7 @@ const StandardReport: React.FC<Props> = ({
   const [showDateRangeModal, setShowDateRangeModal] = useState(false);
   const [draftReportStart, setDraftReportStart] = useState(reportStart);
   const [draftReportEnd, setDraftReportEnd] = useState(reportEnd);
-  const [activeDatePreset, setActiveDatePreset] = useState<'today' | 'week' | 'month' | null>(null);
+  const [activeDatePreset, setActiveDatePreset] = useState<'today' | 'week' | 'month' | 'lastMonth' | null>(null);
   const [showTimeRangeModal, setShowTimeRangeModal] = useState(false);
   const [timeStartMinutes, setTimeStartMinutes] = useState(0);
   const [timeEndMinutes, setTimeEndMinutes] = useState(1439);
@@ -88,14 +88,10 @@ const StandardReport: React.FC<Props> = ({
     if (!value) return '--';
     const [year, month, day] = value.split('-').map(Number);
     if (!year || !month || !day) return value;
-    return new Date(year, month - 1, day).toLocaleDateString('en-MY', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
+    return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
   };
 
-  const getQuickDateRange = (range: 'today' | 'week' | 'month') => {
+  const getQuickDateRange = (range: 'today' | 'week' | 'month' | 'lastMonth') => {
     const now = new Date();
     const pad = (n: number) => n.toString().padStart(2, '0');
     const toLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -105,12 +101,17 @@ const StandardReport: React.FC<Props> = ({
       const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
       return { start: toLocal(startOfWeek), end: today };
     }
+    if (range === 'lastMonth') {
+      const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+      return { start: toLocal(startOfLastMonth), end: toLocal(endOfLastMonth) };
+    }
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     return { start: toLocal(startOfMonth), end: today };
   };
 
-  const detectQuickPreset = (start: string, end: string): 'today' | 'week' | 'month' | null => {
-    const presets: Array<'today' | 'week' | 'month'> = ['today', 'week', 'month'];
+  const detectQuickPreset = (start: string, end: string): 'today' | 'week' | 'month' | 'lastMonth' | null => {
+    const presets: Array<'today' | 'week' | 'month' | 'lastMonth'> = ['today', 'week', 'month', 'lastMonth'];
     for (const preset of presets) {
       const range = getQuickDateRange(preset);
       if (range.start === start && range.end === end) return preset;
@@ -120,23 +121,19 @@ const StandardReport: React.FC<Props> = ({
 
   // Auto-set date pickers when range preset changes
   useEffect(() => {
-    const now = new Date();
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    const toLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-    const todayStr = toLocal(now);
-    if (detailRange === 'today') {
-      onChangeReportStart(todayStr);
-      onChangeReportEnd(todayStr);
-    } else if (detailRange === 'week') {
-      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
-      onChangeReportStart(toLocal(startOfWeek));
-      onChangeReportEnd(todayStr);
-    } else {
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      onChangeReportStart(toLocal(startOfMonth));
-      onChangeReportEnd(todayStr);
-    }
+    const range = getQuickDateRange(detailRange);
+    onChangeReportStart(range.start);
+    onChangeReportEnd(range.end);
   }, [detailRange]);
+
+  const revenuePeriodLabel = useMemo(() => {
+    const preset = dateSelectionMode === 'period' ? detailRange : detectQuickPreset(reportStart, reportEnd);
+    if (preset === 'today') return `Showing sales for ${formatDisplayDate(reportStart)}.`;
+    if (preset === 'week') return `Showing sales for ${formatDisplayDate(reportStart)} - ${formatDisplayDate(reportEnd)}.`;
+    if (preset === 'month') return `Showing sales for ${formatDisplayDate(reportStart)} - ${formatDisplayDate(reportEnd)}.`;
+    if (preset === 'lastMonth') return `Showing sales for ${formatDisplayDate(reportStart)} - ${formatDisplayDate(reportEnd)}.`;
+    return `Showing sales for ${formatDisplayDate(reportStart)} - ${formatDisplayDate(reportEnd)}.`;
+  }, [dateSelectionMode, detailRange, reportStart, reportEnd]);
 
   const uniquePayments = useMemo(() => {
     const set = new Set(paginatedReports.map(o => o.paymentMethod || '-'));
@@ -259,7 +256,7 @@ const StandardReport: React.FC<Props> = ({
             <div className={`transition-opacity ${dateSelectionMode === 'range' ? 'opacity-45' : 'opacity-100'}`}>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Period Selection</label>
               <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
-                {(['today', 'week', 'month'] as const).map(range => (
+                {(['today', 'week', 'month', 'lastMonth'] as const).map(range => (
                   <button
                     key={range}
                     onClick={() => {
@@ -272,7 +269,7 @@ const StandardReport: React.FC<Props> = ({
                         : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                     }`}
                   >
-                    {range === 'today' ? "Today" : range === 'week' ? 'This Week' : 'This Month'}
+                    {range === 'today' ? 'Today' : range === 'week' ? 'This Week' : range === 'month' ? 'This Month' : 'Last Month'}
                   </button>
                 ))}
               </div>
@@ -292,7 +289,7 @@ const StandardReport: React.FC<Props> = ({
                 >
                   <Calendar size={14} className="text-orange-500 shrink-0" />
                   <span>{formatDisplayDate(reportStart)}</span>
-                  <span className="text-gray-400">to</span>
+                  <span className="text-gray-400">-</span>
                   <span>{formatDisplayDate(reportEnd)}</span>
                 </button>
                 <button
@@ -307,7 +304,7 @@ const StandardReport: React.FC<Props> = ({
                   }`}
                 >
                   <Clock3 size={13} />
-                  <span>{hasCustomTimeRange ? `${formatMinuteToTime(timeStartMinutes)} to ${formatMinuteToTime(timeEndMinutes)}` : 'Time Selection'}</span>
+                  <span>{hasCustomTimeRange ? `${formatMinuteToTime(timeStartMinutes)} - ${formatMinuteToTime(timeEndMinutes)}` : 'Time'}</span>
                 </button>
               </div>
             </div>
@@ -415,8 +412,8 @@ const StandardReport: React.FC<Props> = ({
               Choose date range to filter report data.
             </p>
 
-            <div className="flex gap-2 mb-4">
-              {(['today', 'week', 'month'] as const).map((range) => (
+            <div className="flex gap-2 mb-4 flex-wrap">
+              {(['today', 'week', 'month', 'lastMonth'] as const).map((range) => (
                 <button
                   key={range}
                   onClick={() => {
@@ -431,7 +428,7 @@ const StandardReport: React.FC<Props> = ({
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
-                  {range === 'today' ? 'Today' : range === 'week' ? 'This Week' : 'This Month'}
+                  {range === 'today' ? 'Today' : range === 'week' ? 'This Week' : range === 'month' ? 'This Month' : 'Last Month'}
                 </button>
               ))}
             </div>
@@ -567,7 +564,7 @@ const StandardReport: React.FC<Props> = ({
         <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm">
           <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Total Revenue</p>
           <p className="text-xl md:text-2xl font-black dark:text-white">RM{displaySummary.totalRevenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400 font-black mt-1">{displaySummary.orderVolume} orders</p>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 font-black mt-1">{revenuePeriodLabel}</p>
         </div>
 
         {/* By Transaction Type */}

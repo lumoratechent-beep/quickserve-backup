@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { CashierShift, Order } from '../src/types';
 import { toast } from './Toast';
@@ -26,6 +27,7 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+  const [portalReady, setPortalReady] = useState(false);
   const downloadMenuRef = useRef<HTMLDivElement | null>(null);
 
   const fetchShifts = async () => {
@@ -73,6 +75,10 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showDownloadMenu]);
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
 
   const filtered = useMemo(() => {
     if (!searchQuery.trim()) return shifts;
@@ -549,7 +555,7 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
             </div>
           </div>
 
-          {selectedShift && (
+          {selectedShift && portalReady && createPortal((
             <div className="fixed inset-0 z-[99999]">
               <div
                 className="absolute inset-0 bg-slate-950/45 backdrop-blur-md"
@@ -762,7 +768,7 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
                 </div>
               </div>
             </div>
-          )}
+          ), document.body)}
         </>
       )}
     </div>
