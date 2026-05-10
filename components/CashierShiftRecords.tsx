@@ -550,17 +550,19 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
           </div>
 
           {selectedShift && (
-            <div
-              className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-950/45 backdrop-blur-md p-4"
-              onClick={() => {
-                setShowDownloadMenu(false);
-                setSelectedShiftId(null);
-              }}
-            >
+            <div className="fixed inset-0 z-[99999]">
               <div
-                className="w-full max-w-6xl max-h-[92vh] overflow-hidden rounded-3xl border border-white/20 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800"
-                onClick={(e) => e.stopPropagation()}
-              >
+                className="absolute inset-0 bg-slate-950/45 backdrop-blur-md"
+                onClick={() => {
+                  setShowDownloadMenu(false);
+                  setSelectedShiftId(null);
+                }}
+              />
+              <div className="absolute inset-0 flex items-center justify-center p-4">
+                <div
+                  className="w-full max-w-6xl max-h-[92vh] overflow-hidden rounded-3xl border border-white/20 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800"
+                  onClick={(e) => e.stopPropagation()}
+                >
               <div className="flex flex-col gap-4 border-b dark:border-gray-700 px-6 py-5 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <p className="text-[11px] font-black uppercase tracking-[0.24em] text-amber-600">Shift Detail</p>
@@ -627,7 +629,7 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
               </div>
 
               <div className="max-h-[calc(92vh-96px)] overflow-y-auto space-y-6 p-6">
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1fr)]">
                   <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900/30">
                     <div className="flex items-start justify-between gap-4">
                       <div>
@@ -703,6 +705,18 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
                       </div>
                     </div>
                   </div>
+
+                  {selectedShift.close_note ? (
+                    <div className="rounded-3xl bg-yellow-50 p-5 shadow-sm dark:bg-yellow-900/20">
+                      <p className="text-xs font-bold uppercase tracking-wider text-yellow-700 dark:text-yellow-300">Close Note</p>
+                      <p className="mt-3 text-sm leading-6 text-yellow-900 dark:text-yellow-100">{selectedShift.close_note}</p>
+                    </div>
+                  ) : (
+                    <div className="rounded-3xl border border-dashed border-gray-200 bg-gray-50 p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900/30">
+                      <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Close Note</p>
+                      <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">No closing note was added for this shift.</p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
@@ -744,41 +758,8 @@ const CashierShiftRecords: React.FC<Props> = ({ restaurantId, restaurantName, cu
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-                  <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900/30">
-                    <p className="text-xs font-black uppercase tracking-[0.24em] text-gray-400">Report Scope</p>
-                    <p className="mt-3 text-sm leading-6 text-gray-700 dark:text-gray-300">
-                      Downloads and printouts include only transactions between {fmtDateTime(selectedShift.opened_at)} and {selectedShift.closed_at ? fmtDateTime(selectedShift.closed_at) : 'the current time'}.
-                    </p>
-                    <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-                      <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800/80">
-                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Shift ID</p>
-                        <p className="mt-2 break-all text-sm font-black text-gray-900 dark:text-white">{selectedShift.shift_code || selectedShift.id}</p>
-                      </div>
-                      <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800/80">
-                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Cashier</p>
-                        <p className="mt-2 text-sm font-black text-gray-900 dark:text-white">{selectedShift.cashier_name}</p>
-                      </div>
-                      <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800/80">
-                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Transactions</p>
-                        <p className="mt-2 text-sm font-black text-gray-900 dark:text-white">{shiftTransactions.length}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {selectedShift.close_note ? (
-                    <div className="rounded-3xl bg-yellow-50 p-5 shadow-sm dark:bg-yellow-900/20">
-                      <p className="text-xs font-bold uppercase tracking-wider text-yellow-700 dark:text-yellow-300">Close Note</p>
-                      <p className="mt-3 text-sm leading-6 text-yellow-900 dark:text-yellow-100">{selectedShift.close_note}</p>
-                    </div>
-                  ) : (
-                    <div className="rounded-3xl border border-dashed border-gray-200 bg-gray-50 p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900/30">
-                      <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Close Note</p>
-                      <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">No closing note was added for this shift.</p>
-                    </div>
-                  )}
-                </div>
               </div>
+                </div>
               </div>
             </div>
           )}
