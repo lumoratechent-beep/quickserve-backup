@@ -2361,7 +2361,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors" style={{ height: 'var(--app-height, 100dvh)' }}>
-      <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 lg:px-8 shadow-sm">
+      <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-12 sm:h-14 flex items-center justify-between px-3 sm:px-6 lg:px-8 shadow-sm">
         <div className="flex items-center gap-2 cursor-pointer min-w-0" onClick={() => setView('MARKETING')}>
           <img
             src={isDarkMode ? "/LOGO/9-dark.png" : "/LOGO/9.png"}
@@ -2440,19 +2440,19 @@ const App: React.FC = () => {
             <Sun size={12} className={`absolute left-2 transition-opacity duration-300 text-orange-400 ${isDarkMode ? 'opacity-40' : 'opacity-0'}`} />
             <Moon size={12} className={`absolute right-2 transition-opacity duration-300 text-indigo-400 ${isDarkMode ? 'opacity-0' : 'opacity-40'}`} />
           </button>
-          {currentUser && (
-            <div className="flex items-center gap-1.5 sm:gap-3">
-              <div className="text-right hidden sm:block">
-                <p className="text-[10px] text-gray-400 font-bold uppercase">{currentUser.role}</p>
-                <p className="text-xs font-black dark:text-white">{currentUser.username}</p>
-              </div>
-              {isOnline && (
-                <button onClick={handleLogoutAttempt} className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white shrink-0"><LogOut size={18} className="sm:w-5 sm:h-5" /></button>
-              )}
-            </div>
+          {currentUser && isOnline && (
+            <button onClick={handleLogoutAttempt} className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white shrink-0"><LogOut size={18} className="sm:w-5 sm:h-5" /></button>
           )}
         </div>
       </header>
+      {currentUser && currentUser.restaurantId && (
+        <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-3 sm:px-6 lg:px-8 py-1.5 flex items-center justify-end">
+          <div className="text-right">
+            <p className="text-[10px] text-gray-400 font-bold uppercase">{currentUser.role}</p>
+            <p className="text-xs font-black dark:text-white">{activeVendorRes?.name || currentUser.username}</p>
+          </div>
+        </div>
+      )}
       {/* Renewal reminder banner for vendors/cashiers */}
       {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (() => {
         const sub = vendorSubscriptions[currentUser!.restaurantId] || null;

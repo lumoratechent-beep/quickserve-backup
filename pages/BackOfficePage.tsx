@@ -1059,7 +1059,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        <header className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 lg:px-8 shadow-sm">
+        <header className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-12 sm:h-14 flex items-center justify-between px-3 sm:px-6 lg:px-8 shadow-sm">
           <div className="flex items-center gap-2 min-w-0">
             <img
               src={isDarkMode ? "/LOGO/9-dark.png" : "/LOGO/9.png"}
@@ -1103,22 +1103,22 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 <Moon size={12} className={`absolute right-2 transition-opacity duration-300 text-indigo-400 ${isDarkMode ? 'opacity-0' : 'opacity-40'}`} />
               </button>
             )}
-            <div className="flex items-center gap-1.5 sm:gap-3">
-              <div className="text-right hidden sm:block">
-                <p className="text-[10px] text-gray-400 font-bold uppercase">VENDOR</p>
-                <p className="text-xs font-black dark:text-white">{restaurant.name}</p>
-              </div>
-              {onLogout && (
-                <button onClick={onLogout} className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white shrink-0" title="Logout">
-                  <LogOut size={18} className="sm:w-5 sm:h-5" />
-                </button>
-              )}
-            </div>
+            {onLogout && (
+              <button onClick={onLogout} className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white shrink-0" title="Logout">
+                <LogOut size={18} className="sm:w-5 sm:h-5" />
+              </button>
+            )}
           </div>
         </header>
+        <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-3 sm:px-6 lg:px-8 py-1.5 flex items-center justify-end">
+          <div className="text-right">
+            <p className="text-[10px] text-gray-400 font-bold uppercase">VENDOR</p>
+            <p className="text-xs font-black dark:text-white">{restaurant.name}</p>
+          </div>
+        </div>
 
         {/* Mobile tab selector */}
-        <div className="md:hidden sticky top-14 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2">
+        <div className="md:hidden sticky top-[66px] z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2">
           <div className="flex gap-1 overflow-x-auto hide-scrollbar">
             {[...simpleTabs, ...expandableTabs.map(t => ({ key: t.key, label: t.label, icon: t.icon }))].map(tab => (
               <button
