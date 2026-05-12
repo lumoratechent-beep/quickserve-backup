@@ -77,7 +77,7 @@ const LoginPage: React.FC<Props> = ({ onLogin, onBack, onRegister }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors flex flex-col items-center justify-center px-4 py-12">
+    <div className="h-screen overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors flex flex-col items-center justify-center px-4 py-8">
       <button 
         onClick={onBack}
         className="fixed top-8 left-8 flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-orange-500 dark:hover:text-orange-400 font-semibold transition-colors"
@@ -87,7 +87,7 @@ const LoginPage: React.FC<Props> = ({ onLogin, onBack, onRegister }) => {
       </button>
 
       <div className="w-full max-w-md">
-        <div className="flex flex-col items-center mb-10">
+        <div className="flex flex-col items-center mb-5">
           <img
             src="/LOGO/icon-192x192.png"
             alt="QuickServe logo"
@@ -96,11 +96,11 @@ const LoginPage: React.FC<Props> = ({ onLogin, onBack, onRegister }) => {
           />
           <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Login Portal</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-2">Manage your restaurant operations</p>
-          <div className="mt-4 w-full max-w-xs bg-gray-100 dark:bg-gray-700 p-1 rounded-xl flex items-center">
+          <div className="mt-4 w-full bg-gray-100 dark:bg-gray-700 p-1 rounded-xl flex items-center justify-between">
             <button
               type="button"
               onClick={() => setPortalMode('staff')}
-              className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+              className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex justify-center items-center ${
                 portalMode === 'staff'
                   ? 'bg-white dark:bg-gray-800 text-orange-500 shadow'
                   : 'text-gray-500 dark:text-gray-300 hover:text-orange-500'
@@ -111,7 +111,7 @@ const LoginPage: React.FC<Props> = ({ onLogin, onBack, onRegister }) => {
             <button
               type="button"
               onClick={() => setPortalMode('backoffice')}
-              className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+              className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex justify-center items-center ${
                 portalMode === 'backoffice'
                   ? 'bg-white dark:bg-gray-800 text-orange-500 shadow'
                   : 'text-gray-500 dark:text-gray-300 hover:text-orange-500'
