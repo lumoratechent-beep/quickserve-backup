@@ -1059,12 +1059,12 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        <header className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-12 sm:h-14 flex items-center justify-between px-3 sm:px-6 lg:px-8 shadow-sm">
+        <header className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-11 sm:h-12 flex items-center justify-between px-3 sm:px-6 lg:px-8 shadow-sm">
           <div className="flex items-center gap-2 min-w-0">
             <img
               src={isDarkMode ? "/LOGO/9-dark.png" : "/LOGO/9.png"}
               alt="QuickServe"
-              className="h-8 sm:h-10 w-auto"
+              className="h-7 sm:h-8 w-auto"
               onError={(e) => {
                 e.currentTarget.onerror = null;
                 e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="40"><text x="0" y="28" font-family="Arial,sans-serif" font-size="24" font-weight="900" fill="%23f97316">QuickServe</text></svg>')}`;
@@ -1073,7 +1073,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           </div>
           <div className="flex items-center gap-1.5 sm:gap-3">
             <button className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white relative shrink-0" title="Mail">
-              <Mail size={18} className="sm:w-5 sm:h-5" />
+              <Mail size={16} className="sm:w-[18px] sm:h-[18px]" />
             </button>
             {onToggleTheme && (
               <button
@@ -1088,37 +1088,35 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                   border: '1px solid rgba(0, 0, 0, 0.08)',
                   boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.08)',
                 }}
-                className="relative flex items-center w-14 sm:w-16 h-7 sm:h-8 rounded-full transition-all duration-300 focus:outline-none shrink-0"
+                className="relative flex items-center w-12 sm:w-14 h-6 sm:h-7 rounded-full transition-all duration-300 focus:outline-none shrink-0"
               >
                 <span
                   style={isDarkMode
                     ? { background: 'linear-gradient(135deg, #6366f1 0%, #3730a3 100%)', boxShadow: '0 0 10px rgba(99, 102, 241, 0.4)' }
                     : { background: 'linear-gradient(135deg, #fbbf24 0%, #f97316 100%)', boxShadow: '0 0 10px rgba(249, 115, 22, 0.3)' }
                   }
-                  className={`absolute left-1 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full transition-all duration-300 ${isDarkMode ? 'translate-x-7 sm:translate-x-8' : 'translate-x-0'}`}
+                  className={`absolute left-0.5 sm:left-1 flex items-center justify-center w-5 h-5 rounded-full transition-all duration-300 ${isDarkMode ? 'translate-x-6 sm:translate-x-7' : 'translate-x-0'}`}
                 >
-                  {isDarkMode ? <Moon size={13} className="text-yellow-100" /> : <Sun size={13} className="text-white" />}
+                  {isDarkMode ? <Moon size={12} className="text-yellow-100" /> : <Sun size={12} className="text-white" />}
                 </span>
-                <Sun size={12} className={`absolute left-2 transition-opacity duration-300 text-orange-400 ${isDarkMode ? 'opacity-40' : 'opacity-0'}`} />
-                <Moon size={12} className={`absolute right-2 transition-opacity duration-300 text-indigo-400 ${isDarkMode ? 'opacity-0' : 'opacity-40'}`} />
+                <Sun size={11} className={`absolute left-1.5 sm:left-2 transition-opacity duration-300 text-orange-400 ${isDarkMode ? 'opacity-40' : 'opacity-0'}`} />
+                <Moon size={11} className={`absolute right-1.5 sm:right-2 transition-opacity duration-300 text-indigo-400 ${isDarkMode ? 'opacity-0' : 'opacity-40'}`} />
               </button>
             )}
+            <div className="text-right hidden sm:block">
+              <p className="text-[9px] text-gray-400 font-bold uppercase leading-tight">VENDOR</p>
+              <p className="text-[11px] font-black dark:text-white leading-tight">{restaurant.name}</p>
+            </div>
             {onLogout && (
               <button onClick={onLogout} className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white shrink-0" title="Logout">
-                <LogOut size={18} className="sm:w-5 sm:h-5" />
+                <LogOut size={16} className="sm:w-[18px] sm:h-[18px]" />
               </button>
             )}
           </div>
         </header>
-        <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-3 sm:px-6 lg:px-8 py-1.5 flex items-center justify-end">
-          <div className="text-right">
-            <p className="text-[10px] text-gray-400 font-bold uppercase">VENDOR</p>
-            <p className="text-xs font-black dark:text-white">{restaurant.name}</p>
-          </div>
-        </div>
 
         {/* Mobile tab selector */}
-        <div className="md:hidden sticky top-[66px] z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2">
+        <div className="md:hidden sticky top-11 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2">
           <div className="flex gap-1 overflow-x-auto hide-scrollbar">
             {[...simpleTabs, ...expandableTabs.map(t => ({ key: t.key, label: t.label, icon: t.icon }))].map(tab => (
               <button
