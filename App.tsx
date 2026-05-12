@@ -1320,14 +1320,20 @@ const App: React.FC = () => {
     }
   };
 
-  const handleLogin = async (user: User) => {
+  const handleLogin = async (user: User, portalMode: 'staff' | 'backoffice' = 'staff') => {
+    const allowedBackOfficeRoles: User['role'][] = ['VENDOR', 'ADMIN'];
+    if (portalMode === 'backoffice' && !allowedBackOfficeRoles.includes(user.role)) {
+      toast('This account is not allowed to access Back Office Portal.', 'error');
+      return;
+    }
+
     setIsLoading(true);
     setCurrentUser(user); 
     setCurrentRole(user.role); 
-    setView('APP');
+    setView(portalMode === 'backoffice' ? 'BACK_OFFICE' : 'APP');
     localStorage.setItem('qs_user', JSON.stringify(user));
     localStorage.setItem('qs_role', user.role);
-    localStorage.setItem('qs_view', 'APP');
+    localStorage.setItem('qs_view', portalMode === 'backoffice' ? 'BACK_OFFICE' : 'APP');
     precacheBasicPwaShell();
 
     // Check shift-related prompts for VENDOR/CASHIER

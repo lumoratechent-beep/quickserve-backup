@@ -6786,22 +6786,6 @@ const PosOnlyView: React.FC<Props> = ({
               </>
             )}
           </button>
-          {isVendorUser && onNavigateBackOffice && (
-            <button
-              onClick={() => {
-                if (!isOnline) {
-                  showOfflineBlocked('Back Office');
-                  return;
-                }
-                onNavigateBackOffice();
-              }}
-              title="Back Office"
-              className={`w-full py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg bg-gray-700 dark:bg-gray-600 text-white hover:bg-gray-800 dark:hover:bg-gray-500`}
-            >
-              <Briefcase size={18} />
-              {!isSidebarCollapsed && 'Back Office'}
-            </button>
-          )}
         </div>
       </aside>
 

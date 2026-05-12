@@ -4,12 +4,13 @@ import { User } from '../src/types';
 import { User as UserIcon, Lock, ChevronLeft, AlertCircle, ArrowRight } from 'lucide-react';
 
 interface Props {
-  onLogin: (user: User) => void;
+  onLogin: (user: User, portalMode: 'staff' | 'backoffice') => void;
   onBack: () => void;
   onRegister?: () => void;
 }
 
 const LoginPage: React.FC<Props> = ({ onLogin, onBack, onRegister }) => {
+  const [portalMode, setPortalMode] = useState<'staff' | 'backoffice'>('staff');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -67,7 +68,7 @@ const LoginPage: React.FC<Props> = ({ onLogin, onBack, onRegister }) => {
         return;
       }
 
-      onLogin(data);
+      onLogin(data, portalMode);
     } catch (err) {
       setError('Connection error. Please try again later.');
     } finally {
@@ -93,8 +94,32 @@ const LoginPage: React.FC<Props> = ({ onLogin, onBack, onRegister }) => {
             className="w-24 h-24 rounded-2xl object-contain mb-4"
             onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="16" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="32" font-weight="900" fill="%23f97316">QS</text></svg>')}`; }}
           />
-          <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Staff Portal</h1>
+          <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Login Portal</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-2">Manage your restaurant operations</p>
+          <div className="mt-4 w-full max-w-xs bg-gray-100 dark:bg-gray-700 p-1 rounded-xl flex items-center">
+            <button
+              type="button"
+              onClick={() => setPortalMode('staff')}
+              className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+                portalMode === 'staff'
+                  ? 'bg-white dark:bg-gray-800 text-orange-500 shadow'
+                  : 'text-gray-500 dark:text-gray-300 hover:text-orange-500'
+              }`}
+            >
+              Staff Portal
+            </button>
+            <button
+              type="button"
+              onClick={() => setPortalMode('backoffice')}
+              className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+                portalMode === 'backoffice'
+                  ? 'bg-white dark:bg-gray-800 text-orange-500 shadow'
+                  : 'text-gray-500 dark:text-gray-300 hover:text-orange-500'
+              }`}
+            >
+              Back Office Portal
+            </button>
+          </div>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl shadow-gray-200 dark:shadow-none border border-gray-100 dark:border-gray-700 p-8 md:p-10">
