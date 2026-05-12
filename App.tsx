@@ -1728,22 +1728,6 @@ const App: React.FC = () => {
     fetchUsers(); fetchRestaurants();
   };
 
-  const handleUpdateRestaurantProfile = async (restaurantId: string, updates: Partial<Restaurant>) => {
-    const payload: any = {};
-    if (typeof updates.name === 'string') payload.name = updates.name;
-    if (typeof updates.logo === 'string') payload.logo = updates.logo;
-    if (typeof updates.slug === 'string') payload.slug = updates.slug || null;
-
-    const { error } = await supabase.from('restaurants').update(payload).eq('id', restaurantId);
-    if (error) {
-      toast('Failed to update company profile.', 'error');
-      throw error;
-    }
-
-    setRestaurants(prev => prev.map(r => (r.id === restaurantId ? { ...r, ...updates } : r)));
-    await fetchRestaurants();
-  };
-
   const handleDeleteVendor = async (userId: string, restaurantId: string) => {
     try {
       // Use RPC function which runs with SECURITY DEFINER to bypass RLS
@@ -2360,7 +2344,6 @@ const App: React.FC = () => {
         isDarkMode={isDarkMode}
         onToggleTheme={() => setIsDarkMode(!isDarkMode)}
         onLogout={handleLogout}
-        onUpdateRestaurant={(updates) => handleUpdateRestaurantProfile(activeVendorRes.id, updates)}
       />
     );
   }

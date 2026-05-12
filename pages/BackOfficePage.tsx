@@ -12,7 +12,7 @@ import {
   BarChart3, Package, UserPlus, UserMinus, Edit3, Trash2, Plus, Minus, Search, AlertCircle, Info,
   ArrowUpRight, ArrowDownRight, Clock, CheckCircle, XCircle, Eye, Archive, RotateCcw,
   Briefcase, Box, Tag, Layers, Activity, Warehouse, FileBarChart, Contact,
-  CreditCard, Percent, FileText, Truck, ArrowUpDown, ClipboardList, Factory, History, Building2, MoreVertical, Loader2, LogOut, Sun, Moon,
+  CreditCard, Percent, FileText, Truck, ArrowUpDown, ClipboardList, Factory, History, Building2, Loader2, LogOut, Sun, Moon, Mail, MoreVertical,
 } from 'lucide-react';
 import InventoryManagement from '../components/InventoryManagement';
 import ReportsView from '../components/ReportsView';
@@ -36,7 +36,6 @@ interface Props {
   isDarkMode?: boolean;
   onToggleTheme?: () => void;
   onLogout?: () => void;
-  onUpdateRestaurant?: (updates: Partial<Restaurant>) => Promise<void>;
 }
 
 type BackOfficeTab = 'DASHBOARD' | 'ITEMS' | 'STAFF' | 'STOCK' | 'INVENTORY' | 'REPORTS' | 'CONTACTS' | 'FINANCE' | 'EXPENSES' | 'SHIFTS';
@@ -80,7 +79,7 @@ interface StockItem {
   stockEnabled: boolean;
 }
 
-const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, onFetchAllFilteredOrders, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription, isDarkMode, onToggleTheme, onLogout, onUpdateRestaurant }) => {
+const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, onFetchAllFilteredOrders, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription, isDarkMode, onToggleTheme, onLogout }) => {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<BackOfficeTab>('DASHBOARD');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -90,10 +89,6 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [financeSubTab, setFinanceSubTab] = useState<string | undefined>(undefined);
   const [expensesSubTab, setExpensesSubTab] = useState<string | undefined>(undefined);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
-  const [isCompanyMenuOpen, setIsCompanyMenuOpen] = useState(false);
-  const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
-  const [isSavingCompany, setIsSavingCompany] = useState(false);
-  const [companyForm, setCompanyForm] = useState({ name: restaurant.name || '', logo: restaurant.logo || '', slug: restaurant.slug || '' });
 
   // ─── Items tab state ───
   const [itemSearch, setItemSearch] = useState('');
@@ -128,10 +123,6 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     localStorage.setItem(`ingredients_${restaurant.id}`, JSON.stringify(items));
     syncBackofficeToDb(restaurant.id);
   };
-
-  useEffect(() => {
-    setCompanyForm({ name: restaurant.name || '', logo: restaurant.logo || '', slug: restaurant.slug || '' });
-  }, [restaurant.id, restaurant.name, restaurant.logo, restaurant.slug]);
 
   // ─── Initial loading overlay ───
   useEffect(() => {
@@ -1068,72 +1059,66 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        <header className="sticky top-0 z-30 bg-white/95 dark:bg-gray-800/95 backdrop-blur border-b border-gray-200 dark:border-gray-700 px-4 md:px-6 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <img
-                key={restaurant.logo || 'fallback-topbar'}
-                src={restaurant.logo || '/LOGO/icon-192x192.png'}
-                className="w-10 h-10 rounded-xl shadow-sm flex-shrink-0"
-                onError={(e) => {
-                  e.currentTarget.onerror = null;
-                  e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${restaurant.name?.charAt(0) || 'R'}</text></svg>`)}`;
+        <header className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 lg:px-8 shadow-sm">
+          <div className="flex items-center gap-2 min-w-0">
+            <img
+              src={isDarkMode ? "/LOGO/9-dark.png" : "/LOGO/9.png"}
+              alt="QuickServe"
+              className="h-8 sm:h-10 w-auto"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="40"><text x="0" y="28" font-family="Arial,sans-serif" font-size="24" font-weight="900" fill="%23f97316">QuickServe</text></svg>')}`;
+              }}
+            />
+          </div>
+          <div className="flex items-center gap-1.5 sm:gap-3">
+            <button className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white relative shrink-0" title="Mail">
+              <Mail size={18} className="sm:w-5 sm:h-5" />
+            </button>
+            {onToggleTheme && (
+              <button
+                onClick={onToggleTheme}
+                title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+                style={isDarkMode ? {
+                  backgroundColor: '#2D3F55',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.4)',
+                } : {
+                  backgroundColor: '#F5D9B8',
+                  border: '1px solid rgba(0, 0, 0, 0.08)',
+                  boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.08)',
                 }}
-              />
-              <div className="min-w-0">
-                <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Back Office</p>
-                <h1 className="text-sm md:text-base font-black truncate">{restaurant.name}</h1>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {onToggleTheme && (
-                <button
-                  onClick={onToggleTheme}
-                  title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-                  className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+                className="relative flex items-center w-14 sm:w-16 h-7 sm:h-8 rounded-full transition-all duration-300 focus:outline-none shrink-0"
+              >
+                <span
+                  style={isDarkMode
+                    ? { background: 'linear-gradient(135deg, #6366f1 0%, #3730a3 100%)', boxShadow: '0 0 10px rgba(99, 102, 241, 0.4)' }
+                    : { background: 'linear-gradient(135deg, #fbbf24 0%, #f97316 100%)', boxShadow: '0 0 10px rgba(249, 115, 22, 0.3)' }
+                  }
+                  className={`absolute left-1 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full transition-all duration-300 ${isDarkMode ? 'translate-x-7 sm:translate-x-8' : 'translate-x-0'}`}
                 >
-                  {isDarkMode ? <Sun size={17} /> : <Moon size={17} />}
+                  {isDarkMode ? <Moon size={13} className="text-yellow-100" /> : <Sun size={13} className="text-white" />}
+                </span>
+                <Sun size={12} className={`absolute left-2 transition-opacity duration-300 text-orange-400 ${isDarkMode ? 'opacity-40' : 'opacity-0'}`} />
+                <Moon size={12} className={`absolute right-2 transition-opacity duration-300 text-indigo-400 ${isDarkMode ? 'opacity-0' : 'opacity-40'}`} />
+              </button>
+            )}
+            <div className="flex items-center gap-1.5 sm:gap-3">
+              <div className="text-right hidden sm:block">
+                <p className="text-[10px] text-gray-400 font-bold uppercase">VENDOR</p>
+                <p className="text-xs font-black dark:text-white">{restaurant.name}</p>
+              </div>
+              {onLogout && (
+                <button onClick={onLogout} className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white shrink-0" title="Logout">
+                  <LogOut size={18} className="sm:w-5 sm:h-5" />
                 </button>
               )}
-              <div className="relative">
-                <button
-                  onClick={() => setIsCompanyMenuOpen(v => !v)}
-                  className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
-                  title="Company Menu"
-                >
-                  <MoreVertical size={18} />
-                </button>
-                {isCompanyMenuOpen && (
-                  <>
-                    <button className="fixed inset-0 z-10" onClick={() => setIsCompanyMenuOpen(false)} aria-label="Close company menu" />
-                    <div className="absolute right-0 mt-2 z-20 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-1.5">
-                      <button
-                        onClick={() => {
-                          setIsCompanyMenuOpen(false);
-                          setIsCompanyModalOpen(true);
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm font-semibold rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-                      >
-                        Edit Company
-                      </button>
-                      {onLogout && (
-                        <button
-                          onClick={onLogout}
-                          className="w-full text-left px-3 py-2 text-sm font-semibold rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 flex items-center gap-2"
-                        >
-                          <LogOut size={14} /> Logout
-                        </button>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
             </div>
           </div>
         </header>
 
         {/* Mobile tab selector */}
-        <div className="md:hidden sticky top-[73px] z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2">
+        <div className="md:hidden sticky top-14 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2">
           <div className="flex gap-1 overflow-x-auto hide-scrollbar">
             {[...simpleTabs, ...expandableTabs.map(t => ({ key: t.key, label: t.label, icon: t.icon }))].map(tab => (
               <button
@@ -2219,53 +2204,6 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
         )}
       </div>
 
-      {isCompanyModalOpen && (
-        <div className="fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-5">
-            <h3 className="text-lg font-black mb-4">Edit Company</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Company Name</label>
-                <input value={companyForm.name} onChange={(e) => setCompanyForm(prev => ({ ...prev, name: e.target.value }))} className="mt-1 w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-amber-500" />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Logo URL</label>
-                <input value={companyForm.logo} onChange={(e) => setCompanyForm(prev => ({ ...prev, logo: e.target.value }))} className="mt-1 w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-amber-500" />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Slug</label>
-                <input value={companyForm.slug} onChange={(e) => setCompanyForm(prev => ({ ...prev, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') }))} className="mt-1 w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-amber-500" />
-              </div>
-            </div>
-            <div className="mt-5 flex items-center gap-2 justify-end">
-              <button onClick={() => setIsCompanyModalOpen(false)} className="px-4 py-2 rounded-xl text-sm font-bold bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600">Cancel</button>
-              <button
-                disabled={isSavingCompany || !companyForm.name.trim()}
-                onClick={async () => {
-                  if (!onUpdateRestaurant) return;
-                  setIsSavingCompany(true);
-                  try {
-                    await onUpdateRestaurant({
-                      name: companyForm.name.trim(),
-                      logo: companyForm.logo.trim(),
-                      slug: companyForm.slug.trim() || undefined,
-                    });
-                    toast('Company updated successfully.', 'success');
-                    setIsCompanyModalOpen(false);
-                  } catch {
-                    toast('Failed to update company.', 'error');
-                  } finally {
-                    setIsSavingCompany(false);
-                  }
-                }}
-                className="px-4 py-2 rounded-xl text-sm font-bold bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50"
-              >
-                {isSavingCompany ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       </div>
     </div>
   );
