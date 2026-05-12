@@ -1103,10 +1103,6 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 <Moon size={11} className={`absolute right-1.5 sm:right-2 transition-opacity duration-300 text-indigo-400 ${isDarkMode ? 'opacity-0' : 'opacity-40'}`} />
               </button>
             )}
-            <div className="text-right hidden sm:block">
-              <p className="text-[9px] text-gray-400 font-bold uppercase leading-tight">VENDOR</p>
-              <p className="text-[11px] font-black dark:text-white leading-tight">{restaurant.name}</p>
-            </div>
             {onLogout && (
               <button onClick={onLogout} className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white shrink-0" title="Logout">
                 <LogOut size={16} className="sm:w-[18px] sm:h-[18px]" />
@@ -1114,9 +1110,15 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             )}
           </div>
         </header>
+        <div className="sticky top-11 sm:top-12 z-20 bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-3 sm:px-6 lg:px-8 h-8 flex items-center justify-end">
+          <div className="text-right">
+            <p className="text-[9px] text-gray-400 font-bold uppercase leading-tight">VENDOR</p>
+            <p className="text-[11px] font-black dark:text-white leading-tight">{restaurant.name}</p>
+          </div>
+        </div>
 
         {/* Mobile tab selector */}
-        <div className="md:hidden sticky top-11 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2">
+        <div className="md:hidden sticky top-[76px] sm:top-20 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2">
           <div className="flex gap-1 overflow-x-auto hide-scrollbar">
             {[...simpleTabs, ...expandableTabs.map(t => ({ key: t.key, label: t.label, icon: t.icon }))].map(tab => (
               <button
