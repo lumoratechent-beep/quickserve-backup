@@ -11,8 +11,8 @@ import {
   TrendingUp, TrendingDown, DollarSign, ShoppingBag, Users, Receipt, ChevronRight, ChevronLeft, ChevronDown, ChevronFirst, ChevronLast, Filter,
   BarChart3, Package, UserPlus, UserMinus, Edit3, Trash2, Plus, Minus, Search, AlertCircle, Info,
   ArrowUpRight, ArrowDownRight, Clock, CheckCircle, XCircle, Eye, Archive, RotateCcw,
-  Briefcase, Box, Tag, Layers, Activity, ArrowLeft, Warehouse, FileBarChart, Contact,
-  CreditCard, Percent, FileText, Truck, ArrowUpDown, ClipboardList, Factory, History, Building2, MoreVertical, Loader2,
+  Briefcase, Box, Tag, Layers, Activity, Warehouse, FileBarChart, Contact,
+  CreditCard, Percent, FileText, Truck, ArrowUpDown, ClipboardList, Factory, History, Building2, MoreVertical, Loader2, LogOut, Sun, Moon,
 } from 'lucide-react';
 import InventoryManagement from '../components/InventoryManagement';
 import ReportsView from '../components/ReportsView';
@@ -33,6 +33,10 @@ interface Props {
   onPermanentDeleteMenuItem?: (restaurantId: string, itemId: string) => Promise<void>;
   onImageUpload?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   subscription?: Subscription | null;
+  isDarkMode?: boolean;
+  onToggleTheme?: () => void;
+  onLogout?: () => void;
+  onUpdateRestaurant?: (updates: Partial<Restaurant>) => Promise<void>;
 }
 
 type BackOfficeTab = 'DASHBOARD' | 'ITEMS' | 'STAFF' | 'STOCK' | 'INVENTORY' | 'REPORTS' | 'CONTACTS' | 'FINANCE' | 'EXPENSES' | 'SHIFTS';
@@ -76,7 +80,7 @@ interface StockItem {
   stockEnabled: boolean;
 }
 
-const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, onFetchAllFilteredOrders, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription }) => {
+const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, onFetchAllFilteredOrders, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription, isDarkMode, onToggleTheme, onLogout, onUpdateRestaurant }) => {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<BackOfficeTab>('DASHBOARD');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -86,6 +90,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [financeSubTab, setFinanceSubTab] = useState<string | undefined>(undefined);
   const [expensesSubTab, setExpensesSubTab] = useState<string | undefined>(undefined);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
+  const [isCompanyMenuOpen, setIsCompanyMenuOpen] = useState(false);
+  const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
+  const [isSavingCompany, setIsSavingCompany] = useState(false);
+  const [companyForm, setCompanyForm] = useState({ name: restaurant.name || '', logo: restaurant.logo || '', slug: restaurant.slug || '' });
 
   // ─── Items tab state ───
   const [itemSearch, setItemSearch] = useState('');
@@ -120,6 +128,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     localStorage.setItem(`ingredients_${restaurant.id}`, JSON.stringify(items));
     syncBackofficeToDb(restaurant.id);
   };
+
+  useEffect(() => {
+    setCompanyForm({ name: restaurant.name || '', logo: restaurant.logo || '', slug: restaurant.slug || '' });
+  }, [restaurant.id, restaurant.name, restaurant.logo, restaurant.slug]);
 
   // ─── Initial loading overlay ───
   useEffect(() => {
@@ -1052,33 +1064,76 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           </button>
         </div>
 
-        {/* Back to POS button */}
-        {onBack && (
-          <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-3">
-            {isSidebarCollapsed ? (
-              <button
-                onClick={onBack}
-                title="Back to POS"
-                className="w-full flex items-center justify-center py-3 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
-              >
-                <ArrowLeft size={16} />
-              </button>
-            ) : (
-            <button
-              onClick={onBack}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-bold uppercase tracking-wider hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
-            >
-              <ArrowLeft size={16} /> Back to POS
-            </button>
-            )}
-          </div>
-        )}
       </aside>
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
+        <header className="sticky top-0 z-30 bg-white/95 dark:bg-gray-800/95 backdrop-blur border-b border-gray-200 dark:border-gray-700 px-4 md:px-6 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <img
+                key={restaurant.logo || 'fallback-topbar'}
+                src={restaurant.logo || '/LOGO/icon-192x192.png'}
+                className="w-10 h-10 rounded-xl shadow-sm flex-shrink-0"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${restaurant.name?.charAt(0) || 'R'}</text></svg>`)}`;
+                }}
+              />
+              <div className="min-w-0">
+                <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Back Office</p>
+                <h1 className="text-sm md:text-base font-black truncate">{restaurant.name}</h1>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {onToggleTheme && (
+                <button
+                  onClick={onToggleTheme}
+                  title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+                  className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+                >
+                  {isDarkMode ? <Sun size={17} /> : <Moon size={17} />}
+                </button>
+              )}
+              <div className="relative">
+                <button
+                  onClick={() => setIsCompanyMenuOpen(v => !v)}
+                  className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+                  title="Company Menu"
+                >
+                  <MoreVertical size={18} />
+                </button>
+                {isCompanyMenuOpen && (
+                  <>
+                    <button className="fixed inset-0 z-10" onClick={() => setIsCompanyMenuOpen(false)} aria-label="Close company menu" />
+                    <div className="absolute right-0 mt-2 z-20 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-1.5">
+                      <button
+                        onClick={() => {
+                          setIsCompanyMenuOpen(false);
+                          setIsCompanyModalOpen(true);
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm font-semibold rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
+                        Edit Company
+                      </button>
+                      {onLogout && (
+                        <button
+                          onClick={onLogout}
+                          className="w-full text-left px-3 py-2 text-sm font-semibold rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 flex items-center gap-2"
+                        >
+                          <LogOut size={14} /> Logout
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </header>
+
         {/* Mobile tab selector */}
-        <div className="md:hidden sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2">
+        <div className="md:hidden sticky top-[73px] z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2">
           <div className="flex gap-1 overflow-x-auto hide-scrollbar">
             {[...simpleTabs, ...expandableTabs.map(t => ({ key: t.key, label: t.label, icon: t.icon }))].map(tab => (
               <button
@@ -2163,6 +2218,54 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           />
         )}
       </div>
+
+      {isCompanyModalOpen && (
+        <div className="fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-5">
+            <h3 className="text-lg font-black mb-4">Edit Company</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Company Name</label>
+                <input value={companyForm.name} onChange={(e) => setCompanyForm(prev => ({ ...prev, name: e.target.value }))} className="mt-1 w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-amber-500" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Logo URL</label>
+                <input value={companyForm.logo} onChange={(e) => setCompanyForm(prev => ({ ...prev, logo: e.target.value }))} className="mt-1 w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-amber-500" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Slug</label>
+                <input value={companyForm.slug} onChange={(e) => setCompanyForm(prev => ({ ...prev, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') }))} className="mt-1 w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-amber-500" />
+              </div>
+            </div>
+            <div className="mt-5 flex items-center gap-2 justify-end">
+              <button onClick={() => setIsCompanyModalOpen(false)} className="px-4 py-2 rounded-xl text-sm font-bold bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600">Cancel</button>
+              <button
+                disabled={isSavingCompany || !companyForm.name.trim()}
+                onClick={async () => {
+                  if (!onUpdateRestaurant) return;
+                  setIsSavingCompany(true);
+                  try {
+                    await onUpdateRestaurant({
+                      name: companyForm.name.trim(),
+                      logo: companyForm.logo.trim(),
+                      slug: companyForm.slug.trim() || undefined,
+                    });
+                    toast('Company updated successfully.', 'success');
+                    setIsCompanyModalOpen(false);
+                  } catch {
+                    toast('Failed to update company.', 'error');
+                  } finally {
+                    setIsSavingCompany(false);
+                  }
+                }}
+                className="px-4 py-2 rounded-xl text-sm font-bold bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50"
+              >
+                {isSavingCompany ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );

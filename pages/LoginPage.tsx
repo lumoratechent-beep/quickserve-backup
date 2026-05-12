@@ -103,7 +103,7 @@ const LoginPage: React.FC<Props> = ({ onLogin, onBack, onRegister }) => {
               className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex justify-center items-center ${
                 portalMode === 'staff'
                   ? 'bg-white dark:bg-gray-800 text-orange-500 shadow'
-                  : 'text-gray-500 dark:text-gray-300 hover:text-orange-500'
+                  : 'text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Staff Portal
@@ -114,7 +114,7 @@ const LoginPage: React.FC<Props> = ({ onLogin, onBack, onRegister }) => {
               className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex justify-center items-center ${
                 portalMode === 'backoffice'
                   ? 'bg-white dark:bg-gray-800 text-orange-500 shadow'
-                  : 'text-gray-500 dark:text-gray-300 hover:text-orange-500'
+                  : 'text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Back Office Portal
