@@ -241,9 +241,20 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
       >
         {/* Header */}
         <div className="p-5 border-b dark:border-gray-700 flex items-center justify-between">
-          <div>
-            <h2 className="font-black text-lg text-gray-900 dark:text-white uppercase tracking-tight">{item.name}</h2>
-            <p className="text-[10px] text-orange-500 font-black uppercase tracking-widest">Customize item</p>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex-shrink-0">
+              {item.image ? (
+                <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-[10px] font-black text-gray-400 dark:text-gray-500">
+                  {item.name?.charAt(0)?.toUpperCase() || 'M'}
+                </div>
+              )}
+            </div>
+            <div className="min-w-0">
+              <h2 className="font-black text-lg text-gray-900 dark:text-white uppercase tracking-tight truncate">{item.name}</h2>
+              <p className="text-[10px] text-orange-500 font-black uppercase tracking-widest">Customize item</p>
+            </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
             <X size={18} className="text-gray-500" />
