@@ -263,21 +263,10 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
 
         {/* Scrollable content area */}
         <div className="flex-1 min-h-0 overflow-y-auto">
-        {/* Main Content - Image Left, Options Right */}
-        <div className="p-5 flex gap-5">
-          {/* Left: Image — hidden on mobile */}
-          <div className="hidden sm:block w-36 h-36 flex-shrink-0 bg-gray-100 dark:bg-gray-700 rounded-xl overflow-hidden shadow-inner">
-            {item.image ? (
-              <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-400">
-                <span className="text-xs">No Image</span>
-              </div>
-            )}
-          </div>
-
-          {/* Right: Options, Sizes, Variants, Temperature */}
-          <div className="flex-1 space-y-4 pr-1">
+        {/* Main Content - Full Width Options */}
+        <div className="p-5">
+          {/* Options, Sizes, Variants, Temperature */}
+          <div className="space-y-4 pr-1">
             {/* Sizes */}
             {sizes.length > 0 && (
               <div>
