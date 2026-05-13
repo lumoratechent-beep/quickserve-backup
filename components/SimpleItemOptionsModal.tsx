@@ -274,7 +274,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
                   Size
                   <span className="text-red-500 text-[9px]">Required</span>
                 </p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {sizes.map((s) => (
                     <button
                       key={s.name}
@@ -297,7 +297,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
             {shouldShowLegacyVariant && (
               <div>
                 <p className="text-sm font-black text-gray-700 dark:text-gray-100 uppercase tracking-widest mb-2">{item.otherVariantName || 'Options'}</p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={() => setVariant('')}
                     className={`px-3 py-1.5 rounded-xl border text-left transition-all ${
@@ -334,7 +334,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
                   Temperature
                   <span className="text-red-500 text-[9px]">Required</span>
                 </p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {item.tempOptions?.options?.map((opt) => (
                     <button
                       key={opt.name}
@@ -360,7 +360,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
                   Variant
                   <span className="text-red-500 text-[9px]">Required</span>
                 </p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {item.variantOptions?.options?.map((opt) => (
                     <button
                       key={opt.name}
@@ -388,7 +388,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
                     <span className="text-red-500 text-[9px]">Required</span>
                   )}
                 </p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {modifier.options.map((option) => (
                     <button
                       key={option.name}
@@ -414,7 +414,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
                   {sel.label}
                   <span className="text-red-500 text-[9px]">Required</span>
                 </p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {sel.options.map((opt) => (
                     <button
                       key={opt.name}
@@ -439,7 +439,7 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
         {addOnList.length > 0 && (
           <div className="p-5 border-t dark:border-gray-700">
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Add-ons</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {addOnList.map((addon) => (
                 <div key={addon.name} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                   <div>
@@ -472,6 +472,20 @@ const SimpleItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, 
         {/* Price Entry with Number Pad for zero-price items */}
         {showPriceEntry && (
           <div className="px-5 pt-4 pb-2 border-t dark:border-gray-700 bg-orange-50 dark:bg-orange-900/20">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-lg overflow-hidden bg-white dark:bg-gray-700 border border-orange-200 dark:border-orange-700 flex-shrink-0">
+                {item.image ? (
+                  <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-[10px] font-black text-gray-400 dark:text-gray-500">
+                    {item.name?.charAt(0)?.toUpperCase() || 'M'}
+                  </div>
+                )}
+              </div>
+              <p className="text-xs font-black text-gray-800 dark:text-gray-100 uppercase tracking-tight truncate">
+                {item.name}
+              </p>
+            </div>
             <label className="block text-[9px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest mb-2">
               This item has no set price — enter a price for this sale
             </label>

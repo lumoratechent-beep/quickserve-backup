@@ -219,7 +219,7 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
           {sizes.length > 0 && (
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Size</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {sizes.map((size: any) => (
                   <button
                     key={size.name}
@@ -243,7 +243,7 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
                 {item.otherVariantName || 'Additional Options'}
               </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => setSelectedOtherVariant('')}
                   className={`p-3 rounded-xl border text-left transition-all ${
@@ -276,7 +276,7 @@ const ItemOptionsModal: React.FC<Props> = ({ item, restaurantId, onClose, onConf
           {hasTempOptions && (
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Temperature</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {tempOptions.map((opt) => (
                   <button
                     key={opt.name}
