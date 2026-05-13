@@ -79,7 +79,31 @@ interface AdminSoldItem {
   updatedAt: number;
 }
 
-const createBlankQuotation = (): AdminQuotation => {
+type QuotationSellerDefaults = Pick<AdminQuotation, 'sellerLogo' | 'sellerCompanyName' | 'sellerInfo' | 'sellerAddress' | 'sellerSsmNumber'>;
+
+const ADMIN_QUOTATION_SELLER_STORAGE_KEY = 'qs_admin_quotation_seller_defaults';
+
+const getQuotationSellerDefaults = (): QuotationSellerDefaults => {
+  const fallback: QuotationSellerDefaults = {
+    sellerLogo: '',
+    sellerCompanyName: 'QuickServe',
+    sellerInfo: '',
+    sellerAddress: '',
+    sellerSsmNumber: '',
+  };
+  try {
+    const saved = localStorage.getItem(ADMIN_QUOTATION_SELLER_STORAGE_KEY);
+    return saved ? { ...fallback, ...JSON.parse(saved) } : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const saveQuotationSellerDefaults = (defaults: QuotationSellerDefaults) => {
+  localStorage.setItem(ADMIN_QUOTATION_SELLER_STORAGE_KEY, JSON.stringify(defaults));
+};
+
+const createBlankQuotation = (sellerDefaults: QuotationSellerDefaults = getQuotationSellerDefaults()): AdminQuotation => {
   const now = new Date();
   const validUntil = new Date(now);
   validUntil.setDate(validUntil.getDate() + 14);
@@ -88,11 +112,7 @@ const createBlankQuotation = (): AdminQuotation => {
   return {
     id: `quote_${Date.now()}`,
     quoteNo: `QS-Q-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-${String(Date.now()).slice(-5)}`,
-    sellerLogo: '',
-    sellerCompanyName: 'QuickServe',
-    sellerInfo: '',
-    sellerAddress: '',
-    sellerSsmNumber: '',
+    ...sellerDefaults,
     customerName: '',
     customerEmail: '',
     customerPhone: '',
@@ -639,6 +659,7 @@ const AdminView: React.FC<Props> = ({
   const [quotationStatusFilter, setQuotationStatusFilter] = useState<'all' | QuotationStatus>('all');
   const [quotationPdfUrl, setQuotationPdfUrl] = useState<string | null>(null);
   const [quotationPdfName, setQuotationPdfName] = useState('quotation.pdf');
+  const [quotationLookupOpenLineId, setQuotationLookupOpenLineId] = useState<string | null>(null);
   const [soldItems, setSoldItems] = useState<AdminSoldItem[]>(() => {
     try {
       const saved = localStorage.getItem(ADMIN_SOLD_ITEMS_STORAGE_KEY);
@@ -670,6 +691,20 @@ const AdminView: React.FC<Props> = ({
   const saveSoldItems = (next: AdminSoldItem[]) => {
     setSoldItems(next);
     localStorage.setItem(ADMIN_SOLD_ITEMS_STORAGE_KEY, JSON.stringify(next));
+  };
+
+  const updateQuotationSellerDefaults = (patch: Partial<QuotationSellerDefaults>) => {
+    setQuotationForm(prev => {
+      const next = { ...prev, ...patch };
+      saveQuotationSellerDefaults({
+        sellerLogo: next.sellerLogo,
+        sellerCompanyName: next.sellerCompanyName,
+        sellerInfo: next.sellerInfo,
+        sellerAddress: next.sellerAddress,
+        sellerSsmNumber: next.sellerSsmNumber,
+      });
+      return next;
+    });
   };
 
   const persistQuotationToDb = async (quote: AdminQuotation) => {
@@ -732,12 +767,20 @@ const AdminView: React.FC<Props> = ({
   };
 
   const selectQuotationItem = (lineId: string, item: AdminSoldItem) => {
+    const description = [
+      item.name,
+      item.description,
+      item.sku ? `SKU: ${item.sku}` : '',
+      item.category ? `Category: ${item.category}` : '',
+    ].filter(Boolean).join('\n');
     updateQuotationLine(lineId, {
       itemId: item.id,
       lookupQuery: item.name,
-      description: item.name,
+      description,
+      quantity: 1,
       unitPrice: Number(item.price) || 0,
     });
+    setQuotationLookupOpenLineId(null);
   };
 
   const saveQuotationDraft = (status: QuotationStatus = quotationForm.status) => {
@@ -869,6 +912,7 @@ const AdminView: React.FC<Props> = ({
     saveSoldItems([item, ...soldItems]);
     persistSoldItemToDb(item);
     selectQuotationItem(lineId, item);
+    setQuotationLookupOpenLineId(null);
     toast('New shop item added', 'success');
   };
 
@@ -877,7 +921,7 @@ const AdminView: React.FC<Props> = ({
     if (!file) return;
     try {
       const publicUrl = await uploadImage(file, 'quickserve', 'quotation-logos');
-      setQuotationForm(prev => ({ ...prev, sellerLogo: publicUrl }));
+      updateQuotationSellerDefaults({ sellerLogo: publicUrl });
     } catch {
       toast('Failed to upload quotation logo', 'error');
     } finally {
@@ -3730,13 +3774,13 @@ const AdminView: React.FC<Props> = ({
                     </label>
                     <label className="block">
                       <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Seller Company</span>
-                      <input value={quotationForm.sellerCompanyName} onChange={e => setQuotationForm(prev => ({ ...prev, sellerCompanyName: e.target.value }))} placeholder="Your company name" className="mt-1 w-full h-11 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
-                      <textarea value={quotationForm.sellerInfo} onChange={e => setQuotationForm(prev => ({ ...prev, sellerInfo: e.target.value }))} rows={2} placeholder="Company info, email, phone..." className="mt-2 w-full rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                      <input value={quotationForm.sellerCompanyName} onChange={e => updateQuotationSellerDefaults({ sellerCompanyName: e.target.value })} placeholder="Your company name" className="mt-1 w-full h-11 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                      <textarea value={quotationForm.sellerInfo} onChange={e => updateQuotationSellerDefaults({ sellerInfo: e.target.value })} rows={2} placeholder="Company info, email, phone..." className="mt-2 w-full rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
                     </label>
                     <label className="block">
                       <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Seller Address / SSM</span>
-                      <textarea value={quotationForm.sellerAddress} onChange={e => setQuotationForm(prev => ({ ...prev, sellerAddress: e.target.value }))} rows={2} placeholder="Business address" className="mt-1 w-full rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
-                      <input value={quotationForm.sellerSsmNumber} onChange={e => setQuotationForm(prev => ({ ...prev, sellerSsmNumber: e.target.value }))} placeholder="SSM number" className="mt-2 w-full h-11 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                      <textarea value={quotationForm.sellerAddress} onChange={e => updateQuotationSellerDefaults({ sellerAddress: e.target.value })} rows={2} placeholder="Business address" className="mt-1 w-full rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                      <input value={quotationForm.sellerSsmNumber} onChange={e => updateQuotationSellerDefaults({ sellerSsmNumber: e.target.value })} placeholder="SSM number" className="mt-2 w-full h-11 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
                     </label>
                   </div>
 
@@ -3796,19 +3840,23 @@ const AdminView: React.FC<Props> = ({
                           <div className="relative">
                             <input
                               value={item.lookupQuery ?? item.description}
-                              onChange={e => updateQuotationLine(item.id, { lookupQuery: e.target.value, itemId: undefined, description: '' })}
+                              onFocus={() => setQuotationLookupOpenLineId(item.id)}
+                              onChange={e => {
+                                setQuotationLookupOpenLineId(item.id);
+                                updateQuotationLine(item.id, { lookupQuery: e.target.value, itemId: undefined, description: '' });
+                              }}
                               placeholder="Search shop item..."
                               className="h-10 w-full rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-xs dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
                             />
-                            {query && (
+                            {quotationLookupOpenLineId === item.id && query && !item.itemId && (
                               <div className="absolute z-20 mt-1 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xl overflow-hidden">
                                 {matches.length > 0 ? matches.map(shopItem => (
-                                  <button key={shopItem.id} type="button" onClick={() => selectQuotationItem(item.id, shopItem)} className="w-full px-3 py-2 text-left hover:bg-orange-50 dark:hover:bg-orange-900/20">
+                                  <button key={shopItem.id} type="button" onMouseDown={e => e.preventDefault()} onClick={() => selectQuotationItem(item.id, shopItem)} className="w-full px-3 py-2 text-left hover:bg-orange-50 dark:hover:bg-orange-900/20">
                                     <span className="block text-xs font-black dark:text-white">{shopItem.name}</span>
                                     <span className="block text-[10px] text-gray-400">{shopItem.sku || 'No SKU'} · RM {(Number(shopItem.price) || 0).toFixed(2)}</span>
                                   </button>
                                 )) : (
-                                  <button type="button" onClick={() => quickAddSoldItemFromLookup(item.id, item.lookupQuery || '')} className="w-full px-3 py-2 text-left text-xs font-black text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20">
+                                  <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => quickAddSoldItemFromLookup(item.id, item.lookupQuery || '')} className="w-full px-3 py-2 text-left text-xs font-black text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20">
                                     Add New Item
                                   </button>
                                 )}
