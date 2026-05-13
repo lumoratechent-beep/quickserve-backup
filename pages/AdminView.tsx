@@ -27,31 +27,54 @@ interface Props {
   onFetchStats?: (filters: ReportFilters) => Promise<any>;
 }
 
-type AdminTab = 'VENDORS' | 'INCOME_REPORT' | 'CASHOUT' | 'DUITNOW' | 'QUOTATION' | 'SYSTEM';
+type AdminTab = 'VENDORS' | 'INCOME_REPORT' | 'CASHOUT' | 'DUITNOW' | 'QUOTATION' | 'SHOP' | 'SYSTEM';
 type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'expired';
+type DraftNumber = number | '';
 
 interface QuotationLineItem {
   id: string;
+  itemId?: string;
+  lookupQuery?: string;
   description: string;
-  quantity: number;
-  unitPrice: number;
+  quantity: DraftNumber;
+  unitPrice: DraftNumber;
 }
 
 interface AdminQuotation {
   id: string;
   quoteNo: string;
+  sellerLogo: string;
+  sellerCompanyName: string;
+  sellerInfo: string;
+  sellerAddress: string;
+  sellerSsmNumber: string;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
+  customerAddress: string;
+  customerSsmNumber: string;
   companyName: string;
   issueDate: string;
   validUntil: string;
   status: QuotationStatus;
   notes: string;
   terms: string;
-  discount: number;
-  taxRate: number;
+  discount: DraftNumber;
+  taxRate: DraftNumber;
   items: QuotationLineItem[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface AdminSoldItem {
+  id: string;
+  name: string;
+  sku: string;
+  description: string;
+  price: DraftNumber;
+  costPrice: DraftNumber;
+  category: string;
+  isActive: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -65,9 +88,16 @@ const createBlankQuotation = (): AdminQuotation => {
   return {
     id: `quote_${Date.now()}`,
     quoteNo: `QS-Q-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-${String(Date.now()).slice(-5)}`,
+    sellerLogo: '',
+    sellerCompanyName: 'QuickServe',
+    sellerInfo: '',
+    sellerAddress: '',
+    sellerSsmNumber: '',
     customerName: '',
     customerEmail: '',
     customerPhone: '',
+    customerAddress: '',
+    customerSsmNumber: '',
     companyName: '',
     issueDate: toDateInput(now),
     validUntil: toDateInput(validUntil),
@@ -76,7 +106,7 @@ const createBlankQuotation = (): AdminQuotation => {
     terms: 'Valid for 14 days. Payment terms and implementation schedule will be confirmed upon acceptance.',
     discount: 0,
     taxRate: 0,
-    items: [{ id: `line_${Date.now()}`, description: 'QuickServe platform setup', quantity: 1, unitPrice: 0 }],
+    items: [{ id: `line_${Date.now()}`, description: '', lookupQuery: '', quantity: '', unitPrice: '' }],
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -91,6 +121,7 @@ const calculateQuotationTotals = (quote: Pick<AdminQuotation, 'items' | 'discoun
 };
 
 const ADMIN_QUOTATIONS_STORAGE_KEY = 'qs_admin_quotations';
+const ADMIN_SOLD_ITEMS_STORAGE_KEY = 'qs_admin_sold_items';
 
 // System Status Dashboard Component (keep as is)
 const SystemStatusDashboard: React.FC = () => {
@@ -603,12 +634,42 @@ const AdminView: React.FC<Props> = ({
   });
   const [quotationForm, setQuotationForm] = useState<AdminQuotation>(() => createBlankQuotation());
   const [editingQuotationId, setEditingQuotationId] = useState<string | null>(null);
+  const [quotationView, setQuotationView] = useState<'list' | 'form'>('list');
   const [quotationSearch, setQuotationSearch] = useState('');
   const [quotationStatusFilter, setQuotationStatusFilter] = useState<'all' | QuotationStatus>('all');
+  const [quotationPdfUrl, setQuotationPdfUrl] = useState<string | null>(null);
+  const [quotationPdfName, setQuotationPdfName] = useState('quotation.pdf');
+  const [soldItems, setSoldItems] = useState<AdminSoldItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(ADMIN_SOLD_ITEMS_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [soldItemSearch, setSoldItemSearch] = useState('');
+  const [soldItemForm, setSoldItemForm] = useState<AdminSoldItem>(() => ({
+    id: `sold_${Date.now()}`,
+    name: '',
+    sku: '',
+    description: '',
+    price: '',
+    costPrice: '',
+    category: '',
+    isActive: true,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  }));
+  const [editingSoldItemId, setEditingSoldItemId] = useState<string | null>(null);
 
   const saveQuotations = (next: AdminQuotation[]) => {
     setQuotations(next);
     localStorage.setItem(ADMIN_QUOTATIONS_STORAGE_KEY, JSON.stringify(next));
+  };
+
+  const saveSoldItems = (next: AdminSoldItem[]) => {
+    setSoldItems(next);
+    localStorage.setItem(ADMIN_SOLD_ITEMS_STORAGE_KEY, JSON.stringify(next));
   };
 
   const persistQuotationToDb = async (quote: AdminQuotation) => {
@@ -630,6 +691,26 @@ const AdminView: React.FC<Props> = ({
     }
   };
 
+  const persistSoldItemToDb = async (item: AdminSoldItem) => {
+    try {
+      await supabase.from('admin_sold_items').upsert({
+        id: item.id,
+        name: item.name,
+        sku: item.sku,
+        description: item.description,
+        price: Number(item.price) || 0,
+        cost_price: Number(item.costPrice) || 0,
+        category: item.category,
+        is_active: item.isActive,
+        item_data: item,
+        created_at: new Date(item.createdAt).toISOString(),
+        updated_at: new Date(item.updatedAt).toISOString(),
+      });
+    } catch {
+      // LocalStorage remains the offline fallback when the table is not available yet.
+    }
+  };
+
   const deleteQuotation = async (quoteId: string) => {
     saveQuotations(quotations.filter(q => q.id !== quoteId));
     try {
@@ -640,6 +721,7 @@ const AdminView: React.FC<Props> = ({
   const resetQuotationForm = () => {
     setQuotationForm(createBlankQuotation());
     setEditingQuotationId(null);
+    setQuotationView('form');
   };
 
   const updateQuotationLine = (lineId: string, patch: Partial<QuotationLineItem>) => {
@@ -647,6 +729,15 @@ const AdminView: React.FC<Props> = ({
       ...prev,
       items: prev.items.map(item => item.id === lineId ? { ...item, ...patch } : item),
     }));
+  };
+
+  const selectQuotationItem = (lineId: string, item: AdminSoldItem) => {
+    updateQuotationLine(lineId, {
+      itemId: item.id,
+      lookupQuery: item.name,
+      description: item.name,
+      unitPrice: Number(item.price) || 0,
+    });
   };
 
   const saveQuotationDraft = (status: QuotationStatus = quotationForm.status) => {
@@ -685,13 +776,19 @@ const AdminView: React.FC<Props> = ({
     saveQuotations(next);
     setQuotationForm(normalized);
     setEditingQuotationId(normalized.id);
+    setQuotationView('form');
     persistQuotationToDb(normalized);
     toast(status === 'sent' ? 'Quotation marked as sent' : 'Quotation saved', 'success');
   };
 
   const editQuotation = (quote: AdminQuotation) => {
-    setQuotationForm({ ...quote, items: quote.items.map(item => ({ ...item })) });
+    setQuotationForm({
+      ...createBlankQuotation(),
+      ...quote,
+      items: quote.items.map(item => ({ ...item, lookupQuery: item.lookupQuery || item.description })),
+    });
     setEditingQuotationId(quote.id);
+    setQuotationView('form');
   };
 
   const duplicateQuotation = (quote: AdminQuotation) => {
@@ -708,6 +805,184 @@ const AdminView: React.FC<Props> = ({
     editQuotation(copy);
     persistQuotationToDb(copy);
     toast('Quotation duplicated', 'success');
+  };
+
+  const resetSoldItemForm = () => {
+    setSoldItemForm({
+      id: `sold_${Date.now()}`,
+      name: '',
+      sku: '',
+      description: '',
+      price: '',
+      costPrice: '',
+      category: '',
+      isActive: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    setEditingSoldItemId(null);
+  };
+
+  const saveSoldItemDraft = (itemOverride?: Partial<AdminSoldItem>) => {
+    const draft = { ...soldItemForm, ...itemOverride };
+    const normalized: AdminSoldItem = {
+      ...draft,
+      name: draft.name.trim(),
+      sku: draft.sku.trim(),
+      description: draft.description.trim(),
+      category: draft.category.trim(),
+      price: Math.max(0, Number(draft.price) || 0),
+      costPrice: Math.max(0, Number(draft.costPrice) || 0),
+      updatedAt: Date.now(),
+    };
+    if (!normalized.name) {
+      toast('Add item name before saving', 'error');
+      return null;
+    }
+    const exists = soldItems.some(item => item.id === normalized.id);
+    const next = exists
+      ? soldItems.map(item => item.id === normalized.id ? normalized : item)
+      : [normalized, ...soldItems];
+    saveSoldItems(next);
+    persistSoldItemToDb(normalized);
+    setSoldItemForm(normalized);
+    setEditingSoldItemId(normalized.id);
+    toast('Shop item saved', 'success');
+    return normalized;
+  };
+
+  const quickAddSoldItemFromLookup = (lineId: string, name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const item: AdminSoldItem = {
+      id: `sold_${Date.now()}`,
+      name: trimmed,
+      sku: '',
+      description: '',
+      price: 0,
+      costPrice: 0,
+      category: '',
+      isActive: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    saveSoldItems([item, ...soldItems]);
+    persistSoldItemToDb(item);
+    selectQuotationItem(lineId, item);
+    toast('New shop item added', 'success');
+  };
+
+  const handleQuotationLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const publicUrl = await uploadImage(file, 'quickserve', 'quotation-logos');
+      setQuotationForm(prev => ({ ...prev, sellerLogo: publicUrl }));
+    } catch {
+      toast('Failed to upload quotation logo', 'error');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const generateQuotationPdf = async (quote: AdminQuotation) => {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+    const totals = calculateQuotationTotals(quote);
+    const sellerName = quote.sellerCompanyName || 'QuickServe';
+
+    if (quote.sellerLogo) {
+      try {
+        const image = await fetch(quote.sellerLogo).then(res => res.blob());
+        const reader = new FileReader();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = reject;
+          reader.readAsDataURL(image);
+        });
+        doc.addImage(dataUrl, 'PNG', 14, 12, 24, 24);
+      } catch {
+        // The PDF is still useful if a remote logo cannot be embedded.
+      }
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text(sellerName, quote.sellerLogo ? 44 : 14, 20);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    [quote.sellerInfo, quote.sellerAddress, quote.sellerSsmNumber ? `SSM: ${quote.sellerSsmNumber}` : '']
+      .filter(Boolean)
+      .forEach((line, index) => doc.text(String(line), quote.sellerLogo ? 44 : 14, 26 + index * 5));
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.text('QUOTATION', 196, 20, { align: 'right' });
+    doc.setFontSize(10);
+    doc.text(quote.quoteNo, 196, 27, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Issued: ${quote.issueDate}`, 196, 34, { align: 'right' });
+    doc.text(`Valid Until: ${quote.validUntil}`, 196, 39, { align: 'right' });
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Bill To', 14, 54);
+    doc.setFont('helvetica', 'normal');
+    [
+      quote.companyName,
+      quote.customerName,
+      quote.customerEmail,
+      quote.customerPhone,
+      quote.customerAddress,
+      quote.customerSsmNumber ? `SSM: ${quote.customerSsmNumber}` : '',
+    ].filter(Boolean).forEach((line, index) => doc.text(String(line), 14, 61 + index * 5));
+
+    autoTable(doc, {
+      startY: 96,
+      head: [['Item', 'Qty', 'Unit Price', 'Amount']],
+      body: quote.items.filter(item => item.description.trim()).map(item => [
+        item.description,
+        String(Number(item.quantity) || 0),
+        `RM ${(Number(item.unitPrice) || 0).toFixed(2)}`,
+        `RM ${((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)).toFixed(2)}`,
+      ]),
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [249, 115, 22] },
+      columnStyles: { 1: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
+    });
+
+    const finalY = (doc as any).lastAutoTable?.finalY || 120;
+    doc.setFontSize(10);
+    doc.text('Subtotal', 150, finalY + 12);
+    doc.text(`RM ${totals.subtotal.toFixed(2)}`, 196, finalY + 12, { align: 'right' });
+    doc.text('Discount', 150, finalY + 18);
+    doc.text(`- RM ${totals.discount.toFixed(2)}`, 196, finalY + 18, { align: 'right' });
+    doc.text('Tax', 150, finalY + 24);
+    doc.text(`RM ${totals.tax.toFixed(2)}`, 196, finalY + 24, { align: 'right' });
+    doc.setFont('helvetica', 'bold');
+    doc.text('Total', 150, finalY + 32);
+    doc.text(`RM ${totals.total.toFixed(2)}`, 196, finalY + 32, { align: 'right' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    if (quote.notes) doc.text(doc.splitTextToSize(`Notes: ${quote.notes}`, 180), 14, finalY + 48);
+    if (quote.terms) doc.text(doc.splitTextToSize(`Terms: ${quote.terms}`, 180), 14, finalY + (quote.notes ? 66 : 48));
+
+    return doc;
+  };
+
+  const openQuotationPdfPreview = async (quote: AdminQuotation = quotationForm) => {
+    try {
+      const doc = await generateQuotationPdf(quote);
+      const blobUrl = URL.createObjectURL(doc.output('blob'));
+      setQuotationPdfUrl(prev => {
+        if (prev) URL.revokeObjectURL(prev);
+        return blobUrl;
+      });
+      setQuotationPdfName(`${quote.quoteNo || 'quotation'}.pdf`);
+    } catch {
+      toast('Unable to generate quotation PDF', 'error');
+    }
   };
 
   // Vendor & Hub pagination state
@@ -1046,7 +1321,14 @@ const AdminView: React.FC<Props> = ({
           .select('quote_data')
           .order('updated_at', { ascending: false });
         if (error || cancelled || !data) return;
-        const next = data.map((row: any) => row.quote_data).filter(Boolean) as AdminQuotation[];
+        const next = data.map((row: any) => {
+          const quote = row.quote_data;
+          return quote ? {
+            ...createBlankQuotation(),
+            ...quote,
+            items: Array.isArray(quote.items) ? quote.items.map((item: any) => ({ ...item, lookupQuery: item.lookupQuery || item.description || '' })) : [],
+          } : null;
+        }).filter(Boolean) as AdminQuotation[];
         if (next.length > 0) saveQuotations(next);
       } catch {
         // Keep local drafts visible when the database migration has not been applied.
@@ -1056,6 +1338,32 @@ const AdminView: React.FC<Props> = ({
     fetchQuotations();
     return () => { cancelled = true; };
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== 'SHOP') return;
+    let cancelled = false;
+
+    const fetchSoldItems = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('admin_sold_items')
+          .select('item_data')
+          .order('updated_at', { ascending: false });
+        if (error || cancelled || !data) return;
+        const next = data.map((row: any) => row.item_data).filter(Boolean) as AdminSoldItem[];
+        if (next.length > 0) saveSoldItems(next);
+      } catch {
+        // Keep local shop items visible when the database migration has not been applied.
+      }
+    };
+
+    fetchSoldItems();
+    return () => { cancelled = true; };
+  }, [activeTab]);
+
+  useEffect(() => () => {
+    if (quotationPdfUrl) URL.revokeObjectURL(quotationPdfUrl);
+  }, [quotationPdfUrl]);
 
   useEffect(() => {
     if (activeTab === 'CASHOUT') {
@@ -1203,6 +1511,17 @@ const AdminView: React.FC<Props> = ({
       })
       .sort((a, b) => b.updatedAt - a.updatedAt);
   }, [quotationSearch, quotationStatusFilter, quotations]);
+
+  const filteredSoldItems = useMemo(() => {
+    const query = soldItemSearch.trim().toLowerCase();
+    return soldItems
+      .filter(item => {
+        if (!query) return true;
+        return [item.name, item.sku, item.category, item.description]
+          .some(value => String(value || '').toLowerCase().includes(query));
+      })
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+  }, [soldItemSearch, soldItems]);
 
   const quotationStats = useMemo(() => {
     return quotations.reduce((acc, quote) => {
@@ -2065,6 +2384,7 @@ const AdminView: React.FC<Props> = ({
             { id: 'CASHOUT', label: 'Cashout', icon: Wallet },
             { id: 'DUITNOW', label: 'DuitNow', icon: QrCode },
             { id: 'QUOTATION', label: 'Quotation', icon: FileText },
+            { id: 'SHOP', label: 'Shop', icon: ShoppingBag },
             { id: 'SYSTEM', label: 'System', icon: Database },
           ] as { id: AdminTab; label: string; icon: React.ElementType }[]).map(item => (
             <button
@@ -2122,6 +2442,7 @@ const AdminView: React.FC<Props> = ({
                activeTab === 'CASHOUT' ? 'Cashout' :
                activeTab === 'DUITNOW' ? 'DuitNow' :
                activeTab === 'QUOTATION' ? 'Quotation' :
+               activeTab === 'SHOP' ? 'Shop' :
                'System'}
             </h1>
           </div>
@@ -3285,14 +3606,16 @@ const AdminView: React.FC<Props> = ({
                   onClick={resetQuotationForm}
                   className="h-10 px-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-300 text-xs font-black uppercase tracking-widest hover:border-orange-300 transition-all flex items-center gap-2"
                 >
-                  <Plus size={15} /> New Draft
+                  <Plus size={15} /> Add Quotation
                 </button>
-                <button
-                  onClick={() => saveQuotationDraft('sent')}
-                  className="h-10 px-4 rounded-xl bg-orange-500 text-white text-xs font-black uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center gap-2 shadow-lg shadow-orange-500/20"
-                >
-                  <Send size={15} /> Mark Sent
-                </button>
+                {quotationView === 'form' && (
+                  <button
+                    onClick={() => saveQuotationDraft('sent')}
+                    className="h-10 px-4 rounded-xl bg-orange-500 text-white text-xs font-black uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center gap-2 shadow-lg shadow-orange-500/20"
+                  >
+                    <Send size={15} /> Mark Sent
+                  </button>
+                )}
               </div>
             </div>
 
@@ -3311,6 +3634,63 @@ const AdminView: React.FC<Props> = ({
               ))}
             </div>
 
+            {quotationView === 'list' ? (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                <div className="p-5 border-b border-gray-100 dark:border-gray-700 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-black dark:text-white uppercase tracking-tight">Quotation List</h3>
+                    <span className="text-[10px] font-black text-gray-400">{filteredQuotations.length} records</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input value={quotationSearch} onChange={e => setQuotationSearch(e.target.value)} placeholder="Search quotes..." className="w-full h-9 pl-9 pr-3 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs dark:text-white outline-none focus:ring-1 focus:ring-orange-500" />
+                    </div>
+                    <select value={quotationStatusFilter} onChange={e => setQuotationStatusFilter(e.target.value as any)} className="h-9 px-3 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-[10px] font-black uppercase dark:text-white outline-none">
+                      <option value="all">All</option>
+                      <option value="draft">Draft</option>
+                      <option value="sent">Sent</option>
+                      <option value="accepted">Accepted</option>
+                      <option value="expired">Expired</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {filteredQuotations.length === 0 ? (
+                    <div className="p-12 text-center">
+                      <FileText size={38} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                      <p className="text-sm font-bold text-gray-400">No quotations yet</p>
+                      <button onClick={resetQuotationForm} className="mt-4 h-10 px-4 rounded-xl bg-orange-500 text-white text-xs font-black uppercase tracking-widest inline-flex items-center gap-2">
+                        <Plus size={15} /> Add Quotation
+                      </button>
+                    </div>
+                  ) : filteredQuotations.map(quote => {
+                    const totals = calculateQuotationTotals(quote);
+                    return (
+                      <div key={quote.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                        <div className="flex items-start justify-between gap-3">
+                          <button onClick={() => editQuotation(quote)} className="text-left min-w-0">
+                            <p className="text-sm font-black dark:text-white truncate">{quote.quoteNo}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{quote.companyName || quote.customerName || 'Unnamed customer'}</p>
+                            <p className="text-[10px] font-bold text-gray-400 mt-1">Updated {new Date(quote.updatedAt).toLocaleDateString()}</p>
+                          </button>
+                          <div className="text-right shrink-0">
+                            <p className="text-sm font-black dark:text-white">RM {totals.total.toFixed(2)}</p>
+                            <span className="inline-flex mt-1 px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-[8px] font-black uppercase tracking-widest">{quote.status}</span>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex items-center justify-end gap-1">
+                          <button onClick={() => editQuotation(quote)} className="p-1.5 text-gray-400 hover:text-blue-500" title="Edit"><Edit3 size={14} /></button>
+                          <button onClick={() => openQuotationPdfPreview(quote)} className="p-1.5 text-gray-400 hover:text-green-500" title="PDF Preview"><Printer size={14} /></button>
+                          <button onClick={() => duplicateQuotation(quote)} className="p-1.5 text-gray-400 hover:text-orange-500" title="Duplicate"><FileText size={14} /></button>
+                          <button onClick={() => deleteQuotation(quote.id)} className="p-1.5 text-gray-400 hover:text-red-500" title="Delete"><Trash2 size={14} /></button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
             <div className="grid grid-cols-1 xl:grid-cols-[1.15fr_0.85fr] gap-6">
               <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
                 <div className="p-5 border-b border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -3336,6 +3716,30 @@ const AdminView: React.FC<Props> = ({
                 </div>
 
                 <div className="p-5 space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-[120px_1fr_1fr] gap-4">
+                    <label className="block">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Logo</span>
+                      <div className="mt-1 h-24 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 flex items-center justify-center overflow-hidden">
+                        {quotationForm.sellerLogo ? (
+                          <img src={quotationForm.sellerLogo} alt="Quotation logo" className="max-h-full max-w-full object-contain" />
+                        ) : (
+                          <ImageIcon size={24} className="text-gray-300" />
+                        )}
+                      </div>
+                      <input type="file" accept="image/*" onChange={handleQuotationLogoUpload} className="mt-2 block w-full text-[10px] text-gray-500 file:mr-2 file:h-8 file:px-3 file:rounded-lg file:border-0 file:bg-orange-50 file:text-orange-600 file:font-black file:uppercase file:text-[9px]" />
+                    </label>
+                    <label className="block">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Seller Company</span>
+                      <input value={quotationForm.sellerCompanyName} onChange={e => setQuotationForm(prev => ({ ...prev, sellerCompanyName: e.target.value }))} placeholder="Your company name" className="mt-1 w-full h-11 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                      <textarea value={quotationForm.sellerInfo} onChange={e => setQuotationForm(prev => ({ ...prev, sellerInfo: e.target.value }))} rows={2} placeholder="Company info, email, phone..." className="mt-2 w-full rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                    </label>
+                    <label className="block">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Seller Address / SSM</span>
+                      <textarea value={quotationForm.sellerAddress} onChange={e => setQuotationForm(prev => ({ ...prev, sellerAddress: e.target.value }))} rows={2} placeholder="Business address" className="mt-1 w-full rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                      <input value={quotationForm.sellerSsmNumber} onChange={e => setQuotationForm(prev => ({ ...prev, sellerSsmNumber: e.target.value }))} placeholder="SSM number" className="mt-2 w-full h-11 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                    </label>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[
                       ['Company', 'companyName', 'Customer company'],
@@ -3354,6 +3758,14 @@ const AdminView: React.FC<Props> = ({
                       </label>
                     ))}
                     <label className="block">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Customer Address</span>
+                      <textarea value={quotationForm.customerAddress} onChange={e => setQuotationForm(prev => ({ ...prev, customerAddress: e.target.value }))} rows={2} placeholder="Customer billing address" className="mt-1 w-full rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                    </label>
+                    <label className="block">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Customer SSM Optional</span>
+                      <input value={quotationForm.customerSsmNumber} onChange={e => setQuotationForm(prev => ({ ...prev, customerSsmNumber: e.target.value }))} placeholder="Optional SSM number" className="mt-1 w-full h-11 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                    </label>
+                    <label className="block">
                       <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Issue Date</span>
                       <input type="date" value={quotationForm.issueDate} onChange={e => setQuotationForm(prev => ({ ...prev, issueDate: e.target.value }))} className="mt-1 w-full h-11 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
                     </label>
@@ -3367,34 +3779,60 @@ const AdminView: React.FC<Props> = ({
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Line Items</p>
                       <button
-                        onClick={() => setQuotationForm(prev => ({ ...prev, items: [...prev.items, { id: `line_${Date.now()}`, description: '', quantity: 1, unitPrice: 0 }] }))}
+                        onClick={() => setQuotationForm(prev => ({ ...prev, items: [...prev.items, { id: `line_${Date.now()}`, description: '', lookupQuery: '', quantity: '', unitPrice: '' }] }))}
                         className="text-[10px] font-black uppercase tracking-widest text-orange-500 hover:text-orange-600 flex items-center gap-1"
                       >
                         <Plus size={13} /> Add Item
                       </button>
                     </div>
                     <div className="space-y-2">
-                      {quotationForm.items.map(item => (
-                        <div key={item.id} className="grid grid-cols-[1fr_70px_95px_34px] gap-2 items-center">
-                          <input value={item.description} onChange={e => updateQuotationLine(item.id, { description: e.target.value })} placeholder="Service, package, setup, training..." className="h-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-xs dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
-                          <input type="number" min="0" value={item.quantity} onChange={e => updateQuotationLine(item.id, { quantity: Number(e.target.value) })} className="h-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-2 text-xs dark:text-white text-center outline-none focus:ring-2 focus:ring-orange-500" />
-                          <input type="number" min="0" step="0.01" value={item.unitPrice} onChange={e => updateQuotationLine(item.id, { unitPrice: Number(e.target.value) })} className="h-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-2 text-xs dark:text-white text-right outline-none focus:ring-2 focus:ring-orange-500" />
+                      {quotationForm.items.map(item => {
+                        const query = (item.lookupQuery ?? item.description).trim().toLowerCase();
+                        const matches = query
+                          ? soldItems.filter(shopItem => shopItem.isActive && [shopItem.name, shopItem.sku, shopItem.description].some(value => String(value || '').toLowerCase().includes(query))).slice(0, 5)
+                          : [];
+                        return (
+                        <div key={item.id} className="grid grid-cols-[1fr_70px_95px_34px] gap-2 items-start">
+                          <div className="relative">
+                            <input
+                              value={item.lookupQuery ?? item.description}
+                              onChange={e => updateQuotationLine(item.id, { lookupQuery: e.target.value, itemId: undefined, description: '' })}
+                              placeholder="Search shop item..."
+                              className="h-10 w-full rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-xs dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                            />
+                            {query && (
+                              <div className="absolute z-20 mt-1 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xl overflow-hidden">
+                                {matches.length > 0 ? matches.map(shopItem => (
+                                  <button key={shopItem.id} type="button" onClick={() => selectQuotationItem(item.id, shopItem)} className="w-full px-3 py-2 text-left hover:bg-orange-50 dark:hover:bg-orange-900/20">
+                                    <span className="block text-xs font-black dark:text-white">{shopItem.name}</span>
+                                    <span className="block text-[10px] text-gray-400">{shopItem.sku || 'No SKU'} · RM {(Number(shopItem.price) || 0).toFixed(2)}</span>
+                                  </button>
+                                )) : (
+                                  <button type="button" onClick={() => quickAddSoldItemFromLookup(item.id, item.lookupQuery || '')} className="w-full px-3 py-2 text-left text-xs font-black text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20">
+                                    Add New Item
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <input type="number" min="0" value={item.quantity} onChange={e => updateQuotationLine(item.id, { quantity: e.target.value === '' ? '' : Number(e.target.value) })} className="h-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-2 text-xs dark:text-white text-center outline-none focus:ring-2 focus:ring-orange-500" />
+                          <input type="number" min="0" step="0.01" value={item.unitPrice} onChange={e => updateQuotationLine(item.id, { unitPrice: e.target.value === '' ? '' : Number(e.target.value) })} className="h-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-2 text-xs dark:text-white text-right outline-none focus:ring-2 focus:ring-orange-500" />
                           <button onClick={() => setQuotationForm(prev => ({ ...prev, items: prev.items.length > 1 ? prev.items.filter(line => line.id !== item.id) : prev.items }))} className="h-10 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center" title="Remove item">
                             <Trash2 size={14} />
                           </button>
                         </div>
-                      ))}
+                      )})}
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <label>
                       <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Discount RM</span>
-                      <input type="number" min="0" step="0.01" value={quotationForm.discount} onChange={e => setQuotationForm(prev => ({ ...prev, discount: Number(e.target.value) }))} className="mt-1 w-full h-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                      <input type="number" min="0" step="0.01" value={quotationForm.discount} onChange={e => setQuotationForm(prev => ({ ...prev, discount: e.target.value === '' ? '' : Number(e.target.value) }))} className="mt-1 w-full h-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
                     </label>
                     <label>
                       <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Tax %</span>
-                      <input type="number" min="0" step="0.01" value={quotationForm.taxRate} onChange={e => setQuotationForm(prev => ({ ...prev, taxRate: Number(e.target.value) }))} className="mt-1 w-full h-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                      <input type="number" min="0" step="0.01" value={quotationForm.taxRate} onChange={e => setQuotationForm(prev => ({ ...prev, taxRate: e.target.value === '' ? '' : Number(e.target.value) }))} className="mt-1 w-full h-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
                     </label>
                   </div>
 
@@ -3416,8 +3854,8 @@ const AdminView: React.FC<Props> = ({
                       <h3 className="text-sm font-black dark:text-white uppercase tracking-tight">Preview</h3>
                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">RM totals</p>
                     </div>
-                    <button onClick={() => window.print()} className="h-9 px-3 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:text-orange-500">
-                      <Printer size={14} /> Print
+                    <button onClick={() => openQuotationPdfPreview()} className="h-9 px-3 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:text-orange-500">
+                      <Printer size={14} /> PDF
                     </button>
                   </div>
                   <div className="p-5 bg-gray-50 dark:bg-gray-900/60">
@@ -3518,6 +3956,105 @@ const AdminView: React.FC<Props> = ({
                       );
                     })}
                   </div>
+                </div>
+              </div>
+            </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'SHOP' && (
+          <div className="p-4 md:p-8 space-y-6">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-black dark:text-white uppercase tracking-tighter flex items-center gap-2">
+                  <ShoppingBag size={20} className="text-orange-500" />
+                  Shop
+                </h2>
+                <p className="text-xs text-gray-400 mt-1">Manage sold items used by quotation lookup.</p>
+              </div>
+              <button onClick={resetSoldItemForm} className="h-10 px-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-300 text-xs font-black uppercase tracking-widest hover:border-orange-300 transition-all flex items-center gap-2">
+                <Plus size={15} /> New Item
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-[0.8fr_1.2fr] gap-6">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 space-y-4">
+                <div>
+                  <h3 className="text-sm font-black dark:text-white uppercase tracking-tight">{editingSoldItemId ? 'Edit Item' : 'Add Item'}</h3>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Quotation source item</p>
+                </div>
+                {[
+                  ['Name', 'name', 'Item name'],
+                  ['SKU', 'sku', 'SKU or code'],
+                  ['Category', 'category', 'Category'],
+                ].map(([label, key, placeholder]) => (
+                  <label key={key} className="block">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{label}</span>
+                    <input value={(soldItemForm as any)[key]} onChange={e => setSoldItemForm(prev => ({ ...prev, [key]: e.target.value }))} placeholder={placeholder} className="mt-1 w-full h-11 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                  </label>
+                ))}
+                <div className="grid grid-cols-2 gap-3">
+                  <label>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Price</span>
+                    <input type="number" min="0" step="0.01" value={soldItemForm.price} onChange={e => setSoldItemForm(prev => ({ ...prev, price: e.target.value === '' ? '' : Number(e.target.value) }))} className="mt-1 w-full h-11 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                  </label>
+                  <label>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Cost Price</span>
+                    <input type="number" min="0" step="0.01" value={soldItemForm.costPrice} onChange={e => setSoldItemForm(prev => ({ ...prev, costPrice: e.target.value === '' ? '' : Number(e.target.value) }))} className="mt-1 w-full h-11 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                  </label>
+                </div>
+                <label className="block">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Description</span>
+                  <textarea value={soldItemForm.description} onChange={e => setSoldItemForm(prev => ({ ...prev, description: e.target.value }))} rows={3} className="mt-1 w-full rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                </label>
+                <label className="flex items-center justify-between rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-3">
+                  <span className="text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-300">Active</span>
+                  <input type="checkbox" checked={soldItemForm.isActive} onChange={e => setSoldItemForm(prev => ({ ...prev, isActive: e.target.checked }))} className="h-5 w-5 accent-orange-500" />
+                </label>
+                <button onClick={() => saveSoldItemDraft()} className="w-full h-11 rounded-xl bg-orange-500 text-white text-xs font-black uppercase tracking-widest hover:bg-orange-600">
+                  Save Item
+                </button>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                <div className="p-5 border-b border-gray-100 dark:border-gray-700">
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input value={soldItemSearch} onChange={e => setSoldItemSearch(e.target.value)} placeholder="Search item, SKU, category..." className="w-full h-10 pl-9 pr-3 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs dark:text-white outline-none focus:ring-1 focus:ring-orange-500" />
+                  </div>
+                </div>
+                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {filteredSoldItems.length === 0 ? (
+                    <div className="p-12 text-center">
+                      <ShoppingBag size={38} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                      <p className="text-sm font-bold text-gray-400">No shop items yet</p>
+                    </div>
+                  ) : filteredSoldItems.map(item => (
+                    <div key={item.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                      <div className="flex items-start justify-between gap-3">
+                        <button onClick={() => { setSoldItemForm({ ...item }); setEditingSoldItemId(item.id); }} className="text-left min-w-0">
+                          <p className="text-sm font-black dark:text-white truncate">{item.name}</p>
+                          <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{item.sku || 'No SKU'} {item.category ? `· ${item.category}` : ''}</p>
+                          <p className="text-[10px] text-gray-400 mt-1">{item.description}</p>
+                        </button>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-black dark:text-white">RM {(Number(item.price) || 0).toFixed(2)}</p>
+                          <p className="text-[10px] text-gray-400">Cost RM {(Number(item.costPrice) || 0).toFixed(2)}</p>
+                          <span className={`inline-flex mt-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${item.isActive ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-gray-100 text-gray-400 dark:bg-gray-700'}`}>{item.isActive ? 'Active' : 'Hidden'}</span>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex items-center justify-end gap-1">
+                        <button onClick={() => { setSoldItemForm({ ...item }); setEditingSoldItemId(item.id); }} className="p-1.5 text-gray-400 hover:text-blue-500" title="Edit"><Edit3 size={14} /></button>
+                        <button onClick={() => {
+                          const next = soldItems.filter(shopItem => shopItem.id !== item.id);
+                          saveSoldItems(next);
+                          supabase.from('admin_sold_items').delete().eq('id', item.id).then(() => {});
+                          if (editingSoldItemId === item.id) resetSoldItemForm();
+                        }} className="p-1.5 text-gray-400 hover:text-red-500" title="Delete"><Trash2 size={14} /></button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -4241,6 +4778,28 @@ const AdminView: React.FC<Props> = ({
 
         {/* Pitch Deck Modal */}
         {showPitchDeck && <PitchDeck onClose={() => setShowPitchDeck(false)} />}
+
+        {quotationPdfUrl && (
+          <div className="fixed inset-0 z-[100000] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-5xl h-[86vh] shadow-2xl overflow-hidden flex flex-col">
+              <div className="p-4 border-b dark:border-gray-700 flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-black dark:text-white uppercase tracking-tight">PDF Preview</h3>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{quotationPdfName}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a href={quotationPdfUrl} download={quotationPdfName} className="h-9 px-3 rounded-lg bg-orange-500 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                    <Download size={14} /> Download
+                  </a>
+                  <button onClick={() => setQuotationPdfUrl(null)} className="h-9 w-9 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 flex items-center justify-center">
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+              <iframe title="Quotation PDF Preview" src={quotationPdfUrl} className="flex-1 w-full bg-gray-100 dark:bg-gray-900" />
+            </div>
+          </div>
+        )}
 
         </div>
       </div>
