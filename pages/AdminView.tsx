@@ -27,6 +27,71 @@ interface Props {
   onFetchStats?: (filters: ReportFilters) => Promise<any>;
 }
 
+type AdminTab = 'VENDORS' | 'INCOME_REPORT' | 'CASHOUT' | 'DUITNOW' | 'QUOTATION' | 'SYSTEM';
+type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'expired';
+
+interface QuotationLineItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+interface AdminQuotation {
+  id: string;
+  quoteNo: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  companyName: string;
+  issueDate: string;
+  validUntil: string;
+  status: QuotationStatus;
+  notes: string;
+  terms: string;
+  discount: number;
+  taxRate: number;
+  items: QuotationLineItem[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+const createBlankQuotation = (): AdminQuotation => {
+  const now = new Date();
+  const validUntil = new Date(now);
+  validUntil.setDate(validUntil.getDate() + 14);
+  const toDateInput = (date: Date) => date.toISOString().split('T')[0];
+
+  return {
+    id: `quote_${Date.now()}`,
+    quoteNo: `QS-Q-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-${String(Date.now()).slice(-5)}`,
+    customerName: '',
+    customerEmail: '',
+    customerPhone: '',
+    companyName: '',
+    issueDate: toDateInput(now),
+    validUntil: toDateInput(validUntil),
+    status: 'draft',
+    notes: '',
+    terms: 'Valid for 14 days. Payment terms and implementation schedule will be confirmed upon acceptance.',
+    discount: 0,
+    taxRate: 0,
+    items: [{ id: `line_${Date.now()}`, description: 'QuickServe platform setup', quantity: 1, unitPrice: 0 }],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+};
+
+const calculateQuotationTotals = (quote: Pick<AdminQuotation, 'items' | 'discount' | 'taxRate'>) => {
+  const subtotal = quote.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0), 0);
+  const discount = Math.max(0, Number(quote.discount) || 0);
+  const taxable = Math.max(0, subtotal - discount);
+  const tax = taxable * ((Number(quote.taxRate) || 0) / 100);
+  return { subtotal, discount, tax, total: taxable + tax };
+};
+
+const ADMIN_QUOTATIONS_STORAGE_KEY = 'qs_admin_quotations';
+
 // System Status Dashboard Component (keep as is)
 const SystemStatusDashboard: React.FC = () => {
   // ... (keep the entire SystemStatusDashboard component exactly as it was in your original code)
@@ -525,9 +590,125 @@ const AdminView: React.FC<Props> = ({
   onFetchAllFilteredOrders,
   onFetchStats
 }) => {
-  const [activeTab, setActiveTab] = useState<'VENDORS' | 'INCOME_REPORT' | 'CASHOUT' | 'DUITNOW' | 'SYSTEM'>('VENDORS');
+  const [activeTab, setActiveTab] = useState<AdminTab>('VENDORS');
   const [vendorHubSubTab, setVendorHubSubTab] = useState<'VENDORS' | 'HUBS'>('VENDORS');
   const [incomeReportSubTab, setIncomeReportSubTab] = useState<'INCOME' | 'REPORTS'>('INCOME');
+  const [quotations, setQuotations] = useState<AdminQuotation[]>(() => {
+    try {
+      const saved = localStorage.getItem(ADMIN_QUOTATIONS_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [quotationForm, setQuotationForm] = useState<AdminQuotation>(() => createBlankQuotation());
+  const [editingQuotationId, setEditingQuotationId] = useState<string | null>(null);
+  const [quotationSearch, setQuotationSearch] = useState('');
+  const [quotationStatusFilter, setQuotationStatusFilter] = useState<'all' | QuotationStatus>('all');
+
+  const saveQuotations = (next: AdminQuotation[]) => {
+    setQuotations(next);
+    localStorage.setItem(ADMIN_QUOTATIONS_STORAGE_KEY, JSON.stringify(next));
+  };
+
+  const persistQuotationToDb = async (quote: AdminQuotation) => {
+    try {
+      const totals = calculateQuotationTotals(quote);
+      await supabase.from('admin_quotations').upsert({
+        id: quote.id,
+        quote_no: quote.quoteNo,
+        customer_name: quote.customerName,
+        company_name: quote.companyName,
+        status: quote.status,
+        total: totals.total,
+        quote_data: quote,
+        created_at: new Date(quote.createdAt).toISOString(),
+        updated_at: new Date(quote.updatedAt).toISOString(),
+      });
+    } catch {
+      // LocalStorage remains the offline fallback when the table is not available yet.
+    }
+  };
+
+  const deleteQuotation = async (quoteId: string) => {
+    saveQuotations(quotations.filter(q => q.id !== quoteId));
+    try {
+      await supabase.from('admin_quotations').delete().eq('id', quoteId);
+    } catch { /* local fallback already updated */ }
+  };
+
+  const resetQuotationForm = () => {
+    setQuotationForm(createBlankQuotation());
+    setEditingQuotationId(null);
+  };
+
+  const updateQuotationLine = (lineId: string, patch: Partial<QuotationLineItem>) => {
+    setQuotationForm(prev => ({
+      ...prev,
+      items: prev.items.map(item => item.id === lineId ? { ...item, ...patch } : item),
+    }));
+  };
+
+  const saveQuotationDraft = (status: QuotationStatus = quotationForm.status) => {
+    if (!quotationForm.customerName.trim() && !quotationForm.companyName.trim()) {
+      toast('Add a customer or company name before saving', 'error');
+      return;
+    }
+
+    const normalized: AdminQuotation = {
+      ...quotationForm,
+      customerName: quotationForm.customerName.trim(),
+      companyName: quotationForm.companyName.trim(),
+      status,
+      items: quotationForm.items
+        .filter(item => item.description.trim())
+        .map(item => ({
+          ...item,
+          description: item.description.trim(),
+          quantity: Math.max(0, Number(item.quantity) || 0),
+          unitPrice: Math.max(0, Number(item.unitPrice) || 0),
+        })),
+      discount: Math.max(0, Number(quotationForm.discount) || 0),
+      taxRate: Math.max(0, Number(quotationForm.taxRate) || 0),
+      updatedAt: Date.now(),
+    };
+
+    if (normalized.items.length === 0) {
+      toast('Add at least one quotation item', 'error');
+      return;
+    }
+
+    const exists = quotations.some(q => q.id === normalized.id);
+    const next = exists
+      ? quotations.map(q => q.id === normalized.id ? normalized : q)
+      : [normalized, ...quotations];
+    saveQuotations(next);
+    setQuotationForm(normalized);
+    setEditingQuotationId(normalized.id);
+    persistQuotationToDb(normalized);
+    toast(status === 'sent' ? 'Quotation marked as sent' : 'Quotation saved', 'success');
+  };
+
+  const editQuotation = (quote: AdminQuotation) => {
+    setQuotationForm({ ...quote, items: quote.items.map(item => ({ ...item })) });
+    setEditingQuotationId(quote.id);
+  };
+
+  const duplicateQuotation = (quote: AdminQuotation) => {
+    const copy = {
+      ...quote,
+      id: `quote_${Date.now()}`,
+      quoteNo: `${quote.quoteNo}-COPY`,
+      status: 'draft' as QuotationStatus,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      items: quote.items.map(item => ({ ...item, id: `line_${Date.now()}_${Math.random().toString(16).slice(2)}` })),
+    };
+    saveQuotations([copy, ...quotations]);
+    editQuotation(copy);
+    persistQuotationToDb(copy);
+    toast('Quotation duplicated', 'success');
+  };
 
   // Vendor & Hub pagination state
   const [vendorPage, setVendorPage] = useState<number>(1);
@@ -855,6 +1036,28 @@ const AdminView: React.FC<Props> = ({
   }, [activeTab]);
 
   useEffect(() => {
+    if (activeTab !== 'QUOTATION') return;
+    let cancelled = false;
+
+    const fetchQuotations = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('admin_quotations')
+          .select('quote_data')
+          .order('updated_at', { ascending: false });
+        if (error || cancelled || !data) return;
+        const next = data.map((row: any) => row.quote_data).filter(Boolean) as AdminQuotation[];
+        if (next.length > 0) saveQuotations(next);
+      } catch {
+        // Keep local drafts visible when the database migration has not been applied.
+      }
+    };
+
+    fetchQuotations();
+    return () => { cancelled = true; };
+  }, [activeTab]);
+
+  useEffect(() => {
     if (activeTab === 'CASHOUT') {
       fetchAdminCashouts();
     }
@@ -981,6 +1184,34 @@ const AdminView: React.FC<Props> = ({
       }))
       .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [adminCashouts]);
+
+  const quotationTotals = useMemo(() => calculateQuotationTotals(quotationForm), [quotationForm]);
+
+  const filteredQuotations = useMemo(() => {
+    const query = quotationSearch.trim().toLowerCase();
+    return quotations
+      .filter(quote => quotationStatusFilter === 'all' || quote.status === quotationStatusFilter)
+      .filter(quote => {
+        if (!query) return true;
+        return [
+          quote.quoteNo,
+          quote.customerName,
+          quote.companyName,
+          quote.customerEmail,
+          quote.status,
+        ].some(value => String(value || '').toLowerCase().includes(query));
+      })
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+  }, [quotationSearch, quotationStatusFilter, quotations]);
+
+  const quotationStats = useMemo(() => {
+    return quotations.reduce((acc, quote) => {
+      const total = calculateQuotationTotals(quote).total;
+      acc.totalValue += total;
+      acc[quote.status] += 1;
+      return acc;
+    }, { totalValue: 0, draft: 0, sent: 0, accepted: 0, expired: 0 } as Record<QuotationStatus, number> & { totalValue: number });
+  }, [quotations]);
 
   const filteredAdminCashoutRows = useMemo(() => {
     const query = adminCashoutSearchQuery.trim().toLowerCase();
@@ -1833,8 +2064,9 @@ const AdminView: React.FC<Props> = ({
             { id: 'INCOME_REPORT', label: 'Income & Report', icon: TrendingUp },
             { id: 'CASHOUT', label: 'Cashout', icon: Wallet },
             { id: 'DUITNOW', label: 'DuitNow', icon: QrCode },
+            { id: 'QUOTATION', label: 'Quotation', icon: FileText },
             { id: 'SYSTEM', label: 'System', icon: Database },
-          ] as { id: 'VENDORS' | 'INCOME_REPORT' | 'CASHOUT' | 'DUITNOW' | 'SYSTEM'; label: string; icon: React.ElementType }[]).map(item => (
+          ] as { id: AdminTab; label: string; icon: React.ElementType }[]).map(item => (
             <button
               key={item.id}
               onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
@@ -1889,6 +2121,7 @@ const AdminView: React.FC<Props> = ({
                activeTab === 'INCOME_REPORT' ? 'Income & Report' :
                activeTab === 'CASHOUT' ? 'Cashout' :
                activeTab === 'DUITNOW' ? 'DuitNow' :
+               activeTab === 'QUOTATION' ? 'Quotation' :
                'System'}
             </h1>
           </div>
@@ -3034,6 +3267,260 @@ const AdminView: React.FC<Props> = ({
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'QUOTATION' && (
+          <div className="p-4 md:p-8 space-y-6">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-black dark:text-white uppercase tracking-tighter flex items-center gap-2">
+                  <FileText size={20} className="text-orange-500" />
+                  Quotation
+                </h2>
+                <p className="text-xs text-gray-400 mt-1">Create customer quotations, keep drafts, and track every proposal from one admin workspace.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={resetQuotationForm}
+                  className="h-10 px-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-300 text-xs font-black uppercase tracking-widest hover:border-orange-300 transition-all flex items-center gap-2"
+                >
+                  <Plus size={15} /> New Draft
+                </button>
+                <button
+                  onClick={() => saveQuotationDraft('sent')}
+                  className="h-10 px-4 rounded-xl bg-orange-500 text-white text-xs font-black uppercase tracking-widest hover:bg-orange-600 transition-all flex items-center gap-2 shadow-lg shadow-orange-500/20"
+                >
+                  <Send size={15} /> Mark Sent
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+              {[
+                { label: 'Total Value', value: `RM ${quotationStats.totalValue.toFixed(2)}`, tone: 'text-orange-500' },
+                { label: 'Drafts', value: quotationStats.draft, tone: 'text-gray-600 dark:text-gray-300' },
+                { label: 'Sent', value: quotationStats.sent, tone: 'text-blue-500' },
+                { label: 'Accepted', value: quotationStats.accepted, tone: 'text-green-500' },
+                { label: 'Expired', value: quotationStats.expired, tone: 'text-red-500' },
+              ].map(stat => (
+                <div key={stat.label} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">{stat.label}</p>
+                  <p className={`mt-2 text-xl font-black ${stat.tone}`}>{stat.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-[1.15fr_0.85fr] gap-6">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                <div className="p-5 border-b border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-black dark:text-white uppercase tracking-tight">{editingQuotationId ? 'Edit Quotation' : 'Draft Quotation'}</h3>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{quotationForm.quoteNo}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={quotationForm.status}
+                      onChange={e => setQuotationForm(prev => ({ ...prev, status: e.target.value as QuotationStatus }))}
+                      className="h-9 px-3 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-[10px] font-black uppercase dark:text-white outline-none"
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="sent">Sent</option>
+                      <option value="accepted">Accepted</option>
+                      <option value="expired">Expired</option>
+                    </select>
+                    <button onClick={() => saveQuotationDraft()} className="h-9 px-4 rounded-lg bg-black dark:bg-white text-white dark:text-gray-900 text-[10px] font-black uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all">
+                      Save
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-5 space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[
+                      ['Company', 'companyName', 'Customer company'],
+                      ['Customer', 'customerName', 'Contact person'],
+                      ['Email', 'customerEmail', 'email@example.com'],
+                      ['Phone', 'customerPhone', '+60'],
+                    ].map(([label, key, placeholder]) => (
+                      <label key={key} className="block">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{label}</span>
+                        <input
+                          value={(quotationForm as any)[key]}
+                          onChange={e => setQuotationForm(prev => ({ ...prev, [key]: e.target.value }))}
+                          placeholder={placeholder}
+                          className="mt-1 w-full h-11 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                        />
+                      </label>
+                    ))}
+                    <label className="block">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Issue Date</span>
+                      <input type="date" value={quotationForm.issueDate} onChange={e => setQuotationForm(prev => ({ ...prev, issueDate: e.target.value }))} className="mt-1 w-full h-11 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                    </label>
+                    <label className="block">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Valid Until</span>
+                      <input type="date" value={quotationForm.validUntil} onChange={e => setQuotationForm(prev => ({ ...prev, validUntil: e.target.value }))} className="mt-1 w-full h-11 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                    </label>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Line Items</p>
+                      <button
+                        onClick={() => setQuotationForm(prev => ({ ...prev, items: [...prev.items, { id: `line_${Date.now()}`, description: '', quantity: 1, unitPrice: 0 }] }))}
+                        className="text-[10px] font-black uppercase tracking-widest text-orange-500 hover:text-orange-600 flex items-center gap-1"
+                      >
+                        <Plus size={13} /> Add Item
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {quotationForm.items.map(item => (
+                        <div key={item.id} className="grid grid-cols-[1fr_70px_95px_34px] gap-2 items-center">
+                          <input value={item.description} onChange={e => updateQuotationLine(item.id, { description: e.target.value })} placeholder="Service, package, setup, training..." className="h-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-xs dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                          <input type="number" min="0" value={item.quantity} onChange={e => updateQuotationLine(item.id, { quantity: Number(e.target.value) })} className="h-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-2 text-xs dark:text-white text-center outline-none focus:ring-2 focus:ring-orange-500" />
+                          <input type="number" min="0" step="0.01" value={item.unitPrice} onChange={e => updateQuotationLine(item.id, { unitPrice: Number(e.target.value) })} className="h-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-2 text-xs dark:text-white text-right outline-none focus:ring-2 focus:ring-orange-500" />
+                          <button onClick={() => setQuotationForm(prev => ({ ...prev, items: prev.items.length > 1 ? prev.items.filter(line => line.id !== item.id) : prev.items }))} className="h-10 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center" title="Remove item">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Discount RM</span>
+                      <input type="number" min="0" step="0.01" value={quotationForm.discount} onChange={e => setQuotationForm(prev => ({ ...prev, discount: Number(e.target.value) }))} className="mt-1 w-full h-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                    </label>
+                    <label>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Tax %</span>
+                      <input type="number" min="0" step="0.01" value={quotationForm.taxRate} onChange={e => setQuotationForm(prev => ({ ...prev, taxRate: Number(e.target.value) }))} className="mt-1 w-full h-10 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                    </label>
+                  </div>
+
+                  <label className="block">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Notes</span>
+                    <textarea value={quotationForm.notes} onChange={e => setQuotationForm(prev => ({ ...prev, notes: e.target.value }))} rows={3} className="mt-1 w-full rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" placeholder="Scope notes, onboarding details, optional add-ons..." />
+                  </label>
+                  <label className="block">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Terms</span>
+                    <textarea value={quotationForm.terms} onChange={e => setQuotationForm(prev => ({ ...prev, terms: e.target.value }))} rows={2} className="mt-1 w-full rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                  </label>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                  <div className="p-5 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-black dark:text-white uppercase tracking-tight">Preview</h3>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">RM totals</p>
+                    </div>
+                    <button onClick={() => window.print()} className="h-9 px-3 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:text-orange-500">
+                      <Printer size={14} /> Print
+                    </button>
+                  </div>
+                  <div className="p-5 bg-gray-50 dark:bg-gray-900/60">
+                    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-xl font-black dark:text-white">QUOTATION</p>
+                          <p className="text-xs font-bold text-orange-500">{quotationForm.quoteNo}</p>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-lg bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-widest">{quotationForm.status}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div>
+                          <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Bill To</p>
+                          <p className="font-black dark:text-white mt-1">{quotationForm.companyName || quotationForm.customerName || 'Customer name'}</p>
+                          <p className="text-gray-500 dark:text-gray-400">{quotationForm.customerName}</p>
+                          <p className="text-gray-500 dark:text-gray-400">{quotationForm.customerEmail}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-gray-500 dark:text-gray-400">Issued {quotationForm.issueDate}</p>
+                          <p className="text-gray-500 dark:text-gray-400">Valid until {quotationForm.validUntil}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {quotationForm.items.filter(item => item.description.trim()).map(item => (
+                          <div key={item.id} className="flex justify-between gap-3 border-b border-gray-100 dark:border-gray-700 pb-2 text-xs">
+                            <div>
+                              <p className="font-bold dark:text-white">{item.description}</p>
+                              <p className="text-gray-400">{item.quantity} x RM {Number(item.unitPrice || 0).toFixed(2)}</p>
+                            </div>
+                            <p className="font-black dark:text-white">RM {((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)).toFixed(2)}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between text-gray-500 dark:text-gray-400"><span>Subtotal</span><span>RM {quotationTotals.subtotal.toFixed(2)}</span></div>
+                        <div className="flex justify-between text-gray-500 dark:text-gray-400"><span>Discount</span><span>- RM {quotationTotals.discount.toFixed(2)}</span></div>
+                        <div className="flex justify-between text-gray-500 dark:text-gray-400"><span>Tax</span><span>RM {quotationTotals.tax.toFixed(2)}</span></div>
+                        <div className="flex justify-between text-lg font-black dark:text-white border-t border-gray-200 dark:border-gray-700 pt-2"><span>Total</span><span>RM {quotationTotals.total.toFixed(2)}</span></div>
+                      </div>
+                      {(quotationForm.notes || quotationForm.terms) && (
+                        <div className="text-[11px] text-gray-500 dark:text-gray-400 space-y-2">
+                          {quotationForm.notes && <p>{quotationForm.notes}</p>}
+                          {quotationForm.terms && <p>{quotationForm.terms}</p>}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                  <div className="p-5 border-b border-gray-100 dark:border-gray-700 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-black dark:text-white uppercase tracking-tight">Quotation History</h3>
+                      <span className="text-[10px] font-black text-gray-400">{filteredQuotations.length} records</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input value={quotationSearch} onChange={e => setQuotationSearch(e.target.value)} placeholder="Search quotes..." className="w-full h-9 pl-9 pr-3 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs dark:text-white outline-none focus:ring-1 focus:ring-orange-500" />
+                      </div>
+                      <select value={quotationStatusFilter} onChange={e => setQuotationStatusFilter(e.target.value as any)} className="h-9 px-3 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-[10px] font-black uppercase dark:text-white outline-none">
+                        <option value="all">All</option>
+                        <option value="draft">Draft</option>
+                        <option value="sent">Sent</option>
+                        <option value="accepted">Accepted</option>
+                        <option value="expired">Expired</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="divide-y divide-gray-100 dark:divide-gray-700 max-h-[520px] overflow-y-auto">
+                    {filteredQuotations.length === 0 ? (
+                      <div className="p-10 text-center">
+                        <FileText size={34} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                        <p className="text-sm font-bold text-gray-400">No quotations yet</p>
+                      </div>
+                    ) : filteredQuotations.map(quote => {
+                      const totals = calculateQuotationTotals(quote);
+                      return (
+                        <div key={quote.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                          <div className="flex items-start justify-between gap-3">
+                            <button onClick={() => editQuotation(quote)} className="text-left min-w-0">
+                              <p className="text-xs font-black dark:text-white truncate">{quote.quoteNo}</p>
+                              <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{quote.companyName || quote.customerName || 'Unnamed customer'}</p>
+                              <p className="text-[9px] font-bold text-gray-400 mt-1">Updated {new Date(quote.updatedAt).toLocaleDateString()}</p>
+                            </button>
+                            <div className="text-right shrink-0">
+                              <p className="text-xs font-black dark:text-white">RM {totals.total.toFixed(2)}</p>
+                              <span className="inline-flex mt-1 px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-[8px] font-black uppercase tracking-widest">{quote.status}</span>
+                            </div>
+                          </div>
+                          <div className="mt-3 flex items-center justify-end gap-1">
+                            <button onClick={() => editQuotation(quote)} className="p-1.5 text-gray-400 hover:text-blue-500" title="Edit"><Edit3 size={14} /></button>
+                            <button onClick={() => duplicateQuotation(quote)} className="p-1.5 text-gray-400 hover:text-orange-500" title="Duplicate"><FileText size={14} /></button>
+                            <button onClick={() => deleteQuotation(quote.id)} className="p-1.5 text-gray-400 hover:text-red-500" title="Delete"><Trash2 size={14} /></button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

@@ -998,22 +998,37 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       {/* Sidebar */}
       <aside className={`${isSidebarCollapsed ? 'lg:w-16' : 'w-64'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0 hidden md:flex transition-all duration-300 ease-in-out`}>
         {/* Logo / Header */}
-        <div className={`border-b border-gray-200 dark:border-gray-700 flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
-          {restaurant.logo ? (
-            <img
-              src={restaurant.logo}
-              alt={`${restaurant.name} logo`}
-              className={`rounded-lg shadow-sm ${isSidebarCollapsed ? 'w-8 h-8' : 'w-10 h-10'} object-cover`}
-              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${restaurant.name?.charAt(0) || 'R'}</text></svg>`)}`; }}
-            />
-          ) : (
-            <Briefcase size={isSidebarCollapsed ? 16 : 20} className="text-amber-500" />
-          )}
+        <div className={`flex items-center ${isSidebarCollapsed ? 'p-3 justify-center' : 'px-4 py-4 gap-3'}`}>
+          <button
+            onClick={onBack}
+            title="Open company in POS"
+            className={`${isSidebarCollapsed ? '' : 'pointer-events-none'} rounded-lg hover:ring-2 hover:ring-amber-300 transition-all`}
+          >
+            {restaurant.logo ? (
+              <img
+                src={restaurant.logo}
+                alt={`${restaurant.name} logo`}
+                className={`rounded-lg shadow-sm ${isSidebarCollapsed ? 'w-8 h-8' : 'w-10 h-10'} object-cover`}
+                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${restaurant.name?.charAt(0) || 'R'}</text></svg>`)}`; }}
+              />
+            ) : (
+              <Briefcase size={isSidebarCollapsed ? 16 : 20} className="text-amber-500" />
+            )}
+          </button>
           {!isSidebarCollapsed && (
-          <div>
-            <h2 className="font-black text-sm uppercase tracking-tight leading-tight">Back Office</h2>
-            <p className="text-[9px] font-bold text-gray-400 dark:text-gray-500 truncate">{restaurant.name}</p>
-          </div>
+            <>
+              <div className="flex-1 min-w-0">
+                <h2 className="font-black text-sm uppercase tracking-tight leading-tight truncate">{restaurant.name}</h2>
+                <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Back Office</p>
+              </div>
+              <button
+                onClick={onBack}
+                title="Back to POS company settings"
+                className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <MoreVertical size={16} />
+              </button>
+            </>
           )}
         </div>
 
