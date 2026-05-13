@@ -12455,6 +12455,7 @@ const PosOnlyView: React.FC<Props> = ({
       {priceEntryItem && (
         <PriceEntryModal
           itemName={priceEntryItem.name}
+          itemImage={priceEntryItem.image}
           currency={restaurant.settings?.currency}
           onClose={() => setPriceEntryItem(null)}
           onConfirm={(price) => {
