@@ -579,6 +579,36 @@ const App: React.FC = () => {
   const [showOtherUserShiftAlert, setShowOtherUserShiftAlert] = useState<string | null>(null); // holds other user's name
   const [showOwnShiftActive, setShowOwnShiftActive] = useState(false); // user's own shift is still open
 
+  const getShiftCacheKey = useCallback((restaurantId?: string, cashierName?: string) => {
+    if (!restaurantId || !cashierName) return null;
+    return `qs_active_shift_${restaurantId}_${cashierName}`;
+  }, []);
+
+  const readCachedActiveShift = useCallback((restaurantId?: string, cashierName?: string): CashierShift | null => {
+    const key = getShiftCacheKey(restaurantId, cashierName);
+    if (!key) return null;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as CashierShift | null;
+      if (parsed && parsed.status === 'open') return parsed;
+      return null;
+    } catch {
+      return null;
+    }
+  }, [getShiftCacheKey]);
+
+  const writeCachedActiveShift = useCallback((restaurantId?: string, cashierName?: string, shift?: CashierShift | null) => {
+    const key = getShiftCacheKey(restaurantId, cashierName);
+    if (!key) return;
+    try {
+      if (shift && shift.status === 'open') localStorage.setItem(key, JSON.stringify(shift));
+      else localStorage.removeItem(key);
+    } catch {
+      // ignore storage errors
+    }
+  }, [getShiftCacheKey]);
+
   const isShiftFeatureEnabledForRestaurant = useCallback((restaurantId?: string) => {
     if (!restaurantId) return false;
     try {
@@ -599,6 +629,11 @@ const App: React.FC = () => {
       setActiveShift(null);
       return;
     }
+
+    // Hydrate immediately from cache so refresh while offline keeps shift status.
+    const cachedShift = readCachedActiveShift(currentUser.restaurantId, currentUser.username);
+    if (cachedShift) setActiveShift(cachedShift);
+
     (async () => {
       try {
         const { data } = await supabase
@@ -609,11 +644,22 @@ const App: React.FC = () => {
           .eq('status', 'open')
           .order('opened_at', { ascending: false })
           .limit(1);
-        if (data && data.length > 0) setActiveShift(data[0] as CashierShift);
-        else setActiveShift(null);
+        if (data && data.length > 0) {
+          const latest = data[0] as CashierShift;
+          setActiveShift(latest);
+          writeCachedActiveShift(currentUser.restaurantId, currentUser.username, latest);
+        } else {
+          setActiveShift(null);
+          writeCachedActiveShift(currentUser.restaurantId, currentUser.username, null);
+        }
       } catch { /* ignore */ }
     })();
-  }, [currentUser?.restaurantId, currentUser?.username, currentRole]);
+  }, [currentUser?.restaurantId, currentUser?.username, currentRole, readCachedActiveShift, writeCachedActiveShift]);
+
+  useEffect(() => {
+    if (!currentUser?.restaurantId || !currentUser?.username) return;
+    writeCachedActiveShift(currentUser.restaurantId, currentUser.username, activeShift);
+  }, [activeShift, currentUser?.restaurantId, currentUser?.username, writeCachedActiveShift]);
 
   const persistCache = (key: string, data: any) => {
     try {
