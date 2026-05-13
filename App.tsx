@@ -625,7 +625,7 @@ const App: React.FC = () => {
 
   // Fetch active shift on login
   useEffect(() => {
-    if (!currentUser?.restaurantId || (currentRole !== 'VENDOR' && currentRole !== 'CASHIER')) {
+    if (!currentUser?.restaurantId || !currentUser?.username || (currentRole !== 'VENDOR' && currentRole !== 'CASHIER')) {
       setActiveShift(null);
       return;
     }
@@ -636,7 +636,7 @@ const App: React.FC = () => {
 
     (async () => {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('cashier_shifts')
           .select('*')
           .eq('restaurant_id', currentUser.restaurantId!)
@@ -644,11 +644,17 @@ const App: React.FC = () => {
           .eq('status', 'open')
           .order('opened_at', { ascending: false })
           .limit(1);
+
+        // If request failed (commonly offline), do not override cached shift.
+        if (error) return;
+
         if (data && data.length > 0) {
           const latest = data[0] as CashierShift;
           setActiveShift(latest);
           writeCachedActiveShift(currentUser.restaurantId, currentUser.username, latest);
         } else {
+          // Avoid clearing an active cached shift when device is offline/unstable.
+          if (!navigator.onLine && cachedShift) return;
           setActiveShift(null);
           writeCachedActiveShift(currentUser.restaurantId, currentUser.username, null);
         }
