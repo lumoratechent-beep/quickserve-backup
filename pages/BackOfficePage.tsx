@@ -1121,14 +1121,14 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
         </div>
 
         <div className={`border-t dark:border-gray-700 space-y-1.5 ${isSidebarCollapsed ? 'p-2' : 'px-3 py-2'}`}>
-          {onBack && !isSidebarCollapsed && (
+          {onBack && (
             <button
               onClick={onBack}
               title="Open POS View"
-              className="w-full py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg bg-amber-500 text-white hover:bg-amber-600"
+              className="w-full py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg bg-emerald-500 text-white hover:bg-emerald-600"
             >
               <ChevronLeft size={18} />
-              POS View
+              {!isSidebarCollapsed && 'POS View'}
             </button>
           )}
         </div>
