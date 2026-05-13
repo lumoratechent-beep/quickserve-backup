@@ -1009,8 +1009,11 @@ const AdminView: React.FC<Props> = ({
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    if (quote.notes) doc.text(doc.splitTextToSize(`Notes: ${quote.notes}`, 180), 14, finalY + 48);
-    if (quote.terms) doc.text(doc.splitTextToSize(`Terms: ${quote.terms}`, 180), 14, finalY + (quote.notes ? 66 : 48));
+    const notesLines = quote.notes ? doc.splitTextToSize(`Notes: ${quote.notes}`, 180) : [];
+    const termsLines = quote.terms ? doc.splitTextToSize(`Terms: ${quote.terms}`, 180) : [];
+    const notesY = finalY + 46;
+    if (notesLines.length > 0) doc.text(notesLines, 14, notesY);
+    if (termsLines.length > 0) doc.text(termsLines, 14, notesLines.length > 0 ? notesY + notesLines.length * 4.5 + 4 : notesY);
 
     return doc;
   };
@@ -3743,6 +3746,9 @@ const AdminView: React.FC<Props> = ({
                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{quotationForm.quoteNo}</p>
                   </div>
                   <div className="flex items-center gap-2">
+                    <button onClick={() => setQuotationView('list')} className="h-9 px-3 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1.5 hover:text-orange-500">
+                      <ChevronLeft size={14} /> Back
+                    </button>
                     <select
                       value={quotationForm.status}
                       onChange={e => setQuotationForm(prev => ({ ...prev, status: e.target.value as QuotationStatus }))}
