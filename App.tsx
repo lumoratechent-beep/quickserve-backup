@@ -2337,6 +2337,7 @@ const App: React.FC = () => {
         orders={orders.filter(o => o.restaurantId === currentUser?.restaurantId)}
         currencySymbol={currSymbol}
         onFetchAllFilteredOrders={onFetchAllFilteredOrders}
+        onBack={() => setView('APP')}
         onAddMenuItem={handleAddMenuItem}
         onUpdateMenu={handleUpdateMenuItem}
         onPermanentDeleteMenuItem={handleDeleteMenuItem}

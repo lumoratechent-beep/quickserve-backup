@@ -1021,13 +1021,16 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 <h2 className="font-black text-sm uppercase tracking-tight leading-tight truncate">{restaurant.name}</h2>
                 <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Back Office</p>
               </div>
-              <button
-                onClick={onBack}
-                title="Back to POS company settings"
-                className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                <MoreVertical size={16} />
-              </button>
+              {onBack && (
+                <button
+                  onClick={onBack}
+                  title="Open POS View"
+                  className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-amber-700 transition-all hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                >
+                  <ChevronLeft size={12} />
+                  POS View
+                </button>
+              )}
             </>
           )}
         </div>
