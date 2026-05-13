@@ -6565,16 +6565,6 @@ const PosOnlyView: React.FC<Props> = ({
                 <h2 className="font-black dark:text-white text-sm uppercase tracking-tight leading-tight truncate">{restaurant.name}</h2>
                 <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest">{vendorPlanLabel}</p>
               </div>
-              {onNavigateBackOffice && (
-                <button
-                  onClick={onNavigateBackOffice}
-                  title="Open Back Office"
-                  className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-orange-700 transition-all hover:bg-orange-100 dark:border-orange-900/40 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/30"
-                >
-                  <Building2 size={12} />
-                  Back Office
-                </button>
-              )}
               <button
                 onClick={openProfilePanel}
                 title="Account & Restaurant Settings"
@@ -6796,6 +6786,16 @@ const PosOnlyView: React.FC<Props> = ({
               </>
             )}
           </button>
+          {onNavigateBackOffice && !isSidebarCollapsed && (
+            <button
+              onClick={onNavigateBackOffice}
+              title="Open Back Office"
+              className="w-full py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg bg-orange-500 text-white hover:bg-orange-600"
+            >
+              <Building2 size={18} />
+              Back Office
+            </button>
+          )}
         </div>
       </aside>
 

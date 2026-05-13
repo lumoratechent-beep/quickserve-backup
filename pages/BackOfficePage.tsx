@@ -1021,16 +1021,6 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 <h2 className="font-black text-sm uppercase tracking-tight leading-tight truncate">{restaurant.name}</h2>
                 <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Back Office</p>
               </div>
-              {onBack && (
-                <button
-                  onClick={onBack}
-                  title="Open POS View"
-                  className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-amber-700 transition-all hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30"
-                >
-                  <ChevronLeft size={12} />
-                  POS View
-                </button>
-              )}
             </>
           )}
         </div>
@@ -1128,6 +1118,19 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           >
             {isSidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
           </button>
+        </div>
+
+        <div className={`border-t dark:border-gray-700 space-y-1.5 ${isSidebarCollapsed ? 'p-2' : 'px-3 py-2'}`}>
+          {onBack && !isSidebarCollapsed && (
+            <button
+              onClick={onBack}
+              title="Open POS View"
+              className="w-full py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg bg-amber-500 text-white hover:bg-amber-600"
+            >
+              <ChevronLeft size={18} />
+              POS View
+            </button>
+          )}
         </div>
 
       </aside>
