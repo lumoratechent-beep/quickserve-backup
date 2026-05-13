@@ -6790,7 +6790,7 @@ const PosOnlyView: React.FC<Props> = ({
             <button
               onClick={onNavigateBackOffice}
               title="Open Back Office"
-              className="w-full py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg bg-emerald-500 text-white hover:bg-emerald-600"
+              className="w-full py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg bg-green-500 text-white hover:bg-green-600"
             >
               <Building2 size={18} />
               {!isSidebarCollapsed && 'Back Office'}
