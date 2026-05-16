@@ -2573,11 +2573,11 @@ const App: React.FC = () => {
           {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (
             <div className="flex h-8 items-center gap-1 rounded-full bg-gray-100/80 px-1.5 dark:bg-gray-700/70">
               <div
-                className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${networkMeta.color}`}
+                className={`flex h-6 w-7 items-center justify-center rounded-full transition-colors ${networkMeta.color}`}
                 title={networkMeta.title}
                 aria-label={`Network ${networkMeta.label}`}
               >
-                <div className="flex h-4 w-4 items-end justify-center gap-0.5" aria-hidden="true">
+                <div className="flex h-[18px] w-[18px] items-end justify-center gap-0.5 pb-0.5" aria-hidden="true">
                   {[1, 2, 3].map((bar) => (
                     <span
                       key={bar}
@@ -2586,7 +2586,7 @@ const App: React.FC = () => {
                           ? 'bg-current'
                           : 'bg-gray-300/80 dark:bg-gray-500/80'
                       } ${networkMeta.bars === 0 ? 'opacity-0' : 'opacity-100'}`}
-                      style={{ height: `${bar * 4 + 1}px` }}
+                      style={{ height: `${bar * 4}px` }}
                     />
                   ))}
                 </div>
@@ -2597,7 +2597,7 @@ const App: React.FC = () => {
                   title={batteryMeta.label}
                   aria-label={batteryMeta.label}
                 >
-                  <div className="flex items-center" aria-hidden="true">
+                  <div className="flex h-[18px] w-[18px] items-center justify-center" aria-hidden="true">
                     <div className="relative h-3 w-5 rounded-[3px] border-2 border-current p-0.5">
                       <span
                         className="block h-full rounded-[1px] bg-current transition-all"
@@ -2609,16 +2609,16 @@ const App: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    <span className="h-1.5 w-0.5 rounded-r bg-current" />
+                    <span className="h-1.5 w-0.5 shrink-0 rounded-r bg-current" />
                   </div>
                 </div>
               )}
               <button
                 onClick={() => { setView('APP'); fetchAnnouncements(); setOpenMailInPOS(true); }}
-                className="relative flex h-6 w-6 items-center justify-center rounded-full text-gray-700 transition-colors hover:bg-white dark:text-white dark:hover:bg-gray-600"
+                className="relative flex h-6 w-7 items-center justify-center rounded-full text-gray-700 transition-colors hover:bg-white dark:text-white dark:hover:bg-gray-600"
                 title="Mail"
               >
-                <Mail size={15} />
+                <Mail size={16} />
                 {unreadMailCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">{unreadMailCount}</span>
                 )}
