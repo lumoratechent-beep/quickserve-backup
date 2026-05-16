@@ -21,6 +21,13 @@ import CashierShiftModal from './components/CashierShiftModal';
 import RenewalBanner from './components/RenewalBanner';
 import { getRenewalStatus } from './lib/subscriptionService';
 
+type BatteryStatus = {
+  level: number;
+  charging: boolean;
+};
+
+type BatteryManagerLike = EventTarget & BatteryStatus;
+
 /**
  * Generate a default 3-character order code from a restaurant name.
  * Takes initials of the first 3 words, or first 3 chars if single word.
@@ -309,6 +316,44 @@ const App: React.FC = () => {
       unsubscribeNative();
     };
   }, []);
+
+  useEffect(() => {
+    const nav = navigator as Navigator & {
+      getBattery?: () => Promise<BatteryManagerLike>;
+    };
+    if (!nav.getBattery) return;
+
+    let battery: BatteryManagerLike | null = null;
+    let isMounted = true;
+
+    const updateBattery = () => {
+      if (!battery || !isMounted) return;
+      setBatteryStatus({
+        level: battery.level,
+        charging: battery.charging,
+      });
+    };
+
+    nav.getBattery()
+      .then((manager) => {
+        if (!isMounted) return;
+        battery = manager;
+        updateBattery();
+        battery.addEventListener('levelchange', updateBattery);
+        battery.addEventListener('chargingchange', updateBattery);
+      })
+      .catch(() => {
+        if (isMounted) setBatteryStatus(null);
+      });
+
+    return () => {
+      isMounted = false;
+      if (battery) {
+        battery.removeEventListener('levelchange', updateBattery);
+        battery.removeEventListener('chargingchange', updateBattery);
+      }
+    };
+  }, []);
   
   // Capture Stripe redirect params ONCE before any state initializer clears the URL
   const stripeRedirectRef = useRef(() => {
@@ -500,6 +545,7 @@ const App: React.FC = () => {
     quality: 'slow',
     latencyMs: null,
   });
+  const [batteryStatus, setBatteryStatus] = useState<BatteryStatus | null>(null);
   const [pendingOfflineOrdersCount, setPendingOfflineOrdersCount] = useState(0);
 
   // Announcements / Mail state
@@ -2456,6 +2502,36 @@ const App: React.FC = () => {
     };
   })();
 
+  const batteryMeta = batteryStatus ? (() => {
+    const percent = Math.max(0, Math.min(100, Math.round(batteryStatus.level * 100)));
+    if (batteryStatus.charging) {
+      return {
+        percent,
+        label: `Charging ${percent}%`,
+        color: 'text-green-600 dark:text-green-400',
+      };
+    }
+    if (percent <= 20) {
+      return {
+        percent,
+        label: `Battery low ${percent}%`,
+        color: 'text-red-600 dark:text-red-400',
+      };
+    }
+    if (percent <= 40) {
+      return {
+        percent,
+        label: `Battery ${percent}%`,
+        color: 'text-yellow-600 dark:text-yellow-400',
+      };
+    }
+    return {
+      percent,
+      label: `Battery ${percent}%`,
+      color: 'text-green-600 dark:text-green-400',
+    };
+  })() : null;
+
   return (
     <div className="flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors" style={{ height: 'var(--app-height, 100dvh)' }}>
       <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-11 sm:h-12 flex items-center justify-between px-3 sm:px-6 lg:px-8 shadow-sm">
@@ -2495,37 +2571,59 @@ const App: React.FC = () => {
             );
           })()}
           {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (
-            <div
-              className={`flex h-8 w-7 items-center justify-center transition-colors ${networkMeta.color}`}
-              title={networkMeta.title}
-              aria-label={`Network ${networkMeta.label}`}
-            >
-              <div className="flex h-5 w-5 items-end justify-center gap-0.5" aria-hidden="true">
-                {[1, 2, 3].map((bar) => (
-                  <span
-                    key={bar}
-                    className={`w-1 rounded-full transition-colors ${
-                      bar <= networkMeta.bars
-                        ? 'bg-current'
-                        : 'bg-gray-300/70 dark:bg-gray-600/70'
-                    } ${networkMeta.bars === 0 ? 'opacity-0' : 'opacity-100'}`}
-                    style={{ height: `${bar * 4 + 2}px` }}
-                  />
-                ))}
+            <div className="flex h-8 items-center gap-1 rounded-full bg-gray-100/80 px-1.5 dark:bg-gray-700/70">
+              <div
+                className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${networkMeta.color}`}
+                title={networkMeta.title}
+                aria-label={`Network ${networkMeta.label}`}
+              >
+                <div className="flex h-4 w-4 items-end justify-center gap-0.5" aria-hidden="true">
+                  {[1, 2, 3].map((bar) => (
+                    <span
+                      key={bar}
+                      className={`w-1 rounded-full transition-colors ${
+                        bar <= networkMeta.bars
+                          ? 'bg-current'
+                          : 'bg-gray-300/80 dark:bg-gray-500/80'
+                      } ${networkMeta.bars === 0 ? 'opacity-0' : 'opacity-100'}`}
+                      style={{ height: `${bar * 4 + 1}px` }}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-          {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (
-            <button
-              onClick={() => { setView('APP'); fetchAnnouncements(); setOpenMailInPOS(true); }}
-              className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white relative shrink-0"
-              title="Mail"
-            >
-              <Mail size={16} className="sm:w-[18px] sm:h-[18px]" />
-              {unreadMailCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">{unreadMailCount}</span>
+              {batteryMeta && (
+                <div
+                  className={`flex h-6 w-7 items-center justify-center rounded-full transition-colors ${batteryMeta.color}`}
+                  title={batteryMeta.label}
+                  aria-label={batteryMeta.label}
+                >
+                  <div className="flex items-center" aria-hidden="true">
+                    <div className="relative h-3 w-5 rounded-[3px] border-2 border-current p-0.5">
+                      <span
+                        className="block h-full rounded-[1px] bg-current transition-all"
+                        style={{ width: batteryMeta.percent > 0 ? `${Math.max(batteryMeta.percent, 8)}%` : '0%' }}
+                      />
+                      {batteryStatus?.charging && (
+                        <span className="absolute inset-0 flex items-center justify-center text-[7px] font-black leading-none text-white">
+                          +
+                        </span>
+                      )}
+                    </div>
+                    <span className="h-1.5 w-0.5 rounded-r bg-current" />
+                  </div>
+                </div>
               )}
-            </button>
+              <button
+                onClick={() => { setView('APP'); fetchAnnouncements(); setOpenMailInPOS(true); }}
+                className="relative flex h-6 w-6 items-center justify-center rounded-full text-gray-700 transition-colors hover:bg-white dark:text-white dark:hover:bg-gray-600"
+                title="Mail"
+              >
+                <Mail size={15} />
+                {unreadMailCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">{unreadMailCount}</span>
+                )}
+              </button>
+            </div>
           )}
           {/* Theme toggle switch */}
           <button
