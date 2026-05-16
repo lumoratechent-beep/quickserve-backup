@@ -3,7 +3,8 @@
   "short_name": "QuickServe",
   "description": "Scan. Order. Manage. - Multi-Vendor Food Hub & QR Ordering System",
   "start_url": "/",
-  "display": "standalone",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
   "background_color": "#ffffff",
   "theme_color": "#f97316",
   "icons": [

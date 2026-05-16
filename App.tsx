@@ -2489,8 +2489,9 @@ const App: React.FC = () => {
       return {
         label: 'Offline',
         title: 'Offline - no confirmed app connection',
-        color: 'text-gray-400 dark:text-gray-500',
+        color: 'text-red-600 dark:text-red-400',
         bars: 0,
+        offline: true,
       };
     }
     if (connectivityStatus.quality === 'good') {
@@ -2499,6 +2500,7 @@ const App: React.FC = () => {
         title: `Good connection${connectivityStatus.latencyMs != null ? ` - ${connectivityStatus.latencyMs}ms` : ''}`,
         color: 'text-green-600 dark:text-green-400',
         bars: 3,
+        offline: false,
       };
     }
     if (connectivityStatus.quality === 'slow') {
@@ -2507,6 +2509,7 @@ const App: React.FC = () => {
         title: `Slow connection${connectivityStatus.latencyMs != null ? ` - ${connectivityStatus.latencyMs}ms` : ''}`,
         color: 'text-yellow-600 dark:text-yellow-400',
         bars: 2,
+        offline: false,
       };
     }
     return {
@@ -2514,6 +2517,7 @@ const App: React.FC = () => {
       title: 'Almost offline - connection checks are failing or very slow',
       color: 'text-red-600 dark:text-red-400',
       bars: 1,
+      offline: false,
     };
   })();
 
@@ -2593,17 +2597,21 @@ const App: React.FC = () => {
                 aria-label={`Network ${networkMeta.label}`}
               >
                 <div className="flex h-[18px] w-[18px] items-end justify-center gap-0.5 pb-0.5" aria-hidden="true">
-                  {[1, 2, 3].map((bar) => (
-                    <span
-                      key={bar}
-                      className={`w-1 rounded-full transition-colors ${
-                        bar <= networkMeta.bars
-                          ? 'bg-current'
-                          : 'bg-gray-300/80 dark:bg-gray-500/80'
-                      } ${networkMeta.bars === 0 ? 'opacity-0' : 'opacity-100'}`}
-                      style={{ height: `${bar * 4}px` }}
-                    />
-                  ))}
+                  {networkMeta.offline ? (
+                    <span className="mb-0.5 text-[16px] font-black leading-none">x</span>
+                  ) : (
+                    [1, 2, 3].map((bar) => (
+                      <span
+                        key={bar}
+                        className={`w-1 rounded-full transition-colors ${
+                          bar <= networkMeta.bars
+                            ? 'bg-current'
+                            : 'bg-gray-300/80 dark:bg-gray-500/80'
+                        }`}
+                        style={{ height: `${bar * 4}px` }}
+                      />
+                    ))
+                  )}
                 </div>
               </div>
               {batteryMeta && (
