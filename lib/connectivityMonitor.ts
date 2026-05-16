@@ -9,10 +9,20 @@
  * callbacks for state changes.
  */
 
-type ConnectivityCallback = (isOnline: boolean) => void;
+export type ConnectivityQuality = 'good' | 'slow' | 'poor' | 'offline';
+
+export interface ConnectivityStatus {
+  isOnline: boolean;
+  quality: ConnectivityQuality;
+  latencyMs: number | null;
+}
+
+type ConnectivityCallback = (isOnline: boolean, status: ConnectivityStatus) => void;
 
 interface ConnectivityMonitorState {
   isOnline: boolean;
+  quality: ConnectivityQuality;
+  latencyMs: number | null;
   lastCheckTime: number;
   failureCount: number;
   pollInterval: NodeJS.Timeout | null;
@@ -32,6 +42,8 @@ class ConnectivityMonitor {
     this.pollIntervalMs = Math.max(pollIntervalMs, this.minPollInterval);
     this.state = {
       isOnline: navigator.onLine,
+      quality: navigator.onLine ? 'slow' : 'offline',
+      latencyMs: null,
       lastCheckTime: Date.now(),
       failureCount: 0,
       pollInterval: null,
@@ -75,6 +87,17 @@ class ConnectivityMonitor {
   }
 
   /**
+   * Get current connectivity status including quality from the last ping.
+   */
+  public getStatus(): ConnectivityStatus {
+    return {
+      isOnline: this.state.isOnline,
+      quality: this.state.quality,
+      latencyMs: this.state.latencyMs,
+    };
+  }
+
+  /**
    * Manually trigger a connectivity check
    */
   public async forceCheck(): Promise<boolean> {
@@ -95,6 +118,7 @@ class ConnectivityMonitor {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000); // Shorter 3 second timeout for ping only
+      const startedAt = performance.now();
 
       const response = await fetch(`/manifest.json?connectivity=${Date.now()}`, {
         method: 'GET',
@@ -105,10 +129,11 @@ class ConnectivityMonitor {
       });
 
       clearTimeout(timeoutId);
+      const latencyMs = Math.round(performance.now() - startedAt);
 
       if (response.ok) {
         // Server is reachable
-        this.setOnlineStatus(true);
+        this.setOnlineStatus(true, this.getQualityForLatency(latencyMs), latencyMs);
         return true;
       } else {
         // Server returned error
@@ -119,7 +144,7 @@ class ConnectivityMonitor {
       // Network error or timeout - fail fast
       console.warn('[ConnectivityMonitor] API ping failed:', error);
       if (!navOnLine) {
-        this.setOnlineStatus(false);
+        this.setOnlineStatus(false, 'offline', null);
         return false;
       }
       this.recordFailure();
@@ -137,20 +162,28 @@ class ConnectivityMonitor {
     // After maxFailures in a row, consider device offline
     if (this.state.failureCount >= this.maxFailures && this.state.isOnline) {
       console.warn('[ConnectivityMonitor] Multiple failures detected, marking as offline');
-      this.setOnlineStatus(false);
+      this.setOnlineStatus(false, 'offline', null);
+    } else if (this.state.isOnline) {
+      this.setOnlineStatus(true, 'poor', null);
     }
   }
 
   /**
    * Set online status and notify subscribers if changed
    */
-  private setOnlineStatus(isOnline: boolean): void {
-    if (this.state.isOnline === isOnline) {
+  private setOnlineStatus(isOnline: boolean, quality: ConnectivityQuality = isOnline ? 'slow' : 'offline', latencyMs: number | null = null): void {
+    if (
+      this.state.isOnline === isOnline &&
+      this.state.quality === quality &&
+      this.state.latencyMs === latencyMs
+    ) {
       return; // No change
     }
 
-    console.log(`[ConnectivityMonitor] Status changed: ${this.state.isOnline} -> ${isOnline}`);
+    console.log(`[ConnectivityMonitor] Status changed: ${this.state.isOnline} -> ${isOnline} (${quality}${latencyMs != null ? `, ${latencyMs}ms` : ''})`);
     this.state.isOnline = isOnline;
+    this.state.quality = quality;
+    this.state.latencyMs = latencyMs;
     this.state.lastCheckTime = Date.now();
 
     // Reset failure count on successful recovery
@@ -159,9 +192,10 @@ class ConnectivityMonitor {
     }
 
     // Notify all subscribers
+    const status = this.getStatus();
     this.subscribers.forEach(callback => {
       try {
-        callback(isOnline);
+        callback(isOnline, status);
       } catch (err) {
         console.error('[ConnectivityMonitor] Error calling subscriber:', err);
       }
@@ -182,8 +216,14 @@ class ConnectivityMonitor {
    */
   private handleOffline = (): void => {
     console.log('[ConnectivityMonitor] Browser offline event fired');
-    this.setOnlineStatus(false);
+    this.setOnlineStatus(false, 'offline', null);
   };
+
+  private getQualityForLatency(latencyMs: number): ConnectivityQuality {
+    if (latencyMs <= 800) return 'good';
+    if (latencyMs <= 2000) return 'slow';
+    return 'poor';
+  }
 
   /**
    * Schedule the next connectivity poll

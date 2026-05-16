@@ -13,9 +13,9 @@ import OnlineShopPage from './pages/OnlineShopPage';
 import TableSideOrderPage from './pages/TableSideOrderPage';
 import { supabase } from './lib/supabase';
 import { expandPosSettings } from './lib/sharedSettings';
-import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, Clock, AlertCircle } from 'lucide-react';
+import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, Clock, AlertCircle, Wifi } from 'lucide-react';
 import * as offlineQueue from './lib/offlineOrdersQueue';
-import { getConnectivityMonitor, destroyConnectivityMonitor } from './lib/connectivityMonitor';
+import { getConnectivityMonitor, destroyConnectivityMonitor, type ConnectivityStatus } from './lib/connectivityMonitor';
 import { toast } from './components/Toast';
 import CashierShiftModal from './components/CashierShiftModal';
 import RenewalBanner from './components/RenewalBanner';
@@ -258,11 +258,13 @@ const App: React.FC = () => {
     // Get the connectivity monitor instance
     const monitor = getConnectivityMonitor();
     let isMounted = true;
+    setConnectivityStatus(monitor.getStatus());
 
     // Subscribe to connectivity changes
-    const unsubscribeMonitor = monitor.subscribe((isOnlineNow) => {
+    const unsubscribeMonitor = monitor.subscribe((isOnlineNow, status) => {
       console.log('[App] Connectivity status changed:', isOnlineNow);
       setIsOnline(isOnlineNow);
+      setConnectivityStatus(status);
       if (isOnlineNow) {
         // Try to sync offline orders when back online
         console.log('[App] Going online, triggering sync of offline orders');
@@ -274,6 +276,9 @@ const App: React.FC = () => {
     const unsubscribeNative = offlineQueue.onOnlineStatusChange((isOnlineNow) => {
       console.log('[App] Native online/offline event:', isOnlineNow);
       setIsOnline(isOnlineNow);
+      if (!isOnlineNow) {
+        setConnectivityStatus({ isOnline: false, quality: 'offline', latencyMs: null });
+      }
       if (isOnlineNow) {
         syncOfflineOrdersRef.current();
       }
@@ -290,6 +295,7 @@ const App: React.FC = () => {
     monitor.forceCheck().then((isOnlineNow) => {
       if (!isMounted) return;
       setIsOnline(isOnlineNow);
+      setConnectivityStatus(monitor.getStatus());
       if (isOnlineNow && pendingCount > 0) {
         console.log('[App] Initial connectivity verified online, triggering sync');
         syncOfflineOrdersRef.current();
@@ -489,6 +495,11 @@ const App: React.FC = () => {
   });
 
   const [isOnline, setIsOnline] = useState(true);
+  const [connectivityStatus, setConnectivityStatus] = useState<ConnectivityStatus>({
+    isOnline: true,
+    quality: 'slow',
+    latencyMs: null,
+  });
   const [pendingOfflineOrdersCount, setPendingOfflineOrdersCount] = useState(0);
 
   // Announcements / Mail state
@@ -2412,6 +2423,47 @@ const App: React.FC = () => {
     return <LoginPage onLogin={handleLogin} onBack={() => setView('MARKETING')} onRegister={() => setView('REGISTER')} />;
   }
 
+  const networkMeta = (() => {
+    if (!connectivityStatus.isOnline || connectivityStatus.quality === 'offline') {
+      return {
+        label: 'Offline',
+        title: 'Offline - no confirmed app connection',
+        color: 'text-gray-400 dark:text-gray-500',
+        bg: 'bg-gray-100 dark:bg-gray-700',
+        border: 'border-gray-200 dark:border-gray-600',
+        bars: 0,
+      };
+    }
+    if (connectivityStatus.quality === 'good') {
+      return {
+        label: 'Good',
+        title: `Good connection${connectivityStatus.latencyMs != null ? ` - ${connectivityStatus.latencyMs}ms` : ''}`,
+        color: 'text-green-600 dark:text-green-400',
+        bg: 'bg-green-50 dark:bg-green-900/30',
+        border: 'border-green-200 dark:border-green-700',
+        bars: 3,
+      };
+    }
+    if (connectivityStatus.quality === 'slow') {
+      return {
+        label: 'Slow',
+        title: `Slow connection${connectivityStatus.latencyMs != null ? ` - ${connectivityStatus.latencyMs}ms` : ''}`,
+        color: 'text-yellow-600 dark:text-yellow-400',
+        bg: 'bg-yellow-50 dark:bg-yellow-900/30',
+        border: 'border-yellow-200 dark:border-yellow-700',
+        bars: 2,
+      };
+    }
+    return {
+      label: 'Weak',
+      title: 'Almost offline - connection checks are failing or very slow',
+      color: 'text-red-600 dark:text-red-400',
+      bg: 'bg-red-50 dark:bg-red-900/30',
+      border: 'border-red-200 dark:border-red-700',
+      bars: 1,
+    };
+  })();
+
   return (
     <div className="flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors" style={{ height: 'var(--app-height, 100dvh)' }}>
       <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-11 sm:h-12 flex items-center justify-between px-3 sm:px-6 lg:px-8 shadow-sm">
@@ -2450,6 +2502,28 @@ const App: React.FC = () => {
               </button>
             );
           })()}
+          {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (
+            <div
+              className={`flex h-8 items-end gap-1 rounded-lg border px-2 py-1.5 transition-colors ${networkMeta.bg} ${networkMeta.border} ${networkMeta.color}`}
+              title={networkMeta.title}
+              aria-label={`Network ${networkMeta.label}`}
+            >
+              <Wifi size={15} className="mb-0.5 shrink-0" />
+              <div className="flex h-4 w-4 items-end gap-0.5" aria-hidden="true">
+                {[1, 2, 3].map((bar) => (
+                  <span
+                    key={bar}
+                    className={`w-1 rounded-sm transition-colors ${
+                      bar <= networkMeta.bars
+                        ? 'bg-current'
+                        : 'bg-gray-300/70 dark:bg-gray-600/70'
+                    } ${networkMeta.bars === 0 ? 'opacity-0' : 'opacity-100'}`}
+                    style={{ height: `${bar * 4 + 2}px` }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
           {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (
             <button
               onClick={() => { setView('APP'); fetchAnnouncements(); setOpenMailInPOS(true); }}
