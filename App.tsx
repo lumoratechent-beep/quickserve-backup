@@ -2422,68 +2422,6 @@ const App: React.FC = () => {
     return <CompanyPage onBack={() => setView('MARKETING')} onGetStarted={() => setView('REGISTER')} onLogin={() => setView('LOGIN')} isDarkMode={isDarkMode} onToggleDark={() => setIsDarkMode(!isDarkMode)} />;
   }
 
-  if (view === 'BACK_OFFICE' && !isOnline) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-        <div className="fixed inset-0 bg-gray-950/30 backdrop-blur-sm" />
-        <div className="relative z-10 w-full max-w-sm rounded-2xl border border-red-200 bg-white/95 p-6 text-center shadow-2xl dark:border-red-900/50 dark:bg-gray-900/95">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-500 dark:bg-red-900/30 dark:text-red-300">
-            <AlertCircle size={24} />
-          </div>
-          <h2 className="text-lg font-black uppercase tracking-tight text-gray-900 dark:text-white">You're offline</h2>
-          <p className="mt-2 text-sm font-semibold text-gray-600 dark:text-gray-300">Back Office needs an internet connection.</p>
-          <button
-            onClick={() => setView('APP')}
-            className="mt-5 w-full rounded-xl bg-orange-500 px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-orange-600"
-          >
-            Back to POS
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (view === 'BACK_OFFICE' && currentRole === 'VENDOR' && activeVendorRes) {
-    const CURRENCY_MAP: Record<string, string> = { MYR: 'RM', USD: '$', EUR: '€', GBP: '£', SGD: 'S$', JPY: '¥', KRW: '₩', INR: '₹', AUD: 'A$', CNY: '¥', TWD: 'NT$', BND: 'B$' };
-    const currCode = activeVendorRes.settings?.currency || localStorage.getItem(`ux_currency_${activeVendorRes.id}`) || 'MYR';
-    const currSymbol = CURRENCY_MAP[currCode] || 'RM';
-    return (
-      <BackOfficePage
-        restaurant={activeVendorRes}
-        orders={orders.filter(o => o.restaurantId === currentUser?.restaurantId)}
-        currencySymbol={currSymbol}
-        onFetchAllFilteredOrders={onFetchAllFilteredOrders}
-        onBack={() => setView('APP')}
-        onAddMenuItem={handleAddMenuItem}
-        onUpdateMenu={handleUpdateMenuItem}
-        onPermanentDeleteMenuItem={handleDeleteMenuItem}
-        subscription={currentUser?.restaurantId ? (vendorSubscriptions[currentUser.restaurantId] ?? null) : null}
-        isDarkMode={isDarkMode}
-        onToggleTheme={() => setIsDarkMode(!isDarkMode)}
-        onLogout={handleLogout}
-      />
-    );
-  }
-
-  if (view === 'REGISTER') {
-    return <RegisterPage onBack={() => setView('MARKETING')} onLoginClick={() => setView('LOGIN')} onComparePlans={() => setView('COMPARE_PLANS')} onRegisterSuccess={() => {
-      toast('Registration successful! You can now log in.', 'success');
-      setView('LOGIN');
-    }} />;
-  }
-
-  if (view === 'LOGIN') {
-    return <LoginPage onLogin={handleLogin} onBack={() => setView('MARKETING')} onRegister={() => setView('REGISTER')} />;
-  }
-
-  const handleBrandClick = () => {
-    if (currentUser) {
-      setView(currentUser.role === 'ADMIN' ? 'BACK_OFFICE' : 'APP');
-      return;
-    }
-    setView('MARKETING');
-  };
-
   const networkMeta = (() => {
     if (!connectivityStatus.isOnline || connectivityStatus.quality === 'offline') {
       return {
@@ -2550,6 +2488,73 @@ const App: React.FC = () => {
       color: 'text-green-600 dark:text-green-400',
     };
   })() : null;
+
+  if (view === 'BACK_OFFICE' && !isOnline) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-gray-950/30 backdrop-blur-sm" />
+        <div className="relative z-10 w-full max-w-sm rounded-2xl border border-red-200 bg-white/95 p-6 text-center shadow-2xl dark:border-red-900/50 dark:bg-gray-900/95">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-500 dark:bg-red-900/30 dark:text-red-300">
+            <AlertCircle size={24} />
+          </div>
+          <h2 className="text-lg font-black uppercase tracking-tight text-gray-900 dark:text-white">You're offline</h2>
+          <p className="mt-2 text-sm font-semibold text-gray-600 dark:text-gray-300">Back Office needs an internet connection.</p>
+          <button
+            onClick={() => setView('APP')}
+            className="mt-5 w-full rounded-xl bg-orange-500 px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-orange-600"
+          >
+            Back to POS
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === 'BACK_OFFICE' && currentRole === 'VENDOR' && activeVendorRes) {
+    const CURRENCY_MAP: Record<string, string> = { MYR: 'RM', USD: '$', EUR: '€', GBP: '£', SGD: 'S$', JPY: '¥', KRW: '₩', INR: '₹', AUD: 'A$', CNY: '¥', TWD: 'NT$', BND: 'B$' };
+    const currCode = activeVendorRes.settings?.currency || localStorage.getItem(`ux_currency_${activeVendorRes.id}`) || 'MYR';
+    const currSymbol = CURRENCY_MAP[currCode] || 'RM';
+    return (
+      <BackOfficePage
+        restaurant={activeVendorRes}
+        orders={orders.filter(o => o.restaurantId === currentUser?.restaurantId)}
+        currencySymbol={currSymbol}
+        onFetchAllFilteredOrders={onFetchAllFilteredOrders}
+        onBack={() => setView('APP')}
+        onAddMenuItem={handleAddMenuItem}
+        onUpdateMenu={handleUpdateMenuItem}
+        onPermanentDeleteMenuItem={handleDeleteMenuItem}
+        subscription={currentUser?.restaurantId ? (vendorSubscriptions[currentUser.restaurantId] ?? null) : null}
+        isDarkMode={isDarkMode}
+        onToggleTheme={() => setIsDarkMode(!isDarkMode)}
+        onLogout={handleLogout}
+        networkMeta={networkMeta}
+        batteryMeta={batteryMeta}
+        batteryCharging={batteryStatus?.charging ?? false}
+        unreadMailCount={unreadMailCount}
+        onOpenMail={() => { setView('APP'); fetchAnnouncements(); setOpenMailInPOS(true); }}
+      />
+    );
+  }
+
+  if (view === 'REGISTER') {
+    return <RegisterPage onBack={() => setView('MARKETING')} onLoginClick={() => setView('LOGIN')} onComparePlans={() => setView('COMPARE_PLANS')} onRegisterSuccess={() => {
+      toast('Registration successful! You can now log in.', 'success');
+      setView('LOGIN');
+    }} />;
+  }
+
+  if (view === 'LOGIN') {
+    return <LoginPage onLogin={handleLogin} onBack={() => setView('MARKETING')} onRegister={() => setView('REGISTER')} />;
+  }
+
+  const handleBrandClick = () => {
+    if (currentUser) {
+      setView(currentUser.role === 'ADMIN' ? 'BACK_OFFICE' : 'APP');
+      return;
+    }
+    setView('MARKETING');
+  };
 
   return (
     <div className="flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors" style={{ height: 'var(--app-height, 100dvh)' }}>

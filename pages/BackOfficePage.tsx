@@ -36,6 +36,21 @@ interface Props {
   isDarkMode?: boolean;
   onToggleTheme?: () => void;
   onLogout?: () => void;
+  networkMeta?: {
+    label: string;
+    title: string;
+    color: string;
+    bars: number;
+    mutedBars: boolean;
+  };
+  batteryMeta?: {
+    percent: number;
+    label: string;
+    color: string;
+  } | null;
+  batteryCharging?: boolean;
+  unreadMailCount?: number;
+  onOpenMail?: () => void;
 }
 
 type BackOfficeTab = 'DASHBOARD' | 'ITEMS' | 'STAFF' | 'STOCK' | 'INVENTORY' | 'REPORTS' | 'CONTACTS' | 'FINANCE' | 'EXPENSES' | 'SHIFTS';
@@ -79,7 +94,7 @@ interface StockItem {
   stockEnabled: boolean;
 }
 
-const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, onFetchAllFilteredOrders, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription, isDarkMode, onToggleTheme, onLogout }) => {
+const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, onFetchAllFilteredOrders, onBack, onAddMenuItem, onUpdateMenu, onPermanentDeleteMenuItem, onImageUpload, subscription, isDarkMode, onToggleTheme, onLogout, networkMeta, batteryMeta, batteryCharging = false, unreadMailCount = 0, onOpenMail }) => {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<BackOfficeTab>('DASHBOARD');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -951,9 +966,61 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           />
         </div>
         <div className="flex items-center gap-1.5 sm:gap-3">
-          <button className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white relative shrink-0" title="Mail">
-            <Mail size={16} className="sm:w-[18px] sm:h-[18px]" />
-          </button>
+          {networkMeta && (
+            <div className="flex h-8 items-center gap-1 rounded-full bg-gray-100/80 px-1.5 dark:bg-gray-700/70">
+              <div
+                className={`flex h-6 w-7 items-center justify-center rounded-full transition-colors ${networkMeta.color}`}
+                title={networkMeta.title}
+                aria-label={`Network ${networkMeta.label}`}
+              >
+                <div className="flex h-[18px] w-[18px] items-end justify-center gap-0.5 pb-0.5" aria-hidden="true">
+                  {[1, 2, 3].map((bar) => (
+                    <span
+                      key={bar}
+                      className={`w-1 rounded-full transition-colors ${
+                        bar <= networkMeta.bars || !networkMeta.mutedBars
+                          ? 'bg-current'
+                          : 'bg-gray-300/80 dark:bg-gray-500/80'
+                      }`}
+                      style={{ height: `${bar * 4}px` }}
+                    />
+                  ))}
+                </div>
+              </div>
+              {batteryMeta && (
+                <div
+                  className={`flex h-6 w-7 items-center justify-center rounded-full transition-colors ${batteryMeta.color}`}
+                  title={batteryMeta.label}
+                  aria-label={batteryMeta.label}
+                >
+                  <div className="flex h-[18px] w-[18px] items-center justify-center" aria-hidden="true">
+                    <div className="relative h-3 w-5 rounded-[3px] border-2 border-current p-0.5">
+                      <span
+                        className="block h-full rounded-[1px] bg-current transition-all"
+                        style={{ width: batteryMeta.percent > 0 ? `${Math.max(batteryMeta.percent, 8)}%` : '0%' }}
+                      />
+                      {batteryCharging && (
+                        <span className="absolute inset-0 flex items-center justify-center text-[7px] font-black leading-none text-white">
+                          +
+                        </span>
+                      )}
+                    </div>
+                    <span className="h-1.5 w-0.5 shrink-0 rounded-r bg-current" />
+                  </div>
+                </div>
+              )}
+              <button
+                onClick={onOpenMail}
+                className="relative flex h-6 w-7 items-center justify-center rounded-full text-gray-700 transition-colors hover:bg-white dark:text-white dark:hover:bg-gray-600"
+                title="Mail"
+              >
+                <Mail size={16} />
+                {unreadMailCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">{unreadMailCount}</span>
+                )}
+              </button>
+            </div>
+          )}
           {onToggleTheme && (
             <button
               onClick={onToggleTheme}
@@ -967,19 +1034,19 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 border: '1px solid rgba(0, 0, 0, 0.08)',
                 boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.08)',
               }}
-              className="relative flex items-center w-12 sm:w-14 h-6 sm:h-7 rounded-full transition-all duration-300 focus:outline-none shrink-0"
+              className="relative flex h-8 w-14 shrink-0 items-center rounded-full transition-all duration-300 focus:outline-none"
             >
               <span
                 style={isDarkMode
                   ? { background: 'linear-gradient(135deg, #6366f1 0%, #3730a3 100%)', boxShadow: '0 0 10px rgba(99, 102, 241, 0.4)' }
                   : { background: 'linear-gradient(135deg, #fbbf24 0%, #f97316 100%)', boxShadow: '0 0 10px rgba(249, 115, 22, 0.3)' }
                 }
-                className={`absolute left-0.5 sm:left-1 flex items-center justify-center w-5 h-5 rounded-full transition-all duration-300 ${isDarkMode ? 'translate-x-6 sm:translate-x-7' : 'translate-x-0'}`}
+                className={`absolute left-1 flex h-6 w-6 items-center justify-center rounded-full transition-all duration-300 ${isDarkMode ? 'translate-x-6' : 'translate-x-0'}`}
               >
-                {isDarkMode ? <Moon size={12} className="text-yellow-100" /> : <Sun size={12} className="text-white" />}
+                {isDarkMode ? <Moon size={13} className="text-yellow-100" /> : <Sun size={13} className="text-white" />}
               </span>
-              <Sun size={11} className={`absolute left-1.5 sm:left-2 transition-opacity duration-300 text-orange-400 ${isDarkMode ? 'opacity-40' : 'opacity-0'}`} />
-              <Moon size={11} className={`absolute right-1.5 sm:right-2 transition-opacity duration-300 text-indigo-400 ${isDarkMode ? 'opacity-0' : 'opacity-40'}`} />
+              <Sun size={12} className={`absolute left-2 transition-opacity duration-300 text-orange-400 ${isDarkMode ? 'opacity-40' : 'opacity-0'}`} />
+              <Moon size={12} className={`absolute right-2 transition-opacity duration-300 text-indigo-400 ${isDarkMode ? 'opacity-0' : 'opacity-40'}`} />
             </button>
           )}
           <div className="text-right hidden sm:block">

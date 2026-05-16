@@ -33,6 +33,7 @@ import {
 type CashierAccessPermissionKey = 'viewOwnSalesOnly' | 'requireManagerApprovalForRefund';
 type RefundApprovalRole = 'MANAGER' | 'VENDOR';
 type RefundApprovalRequestStatus = 'PENDING' | 'APPROVED' | 'DELETED';
+type MailSubTab = 'ANNOUNCEMENTS' | 'REFUND_REQUESTS';
 
 interface RefundApprovalRequestRecord {
   id: string;
@@ -436,6 +437,7 @@ const PosOnlyView: React.FC<Props> = ({
   // Profile panel state
   const [showProfilePanel, setShowProfilePanel] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<AnnouncementRecord | null>(null);
+  const [mailSubTab, setMailSubTab] = useState<MailSubTab>('ANNOUNCEMENTS');
   const [offlineBlockedMessage, setOfflineBlockedMessage] = useState<string | null>(null);
   const [profileRestaurantName, setProfileRestaurantName] = useState('');
   const [profileCurrentPassword, setProfileCurrentPassword] = useState('');
@@ -2593,6 +2595,12 @@ const PosOnlyView: React.FC<Props> = ({
   const hasRefundApprovalEnabled = cashierStaffEntries.some(({ staff }) => staff.access_permissions?.requireManagerApprovalForRefund === true);
   const showRefundApprovalSection = canReviewRefundRequests && (hasRefundApprovalEnabled || refundApprovalRequests.length > 0);
   const combinedMailUnreadCount = unreadMailCount + (showRefundApprovalSection ? refundApprovalRequests.length : 0);
+
+  useEffect(() => {
+    if (mailSubTab === 'REFUND_REQUESTS' && !showRefundApprovalSection) {
+      setMailSubTab('ANNOUNCEMENTS');
+    }
+  }, [mailSubTab, showRefundApprovalSection]);
 
   function isCashierPermissionEnabled(staff: any, permissionKey: CashierAccessPermissionKey): boolean {
     if (permissionKey === 'viewOwnSalesOnly') {
@@ -9662,7 +9670,7 @@ const PosOnlyView: React.FC<Props> = ({
             <div className="flex-1 overflow-y-auto p-4 md:p-8">
               <div className="w-full">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center justify-between mb-5 gap-3">
                   <div>
                     <h2 className="text-lg font-black dark:text-white uppercase tracking-tighter flex items-center gap-2">
                       <Mail size={18} className="text-orange-500" /> Inbox
@@ -9672,8 +9680,8 @@ const PosOnlyView: React.FC<Props> = ({
                     </h2>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Announcements, refund approvals, and updates from QuickServe.</p>
                   </div>
-                  {announcements.length > 0 && (
-                    <div className="flex items-center gap-2">
+                  {mailSubTab === 'ANNOUNCEMENTS' && announcements.length > 0 && (
+                    <div className="flex flex-wrap justify-end items-center gap-2">
                       {unreadMailCount > 0 && (
                         <button
                           onClick={() => onMarkAllAnnouncementsRead?.()}
@@ -9692,8 +9700,42 @@ const PosOnlyView: React.FC<Props> = ({
                   )}
                 </div>
 
+                {/* Document-style inbox tabs */}
+                <div className="flex gap-0 relative overflow-x-auto hide-scrollbar">
+                  {([
+                    { id: 'ANNOUNCEMENTS' as const, label: 'Announcements', icon: <Mail size={13} />, count: unreadMailCount },
+                    ...(showRefundApprovalSection
+                      ? [{ id: 'REFUND_REQUESTS' as const, label: 'Refund Requests', icon: <RotateCcw size={13} />, count: refundApprovalRequests.length }]
+                      : []),
+                  ]).map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setMailSubTab(tab.id)}
+                      style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                      className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
+                        mailSubTab === tab.id
+                          ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
+                          : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
+                      }`}
+                    >
+                      {tab.icon}
+                      {tab.label}
+                      {tab.count > 0 && (
+                        <span className={`ml-1 min-w-5 rounded-full px-1.5 py-0.5 text-[9px] font-black leading-none ${
+                          mailSubTab === tab.id
+                            ? 'bg-orange-500 text-white'
+                            : 'bg-white text-orange-500 dark:bg-gray-800 dark:text-orange-400'
+                        }`}>
+                          {tab.count}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 border-x border-b border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl rounded-tr-2xl">
                 {showRefundApprovalSection && (
-                  <div className="mb-5 rounded-2xl border border-orange-200 bg-orange-50/40 dark:border-orange-900/30 dark:bg-orange-950/10 overflow-hidden">
+                  <div className={mailSubTab === 'REFUND_REQUESTS' ? 'rounded-2xl border border-orange-200 bg-orange-50/40 dark:border-orange-900/30 dark:bg-orange-950/10 overflow-hidden' : 'hidden'}>
                     <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-orange-200/80 dark:border-orange-900/30">
                       <div>
                         <h3 className="text-sm font-black uppercase tracking-wider text-orange-700 dark:text-orange-300">Refund Approval Requests</h3>
@@ -9752,82 +9794,82 @@ const PosOnlyView: React.FC<Props> = ({
                   </div>
                 )}
 
-                {announcementsLoading ? (
-                  <div className="flex items-center justify-center py-32">
-                    <RotateCw size={28} className="animate-spin text-gray-400" />
-                  </div>
-                ) : announcements.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-32">
-                    <div className="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-                      <Mail size={36} className="text-gray-300 dark:text-gray-600" />
+                {mailSubTab === 'ANNOUNCEMENTS' && (
+                  announcementsLoading ? (
+                    <div className="flex items-center justify-center py-32">
+                      <RotateCw size={28} className="animate-spin text-gray-400" />
                     </div>
-                    <p className="text-base font-bold dark:text-gray-300">No announcements yet</p>
-                    <p className="text-sm text-gray-400 mt-1">When the admin sends updates, they will appear here.</p>
-                  </div>
-                ) : (
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 overflow-hidden divide-y dark:divide-gray-700">
-                    {announcements.map(a => (
-                      <div
-                        key={a.id}
-                        onClick={() => {
-                          if (!a.is_read) onMarkAnnouncementRead?.(a.id);
-                          setSelectedAnnouncement(a);
-                        }}
-                        className={`group px-5 py-4 transition-all cursor-pointer flex items-start gap-4 ${
-                          a.is_read
-                            ? 'hover:bg-slate-50 hover:shadow-[inset_4px_0_0_rgba(148,163,184,0.45)] dark:hover:bg-slate-700/45 dark:hover:shadow-[inset_4px_0_0_rgba(148,163,184,0.35)]'
-                            : 'bg-orange-50/60 dark:bg-orange-900/10 hover:bg-orange-100/70 hover:shadow-[inset_4px_0_0_rgba(249,115,22,0.45)] dark:hover:bg-orange-900/20 dark:hover:shadow-[inset_4px_0_0_rgba(251,146,60,0.4)]'
-                        }`}
-                      >
-                        {/* Category icon */}
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
-                          a.category === 'billing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
-                          a.category === 'update' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
-                          a.category === 'maintenance' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
-                          a.category === 'promotion' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' :
-                          'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                        }`}>
-                          {a.category === 'billing' ? <Wallet size={16} /> :
-                           a.category === 'update' ? <Zap size={16} /> :
-                           a.category === 'maintenance' ? <AlertCircle size={16} /> :
-                           a.category === 'promotion' ? <Star size={16} /> :
-                           <Mail size={16} />}
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            {!a.is_read && <span className="w-2 h-2 bg-orange-500 rounded-full shrink-0" />}
-                            <h3 className={`text-sm truncate transition-colors ${!a.is_read ? 'font-black text-slate-900 dark:text-white' : 'font-semibold text-gray-700 dark:text-gray-300 group-hover:text-slate-900 dark:group-hover:text-white'}`}>{a.title}</h3>
-                            <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0 ${
-                              a.category === 'billing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
-                              a.category === 'update' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
-                              a.category === 'maintenance' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
-                              a.category === 'promotion' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' :
-                              'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                            }`}>{a.category}</span>
-                          </div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-slate-600 dark:group-hover:text-gray-300 whitespace-pre-line leading-relaxed line-clamp-2">{a.body}</p>
-                        </div>
-
-                        {/* Date & status */}
-                        <div className="flex flex-col items-end gap-0.5 shrink-0 text-right">
-                          <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold whitespace-nowrap">
-                            {new Date(a.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short' })}
-                          </span>
-                          <span className="text-[9px] text-gray-300 dark:text-gray-600">
-                            {new Date(a.created_at).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                          {a.is_read ? (
-                            <CheckCircle2 size={12} className="text-gray-300 dark:text-gray-600 mt-1" />
-                          ) : (
-                            <span className="text-[8px] font-black text-orange-500 uppercase mt-1">New</span>
-                          )}
-                        </div>
+                  ) : announcements.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-32">
+                      <div className="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
+                        <Mail size={36} className="text-gray-300 dark:text-gray-600" />
                       </div>
-                    ))}
-                  </div>
+                      <p className="text-base font-bold dark:text-gray-300">No announcements yet</p>
+                      <p className="text-sm text-gray-400 mt-1">When the admin sends updates, they will appear here.</p>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border dark:border-gray-700 overflow-hidden divide-y dark:divide-gray-700">
+                      {announcements.map(a => (
+                        <div
+                          key={a.id}
+                          onClick={() => {
+                            if (!a.is_read) onMarkAnnouncementRead?.(a.id);
+                            setSelectedAnnouncement(a);
+                          }}
+                          className={`group px-5 py-4 transition-all cursor-pointer flex items-start gap-4 ${
+                            a.is_read
+                              ? 'hover:bg-slate-50 hover:shadow-[inset_4px_0_0_rgba(148,163,184,0.45)] dark:hover:bg-slate-700/45 dark:hover:shadow-[inset_4px_0_0_rgba(148,163,184,0.35)]'
+                              : 'bg-orange-50/60 dark:bg-orange-900/10 hover:bg-orange-100/70 hover:shadow-[inset_4px_0_0_rgba(249,115,22,0.45)] dark:hover:bg-orange-900/20 dark:hover:shadow-[inset_4px_0_0_rgba(251,146,60,0.4)]'
+                          }`}
+                        >
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                            a.category === 'billing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
+                            a.category === 'update' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
+                            a.category === 'maintenance' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
+                            a.category === 'promotion' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' :
+                            'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                          }`}>
+                            {a.category === 'billing' ? <Wallet size={16} /> :
+                             a.category === 'update' ? <Zap size={16} /> :
+                             a.category === 'maintenance' ? <AlertCircle size={16} /> :
+                             a.category === 'promotion' ? <Star size={16} /> :
+                             <Mail size={16} />}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              {!a.is_read && <span className="w-2 h-2 bg-orange-500 rounded-full shrink-0" />}
+                              <h3 className={`text-sm truncate transition-colors ${!a.is_read ? 'font-black text-slate-900 dark:text-white' : 'font-semibold text-gray-700 dark:text-gray-300 group-hover:text-slate-900 dark:group-hover:text-white'}`}>{a.title}</h3>
+                              <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0 ${
+                                a.category === 'billing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
+                                a.category === 'update' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
+                                a.category === 'maintenance' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
+                                a.category === 'promotion' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' :
+                                'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                              }`}>{a.category}</span>
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-slate-600 dark:group-hover:text-gray-300 whitespace-pre-line leading-relaxed line-clamp-2">{a.body}</p>
+                          </div>
+
+                          <div className="flex flex-col items-end gap-0.5 shrink-0 text-right">
+                            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold whitespace-nowrap">
+                              {new Date(a.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short' })}
+                            </span>
+                            <span className="text-[9px] text-gray-300 dark:text-gray-600">
+                              {new Date(a.created_at).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {a.is_read ? (
+                              <CheckCircle2 size={12} className="text-gray-300 dark:text-gray-600 mt-1" />
+                            ) : (
+                              <span className="text-[8px] font-black text-orange-500 uppercase mt-1">New</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
                 )}
+                </div>
               </div>
             </div>
           )}
