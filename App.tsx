@@ -13,7 +13,7 @@ import OnlineShopPage from './pages/OnlineShopPage';
 import TableSideOrderPage from './pages/TableSideOrderPage';
 import { supabase } from './lib/supabase';
 import { expandPosSettings } from './lib/sharedSettings';
-import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, Clock, AlertCircle } from 'lucide-react';
+import { LogOut, Sun, Moon, MapPin, LogIn, Loader2, Mail, RotateCw, Clock, AlertCircle, ShoppingBag } from 'lucide-react';
 import * as offlineQueue from './lib/offlineOrdersQueue';
 import { getConnectivityMonitor, destroyConnectivityMonitor, type ConnectivityStatus } from './lib/connectivityMonitor';
 import { toast } from './components/Toast';
@@ -2501,8 +2501,9 @@ const App: React.FC = () => {
           <p className="mt-2 text-sm font-semibold text-gray-600 dark:text-gray-300">Back Office needs an internet connection.</p>
           <button
             onClick={() => setView('APP')}
-            className="mt-5 w-full rounded-xl bg-orange-500 px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-orange-600"
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#374151] px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-[#2f3847]"
           >
+            <ShoppingBag size={16} />
             Back to POS
           </button>
         </div>

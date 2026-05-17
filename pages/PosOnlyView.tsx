@@ -6536,8 +6536,9 @@ const PosOnlyView: React.FC<Props> = ({
             <p className="mt-2 text-sm font-semibold text-gray-600 dark:text-gray-300">{offlineBlockedMessage}</p>
             <button
               onClick={() => setOfflineBlockedMessage(null)}
-              className="mt-5 w-full rounded-xl bg-orange-500 px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-orange-600"
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#374151] px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-[#2f3847]"
             >
+              <ShoppingBag size={16} />
               Back to POS
             </button>
           </div>
@@ -6798,7 +6799,7 @@ const PosOnlyView: React.FC<Props> = ({
             <button
               onClick={onNavigateBackOffice}
               title="Open Back Office"
-              className="w-full py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg bg-green-700 text-white hover:bg-green-800"
+              className="w-full py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg bg-[#374151] text-white hover:bg-[#2f3847]"
             >
               <Building2 size={18} />
               {!isSidebarCollapsed && 'Back Office'}

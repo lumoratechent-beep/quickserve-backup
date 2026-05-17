@@ -1191,11 +1191,11 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           {onBack && (
             <button
               onClick={onBack}
-              title="Open POS View"
-              className="w-full py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg bg-green-700 text-white hover:bg-green-800"
+              title="Back to POS"
+              className="w-full py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg bg-[#374151] text-white hover:bg-[#2f3847]"
             >
-              <ChevronLeft size={18} />
-              {!isSidebarCollapsed && 'POS View'}
+              <ShoppingBag size={18} />
+              {!isSidebarCollapsed && 'Back to POS'}
             </button>
           )}
         </div>
