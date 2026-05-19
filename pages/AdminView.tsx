@@ -2315,6 +2315,8 @@ const AdminView: React.FC<Props> = ({
     }
   };
 
+  const areAllVisibleCopyMenuItemsSelected = filteredCopyMenuItems.length > 0 && filteredCopyMenuItems.every(entry => selectedCopyMenuItemIds.includes(entry.item.id));
+
   const handleCopyMenuItems = async () => {
     if (!copyMenuTarget) return;
     if (selectedCopyMenuItems.length === 0) {
@@ -4984,18 +4986,28 @@ const AdminView: React.FC<Props> = ({
                 disabled={filteredCopyMenuItems.length === 0}
                 className="px-4 py-3 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-colors disabled:opacity-30 whitespace-nowrap"
               >
-                Toggle Visible
+                {areAllVisibleCopyMenuItemsSelected ? 'Deselect All' : 'Select All'}
               </button>
             </div>
 
-            <div className="max-h-[55vh] overflow-y-auto custom-scrollbar">
+            <div className="max-h-[55vh] overflow-auto custom-scrollbar">
               {filteredCopyMenuItems.length === 0 ? (
                 <div className="py-16 text-center">
                   <Menu size={42} className="mx-auto mb-4 text-gray-300" />
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">No menu items found</p>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                <div>
+                  <div className="sticky top-0 z-10 grid min-w-[820px] grid-cols-[44px_56px_minmax(180px,1.6fr)_minmax(120px,1fr)_minmax(130px,1fr)_80px_92px] items-center gap-3 px-5 py-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700 text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                    <span></span>
+                    <span>Image</span>
+                    <span>Menu Name</span>
+                    <span>Category</span>
+                    <span>Restaurant</span>
+                    <span>Status</span>
+                    <span className="text-right">Price</span>
+                  </div>
+                  <div className="divide-y divide-gray-100 dark:divide-gray-700">
                   {filteredCopyMenuItems.map(({ item, restaurantName }) => {
                     const isSelected = selectedCopyMenuItemIds.includes(item.id);
                     const price = Number.isFinite(item.price) ? item.price.toFixed(2) : '0.00';
@@ -5004,7 +5016,7 @@ const AdminView: React.FC<Props> = ({
                         key={item.id}
                         type="button"
                         onClick={() => toggleCopyMenuItem(item.id)}
-                        className={`w-full px-5 py-3 flex items-center gap-4 text-left transition-colors ${
+                        className={`w-full min-w-[820px] px-5 py-2 grid grid-cols-[44px_56px_minmax(180px,1.6fr)_minmax(120px,1fr)_minmax(130px,1fr)_80px_92px] items-center gap-3 text-left transition-colors ${
                           isSelected ? 'bg-orange-50 dark:bg-orange-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'
                         }`}
                       >
@@ -5016,20 +5028,22 @@ const AdminView: React.FC<Props> = ({
                         <img
                           src={item.image}
                           alt=""
-                          className="w-11 h-11 rounded-xl object-cover bg-gray-100 dark:bg-gray-700 shrink-0"
+                          className="w-10 h-10 rounded-lg object-cover bg-gray-100 dark:bg-gray-700 shrink-0"
                           onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44"><rect width="44" height="44" rx="12" fill="%23f3f4f6"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${item.name?.charAt(0) || 'M'}</text></svg>`)}`; }}
                         />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-black text-xs dark:text-white truncate">{item.name}</span>
-                            {item.isArchived && <span className="px-2 py-0.5 rounded-md bg-gray-200 dark:bg-gray-700 text-[8px] font-black uppercase tracking-widest text-gray-500">Archived</span>}
-                          </div>
-                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest truncate">{restaurantName} / {item.category || 'Uncategorized'}</p>
-                        </div>
-                        <span className="text-xs font-black text-orange-500 whitespace-nowrap">RM {price}</span>
+                        <span className="font-black text-xs dark:text-white truncate">{item.name}</span>
+                        <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 truncate">{item.category || 'Uncategorized'}</span>
+                        <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 truncate">{restaurantName}</span>
+                        <span className={`w-fit px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-widest ${
+                          item.isArchived ? 'bg-gray-200 dark:bg-gray-700 text-gray-500' : 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400'
+                        }`}>
+                          {item.isArchived ? 'Archived' : 'Active'}
+                        </span>
+                        <span className="justify-self-end text-xs font-black text-orange-500 whitespace-nowrap">RM {price}</span>
                       </button>
                     );
                   })}
+                  </div>
                 </div>
               )}
             </div>
