@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, Subscription, PlanId } from '../src/types';
+import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, Subscription, PlanId, MenuItem } from '../src/types';
 import { uploadImage } from '../lib/storage';
 import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight, Gift, Loader2 } from 'lucide-react';
 import ImageCropModal from '../components/ImageCropModal';
@@ -22,6 +22,7 @@ interface Props {
   onToggleOnline: (restaurantId: string, currentStatus: boolean) => void;
   onRemoveVendorFromHub: (restaurantId: string) => void;
   onDeleteVendor: (userId: string, restaurantId: string) => Promise<void>;
+  onCopyMenuItems: (targetRestaurantId: string, items: MenuItem[]) => Promise<number>;
   onFetchPaginatedOrders?: (filters: ReportFilters, page: number, pageSize: number) => Promise<ReportResponse>;
   onFetchAllFilteredOrders?: (filters: ReportFilters) => Promise<Order[]>;
   onFetchStats?: (filters: ReportFilters) => Promise<any>;
@@ -637,6 +638,7 @@ const AdminView: React.FC<Props> = ({
   onToggleOnline, 
   onRemoveVendorFromHub,
   onDeleteVendor,
+  onCopyMenuItems,
   onFetchPaginatedOrders,
   onFetchAllFilteredOrders,
   onFetchStats
@@ -1223,6 +1225,11 @@ const AdminView: React.FC<Props> = ({
     slug: '',
     planId: 'basic' as PlanId
   });
+  const [copyMenuTarget, setCopyMenuTarget] = useState<Restaurant | null>(null);
+  const [copyMenuSourceRestaurantId, setCopyMenuSourceRestaurantId] = useState('ALL');
+  const [copyMenuSearch, setCopyMenuSearch] = useState('');
+  const [selectedCopyMenuItemIds, setSelectedCopyMenuItemIds] = useState<string[]>([]);
+  const [isCopyingMenu, setIsCopyingMenu] = useState(false);
 
   // Subscription data for all restaurants
   const [subscriptions, setSubscriptions] = useState<Record<string, Subscription>>({});
@@ -2094,6 +2101,37 @@ const AdminView: React.FC<Props> = ({
     return filteredHubs.slice(start, start + entriesPerPage);
   }, [filteredHubs, hubPage, entriesPerPage]);
 
+  const allCopyableMenuItems = useMemo(() => {
+    return restaurants.flatMap(restaurant =>
+      restaurant.menu.map(item => ({
+        item,
+        restaurantId: restaurant.id,
+        restaurantName: restaurant.name,
+      }))
+    );
+  }, [restaurants]);
+
+  const filteredCopyMenuItems = useMemo(() => {
+    const query = copyMenuSearch.trim().toLowerCase();
+    return allCopyableMenuItems.filter(entry => {
+      if (copyMenuTarget && entry.restaurantId === copyMenuTarget.id) return false;
+      if (copyMenuSourceRestaurantId !== 'ALL' && entry.restaurantId !== copyMenuSourceRestaurantId) return false;
+      if (!query) return true;
+      return (
+        entry.item.name.toLowerCase().includes(query) ||
+        entry.item.category.toLowerCase().includes(query) ||
+        entry.restaurantName.toLowerCase().includes(query)
+      );
+    });
+  }, [allCopyableMenuItems, copyMenuSearch, copyMenuSourceRestaurantId, copyMenuTarget]);
+
+  const selectedCopyMenuItems = useMemo(() => {
+    const selected = new Set(selectedCopyMenuItemIds);
+    return allCopyableMenuItems
+      .filter(entry => selected.has(entry.item.id))
+      .map(entry => entry.item);
+  }, [allCopyableMenuItems, selectedCopyMenuItemIds]);
+
   // Reset pages when filters change
   useEffect(() => { setVendorPage(1); }, [searchQuery, vendorFilter, vendorSort]);
   useEffect(() => { setHubPage(1); }, [hubSearchQuery]);
@@ -2249,6 +2287,51 @@ const AdminView: React.FC<Props> = ({
       if (confirm(`Restaurant data for "${user.username}" is missing. Do you want to remove this orphaned vendor record?`)) {
         onDeleteVendor(user.id, user.restaurantId || '').catch(() => {});
       }
+    }
+  };
+
+  const handleOpenCopyMenu = (restaurant: Restaurant) => {
+    setCopyMenuTarget(restaurant);
+    setCopyMenuSourceRestaurantId('ALL');
+    setCopyMenuSearch('');
+    setSelectedCopyMenuItemIds([]);
+  };
+
+  const toggleCopyMenuItem = (itemId: string) => {
+    setSelectedCopyMenuItemIds(prev =>
+      prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
+    );
+  };
+
+  const toggleVisibleCopyMenuItems = () => {
+    const visibleIds = filteredCopyMenuItems.map(entry => entry.item.id);
+    if (visibleIds.length === 0) return;
+    const selected = new Set(selectedCopyMenuItemIds);
+    const allVisibleSelected = visibleIds.every(id => selected.has(id));
+    if (allVisibleSelected) {
+      setSelectedCopyMenuItemIds(prev => prev.filter(id => !visibleIds.includes(id)));
+    } else {
+      setSelectedCopyMenuItemIds(prev => Array.from(new Set([...prev, ...visibleIds])));
+    }
+  };
+
+  const handleCopyMenuItems = async () => {
+    if (!copyMenuTarget) return;
+    if (selectedCopyMenuItems.length === 0) {
+      toast('Select at least one menu item to copy', 'error');
+      return;
+    }
+
+    setIsCopyingMenu(true);
+    try {
+      const copied = await onCopyMenuItems(copyMenuTarget.id, selectedCopyMenuItems);
+      toast(`Copied ${copied} menu item${copied === 1 ? '' : 's'} to ${copyMenuTarget.name}`, 'success');
+      setCopyMenuTarget(null);
+      setSelectedCopyMenuItemIds([]);
+    } catch (error: any) {
+      toast(error?.message || 'Failed to copy menu items', 'error');
+    } finally {
+      setIsCopyingMenu(false);
     }
   };
 
@@ -2716,6 +2799,9 @@ const AdminView: React.FC<Props> = ({
                               </td>
                               <td className="px-4 py-2.5 text-right">
                                 <div className="flex justify-end gap-1">
+                                  {res && (
+                                    <button onClick={() => handleOpenCopyMenu(res)} className="p-1.5 text-gray-400 hover:text-green-500" title="Copy menu into this vendor"><Menu size={15} /></button>
+                                  )}
                                   <button onClick={() => handleOpenEdit(vendor)} className="p-1.5 text-gray-400 hover:text-blue-500"><Edit3 size={15} /></button>
                                   {!res && (
                                     <button onClick={() => { if (confirm(`Remove orphaned vendor "${vendor.username}"?`)) onDeleteVendor(vendor.id, vendor.restaurantId || '').catch(() => {}); }} className="p-1.5 text-gray-400 hover:text-red-500" title="Delete orphaned vendor"><Trash2 size={15} /></button>
@@ -4859,6 +4945,119 @@ const AdminView: React.FC<Props> = ({
       </div>
 
       {/* MODALS SECTION */}
+
+      {copyMenuTarget && (
+        <div className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-4xl w-full shadow-2xl overflow-hidden">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Fast Menu Setup</h2>
+                <p className="text-xs text-gray-400 mt-1">Copy selected menu items into <span className="font-black text-orange-500">{copyMenuTarget.name}</span>.</p>
+              </div>
+              <button onClick={() => setCopyMenuTarget(null)} className="p-2 text-gray-400 hover:text-red-500 transition-colors"><X size={24} /></button>
+            </div>
+
+            <div className="p-5 border-b border-gray-100 dark:border-gray-700 flex flex-col md:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search item, category, or vendor..."
+                  value={copyMenuSearch}
+                  onChange={e => setCopyMenuSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border-none rounded-xl text-xs font-black dark:text-white outline-none focus:ring-1 focus:ring-orange-500"
+                />
+              </div>
+              <select
+                value={copyMenuSourceRestaurantId}
+                onChange={e => setCopyMenuSourceRestaurantId(e.target.value)}
+                className="md:w-64 px-4 py-3 bg-gray-50 dark:bg-gray-700 border-none rounded-xl text-xs font-black dark:text-white outline-none cursor-pointer focus:ring-1 focus:ring-orange-500"
+              >
+                <option value="ALL">All vendors</option>
+                {restaurants.filter(r => r.id !== copyMenuTarget.id).map(restaurant => (
+                  <option key={restaurant.id} value={restaurant.id}>{restaurant.name}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={toggleVisibleCopyMenuItems}
+                disabled={filteredCopyMenuItems.length === 0}
+                className="px-4 py-3 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-colors disabled:opacity-30 whitespace-nowrap"
+              >
+                Toggle Visible
+              </button>
+            </div>
+
+            <div className="max-h-[55vh] overflow-y-auto custom-scrollbar">
+              {filteredCopyMenuItems.length === 0 ? (
+                <div className="py-16 text-center">
+                  <Menu size={42} className="mx-auto mb-4 text-gray-300" />
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">No menu items found</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {filteredCopyMenuItems.map(({ item, restaurantName }) => {
+                    const isSelected = selectedCopyMenuItemIds.includes(item.id);
+                    const price = Number.isFinite(item.price) ? item.price.toFixed(2) : '0.00';
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => toggleCopyMenuItem(item.id)}
+                        className={`w-full px-5 py-3 flex items-center gap-4 text-left transition-colors ${
+                          isSelected ? 'bg-orange-50 dark:bg-orange-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 ${
+                          isSelected ? 'bg-orange-500 border-orange-500' : 'border-gray-300 dark:border-gray-600'
+                        }`}>
+                          {isSelected && <CheckCircle2 size={13} className="text-white" />}
+                        </div>
+                        <img
+                          src={item.image}
+                          alt=""
+                          className="w-11 h-11 rounded-xl object-cover bg-gray-100 dark:bg-gray-700 shrink-0"
+                          onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44"><rect width="44" height="44" rx="12" fill="%23f3f4f6"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${item.name?.charAt(0) || 'M'}</text></svg>`)}`; }}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-black text-xs dark:text-white truncate">{item.name}</span>
+                            {item.isArchived && <span className="px-2 py-0.5 rounded-md bg-gray-200 dark:bg-gray-700 text-[8px] font-black uppercase tracking-widest text-gray-500">Archived</span>}
+                          </div>
+                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest truncate">{restaurantName} / {item.category || 'Uncategorized'}</p>
+                        </div>
+                        <span className="text-xs font-black text-orange-500 whitespace-nowrap">RM {price}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="p-5 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between gap-4">
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{selectedCopyMenuItemIds.length} selected</span>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCopyMenuTarget(null)}
+                  disabled={isCopyingMenu}
+                  className="px-5 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 font-black text-[10px] uppercase tracking-widest disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyMenuItems}
+                  disabled={isCopyingMenu || selectedCopyMenuItemIds.length === 0}
+                  className="px-5 py-3 rounded-xl bg-orange-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+                >
+                  {isCopyingMenu ? <><RefreshCw size={14} className="animate-spin" /> Copying...</> : <><Plus size={14} /> Add to Vendor</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Vendor Registration/Edit Modal - UPDATED with Platform Access */}
       {isModalOpen && (

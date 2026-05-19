@@ -1732,6 +1732,105 @@ const App: React.FC = () => {
     }
   };
 
+  const handleCopyMenuItems = async (restaurantId: string, items: MenuItem[]): Promise<number> => {
+    if (!restaurantId || items.length === 0) return 0;
+    const copyJson = <T,>(value: T): T => (
+      value === undefined || value === null ? value : JSON.parse(JSON.stringify(value))
+    );
+    const restaurantList = restaurantsRef.current;
+    const targetRestaurant = restaurantList.find(restaurant => restaurant.id === restaurantId);
+
+    const mergedCategories = [...(targetRestaurant?.categories || [])];
+    const mergedModifiers = [...(targetRestaurant?.modifiers || [])];
+    const mergedAddOnItems = [...(targetRestaurant?.addOnItems || [])];
+    let shouldUpdateRestaurantMeta = false;
+
+    const addCategory = (name?: string) => {
+      const trimmed = (name || '').trim();
+      if (!trimmed || mergedCategories.some(category => category.name.toLowerCase() === trimmed.toLowerCase())) return;
+      mergedCategories.push({ name: trimmed });
+      shouldUpdateRestaurantMeta = true;
+    };
+
+    const addModifier = (modifier: any) => {
+      const name = String(modifier?.name || '').trim();
+      if (!name || mergedModifiers.some(existing => existing.name.toLowerCase() === name.toLowerCase())) return;
+      mergedModifiers.push(copyJson(modifier));
+      shouldUpdateRestaurantMeta = true;
+    };
+
+    const addOnItem = (addOn: any) => {
+      const name = String(addOn?.name || '').trim();
+      if (!name || mergedAddOnItems.some(existing => existing.name.toLowerCase() === name.toLowerCase())) return;
+      mergedAddOnItems.push(copyJson(addOn));
+      shouldUpdateRestaurantMeta = true;
+    };
+
+    items.forEach(item => {
+      addCategory(item.category);
+      const sourceRestaurant = restaurantList.find(restaurant => restaurant.menu.some(menuItem => menuItem.id === item.id));
+      const linkedModifierNames = new Set([...(item.linkedModifiers || []), item.otherVariantName].filter(Boolean));
+      sourceRestaurant?.modifiers
+        ?.filter(modifier => linkedModifierNames.has(modifier.name))
+        .forEach(addModifier);
+      const itemAddOnNames = new Set((item.addOns || []).map(addOn => addOn.name));
+      sourceRestaurant?.addOnItems
+        ?.filter(addOn => itemAddOnNames.has(addOn.name))
+        .forEach(addOnItem);
+    });
+
+    if (shouldUpdateRestaurantMeta) {
+      const { error: metaError } = await supabase.from('restaurants').update({
+        categories: mergedCategories,
+        modifiers: mergedModifiers,
+        add_on_items: mergedAddOnItems,
+      }).eq('id', restaurantId);
+      if (metaError) {
+        console.error("Copy menu metadata error:", metaError);
+        throw new Error("Error copying menu metadata: " + metaError.message);
+      }
+    }
+
+    const rows = items.map(item => ({
+      id: crypto.randomUUID(),
+      restaurant_id: restaurantId,
+      name: item.name,
+      description: item.description,
+      price: item.price,
+      image: item.image,
+      category: item.category,
+      is_archived: item.isArchived ?? false,
+      sizes: copyJson(item.sizes || []),
+      temp_options: copyJson(item.tempOptions || { enabled: false, hot: 0, cold: 0, options: [] }),
+      other_variants: {
+        name: item.otherVariantName,
+        options: copyJson(item.otherVariants || []),
+        enabled: item.otherVariantsEnabled,
+        linkedModifiers: copyJson(item.linkedModifiers || []),
+        variantOptions: copyJson(item.variantOptions || { enabled: false, options: [] }),
+        cost: item.cost ?? 0,
+        sku: item.sku ?? '',
+        barcode: item.barcode ?? '',
+        soldBy: item.soldBy ?? 'each',
+        trackStock: item.trackStock ?? false,
+        color: item.color ?? null,
+        onlineDisabled: item.onlineDisabled ?? false,
+        onlinePrice: item.onlinePrice ?? null,
+        mixAndMatch: copyJson(item.mixAndMatch || { enabled: false, selections: [] }),
+      },
+      add_ons: copyJson(item.addOns || [])
+    }));
+
+    const { error } = await supabase.from('menu_items').insert(rows);
+    if (error) {
+      console.error("Copy menu error:", error);
+      throw new Error("Error copying menu items: " + error.message);
+    }
+
+    await fetchRestaurants();
+    return rows.length;
+  };
+
   const handleDeleteMenuItem = async (restaurantId: string, itemId: string) => {
     const { error } = await supabase.from('menu_items').delete().eq('id', itemId).eq('restaurant_id', restaurantId);
     if (!error) fetchRestaurants();
@@ -2934,6 +3033,7 @@ const App: React.FC = () => {
             onDeleteLocation={handleDeleteLocation} 
             onToggleOnline={toggleVendorOnline} 
             onDeleteVendor={handleDeleteVendor}
+            onCopyMenuItems={handleCopyMenuItems}
             onRemoveVendorFromHub={(rid) => supabase.from('restaurants').update({ location_name: null }).eq('id', rid).then(() => fetchRestaurants())} 
             onFetchPaginatedOrders={onFetchPaginatedOrders}
             onFetchAllFilteredOrders={onFetchAllFilteredOrders}
