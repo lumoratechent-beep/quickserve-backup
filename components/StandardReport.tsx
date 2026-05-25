@@ -86,6 +86,8 @@ const StandardReport: React.FC<Props> = ({
     { value: 'lastMonth', label: 'Last Month' },
     { value: 'custom', label: 'Custom Range' },
   ] as const;
+  const hourOptions = Array.from({ length: 24 }, (_, hour) => hour);
+  const minuteOptions = Array.from({ length: 60 }, (_, minute) => minute);
 
   const formatMinuteToTime = (minutes: number) => {
     const hour = Math.floor(minutes / 60);
@@ -251,6 +253,39 @@ const StandardReport: React.FC<Props> = ({
     }
   }, [applyCurrentShiftFilter, filteredReports, reportData]);
 
+  const renderTimePicker = (
+    value: number,
+    onChange: (value: number) => void,
+  ) => {
+    const selectedHour = Math.floor(value / 60);
+    const selectedMinute = value % 60;
+    return (
+      <div className="flex items-center gap-1.5">
+        <select
+          value={selectedHour}
+          onChange={(e) => onChange(Number(e.target.value) * 60 + selectedMinute)}
+          className="w-16 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white p-2 outline-none focus:ring-1 focus:ring-orange-500"
+          aria-label="Hour"
+        >
+          {hourOptions.map((hour) => (
+            <option key={hour} value={hour}>{hour.toString().padStart(2, '0')}</option>
+          ))}
+        </select>
+        <span className="text-xs font-black text-gray-400">:</span>
+        <select
+          value={selectedMinute}
+          onChange={(e) => onChange(selectedHour * 60 + Number(e.target.value))}
+          className="w-16 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white p-2 outline-none focus:ring-1 focus:ring-orange-500"
+          aria-label="Minute"
+        >
+          {minuteOptions.map((minute) => (
+            <option key={minute} value={minute}>{minute.toString().padStart(2, '0')}</option>
+          ))}
+        </select>
+      </div>
+    );
+  };
+
   return (
     <div className="animate-in fade-in duration-500">
       {showHeader && (
@@ -400,7 +435,7 @@ const StandardReport: React.FC<Props> = ({
               Choose date and time range to filter report data.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 md:items-stretch">
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">From Date</p>
@@ -413,18 +448,18 @@ const StandardReport: React.FC<Props> = ({
                 </div>
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">From Time</p>
-                  <input
-                    type="time"
-                    value={formatMinuteToTime(draftTimeStartMinutes)}
-                    onChange={(e) => {
-                      const [hour, minute] = e.target.value.split(':').map(Number);
-                      if (Number.isFinite(hour) && Number.isFinite(minute)) {
-                        setDraftTimeStartMinutes(Math.min(hour * 60 + minute, draftTimeEndMinutes));
-                      }
-                    }}
-                    className="w-full bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white p-2"
-                  />
+                  {renderTimePicker(
+                    draftTimeStartMinutes,
+                    (next) => setDraftTimeStartMinutes(Math.min(next, draftTimeEndMinutes)),
+                  )}
                 </div>
+              </div>
+              <div className="flex md:flex-col items-center justify-center gap-2">
+                <div className="h-px md:h-auto md:w-px flex-1 bg-gray-200 dark:bg-gray-700" />
+                <span className="px-2 py-1 rounded-md bg-orange-50 dark:bg-orange-900/20 text-[10px] font-black text-orange-500 uppercase tracking-widest">
+                  To
+                </span>
+                <div className="h-px md:h-auto md:w-px flex-1 bg-gray-200 dark:bg-gray-700" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
                 <div>
@@ -438,17 +473,10 @@ const StandardReport: React.FC<Props> = ({
                 </div>
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">To Time</p>
-                  <input
-                    type="time"
-                    value={formatMinuteToTime(draftTimeEndMinutes)}
-                    onChange={(e) => {
-                      const [hour, minute] = e.target.value.split(':').map(Number);
-                      if (Number.isFinite(hour) && Number.isFinite(minute)) {
-                        setDraftTimeEndMinutes(Math.max(hour * 60 + minute, draftTimeStartMinutes));
-                      }
-                    }}
-                    className="w-full bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white p-2"
-                  />
+                  {renderTimePicker(
+                    draftTimeEndMinutes,
+                    (next) => setDraftTimeEndMinutes(Math.max(next, draftTimeStartMinutes)),
+                  )}
                 </div>
               </div>
             </div>
