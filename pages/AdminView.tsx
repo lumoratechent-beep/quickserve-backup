@@ -700,6 +700,7 @@ const AdminView: React.FC<Props> = ({
   const [quotationPdfUrl, setQuotationPdfUrl] = useState<string | null>(null);
   const [quotationPdfName, setQuotationPdfName] = useState('quotation.pdf');
   const [quotationLookupOpenLineId, setQuotationLookupOpenLineId] = useState<string | null>(null);
+  const [isSyncingQuotations, setIsSyncingQuotations] = useState(false);
   const [soldItems, setSoldItems] = useState<AdminSoldItem[]>(() => {
     try {
       const saved = localStorage.getItem(ADMIN_SOLD_ITEMS_STORAGE_KEY);
@@ -722,6 +723,7 @@ const AdminView: React.FC<Props> = ({
     updatedAt: Date.now(),
   }));
   const [editingSoldItemId, setEditingSoldItemId] = useState<string | null>(null);
+  const [isSyncingSoldItems, setIsSyncingSoldItems] = useState(false);
   const quotationsRef = useRef(quotations);
   const soldItemsRef = useRef(soldItems);
 
@@ -805,7 +807,7 @@ const AdminView: React.FC<Props> = ({
       return !remote || (record.updatedAt || 0) > (remote.updatedAt || 0);
     });
 
-    if (recordsToSync.length === 0) return;
+    if (recordsToSync.length === 0) return 0;
 
     const rows = recordsToSync.map(quote => {
       const totals = calculateQuotationTotals(quote);
@@ -824,7 +826,7 @@ const AdminView: React.FC<Props> = ({
 
     const { error } = await supabase.from('admin_quotations').upsert(rows);
     if (error) throw error;
-    toast(`Synced ${recordsToSync.length} local quotation${recordsToSync.length === 1 ? '' : 's'} to Supabase`, 'success');
+    return recordsToSync.length;
   };
 
   const syncLocalSoldItemsToDb = async (localRecords: AdminSoldItem[], remoteRecords: AdminSoldItem[]) => {
@@ -834,7 +836,7 @@ const AdminView: React.FC<Props> = ({
       return !remote || (record.updatedAt || 0) > (remote.updatedAt || 0);
     });
 
-    if (recordsToSync.length === 0) return;
+    if (recordsToSync.length === 0) return 0;
 
     const rows = recordsToSync.map(item => ({
       id: item.id,
@@ -852,7 +854,63 @@ const AdminView: React.FC<Props> = ({
 
     const { error } = await supabase.from('admin_sold_items').upsert(rows);
     if (error) throw error;
-    toast(`Synced ${recordsToSync.length} local shop item${recordsToSync.length === 1 ? '' : 's'} to Supabase`, 'success');
+    return recordsToSync.length;
+  };
+
+  const syncQuotations = async (showDoneToast = false) => {
+    setIsSyncingQuotations(true);
+    try {
+      const { data, error } = await supabase
+        .from('admin_quotations')
+        .select('quote_data')
+        .order('updated_at', { ascending: false });
+      if (error) throw error;
+
+      const remote = (data || [])
+        .map((row: any) => normalizeAdminQuotation(row.quote_data))
+        .filter(Boolean) as AdminQuotation[];
+      const local = quotationsRef.current;
+      saveQuotations(mergeAdminRecords(local, remote));
+      const uploadedCount = await syncLocalQuotationsToDb(local, remote);
+
+      if (uploadedCount > 0) {
+        toast(`Synced ${uploadedCount} local quotation${uploadedCount === 1 ? '' : 's'} to Supabase`, 'success');
+      } else if (showDoneToast) {
+        toast('Quotations synced with Supabase', 'success');
+      }
+    } catch (error: any) {
+      toast(`Unable to sync quotations: ${error?.message || 'unknown error'}`, 'error', 7000);
+    } finally {
+      setIsSyncingQuotations(false);
+    }
+  };
+
+  const syncSoldItems = async (showDoneToast = false) => {
+    setIsSyncingSoldItems(true);
+    try {
+      const { data, error } = await supabase
+        .from('admin_sold_items')
+        .select('item_data')
+        .order('updated_at', { ascending: false });
+      if (error) throw error;
+
+      const remote = (data || [])
+        .map((row: any) => normalizeAdminSoldItem(row.item_data))
+        .filter(Boolean) as AdminSoldItem[];
+      const local = soldItemsRef.current;
+      saveSoldItems(mergeAdminRecords(local, remote));
+      const uploadedCount = await syncLocalSoldItemsToDb(local, remote);
+
+      if (uploadedCount > 0) {
+        toast(`Synced ${uploadedCount} local shop item${uploadedCount === 1 ? '' : 's'} to Supabase`, 'success');
+      } else if (showDoneToast) {
+        toast('Shop items synced with Supabase', 'success');
+      }
+    } catch (error: any) {
+      toast(`Unable to sync shop items: ${error?.message || 'unknown error'}`, 'error', 7000);
+    } finally {
+      setIsSyncingSoldItems(false);
+    }
   };
 
   const deleteQuotation = async (quoteId: string) => {
@@ -1473,56 +1531,12 @@ const AdminView: React.FC<Props> = ({
 
   useEffect(() => {
     if (activeTab !== 'QUOTATION') return;
-    let cancelled = false;
-
-    const fetchQuotations = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('admin_quotations')
-          .select('quote_data')
-          .order('updated_at', { ascending: false });
-        if (error) throw error;
-        if (cancelled || !data) return;
-        const remote = data
-          .map((row: any) => normalizeAdminQuotation(row.quote_data))
-          .filter(Boolean) as AdminQuotation[];
-        const local = quotationsRef.current;
-        saveQuotations(mergeAdminRecords(local, remote));
-        await syncLocalQuotationsToDb(local, remote);
-      } catch (error: any) {
-        toast(`Unable to load quotations from Supabase: ${error?.message || 'unknown error'}`, 'error', 7000);
-      }
-    };
-
-    fetchQuotations();
-    return () => { cancelled = true; };
+    syncQuotations();
   }, [activeTab]);
 
   useEffect(() => {
     if (activeTab !== 'SHOP') return;
-    let cancelled = false;
-
-    const fetchSoldItems = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('admin_sold_items')
-          .select('item_data')
-          .order('updated_at', { ascending: false });
-        if (error) throw error;
-        if (cancelled || !data) return;
-        const remote = data
-          .map((row: any) => normalizeAdminSoldItem(row.item_data))
-          .filter(Boolean) as AdminSoldItem[];
-        const local = soldItemsRef.current;
-        saveSoldItems(mergeAdminRecords(local, remote));
-        await syncLocalSoldItemsToDb(local, remote);
-      } catch (error: any) {
-        toast(`Unable to load shop items from Supabase: ${error?.message || 'unknown error'}`, 'error', 7000);
-      }
-    };
-
-    fetchSoldItems();
-    return () => { cancelled = true; };
+    syncSoldItems();
   }, [activeTab]);
 
   useEffect(() => () => {
@@ -3848,6 +3862,13 @@ const AdminView: React.FC<Props> = ({
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => syncQuotations(true)}
+                  disabled={isSyncingQuotations}
+                  className="h-10 px-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-300 text-xs font-black uppercase tracking-widest hover:border-blue-300 transition-all flex items-center gap-2 disabled:opacity-60"
+                >
+                  <RefreshCw size={15} className={isSyncingQuotations ? 'animate-spin' : ''} /> Sync
+                </button>
+                <button
                   onClick={resetQuotationForm}
                   className="h-10 px-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-300 text-xs font-black uppercase tracking-widest hover:border-orange-300 transition-all flex items-center gap-2"
                 >
@@ -4225,9 +4246,18 @@ const AdminView: React.FC<Props> = ({
                 </h2>
                 <p className="text-xs text-gray-400 mt-1">Manage sold items used by quotation lookup.</p>
               </div>
-              <button onClick={resetSoldItemForm} className="h-10 px-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-300 text-xs font-black uppercase tracking-widest hover:border-orange-300 transition-all flex items-center gap-2">
-                <Plus size={15} /> New Item
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => syncSoldItems(true)}
+                  disabled={isSyncingSoldItems}
+                  className="h-10 px-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-300 text-xs font-black uppercase tracking-widest hover:border-blue-300 transition-all flex items-center gap-2 disabled:opacity-60"
+                >
+                  <RefreshCw size={15} className={isSyncingSoldItems ? 'animate-spin' : ''} /> Sync
+                </button>
+                <button onClick={resetSoldItemForm} className="h-10 px-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-300 text-xs font-black uppercase tracking-widest hover:border-orange-300 transition-all flex items-center gap-2">
+                  <Plus size={15} /> New Item
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-[0.8fr_1.2fr] gap-6">
