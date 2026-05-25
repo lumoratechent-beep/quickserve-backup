@@ -31,6 +31,7 @@ interface Props {
   onSelectOrder?: (order: Order) => void;
   title?: string;
   description?: string;
+  showHeader?: boolean;
   activeShift?: CashierShift | null;
   applyCurrentShiftFilter?: boolean;
   isSidebarCollapsed?: boolean;
@@ -57,6 +58,7 @@ const StandardReport: React.FC<Props> = ({
   onSelectOrder,
   title = "Sales Report",
   description = "Financial performance and order history.",
+  showHeader = true,
   activeShift,
   applyCurrentShiftFilter = false,
 }) => {
@@ -251,10 +253,12 @@ const StandardReport: React.FC<Props> = ({
 
   return (
     <div className="animate-in fade-in duration-500">
-      <div className="mb-5">
-        <h2 className="text-lg font-black mb-1 dark:text-white uppercase tracking-tighter">{title}</h2>
-        <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">{description}</p>
-      </div>
+      {showHeader && (
+        <div className="mb-5">
+          <h2 className="text-lg font-black mb-1 dark:text-white uppercase tracking-tighter">{title}</h2>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">{description}</p>
+        </div>
+      )}
       {isShiftReportWithoutActiveShift && (
         <div className="mb-4 px-4 py-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700">
           <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">
@@ -390,13 +394,13 @@ const StandardReport: React.FC<Props> = ({
 
       {showDateRangeModal && (
         <div className="fixed inset-0 z-[140] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 md:p-5 shadow-xl">
+          <div className="w-full max-w-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5 md:p-6 shadow-xl">
             <p className="text-sm font-black dark:text-white uppercase tracking-wider mb-1">Custom Range</p>
             <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">
               Choose date and time range to filter report data.
             </p>
 
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">From Date</p>
@@ -496,7 +500,7 @@ const StandardReport: React.FC<Props> = ({
           <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Total Revenue</p>
           <p className="text-xl md:text-2xl font-black dark:text-white">RM{displaySummary.totalRevenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           <p className="text-[11px] text-gray-500 dark:text-gray-400 font-black mt-1">{displaySummary.orderVolume} sales</p>
-          <p className="text-[11px] text-gray-500 dark:text-gray-400 font-black mt-1">{revenuePeriodLabel}</p>
+          <p className="text-[11px] text-orange-500 dark:text-orange-400 font-black mt-1">{revenuePeriodLabel}</p>
         </div>
 
         {/* By Transaction Type */}

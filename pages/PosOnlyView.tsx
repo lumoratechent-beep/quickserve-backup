@@ -7227,9 +7227,13 @@ const PosOnlyView: React.FC<Props> = ({
                 </div>
               )}
               <div className="mb-6">
-                <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">Sales Report</h1>
+                <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">
+                  {reportsSubMenu === 'shiftReport' ? 'Shift Report' : 'Sales Report'}
+                </h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">
-                  Financial performance and order history.
+                  {reportsSubMenu === 'shiftReport'
+                    ? 'Current shift sales and transaction summary.'
+                    : 'Financial performance and order history.'}
                 </p>
               </div>
               {/* Report Type Tabs */}
@@ -7258,6 +7262,7 @@ const PosOnlyView: React.FC<Props> = ({
                   <StandardReport
                     title="Total Sales"
                     description="Review total revenue, payment breakdowns, cashier totals, and order history."
+                    showHeader={false}
                     reportStart={reportStart}
                     reportEnd={reportEnd}
                     reportStatus={reportStatus}
@@ -7296,6 +7301,7 @@ const PosOnlyView: React.FC<Props> = ({
                     <StandardReport
                       title="Shift Report"
                       description="Review orders and tender totals captured during the active cashier shift."
+                      showHeader={false}
                       reportStart={reportStart}
                       reportEnd={reportEnd}
                       reportStatus={reportStatus}
