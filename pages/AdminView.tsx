@@ -144,6 +144,44 @@ const calculateQuotationTotals = (quote: Pick<AdminQuotation, 'items' | 'discoun
 const ADMIN_QUOTATIONS_STORAGE_KEY = 'qs_admin_quotations';
 const ADMIN_SOLD_ITEMS_STORAGE_KEY = 'qs_admin_sold_items';
 
+const mergeAdminRecords = <T extends { id: string; updatedAt?: number }>(localRecords: T[], remoteRecords: T[]) => {
+  const merged = new Map<string, T>();
+  [...localRecords, ...remoteRecords].forEach(record => {
+    const existing = merged.get(record.id);
+    if (!existing || (record.updatedAt || 0) >= (existing.updatedAt || 0)) {
+      merged.set(record.id, record);
+    }
+  });
+  return Array.from(merged.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+};
+
+const normalizeAdminQuotation = (quote: any): AdminQuotation | null => {
+  if (!quote || typeof quote !== 'object') return null;
+  return {
+    ...createBlankQuotation(),
+    ...quote,
+    items: Array.isArray(quote.items)
+      ? quote.items.map((item: any) => ({ ...item, lookupQuery: item.lookupQuery || item.description || '' }))
+      : [],
+  };
+};
+
+const normalizeAdminSoldItem = (item: any): AdminSoldItem | null => {
+  if (!item || typeof item !== 'object') return null;
+  return {
+    id: String(item.id || `sold_${Date.now()}`),
+    name: String(item.name || ''),
+    sku: String(item.sku || ''),
+    description: String(item.description || ''),
+    price: item.price ?? 0,
+    costPrice: item.costPrice ?? item.cost_price ?? 0,
+    category: String(item.category || ''),
+    isActive: item.isActive ?? item.is_active ?? true,
+    createdAt: Number(item.createdAt || Date.now()),
+    updatedAt: Number(item.updatedAt || Date.now()),
+  };
+};
+
 // System Status Dashboard Component (keep as is)
 const SystemStatusDashboard: React.FC = () => {
   // ... (keep the entire SystemStatusDashboard component exactly as it was in your original code)
@@ -684,6 +722,16 @@ const AdminView: React.FC<Props> = ({
     updatedAt: Date.now(),
   }));
   const [editingSoldItemId, setEditingSoldItemId] = useState<string | null>(null);
+  const quotationsRef = useRef(quotations);
+  const soldItemsRef = useRef(soldItems);
+
+  useEffect(() => {
+    quotationsRef.current = quotations;
+  }, [quotations]);
+
+  useEffect(() => {
+    soldItemsRef.current = soldItems;
+  }, [soldItems]);
 
   const saveQuotations = (next: AdminQuotation[]) => {
     setQuotations(next);
@@ -712,7 +760,7 @@ const AdminView: React.FC<Props> = ({
   const persistQuotationToDb = async (quote: AdminQuotation) => {
     try {
       const totals = calculateQuotationTotals(quote);
-      await supabase.from('admin_quotations').upsert({
+      const { error } = await supabase.from('admin_quotations').upsert({
         id: quote.id,
         quote_no: quote.quoteNo,
         customer_name: quote.customerName,
@@ -723,14 +771,15 @@ const AdminView: React.FC<Props> = ({
         created_at: new Date(quote.createdAt).toISOString(),
         updated_at: new Date(quote.updatedAt).toISOString(),
       });
-    } catch {
-      // LocalStorage remains the offline fallback when the table is not available yet.
+      if (error) throw error;
+    } catch (error: any) {
+      toast(`Quotation saved locally, but Supabase sync failed: ${error?.message || 'unknown error'}`, 'error', 7000);
     }
   };
 
   const persistSoldItemToDb = async (item: AdminSoldItem) => {
     try {
-      await supabase.from('admin_sold_items').upsert({
+      const { error } = await supabase.from('admin_sold_items').upsert({
         id: item.id,
         name: item.name,
         sku: item.sku,
@@ -743,8 +792,9 @@ const AdminView: React.FC<Props> = ({
         created_at: new Date(item.createdAt).toISOString(),
         updated_at: new Date(item.updatedAt).toISOString(),
       });
-    } catch {
-      // LocalStorage remains the offline fallback when the table is not available yet.
+      if (error) throw error;
+    } catch (error: any) {
+      toast(`Shop item saved locally, but Supabase sync failed: ${error?.message || 'unknown error'}`, 'error', 7000);
     }
   };
 
@@ -1374,18 +1424,14 @@ const AdminView: React.FC<Props> = ({
           .from('admin_quotations')
           .select('quote_data')
           .order('updated_at', { ascending: false });
-        if (error || cancelled || !data) return;
-        const next = data.map((row: any) => {
-          const quote = row.quote_data;
-          return quote ? {
-            ...createBlankQuotation(),
-            ...quote,
-            items: Array.isArray(quote.items) ? quote.items.map((item: any) => ({ ...item, lookupQuery: item.lookupQuery || item.description || '' })) : [],
-          } : null;
-        }).filter(Boolean) as AdminQuotation[];
-        if (next.length > 0) saveQuotations(next);
-      } catch {
-        // Keep local drafts visible when the database migration has not been applied.
+        if (error) throw error;
+        if (cancelled || !data) return;
+        const remote = data
+          .map((row: any) => normalizeAdminQuotation(row.quote_data))
+          .filter(Boolean) as AdminQuotation[];
+        saveQuotations(mergeAdminRecords(quotationsRef.current, remote));
+      } catch (error: any) {
+        toast(`Unable to load quotations from Supabase: ${error?.message || 'unknown error'}`, 'error', 7000);
       }
     };
 
@@ -1403,11 +1449,14 @@ const AdminView: React.FC<Props> = ({
           .from('admin_sold_items')
           .select('item_data')
           .order('updated_at', { ascending: false });
-        if (error || cancelled || !data) return;
-        const next = data.map((row: any) => row.item_data).filter(Boolean) as AdminSoldItem[];
-        if (next.length > 0) saveSoldItems(next);
-      } catch {
-        // Keep local shop items visible when the database migration has not been applied.
+        if (error) throw error;
+        if (cancelled || !data) return;
+        const remote = data
+          .map((row: any) => normalizeAdminSoldItem(row.item_data))
+          .filter(Boolean) as AdminSoldItem[];
+        saveSoldItems(mergeAdminRecords(soldItemsRef.current, remote));
+      } catch (error: any) {
+        toast(`Unable to load shop items from Supabase: ${error?.message || 'unknown error'}`, 'error', 7000);
       }
     };
 
