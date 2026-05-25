@@ -429,14 +429,14 @@ const StandardReport: React.FC<Props> = ({
 
       {showDateRangeModal && (
         <div className="fixed inset-0 z-[140] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5 md:p-6 shadow-xl">
+          <div className="w-full max-w-2xl min-h-[440px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5 md:p-7 shadow-xl flex flex-col">
             <p className="text-sm font-black dark:text-white uppercase tracking-wider mb-1">Custom Range</p>
             <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">
               Choose date and time range to filter report data.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 md:items-stretch">
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
+            <div className="flex-1 flex flex-col justify-center gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">From Date</p>
                   <input
@@ -454,14 +454,14 @@ const StandardReport: React.FC<Props> = ({
                   )}
                 </div>
               </div>
-              <div className="flex md:flex-col items-center justify-center gap-2">
-                <div className="h-px md:h-auto md:w-px flex-1 bg-gray-200 dark:bg-gray-700" />
-                <span className="px-2 py-1 rounded-md bg-orange-50 dark:bg-orange-900/20 text-[10px] font-black text-orange-500 uppercase tracking-widest">
+              <div className="flex items-center justify-center gap-3">
+                <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+                <span className="px-3 py-1.5 rounded-md bg-orange-50 dark:bg-orange-900/20 text-[10px] font-black text-orange-500 uppercase tracking-widest">
                   To
                 </span>
-                <div className="h-px md:h-auto md:w-px flex-1 bg-gray-200 dark:bg-gray-700" />
+                <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">To Date</p>
                   <input
