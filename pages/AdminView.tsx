@@ -798,6 +798,63 @@ const AdminView: React.FC<Props> = ({
     }
   };
 
+  const syncLocalQuotationsToDb = async (localRecords: AdminQuotation[], remoteRecords: AdminQuotation[]) => {
+    const remoteById = new Map(remoteRecords.map(record => [record.id, record]));
+    const recordsToSync = localRecords.filter(record => {
+      const remote = remoteById.get(record.id);
+      return !remote || (record.updatedAt || 0) > (remote.updatedAt || 0);
+    });
+
+    if (recordsToSync.length === 0) return;
+
+    const rows = recordsToSync.map(quote => {
+      const totals = calculateQuotationTotals(quote);
+      return {
+        id: quote.id,
+        quote_no: quote.quoteNo,
+        customer_name: quote.customerName,
+        company_name: quote.companyName,
+        status: quote.status,
+        total: totals.total,
+        quote_data: quote,
+        created_at: new Date(quote.createdAt).toISOString(),
+        updated_at: new Date(quote.updatedAt).toISOString(),
+      };
+    });
+
+    const { error } = await supabase.from('admin_quotations').upsert(rows);
+    if (error) throw error;
+    toast(`Synced ${recordsToSync.length} local quotation${recordsToSync.length === 1 ? '' : 's'} to Supabase`, 'success');
+  };
+
+  const syncLocalSoldItemsToDb = async (localRecords: AdminSoldItem[], remoteRecords: AdminSoldItem[]) => {
+    const remoteById = new Map(remoteRecords.map(record => [record.id, record]));
+    const recordsToSync = localRecords.filter(record => {
+      const remote = remoteById.get(record.id);
+      return !remote || (record.updatedAt || 0) > (remote.updatedAt || 0);
+    });
+
+    if (recordsToSync.length === 0) return;
+
+    const rows = recordsToSync.map(item => ({
+      id: item.id,
+      name: item.name,
+      sku: item.sku,
+      description: item.description,
+      price: Number(item.price) || 0,
+      cost_price: Number(item.costPrice) || 0,
+      category: item.category,
+      is_active: item.isActive,
+      item_data: item,
+      created_at: new Date(item.createdAt).toISOString(),
+      updated_at: new Date(item.updatedAt).toISOString(),
+    }));
+
+    const { error } = await supabase.from('admin_sold_items').upsert(rows);
+    if (error) throw error;
+    toast(`Synced ${recordsToSync.length} local shop item${recordsToSync.length === 1 ? '' : 's'} to Supabase`, 'success');
+  };
+
   const deleteQuotation = async (quoteId: string) => {
     saveQuotations(quotations.filter(q => q.id !== quoteId));
     try {
@@ -1429,7 +1486,9 @@ const AdminView: React.FC<Props> = ({
         const remote = data
           .map((row: any) => normalizeAdminQuotation(row.quote_data))
           .filter(Boolean) as AdminQuotation[];
-        saveQuotations(mergeAdminRecords(quotationsRef.current, remote));
+        const local = quotationsRef.current;
+        saveQuotations(mergeAdminRecords(local, remote));
+        await syncLocalQuotationsToDb(local, remote);
       } catch (error: any) {
         toast(`Unable to load quotations from Supabase: ${error?.message || 'unknown error'}`, 'error', 7000);
       }
@@ -1454,7 +1513,9 @@ const AdminView: React.FC<Props> = ({
         const remote = data
           .map((row: any) => normalizeAdminSoldItem(row.item_data))
           .filter(Boolean) as AdminSoldItem[];
-        saveSoldItems(mergeAdminRecords(soldItemsRef.current, remote));
+        const local = soldItemsRef.current;
+        saveSoldItems(mergeAdminRecords(local, remote));
+        await syncLocalSoldItemsToDb(local, remote);
       } catch (error: any) {
         toast(`Unable to load shop items from Supabase: ${error?.message || 'unknown error'}`, 'error', 7000);
       }
