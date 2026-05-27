@@ -233,6 +233,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   const [payrollForm, setPayrollForm] = useState<PayrollForm>(() => blankPayrollForm());
   const [overtimeRate, setOvertimeRate] = useState(0);
   const [overtimeEntries, setOvertimeEntries] = useState<OvertimeEntry[]>(() => [blankOvertimeEntry()]);
+  const [isOvertimeOpen, setIsOvertimeOpen] = useState(false);
   const [epfEmployeeMode, setEpfEmployeeMode] = useState<ContributionMode>('percentage');
   const [epfEmployeePercent, setEpfEmployeePercent] = useState(11);
   const [epfEmployerMode, setEpfEmployerMode] = useState<ContributionMode>('percentage');
@@ -514,6 +515,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     resetEpfContributionModes();
     setOvertimeRate(n(item.profile?.overtime_rate));
     setOvertimeEntries([blankOvertimeEntry()]);
+    setIsOvertimeOpen(false);
     setPayrollForm(prev => ({
       ...prev,
       staffUserId: item.id,
@@ -534,6 +536,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     resetEpfContributionModes();
     setOvertimeRate(0);
     setOvertimeEntries([blankOvertimeEntry()]);
+    setIsOvertimeOpen(false);
     if (item) applyPayrollTemplate(item);
     setIsPayslipFormOpen(true);
   };
@@ -548,6 +551,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     setEpfEmployerPercent(13);
     setOvertimeRate(copiedOvertime > 0 ? copiedOvertime : n(item?.profile?.overtime_rate));
     setOvertimeEntries(copiedOvertime > 0 ? [{ id: crypto.randomUUID(), hours: 1, multiplier: 1 }] : [blankOvertimeEntry()]);
+    setIsOvertimeOpen(copiedOvertime > 0);
     setPayrollForm({
       staffUserId: payslip.staff_user_id,
       payPeriod: monthLabel(),
@@ -820,14 +824,19 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
               <div className="md:col-span-2 xl:col-span-4">
-                <label className={labelClass}>Staff</label>
-                <select value={payrollForm.staffUserId} onChange={event => { const selected = staff.find(item => item.id === event.target.value); if (selected) applyPayrollTemplate(selected); else { setOvertimeRate(0); setOvertimeEntries([blankOvertimeEntry()]); setPayrollForm(form => ({ ...form, staffUserId: '', overtimeAmount: 0 })); } }} className={fieldClass}>
-                  <option value="">Select staff</option>
-                  {staff.map(item => <option key={item.id} value={item.id}>{item.profile?.full_name || item.username} ({item.role})</option>)}
-                </select>
+                <h4 className="mb-3 text-sm font-semibold text-sky-600 dark:text-sky-400">Staff Details</h4>
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr_1fr]">
+                  <div>
+                    <label className={labelClass}>Staff</label>
+                    <select value={payrollForm.staffUserId} onChange={event => { const selected = staff.find(item => item.id === event.target.value); if (selected) applyPayrollTemplate(selected); else { setOvertimeRate(0); setOvertimeEntries([blankOvertimeEntry()]); setIsOvertimeOpen(false); setPayrollForm(form => ({ ...form, staffUserId: '', overtimeAmount: 0 })); } }} className={fieldClass}>
+                      <option value="">Select staff</option>
+                      {staff.map(item => <option key={item.id} value={item.id}>{item.profile?.full_name || item.username} ({item.role})</option>)}
+                    </select>
+                  </div>
+                  <Field label="Pay Period" value={payrollForm.payPeriod} onChange={value => setPayrollForm(form => ({ ...form, payPeriod: value }))} />
+                  <Field label="Pay Date" type="date" value={payrollForm.payDate} onChange={value => setPayrollForm(form => ({ ...form, payDate: value }))} />
+                </div>
               </div>
-              <Field label="Pay Period" value={payrollForm.payPeriod} onChange={value => setPayrollForm(form => ({ ...form, payPeriod: value }))} />
-              <Field label="Pay Date" type="date" value={payrollForm.payDate} onChange={value => setPayrollForm(form => ({ ...form, payDate: value }))} />
 
               <PayrollSectionDivider title="Earnings" />
               <Field label="Basic Salary" type="number" value={payrollForm.basicSalary} onChange={value => setPayrollForm(form => ({ ...form, basicSalary: n(value) }))} />
@@ -835,41 +844,52 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <Field label="Bonus" type="number" value={payrollForm.bonusAmount} onChange={value => setPayrollForm(form => ({ ...form, bonusAmount: n(value) }))} />
               <Field label="OT Base Rate / Hour" type="number" value={overtimeRate} onChange={value => setOvertimeRate(n(value))} />
               <div className="mt-2 md:col-span-2 xl:col-span-4 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/60">
-                <div className="mb-3 flex items-center justify-between gap-3">
+                <div className={`${isOvertimeOpen ? 'mb-3' : ''} flex items-center justify-between gap-3`}>
                   <label className={labelClass}>Overtime</label>
-                  <button onClick={() => setOvertimeEntries(entries => [...entries, blankOvertimeEntry()])} className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-amber-600 shadow-sm ring-1 ring-gray-200 transition hover:ring-amber-300 dark:bg-gray-800 dark:ring-gray-700">
-                    <Plus size={12} /> Add OT
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {isOvertimeOpen && (
+                      <button onClick={() => setIsOvertimeOpen(false)} className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-gray-500 shadow-sm ring-1 ring-gray-200 transition hover:text-gray-700 hover:ring-gray-300 dark:bg-gray-800 dark:ring-gray-700 dark:hover:text-gray-200">
+                        Cancel
+                      </button>
+                    )}
+                    <button onClick={() => { if (!isOvertimeOpen) { setIsOvertimeOpen(true); return; } setOvertimeEntries(entries => [...entries, blankOvertimeEntry()]); }} className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-amber-600 shadow-sm ring-1 ring-gray-200 transition hover:ring-amber-300 dark:bg-gray-800 dark:ring-gray-700">
+                      <Plus size={12} /> Add OT
+                    </button>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  {overtimeEntries.map((entry, index) => {
-                    const amount = n(entry.hours) * n(overtimeRate) * n(entry.multiplier);
-                    return (
-                      <div key={entry.id} className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
-                        <div>
-                          <label className={labelClass}>Hours</label>
-                          <input type="number" min="0" step="0.01" value={entry.hours || ''} onChange={event => setOvertimeEntries(entries => entries.map(item => item.id === entry.id ? { ...item, hours: n(event.target.value) } : item))} className={fieldClass} placeholder="0" />
-                        </div>
-                        <div>
-                          <label className={labelClass}>Multiplier</label>
-                          <select value={entry.multiplier} onChange={event => setOvertimeEntries(entries => entries.map(item => item.id === entry.id ? { ...item, multiplier: n(event.target.value) } : item))} className={fieldClass}>
-                            {overtimeMultipliers.map(multiplier => <option key={multiplier} value={multiplier}>{multiplier.toFixed(1)}X</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className={labelClass}>Amount</label>
-                          <div className={`${fieldClass} bg-white font-bold dark:bg-gray-800`}>{fmt(amount)}</div>
-                        </div>
-                        <button onClick={() => setOvertimeEntries(entries => entries.length === 1 ? entries : entries.filter(item => item.id !== entry.id))} disabled={overtimeEntries.length === 1} className="rounded-xl p-3 text-gray-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-rose-900/20" title={`Remove OT ${index + 1}`}>
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="mt-3 flex justify-end pt-3 text-sm">
-                  <span className="text-gray-500">Overtime Total: <b className="text-gray-900 dark:text-white">{fmt(overtimeTotal)}</b></span>
-                </div>
+                {isOvertimeOpen && (
+                  <>
+                    <div className="space-y-2">
+                      {overtimeEntries.map((entry, index) => {
+                        const amount = n(entry.hours) * n(overtimeRate) * n(entry.multiplier);
+                        return (
+                          <div key={entry.id} className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
+                            <div>
+                              <label className={labelClass}>Hours</label>
+                              <input type="number" min="0" step="0.01" value={entry.hours || ''} onChange={event => setOvertimeEntries(entries => entries.map(item => item.id === entry.id ? { ...item, hours: n(event.target.value) } : item))} className={fieldClass} placeholder="0" />
+                            </div>
+                            <div>
+                              <label className={labelClass}>Multiplier</label>
+                              <select value={entry.multiplier} onChange={event => setOvertimeEntries(entries => entries.map(item => item.id === entry.id ? { ...item, multiplier: n(event.target.value) } : item))} className={fieldClass}>
+                                {overtimeMultipliers.map(multiplier => <option key={multiplier} value={multiplier}>{multiplier.toFixed(1)}X</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <label className={labelClass}>Amount</label>
+                              <div className={`${fieldClass} bg-white font-bold dark:bg-gray-800`}>{fmt(amount)}</div>
+                            </div>
+                            <button onClick={() => setOvertimeEntries(entries => entries.length === 1 ? entries : entries.filter(item => item.id !== entry.id))} disabled={overtimeEntries.length === 1} className="rounded-xl p-3 text-gray-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-rose-900/20" title={`Remove OT ${index + 1}`}>
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-3 flex justify-end pt-3 text-sm">
+                      <span className="text-gray-500">Overtime Total: <b className="text-gray-900 dark:text-white">{fmt(overtimeTotal)}</b></span>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="mt-3 md:col-span-2 xl:col-span-4 grid grid-cols-1 gap-6 xl:grid-cols-2">
@@ -934,9 +954,14 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                 </div>
               </div>
 
-              <div className="xl:col-span-2"><label className={labelClass}>Payment Method</label><select value={payrollForm.paymentMethod} onChange={event => setPayrollForm(form => ({ ...form, paymentMethod: event.target.value }))} className={fieldClass}><option>Bank Transfer</option><option>Cash</option><option>Cheque</option></select></div>
-              <div className="xl:col-span-2"><label className={labelClass}>Status</label><select value={payrollForm.status} onChange={event => setPayrollForm(form => ({ ...form, status: event.target.value as PayrollForm['status'] }))} className={fieldClass}><option value="draft">Draft</option><option value="approved">Approved</option><option value="paid">Paid</option></select></div>
-              <div className="md:col-span-2 xl:col-span-4"><label className={labelClass}>Notes</label><textarea value={payrollForm.notes} onChange={event => setPayrollForm(form => ({ ...form, notes: event.target.value }))} className={`${fieldClass} min-h-[80px]`} /></div>
+              <div className="mt-3 md:col-span-2 xl:col-span-4">
+                <h4 className="mb-3 text-sm font-semibold text-sky-600 dark:text-sky-400">Other Details</h4>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div><label className={labelClass}>Payment Method</label><select value={payrollForm.paymentMethod} onChange={event => setPayrollForm(form => ({ ...form, paymentMethod: event.target.value }))} className={fieldClass}><option>Bank Transfer</option><option>Cash</option><option>Cheque</option></select></div>
+                  <div><label className={labelClass}>Status</label><select value={payrollForm.status} onChange={event => setPayrollForm(form => ({ ...form, status: event.target.value as PayrollForm['status'] }))} className={fieldClass}><option value="draft">Draft</option><option value="approved">Approved</option><option value="paid">Paid</option></select></div>
+                  <div className="md:col-span-2"><label className={labelClass}>Notes</label><textarea value={payrollForm.notes} onChange={event => setPayrollForm(form => ({ ...form, notes: event.target.value }))} className={`${fieldClass} min-h-[80px]`} /></div>
+                </div>
+              </div>
             </div>
             <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button onClick={() => setIsPayslipFormOpen(false)} className="rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">Back to List</button>
