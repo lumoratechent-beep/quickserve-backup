@@ -818,8 +818,8 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                 <FileText size={14} /> Review Payslip
               </button>
             </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="md:col-span-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="md:col-span-2 xl:col-span-4">
                 <label className={labelClass}>Staff</label>
                 <select value={payrollForm.staffUserId} onChange={event => { const selected = staff.find(item => item.id === event.target.value); if (selected) applyPayrollTemplate(selected); else { setOvertimeRate(0); setOvertimeEntries([blankOvertimeEntry()]); setPayrollForm(form => ({ ...form, staffUserId: '', overtimeAmount: 0 })); } }} className={fieldClass}>
                   <option value="">Select staff</option>
@@ -831,8 +831,10 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
 
               <PayrollSectionDivider title="Earnings" />
               <Field label="Basic Salary" type="number" value={payrollForm.basicSalary} onChange={value => setPayrollForm(form => ({ ...form, basicSalary: n(value) }))} />
+              <Field label="Allowances" type="number" value={payrollForm.allowanceAmount} onChange={value => setPayrollForm(form => ({ ...form, allowanceAmount: n(value) }))} />
+              <Field label="Bonus" type="number" value={payrollForm.bonusAmount} onChange={value => setPayrollForm(form => ({ ...form, bonusAmount: n(value) }))} />
               <Field label="OT Base Rate / Hour" type="number" value={overtimeRate} onChange={value => setOvertimeRate(n(value))} />
-              <div className="md:col-span-2 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/60">
+              <div className="mt-2 md:col-span-2 xl:col-span-4 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/60">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <label className={labelClass}>Overtime</label>
                   <button onClick={() => setOvertimeEntries(entries => [...entries, blankOvertimeEntry()])} className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-amber-600 shadow-sm ring-1 ring-gray-200 transition hover:ring-amber-300 dark:bg-gray-800 dark:ring-gray-700">
@@ -869,10 +871,8 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                   <span className="text-gray-500">Overtime Total: <b className="text-gray-900 dark:text-white">{fmt(overtimeTotal)}</b></span>
                 </div>
               </div>
-              <Field label="Allowances" type="number" value={payrollForm.allowanceAmount} onChange={value => setPayrollForm(form => ({ ...form, allowanceAmount: n(value) }))} />
-              <Field label="Bonus" type="number" value={payrollForm.bonusAmount} onChange={value => setPayrollForm(form => ({ ...form, bonusAmount: n(value) }))} />
 
-              <div className="md:col-span-2 grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <div className="mt-3 md:col-span-2 xl:col-span-4 grid grid-cols-1 gap-6 xl:grid-cols-2">
                 <div>
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <h4 className="text-sm font-semibold text-sky-600 dark:text-sky-400">Deductions</h4>
@@ -934,9 +934,9 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                 </div>
               </div>
 
-              <div><label className={labelClass}>Payment Method</label><select value={payrollForm.paymentMethod} onChange={event => setPayrollForm(form => ({ ...form, paymentMethod: event.target.value }))} className={fieldClass}><option>Bank Transfer</option><option>Cash</option><option>Cheque</option></select></div>
-              <div><label className={labelClass}>Status</label><select value={payrollForm.status} onChange={event => setPayrollForm(form => ({ ...form, status: event.target.value as PayrollForm['status'] }))} className={fieldClass}><option value="draft">Draft</option><option value="approved">Approved</option><option value="paid">Paid</option></select></div>
-              <div className="md:col-span-2"><label className={labelClass}>Notes</label><textarea value={payrollForm.notes} onChange={event => setPayrollForm(form => ({ ...form, notes: event.target.value }))} className={`${fieldClass} min-h-[80px]`} /></div>
+              <div className="xl:col-span-2"><label className={labelClass}>Payment Method</label><select value={payrollForm.paymentMethod} onChange={event => setPayrollForm(form => ({ ...form, paymentMethod: event.target.value }))} className={fieldClass}><option>Bank Transfer</option><option>Cash</option><option>Cheque</option></select></div>
+              <div className="xl:col-span-2"><label className={labelClass}>Status</label><select value={payrollForm.status} onChange={event => setPayrollForm(form => ({ ...form, status: event.target.value as PayrollForm['status'] }))} className={fieldClass}><option value="draft">Draft</option><option value="approved">Approved</option><option value="paid">Paid</option></select></div>
+              <div className="md:col-span-2 xl:col-span-4"><label className={labelClass}>Notes</label><textarea value={payrollForm.notes} onChange={event => setPayrollForm(form => ({ ...form, notes: event.target.value }))} className={`${fieldClass} min-h-[80px]`} /></div>
             </div>
             <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button onClick={() => setIsPayslipFormOpen(false)} className="rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">Back to List</button>
@@ -1201,7 +1201,7 @@ const SectionDivider: React.FC<{ title: string }> = ({ title }) => (
 );
 
 const PayrollSectionDivider: React.FC<{ title: string }> = ({ title }) => (
-  <div className="md:col-span-2 pt-3">
+  <div className="md:col-span-2 xl:col-span-4 pt-3">
     <span className="text-sm font-semibold text-sky-600 dark:text-sky-400">{title}</span>
   </div>
 );
