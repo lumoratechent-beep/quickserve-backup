@@ -1045,7 +1045,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       )}
 
       {staffModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setStaffModalOpen(false)}>
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setStaffModalOpen(false)}>
           <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-gray-800" onClick={event => event.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between gap-4"><div><h3 className="text-xl font-black text-gray-900 dark:text-white">{editingStaffId ? 'Edit Staff Profile' : 'Add Staff Profile'}</h3><p className="text-xs text-gray-500 dark:text-gray-400">Account login, department, employment, salary and statutory details.</p></div><button onClick={() => setStaffModalOpen(false)} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={18} /></button></div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -1088,7 +1088,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       )}
 
       {previewPayslip && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setPreviewPayslip(null)}>
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setPreviewPayslip(null)}>
           <div className="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-2xl dark:bg-gray-800" onClick={event => event.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between"><div><p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-600">Payslip</p><h3 className="text-xl font-black text-gray-900 dark:text-white">{selectedPreviewStaff?.profile?.full_name || selectedPreviewStaff?.username || 'Staff'}</h3><p className="text-xs text-gray-500">{previewPayslip.pay_period} - {new Date(previewPayslip.pay_date).toLocaleDateString()}</p></div><button onClick={() => setPreviewPayslip(null)} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={18} /></button></div>
             <div className="grid grid-cols-2 gap-3 text-sm">
