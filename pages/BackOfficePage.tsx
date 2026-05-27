@@ -54,7 +54,7 @@ interface Props {
 }
 
 type BackOfficeTab = 'DASHBOARD' | 'ITEMS' | 'STAFF' | 'STOCK' | 'INVENTORY' | 'REPORTS' | 'CONTACTS' | 'FINANCE' | 'EXPENSES' | 'SHIFTS';
-type DateRange = '7d' | '30d' | '90d' | 'custom';
+type DateRange = 'today' | 'week' | 'month' | 'lastMonth' | 'custom';
 
 const COLORS = ['#D97706', '#F59E0B', '#92400E', '#B45309', '#78350F', '#FBBF24', '#FCD34D', '#3B82F6', '#8B5CF6', '#22C55E'];
 const STATUS_COLORS: Record<string, string> = {
@@ -171,22 +171,43 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const gridStroke = isDark ? '#374151' : '#E5E7EB';
   const tickFill = isDark ? '#9CA3AF' : '#6B7280';
   const today = new Date();
-  const [dateRange, setDateRange] = useState<DateRange>('30d');
+  const [dateRange, setDateRange] = useState<DateRange>('month');
   const [customStart, setCustomStart] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() - 30);
-    return d.toISOString().split('T')[0];
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
   });
   const [customEnd, setCustomEnd] = useState(() => today.toISOString().split('T')[0]);
+
+  const getQuickDateRange = (range: Exclude<DateRange, 'custom'>) => {
+    const now = new Date();
+    if (range === 'today') {
+      return {
+        startDate: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0),
+        endDate: now,
+      };
+    }
+    if (range === 'week') {
+      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay(), 0, 0, 0, 0);
+      return { startDate: startOfWeek, endDate: now };
+    }
+    if (range === 'lastMonth') {
+      return {
+        startDate: new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0),
+        endDate: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999),
+      };
+    }
+    return {
+      startDate: new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0),
+      endDate: now,
+    };
+  };
 
   // ─── Date filtering ───
   const { startDate, endDate } = useMemo(() => {
     if (dateRange === 'custom') {
       return { startDate: new Date(customStart), endDate: new Date(customEnd + 'T23:59:59') };
     }
-    const days = dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : 90;
-    const start = new Date(); start.setDate(start.getDate() - days);
-    start.setHours(0, 0, 0, 0);
-    return { startDate: start, endDate: new Date() };
+    return getQuickDateRange(dateRange);
   }, [dateRange, customStart, customEnd]);
 
   // ─── Fetch ALL orders from API for dashboard (avoids 200-order in-memory cap) ───
@@ -918,21 +939,26 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   // ─── Date Range Picker ───
   const DateRangePicker = () => (
     <div className="flex items-center gap-2 flex-wrap">
-      {(['7d', '30d', '90d'] as DateRange[]).map(range => (
+      {([
+        { value: 'today', label: 'Today' },
+        { value: 'week', label: 'This Week' },
+        { value: 'month', label: 'This Month' },
+        { value: 'lastMonth', label: 'Last Month' },
+      ] as { value: Exclude<DateRange, 'custom'>; label: string }[]).map(option => (
         <button
-          key={range}
-          onClick={() => setDateRange(range)}
+          key={option.value}
+          onClick={() => setDateRange(option.value)}
           className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
-            dateRange === range ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600 hover:text-gray-700 dark:hover:text-white'
+            dateRange === option.value ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600 hover:text-gray-700 dark:hover:text-white'
           }`}
         >
-          {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
+          {option.label}
         </button>
       ))}
       <button
         onClick={() => setDateRange('custom')}
         className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${dateRange === 'custom' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600 hover:text-gray-700 dark:hover:text-white'}`}
-      >Custom</button>
+      >Custom Range</button>
       {dateRange === 'custom' && (
         <div className="flex items-center gap-2">
           <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
