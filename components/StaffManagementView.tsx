@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Building2, CheckCircle, Copy, CreditCard, Download, Edit3, FileText, Plus, Receipt, RotateCcw, Search, Trash2, UserMinus, UserPlus, Users, X } from 'lucide-react';
 import { Restaurant } from '../src/types';
 import { supabase } from '../lib/supabase';
@@ -7,6 +8,7 @@ import { syncBackofficeToDb } from '../lib/sharedSettings';
 
 type StaffRole = 'CASHIER' | 'KITCHEN' | 'ORDER_TAKER' | 'MANAGER';
 type ContributionMode = 'fixed' | 'percentage';
+type StaffEmploymentStatus = 'Active' | 'Probation' | 'Inactive' | 'Resigned';
 
 interface StaffDepartment {
   id: string;
@@ -240,6 +242,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   const [epfEmployerPercent, setEpfEmployerPercent] = useState(13);
   const [isSavingPayslip, setIsSavingPayslip] = useState(false);
   const [previewPayslip, setPreviewPayslip] = useState<PayrollPayslip | null>(null);
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
 
   const fmt = (value: number) => `${currencySymbol}${n(value).toFixed(2)}`;
 
@@ -455,15 +458,73 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     }
   };
 
-  const toggleStaffActive = async (item: StaffMember) => {
-    const nextActive = item.is_active === false;
-    const { error } = await supabase.from('users').update({ is_active: nextActive }).eq('id', item.id);
-    if (error) {
-      toast(error.message || 'Failed to update staff', 'error');
-      return;
+  const updateStaffStatus = async (item: StaffMember, status: StaffEmploymentStatus) => {
+    const statusKey = `staff_${item.id}`;
+    const nextActive = status !== 'Inactive' && status !== 'Resigned';
+    setUpdatingStatusId(statusKey);
+    try {
+      const { error: userError } = await supabase.from('users').update({ is_active: nextActive }).eq('id', item.id);
+      if (userError) throw userError;
+
+      const { error: profileError } = await supabase
+        .from('staff_profiles')
+        .update({ employment_status: status, updated_at: new Date().toISOString() })
+        .eq('user_id', item.id);
+      if (profileError) throw profileError;
+
+      cacheStaff(staff.map(staffItem => staffItem.id === item.id ? {
+        ...staffItem,
+        is_active: nextActive,
+        profile: staffItem.profile ? { ...staffItem.profile, employment_status: status } : staffItem.profile,
+      } : staffItem));
+      toast(`${item.username} status updated`, 'success');
+    } catch (err: any) {
+      toast(err?.message || 'Failed to update staff status', 'error');
+    } finally {
+      setUpdatingStatusId(null);
     }
-    cacheStaff(staff.map(staffItem => staffItem.id === item.id ? { ...staffItem, is_active: nextActive } : staffItem));
-    toast(`${item.username} ${nextActive ? 'activated' : 'deactivated'}`, 'success');
+  };
+
+  const toggleStaffActive = async (item: StaffMember) => {
+    await updateStaffStatus(item, item.is_active === false ? 'Active' : 'Inactive');
+  };
+
+  const updatePayslipStatus = async (payslip: PayrollPayslip, status: PayrollPayslip['status']) => {
+    const statusKey = `payslip_${payslip.id}`;
+    setUpdatingStatusId(statusKey);
+    try {
+      const { error } = await supabase
+        .from('payroll_payslips')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', payslip.id);
+      if (error) throw error;
+
+      setPayslips(items => items.map(item => item.id === payslip.id ? { ...item, status } : item));
+      toast('Payslip status updated', 'success');
+    } catch (err: any) {
+      toast(err?.message || 'Failed to update payslip status', 'error');
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  };
+
+  const updateDepartmentStatus = async (department: StaffDepartment, isActive: boolean) => {
+    const statusKey = `department_${department.id}`;
+    setUpdatingStatusId(statusKey);
+    try {
+      const { error } = await supabase
+        .from('staff_departments')
+        .update({ is_active: isActive, updated_at: new Date().toISOString() })
+        .eq('id', department.id);
+      if (error) throw error;
+
+      setDepartments(items => items.map(item => item.id === department.id ? { ...item, is_active: isActive } : item));
+      toast('Department status updated', 'success');
+    } catch (err: any) {
+      toast(err?.message || 'Failed to update department status', 'error');
+    } finally {
+      setUpdatingStatusId(null);
+    }
   };
 
   const deleteStaff = async (item: StaffMember) => {
@@ -903,6 +964,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   };
 
   const selectedPreviewStaff = previewPayslip ? staff.find(item => item.id === previewPayslip.staff_user_id) : null;
+  const renderModalPortal = (node: React.ReactNode) => (typeof document === 'undefined' ? node : createPortal(node, document.body));
 
   const fieldClass = 'w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white';
   const labelClass = 'mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400';
@@ -941,20 +1003,29 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-2 rounded-2xl border border-gray-200 bg-white p-2 dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex gap-0 overflow-x-auto">
         {([
           ['directory', 'Staff Directory', <Users size={14} />],
           ['payroll', 'Staff Payslip', <Receipt size={14} />],
           ['departments', 'Departments', <Building2 size={14} />],
         ] as const).map(([key, label, icon]) => (
-          <button key={key} onClick={() => setSubTab(key)} className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider transition ${subTab === key ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white'}`}>
+          <button
+            key={key}
+            onClick={() => setSubTab(key)}
+            style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+            className={`relative -mb-px inline-flex items-center gap-2 whitespace-nowrap rounded-t-lg border px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors duration-150 ${
+              subTab === key
+                ? 'z-10 border-x border-t border-gray-200 bg-white text-orange-500 dark:border-gray-600 dark:border-t-orange-500 dark:bg-gray-800'
+                : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300'
+            }`}
+          >
             {icon} {label}
           </button>
         ))}
       </div>
 
       {subTab === 'directory' && (
-        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
             <div>
               <h3 className="text-sm font-black text-gray-900 dark:text-white">Employee Records</h3>
@@ -979,6 +1050,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
                   {visibleStaff.map(item => {
                     const department = departments.find(dept => dept.id === item.profile?.department_id);
+                    const currentStatus = (item.profile?.employment_status || (item.is_active === false ? 'Inactive' : 'Active')) as StaffEmploymentStatus;
                     return (
                       <tr key={item.id} className="transition hover:bg-gray-50 dark:hover:bg-gray-700/30">
                         <td className="px-5 py-4">
@@ -991,7 +1063,23 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                         <td className="px-5 py-4"><span className="rounded-lg bg-gray-100 px-2 py-1 text-[10px] font-black text-gray-600 dark:bg-gray-700 dark:text-gray-300">{item.role}</span></td>
                         <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{fmt(n(item.profile?.salary_amount))} <span className="font-normal text-gray-400">/{item.profile?.pay_frequency || 'Monthly'}</span></td>
                         <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400"><p>{item.email || '-'}</p><p>{item.phone || '-'}</p></td>
-                        <td className="px-5 py-4"><span className={`rounded-lg px-2 py-1 text-[10px] font-black ${item.is_active !== false ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300'}`}>{item.is_active !== false ? 'Active' : 'Inactive'}</span></td>
+                        <td className="px-5 py-4">
+                          <select
+                            value={currentStatus}
+                            disabled={updatingStatusId === `staff_${item.id}`}
+                            onChange={event => void updateStaffStatus(item, event.target.value as StaffEmploymentStatus)}
+                            className={`rounded-lg border-0 px-2 py-1 text-[10px] font-black uppercase outline-none ring-1 ring-transparent transition disabled:cursor-wait disabled:opacity-60 ${
+                              item.is_active !== false
+                                ? 'bg-emerald-100 text-emerald-700 focus:ring-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300'
+                                : 'bg-rose-100 text-rose-700 focus:ring-rose-300 dark:bg-rose-500/20 dark:text-rose-300'
+                            }`}
+                          >
+                            <option value="Active">Active</option>
+                            <option value="Probation">Probation</option>
+                            <option value="Inactive">Inactive</option>
+                            <option value="Resigned">Resigned</option>
+                          </select>
+                        </td>
                         <td className="px-5 py-4 text-center">
                           <div className="flex justify-center gap-1">
                             <button onClick={() => openStaffModal(item)} className="rounded-lg p-2 text-gray-400 transition hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-900/20" title="Edit profile"><Edit3 size={14} /></button>
@@ -1014,7 +1102,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
 
       {subTab === 'payroll' && (
         isPayslipFormOpen ? (
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
                 <h3 className="text-sm font-black text-gray-900 dark:text-white">Staff Payslip</h3>
@@ -1171,7 +1259,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
             </div>
           </div>
         ) : (
-          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
               <div>
                 <h3 className="text-sm font-black text-gray-900 dark:text-white">Staff Payslip</h3>
@@ -1203,7 +1291,18 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                           <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{fmt(payslip.gross_pay)}</td>
                           <td className="px-5 py-4 text-xs font-bold text-rose-500">-{fmt(deductions)}</td>
                           <td className="px-5 py-4 text-xs font-black text-emerald-600 dark:text-emerald-400">{fmt(payslip.net_pay)}</td>
-                          <td className="px-5 py-4"><span className="rounded-lg bg-gray-100 px-2 py-1 text-[10px] font-black uppercase text-gray-600 dark:bg-gray-700 dark:text-gray-300">{payslip.status}</span></td>
+                          <td className="px-5 py-4">
+                            <select
+                              value={payslip.status}
+                              disabled={updatingStatusId === `payslip_${payslip.id}`}
+                              onChange={event => void updatePayslipStatus(payslip, event.target.value as PayrollPayslip['status'])}
+                              className="rounded-lg border-0 bg-gray-100 px-2 py-1 text-[10px] font-black uppercase text-gray-600 outline-none ring-1 ring-transparent transition focus:ring-amber-300 disabled:cursor-wait disabled:opacity-60 dark:bg-gray-700 dark:text-gray-300"
+                            >
+                              <option value="draft">Draft</option>
+                              <option value="approved">Approved</option>
+                              <option value="paid">Paid</option>
+                            </select>
+                          </td>
                           <td className="px-5 py-4 text-center">
                             <div className="flex justify-center gap-1">
                               <button onClick={() => setPreviewPayslip(payslip)} className="rounded-lg p-2 text-gray-400 transition hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-900/20" title="Review payslip"><FileText size={14} /></button>
@@ -1224,8 +1323,8 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       )}
 
       {subTab === 'departments' && (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[420px_1fr]">
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <div className="grid grid-cols-1 gap-5 rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800 lg:grid-cols-[420px_1fr]">
+          <div>
             <h3 className="text-sm font-black text-gray-900 dark:text-white">Add Department</h3>
             <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">Departments connect employees to branches, job groups or kitchen sections.</p>
             <div className="space-y-3">
@@ -1234,16 +1333,45 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <button onClick={addDepartment} className="w-full rounded-xl bg-amber-600 px-4 py-3 text-xs font-black uppercase tracking-wider text-white">Save Department</button>
             </div>
           </div>
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="min-w-0">
             <h3 className="mb-4 text-sm font-black text-gray-900 dark:text-white">Departments</h3>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {departments.length ? departments.map(department => <div key={department.id} className="rounded-xl border border-gray-100 p-4 dark:border-gray-700"><div className="flex items-start justify-between gap-3"><div><p className="font-black text-gray-900 dark:text-white">{department.name}</p><p className="text-xs text-gray-400">{department.code || 'No code'}</p></div><span className="rounded-lg bg-emerald-100 px-2 py-1 text-[10px] font-black text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">{staff.filter(item => item.profile?.department_id === department.id).length} staff</span></div></div>) : <p className="text-xs text-gray-400">No departments yet.</p>}
+              {departments.length ? departments.map(department => {
+                const isActive = department.is_active !== false;
+                return (
+                  <div key={department.id} className="rounded-xl border border-gray-100 p-4 dark:border-gray-700">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-black text-gray-900 dark:text-white">{department.name}</p>
+                        <p className="text-xs text-gray-400">{department.code || 'No code'}</p>
+                      </div>
+                      <span className="rounded-lg bg-emerald-100 px-2 py-1 text-[10px] font-black text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">{staff.filter(item => item.profile?.department_id === department.id).length} staff</span>
+                    </div>
+                    <div className="mt-4 flex items-center justify-between gap-3 border-t border-gray-100 pt-3 dark:border-gray-700">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Status</span>
+                      <select
+                        value={isActive ? 'active' : 'inactive'}
+                        disabled={updatingStatusId === `department_${department.id}`}
+                        onChange={event => void updateDepartmentStatus(department, event.target.value === 'active')}
+                        className={`rounded-lg border-0 px-2 py-1 text-[10px] font-black uppercase outline-none ring-1 ring-transparent transition disabled:cursor-wait disabled:opacity-60 ${
+                          isActive
+                            ? 'bg-emerald-100 text-emerald-700 focus:ring-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300'
+                            : 'bg-rose-100 text-rose-700 focus:ring-rose-300 dark:bg-rose-500/20 dark:text-rose-300'
+                        }`}
+                      >
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                      </select>
+                    </div>
+                  </div>
+                );
+              }) : <p className="text-xs text-gray-400">No departments yet.</p>}
             </div>
           </div>
         </div>
       )}
 
-      {staffModalOpen && (
+      {staffModalOpen && renderModalPortal(
         <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setStaffModalOpen(false)}>
           <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-gray-800" onClick={event => event.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between gap-4"><div><h3 className="text-xl font-black text-gray-900 dark:text-white">{editingStaffId ? 'Edit Staff Profile' : 'Add Staff Profile'}</h3><p className="text-xs text-gray-500 dark:text-gray-400">Account login, department, employment, salary and statutory details.</p></div><button onClick={() => setStaffModalOpen(false)} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={18} /></button></div>
@@ -1286,7 +1414,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
         </div>
       )}
 
-      {previewPayslip && (
+      {previewPayslip && renderModalPortal(
         <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setPreviewPayslip(null)}>
           <div className="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-2xl dark:bg-gray-800" onClick={event => event.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between"><div><p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-600">Payslip</p><h3 className="text-xl font-black text-gray-900 dark:text-white">{selectedPreviewStaff?.profile?.full_name || selectedPreviewStaff?.username || 'Staff'}</h3><p className="text-xs text-gray-500">{previewPayslip.pay_period} - {new Date(previewPayslip.pay_date).toLocaleDateString()}</p></div><button onClick={() => setPreviewPayslip(null)} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={18} /></button></div>
