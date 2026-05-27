@@ -114,6 +114,13 @@ const StandardReport: React.FC<Props> = ({
     return `${day}/${month}/${year} ${hour}:${minute}`;
   };
 
+  const openNativeDatePicker = (
+    event: React.MouseEvent<HTMLInputElement> | React.FocusEvent<HTMLInputElement>
+  ) => {
+    const input = event.currentTarget as HTMLInputElement & { showPicker?: () => void };
+    input.showPicker?.();
+  };
+
   const getQuickDateRange = (range: 'today' | 'week' | 'month' | 'lastMonth') => {
     const now = new Date();
     const pad = (n: number) => n.toString().padStart(2, '0');
@@ -280,7 +287,7 @@ const StandardReport: React.FC<Props> = ({
         <select
           value={selectedHour}
           onChange={(e) => onChange(Number(e.target.value) * 60 + selectedMinute)}
-          className="w-16 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white p-2 outline-none focus:ring-1 focus:ring-orange-500"
+          className="w-[4.5rem] bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white p-2 outline-none focus:ring-1 focus:ring-orange-500"
           aria-label="Hour"
         >
           {hourOptions.map((hour) => (
@@ -291,7 +298,7 @@ const StandardReport: React.FC<Props> = ({
         <select
           value={selectedMinute}
           onChange={(e) => onChange(selectedHour * 60 + Number(e.target.value))}
-          className="w-16 bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white p-2 outline-none focus:ring-1 focus:ring-orange-500"
+          className="w-[4.5rem] bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white p-2 outline-none focus:ring-1 focus:ring-orange-500"
           aria-label="Minute"
         >
           {minuteOptions.map((minute) => (
@@ -452,13 +459,15 @@ const StandardReport: React.FC<Props> = ({
             </p>
 
             <div className="flex flex-col gap-5">
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_13rem] gap-3">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">From Date</p>
                   <input
                     type="date"
                     value={draftReportStart}
                     onChange={(e) => setDraftReportStart(e.target.value)}
+                    onClick={openNativeDatePicker}
+                    onFocus={openNativeDatePicker}
                     className="w-full bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white p-2"
                   />
                 </div>
@@ -475,13 +484,15 @@ const StandardReport: React.FC<Props> = ({
                   To
                 </span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_13rem] gap-3">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">To Date</p>
                   <input
                     type="date"
                     value={draftReportEnd}
                     onChange={(e) => setDraftReportEnd(e.target.value)}
+                    onClick={openNativeDatePicker}
+                    onFocus={openNativeDatePicker}
                     className="w-full bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white p-2"
                   />
                 </div>
