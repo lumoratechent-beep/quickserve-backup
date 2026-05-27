@@ -130,6 +130,12 @@ interface PayrollForm {
   notes: string;
 }
 
+interface OvertimeEntry {
+  id: string;
+  hours: number;
+  multiplier: number;
+}
+
 interface Props {
   restaurant: Restaurant;
   currencySymbol: string;
@@ -141,6 +147,8 @@ const n = (value: unknown) => {
 };
 
 const monthLabel = () => new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+const blankOvertimeEntry = (): OvertimeEntry => ({ id: crypto.randomUUID(), hours: 0, multiplier: 1.5 });
+const overtimeMultipliers = [1, 1.5, 2, 2.5, 3];
 
 const blankStaffForm = (): StaffForm => ({
   username: '',
@@ -206,6 +214,8 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   const [departmentCode, setDepartmentCode] = useState('');
   const [isPayslipFormOpen, setIsPayslipFormOpen] = useState(false);
   const [payrollForm, setPayrollForm] = useState<PayrollForm>(() => blankPayrollForm());
+  const [overtimeRate, setOvertimeRate] = useState(0);
+  const [overtimeEntries, setOvertimeEntries] = useState<OvertimeEntry[]>(() => [blankOvertimeEntry()]);
   const [isSavingPayslip, setIsSavingPayslip] = useState(false);
   const [previewPayslip, setPreviewPayslip] = useState<PayrollPayslip | null>(null);
 
@@ -280,6 +290,14 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     const deductions = n(payrollForm.epfEmployee) + n(payrollForm.socsoEmployee) + n(payrollForm.eisEmployee) + n(payrollForm.taxPcb) + n(payrollForm.unpaidLeaveDeduction) + n(payrollForm.otherDeductions);
     return { gross, deductions, net: Math.max(0, gross - deductions) };
   }, [payrollForm]);
+
+  const overtimeTotal = useMemo(() => (
+    Number(overtimeEntries.reduce((sum, entry) => sum + (n(entry.hours) * n(overtimeRate) * n(entry.multiplier)), 0).toFixed(2))
+  ), [overtimeEntries, overtimeRate]);
+
+  useEffect(() => {
+    setPayrollForm(form => n(form.overtimeAmount) === overtimeTotal ? form : { ...form, overtimeAmount: overtimeTotal });
+  }, [overtimeTotal]);
 
   const openStaffModal = (item?: StaffMember) => {
     if (!item) {
@@ -449,6 +467,8 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     const salary = n(item.profile?.salary_amount);
     const allowance = n(item.profile?.default_allowances?.fixed);
     const deduction = n(item.profile?.default_deductions?.fixed);
+    setOvertimeRate(n(item.profile?.overtime_rate));
+    setOvertimeEntries([blankOvertimeEntry()]);
     setPayrollForm(prev => ({
       ...prev,
       staffUserId: item.id,
@@ -464,6 +484,8 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
 
   const openPayslipForm = (item?: StaffMember) => {
     setPayrollForm(blankPayrollForm());
+    setOvertimeRate(0);
+    setOvertimeEntries([blankOvertimeEntry()]);
     if (item) applyPayrollTemplate(item);
     setIsPayslipFormOpen(true);
   };
@@ -700,18 +722,66 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="md:col-span-2">
                 <label className={labelClass}>Staff</label>
-                <select value={payrollForm.staffUserId} onChange={event => { const selected = staff.find(item => item.id === event.target.value); if (selected) applyPayrollTemplate(selected); else setPayrollForm(form => ({ ...form, staffUserId: '' })); }} className={fieldClass}>
+                <select value={payrollForm.staffUserId} onChange={event => { const selected = staff.find(item => item.id === event.target.value); if (selected) applyPayrollTemplate(selected); else { setOvertimeRate(0); setOvertimeEntries([blankOvertimeEntry()]); setPayrollForm(form => ({ ...form, staffUserId: '', overtimeAmount: 0 })); } }} className={fieldClass}>
                   <option value="">Select staff</option>
                   {staff.map(item => <option key={item.id} value={item.id}>{item.profile?.full_name || item.username} ({item.role})</option>)}
                 </select>
               </div>
               <Field label="Pay Period" value={payrollForm.payPeriod} onChange={value => setPayrollForm(form => ({ ...form, payPeriod: value }))} />
               <Field label="Pay Date" type="date" value={payrollForm.payDate} onChange={value => setPayrollForm(form => ({ ...form, payDate: value }))} />
+
+              <PayrollSectionDivider title="Earnings" />
+              <Field label="Basic Salary" type="number" value={payrollForm.basicSalary} onChange={value => setPayrollForm(form => ({ ...form, basicSalary: n(value) }))} />
+              <Field label="OT Base Rate / Hour" type="number" value={overtimeRate} onChange={value => setOvertimeRate(n(value))} />
+              <div className="md:col-span-2 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/60">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <label className={labelClass}>Overtime</label>
+                  <button onClick={() => setOvertimeEntries(entries => [...entries, blankOvertimeEntry()])} className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-amber-600 shadow-sm ring-1 ring-gray-200 transition hover:ring-amber-300 dark:bg-gray-800 dark:ring-gray-700">
+                    <Plus size={12} /> Add OT
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {overtimeEntries.map((entry, index) => {
+                    const amount = n(entry.hours) * n(overtimeRate) * n(entry.multiplier);
+                    return (
+                      <div key={entry.id} className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
+                        <div>
+                          <label className={labelClass}>Hours</label>
+                          <input type="number" min="0" step="0.01" value={entry.hours || ''} onChange={event => setOvertimeEntries(entries => entries.map(item => item.id === entry.id ? { ...item, hours: n(event.target.value) } : item))} className={fieldClass} placeholder="0" />
+                        </div>
+                        <div>
+                          <label className={labelClass}>Multiplier</label>
+                          <select value={entry.multiplier} onChange={event => setOvertimeEntries(entries => entries.map(item => item.id === entry.id ? { ...item, multiplier: n(event.target.value) } : item))} className={fieldClass}>
+                            {overtimeMultipliers.map(multiplier => <option key={multiplier} value={multiplier}>{multiplier.toFixed(1)}X</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className={labelClass}>Amount</label>
+                          <div className={`${fieldClass} bg-white font-bold dark:bg-gray-800`}>{fmt(amount)}</div>
+                        </div>
+                        <button onClick={() => setOvertimeEntries(entries => entries.length === 1 ? entries : entries.filter(item => item.id !== entry.id))} disabled={overtimeEntries.length === 1} className="rounded-xl p-3 text-gray-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-rose-900/20" title={`Remove OT ${index + 1}`}>
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-3 flex justify-end border-t border-gray-200 pt-3 text-sm dark:border-gray-700">
+                  <span className="text-gray-500">Overtime Total: <b className="text-gray-900 dark:text-white">{fmt(overtimeTotal)}</b></span>
+                </div>
+              </div>
+              <Field label="Allowances" type="number" value={payrollForm.allowanceAmount} onChange={value => setPayrollForm(form => ({ ...form, allowanceAmount: n(value) }))} />
+              <Field label="Bonus" type="number" value={payrollForm.bonusAmount} onChange={value => setPayrollForm(form => ({ ...form, bonusAmount: n(value) }))} />
+
+              <PayrollSectionDivider title="Deductions" />
               {([
-                ['basicSalary', 'Basic Salary'], ['overtimeAmount', 'Overtime'], ['allowanceAmount', 'Allowances'], ['bonusAmount', 'Bonus'], ['epfEmployee', 'EPF Employee'], ['epfEmployer', 'EPF Employer'], ['socsoEmployee', 'SOCSO'], ['eisEmployee', 'EIS'], ['taxPcb', 'PCB / Tax'], ['unpaidLeaveDeduction', 'Unpaid Leave'], ['otherDeductions', 'Other Deductions'],
+                ['epfEmployee', 'EPF Employee'], ['socsoEmployee', 'SOCSO'], ['eisEmployee', 'EIS'], ['taxPcb', 'PCB / Tax'], ['unpaidLeaveDeduction', 'Unpaid Leave'], ['otherDeductions', 'Other Deductions'],
               ] as const).map(([key, label]) => (
                 <Field key={key} label={label} type="number" value={payrollForm[key]} onChange={value => setPayrollForm(form => ({ ...form, [key]: n(value) }))} />
               ))}
+
+              <PayrollSectionDivider title="Company Contribution" />
+              <Field label="Employer EPF" type="number" value={payrollForm.epfEmployer} onChange={value => setPayrollForm(form => ({ ...form, epfEmployer: n(value) }))} />
               <div><label className={labelClass}>Payment Method</label><select value={payrollForm.paymentMethod} onChange={event => setPayrollForm(form => ({ ...form, paymentMethod: event.target.value }))} className={fieldClass}><option>Bank Transfer</option><option>Cash</option><option>Cheque</option></select></div>
               <div><label className={labelClass}>Status</label><select value={payrollForm.status} onChange={event => setPayrollForm(form => ({ ...form, status: event.target.value as PayrollForm['status'] }))} className={fieldClass}><option value="draft">Draft</option><option value="approved">Approved</option><option value="paid">Paid</option></select></div>
               <div className="md:col-span-2"><label className={labelClass}>Notes</label><textarea value={payrollForm.notes} onChange={event => setPayrollForm(form => ({ ...form, notes: event.target.value }))} className={`${fieldClass} min-h-[80px]`} /></div>
@@ -893,6 +963,15 @@ const SectionDivider: React.FC<{ title: string }> = ({ title }) => (
   <div className="md:col-span-3 pt-2 first:pt-0">
     <div className="flex items-center gap-3">
       <span className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-600 dark:text-amber-400">{title}</span>
+      <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+    </div>
+  </div>
+);
+
+const PayrollSectionDivider: React.FC<{ title: string }> = ({ title }) => (
+  <div className="md:col-span-2 pt-3">
+    <div className="flex items-center gap-3">
+      <span className="text-sm font-semibold text-sky-600 dark:text-sky-400">{title}</span>
       <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
     </div>
   </div>
