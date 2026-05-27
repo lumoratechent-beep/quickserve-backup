@@ -204,6 +204,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   const [isSavingStaff, setIsSavingStaff] = useState(false);
   const [departmentName, setDepartmentName] = useState('');
   const [departmentCode, setDepartmentCode] = useState('');
+  const [isPayslipFormOpen, setIsPayslipFormOpen] = useState(false);
   const [payrollForm, setPayrollForm] = useState<PayrollForm>(() => blankPayrollForm());
   const [isSavingPayslip, setIsSavingPayslip] = useState(false);
   const [previewPayslip, setPreviewPayslip] = useState<PayrollPayslip | null>(null);
@@ -461,6 +462,45 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     }));
   };
 
+  const openPayslipForm = (item?: StaffMember) => {
+    setPayrollForm(blankPayrollForm());
+    if (item) applyPayrollTemplate(item);
+    setIsPayslipFormOpen(true);
+  };
+
+  const reviewPayslip = () => {
+    const selectedStaff = staff.find(item => item.id === payrollForm.staffUserId);
+    if (!selectedStaff) {
+      toast('Select a staff member first', 'warning');
+      return;
+    }
+
+    setPreviewPayslip({
+      id: `preview_${selectedStaff.id}`,
+      restaurant_id: restaurant.id,
+      staff_user_id: selectedStaff.id,
+      staff_profile_id: selectedStaff.profile?.id || null,
+      pay_period: payrollForm.payPeriod,
+      pay_date: payrollForm.payDate,
+      basic_salary: n(payrollForm.basicSalary),
+      overtime_amount: n(payrollForm.overtimeAmount),
+      allowance_amount: n(payrollForm.allowanceAmount),
+      bonus_amount: n(payrollForm.bonusAmount),
+      gross_pay: payrollTotals.gross,
+      epf_employee: n(payrollForm.epfEmployee),
+      epf_employer: n(payrollForm.epfEmployer),
+      socso_employee: n(payrollForm.socsoEmployee),
+      eis_employee: n(payrollForm.eisEmployee),
+      tax_pcb: n(payrollForm.taxPcb),
+      unpaid_leave_deduction: n(payrollForm.unpaidLeaveDeduction),
+      other_deductions: n(payrollForm.otherDeductions),
+      net_pay: payrollTotals.net,
+      payment_method: payrollForm.paymentMethod,
+      status: payrollForm.status,
+      notes: payrollForm.notes.trim() || null,
+    });
+  };
+
   const savePayslip = async () => {
     const selectedStaff = staff.find(item => item.id === payrollForm.staffUserId);
     if (!selectedStaff) {
@@ -523,6 +563,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       }, { onConflict: 'id' });
 
       setPayrollForm(blankPayrollForm());
+      setIsPayslipFormOpen(false);
       setPreviewPayslip(row);
       await refresh(false);
       toast('Payslip saved and synced to expenses', 'success');
@@ -578,7 +619,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       <div className="flex flex-wrap gap-2 rounded-2xl border border-gray-200 bg-white p-2 dark:border-gray-700 dark:bg-gray-800">
         {([
           ['directory', 'Staff Directory', <Users size={14} />],
-          ['payroll', 'Payslip Maker', <Receipt size={14} />],
+          ['payroll', 'Staff Payslip', <Receipt size={14} />],
           ['departments', 'Departments', <Building2 size={14} />],
         ] as const).map(([key, label, icon]) => (
           <button key={key} onClick={() => setSubTab(key)} className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider transition ${subTab === key ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white'}`}>
@@ -627,7 +668,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                         <td className="px-5 py-4">
                           <div className="flex justify-end gap-1">
                             <button onClick={() => openStaffModal(item)} className="rounded-lg p-2 text-gray-400 transition hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-900/20" title="Edit profile"><Edit3 size={14} /></button>
-                            <button onClick={() => { setSubTab('payroll'); applyPayrollTemplate(item); }} className="rounded-lg p-2 text-gray-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/20" title="Make payslip"><Receipt size={14} /></button>
+                            <button onClick={() => { setSubTab('payroll'); openPayslipForm(item); }} className="rounded-lg p-2 text-gray-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/20" title="Make payslip"><Receipt size={14} /></button>
                             <button onClick={() => toggleStaffActive(item)} className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-white" title="Toggle active">{item.is_active !== false ? <UserMinus size={14} /> : <CheckCircle size={14} />}</button>
                             <button onClick={() => deleteStaff(item)} className="rounded-lg p-2 text-gray-400 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/20" title="Remove"><Trash2 size={14} /></button>
                           </div>
@@ -645,9 +686,17 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       )}
 
       {subTab === 'payroll' && (
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+        isPayslipFormOpen ? (
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="mb-5"><h3 className="text-sm font-black text-gray-900 dark:text-white">Payslip Maker</h3><p className="text-xs text-gray-500 dark:text-gray-400">Editable payroll fields: EPF, SOCSO, EIS, PCB tax, allowances and deductions.</p></div>
+            <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h3 className="text-sm font-black text-gray-900 dark:text-white">Staff Payslip</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Editable payroll fields: EPF, SOCSO, EIS, PCB tax, allowances and deductions.</p>
+              </div>
+              <button onClick={reviewPayslip} disabled={!payrollForm.staffUserId} className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-black uppercase tracking-wider text-amber-700 transition hover:border-amber-300 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
+                <FileText size={14} /> Review Payslip
+              </button>
+            </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="md:col-span-2">
                 <label className={labelClass}>Staff</label>
@@ -667,28 +716,64 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <div><label className={labelClass}>Status</label><select value={payrollForm.status} onChange={event => setPayrollForm(form => ({ ...form, status: event.target.value as PayrollForm['status'] }))} className={fieldClass}><option value="draft">Draft</option><option value="approved">Approved</option><option value="paid">Paid</option></select></div>
               <div className="md:col-span-2"><label className={labelClass}>Notes</label><textarea value={payrollForm.notes} onChange={event => setPayrollForm(form => ({ ...form, notes: event.target.value }))} className={`${fieldClass} min-h-[80px]`} /></div>
             </div>
-            <div className="mt-5 flex justify-end"><button onClick={savePayslip} disabled={isSavingPayslip || !payrollForm.staffUserId} className="rounded-xl bg-amber-600 px-5 py-3 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700 disabled:opacity-40">{isSavingPayslip ? 'Saving...' : 'Save Payslip'}</button></div>
-          </div>
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-              <h3 className="mb-4 text-sm font-black text-gray-900 dark:text-white">Payroll Summary</h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between"><span className="text-gray-500">Gross Pay</span><b>{fmt(payrollTotals.gross)}</b></div>
-                <div className="flex justify-between"><span className="text-gray-500">Employee Deductions</span><b className="text-rose-500">-{fmt(payrollTotals.deductions)}</b></div>
-                <div className="border-t border-gray-200 pt-3 dark:border-gray-700"><div className="flex justify-between text-lg"><span className="font-black">Net Pay</span><b className="text-emerald-600 dark:text-emerald-400">{fmt(payrollTotals.net)}</b></div><p className="mt-1 text-[10px] text-gray-400">Employer EPF tracked separately: {fmt(payrollForm.epfEmployer)}</p></div>
-              </div>
-            </div>
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-              <h3 className="mb-3 text-sm font-black text-gray-900 dark:text-white">Recent Payslips</h3>
-              <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
-                {payslips.length ? payslips.map(payslip => {
-                  const item = staff.find(staffItem => staffItem.id === payslip.staff_user_id);
-                  return <button key={payslip.id} onClick={() => setPreviewPayslip(payslip)} className="w-full rounded-xl border border-gray-100 p-3 text-left transition hover:border-amber-300 hover:bg-amber-50 dark:border-gray-700 dark:hover:bg-amber-900/10"><div className="flex justify-between gap-3"><div><p className="text-xs font-black text-gray-900 dark:text-white">{item?.profile?.full_name || item?.username || 'Staff'}</p><p className="text-[10px] text-gray-400">{payslip.pay_period} - {payslip.status}</p></div><b className="text-sm text-emerald-600 dark:text-emerald-400">{fmt(payslip.net_pay)}</b></div></button>;
-                }) : <p className="text-xs text-gray-400">No payslips generated yet.</p>}
-              </div>
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button onClick={() => setIsPayslipFormOpen(false)} className="rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">Back to List</button>
+              <button onClick={savePayslip} disabled={isSavingPayslip || !payrollForm.staffUserId} className="rounded-xl bg-amber-600 px-5 py-3 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700 disabled:opacity-40">{isSavingPayslip ? 'Saving...' : 'Save Payslip'}</button>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h3 className="text-sm font-black text-gray-900 dark:text-white">Staff Payslip</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Review saved payslips and create a new staff payroll record.</p>
+              </div>
+              <button onClick={() => openPayslipForm()} className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
+                <Plus size={14} /> Create Payslip
+              </button>
+            </div>
+            {payslips.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-gray-50 dark:bg-gray-900/50">
+                    <tr>{['Staff', 'Pay Period', 'Gross Pay', 'Deductions', 'Net Pay', 'Status', 'Actions'].map(head => <th key={head} className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">{head}</th>)}</tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                    {payslips.map(payslip => {
+                      const item = staff.find(staffItem => staffItem.id === payslip.staff_user_id);
+                      const deductions = n(payslip.epf_employee) + n(payslip.socso_employee) + n(payslip.eis_employee) + n(payslip.tax_pcb) + n(payslip.unpaid_leave_deduction) + n(payslip.other_deductions);
+                      return (
+                        <tr key={payslip.id} className="transition hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-100 text-sm font-black text-amber-700 dark:bg-amber-600/20 dark:text-amber-300">{(item?.profile?.full_name || item?.username || 'S').charAt(0).toUpperCase()}</div>
+                              <div>
+                                <p className="text-sm font-black text-gray-900 dark:text-white">{item?.profile?.full_name || item?.username || 'Staff'}</p>
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{item?.profile?.employee_code || item?.role || 'Payroll'}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400"><p className="font-bold text-gray-700 dark:text-gray-200">{payslip.pay_period}</p><p>{new Date(payslip.pay_date).toLocaleDateString()}</p></td>
+                          <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{fmt(payslip.gross_pay)}</td>
+                          <td className="px-5 py-4 text-xs font-bold text-rose-500">-{fmt(deductions)}</td>
+                          <td className="px-5 py-4 text-xs font-black text-emerald-600 dark:text-emerald-400">{fmt(payslip.net_pay)}</td>
+                          <td className="px-5 py-4"><span className="rounded-lg bg-gray-100 px-2 py-1 text-[10px] font-black uppercase text-gray-600 dark:bg-gray-700 dark:text-gray-300">{payslip.status}</span></td>
+                          <td className="px-5 py-4">
+                            <div className="flex justify-end gap-1">
+                              <button onClick={() => setPreviewPayslip(payslip)} className="rounded-lg p-2 text-gray-400 transition hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-900/20" title="Review payslip"><FileText size={14} /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="flex h-56 flex-col items-center justify-center text-gray-400 dark:text-gray-600"><FileText size={40} className="mb-3 opacity-30" /><p className="text-sm font-bold">No payslips found</p><button onClick={() => openPayslipForm()} className="mt-4 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white">Create Payslip</button></div>
+            )}
+          </div>
+        )
       )}
 
       {subTab === 'departments' && (
