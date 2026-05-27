@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Building2, CheckCircle, CreditCard, Edit3, FileText, Plus, Receipt, RotateCcw, Search, Trash2, UserMinus, UserPlus, Users, X } from 'lucide-react';
+import { Building2, CheckCircle, Copy, CreditCard, Edit3, FileText, Plus, Receipt, RotateCcw, Search, Trash2, UserMinus, UserPlus, Users, X } from 'lucide-react';
 import { Restaurant } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { toast } from './Toast';
 import { syncBackofficeToDb } from '../lib/sharedSettings';
 
 type StaffRole = 'CASHIER' | 'KITCHEN' | 'ORDER_TAKER' | 'MANAGER';
+type ContributionMode = 'fixed' | 'percentage';
 
 interface StaffDepartment {
   id: string;
@@ -145,6 +146,7 @@ const n = (value: unknown) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 };
+const percentageAmount = (base: number, percentage: number) => Number(((n(base) * n(percentage)) / 100).toFixed(2));
 
 const monthLabel = () => new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 const blankOvertimeEntry = (): OvertimeEntry => ({ id: crypto.randomUUID(), hours: 0, multiplier: 1.5 });
@@ -216,6 +218,10 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   const [payrollForm, setPayrollForm] = useState<PayrollForm>(() => blankPayrollForm());
   const [overtimeRate, setOvertimeRate] = useState(0);
   const [overtimeEntries, setOvertimeEntries] = useState<OvertimeEntry[]>(() => [blankOvertimeEntry()]);
+  const [epfEmployeeMode, setEpfEmployeeMode] = useState<ContributionMode>('percentage');
+  const [epfEmployeePercent, setEpfEmployeePercent] = useState(11);
+  const [epfEmployerMode, setEpfEmployerMode] = useState<ContributionMode>('percentage');
+  const [epfEmployerPercent, setEpfEmployerPercent] = useState(13);
   const [isSavingPayslip, setIsSavingPayslip] = useState(false);
   const [previewPayslip, setPreviewPayslip] = useState<PayrollPayslip | null>(null);
 
@@ -298,6 +304,18 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   useEffect(() => {
     setPayrollForm(form => n(form.overtimeAmount) === overtimeTotal ? form : { ...form, overtimeAmount: overtimeTotal });
   }, [overtimeTotal]);
+
+  useEffect(() => {
+    if (epfEmployeeMode !== 'percentage') return;
+    const nextAmount = percentageAmount(payrollForm.basicSalary, epfEmployeePercent);
+    setPayrollForm(form => n(form.epfEmployee) === nextAmount ? form : { ...form, epfEmployee: nextAmount });
+  }, [epfEmployeeMode, epfEmployeePercent, payrollForm.basicSalary]);
+
+  useEffect(() => {
+    if (epfEmployerMode !== 'percentage') return;
+    const nextAmount = percentageAmount(payrollForm.basicSalary, epfEmployerPercent);
+    setPayrollForm(form => n(form.epfEmployer) === nextAmount ? form : { ...form, epfEmployer: nextAmount });
+  }, [epfEmployerMode, epfEmployerPercent, payrollForm.basicSalary]);
 
   const openStaffModal = (item?: StaffMember) => {
     if (!item) {
@@ -463,10 +481,18 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     toast('Department added', 'success');
   };
 
+  const resetEpfContributionModes = () => {
+    setEpfEmployeeMode('percentage');
+    setEpfEmployeePercent(11);
+    setEpfEmployerMode('percentage');
+    setEpfEmployerPercent(13);
+  };
+
   const applyPayrollTemplate = (item: StaffMember) => {
     const salary = n(item.profile?.salary_amount);
     const allowance = n(item.profile?.default_allowances?.fixed);
     const deduction = n(item.profile?.default_deductions?.fixed);
+    resetEpfContributionModes();
     setOvertimeRate(n(item.profile?.overtime_rate));
     setOvertimeEntries([blankOvertimeEntry()]);
     setPayrollForm(prev => ({
@@ -475,8 +501,8 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       basicSalary: salary,
       allowanceAmount: allowance,
       otherDeductions: deduction,
-      epfEmployee: Number((salary * 0.11).toFixed(2)),
-      epfEmployer: Number((salary * 0.13).toFixed(2)),
+      epfEmployee: percentageAmount(salary, 11),
+      epfEmployer: percentageAmount(salary, 13),
       socsoEmployee: Number((salary * 0.005).toFixed(2)),
       eisEmployee: Number((salary * 0.002).toFixed(2)),
     }));
@@ -484,10 +510,45 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
 
   const openPayslipForm = (item?: StaffMember) => {
     setPayrollForm(blankPayrollForm());
+    resetEpfContributionModes();
     setOvertimeRate(0);
     setOvertimeEntries([blankOvertimeEntry()]);
     if (item) applyPayrollTemplate(item);
     setIsPayslipFormOpen(true);
+  };
+
+  const copyPayslip = (payslip: PayrollPayslip) => {
+    const item = staff.find(staffItem => staffItem.id === payslip.staff_user_id);
+    const copiedOvertime = n(payslip.overtime_amount);
+
+    setEpfEmployeeMode('fixed');
+    setEpfEmployerMode('fixed');
+    setEpfEmployeePercent(11);
+    setEpfEmployerPercent(13);
+    setOvertimeRate(copiedOvertime > 0 ? copiedOvertime : n(item?.profile?.overtime_rate));
+    setOvertimeEntries(copiedOvertime > 0 ? [{ id: crypto.randomUUID(), hours: 1, multiplier: 1 }] : [blankOvertimeEntry()]);
+    setPayrollForm({
+      staffUserId: payslip.staff_user_id,
+      payPeriod: monthLabel(),
+      payDate: payslip.pay_date,
+      basicSalary: n(payslip.basic_salary),
+      overtimeAmount: copiedOvertime,
+      allowanceAmount: n(payslip.allowance_amount),
+      bonusAmount: n(payslip.bonus_amount),
+      epfEmployee: n(payslip.epf_employee),
+      epfEmployer: n(payslip.epf_employer),
+      socsoEmployee: n(payslip.socso_employee),
+      eisEmployee: n(payslip.eis_employee),
+      taxPcb: n(payslip.tax_pcb),
+      unpaidLeaveDeduction: n(payslip.unpaid_leave_deduction),
+      otherDeductions: n(payslip.other_deductions),
+      paymentMethod: payslip.payment_method || 'Bank Transfer',
+      status: payslip.status || 'draft',
+      notes: payslip.notes || '',
+    });
+    setPreviewPayslip(null);
+    setIsPayslipFormOpen(true);
+    toast('Payslip copied. Update the pay period and save as a new payslip.', 'success');
   };
 
   const reviewPayslip = () => {
@@ -614,9 +675,6 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
             <button onClick={() => refresh(true)} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-600 transition hover:border-amber-300 hover:text-amber-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
               <RotateCcw size={14} /> Refresh
             </button>
-            <button onClick={() => openStaffModal()} className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
-              <UserPlus size={14} /> Add Staff
-            </button>
           </div>
         </div>
       </div>
@@ -657,9 +715,14 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <h3 className="text-sm font-black text-gray-900 dark:text-white">Employee Records</h3>
               <p className="text-xs text-gray-500 dark:text-gray-400">Login credentials are linked to employee profiles, departments and salary setup.</p>
             </div>
-            <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search staff..." className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white md:w-72" />
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              <div className="relative sm:w-72">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search staff..." className="h-[38px] w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+              </div>
+              <button onClick={() => openStaffModal()} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
+                <UserPlus size={14} /> Add Staff
+              </button>
             </div>
           </div>
           {visibleStaff.length > 0 ? (
@@ -766,7 +829,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                     );
                   })}
                 </div>
-                <div className="mt-3 flex justify-end border-t border-gray-200 pt-3 text-sm dark:border-gray-700">
+                <div className="mt-3 flex justify-end pt-3 text-sm">
                   <span className="text-gray-500">Overtime Total: <b className="text-gray-900 dark:text-white">{fmt(overtimeTotal)}</b></span>
                 </div>
               </div>
@@ -774,14 +837,35 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <Field label="Bonus" type="number" value={payrollForm.bonusAmount} onChange={value => setPayrollForm(form => ({ ...form, bonusAmount: n(value) }))} />
 
               <PayrollSectionDivider title="Deductions" />
+              <EpfContributionField
+                label="EPF Employee"
+                mode={epfEmployeeMode}
+                percentage={epfEmployeePercent}
+                amount={payrollForm.epfEmployee}
+                baseAmount={payrollForm.basicSalary}
+                currencySymbol={currencySymbol}
+                onModeChange={setEpfEmployeeMode}
+                onPercentageChange={setEpfEmployeePercent}
+                onAmountChange={value => setPayrollForm(form => ({ ...form, epfEmployee: value }))}
+              />
               {([
-                ['epfEmployee', 'EPF Employee'], ['socsoEmployee', 'SOCSO'], ['eisEmployee', 'EIS'], ['taxPcb', 'PCB / Tax'], ['unpaidLeaveDeduction', 'Unpaid Leave'], ['otherDeductions', 'Other Deductions'],
+                ['socsoEmployee', 'SOCSO'], ['eisEmployee', 'EIS'], ['taxPcb', 'PCB / Tax'], ['unpaidLeaveDeduction', 'Unpaid Leave'], ['otherDeductions', 'Other Deductions'],
               ] as const).map(([key, label]) => (
                 <Field key={key} label={label} type="number" value={payrollForm[key]} onChange={value => setPayrollForm(form => ({ ...form, [key]: n(value) }))} />
               ))}
 
               <PayrollSectionDivider title="Company Contribution" />
-              <Field label="Employer EPF" type="number" value={payrollForm.epfEmployer} onChange={value => setPayrollForm(form => ({ ...form, epfEmployer: n(value) }))} />
+              <EpfContributionField
+                label="Employer EPF"
+                mode={epfEmployerMode}
+                percentage={epfEmployerPercent}
+                amount={payrollForm.epfEmployer}
+                baseAmount={payrollForm.basicSalary}
+                currencySymbol={currencySymbol}
+                onModeChange={setEpfEmployerMode}
+                onPercentageChange={setEpfEmployerPercent}
+                onAmountChange={value => setPayrollForm(form => ({ ...form, epfEmployer: value }))}
+              />
               <div><label className={labelClass}>Payment Method</label><select value={payrollForm.paymentMethod} onChange={event => setPayrollForm(form => ({ ...form, paymentMethod: event.target.value }))} className={fieldClass}><option>Bank Transfer</option><option>Cash</option><option>Cheque</option></select></div>
               <div><label className={labelClass}>Status</label><select value={payrollForm.status} onChange={event => setPayrollForm(form => ({ ...form, status: event.target.value as PayrollForm['status'] }))} className={fieldClass}><option value="draft">Draft</option><option value="approved">Approved</option><option value="paid">Paid</option></select></div>
               <div className="md:col-span-2"><label className={labelClass}>Notes</label><textarea value={payrollForm.notes} onChange={event => setPayrollForm(form => ({ ...form, notes: event.target.value }))} className={`${fieldClass} min-h-[80px]`} /></div>
@@ -831,6 +915,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                           <td className="px-5 py-4">
                             <div className="flex justify-end gap-1">
                               <button onClick={() => setPreviewPayslip(payslip)} className="rounded-lg p-2 text-gray-400 transition hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-900/20" title="Review payslip"><FileText size={14} /></button>
+                              <button onClick={() => copyPayslip(payslip)} className="rounded-lg p-2 text-gray-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/20" title="Copy payslip"><Copy size={14} /></button>
                             </div>
                           </td>
                         </tr>
@@ -921,7 +1006,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <SummaryTile label="Tax / PCB" value={`-${fmt(previewPayslip.tax_pcb)}`} />
               <SummaryTile label="Net Pay" value={fmt(previewPayslip.net_pay)} positive />
             </div>
-            <div className="mt-5 flex justify-end gap-2"><button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold uppercase tracking-wider dark:border-gray-700"><FileText size={14} /> Print</button><button onClick={() => setPreviewPayslip(null)} className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white">Close</button></div>
+            <div className="mt-5 flex justify-end gap-2"><button onClick={() => copyPayslip(previewPayslip)} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold uppercase tracking-wider dark:border-gray-700"><Copy size={14} /> Copy</button><button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold uppercase tracking-wider dark:border-gray-700"><FileText size={14} /> Print</button><button onClick={() => setPreviewPayslip(null)} className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white">Close</button></div>
           </div>
         </div>
       )}
@@ -959,6 +1044,82 @@ const Field: React.FC<FieldProps> = ({ label, value, onChange, type = 'text' }) 
   );
 };
 
+interface EpfContributionFieldProps {
+  label: string;
+  mode: ContributionMode;
+  percentage: number;
+  amount: number;
+  baseAmount: number;
+  currencySymbol: string;
+  onModeChange: (mode: ContributionMode) => void;
+  onPercentageChange: (value: number) => void;
+  onAmountChange: (value: number) => void;
+}
+
+const EpfContributionField: React.FC<EpfContributionFieldProps> = ({
+  label,
+  mode,
+  percentage,
+  amount,
+  baseAmount,
+  currencySymbol,
+  onModeChange,
+  onPercentageChange,
+  onAmountChange,
+}) => {
+  const calculatedAmount = percentageAmount(baseAmount, percentage);
+  const visibleAmount = mode === 'percentage' ? calculatedAmount : n(amount);
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/60">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">{label}</label>
+        <div className="flex rounded-lg bg-white p-1 ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+          {(['percentage', 'fixed'] as ContributionMode[]).map(option => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => onModeChange(option)}
+              className={`rounded-md px-2.5 py-1 text-[9px] font-black uppercase tracking-wider transition ${mode === option ? 'bg-amber-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+            >
+              {option === 'percentage' ? 'Percentage' : 'Fixed'}
+            </button>
+          ))}
+        </div>
+      </div>
+      {mode === 'percentage' ? (
+        <div className="grid grid-cols-[1fr_auto] gap-2">
+          <div className="relative">
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={percentage || ''}
+              onChange={event => onPercentageChange(n(event.target.value))}
+              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 pr-8 text-sm text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              placeholder="0"
+            />
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">%</span>
+          </div>
+          <div className="min-w-28 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-right text-sm font-bold text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+            {currencySymbol}{visibleAmount.toFixed(2)}
+          </div>
+        </div>
+      ) : (
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          value={amount || ''}
+          onChange={event => onAmountChange(n(event.target.value))}
+          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+          placeholder="0"
+        />
+      )}
+    </div>
+  );
+};
+
 const SectionDivider: React.FC<{ title: string }> = ({ title }) => (
   <div className="md:col-span-3 pt-2 first:pt-0">
     <div className="flex items-center gap-3">
@@ -970,10 +1131,7 @@ const SectionDivider: React.FC<{ title: string }> = ({ title }) => (
 
 const PayrollSectionDivider: React.FC<{ title: string }> = ({ title }) => (
   <div className="md:col-span-2 pt-3">
-    <div className="flex items-center gap-3">
-      <span className="text-sm font-semibold text-sky-600 dark:text-sky-400">{title}</span>
-      <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
-    </div>
+    <span className="text-sm font-semibold text-sky-600 dark:text-sky-400">{title}</span>
   </div>
 );
 
