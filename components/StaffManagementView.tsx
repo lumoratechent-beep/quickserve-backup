@@ -873,23 +873,25 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <Field label="Bonus" type="number" value={payrollForm.bonusAmount} onChange={value => setPayrollForm(form => ({ ...form, bonusAmount: n(value) }))} />
 
               <div className="md:col-span-2 grid grid-cols-1 gap-4 xl:grid-cols-2">
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/60">
+                <div>
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <h4 className="text-sm font-semibold text-sky-600 dark:text-sky-400">Deductions</h4>
                     <span className="text-xs font-bold text-rose-500">-{fmt(payrollTotals.deductions)}</span>
                   </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <EpfContributionField
-                      label="EPF Employee"
-                      mode={epfEmployeeMode}
-                      percentage={epfEmployeePercent}
-                      amount={payrollForm.epfEmployee}
-                      baseAmount={payrollForm.basicSalary}
-                      currencySymbol={currencySymbol}
-                      onModeChange={setEpfEmployeeMode}
-                      onPercentageChange={setEpfEmployeePercent}
-                      onAmountChange={value => setPayrollForm(form => ({ ...form, epfEmployee: value }))}
-                    />
+                    <div className="sm:col-span-2">
+                      <EpfContributionField
+                        label="EPF Employee"
+                        mode={epfEmployeeMode}
+                        percentage={epfEmployeePercent}
+                        amount={payrollForm.epfEmployee}
+                        baseAmount={payrollForm.basicSalary}
+                        currencySymbol={currencySymbol}
+                        onModeChange={setEpfEmployeeMode}
+                        onPercentageChange={setEpfEmployeePercent}
+                        onAmountChange={value => setPayrollForm(form => ({ ...form, epfEmployee: value }))}
+                      />
+                    </div>
                     <Field label="SOCSO" type="number" value={payrollForm.socsoEmployee} onChange={value => setPayrollForm(form => ({ ...form, socsoEmployee: n(value) }))} />
                     <Field label="EIS" type="number" value={payrollForm.eisEmployee} onChange={value => setPayrollForm(form => ({ ...form, eisEmployee: n(value) }))} />
                     <Field label="PCB / Tax" type="number" value={payrollForm.taxPcb} onChange={value => setPayrollForm(form => ({ ...form, taxPcb: n(value) }))} />
@@ -902,23 +904,25 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/60">
+                <div>
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <h4 className="text-sm font-semibold text-sky-600 dark:text-sky-400">Company Contribution</h4>
                     <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{fmt(companyContributionTotal)}</span>
                   </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <EpfContributionField
-                      label="Employer EPF"
-                      mode={epfEmployerMode}
-                      percentage={epfEmployerPercent}
-                      amount={payrollForm.epfEmployer}
-                      baseAmount={payrollForm.basicSalary}
-                      currencySymbol={currencySymbol}
-                      onModeChange={setEpfEmployerMode}
-                      onPercentageChange={setEpfEmployerPercent}
-                      onAmountChange={value => setPayrollForm(form => ({ ...form, epfEmployer: value }))}
-                    />
+                    <div className="sm:col-span-2">
+                      <EpfContributionField
+                        label="Employer EPF"
+                        mode={epfEmployerMode}
+                        percentage={epfEmployerPercent}
+                        amount={payrollForm.epfEmployer}
+                        baseAmount={payrollForm.basicSalary}
+                        currencySymbol={currencySymbol}
+                        onModeChange={setEpfEmployerMode}
+                        onPercentageChange={setEpfEmployerPercent}
+                        onAmountChange={value => setPayrollForm(form => ({ ...form, epfEmployer: value }))}
+                      />
+                    </div>
                     <Field label="Employer SOCSO" type="number" value={payrollForm.socsoEmployer} onChange={value => setPayrollForm(form => ({ ...form, socsoEmployer: n(value) }))} />
                     <Field label="Employer EIS" type="number" value={payrollForm.eisEmployer} onChange={value => setPayrollForm(form => ({ ...form, eisEmployer: n(value) }))} />
                     <div>
