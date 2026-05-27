@@ -697,7 +697,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     }
   };
 
-  const downloadPayslipPdf = async (payslip: PayrollPayslip) => {
+  const buildPayslipPdf = async (payslip: PayrollPayslip) => {
     const selectedStaff = staff.find(item => item.id === payslip.staff_user_id);
     const selectedDepartment = departments.find(dept => dept.id === selectedStaff?.profile?.department_id);
     const fullName = selectedStaff?.profile?.full_name || selectedStaff?.username || 'Staff';
@@ -728,16 +728,15 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       companyPhone ? `Phone: ${companyPhone}` : '',
     ].filter(Boolean);
 
-    try {
-      const { default: jsPDF } = await import('jspdf');
-      const { default: autoTable } = await import('jspdf-autotable');
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
-      const margin = 14;
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const contentWidth = pageWidth - (margin * 2);
-      const accent = [217, 119, 6] as [number, number, number];
-      const textColor = [31, 41, 55] as [number, number, number];
-      let y = 14;
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+    const margin = 14;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const contentWidth = pageWidth - (margin * 2);
+    const accent = [217, 119, 6] as [number, number, number];
+    const textColor = [31, 41, 55] as [number, number, number];
+    let y = 14;
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(19);
@@ -863,12 +862,43 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
         doc.text(notes, margin, noteY + 4);
       }
 
-      const safeName = fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'staff';
-      const safePeriod = periodLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'period';
+    const safeName = fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'staff';
+    const safePeriod = periodLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'period';
+    return { doc, safeName, safePeriod };
+  };
+
+  const downloadPayslipPdf = async (payslip: PayrollPayslip) => {
+    try {
+      const { doc, safeName, safePeriod } = await buildPayslipPdf(payslip);
       doc.save(`payslip-${safeName}-${safePeriod}.pdf`);
       toast('Payslip PDF downloaded.', 'success');
     } catch (err: any) {
       toast(err?.message || 'Failed to download payslip PDF', 'error');
+    }
+  };
+
+  const printPayslipPdf = async (payslip: PayrollPayslip) => {
+    try {
+      const { doc } = await buildPayslipPdf(payslip);
+      const pdfBlob = doc.output('blob');
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      const printWindow = window.open(blobUrl, '_blank');
+      if (!printWindow) {
+        URL.revokeObjectURL(blobUrl);
+        toast('Please allow pop-ups to print payslip PDF.', 'warning');
+        return;
+      }
+      setTimeout(() => {
+        try {
+          printWindow.focus();
+          printWindow.print();
+        } catch (_error) {
+          // Some browsers block auto-print for embedded PDF viewers.
+        }
+      }, 800);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    } catch (err: any) {
+      toast(err?.message || 'Failed to print payslip PDF', 'error');
     }
   };
 
@@ -944,7 +974,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-gray-50 dark:bg-gray-900/50">
-                  <tr>{['Staff', 'Department', 'Login Role', 'Salary', 'Contact', 'Status', 'Actions'].map(head => <th key={head} className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">{head}</th>)}</tr>
+                  <tr>{['Staff', 'Department', 'Login Role', 'Salary', 'Contact', 'Status', 'Actions'].map(head => <th key={head} className={`px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400 ${head === 'Actions' ? 'text-center' : ''}`}>{head}</th>)}</tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
                   {visibleStaff.map(item => {
@@ -952,12 +982,9 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                     return (
                       <tr key={item.id} className="transition hover:bg-gray-50 dark:hover:bg-gray-700/30">
                         <td className="px-5 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-100 text-sm font-black text-amber-700 dark:bg-amber-600/20 dark:text-amber-300">{(item.profile?.full_name || item.username).charAt(0).toUpperCase()}</div>
-                            <div>
-                              <p className="text-sm font-black text-gray-900 dark:text-white">{item.profile?.full_name || item.username}</p>
-                              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{item.profile?.employee_code || item.username}</p>
-                            </div>
+                          <div>
+                            <p className="text-sm font-black text-gray-900 dark:text-white">{item.profile?.full_name || item.username}</p>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{item.profile?.employee_code || item.username}</p>
                           </div>
                         </td>
                         <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400"><p className="font-bold text-gray-700 dark:text-gray-200">{department?.name || 'Unassigned'}</p><p>{item.profile?.job_title || 'No job title'}</p></td>
@@ -965,8 +992,8 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                         <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{fmt(n(item.profile?.salary_amount))} <span className="font-normal text-gray-400">/{item.profile?.pay_frequency || 'Monthly'}</span></td>
                         <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400"><p>{item.email || '-'}</p><p>{item.phone || '-'}</p></td>
                         <td className="px-5 py-4"><span className={`rounded-lg px-2 py-1 text-[10px] font-black ${item.is_active !== false ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300'}`}>{item.is_active !== false ? 'Active' : 'Inactive'}</span></td>
-                        <td className="px-5 py-4">
-                          <div className="flex justify-end gap-1">
+                        <td className="px-5 py-4 text-center">
+                          <div className="flex justify-center gap-1">
                             <button onClick={() => openStaffModal(item)} className="rounded-lg p-2 text-gray-400 transition hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-900/20" title="Edit profile"><Edit3 size={14} /></button>
                             <button onClick={() => { setSubTab('payroll'); openPayslipForm(item); }} className="rounded-lg p-2 text-gray-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/20" title="Make payslip"><Receipt size={14} /></button>
                             <button onClick={() => toggleStaffActive(item)} className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-white" title="Toggle active">{item.is_active !== false ? <UserMinus size={14} /> : <CheckCircle size={14} />}</button>
@@ -1158,7 +1185,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead className="bg-gray-50 dark:bg-gray-900/50">
-                    <tr>{['Staff', 'Pay Period', 'Gross Pay', 'Deductions', 'Net Pay', 'Status', 'Actions'].map(head => <th key={head} className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">{head}</th>)}</tr>
+                    <tr>{['Staff', 'Pay Period', 'Gross Pay', 'Deductions', 'Net Pay', 'Status', 'Actions'].map(head => <th key={head} className={`px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400 ${head === 'Actions' ? 'text-center' : ''}`}>{head}</th>)}</tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
                     {payslips.map(payslip => {
@@ -1167,12 +1194,9 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                       return (
                         <tr key={payslip.id} className="transition hover:bg-gray-50 dark:hover:bg-gray-700/30">
                           <td className="px-5 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-100 text-sm font-black text-amber-700 dark:bg-amber-600/20 dark:text-amber-300">{(item?.profile?.full_name || item?.username || 'S').charAt(0).toUpperCase()}</div>
-                              <div>
-                                <p className="text-sm font-black text-gray-900 dark:text-white">{item?.profile?.full_name || item?.username || 'Staff'}</p>
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{item?.profile?.employee_code || item?.role || 'Payroll'}</p>
-                              </div>
+                            <div>
+                              <p className="text-sm font-black text-gray-900 dark:text-white">{item?.profile?.full_name || item?.username || 'Staff'}</p>
+                              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{item?.profile?.employee_code || item?.role || 'Payroll'}</p>
                             </div>
                           </td>
                           <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400"><p className="font-bold text-gray-700 dark:text-gray-200">{payslip.pay_period}</p><p>{new Date(payslip.pay_date).toLocaleDateString()}</p></td>
@@ -1180,8 +1204,8 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                           <td className="px-5 py-4 text-xs font-bold text-rose-500">-{fmt(deductions)}</td>
                           <td className="px-5 py-4 text-xs font-black text-emerald-600 dark:text-emerald-400">{fmt(payslip.net_pay)}</td>
                           <td className="px-5 py-4"><span className="rounded-lg bg-gray-100 px-2 py-1 text-[10px] font-black uppercase text-gray-600 dark:bg-gray-700 dark:text-gray-300">{payslip.status}</span></td>
-                          <td className="px-5 py-4">
-                            <div className="flex justify-end gap-1">
+                          <td className="px-5 py-4 text-center">
+                            <div className="flex justify-center gap-1">
                               <button onClick={() => setPreviewPayslip(payslip)} className="rounded-lg p-2 text-gray-400 transition hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-900/20" title="Review payslip"><FileText size={14} /></button>
                               <button onClick={() => copyPayslip(payslip)} className="rounded-lg p-2 text-gray-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/20" title="Copy payslip"><Copy size={14} /></button>
                             </div>
@@ -1220,7 +1244,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       )}
 
       {staffModalOpen && (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setStaffModalOpen(false)}>
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setStaffModalOpen(false)}>
           <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-gray-800" onClick={event => event.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between gap-4"><div><h3 className="text-xl font-black text-gray-900 dark:text-white">{editingStaffId ? 'Edit Staff Profile' : 'Add Staff Profile'}</h3><p className="text-xs text-gray-500 dark:text-gray-400">Account login, department, employment, salary and statutory details.</p></div><button onClick={() => setStaffModalOpen(false)} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={18} /></button></div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -1263,7 +1287,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       )}
 
       {previewPayslip && (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setPreviewPayslip(null)}>
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setPreviewPayslip(null)}>
           <div className="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-2xl dark:bg-gray-800" onClick={event => event.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between"><div><p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-600">Payslip</p><h3 className="text-xl font-black text-gray-900 dark:text-white">{selectedPreviewStaff?.profile?.full_name || selectedPreviewStaff?.username || 'Staff'}</h3><p className="text-xs text-gray-500">{previewPayslip.pay_period} - {new Date(previewPayslip.pay_date).toLocaleDateString()}</p></div><button onClick={() => setPreviewPayslip(null)} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={18} /></button></div>
             <div className="grid grid-cols-2 gap-3 text-sm">
@@ -1277,7 +1301,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <SummaryTile label={previewPayslip.other_contribution_name || 'Other Contribution'} value={fmt(n(previewPayslip.other_contribution_amount))} />
               <SummaryTile label="Net Pay" value={fmt(previewPayslip.net_pay)} positive />
             </div>
-            <div className="mt-5 flex justify-end gap-2"><button onClick={() => copyPayslip(previewPayslip)} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold uppercase tracking-wider dark:border-gray-700"><Copy size={14} /> Copy</button><button onClick={() => void downloadPayslipPdf(previewPayslip)} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold uppercase tracking-wider dark:border-gray-700"><Download size={14} /> Download PDF</button><button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold uppercase tracking-wider dark:border-gray-700"><FileText size={14} /> Print</button><button onClick={() => setPreviewPayslip(null)} className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white">Close</button></div>
+            <div className="mt-5 flex justify-end gap-2"><button onClick={() => copyPayslip(previewPayslip)} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold uppercase tracking-wider dark:border-gray-700"><Copy size={14} /> Copy</button><button onClick={() => void downloadPayslipPdf(previewPayslip)} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold uppercase tracking-wider dark:border-gray-700"><Download size={14} /> Download PDF</button><button onClick={() => void printPayslipPdf(previewPayslip)} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold uppercase tracking-wider dark:border-gray-700"><FileText size={14} /> Print</button><button onClick={() => setPreviewPayslip(null)} className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white">Close</button></div>
           </div>
         </div>
       )}
