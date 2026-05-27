@@ -71,9 +71,14 @@ interface PayrollPayslip {
   epf_employer: number;
   socso_employee: number;
   eis_employee: number;
+  socso_employer?: number;
+  eis_employer?: number;
   tax_pcb: number;
   unpaid_leave_deduction: number;
   other_deductions: number;
+  other_deduction_name?: string | null;
+  other_contribution_name?: string | null;
+  other_contribution_amount?: number;
   net_pay: number;
   payment_method?: string | null;
   status: 'draft' | 'approved' | 'paid';
@@ -123,9 +128,14 @@ interface PayrollForm {
   epfEmployer: number;
   socsoEmployee: number;
   eisEmployee: number;
+  socsoEmployer: number;
+  eisEmployer: number;
   taxPcb: number;
   unpaidLeaveDeduction: number;
+  otherDeductionName: string;
   otherDeductions: number;
+  otherContributionName: string;
+  otherContributionAmount: number;
   paymentMethod: string;
   status: 'draft' | 'approved' | 'paid';
   notes: string;
@@ -194,9 +204,14 @@ const blankPayrollForm = (): PayrollForm => ({
   epfEmployer: 0,
   socsoEmployee: 0,
   eisEmployee: 0,
+  socsoEmployer: 0,
+  eisEmployer: 0,
   taxPcb: 0,
   unpaidLeaveDeduction: 0,
+  otherDeductionName: 'Other Deductions',
   otherDeductions: 0,
+  otherContributionName: 'Other Contribution',
+  otherContributionAmount: 0,
   paymentMethod: 'Bank Transfer',
   status: 'draft',
   notes: '',
@@ -296,6 +311,10 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     const deductions = n(payrollForm.epfEmployee) + n(payrollForm.socsoEmployee) + n(payrollForm.eisEmployee) + n(payrollForm.taxPcb) + n(payrollForm.unpaidLeaveDeduction) + n(payrollForm.otherDeductions);
     return { gross, deductions, net: Math.max(0, gross - deductions) };
   }, [payrollForm]);
+
+  const companyContributionTotal = useMemo(() => (
+    n(payrollForm.epfEmployer) + n(payrollForm.socsoEmployer) + n(payrollForm.eisEmployer) + n(payrollForm.otherContributionAmount)
+  ), [payrollForm.eisEmployer, payrollForm.epfEmployer, payrollForm.otherContributionAmount, payrollForm.socsoEmployer]);
 
   const overtimeTotal = useMemo(() => (
     Number(overtimeEntries.reduce((sum, entry) => sum + (n(entry.hours) * n(overtimeRate) * n(entry.multiplier)), 0).toFixed(2))
@@ -505,6 +524,8 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       epfEmployer: percentageAmount(salary, 13),
       socsoEmployee: Number((salary * 0.005).toFixed(2)),
       eisEmployee: Number((salary * 0.002).toFixed(2)),
+      socsoEmployer: Number((salary * 0.0175).toFixed(2)),
+      eisEmployer: Number((salary * 0.002).toFixed(2)),
     }));
   };
 
@@ -539,9 +560,14 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       epfEmployer: n(payslip.epf_employer),
       socsoEmployee: n(payslip.socso_employee),
       eisEmployee: n(payslip.eis_employee),
+      socsoEmployer: n(payslip.socso_employer),
+      eisEmployer: n(payslip.eis_employer),
       taxPcb: n(payslip.tax_pcb),
       unpaidLeaveDeduction: n(payslip.unpaid_leave_deduction),
+      otherDeductionName: payslip.other_deduction_name || 'Other Deductions',
       otherDeductions: n(payslip.other_deductions),
+      otherContributionName: payslip.other_contribution_name || 'Other Contribution',
+      otherContributionAmount: n(payslip.other_contribution_amount),
       paymentMethod: payslip.payment_method || 'Bank Transfer',
       status: payslip.status || 'draft',
       notes: payslip.notes || '',
@@ -574,9 +600,14 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       epf_employer: n(payrollForm.epfEmployer),
       socso_employee: n(payrollForm.socsoEmployee),
       eis_employee: n(payrollForm.eisEmployee),
+      socso_employer: n(payrollForm.socsoEmployer),
+      eis_employer: n(payrollForm.eisEmployer),
       tax_pcb: n(payrollForm.taxPcb),
       unpaid_leave_deduction: n(payrollForm.unpaidLeaveDeduction),
       other_deductions: n(payrollForm.otherDeductions),
+      other_deduction_name: payrollForm.otherDeductionName.trim() || 'Other Deductions',
+      other_contribution_name: payrollForm.otherContributionName.trim() || 'Other Contribution',
+      other_contribution_amount: n(payrollForm.otherContributionAmount),
       net_pay: payrollTotals.net,
       payment_method: payrollForm.paymentMethod,
       status: payrollForm.status,
@@ -614,9 +645,14 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
         epf_employer: n(payrollForm.epfEmployer),
         socso_employee: n(payrollForm.socsoEmployee),
         eis_employee: n(payrollForm.eisEmployee),
+        socso_employer: n(payrollForm.socsoEmployer),
+        eis_employer: n(payrollForm.eisEmployer),
         tax_pcb: n(payrollForm.taxPcb),
         unpaid_leave_deduction: n(payrollForm.unpaidLeaveDeduction),
         other_deductions: n(payrollForm.otherDeductions),
+        other_deduction_name: payrollForm.otherDeductionName.trim() || 'Other Deductions',
+        other_contribution_name: payrollForm.otherContributionName.trim() || 'Other Contribution',
+        other_contribution_amount: n(payrollForm.otherContributionAmount),
         net_pay: payrollTotals.net,
         payment_method: payrollForm.paymentMethod,
         status: payrollForm.status,
@@ -836,36 +872,64 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <Field label="Allowances" type="number" value={payrollForm.allowanceAmount} onChange={value => setPayrollForm(form => ({ ...form, allowanceAmount: n(value) }))} />
               <Field label="Bonus" type="number" value={payrollForm.bonusAmount} onChange={value => setPayrollForm(form => ({ ...form, bonusAmount: n(value) }))} />
 
-              <PayrollSectionDivider title="Deductions" />
-              <EpfContributionField
-                label="EPF Employee"
-                mode={epfEmployeeMode}
-                percentage={epfEmployeePercent}
-                amount={payrollForm.epfEmployee}
-                baseAmount={payrollForm.basicSalary}
-                currencySymbol={currencySymbol}
-                onModeChange={setEpfEmployeeMode}
-                onPercentageChange={setEpfEmployeePercent}
-                onAmountChange={value => setPayrollForm(form => ({ ...form, epfEmployee: value }))}
-              />
-              {([
-                ['socsoEmployee', 'SOCSO'], ['eisEmployee', 'EIS'], ['taxPcb', 'PCB / Tax'], ['unpaidLeaveDeduction', 'Unpaid Leave'], ['otherDeductions', 'Other Deductions'],
-              ] as const).map(([key, label]) => (
-                <Field key={key} label={label} type="number" value={payrollForm[key]} onChange={value => setPayrollForm(form => ({ ...form, [key]: n(value) }))} />
-              ))}
+              <div className="md:col-span-2 grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/60">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-semibold text-sky-600 dark:text-sky-400">Deductions</h4>
+                    <span className="text-xs font-bold text-rose-500">-{fmt(payrollTotals.deductions)}</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <EpfContributionField
+                      label="EPF Employee"
+                      mode={epfEmployeeMode}
+                      percentage={epfEmployeePercent}
+                      amount={payrollForm.epfEmployee}
+                      baseAmount={payrollForm.basicSalary}
+                      currencySymbol={currencySymbol}
+                      onModeChange={setEpfEmployeeMode}
+                      onPercentageChange={setEpfEmployeePercent}
+                      onAmountChange={value => setPayrollForm(form => ({ ...form, epfEmployee: value }))}
+                    />
+                    <Field label="SOCSO" type="number" value={payrollForm.socsoEmployee} onChange={value => setPayrollForm(form => ({ ...form, socsoEmployee: n(value) }))} />
+                    <Field label="EIS" type="number" value={payrollForm.eisEmployee} onChange={value => setPayrollForm(form => ({ ...form, eisEmployee: n(value) }))} />
+                    <Field label="PCB / Tax" type="number" value={payrollForm.taxPcb} onChange={value => setPayrollForm(form => ({ ...form, taxPcb: n(value) }))} />
+                    <Field label="Unpaid Leave" type="number" value={payrollForm.unpaidLeaveDeduction} onChange={value => setPayrollForm(form => ({ ...form, unpaidLeaveDeduction: n(value) }))} />
+                    <div>
+                      <label className={labelClass}>Other Deduction Name</label>
+                      <input value={payrollForm.otherDeductionName} onChange={event => setPayrollForm(form => ({ ...form, otherDeductionName: event.target.value }))} className={fieldClass} />
+                    </div>
+                    <Field label="Other Deduction Amount" type="number" value={payrollForm.otherDeductions} onChange={value => setPayrollForm(form => ({ ...form, otherDeductions: n(value) }))} />
+                  </div>
+                </div>
 
-              <PayrollSectionDivider title="Company Contribution" />
-              <EpfContributionField
-                label="Employer EPF"
-                mode={epfEmployerMode}
-                percentage={epfEmployerPercent}
-                amount={payrollForm.epfEmployer}
-                baseAmount={payrollForm.basicSalary}
-                currencySymbol={currencySymbol}
-                onModeChange={setEpfEmployerMode}
-                onPercentageChange={setEpfEmployerPercent}
-                onAmountChange={value => setPayrollForm(form => ({ ...form, epfEmployer: value }))}
-              />
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/60">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-semibold text-sky-600 dark:text-sky-400">Company Contribution</h4>
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{fmt(companyContributionTotal)}</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <EpfContributionField
+                      label="Employer EPF"
+                      mode={epfEmployerMode}
+                      percentage={epfEmployerPercent}
+                      amount={payrollForm.epfEmployer}
+                      baseAmount={payrollForm.basicSalary}
+                      currencySymbol={currencySymbol}
+                      onModeChange={setEpfEmployerMode}
+                      onPercentageChange={setEpfEmployerPercent}
+                      onAmountChange={value => setPayrollForm(form => ({ ...form, epfEmployer: value }))}
+                    />
+                    <Field label="Employer SOCSO" type="number" value={payrollForm.socsoEmployer} onChange={value => setPayrollForm(form => ({ ...form, socsoEmployer: n(value) }))} />
+                    <Field label="Employer EIS" type="number" value={payrollForm.eisEmployer} onChange={value => setPayrollForm(form => ({ ...form, eisEmployer: n(value) }))} />
+                    <div>
+                      <label className={labelClass}>Other Contribution Name</label>
+                      <input value={payrollForm.otherContributionName} onChange={event => setPayrollForm(form => ({ ...form, otherContributionName: event.target.value }))} className={fieldClass} />
+                    </div>
+                    <Field label="Other Contribution Amount" type="number" value={payrollForm.otherContributionAmount} onChange={value => setPayrollForm(form => ({ ...form, otherContributionAmount: n(value) }))} />
+                  </div>
+                </div>
+              </div>
+
               <div><label className={labelClass}>Payment Method</label><select value={payrollForm.paymentMethod} onChange={event => setPayrollForm(form => ({ ...form, paymentMethod: event.target.value }))} className={fieldClass}><option>Bank Transfer</option><option>Cash</option><option>Cheque</option></select></div>
               <div><label className={labelClass}>Status</label><select value={payrollForm.status} onChange={event => setPayrollForm(form => ({ ...form, status: event.target.value as PayrollForm['status'] }))} className={fieldClass}><option value="draft">Draft</option><option value="approved">Approved</option><option value="paid">Paid</option></select></div>
               <div className="md:col-span-2"><label className={labelClass}>Notes</label><textarea value={payrollForm.notes} onChange={event => setPayrollForm(form => ({ ...form, notes: event.target.value }))} className={`${fieldClass} min-h-[80px]`} /></div>
@@ -1004,6 +1068,9 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <SummaryTile label="EPF Employee" value={`-${fmt(previewPayslip.epf_employee)}`} />
               <SummaryTile label="SOCSO / EIS" value={`-${fmt(n(previewPayslip.socso_employee) + n(previewPayslip.eis_employee))}`} />
               <SummaryTile label="Tax / PCB" value={`-${fmt(previewPayslip.tax_pcb)}`} />
+              <SummaryTile label={previewPayslip.other_deduction_name || 'Other Deductions'} value={`-${fmt(previewPayslip.other_deductions)}`} />
+              <SummaryTile label="Company Contribution" value={fmt(n(previewPayslip.epf_employer) + n(previewPayslip.socso_employer) + n(previewPayslip.eis_employer) + n(previewPayslip.other_contribution_amount))} />
+              <SummaryTile label={previewPayslip.other_contribution_name || 'Other Contribution'} value={fmt(n(previewPayslip.other_contribution_amount))} />
               <SummaryTile label="Net Pay" value={fmt(previewPayslip.net_pay)} positive />
             </div>
             <div className="mt-5 flex justify-end gap-2"><button onClick={() => copyPayslip(previewPayslip)} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold uppercase tracking-wider dark:border-gray-700"><Copy size={14} /> Copy</button><button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold uppercase tracking-wider dark:border-gray-700"><FileText size={14} /> Print</button><button onClick={() => setPreviewPayslip(null)} className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white">Close</button></div>
