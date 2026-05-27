@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+﻿import React, { useState, useMemo, useEffect } from 'react';
 import { Order, OrderStatus, MenuItem, Restaurant, Subscription, IngredientItem } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
@@ -20,6 +20,7 @@ import ContactsManagement from '../components/ContactsManagement';
 import FinanceView from '../components/FinanceView';
 import ExpensesView from '../components/ExpensesView';
 import CashierShiftRecords from '../components/CashierShiftRecords';
+import StaffManagementView from '../components/StaffManagementView';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
 
 interface Props {
@@ -71,7 +72,7 @@ const hasRenderableMenuItemImage = (item: Pick<MenuItem, 'image' | 'color'>): bo
   Boolean(item.image) && !(Boolean(item.color) && item.image.startsWith(MENU_ITEM_PLACEHOLDER_IMAGE_PREFIX))
 );
 
-// ─── Staff type ───
+// â”€â”€â”€ Staff type â”€â”€â”€
 interface StaffMember {
   id: string;
   username: string;
@@ -82,7 +83,7 @@ interface StaffMember {
   kitchenCategories?: string[];
 }
 
-// ─── Stock type ───
+// â”€â”€â”€ Stock type â”€â”€â”€
 interface StockItem {
   menuItemId: string;
   name: string;
@@ -105,7 +106,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [expensesSubTab, setExpensesSubTab] = useState<string | undefined>(undefined);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
 
-  // ─── Items tab state ───
+  // â”€â”€â”€ Items tab state â”€â”€â”€
   const [itemSearch, setItemSearch] = useState('');
   const [itemCategoryFilter, setItemCategoryFilter] = useState('ALL');
   const [itemShowArchived, setItemShowArchived] = useState(false);
@@ -119,7 +120,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [stockEntriesPerPage, setStockEntriesPerPage] = useState(30);
   const [stockCurrentPage, setStockCurrentPage] = useState(1);
 
-  // ─── Ingredient items state ───
+  // â”€â”€â”€ Ingredient items state â”€â”€â”€
   const [ingredientItems, setIngredientItems] = useState<IngredientItem[]>(() =>
     loadBackofficeData<IngredientItem[]>(`ingredients_${restaurant.id}`, restaurant.settings, 'ingredients', [])
   );
@@ -139,7 +140,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     syncBackofficeToDb(restaurant.id);
   };
 
-  // ─── Initial loading overlay ───
+  // â”€â”€â”€ Initial loading overlay â”€â”€â”€
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -202,7 +203,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     };
   };
 
-  // ─── Date filtering ───
+  // â”€â”€â”€ Date filtering â”€â”€â”€
   const { startDate, endDate } = useMemo(() => {
     if (dateRange === 'custom') {
       return { startDate: new Date(customStart), endDate: new Date(customEnd + 'T23:59:59') };
@@ -210,7 +211,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     return getQuickDateRange(dateRange);
   }, [dateRange, customStart, customEnd]);
 
-  // ─── Fetch ALL orders from API for dashboard (avoids 200-order in-memory cap) ───
+  // â”€â”€â”€ Fetch ALL orders from API for dashboard (avoids 200-order in-memory cap) â”€â”€â”€
   const [dashboardOrders, setDashboardOrders] = useState<Order[]>([]);
   const [isDashboardLoading, setIsDashboardLoading] = useState(false);
 
@@ -265,7 +266,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     });
   }, [sourceOrders, startDate, endDate]);
 
-  // ─── Staff State ───
+  // â”€â”€â”€ Staff State â”€â”€â”€
   const [staffList, setStaffList] = useState<StaffMember[]>(() =>
     loadBackofficeData<StaffMember[]>(`staff_${restaurant.id}`, restaurant.settings, 'staff', [])
   );
@@ -275,7 +276,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
   const [staffSearch, setStaffSearch] = useState('');
 
-  // ─── Stock State ───
+  // â”€â”€â”€ Stock State â”€â”€â”€
   const [stockItems, setStockItems] = useState<StockItem[]>(() => {
     const saved = loadBackofficeData<StockItem[] | null>(`stock_${restaurant.id}`, restaurant.settings, 'stock', null);
     if (saved) {
@@ -305,9 +306,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     syncBackofficeToDb(restaurant.id);
   };
 
-  // ─────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // SALES ANALYTICS
-  // ─────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const kpis = useMemo(() => {
     const completed = filteredOrders.filter(o => o.status !== OrderStatus.CANCELLED);
     const prevCompleted = prevPeriodOrders.filter(o => o.status !== OrderStatus.CANCELLED);
@@ -364,7 +365,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     return Object.entries(map).map(([name, value]) => ({ name, value }));
   }, [filteredOrders]);
 
-  // ─── Hourly sales heatmap data ───
+  // â”€â”€â”€ Hourly sales heatmap data â”€â”€â”€
   const hourlySales = useMemo(() => {
     const hours = Array.from({ length: 24 }, (_, i) => ({ hour: i, sales: 0, orders: 0 }));
     filteredOrders.filter(o => o.status !== OrderStatus.CANCELLED).forEach(o => {
@@ -375,7 +376,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     return hours.map(h => ({ ...h, label: `${h.hour.toString().padStart(2, '0')}:00` }));
   }, [filteredOrders]);
 
-  // ─── Top items sold ───
+  // â”€â”€â”€ Top items sold â”€â”€â”€
   const topItems = useMemo(() => {
     const map: Record<string, { name: string; qty: number; revenue: number }> = {};
     filteredOrders.filter(o => o.status !== OrderStatus.CANCELLED).forEach(o => {
@@ -388,7 +389,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     return Object.values(map).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
   }, [filteredOrders]);
 
-  // ─── Category breakdown ───
+  // â”€â”€â”€ Category breakdown â”€â”€â”€
   const categoryBreakdown = useMemo(() => {
     const map: Record<string, { name: string; orders: number; revenue: number }> = {};
     filteredOrders.filter(o => o.status !== OrderStatus.CANCELLED).forEach(o => {
@@ -402,7 +403,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     return Object.values(map).sort((a, b) => b.revenue - a.revenue);
   }, [filteredOrders]);
 
-  // ─── PERFORMANCE ───
+  // â”€â”€â”€ PERFORMANCE â”€â”€â”€
   const cashierStats = useMemo(() => {
     const map: Record<string, { name: string; orders: number; revenue: number; avgOrder: number; cancelled: number; avgTime: number }> = {};
     filteredOrders.forEach(o => {
@@ -420,7 +421,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       .sort((a, b) => b.revenue - a.revenue);
   }, [filteredOrders]);
 
-  // ─── Peak hours ───
+  // â”€â”€â”€ Peak hours â”€â”€â”€
   const peakHours = useMemo(() => {
     const sorted = [...hourlySales].sort((a, b) => b.orders - a.orders);
     return sorted.slice(0, 5);
@@ -431,7 +432,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     [filteredOrders],
   );
 
-  // ─── Helpers ───
+  // â”€â”€â”€ Helpers â”€â”€â”€
   const ChangeIndicator = ({ value }: { value: number }) => {
     const isPositive = value >= 0;
     return (
@@ -456,7 +457,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     );
   };
 
-  // ─── Staff handlers ───
+  // â”€â”€â”€ Staff handlers â”€â”€â”€
   const handleAddStaff = async () => {
     if (!staffForm.username.trim() || !staffForm.password.trim()) {
       toast('Username and password are required', 'error');
@@ -542,7 +543,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     }
   };
 
-  // ─── Stock handlers ───
+  // â”€â”€â”€ Stock handlers â”€â”€â”€
   const handleToggleStockEnabled = (itemId: string) => {
     const updated = stockItems.map(s =>
       s.menuItemId === itemId ? { ...s, stockEnabled: !s.stockEnabled } : s
@@ -620,7 +621,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     return { total, low, out, healthy };
   }, [stockItems]);
 
-  // ─── Ingredient tab helpers ───
+  // â”€â”€â”€ Ingredient tab helpers â”€â”€â”€
   const ingredientCategories = useMemo(() => {
     const cats = Array.from(new Set(ingredientItems.map(i => i.category))).sort();
     return ['ALL', ...cats];
@@ -731,7 +732,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     return staffList.filter(s => s.username.toLowerCase().includes(q) || s.role.toLowerCase().includes(q));
   }, [staffList, staffSearch]);
 
-  // ─── Items tab helpers ───
+  // â”€â”€â”€ Items tab helpers â”€â”€â”€
   const itemCategories = useMemo(() => {
     const cats = Array.from(new Set(restaurant.menu.map(m => m.category))).sort();
     return ['ALL', ...cats];
@@ -849,7 +850,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     toast(`${item.name} deleted`, 'success');
   };
 
-  // ─── Tab buttons ───
+  // â”€â”€â”€ Tab buttons â”€â”€â”€
   const simpleTabs: { key: BackOfficeTab; label: string; icon: React.ReactNode }[] = [
     { key: 'DASHBOARD', label: 'Dashboard', icon: <BarChart3 size={18} /> },
     { key: 'ITEMS', label: 'Items & Stock', icon: <ShoppingBag size={18} /> },
@@ -936,7 +937,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     setExpandedMenus(prev => new Set(prev).add('REPORTS'));
   };
 
-  // ─── Date Range Picker ───
+  // â”€â”€â”€ Date Range Picker â”€â”€â”€
   const DateRangePicker = () => (
     <div className="flex items-center gap-2 flex-wrap">
       {([
@@ -1252,9 +1253,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
       <div className="p-4 md:p-6">
 
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {/* DASHBOARD TAB                       */}
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {activeTab === 'DASHBOARD' && (
           <div>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -1450,9 +1451,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           </div>
         )}
 
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {/* ITEMS TAB (Loyverse-style)          */}
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {activeTab === 'ITEMS' && isItemFormOpen ? (
           <MenuItemFormModal
             isOpen={isItemFormOpen}
@@ -1479,7 +1480,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               ))}
             </div>
 
-            {/* ── Menu Items sub-tab ── */}
+            {/* â”€â”€ Menu Items sub-tab â”€â”€ */}
             {itemSubTab === 'menu' && (
             <>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -1542,7 +1543,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               {/* Filter bar with Show entries */}
               <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                  Showing {filteredItems.length === 0 ? 0 : (itemCurrentPage - 1) * itemEntriesPerPage + 1}–{Math.min(itemCurrentPage * itemEntriesPerPage, filteredItems.length)} of {filteredItems.length}
+                  Showing {filteredItems.length === 0 ? 0 : (itemCurrentPage - 1) * itemEntriesPerPage + 1}â€“{Math.min(itemCurrentPage * itemEntriesPerPage, filteredItems.length)} of {filteredItems.length}
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Show</span>
@@ -1591,13 +1592,13 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                           <span className="px-2 py-1 text-[10px] font-bold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg">{item.category}</span>
                         </td>
                         <td className="px-4 py-3 text-right font-bold dark:text-white">{currencySymbol}{item.price.toFixed(2)}</td>
-                        <td className="px-4 py-3 text-right text-gray-500 hidden lg:table-cell">{item.cost ? `${currencySymbol}${item.cost.toFixed(2)}` : '–'}</td>
-                        <td className="px-4 py-3 text-gray-500 hidden lg:table-cell font-mono text-xs">{item.sku || '–'}</td>
+                        <td className="px-4 py-3 text-right text-gray-500 hidden lg:table-cell">{item.cost ? `${currencySymbol}${item.cost.toFixed(2)}` : 'â€“'}</td>
+                        <td className="px-4 py-3 text-gray-500 hidden lg:table-cell font-mono text-xs">{item.sku || 'â€“'}</td>
                         <td className="px-4 py-3 text-center hidden md:table-cell">
                           {item.trackStock ? (
                             <span className="px-2 py-0.5 text-[9px] font-bold bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full">Tracked</span>
                           ) : (
-                            <span className="text-gray-300 dark:text-gray-600 text-xs">–</span>
+                            <span className="text-gray-300 dark:text-gray-600 text-xs">â€“</span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -1663,7 +1664,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             </>
             )}
 
-            {/* ── Ingredients / Supplies sub-tab ── */}
+            {/* â”€â”€ Ingredients / Supplies sub-tab â”€â”€ */}
             {itemSubTab === 'ingredients' && (
             <>
             {/* Ingredient Form Modal */}
@@ -1762,7 +1763,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                  Showing {filteredIngredients.length === 0 ? 0 : (ingredientCurrentPage - 1) * ingredientEntriesPerPage + 1}–{Math.min(ingredientCurrentPage * ingredientEntriesPerPage, filteredIngredients.length)} of {filteredIngredients.length}
+                  Showing {filteredIngredients.length === 0 ? 0 : (ingredientCurrentPage - 1) * ingredientEntriesPerPage + 1}â€“{Math.min(ingredientCurrentPage * ingredientEntriesPerPage, filteredIngredients.length)} of {filteredIngredients.length}
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Show</span>
@@ -1845,7 +1846,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             </>
             )}
 
-            {/* ── Stock Management sub-tab ── */}
+            {/* â”€â”€ Stock Management sub-tab â”€â”€ */}
             {itemSubTab === 'stock' && (
             <>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -1930,7 +1931,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               {/* Filter bar with Show entries */}
               <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                  Showing {filteredStock.length === 0 ? 0 : (stockCurrentPage - 1) * stockEntriesPerPage + 1}–{Math.min(stockCurrentPage * stockEntriesPerPage, filteredStock.length)} of {filteredStock.length}
+                  Showing {filteredStock.length === 0 ? 0 : (stockCurrentPage - 1) * stockEntriesPerPage + 1}â€“{Math.min(stockCurrentPage * stockEntriesPerPage, filteredStock.length)} of {filteredStock.length}
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Show</span>
@@ -2009,7 +2010,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                                 }`}>{item.currentStock}</span>
                                 <button onClick={() => handleSetStock(item.menuItemId, item.currentStock + 1)} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 text-gray-400 hover:text-white flex items-center justify-center"><Plus size={12} /></button>
                               </div>
-                              ) : <span className="text-xs text-gray-400">—</span>}
+                              ) : <span className="text-xs text-gray-400">â€”</span>}
                             </td>
                             <td className="px-3 py-4 hidden md:table-cell">
                               {item.stockEnabled ? (
@@ -2019,7 +2020,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                                 onChange={e => handleUpdateStockThreshold(item.menuItemId, parseInt(e.target.value) || 0)}
                                 className="w-16 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none"
                               />
-                              ) : <span className="text-xs text-gray-400">—</span>}
+                              ) : <span className="text-xs text-gray-400">â€”</span>}
                             </td>
                             <td className="px-3 py-4">
                               <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
@@ -2090,199 +2091,33 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           </div>
         )}
 
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {/* STAFF MANAGEMENT TAB                */}
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {activeTab === 'STAFF' && (
-          <div>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              <h2 className="text-lg font-black">Staff Management</h2>
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                  <input
-                    type="text"
-                    placeholder="Search staff..."
-                    value={staffSearch}
-                    onChange={e => setStaffSearch(e.target.value)}
-                    className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-4 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none w-48"
-                  />
-                </div>
-                <button onClick={refreshStaffList} className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-xs font-bold uppercase tracking-wider border border-gray-200 dark:border-gray-700 hover:border-gray-600 transition-all">
-                  <RotateCcw size={14} />
-                </button>
-                <button
-                  onClick={() => { setIsAddStaffOpen(true); setStaffForm({ username: '', password: '', email: '', phone: '', role: 'CASHIER' }); }}
-                  className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20"
-                >
-                  <UserPlus size={14} /> Add Staff
-                </button>
-              </div>
-            </div>
-
-            {/* Summary cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center"><Users size={20} className="text-blue-400" /></div>
-                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Total Staff</span>
-                </div>
-                <p className="text-3xl font-black dark:text-white">{staffList.length}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl bg-green-600/20 flex items-center justify-center"><CheckCircle size={20} className="text-green-400" /></div>
-                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Active</span>
-                </div>
-                <p className="text-3xl font-black text-green-400">{staffList.filter(s => s.isActive !== false).length}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl bg-red-600/20 flex items-center justify-center"><XCircle size={20} className="text-red-400" /></div>
-                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Inactive</span>
-                </div>
-                <p className="text-3xl font-black text-red-400">{staffList.filter(s => s.isActive === false).length}</p>
-              </div>
-            </div>
-
-            {/* Staff List */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-              {filteredStaff.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Name</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Role</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Email</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Phone</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredStaff.map(staff => (
-                        <tr key={staff.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-600/20 flex items-center justify-center text-amber-600 dark:text-amber-400 font-black text-sm">
-                                {staff.username.charAt(0).toUpperCase()}
-                              </div>
-                              <span className="text-sm font-bold dark:text-white">{staff.username}</span>
-                            </div>
-                          </td>
-                          <td className="px-5 py-4">
-                            <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
-                              staff.role === 'CASHIER' ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400'
-                            }`}>{staff.role}</span>
-                          </td>
-                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell">{staff.email || '-'}</td>
-                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden sm:table-cell">{staff.phone || '-'}</td>
-                          <td className="px-5 py-4">
-                            <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
-                              staff.isActive !== false ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-                            }`}>{staff.isActive !== false ? 'Active' : 'Inactive'}</span>
-                          </td>
-                          <td className="px-5 py-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => handleToggleStaffActive(staff)}
-                                className={`p-2 rounded-lg transition-all ${
-                                  staff.isActive !== false ? 'text-red-400 hover:bg-red-500/20' : 'text-green-400 hover:bg-green-500/20'
-                                }`}
-                                title={staff.isActive !== false ? 'Deactivate' : 'Activate'}
-                              >
-                                {staff.isActive !== false ? <UserMinus size={14} /> : <CheckCircle size={14} />}
-                              </button>
-                              <button
-                                onClick={() => handleDeleteStaff(staff)}
-                                className="p-2 rounded-lg text-red-400 hover:bg-red-500/20 transition-all"
-                                title="Remove"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="h-48 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
-                  <Users size={40} className="mb-3 opacity-30" />
-                  <p className="text-sm font-bold">No staff members found</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Add cashiers or kitchen staff to get started</p>
-                </div>
-              )}
-            </div>
-
-            {/* Add Staff Modal */}
-            {isAddStaffOpen && (
-              <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setIsAddStaffOpen(false)}>
-                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
-                  <h3 className="text-lg font-black dark:text-white mb-6 flex items-center gap-2"><UserPlus size={20} className="text-amber-500" /> Add New Staff</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Role</label>
-                      <div className="flex gap-2">
-                        <button onClick={() => setStaffForm(f => ({ ...f, role: 'CASHIER' }))} className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${staffForm.role === 'CASHIER' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>Cashier</button>
-                        <button onClick={() => setStaffForm(f => ({ ...f, role: 'KITCHEN' }))} className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${staffForm.role === 'KITCHEN' ? 'bg-purple-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>Kitchen</button>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Username *</label>
-                      <input type="text" value={staffForm.username} onChange={e => setStaffForm(f => ({ ...f, username: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Enter username" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Password *</label>
-                      <input type="password" value={staffForm.password} onChange={e => setStaffForm(f => ({ ...f, password: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Enter password" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Email</label>
-                      <input type="email" value={staffForm.email} onChange={e => setStaffForm(f => ({ ...f, email: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Optional" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Phone</label>
-                      <input type="tel" value={staffForm.phone} onChange={e => setStaffForm(f => ({ ...f, phone: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Optional" />
-                    </div>
-                  </div>
-                  <div className="flex gap-3 mt-6">
-                    <button onClick={() => setIsAddStaffOpen(false)} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
-                    <button onClick={handleAddStaff} disabled={isSubmittingStaff} className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all disabled:opacity-50 shadow-lg shadow-amber-600/20">
-                      {isSubmittingStaff ? 'Adding...' : 'Add Staff'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          <StaffManagementView restaurant={restaurant} currencySymbol={currencySymbol} />
         )}
-
-        {/* ════════════════════════════════════ */}
-        {/* INVENTORY MANAGEMENT TAB            */}
-        {/* ════════════════════════════════════ */}
         {activeTab === 'INVENTORY' && (
           <InventoryManagement restaurant={restaurant} currencySymbol={currencySymbol} initialSubTab={inventorySubTab as any} />
         )}
 
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {/* REPORTS TAB                         */}
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {activeTab === 'REPORTS' && (
           <ReportsView orders={orders} currencySymbol={currencySymbol} taxes={restaurant.settings?.taxes} initialSubTab={reportSubTab as any} />
         )}
 
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {/* CONTACTS TAB                        */}
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {activeTab === 'CONTACTS' && (
           <ContactsManagement restaurant={restaurant} currencySymbol={currencySymbol} initialSubTab={contactSubTab as any} />
         )}
 
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {/* EXPENSES TAB                        */}
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {activeTab === 'EXPENSES' && (
           <ExpensesView
             restaurant={restaurant}
@@ -2298,16 +2133,16 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           />
         )}
 
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {/* FINANCE TAB                         */}
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {activeTab === 'FINANCE' && (
           <FinanceView restaurant={restaurant} orders={orders} currencySymbol={currencySymbol} initialSubTab={financeSubTab} subscription={subscription} />
         )}
 
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {/* CASHIER SHIFTS TAB                  */}
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {activeTab === 'SHIFTS' && (
           <CashierShiftRecords
             restaurantId={restaurant.id}
@@ -2325,3 +2160,4 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 };
 
 export default BackOfficePage;
+
