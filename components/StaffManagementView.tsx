@@ -716,9 +716,11 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
           <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-gray-800" onClick={event => event.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between gap-4"><div><h3 className="text-xl font-black text-gray-900 dark:text-white">{editingStaffId ? 'Edit Staff Profile' : 'Add Staff Profile'}</h3><p className="text-xs text-gray-500 dark:text-gray-400">Account login, department, employment, salary and statutory details.</p></div><button onClick={() => setStaffModalOpen(false)} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={18} /></button></div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <SectionDivider title="User Access" />
               <Field label="Username *" value={staffForm.username} onChange={value => setStaffForm(form => ({ ...form, username: value }))} />
               <Field label={editingStaffId ? 'Password (leave blank)' : 'Password *'} type="password" value={staffForm.password} onChange={value => setStaffForm(form => ({ ...form, password: value }))} />
               <div><label className={labelClass}>Role</label><select value={staffForm.role} onChange={event => setStaffForm(form => ({ ...form, role: event.target.value as StaffRole }))} className={fieldClass}><option value="CASHIER">Cashier</option><option value="KITCHEN">Kitchen</option><option value="ORDER_TAKER">Order Taker</option><option value="MANAGER">Manager</option></select></div>
+              <SectionDivider title="User Details" />
               <Field label="Full Name" value={staffForm.fullName} onChange={value => setStaffForm(form => ({ ...form, fullName: value }))} />
               <Field label="Employee Code" value={staffForm.employeeCode} onChange={value => setStaffForm(form => ({ ...form, employeeCode: value }))} />
               <div><label className={labelClass}>Department</label><select value={staffForm.departmentId} onChange={event => setStaffForm(form => ({ ...form, departmentId: event.target.value }))} className={fieldClass}><option value="">Unassigned</option>{departments.map(department => <option key={department.id} value={department.id}>{department.name}</option>)}</select></div>
@@ -726,6 +728,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <Field label="Email" value={staffForm.email} onChange={value => setStaffForm(form => ({ ...form, email: value }))} />
               <Field label="Phone" value={staffForm.phone} onChange={value => setStaffForm(form => ({ ...form, phone: value }))} />
               <Field label="IC / Passport" value={staffForm.icNumber} onChange={value => setStaffForm(form => ({ ...form, icNumber: value }))} />
+              <SectionDivider title="Employment & Salary" />
               <div><label className={labelClass}>Employment Type</label><select value={staffForm.employmentType} onChange={event => setStaffForm(form => ({ ...form, employmentType: event.target.value }))} className={fieldClass}><option>Full-time</option><option>Part-time</option><option>Contract</option><option>Intern</option></select></div>
               <div><label className={labelClass}>Status</label><select value={staffForm.employmentStatus} onChange={event => setStaffForm(form => ({ ...form, employmentStatus: event.target.value }))} className={fieldClass}><option>Active</option><option>Probation</option><option>Inactive</option><option>Resigned</option></select></div>
               <Field label="Hire Date" type="date" value={staffForm.hireDate} onChange={value => setStaffForm(form => ({ ...form, hireDate: value }))} />
@@ -734,11 +737,13 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <Field label="OT Rate" type="number" value={staffForm.overtimeRate} onChange={value => setStaffForm(form => ({ ...form, overtimeRate: n(value) }))} />
               <Field label="Default Allowance" type="number" value={staffForm.defaultAllowance} onChange={value => setStaffForm(form => ({ ...form, defaultAllowance: n(value) }))} />
               <Field label="Default Deduction" type="number" value={staffForm.defaultDeduction} onChange={value => setStaffForm(form => ({ ...form, defaultDeduction: n(value) }))} />
+              <SectionDivider title="Bank & Statutory" />
               <Field label="Bank Name" value={staffForm.bankName} onChange={value => setStaffForm(form => ({ ...form, bankName: value }))} />
               <Field label="Bank Account" value={staffForm.bankAccountNo} onChange={value => setStaffForm(form => ({ ...form, bankAccountNo: value }))} />
               <Field label="EPF No." value={staffForm.epfNo} onChange={value => setStaffForm(form => ({ ...form, epfNo: value }))} />
               <Field label="SOCSO No." value={staffForm.socsoNo} onChange={value => setStaffForm(form => ({ ...form, socsoNo: value }))} />
               <Field label="Tax No." value={staffForm.taxNo} onChange={value => setStaffForm(form => ({ ...form, taxNo: value }))} />
+              <SectionDivider title="Emergency & Notes" />
               <Field label="Emergency Name" value={staffForm.emergencyContactName} onChange={value => setStaffForm(form => ({ ...form, emergencyContactName: value }))} />
               <Field label="Emergency Phone" value={staffForm.emergencyContactPhone} onChange={value => setStaffForm(form => ({ ...form, emergencyContactPhone: value }))} />
               <div className="md:col-span-3"><label className={labelClass}>Address</label><textarea value={staffForm.address} onChange={event => setStaffForm(form => ({ ...form, address: event.target.value }))} className={`${fieldClass} min-h-[70px]`} /></div>
@@ -776,10 +781,35 @@ interface FieldProps {
   type?: string;
 }
 
-const Field: React.FC<FieldProps> = ({ label, value, onChange, type = 'text' }) => (
-  <div>
-    <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">{label}</label>
-    <input type={type} value={value} onChange={event => onChange(event.target.value)} className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+const Field: React.FC<FieldProps> = ({ label, value, onChange, type = 'text' }) => {
+  const [draftValue, setDraftValue] = useState(() => (type === 'number' && value === 0 ? '' : String(value)));
+
+  useEffect(() => {
+    setDraftValue(type === 'number' && value === 0 ? '' : String(value));
+  }, [type, value]);
+
+  return (
+    <div>
+      <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">{label}</label>
+      <input
+        type={type}
+        value={type === 'number' ? draftValue : value}
+        onChange={event => {
+          if (type === 'number') setDraftValue(event.target.value);
+          onChange(event.target.value);
+        }}
+        className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+      />
+    </div>
+  );
+};
+
+const SectionDivider: React.FC<{ title: string }> = ({ title }) => (
+  <div className="md:col-span-3 pt-2 first:pt-0">
+    <div className="flex items-center gap-3">
+      <span className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-600 dark:text-amber-400">{title}</span>
+      <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+    </div>
   </div>
 );
 
