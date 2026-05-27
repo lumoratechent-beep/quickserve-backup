@@ -102,6 +102,18 @@ const StandardReport: React.FC<Props> = ({
     return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
   };
 
+  const formatDisplayDateTime = (value: string) => {
+    if (!value) return '--';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    const day = parsed.getDate().toString().padStart(2, '0');
+    const month = (parsed.getMonth() + 1).toString().padStart(2, '0');
+    const year = parsed.getFullYear();
+    const hour = parsed.getHours().toString().padStart(2, '0');
+    const minute = parsed.getMinutes().toString().padStart(2, '0');
+    return `${day}/${month}/${year} ${hour}:${minute}`;
+  };
+
   const getQuickDateRange = (range: 'today' | 'week' | 'month' | 'lastMonth') => {
     const now = new Date();
     const pad = (n: number) => n.toString().padStart(2, '0');
@@ -141,6 +153,10 @@ const StandardReport: React.FC<Props> = ({
   }, [detailRange]);
 
   const revenuePeriodLabel = useMemo(() => {
+    if (applyCurrentShiftFilter && activeShift) {
+      return `Showing sales for current shift ${formatDisplayDateTime(activeShift.opened_at)} till now.`;
+    }
+
     const timeLabel = hasCustomTimeRange ? `, ${formatMinuteToTime(timeStartMinutes)} - ${formatMinuteToTime(timeEndMinutes)}` : '';
     const preset = detailRange === 'custom' && hasCustomTimeRange ? null : detailRange === 'custom' ? detectQuickPreset(reportStart, reportEnd) : detailRange;
     if (preset === 'today') return `Showing sales for ${formatDisplayDate(reportStart)}.`;
@@ -148,7 +164,7 @@ const StandardReport: React.FC<Props> = ({
     if (preset === 'month') return `Showing sales for ${formatDisplayDate(reportStart)} - ${formatDisplayDate(reportEnd)}.`;
     if (preset === 'lastMonth') return `Showing sales for ${formatDisplayDate(reportStart)} - ${formatDisplayDate(reportEnd)}.`;
     return `Showing sales for ${formatDisplayDate(reportStart)} - ${formatDisplayDate(reportEnd)}${timeLabel}.`;
-  }, [detailRange, reportStart, reportEnd, hasCustomTimeRange, timeStartMinutes, timeEndMinutes]);
+  }, [applyCurrentShiftFilter, activeShift, detailRange, reportStart, reportEnd, hasCustomTimeRange, timeStartMinutes, timeEndMinutes]);
 
   const uniquePayments = useMemo(() => {
     const set = new Set(paginatedReports.map(o => o.paymentMethod || '-'));
