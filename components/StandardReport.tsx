@@ -464,7 +464,7 @@ const StandardReport: React.FC<Props> = ({
             </p>
 
             <div className="flex flex-col gap-5">
-              <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_11rem] gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_max-content] gap-3">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">From Date</p>
                   <input
@@ -488,7 +488,7 @@ const StandardReport: React.FC<Props> = ({
                   To
                 </span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_11rem] gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_max-content] gap-3">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">To Date</p>
                   <input
