@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Building2, CheckCircle, Copy, CreditCard, Edit3, FileText, Plus, Receipt, RotateCcw, Search, Trash2, UserMinus, UserPlus, Users, X } from 'lucide-react';
+import { Building2, CheckCircle, Copy, CreditCard, Download, Edit3, FileText, Plus, Receipt, RotateCcw, Search, Trash2, UserMinus, UserPlus, Users, X } from 'lucide-react';
 import { Restaurant } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { toast } from './Toast';
@@ -697,6 +697,181 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     }
   };
 
+  const downloadPayslipPdf = async (payslip: PayrollPayslip) => {
+    const selectedStaff = staff.find(item => item.id === payslip.staff_user_id);
+    const selectedDepartment = departments.find(dept => dept.id === selectedStaff?.profile?.department_id);
+    const fullName = selectedStaff?.profile?.full_name || selectedStaff?.username || 'Staff';
+    const periodLabel = payslip.pay_period?.trim() || new Date(payslip.pay_date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const payDateLabel = new Date(payslip.pay_date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+    const deductionsTotal =
+      n(payslip.epf_employee) +
+      n(payslip.socso_employee) +
+      n(payslip.eis_employee) +
+      n(payslip.tax_pcb) +
+      n(payslip.unpaid_leave_deduction) +
+      n(payslip.other_deductions);
+    const employerContributionTotal =
+      n(payslip.epf_employer) +
+      n(payslip.socso_employer) +
+      n(payslip.eis_employer) +
+      n(payslip.other_contribution_amount);
+
+    const receiptSettings = (restaurant.settings?.receipt || {}) as Record<string, unknown>;
+    const companyName = String(receiptSettings.businessName || restaurant.name || 'Company');
+    const companyAddressLine1 = String(receiptSettings.businessAddressLine1 || '').trim();
+    const companyAddressLine2 = String(receiptSettings.businessAddressLine2 || '').trim();
+    const companyPhone = String(receiptSettings.businessPhone || '').trim();
+    const companyLines = [
+      companyName,
+      companyAddressLine1 || restaurant.location || '',
+      companyAddressLine2,
+      companyPhone ? `Phone: ${companyPhone}` : '',
+    ].filter(Boolean);
+
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+      const margin = 14;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const contentWidth = pageWidth - (margin * 2);
+      const accent = [217, 119, 6] as [number, number, number];
+      const textColor = [31, 41, 55] as [number, number, number];
+      let y = 14;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(19);
+      doc.setTextColor(...textColor);
+      doc.text('PAYSLIP', margin, y);
+      doc.setFontSize(10);
+      doc.setTextColor(107, 114, 128);
+      doc.text(`Pay Period: ${periodLabel}`, pageWidth - margin, y, { align: 'right' });
+      y += 7;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(...textColor);
+      doc.text(companyLines[0] || restaurant.name, margin, y);
+      y += 5;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(107, 114, 128);
+      companyLines.slice(1).forEach((line) => {
+        const lines = doc.splitTextToSize(line, contentWidth * 0.6);
+        doc.text(lines, margin, y);
+        y += 4;
+      });
+
+      doc.setDrawColor(...accent);
+      doc.setLineWidth(0.6);
+      doc.line(margin, y + 1.5, pageWidth - margin, y + 1.5);
+      y += 7;
+
+      autoTable(doc, {
+        startY: y,
+        margin: { left: margin, right: margin },
+        theme: 'grid',
+        styles: { fontSize: 8.5, cellPadding: 2.6, textColor: textColor },
+        headStyles: { fillColor: accent, textColor: [255, 255, 255], fontStyle: 'bold' },
+        body: [
+          ['Employee Name', fullName, 'Pay Date', payDateLabel],
+          ['Employee ID', selectedStaff?.profile?.employee_code || selectedStaff?.id || '-', 'Department', selectedDepartment?.name || 'Unassigned'],
+          ['Job Title', selectedStaff?.profile?.job_title || selectedStaff?.role || '-', 'Payment Method', payslip.payment_method || '-'],
+          ['EPF No.', selectedStaff?.profile?.epf_no || '-', 'SOCSO No.', selectedStaff?.profile?.socso_no || '-'],
+          ['Tax No.', selectedStaff?.profile?.tax_no || '-', 'Bank Account', selectedStaff?.profile?.bank_account_no || '-'],
+          ['Status', (payslip.status || 'draft').toUpperCase(), 'Generated On', new Date().toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })],
+        ],
+      });
+
+      const earningsStartY = (doc as any).lastAutoTable.finalY + 6;
+
+      autoTable(doc, {
+        startY: earningsStartY,
+        margin: { left: margin, right: pageWidth / 2 + 2 },
+        head: [['Earnings', 'Amount']],
+        body: [
+          ['Basic Salary', fmt(payslip.basic_salary)],
+          ['Overtime', fmt(payslip.overtime_amount)],
+          ['Allowance', fmt(payslip.allowance_amount)],
+          ['Bonus', fmt(payslip.bonus_amount)],
+          ['Gross Pay', fmt(payslip.gross_pay)],
+        ],
+        theme: 'grid',
+        styles: { fontSize: 8.5, cellPadding: 2.4, textColor: textColor },
+        headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold' },
+      });
+
+      const earningsFinalY = (doc as any).lastAutoTable.finalY;
+
+      autoTable(doc, {
+        startY: earningsStartY,
+        margin: { left: pageWidth / 2 + 2, right: margin },
+        head: [['Deductions', 'Amount']],
+        body: [
+          ['EPF Employee', fmt(payslip.epf_employee)],
+          ['SOCSO Employee', fmt(payslip.socso_employee)],
+          ['EIS Employee', fmt(payslip.eis_employee)],
+          ['PCB / Tax', fmt(payslip.tax_pcb)],
+          ['Unpaid Leave', fmt(payslip.unpaid_leave_deduction)],
+          [payslip.other_deduction_name || 'Other Deductions', fmt(payslip.other_deductions)],
+          ['Total Deductions', fmt(deductionsTotal)],
+        ],
+        theme: 'grid',
+        styles: { fontSize: 8.5, cellPadding: 2.4, textColor: textColor },
+        headStyles: { fillColor: [239, 68, 68], textColor: [255, 255, 255], fontStyle: 'bold' },
+      });
+
+      const deductionsFinalY = (doc as any).lastAutoTable.finalY;
+
+      autoTable(doc, {
+        startY: Math.max(earningsFinalY, deductionsFinalY) + 6,
+        margin: { left: margin, right: margin },
+        head: [['Employer Contribution', 'Amount']],
+        body: [
+          ['EPF Employer', fmt(payslip.epf_employer)],
+          ['SOCSO Employer', fmt(n(payslip.socso_employer))],
+          ['EIS Employer', fmt(n(payslip.eis_employer))],
+          [payslip.other_contribution_name || 'Other Contribution', fmt(n(payslip.other_contribution_amount))],
+          ['Total Company Contribution', fmt(employerContributionTotal)],
+        ],
+        theme: 'grid',
+        styles: { fontSize: 8.3, cellPadding: 2.4, textColor: textColor },
+        headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], fontStyle: 'bold' },
+      });
+
+      const summaryY = (doc as any).lastAutoTable.finalY + 7;
+      doc.setFillColor(255, 247, 237);
+      doc.setDrawColor(...accent);
+      doc.roundedRect(margin, summaryY, contentWidth, 16, 2, 2, 'FD');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(107, 114, 128);
+      doc.text('NET PAY', margin + 4, summaryY + 6);
+      doc.setFontSize(16);
+      doc.setTextColor(...textColor);
+      doc.text(fmt(payslip.net_pay), pageWidth - margin - 4, summaryY + 10.5, { align: 'right' });
+
+      if (payslip.notes) {
+        const noteY = summaryY + 22;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(107, 114, 128);
+        doc.text('Notes', margin, noteY);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(75, 85, 99);
+        const notes = doc.splitTextToSize(String(payslip.notes), contentWidth);
+        doc.text(notes, margin, noteY + 4);
+      }
+
+      const safeName = fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'staff';
+      const safePeriod = periodLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'period';
+      doc.save(`payslip-${safeName}-${safePeriod}.pdf`);
+      toast('Payslip PDF downloaded.', 'success');
+    } catch (err: any) {
+      toast(err?.message || 'Failed to download payslip PDF', 'error');
+    }
+  };
+
   const selectedPreviewStaff = previewPayslip ? staff.find(item => item.id === previewPayslip.staff_user_id) : null;
 
   const fieldClass = 'w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white';
@@ -1102,7 +1277,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <SummaryTile label={previewPayslip.other_contribution_name || 'Other Contribution'} value={fmt(n(previewPayslip.other_contribution_amount))} />
               <SummaryTile label="Net Pay" value={fmt(previewPayslip.net_pay)} positive />
             </div>
-            <div className="mt-5 flex justify-end gap-2"><button onClick={() => copyPayslip(previewPayslip)} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold uppercase tracking-wider dark:border-gray-700"><Copy size={14} /> Copy</button><button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold uppercase tracking-wider dark:border-gray-700"><FileText size={14} /> Print</button><button onClick={() => setPreviewPayslip(null)} className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white">Close</button></div>
+            <div className="mt-5 flex justify-end gap-2"><button onClick={() => copyPayslip(previewPayslip)} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold uppercase tracking-wider dark:border-gray-700"><Copy size={14} /> Copy</button><button onClick={() => void downloadPayslipPdf(previewPayslip)} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold uppercase tracking-wider dark:border-gray-700"><Download size={14} /> Download PDF</button><button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold uppercase tracking-wider dark:border-gray-700"><FileText size={14} /> Print</button><button onClick={() => setPreviewPayslip(null)} className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white">Close</button></div>
           </div>
         </div>
       )}
