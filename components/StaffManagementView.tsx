@@ -1003,28 +1003,29 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
         ))}
       </div>
 
-      <div className="flex gap-0 overflow-x-auto">
-        {([
-          ['directory', 'Staff Directory', <Users size={14} />],
-          ['payroll', 'Staff Payslip', <Receipt size={14} />],
-          ['departments', 'Departments', <Building2 size={14} />],
-        ] as const).map(([key, label, icon]) => (
-          <button
-            key={key}
-            onClick={() => setSubTab(key)}
-            style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
-            className={`relative -mb-px inline-flex items-center gap-2 whitespace-nowrap rounded-t-lg border px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors duration-150 ${
-              subTab === key
-                ? 'z-10 border-x border-t border-gray-200 bg-white text-orange-500 dark:border-gray-600 dark:border-t-orange-500 dark:bg-gray-800'
-                : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300'
-            }`}
-          >
-            {icon} {label}
-          </button>
-        ))}
-      </div>
+      <div className="min-w-0">
+        <div className="relative flex gap-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {([
+            ['directory', 'Staff Directory', <Users size={14} />],
+            ['payroll', 'Staff Payslip', <Receipt size={14} />],
+            ['departments', 'Departments', <Building2 size={14} />],
+          ] as const).map(([key, label, icon]) => (
+            <button
+              key={key}
+              onClick={() => setSubTab(key)}
+              style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+              className={`relative -mb-px inline-flex items-center gap-2 whitespace-nowrap rounded-t-lg border px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors duration-150 ${
+                subTab === key
+                  ? 'z-10 border-x border-t border-gray-200 bg-white text-orange-500 dark:border-gray-600 dark:border-t-orange-500 dark:bg-gray-800'
+                  : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300'
+              }`}
+            >
+              {icon} {label}
+            </button>
+          ))}
+        </div>
 
-      {subTab === 'directory' && (
+        {subTab === 'directory' && (
         <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
             <div>
@@ -1098,9 +1099,9 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
             <div className="flex h-56 flex-col items-center justify-center text-gray-400 dark:text-gray-600"><Users size={40} className="mb-3 opacity-30" /><p className="text-sm font-bold">No staff records found</p><button onClick={() => openStaffModal()} className="mt-4 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white">Add First Staff</button></div>
           )}
         </div>
-      )}
+        )}
 
-      {subTab === 'payroll' && (
+        {subTab === 'payroll' && (
         isPayslipFormOpen ? (
           <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -1320,9 +1321,9 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
             )}
           </div>
         )
-      )}
+        )}
 
-      {subTab === 'departments' && (
+        {subTab === 'departments' && (
         <div className="grid grid-cols-1 gap-5 rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800 lg:grid-cols-[420px_1fr]">
           <div>
             <h3 className="text-sm font-black text-gray-900 dark:text-white">Add Department</h3>
@@ -1369,7 +1370,8 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
             </div>
           </div>
         </div>
-      )}
+        )}
+      </div>
 
       {staffModalOpen && renderModalPortal(
         <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setStaffModalOpen(false)}>
