@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Building2, CheckCircle, Copy, CreditCard, Download, Edit3, FileText, Plus, Receipt, RotateCcw, Search, Trash2, UserMinus, UserPlus, Users, X } from 'lucide-react';
+import { Building2, Copy, CreditCard, Download, Edit3, FileText, MoreVertical, Plus, Receipt, RotateCcw, Search, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { Restaurant } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { toast } from './Toast';
@@ -243,8 +243,16 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   const [isSavingPayslip, setIsSavingPayslip] = useState(false);
   const [previewPayslip, setPreviewPayslip] = useState<PayrollPayslip | null>(null);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+  const [actionMenuStaffId, setActionMenuStaffId] = useState<string | null>(null);
 
   const fmt = (value: number) => `${currencySymbol}${n(value).toFixed(2)}`;
+  const statusOptionClass = 'bg-white text-gray-900';
+  const getPayFrequencyLabel = (frequency?: string | null) => (frequency === 'Monthly' || !frequency ? 'mo' : frequency);
+  const getStaffStatusClass = (status: StaffEmploymentStatus) => {
+    if (status === 'Active') return 'bg-emerald-100 text-emerald-700 focus:ring-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300';
+    if (status === 'Probation') return 'bg-amber-100 text-amber-700 focus:ring-amber-300 dark:bg-amber-500/20 dark:text-amber-300';
+    return 'bg-rose-100 text-rose-700 focus:ring-rose-300 dark:bg-rose-500/20 dark:text-rose-300';
+  };
 
   const cacheStaff = useCallback((items: StaffMember[]) => {
     setStaff(items);
@@ -483,10 +491,6 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     } finally {
       setUpdatingStatusId(null);
     }
-  };
-
-  const toggleStaffActive = async (item: StaffMember) => {
-    await updateStaffStatus(item, item.is_active === false ? 'Active' : 'Inactive');
   };
 
   const updatePayslipStatus = async (payslip: PayrollPayslip, status: PayrollPayslip['status']) => {
@@ -1044,9 +1048,17 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
           </div>
           {visibleStaff.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full text-left">
+              <table className="w-full min-w-[940px] text-left">
                 <thead className="bg-gray-50 dark:bg-gray-900/50">
-                  <tr>{['Staff', 'Department', 'Login Role', 'Salary', 'Contact', 'Status', 'Actions'].map(head => <th key={head} className={`px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400 ${head === 'Actions' ? 'text-center' : ''}`}>{head}</th>)}</tr>
+                  <tr>
+                    <th className="w-[30%] min-w-[260px] px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Staff</th>
+                    <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Department</th>
+                    <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Login Role</th>
+                    <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Salary</th>
+                    <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Contact</th>
+                    <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Status</th>
+                    <th className="w-12 px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest text-gray-400">Actions</th>
+                  </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
                   {visibleStaff.map(item => {
@@ -1054,7 +1066,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                     const currentStatus = (item.profile?.employment_status || (item.is_active === false ? 'Inactive' : 'Active')) as StaffEmploymentStatus;
                     return (
                       <tr key={item.id} className="transition hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                        <td className="px-5 py-4">
+                        <td className="w-[30%] min-w-[260px] px-5 py-4">
                           <div>
                             <p className="text-sm font-black text-gray-900 dark:text-white">{item.profile?.full_name || item.username}</p>
                             <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{item.profile?.employee_code || item.username}</p>
@@ -1062,31 +1074,47 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                         </td>
                         <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400"><p className="font-bold text-gray-700 dark:text-gray-200">{department?.name || 'Unassigned'}</p><p>{item.profile?.job_title || 'No job title'}</p></td>
                         <td className="px-5 py-4"><span className="rounded-lg bg-gray-100 px-2 py-1 text-[10px] font-black text-gray-600 dark:bg-gray-700 dark:text-gray-300">{item.role}</span></td>
-                        <td className="px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{fmt(n(item.profile?.salary_amount))} <span className="font-normal text-gray-400">/{item.profile?.pay_frequency || 'Monthly'}</span></td>
+                        <td className="whitespace-nowrap px-5 py-4 text-xs font-bold text-gray-900 dark:text-white">{fmt(n(item.profile?.salary_amount))} <span className="font-normal text-gray-400">/{getPayFrequencyLabel(item.profile?.pay_frequency)}</span></td>
                         <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400"><p>{item.email || '-'}</p><p>{item.phone || '-'}</p></td>
                         <td className="px-5 py-4">
                           <select
                             value={currentStatus}
                             disabled={updatingStatusId === `staff_${item.id}`}
                             onChange={event => void updateStaffStatus(item, event.target.value as StaffEmploymentStatus)}
-                            className={`rounded-lg border-0 px-2 py-1 text-[10px] font-black uppercase outline-none ring-1 ring-transparent transition disabled:cursor-wait disabled:opacity-60 ${
-                              item.is_active !== false
-                                ? 'bg-emerald-100 text-emerald-700 focus:ring-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300'
-                                : 'bg-rose-100 text-rose-700 focus:ring-rose-300 dark:bg-rose-500/20 dark:text-rose-300'
-                            }`}
+                            className={`rounded-lg border-0 px-2 py-1 text-[10px] font-black uppercase outline-none ring-1 ring-transparent transition disabled:cursor-wait disabled:opacity-60 ${getStaffStatusClass(currentStatus)}`}
                           >
-                            <option value="Active">Active</option>
-                            <option value="Probation">Probation</option>
-                            <option value="Inactive">Inactive</option>
-                            <option value="Resigned">Resigned</option>
+                            <option className={statusOptionClass} value="Active">Active</option>
+                            <option className={statusOptionClass} value="Probation">Probation</option>
+                            <option className={statusOptionClass} value="Inactive">Inactive</option>
+                            <option className={statusOptionClass} value="Resigned">Resigned</option>
                           </select>
                         </td>
-                        <td className="px-5 py-4 text-center">
-                          <div className="flex justify-center gap-1">
-                            <button onClick={() => openStaffModal(item)} className="rounded-lg p-2 text-gray-400 transition hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-900/20" title="Edit profile"><Edit3 size={14} /></button>
-                            <button onClick={() => { setSubTab('payroll'); openPayslipForm(item); }} className="rounded-lg p-2 text-gray-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/20" title="Make payslip"><Receipt size={14} /></button>
-                            <button onClick={() => toggleStaffActive(item)} className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-white" title="Toggle active">{item.is_active !== false ? <UserMinus size={14} /> : <CheckCircle size={14} />}</button>
-                            <button onClick={() => deleteStaff(item)} className="rounded-lg p-2 text-gray-400 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/20" title="Remove"><Trash2 size={14} /></button>
+                        <td className="relative w-12 px-2 py-4 text-center">
+                          {actionMenuStaffId === item.id && <button type="button" aria-label="Close staff actions" className="fixed inset-0 z-10 cursor-default" onClick={() => setActionMenuStaffId(null)} />}
+                          <div className="relative flex justify-center">
+                            <button
+                              type="button"
+                              onClick={() => setActionMenuStaffId(openId => openId === item.id ? null : item.id)}
+                              className="relative z-20 rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-white"
+                              title="Staff actions"
+                              aria-label={`Actions for ${item.profile?.full_name || item.username}`}
+                              aria-expanded={actionMenuStaffId === item.id}
+                            >
+                              <MoreVertical size={16} />
+                            </button>
+                            {actionMenuStaffId === item.id && (
+                              <div className="absolute right-0 top-10 z-20 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 text-left shadow-xl dark:border-gray-700 dark:bg-gray-900">
+                                <button type="button" onClick={() => { setActionMenuStaffId(null); openStaffModal(item); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-amber-50 hover:text-amber-700 dark:text-gray-200 dark:hover:bg-amber-900/20 dark:hover:text-amber-300">
+                                  <Edit3 size={14} /> Edit Profile
+                                </button>
+                                <button type="button" onClick={() => { setActionMenuStaffId(null); setSubTab('payroll'); openPayslipForm(item); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-emerald-50 hover:text-emerald-700 dark:text-gray-200 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-300">
+                                  <Receipt size={14} /> Make a Payslip
+                                </button>
+                                <button type="button" onClick={() => { setActionMenuStaffId(null); deleteStaff(item); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-900/20">
+                                  <Trash2 size={14} /> Remove
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1249,7 +1277,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                 <h4 className="mb-3 text-sm font-semibold text-sky-600 dark:text-sky-400">Other Details</h4>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div><label className={labelClass}>Payment Method</label><select value={payrollForm.paymentMethod} onChange={event => setPayrollForm(form => ({ ...form, paymentMethod: event.target.value }))} className={fieldClass}><option>Bank Transfer</option><option>Cash</option><option>Cheque</option></select></div>
-                  <div><label className={labelClass}>Status</label><select value={payrollForm.status} onChange={event => setPayrollForm(form => ({ ...form, status: event.target.value as PayrollForm['status'] }))} className={fieldClass}><option value="draft">Draft</option><option value="approved">Approved</option><option value="paid">Paid</option></select></div>
+                  <div><label className={labelClass}>Status</label><select value={payrollForm.status} onChange={event => setPayrollForm(form => ({ ...form, status: event.target.value as PayrollForm['status'] }))} className={fieldClass}><option className={statusOptionClass} value="draft">Draft</option><option className={statusOptionClass} value="approved">Approved</option><option className={statusOptionClass} value="paid">Paid</option></select></div>
                   <div className="md:col-span-2"><label className={labelClass}>Notes</label><textarea value={payrollForm.notes} onChange={event => setPayrollForm(form => ({ ...form, notes: event.target.value }))} className={`${fieldClass} min-h-[80px]`} /></div>
                 </div>
               </div>
@@ -1299,9 +1327,9 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                               onChange={event => void updatePayslipStatus(payslip, event.target.value as PayrollPayslip['status'])}
                               className="rounded-lg border-0 bg-gray-100 px-2 py-1 text-[10px] font-black uppercase text-gray-600 outline-none ring-1 ring-transparent transition focus:ring-amber-300 disabled:cursor-wait disabled:opacity-60 dark:bg-gray-700 dark:text-gray-300"
                             >
-                              <option value="draft">Draft</option>
-                              <option value="approved">Approved</option>
-                              <option value="paid">Paid</option>
+                              <option className={statusOptionClass} value="draft">Draft</option>
+                              <option className={statusOptionClass} value="approved">Approved</option>
+                              <option className={statusOptionClass} value="paid">Paid</option>
                             </select>
                           </td>
                           <td className="px-5 py-4 text-center">
@@ -1360,8 +1388,8 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                             : 'bg-rose-100 text-rose-700 focus:ring-rose-300 dark:bg-rose-500/20 dark:text-rose-300'
                         }`}
                       >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
+                        <option className={statusOptionClass} value="active">Active</option>
+                        <option className={statusOptionClass} value="inactive">Inactive</option>
                       </select>
                     </div>
                   </div>
@@ -1392,7 +1420,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <Field label="IC / Passport" value={staffForm.icNumber} onChange={value => setStaffForm(form => ({ ...form, icNumber: value }))} />
               <SectionDivider title="Employment & Salary" />
               <div><label className={labelClass}>Employment Type</label><select value={staffForm.employmentType} onChange={event => setStaffForm(form => ({ ...form, employmentType: event.target.value }))} className={fieldClass}><option>Full-time</option><option>Part-time</option><option>Contract</option><option>Intern</option></select></div>
-              <div><label className={labelClass}>Status</label><select value={staffForm.employmentStatus} onChange={event => setStaffForm(form => ({ ...form, employmentStatus: event.target.value }))} className={fieldClass}><option>Active</option><option>Probation</option><option>Inactive</option><option>Resigned</option></select></div>
+              <div><label className={labelClass}>Status</label><select value={staffForm.employmentStatus} onChange={event => setStaffForm(form => ({ ...form, employmentStatus: event.target.value }))} className={fieldClass}><option className={statusOptionClass}>Active</option><option className={statusOptionClass}>Probation</option><option className={statusOptionClass}>Inactive</option><option className={statusOptionClass}>Resigned</option></select></div>
               <Field label="Hire Date" type="date" value={staffForm.hireDate} onChange={value => setStaffForm(form => ({ ...form, hireDate: value }))} />
               <Field label="Basic Salary" type="number" value={staffForm.salaryAmount} onChange={value => setStaffForm(form => ({ ...form, salaryAmount: n(value) }))} />
               <div><label className={labelClass}>Pay Frequency</label><select value={staffForm.payFrequency} onChange={event => setStaffForm(form => ({ ...form, payFrequency: event.target.value }))} className={fieldClass}><option>Monthly</option><option>Weekly</option><option>Daily</option></select></div>
