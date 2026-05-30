@@ -26,6 +26,7 @@ interface StaffProfile {
   employee_code?: string | null;
   full_name?: string | null;
   ic_number?: string | null;
+  nationality?: string | null;
   address?: string | null;
   emergency_contact_name?: string | null;
   emergency_contact_phone?: string | null;
@@ -102,6 +103,7 @@ interface StaffForm {
   employmentStatus: string;
   hireDate: string;
   icNumber: string;
+  nationality: string;
   address: string;
   emergencyContactName: string;
   emergencyContactPhone: string;
@@ -178,6 +180,7 @@ const blankStaffForm = (): StaffForm => ({
   employmentStatus: 'Active',
   hireDate: new Date().toISOString().split('T')[0],
   icNumber: '',
+  nationality: '',
   address: '',
   emergencyContactName: '',
   emergencyContactPhone: '',
@@ -372,6 +375,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       employmentStatus: profile?.employment_status || (item.is_active === false ? 'Inactive' : 'Active'),
       hireDate: profile?.hire_date || new Date().toISOString().split('T')[0],
       icNumber: profile?.ic_number || '',
+      nationality: profile?.nationality || '',
       address: profile?.address || '',
       emergencyContactName: profile?.emergency_contact_name || '',
       emergencyContactPhone: profile?.emergency_contact_phone || '',
@@ -432,6 +436,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
         employee_code: staffForm.employeeCode.trim() || null,
         full_name: staffForm.fullName.trim() || username,
         ic_number: staffForm.icNumber.trim() || null,
+        nationality: staffForm.nationality.trim() || null,
         address: staffForm.address.trim() || null,
         emergency_contact_name: staffForm.emergencyContactName.trim() || null,
         emergency_contact_phone: staffForm.emergencyContactPhone.trim() || null,
@@ -1070,6 +1075,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                           <div>
                             <p className="text-sm font-black text-gray-900 dark:text-white">{item.profile?.full_name || item.username}</p>
                             <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{item.profile?.employee_code || item.username}</p>
+                            {item.profile?.nationality && <p className="mt-1 text-[10px] font-semibold text-gray-400">Citizen: {item.profile.nationality}</p>}
                           </div>
                         </td>
                         <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400"><p className="font-bold text-gray-700 dark:text-gray-200">{department?.name || 'Unassigned'}</p><p>{item.profile?.job_title || 'No job title'}</p></td>
@@ -1095,7 +1101,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                             <button
                               type="button"
                               onClick={() => setActionMenuStaffId(openId => openId === item.id ? null : item.id)}
-                              className="relative z-20 rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-white"
+                              className={`relative z-20 rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-white ${actionMenuStaffId === item.id ? 'invisible' : ''}`}
                               title="Staff actions"
                               aria-label={`Actions for ${item.profile?.full_name || item.username}`}
                               aria-expanded={actionMenuStaffId === item.id}
@@ -1103,7 +1109,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                               <MoreVertical size={16} />
                             </button>
                             {actionMenuStaffId === item.id && (
-                              <div className="absolute right-0 top-10 z-20 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 text-left shadow-xl dark:border-gray-700 dark:bg-gray-900">
+                              <div className="absolute right-0 top-10 z-30 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 text-left shadow-xl dark:border-gray-700 dark:bg-gray-900">
                                 <button type="button" onClick={() => { setActionMenuStaffId(null); openStaffModal(item); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-amber-50 hover:text-amber-700 dark:text-gray-200 dark:hover:bg-amber-900/20 dark:hover:text-amber-300">
                                   <Edit3 size={14} /> Edit Profile
                                 </button>
@@ -1418,6 +1424,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <Field label="Email" value={staffForm.email} onChange={value => setStaffForm(form => ({ ...form, email: value }))} />
               <Field label="Phone" value={staffForm.phone} onChange={value => setStaffForm(form => ({ ...form, phone: value }))} />
               <Field label="IC / Passport" value={staffForm.icNumber} onChange={value => setStaffForm(form => ({ ...form, icNumber: value }))} />
+              <Field label="Country of citizen" value={staffForm.nationality} onChange={value => setStaffForm(form => ({ ...form, nationality: value }))} />
               <SectionDivider title="Employment & Salary" />
               <div><label className={labelClass}>Employment Type</label><select value={staffForm.employmentType} onChange={event => setStaffForm(form => ({ ...form, employmentType: event.target.value }))} className={fieldClass}><option>Full-time</option><option>Part-time</option><option>Contract</option><option>Intern</option></select></div>
               <div><label className={labelClass}>Status</label><select value={staffForm.employmentStatus} onChange={event => setStaffForm(form => ({ ...form, employmentStatus: event.target.value }))} className={fieldClass}><option className={statusOptionClass}>Active</option><option className={statusOptionClass}>Probation</option><option className={statusOptionClass}>Inactive</option><option className={statusOptionClass}>Resigned</option></select></div>
