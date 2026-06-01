@@ -1485,14 +1485,34 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               </div>
             </div>
 
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                { label: 'Total Items', value: restaurant.menu.filter(m => !m.isArchived).length, icon: <Package size={20} className="text-blue-500" />, tone: 'bg-blue-500/10' },
+                { label: 'Categories', value: itemCategories.length - 1, icon: <Layers size={20} className="text-amber-500" />, tone: 'bg-amber-500/10' },
+                { label: 'Tracked', value: restaurant.menu.filter(m => !m.isArchived && m.trackStock).length, icon: <CheckCircle size={20} className="text-emerald-500" />, tone: 'bg-emerald-500/10' },
+                { label: 'Archived', value: restaurant.menu.filter(m => m.isArchived).length, icon: <Archive size={20} className="text-rose-500" />, tone: 'bg-rose-500/10' },
+              ].map(card => (
+                <div key={card.label} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                  <div className="mb-3 flex items-center gap-3">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.tone}`}>{card.icon}</div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-400">{card.label}</span>
+                  </div>
+                  <p className="text-2xl font-black text-gray-950 dark:text-white">{card.value}</p>
+                </div>
+              ))}
+            </div>
+
             {/* Sub-tab toggle */}
-            <div className="flex items-center gap-0 overflow-x-auto rounded-t-lg border border-gray-200 bg-gray-100 p-0.5 w-fit dark:border-gray-700 dark:bg-gray-900 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="relative flex gap-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {([['menu', 'Menu Items'], ['ingredients', 'Ingredients / Supplies'], ['stock', 'Stock Management']] as const).map(([key, label]) => (
                 <button
                   key={key}
                   onClick={() => setItemSubTab(key)}
-                  className={`rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
-                    itemSubTab === key ? 'bg-white text-amber-600 shadow-sm dark:bg-gray-800 dark:text-amber-400' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                  style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                  className={`relative -mb-px inline-flex items-center gap-2 whitespace-nowrap rounded-t-lg border px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors duration-150 ${
+                    itemSubTab === key
+                      ? 'z-10 border-x border-t border-gray-200 bg-white text-orange-500 dark:border-gray-600 dark:border-t-orange-500 dark:bg-gray-800'
+                      : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300'
                   }`}
                 >{label}</button>
               ))}
@@ -1501,7 +1521,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             {/* â”€â”€ Menu Items sub-tab â”€â”€ */}
             {itemSubTab === 'menu' && (
             <>
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <h3 className="text-sm font-black text-gray-900 dark:text-white">Item List</h3>
@@ -1535,48 +1556,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               </div>
             </div>
 
-            {/* Summary */}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                <div className="mb-2 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10">
-                    <Package size={20} className="text-blue-500" />
-                  </div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Total Items</span>
-                </div>
-                <p className="text-2xl font-black text-gray-950 dark:text-white">{restaurant.menu.filter(m => !m.isArchived).length}</p>
-              </div>
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                <div className="mb-2 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10">
-                    <Layers size={20} className="text-amber-500" />
-                  </div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Categories</span>
-                </div>
-                <p className="text-2xl font-black text-gray-950 dark:text-white">{itemCategories.length - 1}</p>
-              </div>
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                <div className="mb-2 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10">
-                    <CheckCircle size={20} className="text-emerald-500" />
-                  </div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Tracked</span>
-                </div>
-                <p className="text-2xl font-black text-gray-950 dark:text-white">{restaurant.menu.filter(m => !m.isArchived && m.trackStock).length}</p>
-              </div>
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                <div className="mb-2 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/10">
-                    <Archive size={20} className="text-rose-500" />
-                  </div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Archived</span>
-                </div>
-                <p className="text-2xl font-black text-gray-950 dark:text-white">{restaurant.menu.filter(m => m.isArchived).length}</p>
-              </div>
-            </div>
-
             {/* Item Table */}
-            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="overflow-hidden">
               {/* Filter bar with Show entries */}
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/40">
                 <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
@@ -1668,6 +1649,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                   </tbody>
                 </table>
               </div>
+            </div>
             </div>
 
             {/* Item Pagination */}
@@ -1771,17 +1753,21 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               </div>
             )}
 
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              <h2 className="text-lg font-black">Ingredients & Supplies</h2>
+            <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h3 className="text-sm font-black text-gray-900 dark:text-white">Ingredients & Supplies</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Manage non-menu items used for purchasing, stock, and cost tracking.</p>
+              </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="relative">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                  <input type="text" placeholder="Search name, SKU, barcode..." value={ingredientSearch} onChange={e => setIngredientSearch(e.target.value)} className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-4 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none w-56" />
+                  <input type="text" placeholder="Search name, SKU, barcode..." value={ingredientSearch} onChange={e => setIngredientSearch(e.target.value)} className="w-56 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
                 </div>
-                <select value={ingredientCategoryFilter} onChange={e => setIngredientCategoryFilter(e.target.value)} className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                <select value={ingredientCategoryFilter} onChange={e => setIngredientCategoryFilter(e.target.value)} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                   {ingredientCategories.map(c => <option key={c} value={c}>{c === 'ALL' ? 'All Categories' : c}</option>)}
                 </select>
-                <button onClick={() => setIngredientShowArchived(!ingredientShowArchived)} className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${ingredientShowArchived ? 'bg-red-50 dark:bg-red-900/20 text-red-600 border-red-200 dark:border-red-800' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 border-gray-200 dark:border-gray-700'}`}>
+                <button onClick={() => setIngredientShowArchived(!ingredientShowArchived)} className={`rounded-xl border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${ingredientShowArchived ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300' : 'border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400'}`}>
                   {ingredientShowArchived ? 'Show Active' : 'Archived'}
                 </button>
                 <button onClick={openAddIngredient} className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-amber-700 transition hover:border-amber-300 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30">
@@ -1791,13 +1777,13 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             </div>
 
             {/* Info banner */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 mb-6 flex items-start gap-3">
-              <Info size={16} className="text-blue-500 mt-0.5 shrink-0" />
-              <p className="text-xs text-blue-700 dark:text-blue-300">Ingredients & supplies are non-menu items like sugar, ice blocks, ketchup, packaging, etc. They appear in Purchase Orders and Stock Management for P&L tracking.</p>
+            <div className="flex items-start gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/40">
+              <Info size={16} className="mt-0.5 shrink-0 text-blue-500" />
+              <p className="text-xs text-gray-500 dark:text-gray-400">Ingredients & supplies are non-menu items like sugar, ice blocks, ketchup, packaging, etc. They appear in Purchase Orders and Stock Management for P&L tracking.</p>
             </div>
 
             {/* Ingredients Table */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                   Showing {filteredIngredients.length === 0 ? 0 : (ingredientCurrentPage - 1) * ingredientEntriesPerPage + 1}â€“{Math.min(ingredientCurrentPage * ingredientEntriesPerPage, filteredIngredients.length)} of {filteredIngredients.length}
@@ -1865,6 +1851,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 </div>
               )}
             </div>
+            </div>
 
             {/* Ingredient Pagination */}
             {ingredientTotalPages > 1 && (
@@ -1886,8 +1873,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             {/* â”€â”€ Stock Management sub-tab â”€â”€ */}
             {itemSubTab === 'stock' && (
             <>
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
               <div>
                 <h3 className="text-sm font-black text-gray-900 dark:text-white">Stock Management</h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Track stock levels, thresholds, and stock tracking status in one place.</p>
@@ -1922,11 +1909,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 </button>
               </div>
             </div>
-            </div>
 
             {/* Selection Action Bar */}
             {stockSelectionMode && (
-              <div className="flex items-center justify-between mb-4 bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/40">
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-bold text-gray-500 dark:text-gray-400">{selectedStockIds.size} selected</span>
                   <button onClick={() => handleToggleSelectedStock(true)} className="px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 text-[10px] font-bold uppercase tracking-wider hover:bg-green-500/30 transition-all">Enable Track</button>
@@ -1936,40 +1922,8 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               </div>
             )}
 
-            {/* Stock Summary Cards */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10"><Package size={20} className="text-blue-500" /></div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Total Items</span>
-                </div>
-                <p className="text-2xl font-black text-gray-950 dark:text-white">{stockSummary.total}</p>
-              </div>
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-500/10"><CheckCircle size={20} className="text-green-500" /></div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-gray-400">In Stock</span>
-                </div>
-                <p className="text-2xl font-black text-gray-950 dark:text-white">{stockSummary.healthy}</p>
-              </div>
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10"><AlertCircle size={20} className="text-amber-500" /></div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Low Stock</span>
-                </div>
-                <p className="text-2xl font-black text-gray-950 dark:text-white">{stockSummary.low}</p>
-              </div>
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/10"><XCircle size={20} className="text-rose-500" /></div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Out of Stock</span>
-                </div>
-                <p className="text-2xl font-black text-gray-950 dark:text-white">{stockSummary.out}</p>
-              </div>
-            </div>
-
             {/* Stock Table */}
-            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="overflow-hidden">
               {/* Filter bar with Show entries */}
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/40">
                 <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
@@ -2098,6 +2052,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{stockFilter !== 'all' ? 'Try changing the filter' : 'Add menu items to track stock'}</p>
                 </div>
               )}
+            </div>
             </div>
 
             {/* Stock Pagination */}
