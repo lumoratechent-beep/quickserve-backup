@@ -1477,9 +1477,15 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={openAddItem}
-                    className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-amber-700 transition hover:border-amber-300 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
+                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-xs font-black uppercase tracking-widest text-gray-500 transition hover:border-orange-300 hover:text-orange-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
                   >
-                    <Plus size={14} /> Add Item
+                    <Edit3 size={14} /> Menu Editor
+                  </button>
+                  <button
+                    onClick={openAddItem}
+                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 text-xs font-black uppercase tracking-widest text-amber-700 transition hover:border-amber-300 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
+                  >
+                    <Plus size={14} /> Add Menu Item
                   </button>
                 </div>
               </div>
@@ -1503,16 +1509,16 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             </div>
 
             {/* Sub-tab toggle */}
-            <div className="relative flex gap-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="relative flex gap-0 overflow-x-auto overflow-y-hidden border-b border-gray-200 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden dark:border-gray-700">
               {([['menu', 'Menu Items'], ['ingredients', 'Ingredients / Supplies'], ['stock', 'Stock Management']] as const).map(([key, label]) => (
                 <button
                   key={key}
                   onClick={() => setItemSubTab(key)}
                   style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
-                  className={`relative -mb-px inline-flex items-center gap-2 whitespace-nowrap rounded-t-lg border px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors duration-150 ${
+                  className={`relative -mb-px inline-flex items-center gap-2 whitespace-nowrap rounded-t-xl border px-5 py-3 text-xs font-black uppercase tracking-wider transition-colors duration-150 ${
                     itemSubTab === key
-                      ? 'z-10 border-x border-t border-gray-200 bg-white text-orange-500 dark:border-gray-600 dark:border-t-orange-500 dark:bg-gray-800'
-                      : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300'
+                      ? 'z-10 border-gray-200 border-b-white bg-white text-orange-500 dark:border-gray-600 dark:border-b-gray-800 dark:bg-gray-800'
+                      : 'border-transparent bg-transparent text-gray-400 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300'
                   }`}
                 >{label}</button>
               ))}
@@ -1522,13 +1528,14 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             {itemSubTab === 'menu' && (
             <>
             <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-4 border-b border-gray-200 p-4 dark:border-gray-700 lg:flex-row lg:items-center lg:justify-between">
+              <div>
                 <div>
                   <h3 className="text-sm font-black text-gray-900 dark:text-white">Item List</h3>
                   <p className="text-xs text-gray-500 dark:text-gray-400">Search, filter, and manage active items or archived records.</p>
                 </div>
-                <div className="flex items-center gap-3 flex-wrap">
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
                 <div className="relative">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                   <input
@@ -1552,7 +1559,6 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 >
                   {itemShowArchived ? 'Archived' : 'Active'}
                 </button>
-                </div>
               </div>
             </div>
 
@@ -1561,7 +1567,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               {/* Filter bar with Show entries */}
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/40">
                 <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
-                  Showing {filteredItems.length === 0 ? 0 : (itemCurrentPage - 1) * itemEntriesPerPage + 1}â€“{Math.min(itemCurrentPage * itemEntriesPerPage, filteredItems.length)} of {filteredItems.length}
+                  Showing {filteredItems.length === 0 ? 0 : (itemCurrentPage - 1) * itemEntriesPerPage + 1}-{Math.min(itemCurrentPage * itemEntriesPerPage, filteredItems.length)} of {filteredItems.length}
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Show</span>
@@ -1610,13 +1616,13 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                           <span className="rounded-lg bg-gray-100 px-2 py-1 text-[10px] font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-300">{item.category}</span>
                         </td>
                         <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-white">{currencySymbol}{item.price.toFixed(2)}</td>
-                        <td className="hidden px-4 py-3 text-right text-gray-500 lg:table-cell">{item.cost ? `${currencySymbol}${item.cost.toFixed(2)}` : 'â€“'}</td>
-                        <td className="hidden px-4 py-3 font-mono text-xs text-gray-500 lg:table-cell">{item.sku || 'â€“'}</td>
+                        <td className="hidden px-4 py-3 text-right text-gray-500 lg:table-cell">{item.cost ? `${currencySymbol}${item.cost.toFixed(2)}` : '-'}</td>
+                        <td className="hidden px-4 py-3 font-mono text-xs text-gray-500 lg:table-cell">{item.sku || '-'}</td>
                         <td className="hidden px-4 py-3 text-center md:table-cell">
                           {item.trackStock ? (
                             <span className="rounded-full bg-green-100 px-2 py-0.5 text-[9px] font-bold text-green-600 dark:bg-green-900/30 dark:text-green-400">Tracked</span>
                           ) : (
-                            <span className="text-xs text-gray-300 dark:text-gray-600">â€“</span>
+                            <span className="text-xs text-gray-300 dark:text-gray-600">-</span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -1786,7 +1792,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             <div className="overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                  Showing {filteredIngredients.length === 0 ? 0 : (ingredientCurrentPage - 1) * ingredientEntriesPerPage + 1}â€“{Math.min(ingredientCurrentPage * ingredientEntriesPerPage, filteredIngredients.length)} of {filteredIngredients.length}
+                  Showing {filteredIngredients.length === 0 ? 0 : (ingredientCurrentPage - 1) * ingredientEntriesPerPage + 1}-{Math.min(ingredientCurrentPage * ingredientEntriesPerPage, filteredIngredients.length)} of {filteredIngredients.length}
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Show</span>
@@ -1927,7 +1933,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               {/* Filter bar with Show entries */}
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/40">
                 <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
-                  Showing {filteredStock.length === 0 ? 0 : (stockCurrentPage - 1) * stockEntriesPerPage + 1}â€“{Math.min(stockCurrentPage * stockEntriesPerPage, filteredStock.length)} of {filteredStock.length}
+                  Showing {filteredStock.length === 0 ? 0 : (stockCurrentPage - 1) * stockEntriesPerPage + 1}-{Math.min(stockCurrentPage * stockEntriesPerPage, filteredStock.length)} of {filteredStock.length}
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Show</span>
@@ -2006,7 +2012,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                                 }`}>{item.currentStock}</span>
                                 <button onClick={() => handleSetStock(item.menuItemId, item.currentStock + 1)} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 text-gray-400 hover:text-white flex items-center justify-center"><Plus size={12} /></button>
                               </div>
-                              ) : <span className="text-xs text-gray-400">â€”</span>}
+                              ) : <span className="text-xs text-gray-400">-</span>}
                             </td>
                             <td className="hidden px-3 py-4 md:table-cell">
                               {item.stockEnabled ? (
@@ -2016,7 +2022,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                                 onChange={e => handleUpdateStockThreshold(item.menuItemId, parseInt(e.target.value) || 0)}
                                 className="w-16 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none"
                               />
-                              ) : <span className="text-xs text-gray-400">â€”</span>}
+                              ) : <span className="text-xs text-gray-400">-</span>}
                             </td>
                             <td className="px-3 py-4">
                               <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
