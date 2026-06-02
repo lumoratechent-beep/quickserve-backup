@@ -1494,21 +1494,22 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               ))}
             </div>
 
-            {/* Sub-tab toggle */}
-            <div className="relative flex gap-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {([['menu', 'Menu Items'], ['ingredients', 'Ingredients / Supplies'], ['stock', 'Stock Management']] as const).map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => setItemSubTab(key)}
-                  style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
-                  className={`relative -mb-px inline-flex items-center gap-2 whitespace-nowrap rounded-t-lg border px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors duration-150 ${
-                    itemSubTab === key
-                      ? 'z-10 border-x border-t border-gray-200 bg-white text-orange-500 dark:border-gray-600 dark:border-t-orange-500 dark:bg-gray-800'
-                      : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300'
-                  }`}
-                >{label}</button>
-              ))}
-            </div>
+            <div className="min-w-0">
+              {/* Sub-tab toggle */}
+              <div className="relative flex gap-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {([['menu', 'Menu Items'], ['ingredients', 'Ingredients / Supplies'], ['stock', 'Stock Management']] as const).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setItemSubTab(key)}
+                    style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                    className={`relative -mb-px inline-flex items-center gap-2 whitespace-nowrap rounded-t-lg border px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors duration-150 ${
+                      itemSubTab === key
+                        ? 'z-10 border-x border-t border-gray-200 bg-white text-orange-500 dark:border-gray-600 dark:border-t-orange-500 dark:bg-gray-800'
+                        : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300'
+                    }`}
+                  >{label}</button>
+                ))}
+              </div>
 
             {/* â”€â”€ Menu Items sub-tab â”€â”€ */}
             {itemSubTab === 'menu' && (
@@ -2083,6 +2084,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             )}
             </>
             )}
+            </div>
           </div>
         )}
 
