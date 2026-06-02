@@ -1056,13 +1056,13 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <table className="w-full min-w-[940px] text-left">
                 <thead className="bg-gray-50 dark:bg-gray-900/50">
                   <tr>
-                    <th className="w-[30%] min-w-[260px] px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Staff</th>
-                    <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Department</th>
-                    <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Login Role</th>
-                    <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Salary</th>
-                    <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Contact</th>
-                    <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">Status</th>
-                    <th className="w-12 px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest text-gray-400">Actions</th>
+                    <th className="w-[30%] min-w-[260px] px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Staff</th>
+                    <th className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Department</th>
+                    <th className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Login Role</th>
+                    <th className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Salary</th>
+                    <th className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Contact</th>
+                    <th className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Status</th>
+                    <th className="w-12 px-2 py-2 text-center text-[10px] font-black uppercase tracking-widest text-gray-400">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
@@ -1070,7 +1070,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                     const department = departments.find(dept => dept.id === item.profile?.department_id);
                     const currentStatus = (item.profile?.employment_status || (item.is_active === false ? 'Inactive' : 'Active')) as StaffEmploymentStatus;
                     return (
-                      <tr key={item.id} className="transition hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                      <tr key={item.id} className="transition">
                         <td className="w-[30%] min-w-[260px] px-5 py-4">
                           <div>
                             <p className="text-sm font-black text-gray-900 dark:text-white">{item.profile?.full_name || item.username}</p>
@@ -1308,14 +1308,14 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead className="bg-gray-50 dark:bg-gray-900/50">
-                    <tr>{['Staff', 'Pay Period', 'Gross Pay', 'Deductions', 'Net Pay', 'Status', 'Actions'].map(head => <th key={head} className={`px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400 ${head === 'Actions' ? 'text-center' : ''}`}>{head}</th>)}</tr>
+                    <tr>{['Staff', 'Pay Period', 'Gross Pay', 'Deductions', 'Net Pay', 'Status', 'Actions'].map(head => <th key={head} className={`px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400 ${head === 'Actions' ? 'text-center' : ''}`}>{head}</th>)}</tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
                     {payslips.map(payslip => {
                       const item = staff.find(staffItem => staffItem.id === payslip.staff_user_id);
                       const deductions = n(payslip.epf_employee) + n(payslip.socso_employee) + n(payslip.eis_employee) + n(payslip.tax_pcb) + n(payslip.unpaid_leave_deduction) + n(payslip.other_deductions);
                       return (
-                        <tr key={payslip.id} className="transition hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                        <tr key={payslip.id} className="transition">
                           <td className="px-5 py-4">
                             <div>
                               <p className="text-sm font-black text-gray-900 dark:text-white">{item?.profile?.full_name || item?.username || 'Staff'}</p>

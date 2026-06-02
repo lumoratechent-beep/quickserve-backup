@@ -1548,7 +1548,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 </button>
                 <button
                   onClick={openAddItem}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 text-xs font-black uppercase tracking-widest text-amber-700 transition hover:border-amber-300 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
+                  className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700"
                 >
                   <Plus size={14} /> Add
                 </button>
@@ -1558,13 +1558,13 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             {/* Item Table */}
             <div className="overflow-hidden">
               {/* Filter bar with Show entries */}
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/40">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900/40">
                 <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
                   Showing {filteredItems.length === 0 ? 0 : (itemCurrentPage - 1) * itemEntriesPerPage + 1}-{Math.min(itemCurrentPage * itemEntriesPerPage, filteredItems.length)} of {filteredItems.length}
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Show</span>
-                  <select value={itemEntriesPerPage} onChange={e => setItemEntriesPerPage(Number(e.target.value))} className="cursor-pointer rounded-lg border border-gray-200 bg-white p-1.5 text-[10px] font-bold text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                  <select value={itemEntriesPerPage} onChange={e => setItemEntriesPerPage(Number(e.target.value))} className="cursor-pointer rounded-lg border border-gray-200 bg-white p-1 text-[10px] font-bold text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                     <option value={30}>30</option>
                     <option value={50}>50</option>
                     <option value={100}>100</option>
@@ -1576,20 +1576,20 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 <table className="w-full min-w-[980px] text-sm">
                   <thead className="bg-gray-50 dark:bg-gray-900/40">
                     <tr>
-                      <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-wider text-gray-400">Item</th>
-                      <th className="hidden px-4 py-3 text-left text-[10px] font-black uppercase tracking-wider text-gray-400 md:table-cell">Category</th>
-                      <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-wider text-gray-400">Price</th>
-                      <th className="hidden px-4 py-3 text-right text-[10px] font-black uppercase tracking-wider text-gray-400 lg:table-cell">Cost</th>
-                      <th className="hidden px-4 py-3 text-left text-[10px] font-black uppercase tracking-wider text-gray-400 lg:table-cell">SKU</th>
-                      <th className="hidden px-4 py-3 text-center text-[10px] font-black uppercase tracking-wider text-gray-400 md:table-cell">Stock</th>
-                      <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-wider text-gray-400">Actions</th>
+                      <th className="px-4 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-400">Item</th>
+                      <th className="hidden px-4 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-400 md:table-cell">Category</th>
+                      <th className="px-4 py-2 text-right text-[10px] font-black uppercase tracking-wider text-gray-400">Price</th>
+                      <th className="hidden px-4 py-2 text-right text-[10px] font-black uppercase tracking-wider text-gray-400 lg:table-cell">Cost</th>
+                      <th className="hidden px-4 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-400 lg:table-cell">SKU</th>
+                      <th className="hidden px-4 py-2 text-center text-[10px] font-black uppercase tracking-wider text-gray-400 md:table-cell">Stock</th>
+                      <th className="px-4 py-2 text-right text-[10px] font-black uppercase tracking-wider text-gray-400">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
                     {paginatedItems.length === 0 ? (
                       <tr><td colSpan={7} className="py-12 text-center text-sm text-gray-400">No items found</td></tr>
                     ) : paginatedItems.map(item => (
-                      <tr key={item.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                      <tr key={item.id} className="transition-colors">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             {hasRenderableMenuItemImage(item) ? (
@@ -1769,7 +1769,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 <button onClick={() => setIngredientShowArchived(!ingredientShowArchived)} className={`rounded-xl border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${ingredientShowArchived ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300' : 'border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400'}`}>
                   {ingredientShowArchived ? 'Show Active' : 'Archived'}
                 </button>
-                <button onClick={openAddIngredient} className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-amber-700 transition hover:border-amber-300 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30">
+                <button onClick={openAddIngredient} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
                   <Plus size={14} /> Add
                 </button>
               </div>
@@ -1783,13 +1783,13 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
             {/* Ingredients Table */}
             <div className="overflow-hidden">
-              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                   Showing {filteredIngredients.length === 0 ? 0 : (ingredientCurrentPage - 1) * ingredientEntriesPerPage + 1}-{Math.min(ingredientCurrentPage * ingredientEntriesPerPage, filteredIngredients.length)} of {filteredIngredients.length}
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Show</span>
-                  <select value={ingredientEntriesPerPage} onChange={e => setIngredientEntriesPerPage(Number(e.target.value))} className="bg-gray-100 dark:bg-gray-700 border-none rounded-lg text-[10px] font-bold dark:text-white p-1.5 outline-none cursor-pointer">
+                  <select value={ingredientEntriesPerPage} onChange={e => setIngredientEntriesPerPage(Number(e.target.value))} className="bg-gray-100 dark:bg-gray-700 border-none rounded-lg text-[10px] font-bold dark:text-white p-1 outline-none cursor-pointer">
                     <option value={30}>30</option><option value={50}>50</option><option value={100}>100</option>
                   </select>
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Entries</span>
@@ -1800,18 +1800,18 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                   <table className="w-full text-left">
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Name</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Category</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Cost/Unit</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Unit</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">SKU</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Notes</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Name</th>
+                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Category</th>
+                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Cost/Unit</th>
+                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Unit</th>
+                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">SKU</th>
+                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Notes</th>
+                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {paginatedIngredients.map(item => (
-                        <tr key={item.id} className={`border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${item.is_archived ? 'opacity-50' : ''}`}>
+                        <tr key={item.id} className={`border-b border-gray-100 transition-colors dark:border-gray-700/50 ${item.is_archived ? 'opacity-50' : ''}`}>
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-3">
                               <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
@@ -1843,7 +1843,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                   <p className="text-sm font-bold">{ingredientShowArchived ? 'No archived ingredients' : 'No ingredients yet'}</p>
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{ingredientShowArchived ? 'Archived ingredients will appear here' : 'Add ingredients like sugar, ice blocks, packaging, etc.'}</p>
                   {!ingredientShowArchived && (
-                    <button onClick={openAddIngredient} className="mt-4 inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-amber-700 transition hover:border-amber-300 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30">
+                    <button onClick={openAddIngredient} className="mt-4 inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
                       <Plus size={14} /> Add
                     </button>
                   )}
@@ -1902,7 +1902,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 </div>
                 <button
                   onClick={handleGoToRestock}
-                  className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-amber-700 transition hover:border-amber-300 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                  className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700"
                 >
                   <Plus size={14} /> Add
                 </button>
@@ -1924,13 +1924,13 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             {/* Stock Table */}
             <div className="overflow-hidden">
               {/* Filter bar with Show entries */}
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/40">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900/40">
                 <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
                   Showing {filteredStock.length === 0 ? 0 : (stockCurrentPage - 1) * stockEntriesPerPage + 1}-{Math.min(stockCurrentPage * stockEntriesPerPage, filteredStock.length)} of {filteredStock.length}
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Show</span>
-                  <select value={stockEntriesPerPage} onChange={e => setStockEntriesPerPage(Number(e.target.value))} className="cursor-pointer rounded-lg border border-gray-200 bg-white p-1.5 text-[10px] font-bold text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                  <select value={stockEntriesPerPage} onChange={e => setStockEntriesPerPage(Number(e.target.value))} className="cursor-pointer rounded-lg border border-gray-200 bg-white p-1 text-[10px] font-bold text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                     <option value={30}>30</option>
                     <option value={50}>50</option>
                     <option value={100}>100</option>
@@ -1943,7 +1943,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                   <table className="w-full min-w-[980px] text-left">
                     <thead className="bg-gray-50 dark:bg-gray-900/40">
                       <tr>
-                        <th className="px-3 py-4 w-8">
+                        <th className="px-3 py-2 w-8">
                           <div className="relative">
                             <button onClick={() => setStockMenuOpen(!stockMenuOpen)} className="p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                               <MoreVertical size={16} className="text-gray-500" />
@@ -1962,10 +1962,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                             )}
                           </div>
                         </th>
-                        <th className="px-3 py-4 text-[10px] font-black uppercase tracking-wider text-gray-500">Item</th>
-                        <th className="px-3 py-4 text-[10px] font-black uppercase tracking-wider text-gray-500">Category</th>
-                        <th className="px-3 py-4 text-[10px] font-black uppercase tracking-wider text-gray-500">Stock</th>
-                        <th className="hidden px-3 py-4 text-[10px] font-black uppercase tracking-wider text-gray-500 md:table-cell">
+                        <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500">Item</th>
+                        <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500">Category</th>
+                        <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500">Stock</th>
+                        <th className="hidden px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500 md:table-cell">
                           <span className="inline-flex items-center gap-1">Threshold
                             <span className="relative group">
                               <Info size={12} className="text-gray-400 cursor-help" />
@@ -1973,16 +1973,16 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                             </span>
                           </span>
                         </th>
-                        <th className="px-3 py-4 text-[10px] font-black uppercase tracking-wider text-gray-500">Status</th>
-                        <th className="hidden px-3 py-4 text-[10px] font-black uppercase tracking-wider text-gray-500 sm:table-cell">Last Restocked</th>
-                        <th className="px-3 py-4 text-center text-[10px] font-black uppercase tracking-wider text-gray-500">Track Stock</th>
+                        <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500">Status</th>
+                        <th className="hidden px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500 sm:table-cell">Last Restocked</th>
+                        <th className="px-3 py-2 text-center text-[10px] font-black uppercase tracking-wider text-gray-500">Track Stock</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
                       {paginatedStock.map(item => {
                         const status = !item.stockEnabled ? 'disabled' : item.currentStock === 0 ? 'out' : item.currentStock <= item.lowStockThreshold ? 'low' : 'ok';
                         return (
-                          <tr key={item.menuItemId} className={`transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/30 ${!item.stockEnabled ? 'opacity-50' : ''}`}>
+                          <tr key={item.menuItemId} className={`transition-colors ${!item.stockEnabled ? 'opacity-50' : ''}`}>
                             <td className="px-3 py-4">
                               {stockSelectionMode ? (
                                 <input type="checkbox" checked={selectedStockIds.has(item.menuItemId)} onChange={() => handleSelectStockItem(item.menuItemId)} className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
