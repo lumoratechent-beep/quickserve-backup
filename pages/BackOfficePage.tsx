@@ -1474,20 +1474,6 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                   <h2 className="mt-1 text-2xl font-black text-gray-950 dark:text-white">Items &amp; Stock</h2>
                   <p className="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">Manage menu items, ingredients, and stock tracking in a clean operational view.</p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={openAddItem}
-                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-xs font-black uppercase tracking-widest text-gray-500 transition hover:border-orange-300 hover:text-orange-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  >
-                    <Edit3 size={14} /> Menu Editor
-                  </button>
-                  <button
-                    onClick={openAddItem}
-                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 text-xs font-black uppercase tracking-widest text-amber-700 transition hover:border-amber-300 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
-                  >
-                    <Plus size={14} /> Add Menu Item
-                  </button>
-                </div>
               </div>
             </div>
 
@@ -1509,16 +1495,16 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             </div>
 
             {/* Sub-tab toggle */}
-            <div className="relative flex gap-0 overflow-x-auto overflow-y-hidden border-b border-gray-200 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden dark:border-gray-700">
+            <div className="relative flex gap-0 overflow-x-auto border-b border-gray-200 bg-gray-50 px-2 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden dark:border-gray-700 dark:bg-gray-900/40">
               {([['menu', 'Menu Items'], ['ingredients', 'Ingredients / Supplies'], ['stock', 'Stock Management']] as const).map(([key, label]) => (
                 <button
                   key={key}
                   onClick={() => setItemSubTab(key)}
                   style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
-                  className={`relative -mb-px inline-flex items-center gap-2 whitespace-nowrap rounded-t-xl border px-5 py-3 text-xs font-black uppercase tracking-wider transition-colors duration-150 ${
+                  className={`relative -mb-px inline-flex items-center gap-2 whitespace-nowrap rounded-t-lg border px-5 py-3 text-xs font-black uppercase tracking-wider transition-colors duration-150 ${
                     itemSubTab === key
                       ? 'z-10 border-gray-200 border-b-white bg-white text-orange-500 dark:border-gray-600 dark:border-b-gray-800 dark:bg-gray-800'
-                      : 'border-transparent bg-transparent text-gray-400 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300'
+                      : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300'
                   }`}
                 >{label}</button>
               ))}
@@ -1555,9 +1541,21 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 </select>
                 <button
                   onClick={() => setItemShowArchived(!itemShowArchived)}
-                  className={`rounded-xl border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${itemShowArchived ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300' : 'border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400'}`}
+                  className={`inline-flex h-10 w-[110px] items-center justify-center rounded-xl border px-4 text-xs font-bold uppercase tracking-wider transition-colors ${itemShowArchived ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300' : 'border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400'}`}
                 >
                   {itemShowArchived ? 'Archived' : 'Active'}
+                </button>
+                <button
+                  onClick={openAddItem}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-xs font-black uppercase tracking-widest text-gray-500 transition hover:border-orange-300 hover:text-orange-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                >
+                  <Edit3 size={14} /> Menu Editor
+                </button>
+                <button
+                  onClick={openAddItem}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 text-xs font-black uppercase tracking-widest text-amber-700 transition hover:border-amber-300 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
+                >
+                  <Plus size={14} /> Add Menu Item
                 </button>
               </div>
             </div>
