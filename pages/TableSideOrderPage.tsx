@@ -11,9 +11,22 @@ interface Props {
   cashierName?: string;
   onLogout: () => void;
   onPlaceOrder: (order: { items: CartItem[]; total: number; tableNumber: string; remark: string; orderSource: OrderSource }) => Promise<void>;
+  networkMeta?: {
+    label: string;
+    title: string;
+    color: string;
+    bars: number;
+    mutedBars: boolean;
+  };
+  batteryMeta?: {
+    percent: number;
+    label: string;
+    color: string;
+  } | null;
+  batteryCharging?: boolean;
 }
 
-const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, onLogout, onPlaceOrder }) => {
+const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, onLogout, onPlaceOrder, networkMeta, batteryMeta, batteryCharging = false }) => {
   // ---------- State ----------
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -153,6 +166,52 @@ const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, 
     setSelectedTable(null);
   };
 
+  const statusTools = networkMeta && (
+    <div className="flex h-8 items-center gap-1 rounded-full bg-gray-100/80 px-1.5 dark:bg-gray-700/70">
+      <div
+        className={`flex h-6 w-7 items-center justify-center rounded-full transition-colors ${networkMeta.color}`}
+        title={networkMeta.title}
+        aria-label={`Network ${networkMeta.label}`}
+      >
+        <div className="flex h-[18px] w-[18px] items-end justify-center gap-0.5 pb-0.5" aria-hidden="true">
+          {[1, 2, 3].map((bar) => (
+            <span
+              key={bar}
+              className={`w-1 rounded-full transition-colors ${
+                bar <= networkMeta.bars || !networkMeta.mutedBars
+                  ? 'bg-current'
+                  : 'bg-gray-300/80 dark:bg-gray-500/80'
+              }`}
+              style={{ height: `${bar * 4}px` }}
+            />
+          ))}
+        </div>
+      </div>
+      {batteryMeta && (
+        <div
+          className={`flex h-6 w-7 items-center justify-center rounded-full transition-colors ${batteryMeta.color}`}
+          title={batteryMeta.label}
+          aria-label={batteryMeta.label}
+        >
+          <div className="flex h-[18px] w-[18px] items-center justify-center" aria-hidden="true">
+            <div className="relative h-3 w-5 rounded-[3px] border-2 border-current p-0.5">
+              <span
+                className="block h-full rounded-[1px] bg-current transition-all"
+                style={{ width: batteryMeta.percent > 0 ? `${Math.max(batteryMeta.percent, 8)}%` : '0%' }}
+              />
+              {batteryCharging && (
+                <span className="absolute inset-0 flex items-center justify-center text-[7px] font-black leading-none text-white">
+                  +
+                </span>
+              )}
+            </div>
+            <span className="h-1.5 w-0.5 shrink-0 rounded-r bg-current" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   // ---------- Table Selection View ----------
   if (!selectedTable) {
     return (
@@ -166,7 +225,8 @@ const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, 
               <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Tableside Ordering</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {statusTools}
             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{cashierName}</span>
             <button
               onClick={onLogout}
@@ -267,11 +327,18 @@ const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, 
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {statusTools}
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-tighter">
             <Hash size={12} className="text-orange-500" />
             {selectedTable}
           </div>
-
+          <button
+            onClick={onLogout}
+            className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+            title="Logout"
+          >
+            <LogOut size={18} />
+          </button>
         </div>
       </header>
 

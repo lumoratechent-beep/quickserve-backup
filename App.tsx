@@ -2658,6 +2658,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors" style={{ height: 'var(--app-height, 100dvh)' }}>
+      {currentRole !== 'ORDER_TAKER' && (
       <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b dark:border-gray-700 h-11 sm:h-12 flex items-center justify-between px-3 sm:px-6 lg:px-8 shadow-sm">
         <div className="flex items-center gap-2 cursor-pointer min-w-0" onClick={handleBrandClick}>
           <img
@@ -2793,6 +2794,7 @@ const App: React.FC = () => {
           )}
         </div>
       </header>
+      )}
       {/* Renewal reminder banner for vendors/cashiers */}
       {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (() => {
         const sub = vendorSubscriptions[currentUser!.restaurantId] || null;
@@ -3010,6 +3012,9 @@ const App: React.FC = () => {
               cashierName={currentUser?.username}
               onLogout={handleLogout}
               onPlaceOrder={placeTablesideOrder}
+              networkMeta={networkMeta}
+              batteryMeta={batteryMeta}
+              batteryCharging={batteryStatus?.charging ?? false}
             />
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-12">
