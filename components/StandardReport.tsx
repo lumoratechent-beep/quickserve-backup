@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, OrderStatus, ReportResponse, CashierShift } from '../src/types';
-import { Calendar, Clock3, Download, Search, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, CreditCard, Users } from 'lucide-react';
+import { Download, Search, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, CreditCard, Users } from 'lucide-react';
 
 export type ReportDownloadInfoType = 'all' | 'summary' | 'transactions' | 'dailyBreakdown';
 export type ReportDownloadFileType = 'csv' | 'pdf';
@@ -31,6 +31,7 @@ interface Props {
   onSelectOrder?: (order: Order) => void;
   title?: string;
   description?: string;
+  showHeader?: boolean;
   activeShift?: CashierShift | null;
   applyCurrentShiftFilter?: boolean;
   isSidebarCollapsed?: boolean;
@@ -57,12 +58,11 @@ const StandardReport: React.FC<Props> = ({
   onSelectOrder,
   title = "Sales Report",
   description = "Financial performance and order history.",
+  showHeader = true,
   activeShift,
   applyCurrentShiftFilter = false,
-  isSidebarCollapsed = false,
 }) => {
-  const [detailRange, setDetailRange] = useState<'today' | 'week' | 'month' | 'lastMonth'>('month');
-  const [dateSelectionMode, setDateSelectionMode] = useState<'period' | 'range'>('period');
+  const [detailRange, setDetailRange] = useState<'today' | 'week' | 'month' | 'lastMonth' | 'custom'>('month');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [filterPayment, setFilterPayment] = useState<string>('ALL');
   const [filterCashier, setFilterCashier] = useState<string>('ALL');
@@ -72,13 +72,22 @@ const StandardReport: React.FC<Props> = ({
   const [showDateRangeModal, setShowDateRangeModal] = useState(false);
   const [draftReportStart, setDraftReportStart] = useState(reportStart);
   const [draftReportEnd, setDraftReportEnd] = useState(reportEnd);
-  const [activeDatePreset, setActiveDatePreset] = useState<'today' | 'week' | 'month' | 'lastMonth' | null>(null);
-  const [showTimeRangeModal, setShowTimeRangeModal] = useState(false);
   const [timeStartMinutes, setTimeStartMinutes] = useState(0);
   const [timeEndMinutes, setTimeEndMinutes] = useState(1439);
+  const [draftTimeStartMinutes, setDraftTimeStartMinutes] = useState(0);
+  const [draftTimeEndMinutes, setDraftTimeEndMinutes] = useState(1439);
   const isShiftReportWithoutActiveShift = applyCurrentShiftFilter && !activeShift;
   const showTopRangeAndExportControls = !applyCurrentShiftFilter;
   const hasCustomTimeRange = timeStartMinutes !== 0 || timeEndMinutes !== 1439;
+  const periodOptions = [
+    { value: 'today', label: 'Today' },
+    { value: 'week', label: 'This Week' },
+    { value: 'month', label: 'This Month' },
+    { value: 'lastMonth', label: 'Last Month' },
+    { value: 'custom', label: 'Custom Range' },
+  ] as const;
+  const hourOptions = Array.from({ length: 24 }, (_, hour) => hour);
+  const minuteOptions = Array.from({ length: 60 }, (_, minute) => minute);
 
   const formatMinuteToTime = (minutes: number) => {
     const hour = Math.floor(minutes / 60);
@@ -91,6 +100,30 @@ const StandardReport: React.FC<Props> = ({
     const [year, month, day] = value.split('-').map(Number);
     if (!year || !month || !day) return value;
     return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
+  };
+
+  const formatDisplayDateTime = (value: string) => {
+    if (!value) return '--';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    const day = parsed.getDate().toString().padStart(2, '0');
+    const month = (parsed.getMonth() + 1).toString().padStart(2, '0');
+    const year = parsed.getFullYear();
+    const hour = parsed.getHours().toString().padStart(2, '0');
+    const minute = parsed.getMinutes().toString().padStart(2, '0');
+    return `${day}/${month}/${year} ${hour}:${minute}`;
+  };
+
+  const openNativeDatePicker = (
+    event: React.MouseEvent<HTMLInputElement>
+  ) => {
+    const input = event.currentTarget as HTMLInputElement & { showPicker?: () => void };
+    if (!input.showPicker) return;
+    try {
+      input.showPicker();
+    } catch {
+      // Ignore NotAllowedError when the browser blocks picker opening.
+    }
   };
 
   const getQuickDateRange = (range: 'today' | 'week' | 'month' | 'lastMonth') => {
@@ -123,19 +156,27 @@ const StandardReport: React.FC<Props> = ({
 
   // Auto-set date pickers when range preset changes
   useEffect(() => {
+    if (detailRange === 'custom') return;
     const range = getQuickDateRange(detailRange);
     onChangeReportStart(range.start);
     onChangeReportEnd(range.end);
+    setTimeStartMinutes(0);
+    setTimeEndMinutes(1439);
   }, [detailRange]);
 
   const revenuePeriodLabel = useMemo(() => {
-    const preset = dateSelectionMode === 'period' ? detailRange : detectQuickPreset(reportStart, reportEnd);
+    if (applyCurrentShiftFilter && activeShift) {
+      return `Showing sales for current shift ${formatDisplayDateTime(activeShift.opened_at)} till now.`;
+    }
+
+    const timeLabel = hasCustomTimeRange ? `, ${formatMinuteToTime(timeStartMinutes)} - ${formatMinuteToTime(timeEndMinutes)}` : '';
+    const preset = detailRange === 'custom' && hasCustomTimeRange ? null : detailRange === 'custom' ? detectQuickPreset(reportStart, reportEnd) : detailRange;
     if (preset === 'today') return `Showing sales for ${formatDisplayDate(reportStart)}.`;
     if (preset === 'week') return `Showing sales for ${formatDisplayDate(reportStart)} - ${formatDisplayDate(reportEnd)}.`;
     if (preset === 'month') return `Showing sales for ${formatDisplayDate(reportStart)} - ${formatDisplayDate(reportEnd)}.`;
     if (preset === 'lastMonth') return `Showing sales for ${formatDisplayDate(reportStart)} - ${formatDisplayDate(reportEnd)}.`;
-    return `Showing sales for ${formatDisplayDate(reportStart)} - ${formatDisplayDate(reportEnd)}.`;
-  }, [dateSelectionMode, detailRange, reportStart, reportEnd]);
+    return `Showing sales for ${formatDisplayDate(reportStart)} - ${formatDisplayDate(reportEnd)}${timeLabel}.`;
+  }, [applyCurrentShiftFilter, activeShift, detailRange, reportStart, reportEnd, hasCustomTimeRange, timeStartMinutes, timeEndMinutes]);
 
   const uniquePayments = useMemo(() => {
     const set = new Set(paginatedReports.map(o => o.paymentMethod || '-'));
@@ -240,10 +281,47 @@ const StandardReport: React.FC<Props> = ({
     }
   }, [applyCurrentShiftFilter, filteredReports, reportData]);
 
+  const renderTimePicker = (
+    value: number,
+    onChange: (value: number) => void,
+  ) => {
+    const selectedHour = Math.floor(value / 60);
+    const selectedMinute = value % 60;
+    return (
+      <div className="flex items-center gap-1.5">
+        <select
+          value={selectedHour}
+          onChange={(e) => onChange(Number(e.target.value) * 60 + selectedMinute)}
+          className="w-[4.25rem] bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white p-2 outline-none focus:ring-1 focus:ring-orange-500"
+          aria-label="Hour"
+        >
+          {hourOptions.map((hour) => (
+            <option key={hour} value={hour}>{hour.toString().padStart(2, '0')}</option>
+          ))}
+        </select>
+        <span className="text-xs font-black text-gray-400">:</span>
+        <select
+          value={selectedMinute}
+          onChange={(e) => onChange(selectedHour * 60 + Number(e.target.value))}
+          className="w-[4.25rem] bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white p-2 outline-none focus:ring-1 focus:ring-orange-500"
+          aria-label="Minute"
+        >
+          {minuteOptions.map((minute) => (
+            <option key={minute} value={minute}>{minute.toString().padStart(2, '0')}</option>
+          ))}
+        </select>
+      </div>
+    );
+  };
+
   return (
     <div className="animate-in fade-in duration-500">
-      <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">{title}</h1>
-      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-8 uppercase tracking-widest">{description}</p>
+      {showHeader && (
+        <div className="mb-5">
+          <h2 className="text-lg font-black mb-1 dark:text-white uppercase tracking-tighter">{title}</h2>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">{description}</p>
+        </div>
+      )}
       {isShiftReportWithoutActiveShift && (
         <div className="mb-4 px-4 py-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700">
           <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">
@@ -253,63 +331,34 @@ const StandardReport: React.FC<Props> = ({
       )}
 
       {showTopRangeAndExportControls && (
-        <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm flex flex-col md:flex-row md:items-end gap-3 md:gap-4 mb-6">
-          <div className="flex-1 grid grid-cols-1 xl:grid-cols-2 gap-3 w-full">
-            <div className={`transition-opacity ${dateSelectionMode === 'range' ? 'opacity-45' : 'opacity-100'}`}>
+        <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg border dark:border-gray-700 shadow-sm flex flex-col lg:flex-row lg:items-end gap-3 lg:gap-4 mb-6">
+          <div className="flex-1 w-full">
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Period Selection</label>
-              <div className="inline-flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
-                {((isSidebarCollapsed ? ['today', 'week', 'month', 'lastMonth'] : ['today', 'week', 'month']) as ('today' | 'week' | 'month' | 'lastMonth')[]).map(range => (
+              <div className="inline-flex max-w-full bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 overflow-x-auto hide-scrollbar">
+                {periodOptions.map((option) => (
                   <button
-                    key={range}
+                    key={option.value}
                     onClick={() => {
-                      setDetailRange(range);
-                      setDateSelectionMode('period');
+                      if (option.value === 'custom') {
+                        setDraftReportStart(reportStart);
+                        setDraftReportEnd(reportEnd);
+                        setDraftTimeStartMinutes(timeStartMinutes);
+                        setDraftTimeEndMinutes(timeEndMinutes);
+                        setShowDateRangeModal(true);
+                        return;
+                      }
+                      setDetailRange(option.value);
                     }}
-                    className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
-                      detailRange === range
+                    className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                      detailRange === option.value
                         ? 'bg-orange-500 text-white shadow-sm'
                         : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                     }`}
                   >
-                    {range === 'today' ? 'Today' : range === 'week' ? 'This Week' : range === 'month' ? 'This Month' : 'Last Month'}
+                    {option.label}
                   </button>
                 ))}
               </div>
-            </div>
-            <div className={`transition-opacity ${dateSelectionMode === 'period' ? 'opacity-45' : 'opacity-100'}`}>
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Custom Range</label>
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={() => {
-                    setDraftReportStart(reportStart);
-                    setDraftReportEnd(reportEnd);
-                    setActiveDatePreset(detectQuickPreset(reportStart, reportEnd));
-                    setDateSelectionMode('range');
-                    setShowDateRangeModal(true);
-                  }}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-700 rounded-lg text-[10px] font-black dark:text-white uppercase tracking-widest border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                >
-                  <Calendar size={14} className="text-orange-500 shrink-0" />
-                  <span>{formatDisplayDate(reportStart)}</span>
-                  <span className="text-gray-400">-</span>
-                  <span>{formatDisplayDate(reportEnd)}</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setDateSelectionMode('range');
-                    setShowTimeRangeModal(true);
-                  }}
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                    hasCustomTimeRange
-                      ? 'bg-orange-500 text-white shadow-sm'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  <Clock3 size={13} />
-                  <span>{hasCustomTimeRange ? `${formatMinuteToTime(timeStartMinutes)} - ${formatMinuteToTime(timeEndMinutes)}` : 'Time'}</span>
-                </button>
-              </div>
-            </div>
           </div>
           <div className="w-full md:w-auto md:min-w-[170px]">
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Download Report</label>
@@ -408,61 +457,68 @@ const StandardReport: React.FC<Props> = ({
 
       {showDateRangeModal && (
         <div className="fixed inset-0 z-[140] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 md:p-5 shadow-xl">
-            <p className="text-sm font-black dark:text-white uppercase tracking-wider mb-1">Date Selection</p>
+          <div className="w-full max-w-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5 md:p-7 shadow-xl flex flex-col">
+            <p className="text-sm font-black dark:text-white uppercase tracking-wider mb-1">Custom Range</p>
             <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">
-              Choose date range to filter report data.
+              Choose date and time range to filter report data.
             </p>
 
-            <div className="flex gap-2 mb-4 flex-wrap">
-              {(['today', 'week', 'month', 'lastMonth'] as const).map((range) => (
-                <button
-                  key={range}
-                  onClick={() => {
-                    const quick = getQuickDateRange(range);
-                    setDraftReportStart(quick.start);
-                    setDraftReportEnd(quick.end);
-                    setActiveDatePreset(range);
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors ${
-                    activeDatePreset === range
-                      ? 'bg-orange-500 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {range === 'today' ? 'Today' : range === 'week' ? 'This Week' : range === 'month' ? 'This Month' : 'Last Month'}
-                </button>
-              ))}
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">From</p>
-                <input
-                  type="date"
-                  value={draftReportStart}
-                  onChange={(e) => {
-                    setDraftReportStart(e.target.value);
-                    setActiveDatePreset(null);
-                  }}
-                  className="w-full bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white p-2"
-                />
+            <div className="flex flex-col gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_max-content] gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">From Date</p>
+                  <input
+                    type="date"
+                    value={draftReportStart}
+                    onChange={(e) => setDraftReportStart(e.target.value)}
+                    onClick={openNativeDatePicker}
+                    className="w-full bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white p-2"
+                  />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">From Time</p>
+                  {renderTimePicker(
+                    draftTimeStartMinutes,
+                    (next) => setDraftTimeStartMinutes(Math.min(next, draftTimeEndMinutes)),
+                  )}
+                </div>
               </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">To</p>
-                <input
-                  type="date"
-                  value={draftReportEnd}
-                  onChange={(e) => {
-                    setDraftReportEnd(e.target.value);
-                    setActiveDatePreset(null);
-                  }}
-                  className="w-full bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white p-2"
-                />
+              <div className="flex items-center justify-center">
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                  To
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_max-content] gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">To Date</p>
+                  <input
+                    type="date"
+                    value={draftReportEnd}
+                    onChange={(e) => setDraftReportEnd(e.target.value)}
+                    onClick={openNativeDatePicker}
+                    className="w-full bg-gray-50 dark:bg-gray-700 border-none rounded-lg text-xs font-black dark:text-white p-2"
+                  />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">To Time</p>
+                  {renderTimePicker(
+                    draftTimeEndMinutes,
+                    (next) => setDraftTimeEndMinutes(Math.max(next, draftTimeStartMinutes)),
+                  )}
+                </div>
               </div>
             </div>
 
             <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                onClick={() => {
+                  setDraftTimeStartMinutes(0);
+                  setDraftTimeEndMinutes(1439);
+                }}
+                className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Reset Time
+              </button>
               <button
                 onClick={() => setShowDateRangeModal(false)}
                 className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
@@ -480,81 +536,14 @@ const StandardReport: React.FC<Props> = ({
                     onChangeReportStart(nextEnd);
                     onChangeReportEnd(nextStart);
                   }
-                  setDateSelectionMode('range');
+                  setTimeStartMinutes(draftTimeStartMinutes);
+                  setTimeEndMinutes(draftTimeEndMinutes);
+                  setDetailRange('custom');
                   setShowDateRangeModal(false);
                 }}
                 className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-orange-500 text-white hover:bg-orange-600 transition-colors"
               >
                 Apply
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showTimeRangeModal && (
-        <div className="fixed inset-0 z-[140] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 md:p-5 shadow-xl">
-            <p className="text-sm font-black dark:text-white uppercase tracking-wider mb-1">Time Selection</p>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">
-              Select time range by sliding from and to.
-            </p>
-
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">From</span>
-                  <span className="text-xs font-black text-orange-500">{formatMinuteToTime(timeStartMinutes)}</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={1439}
-                  step={5}
-                  value={timeStartMinutes}
-                  onChange={(e) => {
-                    const next = Number(e.target.value);
-                    setTimeStartMinutes(Math.min(next, timeEndMinutes));
-                  }}
-                  className="w-full accent-orange-500"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">To</span>
-                  <span className="text-xs font-black text-orange-500">{formatMinuteToTime(timeEndMinutes)}</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={1439}
-                  step={5}
-                  value={timeEndMinutes}
-                  onChange={(e) => {
-                    const next = Number(e.target.value);
-                    setTimeEndMinutes(Math.max(next, timeStartMinutes));
-                  }}
-                  className="w-full accent-orange-500"
-                />
-              </div>
-            </div>
-
-            <div className="mt-5 flex items-center justify-end gap-2">
-              <button
-                onClick={() => {
-                  setTimeStartMinutes(0);
-                  setTimeEndMinutes(1439);
-                }}
-                className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-              >
-                Reset
-              </button>
-              <button
-                onClick={() => setShowTimeRangeModal(false)}
-                className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-orange-500 text-white hover:bg-orange-600 transition-colors"
-              >
-                Done
               </button>
             </div>
           </div>
@@ -567,7 +556,7 @@ const StandardReport: React.FC<Props> = ({
           <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Total Revenue</p>
           <p className="text-xl md:text-2xl font-black dark:text-white">RM{displaySummary.totalRevenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           <p className="text-[11px] text-gray-500 dark:text-gray-400 font-black mt-1">{displaySummary.orderVolume} sales</p>
-          <p className="text-[11px] text-gray-500 dark:text-gray-400 font-black mt-1">{revenuePeriodLabel}</p>
+          <p className="text-[11px] text-orange-500 dark:text-orange-400 font-black mt-1">{revenuePeriodLabel}</p>
         </div>
 
         {/* By Transaction Type */}

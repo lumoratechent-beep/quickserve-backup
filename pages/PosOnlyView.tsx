@@ -7226,6 +7226,16 @@ const PosOnlyView: React.FC<Props> = ({
                   </p>
                 </div>
               )}
+              <div className="mb-6">
+                <h1 className="text-2xl font-black mb-1 dark:text-white uppercase tracking-tighter">
+                  {reportsSubMenu === 'shiftReport' ? 'Shift Report' : 'Sales Report'}
+                </h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">
+                  {reportsSubMenu === 'shiftReport'
+                    ? 'Current shift sales and transaction summary.'
+                    : 'Financial performance and order history.'}
+                </p>
+              </div>
               {/* Report Type Tabs */}
               <div className="flex gap-0 relative">
                 {([
@@ -7250,6 +7260,9 @@ const PosOnlyView: React.FC<Props> = ({
               <div className="-mt-px bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-b-lg rounded-tr-lg p-4 md:p-5">
                 {hasSalesReportAccess && reportsSubMenu === 'salesReport' && (
                   <StandardReport
+                    title="Total Sales"
+                    description="Review total revenue, payment breakdowns, cashier totals, and order history."
+                    showHeader={false}
                     reportStart={reportStart}
                     reportEnd={reportEnd}
                     reportStatus={reportStatus}
@@ -7287,7 +7300,8 @@ const PosOnlyView: React.FC<Props> = ({
                   ) : (
                     <StandardReport
                       title="Shift Report"
-                      description="Current shift sales and transaction summary."
+                      description="Review orders and tender totals captured during the active cashier shift."
+                      showHeader={false}
                       reportStart={reportStart}
                       reportEnd={reportEnd}
                       reportStatus={reportStatus}

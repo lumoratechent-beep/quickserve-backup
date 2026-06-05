@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+﻿import React, { useState, useMemo, useEffect } from 'react';
 import { Order, OrderStatus, MenuItem, Restaurant, Subscription, IngredientItem } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
@@ -20,6 +20,7 @@ import ContactsManagement from '../components/ContactsManagement';
 import FinanceView from '../components/FinanceView';
 import ExpensesView from '../components/ExpensesView';
 import CashierShiftRecords from '../components/CashierShiftRecords';
+import StaffManagementView from '../components/StaffManagementView';
 import MenuItemFormModal, { MenuFormItem } from '../components/MenuItemFormModal';
 
 interface Props {
@@ -54,7 +55,7 @@ interface Props {
 }
 
 type BackOfficeTab = 'DASHBOARD' | 'ITEMS' | 'STAFF' | 'STOCK' | 'INVENTORY' | 'REPORTS' | 'CONTACTS' | 'FINANCE' | 'EXPENSES' | 'SHIFTS';
-type DateRange = '7d' | '30d' | '90d' | 'custom';
+type DateRange = 'today' | 'week' | 'month' | 'lastMonth' | 'custom';
 
 const COLORS = ['#D97706', '#F59E0B', '#92400E', '#B45309', '#78350F', '#FBBF24', '#FCD34D', '#3B82F6', '#8B5CF6', '#22C55E'];
 const STATUS_COLORS: Record<string, string> = {
@@ -71,7 +72,7 @@ const hasRenderableMenuItemImage = (item: Pick<MenuItem, 'image' | 'color'>): bo
   Boolean(item.image) && !(Boolean(item.color) && item.image.startsWith(MENU_ITEM_PLACEHOLDER_IMAGE_PREFIX))
 );
 
-// ─── Staff type ───
+// â”€â”€â”€ Staff type â”€â”€â”€
 interface StaffMember {
   id: string;
   username: string;
@@ -82,7 +83,7 @@ interface StaffMember {
   kitchenCategories?: string[];
 }
 
-// ─── Stock type ───
+// â”€â”€â”€ Stock type â”€â”€â”€
 interface StockItem {
   menuItemId: string;
   name: string;
@@ -105,7 +106,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [expensesSubTab, setExpensesSubTab] = useState<string | undefined>(undefined);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
 
-  // ─── Items tab state ───
+  // â”€â”€â”€ Items tab state â”€â”€â”€
   const [itemSearch, setItemSearch] = useState('');
   const [itemCategoryFilter, setItemCategoryFilter] = useState('ALL');
   const [itemShowArchived, setItemShowArchived] = useState(false);
@@ -119,7 +120,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [stockEntriesPerPage, setStockEntriesPerPage] = useState(30);
   const [stockCurrentPage, setStockCurrentPage] = useState(1);
 
-  // ─── Ingredient items state ───
+  // â”€â”€â”€ Ingredient items state â”€â”€â”€
   const [ingredientItems, setIngredientItems] = useState<IngredientItem[]>(() =>
     loadBackofficeData<IngredientItem[]>(`ingredients_${restaurant.id}`, restaurant.settings, 'ingredients', [])
   );
@@ -139,7 +140,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     syncBackofficeToDb(restaurant.id);
   };
 
-  // ─── Initial loading overlay ───
+  // â”€â”€â”€ Initial loading overlay â”€â”€â”€
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -171,25 +172,46 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const gridStroke = isDark ? '#374151' : '#E5E7EB';
   const tickFill = isDark ? '#9CA3AF' : '#6B7280';
   const today = new Date();
-  const [dateRange, setDateRange] = useState<DateRange>('30d');
+  const [dateRange, setDateRange] = useState<DateRange>('month');
   const [customStart, setCustomStart] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() - 30);
-    return d.toISOString().split('T')[0];
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
   });
   const [customEnd, setCustomEnd] = useState(() => today.toISOString().split('T')[0]);
 
-  // ─── Date filtering ───
+  const getQuickDateRange = (range: Exclude<DateRange, 'custom'>) => {
+    const now = new Date();
+    if (range === 'today') {
+      return {
+        startDate: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0),
+        endDate: now,
+      };
+    }
+    if (range === 'week') {
+      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay(), 0, 0, 0, 0);
+      return { startDate: startOfWeek, endDate: now };
+    }
+    if (range === 'lastMonth') {
+      return {
+        startDate: new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0),
+        endDate: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999),
+      };
+    }
+    return {
+      startDate: new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0),
+      endDate: now,
+    };
+  };
+
+  // â”€â”€â”€ Date filtering â”€â”€â”€
   const { startDate, endDate } = useMemo(() => {
     if (dateRange === 'custom') {
       return { startDate: new Date(customStart), endDate: new Date(customEnd + 'T23:59:59') };
     }
-    const days = dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : 90;
-    const start = new Date(); start.setDate(start.getDate() - days);
-    start.setHours(0, 0, 0, 0);
-    return { startDate: start, endDate: new Date() };
+    return getQuickDateRange(dateRange);
   }, [dateRange, customStart, customEnd]);
 
-  // ─── Fetch ALL orders from API for dashboard (avoids 200-order in-memory cap) ───
+  // â”€â”€â”€ Fetch ALL orders from API for dashboard (avoids 200-order in-memory cap) â”€â”€â”€
   const [dashboardOrders, setDashboardOrders] = useState<Order[]>([]);
   const [isDashboardLoading, setIsDashboardLoading] = useState(false);
 
@@ -244,7 +266,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     });
   }, [sourceOrders, startDate, endDate]);
 
-  // ─── Staff State ───
+  // â”€â”€â”€ Staff State â”€â”€â”€
   const [staffList, setStaffList] = useState<StaffMember[]>(() =>
     loadBackofficeData<StaffMember[]>(`staff_${restaurant.id}`, restaurant.settings, 'staff', [])
   );
@@ -254,7 +276,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
   const [staffSearch, setStaffSearch] = useState('');
 
-  // ─── Stock State ───
+  // â”€â”€â”€ Stock State â”€â”€â”€
   const [stockItems, setStockItems] = useState<StockItem[]>(() => {
     const saved = loadBackofficeData<StockItem[] | null>(`stock_${restaurant.id}`, restaurant.settings, 'stock', null);
     if (saved) {
@@ -284,9 +306,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     syncBackofficeToDb(restaurant.id);
   };
 
-  // ─────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // SALES ANALYTICS
-  // ─────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const kpis = useMemo(() => {
     const completed = filteredOrders.filter(o => o.status !== OrderStatus.CANCELLED);
     const prevCompleted = prevPeriodOrders.filter(o => o.status !== OrderStatus.CANCELLED);
@@ -343,7 +365,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     return Object.entries(map).map(([name, value]) => ({ name, value }));
   }, [filteredOrders]);
 
-  // ─── Hourly sales heatmap data ───
+  // â”€â”€â”€ Hourly sales heatmap data â”€â”€â”€
   const hourlySales = useMemo(() => {
     const hours = Array.from({ length: 24 }, (_, i) => ({ hour: i, sales: 0, orders: 0 }));
     filteredOrders.filter(o => o.status !== OrderStatus.CANCELLED).forEach(o => {
@@ -354,7 +376,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     return hours.map(h => ({ ...h, label: `${h.hour.toString().padStart(2, '0')}:00` }));
   }, [filteredOrders]);
 
-  // ─── Top items sold ───
+  // â”€â”€â”€ Top items sold â”€â”€â”€
   const topItems = useMemo(() => {
     const map: Record<string, { name: string; qty: number; revenue: number }> = {};
     filteredOrders.filter(o => o.status !== OrderStatus.CANCELLED).forEach(o => {
@@ -367,7 +389,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     return Object.values(map).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
   }, [filteredOrders]);
 
-  // ─── Category breakdown ───
+  // â”€â”€â”€ Category breakdown â”€â”€â”€
   const categoryBreakdown = useMemo(() => {
     const map: Record<string, { name: string; orders: number; revenue: number }> = {};
     filteredOrders.filter(o => o.status !== OrderStatus.CANCELLED).forEach(o => {
@@ -381,7 +403,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     return Object.values(map).sort((a, b) => b.revenue - a.revenue);
   }, [filteredOrders]);
 
-  // ─── PERFORMANCE ───
+  // â”€â”€â”€ PERFORMANCE â”€â”€â”€
   const cashierStats = useMemo(() => {
     const map: Record<string, { name: string; orders: number; revenue: number; avgOrder: number; cancelled: number; avgTime: number }> = {};
     filteredOrders.forEach(o => {
@@ -399,7 +421,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
       .sort((a, b) => b.revenue - a.revenue);
   }, [filteredOrders]);
 
-  // ─── Peak hours ───
+  // â”€â”€â”€ Peak hours â”€â”€â”€
   const peakHours = useMemo(() => {
     const sorted = [...hourlySales].sort((a, b) => b.orders - a.orders);
     return sorted.slice(0, 5);
@@ -410,7 +432,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     [filteredOrders],
   );
 
-  // ─── Helpers ───
+  // â”€â”€â”€ Helpers â”€â”€â”€
   const ChangeIndicator = ({ value }: { value: number }) => {
     const isPositive = value >= 0;
     return (
@@ -435,7 +457,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     );
   };
 
-  // ─── Staff handlers ───
+  // â”€â”€â”€ Staff handlers â”€â”€â”€
   const handleAddStaff = async () => {
     if (!staffForm.username.trim() || !staffForm.password.trim()) {
       toast('Username and password are required', 'error');
@@ -521,7 +543,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     }
   };
 
-  // ─── Stock handlers ───
+  // â”€â”€â”€ Stock handlers â”€â”€â”€
   const handleToggleStockEnabled = (itemId: string) => {
     const updated = stockItems.map(s =>
       s.menuItemId === itemId ? { ...s, stockEnabled: !s.stockEnabled } : s
@@ -599,7 +621,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     return { total, low, out, healthy };
   }, [stockItems]);
 
-  // ─── Ingredient tab helpers ───
+  // â”€â”€â”€ Ingredient tab helpers â”€â”€â”€
   const ingredientCategories = useMemo(() => {
     const cats = Array.from(new Set(ingredientItems.map(i => i.category))).sort();
     return ['ALL', ...cats];
@@ -710,7 +732,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     return staffList.filter(s => s.username.toLowerCase().includes(q) || s.role.toLowerCase().includes(q));
   }, [staffList, staffSearch]);
 
-  // ─── Items tab helpers ───
+  // â”€â”€â”€ Items tab helpers â”€â”€â”€
   const itemCategories = useMemo(() => {
     const cats = Array.from(new Set(restaurant.menu.map(m => m.category))).sort();
     return ['ALL', ...cats];
@@ -828,7 +850,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     toast(`${item.name} deleted`, 'success');
   };
 
-  // ─── Tab buttons ───
+  // â”€â”€â”€ Tab buttons â”€â”€â”€
   const simpleTabs: { key: BackOfficeTab; label: string; icon: React.ReactNode }[] = [
     { key: 'DASHBOARD', label: 'Dashboard', icon: <BarChart3 size={18} /> },
     { key: 'ITEMS', label: 'Items & Stock', icon: <ShoppingBag size={18} /> },
@@ -915,24 +937,29 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
     setExpandedMenus(prev => new Set(prev).add('REPORTS'));
   };
 
-  // ─── Date Range Picker ───
+  // â”€â”€â”€ Date Range Picker â”€â”€â”€
   const DateRangePicker = () => (
     <div className="flex items-center gap-2 flex-wrap">
-      {(['7d', '30d', '90d'] as DateRange[]).map(range => (
+      {([
+        { value: 'today', label: 'Today' },
+        { value: 'week', label: 'This Week' },
+        { value: 'month', label: 'This Month' },
+        { value: 'lastMonth', label: 'Last Month' },
+      ] as { value: Exclude<DateRange, 'custom'>; label: string }[]).map(option => (
         <button
-          key={range}
-          onClick={() => setDateRange(range)}
+          key={option.value}
+          onClick={() => setDateRange(option.value)}
           className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
-            dateRange === range ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600 hover:text-gray-700 dark:hover:text-white'
+            dateRange === option.value ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600 hover:text-gray-700 dark:hover:text-white'
           }`}
         >
-          {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
+          {option.label}
         </button>
       ))}
       <button
         onClick={() => setDateRange('custom')}
         className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${dateRange === 'custom' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600 hover:text-gray-700 dark:hover:text-white'}`}
-      >Custom</button>
+      >Custom Range</button>
       {dateRange === 'custom' && (
         <div className="flex items-center gap-2">
           <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" />
@@ -1226,9 +1253,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 
       <div className="p-4 md:p-6">
 
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {/* DASHBOARD TAB                       */}
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {activeTab === 'DASHBOARD' && (
           <div>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -1424,9 +1451,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           </div>
         )}
 
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {/* ITEMS TAB (Loyverse-style)          */}
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {activeTab === 'ITEMS' && isItemFormOpen ? (
           <MenuItemFormModal
             isOpen={isItemFormOpen}
@@ -1439,26 +1466,63 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             onImageUpload={onImageUpload}
           />
         ) : activeTab === 'ITEMS' && (
-          <div>
-            {/* Sub-tab toggle */}
-            <div className="flex items-center gap-1 mb-6 bg-gray-100 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-700 p-0.5 w-fit">
-              {([['menu', 'Menu Items'], ['ingredients', 'Ingredients / Supplies'], ['stock', 'Stock Management']] as const).map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => setItemSubTab(key)}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-                    itemSubTab === key ? 'bg-amber-600 text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >{label}</button>
+          <div className="space-y-6">
+            <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-600 dark:text-amber-400">Back Office</p>
+                  <h2 className="mt-1 text-2xl font-black text-gray-950 dark:text-white">Items &amp; Stock</h2>
+                  <p className="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">Manage menu items, ingredients, and stock tracking in a clean operational view.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                { label: 'Total Items', value: restaurant.menu.filter(m => !m.isArchived).length, icon: <Package size={20} className="text-blue-500" />, tone: 'bg-blue-500/10' },
+                { label: 'Categories', value: itemCategories.length - 1, icon: <Layers size={20} className="text-amber-500" />, tone: 'bg-amber-500/10' },
+                { label: 'Tracked', value: restaurant.menu.filter(m => !m.isArchived && m.trackStock).length, icon: <CheckCircle size={20} className="text-emerald-500" />, tone: 'bg-emerald-500/10' },
+                { label: 'Archived', value: restaurant.menu.filter(m => m.isArchived).length, icon: <Archive size={20} className="text-rose-500" />, tone: 'bg-rose-500/10' },
+              ].map(card => (
+                <div key={card.label} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                  <div className="mb-3 flex items-center gap-3">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.tone}`}>{card.icon}</div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-400">{card.label}</span>
+                  </div>
+                  <p className="text-2xl font-black text-gray-950 dark:text-white">{card.value}</p>
+                </div>
               ))}
             </div>
 
-            {/* ── Menu Items sub-tab ── */}
+            <div className="min-w-0">
+              {/* Sub-tab toggle */}
+              <div className="relative flex gap-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {([['menu', 'Menu Items'], ['ingredients', 'Ingredients / Supplies'], ['stock', 'Stock Management']] as const).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setItemSubTab(key)}
+                    style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                    className={`relative -mb-px inline-flex items-center gap-2 whitespace-nowrap rounded-t-lg border px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors duration-150 ${
+                      itemSubTab === key
+                        ? 'z-10 border-x border-t border-gray-200 bg-white text-orange-500 dark:border-gray-600 dark:border-t-orange-500 dark:bg-gray-800'
+                        : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300'
+                    }`}
+                  >{label}</button>
+                ))}
+              </div>
+
+            {/* â”€â”€ Menu Items sub-tab â”€â”€ */}
             {itemSubTab === 'menu' && (
             <>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              <h2 className="text-lg font-black">Item List</h2>
-              <div className="flex items-center gap-3 flex-wrap">
+            <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex flex-col gap-4 border-b border-gray-200 p-4 dark:border-gray-700 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div>
+                  <h3 className="text-sm font-black text-gray-900 dark:text-white">Item List</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Search, filter, and manage active items or archived records.</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
                 <div className="relative">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                   <input
@@ -1466,86 +1530,66 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                     placeholder="Search name, SKU, barcode..."
                     value={itemSearch}
                     onChange={e => setItemSearch(e.target.value)}
-                    className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-4 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none w-56"
+                    className="w-56 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                   />
                 </div>
                 <select
                   value={itemCategoryFilter}
                   onChange={e => setItemCategoryFilter(e.target.value)}
-                  className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                 >
                   {itemCategories.map(c => <option key={c} value={c}>{c === 'ALL' ? 'All Categories' : c}</option>)}
                 </select>
                 <button
                   onClick={() => setItemShowArchived(!itemShowArchived)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${itemShowArchived ? 'bg-red-50 dark:bg-red-900/20 text-red-600 border-red-200 dark:border-red-800' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 border-gray-200 dark:border-gray-700'}`}
+                  className={`inline-flex h-10 w-[110px] items-center justify-center rounded-xl border px-4 text-xs font-bold uppercase tracking-wider transition-colors ${itemShowArchived ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300' : 'border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400'}`}
                 >
                   {itemShowArchived ? 'Archived' : 'Active'}
                 </button>
                 <button
                   onClick={openAddItem}
-                  className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20"
+                  className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700"
                 >
-                  <Plus size={14} /> Add Item
+                  <Plus size={14} /> Add
                 </button>
               </div>
             </div>
 
-            {/* Summary */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Items</p>
-                <p className="text-2xl font-black dark:text-white">{restaurant.menu.filter(m => !m.isArchived).length}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Categories</p>
-                <p className="text-2xl font-black dark:text-white">{itemCategories.length - 1}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tracked</p>
-                <p className="text-2xl font-black text-green-500">{restaurant.menu.filter(m => !m.isArchived && m.trackStock).length}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Archived</p>
-                <p className="text-2xl font-black text-red-400">{restaurant.menu.filter(m => m.isArchived).length}</p>
-              </div>
-            </div>
-
             {/* Item Table */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="overflow-hidden">
               {/* Filter bar with Show entries */}
-              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                  Showing {filteredItems.length === 0 ? 0 : (itemCurrentPage - 1) * itemEntriesPerPage + 1}–{Math.min(itemCurrentPage * itemEntriesPerPage, filteredItems.length)} of {filteredItems.length}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900/40">
+                <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                  Showing {filteredItems.length === 0 ? 0 : (itemCurrentPage - 1) * itemEntriesPerPage + 1}-{Math.min(itemCurrentPage * itemEntriesPerPage, filteredItems.length)} of {filteredItems.length}
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Show</span>
-                  <select value={itemEntriesPerPage} onChange={e => setItemEntriesPerPage(Number(e.target.value))} className="bg-gray-100 dark:bg-gray-700 border-none rounded-lg text-[10px] font-bold dark:text-white p-1.5 outline-none cursor-pointer">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Show</span>
+                  <select value={itemEntriesPerPage} onChange={e => setItemEntriesPerPage(Number(e.target.value))} className="cursor-pointer rounded-lg border border-gray-200 bg-white p-1 text-[10px] font-bold text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                     <option value={30}>30</option>
                     <option value={50}>50</option>
                     <option value={100}>100</option>
                   </select>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Entries</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Entries</span>
                 </div>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-                      <th className="text-left px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider">Item</th>
-                      <th className="text-left px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider hidden md:table-cell">Category</th>
-                      <th className="text-right px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider">Price</th>
-                      <th className="text-right px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider hidden lg:table-cell">Cost</th>
-                      <th className="text-left px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider hidden lg:table-cell">SKU</th>
-                      <th className="text-center px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider hidden md:table-cell">Stock</th>
-                      <th className="text-right px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider">Actions</th>
+                <table className="w-full min-w-[980px] text-sm">
+                  <thead className="bg-gray-50 dark:bg-gray-900/40">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-400">Item</th>
+                      <th className="hidden px-4 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-400 md:table-cell">Category</th>
+                      <th className="px-4 py-2 text-right text-[10px] font-black uppercase tracking-wider text-gray-400">Price</th>
+                      <th className="hidden px-4 py-2 text-right text-[10px] font-black uppercase tracking-wider text-gray-400 lg:table-cell">Cost</th>
+                      <th className="hidden px-4 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-400 lg:table-cell">SKU</th>
+                      <th className="hidden px-4 py-2 text-center text-[10px] font-black uppercase tracking-wider text-gray-400 md:table-cell">Stock</th>
+                      <th className="px-4 py-2 text-right text-[10px] font-black uppercase tracking-wider text-gray-400">Actions</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
                     {paginatedItems.length === 0 ? (
-                      <tr><td colSpan={7} className="text-center py-12 text-gray-400 text-sm">No items found</td></tr>
+                      <tr><td colSpan={7} className="py-12 text-center text-sm text-gray-400">No items found</td></tr>
                     ) : paginatedItems.map(item => (
-                      <tr key={item.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                      <tr key={item.id} className="transition-colors">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             {hasRenderableMenuItemImage(item) ? (
@@ -1561,17 +1605,17 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 hidden md:table-cell">
-                          <span className="px-2 py-1 text-[10px] font-bold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg">{item.category}</span>
+                        <td className="hidden px-4 py-3 md:table-cell">
+                          <span className="rounded-lg bg-gray-100 px-2 py-1 text-[10px] font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-300">{item.category}</span>
                         </td>
-                        <td className="px-4 py-3 text-right font-bold dark:text-white">{currencySymbol}{item.price.toFixed(2)}</td>
-                        <td className="px-4 py-3 text-right text-gray-500 hidden lg:table-cell">{item.cost ? `${currencySymbol}${item.cost.toFixed(2)}` : '–'}</td>
-                        <td className="px-4 py-3 text-gray-500 hidden lg:table-cell font-mono text-xs">{item.sku || '–'}</td>
-                        <td className="px-4 py-3 text-center hidden md:table-cell">
+                        <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-white">{currencySymbol}{item.price.toFixed(2)}</td>
+                        <td className="hidden px-4 py-3 text-right text-gray-500 lg:table-cell">{item.cost ? `${currencySymbol}${item.cost.toFixed(2)}` : '-'}</td>
+                        <td className="hidden px-4 py-3 font-mono text-xs text-gray-500 lg:table-cell">{item.sku || '-'}</td>
+                        <td className="hidden px-4 py-3 text-center md:table-cell">
                           {item.trackStock ? (
-                            <span className="px-2 py-0.5 text-[9px] font-bold bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full">Tracked</span>
+                            <span className="rounded-full bg-green-100 px-2 py-0.5 text-[9px] font-bold text-green-600 dark:bg-green-900/30 dark:text-green-400">Tracked</span>
                           ) : (
-                            <span className="text-gray-300 dark:text-gray-600 text-xs">–</span>
+                            <span className="text-xs text-gray-300 dark:text-gray-600">-</span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -1605,6 +1649,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 </table>
               </div>
             </div>
+            </div>
 
             {/* Item Pagination */}
             {itemTotalPages > 1 && (
@@ -1637,7 +1682,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             </>
             )}
 
-            {/* ── Ingredients / Supplies sub-tab ── */}
+            {/* â”€â”€ Ingredients / Supplies sub-tab â”€â”€ */}
             {itemSubTab === 'ingredients' && (
             <>
             {/* Ingredient Form Modal */}
@@ -1697,9 +1742,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                     </div>
                     <div className="flex gap-3 mt-2">
                       <button type="button" onClick={() => { setIsIngredientFormOpen(false); setEditingIngredient(null); }} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
-                      <button type="submit" disabled={isSavingIngredient} className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20 disabled:opacity-50 flex items-center justify-center gap-2">
+                      <button type="submit" disabled={isSavingIngredient} className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 py-3 text-xs font-bold uppercase tracking-wider text-amber-700 transition hover:border-amber-300 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30">
                         {isSavingIngredient && <Loader2 size={14} className="animate-spin" />}
-                        {editingIngredient ? 'Update' : 'Add Ingredient'}
+                        {editingIngredient ? 'Update' : 'Add'}
                       </button>
                     </div>
                   </form>
@@ -1707,40 +1752,44 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               </div>
             )}
 
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              <h2 className="text-lg font-black">Ingredients & Supplies</h2>
+            <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h3 className="text-sm font-black text-gray-900 dark:text-white">Ingredients & Supplies</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Manage non-menu items used for purchasing, stock, and cost tracking.</p>
+              </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="relative">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                  <input type="text" placeholder="Search name, SKU, barcode..." value={ingredientSearch} onChange={e => setIngredientSearch(e.target.value)} className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-4 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none w-56" />
+                  <input type="text" placeholder="Search name, SKU, barcode..." value={ingredientSearch} onChange={e => setIngredientSearch(e.target.value)} className="w-56 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
                 </div>
-                <select value={ingredientCategoryFilter} onChange={e => setIngredientCategoryFilter(e.target.value)} className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                <select value={ingredientCategoryFilter} onChange={e => setIngredientCategoryFilter(e.target.value)} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                   {ingredientCategories.map(c => <option key={c} value={c}>{c === 'ALL' ? 'All Categories' : c}</option>)}
                 </select>
-                <button onClick={() => setIngredientShowArchived(!ingredientShowArchived)} className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${ingredientShowArchived ? 'bg-red-50 dark:bg-red-900/20 text-red-600 border-red-200 dark:border-red-800' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 border-gray-200 dark:border-gray-700'}`}>
+                <button onClick={() => setIngredientShowArchived(!ingredientShowArchived)} className={`rounded-xl border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${ingredientShowArchived ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300' : 'border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400'}`}>
                   {ingredientShowArchived ? 'Show Active' : 'Archived'}
                 </button>
-                <button onClick={openAddIngredient} className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20">
-                  <Plus size={14} /> Add Ingredient
+                <button onClick={openAddIngredient} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
+                  <Plus size={14} /> Add
                 </button>
               </div>
             </div>
 
             {/* Info banner */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 mb-6 flex items-start gap-3">
-              <Info size={16} className="text-blue-500 mt-0.5 shrink-0" />
-              <p className="text-xs text-blue-700 dark:text-blue-300">Ingredients & supplies are non-menu items like sugar, ice blocks, ketchup, packaging, etc. They appear in Purchase Orders and Stock Management for P&L tracking.</p>
+            <div className="flex items-start gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/40">
+              <Info size={16} className="mt-0.5 shrink-0 text-blue-500" />
+              <p className="text-xs text-gray-500 dark:text-gray-400">Ingredients & supplies are non-menu items like sugar, ice blocks, ketchup, packaging, etc. They appear in Purchase Orders and Stock Management for P&L tracking.</p>
             </div>
 
             {/* Ingredients Table */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+            <div className="overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                  Showing {filteredIngredients.length === 0 ? 0 : (ingredientCurrentPage - 1) * ingredientEntriesPerPage + 1}–{Math.min(ingredientCurrentPage * ingredientEntriesPerPage, filteredIngredients.length)} of {filteredIngredients.length}
+                  Showing {filteredIngredients.length === 0 ? 0 : (ingredientCurrentPage - 1) * ingredientEntriesPerPage + 1}-{Math.min(ingredientCurrentPage * ingredientEntriesPerPage, filteredIngredients.length)} of {filteredIngredients.length}
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Show</span>
-                  <select value={ingredientEntriesPerPage} onChange={e => setIngredientEntriesPerPage(Number(e.target.value))} className="bg-gray-100 dark:bg-gray-700 border-none rounded-lg text-[10px] font-bold dark:text-white p-1.5 outline-none cursor-pointer">
+                  <select value={ingredientEntriesPerPage} onChange={e => setIngredientEntriesPerPage(Number(e.target.value))} className="bg-gray-100 dark:bg-gray-700 border-none rounded-lg text-[10px] font-bold dark:text-white p-1 outline-none cursor-pointer">
                     <option value={30}>30</option><option value={50}>50</option><option value={100}>100</option>
                   </select>
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Entries</span>
@@ -1751,18 +1800,18 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                   <table className="w-full text-left">
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Name</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Category</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Cost/Unit</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Unit</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">SKU</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Notes</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Name</th>
+                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Category</th>
+                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Cost/Unit</th>
+                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Unit</th>
+                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">SKU</th>
+                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Notes</th>
+                        <th className="px-5 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {paginatedIngredients.map(item => (
-                        <tr key={item.id} className={`border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${item.is_archived ? 'opacity-50' : ''}`}>
+                        <tr key={item.id} className={`border-b border-gray-100 transition-colors dark:border-gray-700/50 ${item.is_archived ? 'opacity-50' : ''}`}>
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-3">
                               <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
@@ -1794,12 +1843,13 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                   <p className="text-sm font-bold">{ingredientShowArchived ? 'No archived ingredients' : 'No ingredients yet'}</p>
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{ingredientShowArchived ? 'Archived ingredients will appear here' : 'Add ingredients like sugar, ice blocks, packaging, etc.'}</p>
                   {!ingredientShowArchived && (
-                    <button onClick={openAddIngredient} className="mt-4 px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20">
-                      <Plus size={14} /> Add First Ingredient
+                    <button onClick={openAddIngredient} className="mt-4 inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
+                      <Plus size={14} /> Add
                     </button>
                   )}
                 </div>
               )}
+            </div>
             </div>
 
             {/* Ingredient Pagination */}
@@ -1809,7 +1859,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 <button onClick={() => setIngredientCurrentPage(p => Math.max(1, p - 1))} disabled={ingredientCurrentPage === 1} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all"><ChevronLeft size={16} /></button>
                 <div className="flex items-center gap-1">
                   {Array.from({ length: ingredientTotalPages }, (_, i) => i + 1).map(page => (
-                    <button key={page} onClick={() => setIngredientCurrentPage(page)} className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${ingredientCurrentPage === page ? 'bg-amber-600 text-white shadow-lg shadow-amber-200' : 'bg-white dark:bg-gray-800 text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>{page}</button>
+                    <button key={page} onClick={() => setIngredientCurrentPage(page)} className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${ingredientCurrentPage === page ? 'bg-amber-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>{page}</button>
                   ))}
                 </div>
                 <button onClick={() => setIngredientCurrentPage(p => Math.min(ingredientTotalPages, p + 1))} disabled={ingredientCurrentPage === ingredientTotalPages} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 hover:text-amber-500 disabled:opacity-30 transition-all"><ChevronRight size={16} /></button>
@@ -1819,11 +1869,15 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             </>
             )}
 
-            {/* ── Stock Management sub-tab ── */}
+            {/* â”€â”€ Stock Management sub-tab â”€â”€ */}
             {itemSubTab === 'stock' && (
             <>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              <h2 className="text-lg font-black">Stock Management</h2>
+            <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h3 className="text-sm font-black text-gray-900 dark:text-white">Stock Management</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Track stock levels, thresholds, and stock tracking status in one place.</p>
+              </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="relative">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
@@ -1832,32 +1886,32 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                     placeholder="Search items..."
                     value={stockSearch}
                     onChange={e => setStockSearch(e.target.value)}
-                    className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-4 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none w-48"
+                    className="w-48 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                   />
                 </div>
-                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-700 p-0.5">
+                <div className="flex rounded-xl border border-gray-200 bg-gray-100 p-0.5 dark:border-gray-700 dark:bg-gray-900">
                   {([['all', 'All'], ['low', 'Low Stock'], ['out', 'Out of Stock']] as const).map(([key, label]) => (
                     <button
                       key={key}
                       onClick={() => setStockFilter(key)}
-                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
-                        stockFilter === key ? 'bg-amber-600 text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                      className={`rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                        stockFilter === key ? 'bg-white text-amber-600 shadow-sm dark:bg-gray-800 dark:text-amber-400' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
                       }`}
                     >{label}</button>
                   ))}
                 </div>
                 <button
                   onClick={handleGoToRestock}
-                  className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20"
+                  className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700"
                 >
-                  <Plus size={14} /> Purchase Order
+                  <Plus size={14} /> Add
                 </button>
               </div>
             </div>
 
             {/* Selection Action Bar */}
             {stockSelectionMode && (
-              <div className="flex items-center justify-between mb-4 bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/40">
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-bold text-gray-500 dark:text-gray-400">{selectedStockIds.size} selected</span>
                   <button onClick={() => handleToggleSelectedStock(true)} className="px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 text-[10px] font-bold uppercase tracking-wider hover:bg-green-500/30 transition-all">Enable Track</button>
@@ -1867,61 +1921,29 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
               </div>
             )}
 
-            {/* Stock Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center"><Package size={20} className="text-blue-400" /></div>
-                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Total Items</span>
-                </div>
-                <p className="text-3xl font-black dark:text-white">{stockSummary.total}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-600/20 flex items-center justify-center"><CheckCircle size={20} className="text-green-600 dark:text-green-400" /></div>
-                  <span className="text-sm font-bold text-gray-600 dark:text-gray-400">In Stock</span>
-                </div>
-                <p className="text-3xl font-black text-green-600 dark:text-green-400">{stockSummary.healthy}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-600/20 flex items-center justify-center"><AlertCircle size={20} className="text-amber-600 dark:text-amber-400" /></div>
-                  <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Low Stock</span>
-                </div>
-                <p className="text-3xl font-black text-amber-600 dark:text-amber-400">{stockSummary.low}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-600/20 flex items-center justify-center"><XCircle size={20} className="text-red-600 dark:text-red-400" /></div>
-                  <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Out of Stock</span>
-                </div>
-                <p className="text-3xl font-black text-red-600 dark:text-red-400">{stockSummary.out}</p>
-              </div>
-            </div>
-
             {/* Stock Table */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="overflow-hidden">
               {/* Filter bar with Show entries */}
-              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                  Showing {filteredStock.length === 0 ? 0 : (stockCurrentPage - 1) * stockEntriesPerPage + 1}–{Math.min(stockCurrentPage * stockEntriesPerPage, filteredStock.length)} of {filteredStock.length}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900/40">
+                <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                  Showing {filteredStock.length === 0 ? 0 : (stockCurrentPage - 1) * stockEntriesPerPage + 1}-{Math.min(stockCurrentPage * stockEntriesPerPage, filteredStock.length)} of {filteredStock.length}
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Show</span>
-                  <select value={stockEntriesPerPage} onChange={e => setStockEntriesPerPage(Number(e.target.value))} className="bg-gray-100 dark:bg-gray-700 border-none rounded-lg text-[10px] font-bold dark:text-white p-1.5 outline-none cursor-pointer">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Show</span>
+                  <select value={stockEntriesPerPage} onChange={e => setStockEntriesPerPage(Number(e.target.value))} className="cursor-pointer rounded-lg border border-gray-200 bg-white p-1 text-[10px] font-bold text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                     <option value={30}>30</option>
                     <option value={50}>50</option>
                     <option value={100}>100</option>
                   </select>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Entries</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Entries</span>
                 </div>
               </div>
               {paginatedStock.length > 0 ? (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                        <th className="px-3 py-4 w-8">
+                  <table className="w-full min-w-[980px] text-left">
+                    <thead className="bg-gray-50 dark:bg-gray-900/40">
+                      <tr>
+                        <th className="px-3 py-2 w-8">
                           <div className="relative">
                             <button onClick={() => setStockMenuOpen(!stockMenuOpen)} className="p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                               <MoreVertical size={16} className="text-gray-500" />
@@ -1940,10 +1962,10 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                             )}
                           </div>
                         </th>
-                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Item</th>
-                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Category</th>
-                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Stock</th>
-                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                        <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500">Item</th>
+                        <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500">Category</th>
+                        <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500">Stock</th>
+                        <th className="hidden px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500 md:table-cell">
                           <span className="inline-flex items-center gap-1">Threshold
                             <span className="relative group">
                               <Info size={12} className="text-gray-400 cursor-help" />
@@ -1951,16 +1973,16 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                             </span>
                           </span>
                         </th>
-                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Last Restocked</th>
-                        <th className="px-3 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Track Stock</th>
+                        <th className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500">Status</th>
+                        <th className="hidden px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-500 sm:table-cell">Last Restocked</th>
+                        <th className="px-3 py-2 text-center text-[10px] font-black uppercase tracking-wider text-gray-500">Track Stock</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
                       {paginatedStock.map(item => {
                         const status = !item.stockEnabled ? 'disabled' : item.currentStock === 0 ? 'out' : item.currentStock <= item.lowStockThreshold ? 'low' : 'ok';
                         return (
-                          <tr key={item.menuItemId} className={`border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${!item.stockEnabled ? 'opacity-50' : ''}`}>
+                          <tr key={item.menuItemId} className={`transition-colors ${!item.stockEnabled ? 'opacity-50' : ''}`}>
                             <td className="px-3 py-4">
                               {stockSelectionMode ? (
                                 <input type="checkbox" checked={selectedStockIds.has(item.menuItemId)} onChange={() => handleSelectStockItem(item.menuItemId)} className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
@@ -1983,9 +2005,9 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                                 }`}>{item.currentStock}</span>
                                 <button onClick={() => handleSetStock(item.menuItemId, item.currentStock + 1)} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 text-gray-400 hover:text-white flex items-center justify-center"><Plus size={12} /></button>
                               </div>
-                              ) : <span className="text-xs text-gray-400">—</span>}
+                              ) : <span className="text-xs text-gray-400">-</span>}
                             </td>
-                            <td className="px-3 py-4 hidden md:table-cell">
+                            <td className="hidden px-3 py-4 md:table-cell">
                               {item.stockEnabled ? (
                               <input
                                 type="number"
@@ -1993,7 +2015,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                                 onChange={e => handleUpdateStockThreshold(item.menuItemId, parseInt(e.target.value) || 0)}
                                 className="w-16 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-900 dark:text-white text-center focus:ring-2 focus:ring-amber-500 outline-none"
                               />
-                              ) : <span className="text-xs text-gray-400">—</span>}
+                              ) : <span className="text-xs text-gray-400">-</span>}
                             </td>
                             <td className="px-3 py-4">
                               <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
@@ -2005,7 +2027,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                                 {status === 'disabled' ? 'Disabled' : status === 'out' ? 'Out of Stock' : status === 'low' ? 'Low Stock' : 'In Stock'}
                               </span>
                             </td>
-                            <td className="px-3 py-4 text-xs text-gray-500 dark:text-gray-400 hidden sm:table-cell">
+                            <td className="hidden px-3 py-4 text-xs text-gray-500 dark:text-gray-400 sm:table-cell">
                               {item.lastRestocked ? new Date(item.lastRestocked).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) : '-'}
                             </td>
                             <td className="px-3 py-4 text-center">
@@ -2030,6 +2052,7 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 </div>
               )}
             </div>
+            </div>
 
             {/* Stock Pagination */}
             {stockTotalPages > 1 && (
@@ -2042,11 +2065,11 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
                 </button>
                 <div className="flex items-center gap-1">
                   {Array.from({ length: stockTotalPages }, (_, i) => i + 1).map(page => (
-                    <button
-                      key={page}
-                      onClick={() => setStockCurrentPage(page)}
-                      className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${stockCurrentPage === page ? 'bg-amber-600 text-white shadow-lg shadow-amber-200' : 'bg-white dark:bg-gray-800 text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
-                    >
+                  <button
+                    key={page}
+                    onClick={() => setStockCurrentPage(page)}
+                    className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${stockCurrentPage === page ? 'bg-amber-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                  >
                       {page}
                     </button>
                   ))}
@@ -2061,202 +2084,37 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
             )}
             </>
             )}
+            </div>
           </div>
         )}
 
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {/* STAFF MANAGEMENT TAB                */}
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {activeTab === 'STAFF' && (
-          <div>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              <h2 className="text-lg font-black">Staff Management</h2>
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                  <input
-                    type="text"
-                    placeholder="Search staff..."
-                    value={staffSearch}
-                    onChange={e => setStaffSearch(e.target.value)}
-                    className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-4 py-2 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none w-48"
-                  />
-                </div>
-                <button onClick={refreshStaffList} className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-xs font-bold uppercase tracking-wider border border-gray-200 dark:border-gray-700 hover:border-gray-600 transition-all">
-                  <RotateCcw size={14} />
-                </button>
-                <button
-                  onClick={() => { setIsAddStaffOpen(true); setStaffForm({ username: '', password: '', email: '', phone: '', role: 'CASHIER' }); }}
-                  className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all flex items-center gap-2 shadow-lg shadow-amber-600/20"
-                >
-                  <UserPlus size={14} /> Add Staff
-                </button>
-              </div>
-            </div>
-
-            {/* Summary cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center"><Users size={20} className="text-blue-400" /></div>
-                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Total Staff</span>
-                </div>
-                <p className="text-3xl font-black dark:text-white">{staffList.length}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl bg-green-600/20 flex items-center justify-center"><CheckCircle size={20} className="text-green-400" /></div>
-                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Active</span>
-                </div>
-                <p className="text-3xl font-black text-green-400">{staffList.filter(s => s.isActive !== false).length}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl bg-red-600/20 flex items-center justify-center"><XCircle size={20} className="text-red-400" /></div>
-                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Inactive</span>
-                </div>
-                <p className="text-3xl font-black text-red-400">{staffList.filter(s => s.isActive === false).length}</p>
-              </div>
-            </div>
-
-            {/* Staff List */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-              {filteredStaff.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Name</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Role</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Email</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Phone</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-5 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredStaff.map(staff => (
-                        <tr key={staff.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-600/20 flex items-center justify-center text-amber-600 dark:text-amber-400 font-black text-sm">
-                                {staff.username.charAt(0).toUpperCase()}
-                              </div>
-                              <span className="text-sm font-bold dark:text-white">{staff.username}</span>
-                            </div>
-                          </td>
-                          <td className="px-5 py-4">
-                            <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
-                              staff.role === 'CASHIER' ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400'
-                            }`}>{staff.role}</span>
-                          </td>
-                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell">{staff.email || '-'}</td>
-                          <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 hidden sm:table-cell">{staff.phone || '-'}</td>
-                          <td className="px-5 py-4">
-                            <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
-                              staff.isActive !== false ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-                            }`}>{staff.isActive !== false ? 'Active' : 'Inactive'}</span>
-                          </td>
-                          <td className="px-5 py-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => handleToggleStaffActive(staff)}
-                                className={`p-2 rounded-lg transition-all ${
-                                  staff.isActive !== false ? 'text-red-400 hover:bg-red-500/20' : 'text-green-400 hover:bg-green-500/20'
-                                }`}
-                                title={staff.isActive !== false ? 'Deactivate' : 'Activate'}
-                              >
-                                {staff.isActive !== false ? <UserMinus size={14} /> : <CheckCircle size={14} />}
-                              </button>
-                              <button
-                                onClick={() => handleDeleteStaff(staff)}
-                                className="p-2 rounded-lg text-red-400 hover:bg-red-500/20 transition-all"
-                                title="Remove"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="h-48 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
-                  <Users size={40} className="mb-3 opacity-30" />
-                  <p className="text-sm font-bold">No staff members found</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Add cashiers or kitchen staff to get started</p>
-                </div>
-              )}
-            </div>
-
-            {/* Add Staff Modal */}
-            {isAddStaffOpen && (
-              <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setIsAddStaffOpen(false)}>
-                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
-                  <h3 className="text-lg font-black dark:text-white mb-6 flex items-center gap-2"><UserPlus size={20} className="text-amber-500" /> Add New Staff</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Role</label>
-                      <div className="flex gap-2">
-                        <button onClick={() => setStaffForm(f => ({ ...f, role: 'CASHIER' }))} className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${staffForm.role === 'CASHIER' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>Cashier</button>
-                        <button onClick={() => setStaffForm(f => ({ ...f, role: 'KITCHEN' }))} className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${staffForm.role === 'KITCHEN' ? 'bg-purple-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>Kitchen</button>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Username *</label>
-                      <input type="text" value={staffForm.username} onChange={e => setStaffForm(f => ({ ...f, username: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Enter username" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Password *</label>
-                      <input type="password" value={staffForm.password} onChange={e => setStaffForm(f => ({ ...f, password: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Enter password" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Email</label>
-                      <input type="email" value={staffForm.email} onChange={e => setStaffForm(f => ({ ...f, email: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Optional" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Phone</label>
-                      <input type="tel" value={staffForm.phone} onChange={e => setStaffForm(f => ({ ...f, phone: e.target.value }))} className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Optional" />
-                    </div>
-                  </div>
-                  <div className="flex gap-3 mt-6">
-                    <button onClick={() => setIsAddStaffOpen(false)} className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">Cancel</button>
-                    <button onClick={handleAddStaff} disabled={isSubmittingStaff} className="flex-1 py-3 rounded-xl bg-amber-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-amber-700 transition-all disabled:opacity-50 shadow-lg shadow-amber-600/20">
-                      {isSubmittingStaff ? 'Adding...' : 'Add Staff'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          <StaffManagementView restaurant={restaurant} currencySymbol={currencySymbol} />
         )}
-
-        {/* ════════════════════════════════════ */}
-        {/* INVENTORY MANAGEMENT TAB            */}
-        {/* ════════════════════════════════════ */}
         {activeTab === 'INVENTORY' && (
           <InventoryManagement restaurant={restaurant} currencySymbol={currencySymbol} initialSubTab={inventorySubTab as any} />
         )}
 
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {/* REPORTS TAB                         */}
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {activeTab === 'REPORTS' && (
           <ReportsView orders={orders} currencySymbol={currencySymbol} taxes={restaurant.settings?.taxes} initialSubTab={reportSubTab as any} />
         )}
 
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {/* CONTACTS TAB                        */}
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {activeTab === 'CONTACTS' && (
           <ContactsManagement restaurant={restaurant} currencySymbol={currencySymbol} initialSubTab={contactSubTab as any} />
         )}
 
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {/* EXPENSES TAB                        */}
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {activeTab === 'EXPENSES' && (
           <ExpensesView
             restaurant={restaurant}
@@ -2272,16 +2130,16 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
           />
         )}
 
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {/* FINANCE TAB                         */}
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {activeTab === 'FINANCE' && (
           <FinanceView restaurant={restaurant} orders={orders} currencySymbol={currencySymbol} initialSubTab={financeSubTab} subscription={subscription} />
         )}
 
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {/* CASHIER SHIFTS TAB                  */}
-        {/* ════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         {activeTab === 'SHIFTS' && (
           <CashierShiftRecords
             restaurantId={restaurant.id}
@@ -2299,3 +2157,4 @@ const BackOfficePage: React.FC<Props> = ({ restaurant, orders, currencySymbol, o
 };
 
 export default BackOfficePage;
+
