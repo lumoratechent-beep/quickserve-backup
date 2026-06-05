@@ -1615,8 +1615,8 @@ const App: React.FC = () => {
     }
   };
 
-  const updateOrderItems = (orderId: string, items: CartItem[], total: number) => {
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, items, total } : o));
+  const updateOrderItems = (orderId: string, items: CartItem[], total: number, remark?: string) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, items, total, ...(remark !== undefined ? { remark } : {}) } : o));
   };
 
   const toggleVendorOnline = async (restaurantId: string, currentStatus: boolean) => {
@@ -3012,6 +3012,8 @@ const App: React.FC = () => {
               cashierName={currentUser?.username}
               onLogout={handleLogout}
               onPlaceOrder={placeTablesideOrder}
+              onUpdateOrderItems={updateOrderItems}
+              onUpdateOrderStatus={updateOrderStatus}
               networkMeta={networkMeta}
               batteryMeta={batteryMeta}
               batteryCharging={batteryStatus?.charging ?? false}

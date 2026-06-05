@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
+import { ArrowLeft, Hash, LogOut, Minus, Plus, Search, Send, ShoppingCart, UtensilsCrossed, X } from 'lucide-react';
 import { Restaurant, CartItem, Order, OrderStatus, MenuItem, ModifierData, OrderSource } from '../src/types';
-import { ShoppingCart, Plus, Minus, X, Hash, LogOut, ChefHat, Search, LayoutGrid, List, Grid3X3, CheckCircle2, AlertCircle, Clock, XCircle, Tablet, ArrowLeft, Send, MessageSquare, UtensilsCrossed } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import { toast } from '../components/Toast';
@@ -11,6 +11,8 @@ interface Props {
   cashierName?: string;
   onLogout: () => void;
   onPlaceOrder: (order: { items: CartItem[]; total: number; tableNumber: string; remark: string; orderSource: OrderSource }) => Promise<void>;
+  onUpdateOrderItems?: (orderId: string, items: CartItem[], total: number, remark?: string) => void;
+  onUpdateOrderStatus?: (orderId: string, status: OrderStatus, reason?: string, note?: string) => void | Promise<void>;
   networkMeta?: {
     label: string;
     title: string;
@@ -26,21 +28,41 @@ interface Props {
   batteryCharging?: boolean;
 }
 
-const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, onLogout, onPlaceOrder, networkMeta, batteryMeta, batteryCharging = false }) => {
-  // ---------- State ----------
+const ACTIVE_TABLE_STATUSES = [OrderStatus.PENDING, OrderStatus.ONGOING, OrderStatus.SERVED];
+
+const getItemKey = (item: CartItem) => [
+  item.id,
+  item.selectedSize,
+  item.selectedTemp,
+  item.selectedOtherVariant,
+  item.selectedVariantOption,
+  JSON.stringify(item.selectedAddOns || []),
+  JSON.stringify(item.selectedModifiers || {}),
+].join('|');
+
+const TableSideOrderPage: React.FC<Props> = ({
+  restaurant,
+  orders,
+  cashierName,
+  onLogout,
+  onPlaceOrder,
+  onUpdateOrderItems,
+  onUpdateOrderStatus,
+  networkMeta,
+  batteryMeta,
+  batteryCharging = false,
+}) => {
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [showCart, setShowCart] = useState(false);
   const [orderRemark, setOrderRemark] = useState('');
   const [selectedItemForVariants, setSelectedItemForVariants] = useState<{ item: MenuItem; resId: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [gridColumns, setGridColumns] = useState<2 | 3>(3);
+  const [gridColumns, setGridColumns] = useState<2 | 3 | 6>(3);
   const [isPlacing, setIsPlacing] = useState(false);
-  const [recentOrderIds, setRecentOrderIds] = useState<string[]>([]);
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
 
-  // ---------- Derived ----------
-  const featureSettings = restaurant.settings?.features || {} as any;
+  const featureSettings = (restaurant.settings?.features || {}) as Record<string, any>;
   const tableCount = Math.max(1, Number(featureSettings.tableCount) || 12);
   const floorEnabled = !!featureSettings.floorEnabled;
   const floorCount = floorEnabled ? Math.min(5, Math.max(1, Number(featureSettings.floorCount) || 1)) : 1;
@@ -54,10 +76,7 @@ const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, 
   }, [tableCount, floorEnabled, floorCount, selectedFloor]);
 
   const menu = useMemo(() => restaurant.menu.filter(item => !item.isArchived), [restaurant.menu]);
-  const categories = useMemo(() => {
-    const cats = Array.from(new Set(menu.map(i => i.category))).filter(Boolean);
-    return cats;
-  }, [menu]);
+  const categories = useMemo(() => Array.from(new Set(menu.map(i => i.category))).filter(Boolean), [menu]);
 
   const filteredMenu = useMemo(() => {
     let items = menu;
@@ -72,28 +91,27 @@ const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // Orders for selected table (recent)
   const tableOrders = useMemo(() => {
     if (!selectedTable) return [];
-    const thirtyMinAgo = Date.now() - 30 * 60 * 1000;
-    return orders.filter(o =>
-      o.restaurantId === restaurant.id &&
-      o.tableNumber === selectedTable &&
-      o.timestamp > thirtyMinAgo
-    ).sort((a, b) => b.timestamp - a.timestamp);
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    return orders
+      .filter(order =>
+        order.restaurantId === restaurant.id &&
+        order.tableNumber === selectedTable &&
+        ACTIVE_TABLE_STATUSES.includes(order.status) &&
+        order.timestamp > oneDayAgo
+      )
+      .sort((a, b) => b.timestamp - a.timestamp);
   }, [orders, selectedTable, restaurant.id]);
 
-  // ---------- Handlers ----------
+  const editingOrder = useMemo(() => (
+    editingOrderId ? orders.find(order => order.id === editingOrderId) || null : null
+  ), [orders, editingOrderId]);
+
   const handleAddToCart = useCallback((item: CartItem) => {
     setCart(prev => {
-      // Build a unique key from id + variant selections
-      const key = [item.id, item.selectedSize, item.selectedTemp, item.selectedOtherVariant, item.selectedVariantOption,
-        JSON.stringify(item.selectedAddOns || []), JSON.stringify(item.selectedModifiers || {})].join('|');
-      const existingIdx = prev.findIndex(c => {
-        const ck = [c.id, c.selectedSize, c.selectedTemp, c.selectedOtherVariant, c.selectedVariantOption,
-          JSON.stringify(c.selectedAddOns || []), JSON.stringify(c.selectedModifiers || {})].join('|');
-        return ck === key;
-      });
+      const key = getItemKey(item);
+      const existingIdx = prev.findIndex(cartItem => getItemKey(cartItem) === key);
       if (existingIdx >= 0) {
         const copy = [...prev];
         copy[existingIdx] = { ...copy[existingIdx], quantity: copy[existingIdx].quantity + (item.quantity || 1) };
@@ -106,13 +124,14 @@ const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, 
   const handleRemoveFromCart = useCallback((idx: number) => {
     setCart(prev => {
       const copy = [...prev];
-      if (copy[idx].quantity > 1) {
-        copy[idx] = { ...copy[idx], quantity: copy[idx].quantity - 1 };
-      } else {
-        copy.splice(idx, 1);
-      }
+      if (copy[idx].quantity > 1) copy[idx] = { ...copy[idx], quantity: copy[idx].quantity - 1 };
+      else copy.splice(idx, 1);
       return copy;
     });
+  }, []);
+
+  const handleDeleteFromCart = useCallback((idx: number) => {
+    setCart(prev => prev.filter((_, itemIdx) => itemIdx !== idx));
   }, []);
 
   const handleInitialAdd = (item: MenuItem) => {
@@ -125,10 +144,52 @@ const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, 
       (item.linkedModifiers && item.linkedModifiers.length > 0) ||
       (item.mixAndMatch?.enabled && item.mixAndMatch.selections.length > 0);
 
-    if (hasOptions) {
-      setSelectedItemForVariants({ item, resId: restaurant.id });
-    } else {
-      handleAddToCart({ ...item, quantity: 1, restaurantId: restaurant.id });
+    if (hasOptions) setSelectedItemForVariants({ item, resId: restaurant.id });
+    else handleAddToCart({ ...item, quantity: 1, restaurantId: restaurant.id });
+  };
+
+  const resetOrderDraft = () => {
+    setCart([]);
+    setOrderRemark('');
+    setEditingOrderId(null);
+  };
+
+  const handleClearDraft = () => {
+    if (cart.length > 0 && !confirm('Clear the current order summary?')) return;
+    resetOrderDraft();
+  };
+
+  const handleBackToTables = () => {
+    if (cart.length > 0 && !confirm('You have items in your order summary. Go back to table selection? The summary will be cleared.')) return;
+    resetOrderDraft();
+    setSearchQuery('');
+    setActiveCategory(null);
+    setSelectedTable(null);
+  };
+
+  const handleEditOrder = (order: Order) => {
+    if (cart.length > 0 && editingOrderId !== order.id && !confirm('Replace the current order summary with this table order?')) return;
+    setCart(order.items as CartItem[]);
+    setOrderRemark(order.remark || '');
+    setEditingOrderId(order.id);
+  };
+
+  const handleCancelActiveOrder = async (order: Order) => {
+    if (!confirm(`Cancel order ${order.id}?`)) return;
+    try {
+      if (onUpdateOrderStatus) {
+        await onUpdateOrderStatus(order.id, OrderStatus.CANCELLED, 'Cancelled by order taker', '');
+      } else {
+        const { error } = await supabase
+          .from('orders')
+          .update({ status: OrderStatus.CANCELLED, rejection_reason: 'Cancelled by order taker' })
+          .eq('id', order.id);
+        if (error) throw new Error(error.message);
+      }
+      if (editingOrderId === order.id) resetOrderDraft();
+      toast('Order cancelled.', 'success');
+    } catch (err: any) {
+      toast(err?.message || 'Failed to cancel order', 'error');
     }
   };
 
@@ -136,34 +197,34 @@ const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, 
     if (!selectedTable || cart.length === 0 || isPlacing) return;
     setIsPlacing(true);
     try {
-      await onPlaceOrder({
-        items: cart,
-        total: cartTotal,
-        tableNumber: selectedTable,
-        remark: orderRemark,
-        orderSource: 'tableside',
-      });
-      setRecentOrderIds([]); // will be updated by orders prop
-      setCart([]);
-      setOrderRemark('');
-      setShowCart(false);
-      toast('Order placed successfully!', 'success');
+      if (editingOrderId) {
+        const { error } = await supabase
+          .from('orders')
+          .update({ items: cart, total: cartTotal, remark: orderRemark })
+          .eq('id', editingOrderId);
+        if (error) throw new Error(error.message || 'Failed to update order');
+        onUpdateOrderItems?.(editingOrderId, cart, cartTotal, orderRemark);
+        toast('Order updated successfully!', 'success');
+      } else {
+        await onPlaceOrder({
+          items: cart,
+          total: cartTotal,
+          tableNumber: selectedTable,
+          remark: orderRemark,
+          orderSource: 'tableside',
+        });
+        toast('Order placed successfully!', 'success');
+      }
+
+      resetOrderDraft();
+      setSearchQuery('');
+      setActiveCategory(null);
+      setSelectedTable(null);
     } catch (err: any) {
-      toast(err?.message || 'Failed to place order', 'error');
+      toast(err?.message || 'Failed to save order', 'error');
     } finally {
       setIsPlacing(false);
     }
-  };
-
-  const handleBackToTables = () => {
-    if (cart.length > 0) {
-      if (!confirm('You have items in your cart. Go back to table selection? Cart will be cleared.')) return;
-    }
-    setCart([]);
-    setOrderRemark('');
-    setSearchQuery('');
-    setActiveCategory(null);
-    setSelectedTable(null);
   };
 
   const statusTools = networkMeta && (
@@ -174,14 +235,10 @@ const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, 
         aria-label={`Network ${networkMeta.label}`}
       >
         <div className="flex h-[18px] w-[18px] items-end justify-center gap-0.5 pb-0.5" aria-hidden="true">
-          {[1, 2, 3].map((bar) => (
+          {[1, 2, 3].map(bar => (
             <span
               key={bar}
-              className={`w-1 rounded-full transition-colors ${
-                bar <= networkMeta.bars || !networkMeta.mutedBars
-                  ? 'bg-current'
-                  : 'bg-gray-300/80 dark:bg-gray-500/80'
-              }`}
+              className={`w-1 rounded-full transition-colors ${bar <= networkMeta.bars || !networkMeta.mutedBars ? 'bg-current' : 'bg-gray-300/80 dark:bg-gray-500/80'}`}
               style={{ height: `${bar * 4}px` }}
             />
           ))}
@@ -195,15 +252,8 @@ const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, 
         >
           <div className="flex h-[18px] w-[18px] items-center justify-center" aria-hidden="true">
             <div className="relative h-3 w-5 rounded-[3px] border-2 border-current p-0.5">
-              <span
-                className="block h-full rounded-[1px] bg-current transition-all"
-                style={{ width: batteryMeta.percent > 0 ? `${Math.max(batteryMeta.percent, 8)}%` : '0%' }}
-              />
-              {batteryCharging && (
-                <span className="absolute inset-0 flex items-center justify-center text-[7px] font-black leading-none text-white">
-                  +
-                </span>
-              )}
+              <span className="block h-full rounded-[1px] bg-current transition-all" style={{ width: batteryMeta.percent > 0 ? `${Math.max(batteryMeta.percent, 8)}%` : '0%' }} />
+              {batteryCharging && <span className="absolute inset-0 flex items-center justify-center text-[7px] font-black leading-none text-white">+</span>}
             </div>
             <span className="h-1.5 w-0.5 shrink-0 rounded-r bg-current" />
           </div>
@@ -212,33 +262,63 @@ const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, 
     </div>
   );
 
-  // ---------- Table Selection View ----------
+  const renderHeader = (withBackButton: boolean) => (
+    <header className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 py-3 flex items-center gap-3 shrink-0">
+      {withBackButton && (
+        <button
+          onClick={handleBackToTables}
+          className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 hover:text-orange-500 transition-all"
+          title="Back"
+        >
+          <ArrowLeft size={18} />
+        </button>
+      )}
+      <img
+        src={restaurant.logo}
+        className="w-8 h-8 rounded-lg shadow-sm"
+        onError={(e) => {
+          e.currentTarget.onerror = null;
+          e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${restaurant.name?.charAt(0) || 'R'}</text></svg>`)}`;
+        }}
+        alt=""
+      />
+      <div className="flex-1 min-w-0">
+        <h1 className="font-black text-sm uppercase tracking-tight dark:text-white truncate">{restaurant.name}</h1>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Tableside</span>
+          {withBackButton && (
+            <>
+              <span className="text-[9px] font-black text-gray-400">-</span>
+              <span className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest truncate">{cashierName}</span>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        {statusTools}
+        {selectedTable && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-tighter">
+            <Hash size={12} className="text-orange-500" />
+            {selectedTable}
+          </div>
+        )}
+        {!withBackButton && <span className="hidden sm:inline text-[10px] font-black text-gray-400 uppercase tracking-widest">{cashierName}</span>}
+        <button
+          onClick={onLogout}
+          className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+          title="Logout"
+        >
+          <LogOut size={18} />
+        </button>
+      </div>
+    </header>
+  );
+
   if (!selectedTable) {
     return (
       <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
-        {/* Header */}
-        <header className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-4 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <img src={restaurant.logo} className="w-10 h-10 rounded-xl shadow-sm" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="12" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${restaurant.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
-            <div>
-              <h1 className="font-black text-sm uppercase tracking-tight dark:text-white">{restaurant.name}</h1>
-              <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Tableside Ordering</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3">
-            {statusTools}
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{cashierName}</span>
-            <button
-              onClick={onLogout}
-              className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
-              title="Logout"
-            >
-              <LogOut size={18} />
-            </button>
-          </div>
-        </header>
+        {renderHeader(false)}
 
-        {/* Table Selection */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="max-w-4xl mx-auto">
             <div className="mb-6">
@@ -246,34 +326,31 @@ const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, 
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Choose the table you're taking the order for</p>
             </div>
 
-            {/* Floor Tabs */}
             {floorEnabled && floorCount > 1 && (
-              <div className="flex items-center gap-2 mb-4 overflow-x-auto">
-                {Array.from({ length: floorCount }, (_, i) => i + 1).map(f => (
+              <div className="flex items-center gap-2 mb-4 overflow-x-auto hide-scrollbar">
+                {Array.from({ length: floorCount }, (_, i) => i + 1).map(floor => (
                   <button
-                    key={f}
-                    onClick={() => setSelectedFloor(f)}
+                    key={floor}
+                    onClick={() => setSelectedFloor(floor)}
                     className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                      selectedFloor === f
+                      selectedFloor === floor
                         ? 'bg-orange-500 text-white shadow-lg'
                         : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border dark:border-gray-700 hover:border-orange-300'
                     }`}
                   >
-                    Floor {f}
+                    Floor {floor}
                   </button>
                 ))}
               </div>
             )}
 
-            {/* Table Grid */}
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
-              {tableLabels.map((label) => {
-                // Check if table has active orders
-                const activeOrdersForTable = orders.filter(o =>
-                  o.restaurantId === restaurant.id &&
-                  o.tableNumber === label &&
-                  (o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING) &&
-                  o.timestamp > Date.now() - 60 * 60 * 1000
+              {tableLabels.map(label => {
+                const activeOrdersForTable = orders.filter(order =>
+                  order.restaurantId === restaurant.id &&
+                  order.tableNumber === label &&
+                  ACTIVE_TABLE_STATUSES.includes(order.status) &&
+                  order.timestamp > Date.now() - 24 * 60 * 60 * 1000
                 );
                 const hasActive = activeOrdersForTable.length > 0;
 
@@ -288,9 +365,7 @@ const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, 
                     }`}
                   >
                     <Hash size={16} className={`mx-auto mb-1 ${hasActive ? 'text-orange-500' : 'text-gray-400'}`} />
-                    <p className={`text-xs font-black uppercase tracking-tight ${hasActive ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-gray-300'}`}>
-                      {label}
-                    </p>
+                    <p className={`text-xs font-black uppercase tracking-tight ${hasActive ? 'text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-gray-300'}`}>{label}</p>
                     {hasActive && (
                       <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-black w-5 h-5 rounded-full flex items-center justify-center">
                         {activeOrdersForTable.length}
@@ -302,157 +377,240 @@ const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, 
             </div>
           </div>
         </div>
+
+        <style>{`
+          .hide-scrollbar::-webkit-scrollbar { display: none; }
+          .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        `}</style>
       </div>
     );
   }
 
-  // ---------- Menu / Ordering View ----------
   return (
     <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 py-3 flex items-center gap-3 shrink-0">
-        <button
-          onClick={handleBackToTables}
-          className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 hover:text-orange-500 transition-all"
-        >
-          <ArrowLeft size={18} />
-        </button>
-        <img src={restaurant.logo} className="w-8 h-8 rounded-lg shadow-sm" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="%23fed7aa"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" font-weight="900" fill="%23f97316">${restaurant.name?.charAt(0) || 'R'}</text></svg>`)}`; }} />
-        <div className="flex-1 min-w-0">
-          <h1 className="font-black text-sm uppercase tracking-tight dark:text-white truncate">{restaurant.name}</h1>
-          <div className="flex items-center gap-2">
-            <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Tableside</span>
-            <span className="text-[9px] font-black text-gray-400">•</span>
-            <span className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">{cashierName}</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {statusTools}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-tighter">
-            <Hash size={12} className="text-orange-500" />
-            {selectedTable}
-          </div>
-          <button
-            onClick={onLogout}
-            className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
-            title="Logout"
-          >
-            <LogOut size={18} />
-          </button>
-        </div>
-      </header>
+      {renderHeader(true)}
 
-      {/* Category Tabs + Search */}
-      <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 py-2 shrink-0">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="flex-1 relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search menu..."
-              className="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl text-xs font-medium dark:text-white"
-            />
-          </div>
-          <button
-            onClick={() => setGridColumns(prev => prev === 3 ? 2 : 3)}
-            className="p-2 bg-gray-50 dark:bg-gray-700 text-gray-400 rounded-xl hover:text-orange-500 transition-colors border dark:border-gray-600"
-          >
-            {gridColumns === 3 ? <LayoutGrid size={16} /> : <Grid3X3 size={16} />}
-          </button>
-        </div>
-        <nav className="overflow-x-auto hide-scrollbar flex items-center gap-2">
-          <button
-            onClick={() => setActiveCategory(null)}
-            className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-              !activeCategory ? 'bg-orange-500 text-white shadow' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200'
-            }`}
-          >
-            All
-          </button>
-          {categories.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                activeCategory === cat ? 'bg-orange-500 text-white shadow' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </nav>
-      </div>
-
-      {/* Active Orders for this Table */}
-      {tableOrders.length > 0 && (
-        <div className="bg-orange-50 dark:bg-orange-900/10 border-b border-orange-200 dark:border-orange-900/30 px-4 py-2 shrink-0">
-          <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar">
-            <span className="text-[9px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest whitespace-nowrap">Active:</span>
-            {tableOrders.slice(0, 5).map(o => (
-              <div key={o.id} className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider whitespace-nowrap ${
-                o.status === OrderStatus.PENDING ? 'bg-yellow-100 text-yellow-700' :
-                o.status === OrderStatus.ONGOING ? 'bg-blue-100 text-blue-700' :
-                o.status === OrderStatus.SERVED ? 'bg-green-100 text-green-700' :
-                o.status === OrderStatus.CANCELLED ? 'bg-red-100 text-red-700' :
-                'bg-gray-100 text-gray-500'
-              }`}>
-                {o.status === OrderStatus.PENDING && <Clock size={10} />}
-                {o.status === OrderStatus.ONGOING && <ChefHat size={10} />}
-                {o.status === OrderStatus.SERVED && <CheckCircle2 size={10} />}
-                {o.status === OrderStatus.CANCELLED && <XCircle size={10} />}
-                {o.id} — {o.status}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
+        <section className="min-h-0 flex flex-col lg:basis-4/5 lg:max-w-[80%] border-r border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 py-2 shrink-0">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex-1 relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search menu..."
+                  className="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl text-xs font-medium dark:text-white"
+                />
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Menu Grid */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {filteredMenu.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center opacity-40">
-            <UtensilsCrossed size={40} />
-            <p className="text-xs font-black uppercase tracking-widest mt-3">No items found</p>
-          </div>
-        ) : (
-          <div className={`grid gap-3 ${gridColumns === 3 ? 'grid-cols-3 md:grid-cols-4 lg:grid-cols-5' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'}`}>
-            {filteredMenu.map(item => {
-              const itemCount = cart.filter(c => c.id === item.id).reduce((s, c) => s + c.quantity, 0);
-              return (
+              <div className="flex items-center gap-1 p-1 bg-gray-50 dark:bg-gray-700 rounded-xl border dark:border-gray-600">
+                {[2, 3, 6].map(count => (
+                  <button
+                    key={count}
+                    onClick={() => setGridColumns(count as 2 | 3 | 6)}
+                    className={`h-8 min-w-8 px-2 rounded-lg text-[10px] font-black transition-all ${gridColumns === count ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:text-orange-500'}`}
+                    title={`${count} tiles`}
+                  >
+                    {count}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <nav className="overflow-x-auto hide-scrollbar flex items-center gap-2">
+              <button
+                onClick={() => setActiveCategory(null)}
+                className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!activeCategory ? 'bg-orange-500 text-white shadow' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200'}`}
+              >
+                All
+              </button>
+              {categories.map(cat => (
                 <button
-                  key={item.id}
-                  onClick={() => handleInitialAdd(item)}
-                  className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg transition-all overflow-hidden flex flex-col text-left active:scale-95 relative"
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeCategory === cat ? 'bg-orange-500 text-white shadow' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200'}`}
                 >
-                  {itemCount > 0 && (
-                    <div className="absolute top-2 right-2 z-10 bg-orange-500 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center shadow-lg">
-                      {itemCount}
+                  {cat}
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-y-auto p-4">
+            {filteredMenu.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center opacity-40">
+                <UtensilsCrossed size={40} />
+                <p className="text-xs font-black uppercase tracking-widest mt-3">No items found</p>
+              </div>
+            ) : (
+              <div className={`grid gap-3 ${
+                gridColumns === 6
+                  ? 'grid-cols-3 sm:grid-cols-4 xl:grid-cols-6'
+                  : gridColumns === 3
+                    ? 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4'
+                    : 'grid-cols-2 md:grid-cols-3'
+              }`}>
+                {filteredMenu.map(item => {
+                  const itemCount = cart.filter(cartItem => cartItem.id === item.id).reduce((sum, cartItem) => sum + cartItem.quantity, 0);
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => handleInitialAdd(item)}
+                      className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg transition-all overflow-hidden flex flex-col text-left active:scale-95 relative"
+                    >
+                      {itemCount > 0 && (
+                        <div className="absolute top-2 right-2 z-10 bg-orange-500 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center shadow-lg">
+                          {itemCount}
+                        </div>
+                      )}
+                      <div className="relative aspect-[4/3] overflow-hidden bg-gray-100 dark:bg-gray-700">
+                        <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                        <div className="absolute top-2 left-2 bg-black/50 backdrop-blur-md px-2 py-0.5 rounded-lg text-[7px] font-black text-white shadow-sm uppercase tracking-widest">
+                          {item.category}
+                        </div>
+                      </div>
+                      <div className="p-2 md:p-3 flex-1 flex flex-col">
+                        <h4 className={`font-black text-gray-900 dark:text-white leading-tight line-clamp-2 mb-1 ${gridColumns === 6 ? 'text-[10px]' : gridColumns === 3 ? 'text-[10px] md:text-xs' : 'text-xs md:text-sm'}`}>
+                          {item.name}
+                        </h4>
+                        <p className="font-black text-orange-500 text-xs md:text-sm mt-auto">RM{item.price.toFixed(2)}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <aside className="min-h-0 flex flex-col bg-white dark:bg-gray-900 lg:basis-1/5 lg:max-w-[20%] border-t lg:border-t-0 border-gray-200 dark:border-gray-700">
+          <div className="p-3 border-b dark:border-gray-700">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h2 className="text-xs font-black uppercase tracking-widest dark:text-white truncate">{editingOrderId ? `Edit ${editingOrderId}` : `Order ${selectedTable}`}</h2>
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1">{cartCount} items - RM{cartTotal.toFixed(2)}</p>
+              </div>
+              {(cart.length > 0 || editingOrderId) && (
+                <button onClick={handleClearDraft} className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all" title="Clear">
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+            {editingOrder && (
+              <p className="mt-2 inline-flex px-2 py-1 rounded-lg bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400 text-[9px] font-black uppercase tracking-widest">
+                {editingOrder.status}
+              </p>
+            )}
+          </div>
+
+          {tableOrders.length > 0 && (
+            <div className="p-3 border-b dark:border-gray-700 space-y-2">
+              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Table Orders</p>
+              <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                {tableOrders.map(order => (
+                  <div key={order.id} className={`rounded-xl border p-2 ${editingOrderId === order.id ? 'border-orange-300 bg-orange-50 dark:border-orange-700 dark:bg-orange-900/20' : 'border-gray-100 bg-gray-50 dark:border-gray-700 dark:bg-gray-800'}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[9px] font-black dark:text-white truncate">{order.id}</span>
+                      <span className="text-[8px] font-black text-gray-400 uppercase">{order.status}</span>
+                    </div>
+                    <p className="text-[9px] font-bold text-gray-500 dark:text-gray-400 mt-0.5">{order.items.reduce((sum, item) => sum + item.quantity, 0)} items - RM{order.total.toFixed(2)}</p>
+                    <div className="grid grid-cols-2 gap-1 mt-2">
+                      <button onClick={() => handleEditOrder(order)} className="py-1.5 rounded-lg bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 text-[8px] font-black uppercase tracking-widest">
+                        Edit
+                      </button>
+                      <button onClick={() => handleCancelActiveOrder(order)} className="py-1.5 rounded-lg bg-red-50 text-red-500 dark:bg-red-900/20 text-[8px] font-black uppercase tracking-widest">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex-1 min-h-[180px] overflow-y-auto p-3 space-y-2">
+            {cart.length === 0 ? (
+              <div className="h-full min-h-[160px] flex flex-col items-center justify-center text-center text-gray-300 dark:text-gray-600">
+                <ShoppingCart size={28} />
+                <p className="mt-2 text-[10px] font-black uppercase tracking-widest">No items</p>
+              </div>
+            ) : (
+              cart.map((item, idx) => (
+                <div key={`${item.id}-${idx}`} className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-2">
+                  <div className="flex gap-2">
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 shrink-0">
+                      <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-black text-[10px] uppercase dark:text-white truncate">{item.name}</p>
+                      <p className="font-black text-orange-500 text-[10px]">RM{(item.price * item.quantity).toFixed(2)}</p>
+                    </div>
+                    <button onClick={() => handleDeleteFromCart(idx)} className="self-start p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" title="Delete item">
+                      <X size={12} />
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {item.selectedSize && <span className="text-[8px] font-black px-1.5 py-0.5 bg-orange-100 text-orange-600 rounded">{item.selectedSize}</span>}
+                    {item.selectedOtherVariant && <span className="text-[8px] font-black px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded">{item.selectedOtherVariant}</span>}
+                    {item.selectedTemp && <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${item.selectedTemp === 'Hot' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>{item.selectedTemp}</span>}
+                  </div>
+                  {item.selectedAddOns && item.selectedAddOns.length > 0 && (
+                    <div className="mt-1 space-y-0.5">
+                      {item.selectedAddOns.map((addon, i) => (
+                        <div key={i} className="flex justify-between text-[8px] pl-2 border-l-2 border-orange-200">
+                          <span className="font-bold text-gray-500 truncate">x{addon.quantity} {addon.name}</span>
+                          <span className="font-black text-orange-500">+RM{(addon.price * addon.quantity).toFixed(2)}</span>
+                        </div>
+                      ))}
                     </div>
                   )}
-                  <div className="relative aspect-[4/3] overflow-hidden bg-gray-100 dark:bg-gray-700">
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                    <div className="absolute top-2 left-2 bg-black/50 backdrop-blur-md px-2 py-0.5 rounded-lg text-[7px] font-black text-white shadow-sm uppercase tracking-widest">
-                      {item.category}
-                    </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <button onClick={() => handleRemoveFromCart(idx)} className="p-1.5 bg-white dark:bg-gray-700 rounded-lg text-red-500 hover:bg-red-500 hover:text-white transition-all" title="Decrease">
+                      <Minus size={12} />
+                    </button>
+                    <span className="font-black text-[11px] text-center dark:text-white">x{item.quantity}</span>
+                    <button onClick={() => handleAddToCart(item)} className="p-1.5 bg-white dark:bg-gray-700 rounded-lg text-green-500 hover:bg-green-500 hover:text-white transition-all" title="Increase">
+                      <Plus size={12} />
+                    </button>
                   </div>
-                  <div className="p-2 md:p-3 flex-1 flex flex-col">
-                    <h4 className={`font-black text-gray-900 dark:text-white leading-tight line-clamp-2 mb-1 ${gridColumns === 3 ? 'text-[10px] md:text-xs' : 'text-xs md:text-sm'}`}>
-                      {item.name}
-                    </h4>
-                    <p className="font-black text-orange-500 text-xs md:text-sm mt-auto">
-                      RM{item.price.toFixed(2)}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
+                </div>
+              ))
+            )}
           </div>
-        )}
+
+          <div className="p-3 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Subtotal</span>
+              <span className="font-black dark:text-white">RM{cartTotal.toFixed(2)}</span>
+            </div>
+            <div className="mb-3">
+              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Remark</label>
+              <textarea
+                value={orderRemark}
+                onChange={e => setOrderRemark(e.target.value)}
+                placeholder="Any special requests?"
+                className="w-full p-3 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-xl text-xs font-medium dark:text-white resize-none"
+                rows={2}
+              />
+            </div>
+            <button
+              onClick={handlePlaceOrder}
+              disabled={isPlacing || cart.length === 0}
+              className="w-full py-3 bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-orange-600 transition-all active:scale-95 shadow-lg disabled:opacity-50 flex items-center justify-center gap-2 text-[10px]"
+            >
+              {isPlacing ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Send size={14} />
+                  {editingOrderId ? 'Save Order' : 'Send to Kitchen'}
+                </>
+              )}
+            </button>
+          </div>
+        </aside>
       </div>
 
-      {/* Item Options Modal */}
       {selectedItemForVariants && (
         <SimpleItemOptionsModal
           item={selectedItemForVariants.item}
@@ -464,113 +622,6 @@ const TableSideOrderPage: React.FC<Props> = ({ restaurant, orders, cashierName, 
             setSelectedItemForVariants(null);
           }}
         />
-      )}
-
-      {/* Cart FAB */}
-      {cart.length > 0 && !showCart && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[380px] px-4 z-50">
-          <button
-            onClick={() => setShowCart(true)}
-            className="w-full py-3 px-5 rounded-2xl shadow-2xl flex items-center justify-between bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-2 border-orange-500 active:scale-95 transition-all"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-orange-500 text-white flex items-center justify-center font-black text-sm shadow-lg">
-                {cartCount}
-              </div>
-              <span className="font-black text-[10px] uppercase tracking-widest">View Order</span>
-            </div>
-            <span className="font-black text-lg">RM{cartTotal.toFixed(2)}</span>
-          </button>
-        </div>
-      )}
-
-      {/* Cart Drawer */}
-      {showCart && (
-        <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-md flex justify-end">
-          <div className="w-full max-w-md bg-white dark:bg-gray-900 h-full flex flex-col">
-            {/* Cart Header */}
-            <div className="p-5 border-b dark:border-gray-700 flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-black uppercase tracking-widest dark:text-white">Order for {selectedTable}</h2>
-                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1">{cartCount} items • RM{cartTotal.toFixed(2)}</p>
-              </div>
-              <button onClick={() => setShowCart(false)} className="p-3 text-gray-400 hover:text-gray-600"><X size={24} /></button>
-            </div>
-
-            {/* Cart Items */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-3">
-              {cart.map((item, idx) => (
-                <div key={idx} className="flex gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-2xl border dark:border-gray-700">
-                  <div className="w-14 h-14 rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-700 shrink-0">
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-black text-xs uppercase dark:text-white truncate">{item.name}</p>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {item.selectedSize && <span className="text-[8px] font-black px-1.5 py-0.5 bg-orange-100 text-orange-600 rounded">{item.selectedSize}</span>}
-                      {item.selectedOtherVariant && <span className="text-[8px] font-black px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded">{item.selectedOtherVariant}</span>}
-                      {item.selectedTemp && <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${item.selectedTemp === 'Hot' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>{item.selectedTemp}</span>}
-                    </div>
-                    {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                      <div className="mt-1 space-y-0.5">
-                        {item.selectedAddOns.map((addon, i) => (
-                          <div key={i} className="flex justify-between text-[8px] pl-2 border-l-2 border-orange-200">
-                            <span className="font-bold text-gray-500">x{addon.quantity} {addon.name}</span>
-                            <span className="font-black text-orange-500">+RM{(addon.price * addon.quantity).toFixed(2)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="font-black text-orange-500 text-[11px]">RM{(item.price * item.quantity).toFixed(2)}</p>
-                    <div className="flex items-center justify-end gap-1.5 mt-2">
-                      <button onClick={() => handleRemoveFromCart(idx)} className="p-1 bg-white dark:bg-gray-700 rounded-lg text-red-500 hover:bg-red-500 hover:text-white transition-all">
-                        <Minus size={12} />
-                      </button>
-                      <span className="font-black text-[11px] w-4 text-center dark:text-white">{item.quantity}</span>
-                      <button onClick={() => handleAddToCart(item)} className="p-1 bg-white dark:bg-gray-700 rounded-lg text-green-500 hover:bg-green-500 hover:text-white transition-all">
-                        <Plus size={12} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Checkout */}
-            <div className="p-5 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Subtotal</span>
-                <span className="font-black dark:text-white">RM{cartTotal.toFixed(2)}</span>
-              </div>
-              <div className="mb-3">
-                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Special Instructions</label>
-                <textarea
-                  value={orderRemark}
-                  onChange={e => setOrderRemark(e.target.value)}
-                  placeholder="Any special requests?"
-                  className="w-full p-3 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-xl text-xs font-medium dark:text-white resize-none"
-                  rows={2}
-                />
-              </div>
-              <button
-                onClick={handlePlaceOrder}
-                disabled={isPlacing || cart.length === 0}
-                className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-orange-600 transition-all active:scale-95 shadow-lg disabled:opacity-50 flex items-center justify-center gap-3"
-              >
-                {isPlacing ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <Send size={16} />
-                    Send to Kitchen • RM{cartTotal.toFixed(2)}
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       <style>{`
