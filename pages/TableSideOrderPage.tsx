@@ -11,7 +11,7 @@ interface Props {
   cashierName?: string;
   onLogout: () => void;
   onPlaceOrder: (order: { items: CartItem[]; total: number; tableNumber: string; remark: string; orderSource: OrderSource }) => Promise<void>;
-  onUpdateOrderItems?: (orderId: string, items: CartItem[], total: number, remark?: string) => void;
+  onUpdateOrderItems?: (orderId: string, items: CartItem[], total: number, remark?: string, updateNote?: string) => void;
   onUpdateOrderStatus?: (orderId: string, status: OrderStatus, reason?: string, note?: string) => void | Promise<void>;
   networkMeta?: {
     label: string;
@@ -31,6 +31,9 @@ interface Props {
 const ACTIVE_TABLE_STATUSES = [OrderStatus.PENDING, OrderStatus.ONGOING, OrderStatus.SERVED];
 type MenuGridColumns = 2 | 3 | 6 | 8;
 type TableViewColumns = 6 | 8 | 10 | 12;
+const DEFAULT_TABLE_COUNT = 40;
+const DEFAULT_TABLE_COLUMNS = 8;
+const DEFAULT_FLOOR_COUNT = 1;
 
 const getInitialFeatureSettings = (restaurant: Restaurant) => {
   const dbFeatures = (restaurant.settings?.features || {}) as Record<string, any>;
@@ -81,20 +84,24 @@ const TableSideOrderPage: React.FC<Props> = ({
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [gridColumns, setGridColumns] = useState<MenuGridColumns>(3);
   const [tableViewColumns, setTableViewColumns] = useState<TableViewColumns>(() => {
-    const initialColumns = Number(getInitialFeatureSettings(restaurant).tableColumns) || 6;
+    const initialColumns = Number(getInitialFeatureSettings(restaurant).tableColumns) || DEFAULT_TABLE_COLUMNS;
     return ([6, 8, 10, 12] as TableViewColumns[]).find(count => initialColumns <= count) || 12;
   });
   const [groupMenuByCategory, setGroupMenuByCategory] = useState(true);
   const [featureSettings, setFeatureSettings] = useState<Record<string, any>>(() => getInitialFeatureSettings(restaurant));
-  const [isEditingTables, setIsEditingTables] = useState(false);
+  const [showTableEditor, setShowTableEditor] = useState(false);
+  const [tableCountDraft, setTableCountDraft] = useState('');
+  const [tableColumnsDraft, setTableColumnsDraft] = useState('');
+  const [floorEnabledDraft, setFloorEnabledDraft] = useState(false);
+  const [floorCountDraft, setFloorCountDraft] = useState('');
   const [isSavingTables, setIsSavingTables] = useState(false);
   const [isPlacing, setIsPlacing] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [showMobileOrderSummary, setShowMobileOrderSummary] = useState(false);
 
-  const tableCount = Math.max(1, Number(featureSettings.tableCount) || 12);
+  const tableCount = Math.max(1, Number(featureSettings.tableCount) || DEFAULT_TABLE_COUNT);
   const floorEnabled = !!featureSettings.floorEnabled;
-  const floorCount = floorEnabled ? Math.min(5, Math.max(1, Number(featureSettings.floorCount) || 1)) : 1;
+  const floorCount = floorEnabled ? Math.min(5, Math.max(1, Number(featureSettings.floorCount) || DEFAULT_FLOOR_COUNT)) : DEFAULT_FLOOR_COUNT;
   const [selectedFloor, setSelectedFloor] = useState(1);
 
   const tableLabels = useMemo(() => {
@@ -107,6 +114,15 @@ const TableSideOrderPage: React.FC<Props> = ({
   useEffect(() => {
     setFeatureSettings(getInitialFeatureSettings(restaurant));
   }, [restaurant.id, restaurant.settings?.features]);
+
+  useEffect(() => {
+    setTableCountDraft(String(tableCount));
+    const nextColumns = Math.max(1, Number(featureSettings.tableColumns) || DEFAULT_TABLE_COLUMNS);
+    setTableColumnsDraft(String(nextColumns));
+    setTableViewColumns(([6, 8, 10, 12] as TableViewColumns[]).find(count => nextColumns <= count) || 12);
+    setFloorEnabledDraft(floorEnabled);
+    setFloorCountDraft(String(floorCount || DEFAULT_FLOOR_COUNT));
+  }, [tableCount, featureSettings.tableColumns, floorEnabled, floorCount]);
 
   const menu = useMemo(() => restaurant.menu.filter(item => !item.isArchived), [restaurant.menu]);
   const categories = useMemo(() => Array.from(new Set(menu.map(i => i.category))).filter(Boolean), [menu]);
@@ -126,13 +142,11 @@ const TableSideOrderPage: React.FC<Props> = ({
 
   const tableOrders = useMemo(() => {
     if (!selectedTable) return [];
-    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
     return orders
       .filter(order =>
         order.restaurantId === restaurant.id &&
         order.tableNumber === selectedTable &&
-        ACTIVE_TABLE_STATUSES.includes(order.status) &&
-        order.timestamp > oneDayAgo
+        ACTIVE_TABLE_STATUSES.includes(order.status)
       )
       .sort((a, b) => b.timestamp - a.timestamp);
   }, [orders, selectedTable, restaurant.id]);
@@ -210,18 +224,61 @@ const TableSideOrderPage: React.FC<Props> = ({
     }
   }, [restaurant.id, restaurant.settings]);
 
-  const handleChangeTableCount = (delta: number) => {
+  const parsePositiveIntegerDraft = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    if (!Number.isInteger(parsed) || parsed < 1) return null;
+    return parsed;
+  };
+
+  const handleSaveTableEditor = async () => {
     if (isSavingTables) return;
-    const nextTableCount = Math.max(1, tableCount + delta);
-    const columns = Math.max(1, Number(featureSettings.tableColumns) || tableViewColumns);
+    const nextTableCount = parsePositiveIntegerDraft(tableCountDraft);
+    const nextTableColumns = parsePositiveIntegerDraft(tableColumnsDraft);
+    const nextFloorCount = floorEnabledDraft ? parsePositiveIntegerDraft(floorCountDraft) : DEFAULT_FLOOR_COUNT;
+
+    if (!nextTableCount || !nextTableColumns) {
+      toast('Table count and tables per row are required.', 'error');
+      return;
+    }
+
+    if (nextTableColumns > 20) {
+      toast('Tables per row must be between 1 and 20.', 'error');
+      return;
+    }
+
+    if (floorEnabledDraft && (!nextFloorCount || nextFloorCount > 5)) {
+      toast('Floor count must be between 1 and 5.', 'error');
+      return;
+    }
+
     const nextFeatures = {
       ...featureSettings,
       tableCount: nextTableCount,
-      tableColumns: columns,
-      tableRows: Math.ceil(nextTableCount / columns),
+      tableColumns: nextTableColumns,
+      tableRows: Math.ceil(nextTableCount / nextTableColumns),
+      floorEnabled: floorEnabledDraft,
+      floorCount: floorEnabledDraft ? (nextFloorCount || DEFAULT_FLOOR_COUNT) : DEFAULT_FLOOR_COUNT,
     };
 
-    saveTableFeatureSettings(nextFeatures);
+    await saveTableFeatureSettings(nextFeatures);
+    setSelectedFloor(1);
+    setTableViewColumns(([6, 8, 10, 12] as TableViewColumns[]).find(count => nextTableColumns <= count) || 12);
+    setShowTableEditor(false);
+  };
+
+  const handleChangeTableViewColumns = async (count: TableViewColumns) => {
+    setTableViewColumns(count);
+    const nextFeatures = {
+      ...featureSettings,
+      tableCount,
+      tableColumns: count,
+      tableRows: Math.ceil(tableCount / count),
+      floorEnabled,
+      floorCount,
+    };
+    await saveTableFeatureSettings(nextFeatures);
   };
 
   const handleInitialAdd = (item: MenuItem) => {
@@ -289,12 +346,13 @@ const TableSideOrderPage: React.FC<Props> = ({
     setIsPlacing(true);
     try {
       if (editingOrderId) {
+        const updateNote = 'New update on the menu';
         const { error } = await supabase
           .from('orders')
-          .update({ items: cart, total: cartTotal, remark: orderRemark })
+          .update({ items: cart, total: cartTotal, remark: orderRemark, rejection_note: updateNote })
           .eq('id', editingOrderId);
         if (error) throw new Error(error.message || 'Failed to update order');
-        onUpdateOrderItems?.(editingOrderId, cart, cartTotal, orderRemark);
+        onUpdateOrderItems?.(editingOrderId, cart, cartTotal, orderRemark, updateNote);
         toast('Order updated successfully!', 'success');
       } else {
         await onPlaceOrder({
@@ -461,47 +519,23 @@ const TableSideOrderPage: React.FC<Props> = ({
               </div>
               <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                 <button
-                  onClick={() => setIsEditingTables(prev => !prev)}
-                  className={`h-10 px-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
-                    isEditingTables
-                      ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/20'
-                      : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-orange-300'
-                  }`}
-                  title="Edit table count"
+                  onClick={() => setShowTableEditor(true)}
+                  className="h-10 px-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-orange-300"
+                  title="Edit table layout"
                 >
                   <LayoutGrid size={14} />
                   Edit Table
                 </button>
-                {isEditingTables && (
-                  <div className="h-10 flex items-center gap-2 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-2">
-                    <button
-                      onClick={() => handleChangeTableCount(-1)}
-                      disabled={isSavingTables || tableCount <= 1}
-                      className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40"
-                      title="Remove table"
-                    >
-                      <Minus size={14} />
-                    </button>
-                    <span className="min-w-10 text-center text-[11px] font-black dark:text-white">{tableCount}</span>
-                    <button
-                      onClick={() => handleChangeTableCount(1)}
-                      disabled={isSavingTables}
-                      className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40"
-                      title="Add table"
-                    >
-                      <Plus size={14} />
-                    </button>
-                  </div>
-                )}
                 <div className="h-10 flex items-center gap-1 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-1">
                   {([6, 8, 10, 12] as TableViewColumns[]).map(count => (
                     <button
                       key={count}
-                      onClick={() => setTableViewColumns(count)}
+                      onClick={() => handleChangeTableViewColumns(count)}
+                      disabled={isSavingTables}
                       className={`h-8 min-w-8 px-2 rounded-lg text-[10px] font-black transition-all ${
                         tableViewColumns === count
                           ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
-                          : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                          : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40'
                       }`}
                       title={`${count} table columns`}
                     >
@@ -540,15 +574,22 @@ const TableSideOrderPage: React.FC<Props> = ({
                 const activeOrdersForTable = orders.filter(order =>
                   order.restaurantId === restaurant.id &&
                   order.tableNumber === label &&
-                  ACTIVE_TABLE_STATUSES.includes(order.status) &&
-                  order.timestamp > Date.now() - 24 * 60 * 60 * 1000
-                );
+                  ACTIVE_TABLE_STATUSES.includes(order.status)
+                ).sort((a, b) => b.timestamp - a.timestamp);
                 const hasActive = activeOrdersForTable.length > 0;
+                const latestActiveOrder = activeOrdersForTable[0] || null;
 
                 return (
                   <button
                     key={label}
-                    onClick={() => setSelectedTable(label)}
+                    onClick={() => {
+                      setSelectedTable(label);
+                      if (latestActiveOrder) {
+                        setCart(latestActiveOrder.items as CartItem[]);
+                        setOrderRemark(latestActiveOrder.remark || '');
+                        setEditingOrderId(latestActiveOrder.id);
+                      }
+                    }}
                     className={`relative min-h-24 p-3 rounded-xl border-2 transition-all text-center hover:scale-[1.03] active:scale-95 ${
                       hasActive
                         ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700 hover:border-orange-500'
@@ -568,6 +609,98 @@ const TableSideOrderPage: React.FC<Props> = ({
             </div>
           </div>
         </div>
+
+        {showTableEditor && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 px-4">
+            <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 shadow-2xl border dark:border-gray-700 overflow-hidden">
+              <div className="px-5 py-4 border-b dark:border-gray-700 flex items-center justify-between">
+                <div>
+                  <h3 className="font-black text-sm uppercase tracking-tight dark:text-white">Edit Table Layout</h3>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Shared with POS Table Management</p>
+                </div>
+                <button
+                  onClick={() => setShowTableEditor(false)}
+                  className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+                  title="Close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Tables</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={tableCountDraft}
+                      onChange={e => setTableCountDraft(e.target.value)}
+                      className="w-full h-11 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-3 text-sm font-black dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Per Row</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={tableColumnsDraft}
+                      onChange={e => setTableColumnsDraft(e.target.value)}
+                      className="w-full h-11 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-3 text-sm font-black dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-black dark:text-white">Floor</p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">Default is no floor; floor count starts at 1</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setFloorEnabledDraft(prev => !prev);
+                        setFloorCountDraft(prev => prev || String(DEFAULT_FLOOR_COUNT));
+                      }}
+                      className={`w-11 h-6 rounded-full transition-all relative ${floorEnabledDraft ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                      title={floorEnabledDraft ? 'Floor enabled' : 'No floor'}
+                    >
+                      <span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all ${floorEnabledDraft ? 'left-6' : 'left-1'}`} />
+                    </button>
+                  </div>
+                  {floorEnabledDraft && (
+                    <div className="mt-3">
+                      <label className="block text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Floors</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={5}
+                        value={floorCountDraft}
+                        onChange={e => setFloorCountDraft(e.target.value)}
+                        className="w-full h-11 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-3 text-sm font-black dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="px-5 py-4 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 flex justify-end gap-2">
+                <button
+                  onClick={() => setShowTableEditor(false)}
+                  className="h-10 px-4 rounded-xl border border-gray-200 dark:border-gray-600 text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveTableEditor}
+                  disabled={isSavingTables}
+                  className="h-10 px-4 rounded-xl bg-orange-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50"
+                >
+                  {isSavingTables ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <style>{`
           .hide-scrollbar::-webkit-scrollbar { display: none; }

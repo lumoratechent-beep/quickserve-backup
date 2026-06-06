@@ -181,9 +181,9 @@ const getDefaultFeatureSettings = (): FeatureSettings => ({
   deliveryEnabled: false,
   savedBillEnabled: false,
   tableManagementEnabled: false,
-  tableCount: 20,
-  tableRows: 4,
-  tableColumns: 5,
+  tableCount: 40,
+  tableRows: 5,
+  tableColumns: 8,
   floorEnabled: false,
   floorCount: 1,
   customerDisplayEnabled: false,
@@ -4923,6 +4923,8 @@ const PosOnlyView: React.FC<Props> = ({
   }, [orders]);
 
   const kitchenPrevPendingCount = useRef(kitchenPendingOrders.length);
+  const kitchenOrderSignatureRef = useRef<Record<string, string>>({});
+  const [updatedKitchenOrderIds, setUpdatedKitchenOrderIds] = useState<Set<string>>(new Set());
 
   const triggerNewOrderAlert = () => {
     try {
@@ -4944,6 +4946,23 @@ const PosOnlyView: React.FC<Props> = ({
     setShowNewOrderAlert(true);
     setTimeout(() => setShowNewOrderAlert(false), 5000);
   };
+
+  const getKitchenOrderSignature = (order: Order) => JSON.stringify({
+    items: order.items.map(item => ({
+      id: item.id,
+      quantity: item.quantity,
+      price: item.price,
+      selectedSize: item.selectedSize,
+      selectedTemp: item.selectedTemp,
+      selectedOtherVariant: item.selectedOtherVariant,
+      selectedVariantOption: item.selectedVariantOption,
+      selectedAddOns: item.selectedAddOns,
+      selectedModifiers: item.selectedModifiers,
+      selectedMixMatch: item.selectedMixMatch,
+    })),
+    total: order.total,
+    remark: order.remark || '',
+  });
 
   const handleKitchenAcceptAndPrint = async (orderId: string) => {
     if (onKitchenUpdateOrder) {
@@ -5233,6 +5252,35 @@ const PosOnlyView: React.FC<Props> = ({
     }
     kitchenPrevPendingCount.current = kitchenPendingOrders.length;
   }, [kitchenPendingOrders.length, showKitchenFeature]);
+
+  useEffect(() => {
+    if (!showKitchenFeature) return;
+
+    const activeKitchenOrders = orders.filter(order =>
+      order.status === OrderStatus.PENDING ||
+      order.status === OrderStatus.ONGOING ||
+      order.status === OrderStatus.SERVED
+    );
+    const previous = kitchenOrderSignatureRef.current;
+    const next: Record<string, string> = {};
+    const changedIds: string[] = [];
+
+    activeKitchenOrders.forEach(order => {
+      const signature = getKitchenOrderSignature(order);
+      next[order.id] = signature;
+      if (previous[order.id] && previous[order.id] !== signature) {
+        changedIds.push(order.id);
+      }
+    });
+
+    kitchenOrderSignatureRef.current = next;
+
+    if (changedIds.length > 0) {
+      setUpdatedKitchenOrderIds(prev => new Set([...Array.from(prev), ...changedIds]));
+      triggerNewOrderAlert();
+      toast('New update on the menu', 'info');
+    }
+  }, [orders, showKitchenFeature]);
 
   // QR order auto-approve + auto-print
   const qrPrevPendingCount = useRef(0);
@@ -11286,6 +11334,14 @@ const PosOnlyView: React.FC<Props> = ({
                               <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
                           </div>
+                          {(order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING || order.status === OrderStatus.SERVED) && (updatedKitchenOrderIds.has(order.id) || order.rejectionNote === 'New update on the menu') && (
+                            <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-800/60 dark:bg-blue-900/20">
+                              <div className="flex items-center gap-2">
+                                <AlertCircle size={13} className="text-blue-500 shrink-0" />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-300">New update on the menu</span>
+                              </div>
+                            </div>
+                          )}
                           <div className="space-y-3">
                             {Object.entries(
                               groupItemsByCategory(

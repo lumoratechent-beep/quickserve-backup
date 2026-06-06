@@ -1615,8 +1615,8 @@ const App: React.FC = () => {
     }
   };
 
-  const updateOrderItems = (orderId: string, items: CartItem[], total: number, remark?: string) => {
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, items, total, ...(remark !== undefined ? { remark } : {}) } : o));
+  const updateOrderItems = (orderId: string, items: CartItem[], total: number, remark?: string, updateNote?: string) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, items, total, ...(remark !== undefined ? { remark } : {}), ...(updateNote !== undefined ? { rejectionNote: updateNote } : {}) } : o));
   };
 
   const toggleVendorOnline = async (restaurantId: string, currentStatus: boolean) => {
