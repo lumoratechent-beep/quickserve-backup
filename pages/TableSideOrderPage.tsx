@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { ArrowLeft, Hash, LogOut, Minus, Plus, Search, ShoppingCart, UtensilsCrossed, X } from 'lucide-react';
+import { ArrowLeft, Hash, LogOut, Minus, Plus, Search, ShoppingCart, Trash2, UtensilsCrossed, X } from 'lucide-react';
 import { Restaurant, CartItem, Order, OrderStatus, MenuItem, ModifierData, OrderSource } from '../src/types';
 import { supabase } from '../lib/supabase';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
@@ -58,7 +58,7 @@ const TableSideOrderPage: React.FC<Props> = ({
   const [selectedItemForVariants, setSelectedItemForVariants] = useState<{ item: MenuItem; resId: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [gridColumns, setGridColumns] = useState<2 | 3 | 6>(3);
+  const [gridColumns, setGridColumns] = useState<2 | 3 | 6 | 8>(3);
   const [isPlacing, setIsPlacing] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
 
@@ -423,10 +423,10 @@ const TableSideOrderPage: React.FC<Props> = ({
                 ))}
               </div>
               <div className="flex items-center gap-1 bg-white dark:bg-gray-800 border dark:border-gray-700 p-1 rounded-xl shadow-sm">
-                {[2, 3, 6].map(count => (
+                {[2, 3, 6, 8].map(count => (
                   <button
                     key={count}
-                    onClick={() => setGridColumns(count as 2 | 3 | 6)}
+                    onClick={() => setGridColumns(count as 2 | 3 | 6 | 8)}
                     className={`p-2 rounded-lg transition-all text-[10px] font-black ${gridColumns === count ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                     title={`${count} tiles`}
                   >
@@ -463,7 +463,8 @@ const TableSideOrderPage: React.FC<Props> = ({
                     <div className={`grid gap-1.5 ${
                       gridColumns === 2 ? 'grid-cols-2 lg:grid-cols-3' :
                       gridColumns === 3 ? 'grid-cols-3 lg:grid-cols-4' :
-                      'grid-cols-3 lg:grid-cols-6'
+                      gridColumns === 6 ? 'grid-cols-3 lg:grid-cols-6' :
+                      'grid-cols-4 lg:grid-cols-8'
                     }`}>
                       {items.map(item => {
                         const itemCount = cart.filter(cartItem => cartItem.id === item.id).reduce((sum, cartItem) => sum + cartItem.quantity, 0);
@@ -504,48 +505,21 @@ const TableSideOrderPage: React.FC<Props> = ({
 
         <aside className="hidden lg:flex w-96 bg-white dark:bg-gray-800 border-l dark:border-gray-700 flex-col">
           <div className="p-4 border-b dark:border-gray-700">
-            <div className="flex items-start justify-between gap-2">
+            <div className="flex min-h-8 items-center justify-between">
               <div className="min-w-0">
-                <h2 className="text-xs font-black uppercase tracking-widest dark:text-white truncate">{editingOrderId ? `Edit ${editingOrderId}` : `Order ${selectedTable}`}</h2>
-                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1">{cartCount} items - RM{cartTotal.toFixed(2)}</p>
+                <h3 className="font-black dark:text-white uppercase tracking-tighter text-sm leading-none">Current Order</h3>
               </div>
-              {(cart.length > 0 || editingOrderId) && (
-                <button onClick={handleClearDraft} className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all" title="Clear">
-                  <X size={16} />
-                </button>
-              )}
+              <button
+                onClick={handleClearDraft}
+                disabled={cart.length === 0 && !editingOrderId}
+                className="text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40 disabled:hover:text-gray-400"
+                title="Clear"
+              >
+                <Trash2 size={18} />
+              </button>
             </div>
-            {editingOrder && (
-              <p className="mt-2 inline-flex px-2 py-1 rounded-lg bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400 text-[9px] font-black uppercase tracking-widest">
-                {editingOrder.status}
-              </p>
-            )}
+            {editingOrder && <p className="mt-2 text-[9px] font-black text-orange-500 uppercase tracking-widest">Editing #{editingOrder.id.slice(-7)}</p>}
           </div>
-
-          {tableOrders.length > 0 && (
-            <div className="px-4 py-3 border-b dark:border-gray-700 space-y-2">
-              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Table Orders</p>
-              <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
-                {tableOrders.map(order => (
-                  <div key={order.id} className={`rounded-xl border p-2 ${editingOrderId === order.id ? 'border-orange-300 bg-orange-50 dark:border-orange-700 dark:bg-orange-900/20' : 'border-gray-100 bg-gray-50 dark:border-gray-700 dark:bg-gray-800'}`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[9px] font-black dark:text-white truncate">{order.id}</span>
-                      <span className="text-[8px] font-black text-gray-400 uppercase">{order.status}</span>
-                    </div>
-                    <p className="text-[9px] font-bold text-gray-500 dark:text-gray-400 mt-0.5">{order.items.reduce((sum, item) => sum + item.quantity, 0)} items - RM{order.total.toFixed(2)}</p>
-                    <div className="grid grid-cols-2 gap-1 mt-2">
-                      <button onClick={() => handleEditOrder(order)} className="py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-[8px] font-black uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-600 transition-all">
-                        Edit
-                      </button>
-                      <button onClick={() => handleCancelActiveOrder(order)} className="py-1.5 rounded-lg bg-red-50 text-red-500 dark:bg-red-900/20 text-[8px] font-black uppercase tracking-widest">
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             {cart.length === 0 ? (
@@ -615,7 +589,7 @@ const TableSideOrderPage: React.FC<Props> = ({
                 disabled={!latestTableOrder || isPlacing}
                 className={`w-[47.5%] py-4 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] transition-all disabled:opacity-50 ${
                   latestTableOrder
-                    ? 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-xl shadow-blue-500/20'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                 }`}
               >
