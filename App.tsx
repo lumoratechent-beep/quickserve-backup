@@ -2465,6 +2465,39 @@ const App: React.FC = () => {
 
     const { error } = await insertOrderSafe(orderToInsert);
     if (error) throw new Error(error.message || 'Failed to place order');
+
+    // Update local orders state immediately so tableside/order-taker UIs reflect the new order
+    const newOrder: Order = {
+      id: orderId,
+      items: orderData.items,
+      total: Number(orderData.total || 0),
+      status: OrderStatus.PENDING,
+      timestamp: Date.now(),
+      customerId: 'tableside_user',
+      restaurantId: currentUser.restaurantId!,
+      tableNumber: orderData.tableNumber,
+      diningType: 'Dine-in',
+      locationName: res?.location || 'Unspecified',
+      remark: orderData.remark,
+      rejectionReason: undefined,
+      rejectionNote: undefined,
+      paymentMethod: undefined,
+      cashierName: currentUser.username,
+      amountReceived: undefined,
+      changeAmount: undefined,
+      orderSource: orderData.orderSource || 'tableside'
+    };
+
+    setOrders(prev => {
+      const updated = [newOrder, ...prev].slice(0, 200);
+      persistCache('qs_cache_orders', updated);
+      return updated;
+    });
+
+    // Remember this id for offline tracker and ensure lastOrderTimestamp is up-to-date
+    rememberKnownOrderId(newOrder.restaurantId, newOrder.id);
+    if (newOrder.timestamp > lastOrderTimestampRef.current) lastOrderTimestampRef.current = newOrder.timestamp;
+
     offlineQueue.rememberOrderId(code, orderId);
   };
 
