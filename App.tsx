@@ -1083,12 +1083,73 @@ const App: React.FC = () => {
         });
         setLastSyncTime(new Date());
       }
+      
+      // Additionally poll for orders that were UPDATED since last sync time
+      try {
+        if (lastSyncTime) {
+          const updatesResult = await withTimeout(
+            supabase.from('orders')
+              .select('*')
+              .eq('restaurant_id', user.restaurantId)
+              .gte('updated_at', lastSyncTime.toISOString())
+              .order('timestamp', { ascending: false }),
+            5000
+          );
+
+          if (updatesResult && updatesResult.data && updatesResult.data.length > 0) {
+            const updatedMapped = updatesResult.data.map(o => ({
+              id: o.id,
+              items: Array.isArray(o.items) ? o.items : (typeof o.items === 'string' ? JSON.parse(o.items) : []),
+              total: Number(o.total || 0),
+              status: o.status as OrderStatus,
+              timestamp: parseTimestamp(o.timestamp),
+              customerId: o.customer_id,
+              restaurantId: o.restaurant_id,
+              tableNumber: o.table_number,
+              diningType: o.dining_type || undefined,
+              locationName: o.location_name,
+              remark: o.remark,
+              rejectionReason: o.rejection_reason,
+              rejectionNote: o.rejection_note,
+              paymentMethod: o.payment_method,
+              cashierName: o.cashier_name,
+              amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
+              changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined,
+              orderSource: o.order_source || undefined
+            }));
+
+            setOrders(prev => {
+              const map = new Map(prev.map(p => [p.id, p]));
+              updatedMapped.forEach(u => {
+                const existing = map.get(u.id);
+                if (!existing) {
+                  map.set(u.id, u);
+                } else {
+                  // Respect locked ids and status priority
+                  if (lockedOrderIds.current.has(u.id)) return;
+                  const existingPriority = STATUS_PRIORITY[existing.status] ?? 0;
+                  const incomingPriority = STATUS_PRIORITY[u.status] ?? 0;
+                  if (incomingPriority < existingPriority) return;
+                  map.set(u.id, { ...existing, ...u });
+                }
+              });
+              const merged = Array.from(map.values()).sort((a, b) => b.timestamp - a.timestamp).slice(0, 200);
+              persistCache('qs_cache_orders', merged);
+              return merged;
+            });
+            setLastSyncTime(new Date());
+          }
+        }
+      } catch (err) {
+        // Non-fatal — continue
+        console.warn('Update poll failed', err);
+      }
     } catch (e) {
       console.error("Fetch new orders failed", e);
     } finally {
       isFetchingRef.current = false;
     }
-  }, [rememberKnownOrderId]);
+  }, [rememberKnownOrderId, lastSyncTime]);
 
   // Combined refresh function to ensure heartbeat works reliably
   const refreshAppData = useCallback(async () => {
