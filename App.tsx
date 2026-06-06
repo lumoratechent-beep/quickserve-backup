@@ -1256,8 +1256,10 @@ const App: React.FC = () => {
       }, (payload) => {
         const o = payload.new;
         setOrders(prev => {
+          let found = false;
           const updated = prev.map(existing => {
             if (existing.id === o.id) {
+              found = true;
               const incomingStatus = o.status as OrderStatus;
 
               // If locked, only accept updates that match or advance the status
@@ -1293,6 +1295,36 @@ const App: React.FC = () => {
             }
             return existing;
           });
+
+          if (!found) {
+            // If we don't have this order locally yet, insert it so status changes are visible
+            const mappedOrder: Order = {
+              id: o.id,
+              items: Array.isArray(o.items) ? o.items : (typeof o.items === 'string' ? JSON.parse(o.items) : []),
+              total: Number(o.total || 0),
+              status: o.status as OrderStatus,
+              timestamp: parseTimestamp(o.timestamp),
+              customerId: o.customer_id,
+              restaurantId: o.restaurant_id,
+              tableNumber: o.table_number,
+              diningType: o.dining_type || undefined,
+              locationName: o.location_name,
+              remark: o.remark,
+              rejectionReason: o.rejection_reason,
+              rejectionNote: o.rejection_note,
+              paymentMethod: o.payment_method,
+              cashierName: o.cashier_name,
+              amountReceived: o.amount_received != null ? Number(o.amount_received) : undefined,
+              changeAmount: o.change_amount != null ? Number(o.change_amount) : undefined,
+              orderSource: o.order_source || undefined
+            };
+            const prepended = [mappedOrder, ...updated].slice(0, 200);
+            rememberKnownOrderId(mappedOrder.restaurantId, mappedOrder.id);
+            if (mappedOrder.timestamp > lastOrderTimestampRef.current) lastOrderTimestampRef.current = mappedOrder.timestamp;
+            persistCache('qs_cache_orders', prepended);
+            return prepended;
+          }
+
           persistCache('qs_cache_orders', updated);
           return updated;
         });
