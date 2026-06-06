@@ -1268,13 +1268,10 @@ const App: React.FC = () => {
       orderFilter = `restaurant_id=eq.${currentUser.restaurantId}`;
     }
 
-    const channel = supabase.channel('qs-realtime-optimized')
-      .on('postgres_changes', { 
-        event: 'INSERT', 
-        schema: 'public', 
-        table: 'orders',
-        filter: orderFilter
-      }, (payload) => {
+    const channel = supabase.channel('qs-realtime-optimized');
+    const insertFilter: any = { event: 'INSERT', schema: 'public', table: 'orders' };
+    if (orderFilter) insertFilter.filter = orderFilter;
+    channel.on('postgres_changes', insertFilter, (payload) => {
         const o = payload.new;
         const mappedOrder: Order = {
           id: o.id, 
@@ -1309,13 +1306,12 @@ const App: React.FC = () => {
         });
         setLastSyncTime(new Date());
       })
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'orders',
-        filter: orderFilter
-      }, (payload) => {
-        const o = payload.new;
+      ;
+    const updateFilter: any = { event: 'UPDATE', schema: 'public', table: 'orders' };
+    if (orderFilter) updateFilter.filter = orderFilter;
+    channel.on('postgres_changes', updateFilter, (payload) => {
+      console.debug('[realtime] ORDER UPDATE payload', payload);
+      const o = payload.new;
         setOrders(prev => {
           let found = false;
           const updated = prev.map(existing => {
