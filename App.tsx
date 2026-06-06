@@ -1272,7 +1272,7 @@ const App: React.FC = () => {
     const insertFilter: any = { event: 'INSERT', schema: 'public', table: 'orders' };
     if (orderFilter) insertFilter.filter = orderFilter;
     channel.on('postgres_changes', insertFilter, (payload) => {
-        const o = payload.new;
+        const o = payload.new as any;
         const mappedOrder: Order = {
           id: o.id, 
           items: Array.isArray(o.items) ? o.items : (typeof o.items === 'string' ? JSON.parse(o.items) : []), 
