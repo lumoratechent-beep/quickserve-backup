@@ -61,6 +61,7 @@ const TableSideOrderPage: React.FC<Props> = ({
   const [gridColumns, setGridColumns] = useState<2 | 3 | 6 | 8>(3);
   const [isPlacing, setIsPlacing] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const [showMobileOrderSummary, setShowMobileOrderSummary] = useState(false);
 
   const featureSettings = (restaurant.settings?.features || {}) as Record<string, any>;
   const tableCount = Math.max(1, Number(featureSettings.tableCount) || 12);
@@ -175,6 +176,7 @@ const TableSideOrderPage: React.FC<Props> = ({
     resetOrderDraft();
     setSearchQuery('');
     setActiveCategory(null);
+    setShowMobileOrderSummary(false);
     setSelectedTable(null);
   };
 
@@ -230,6 +232,7 @@ const TableSideOrderPage: React.FC<Props> = ({
       resetOrderDraft();
       setSearchQuery('');
       setActiveCategory(null);
+      setShowMobileOrderSummary(false);
       setSelectedTable(null);
     } catch (err: any) {
       toast(err?.message || 'Failed to save order', 'error');
@@ -327,7 +330,7 @@ const TableSideOrderPage: React.FC<Props> = ({
 
   if (!selectedTable) {
     return (
-      <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
+      <div className="h-[100dvh] flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
         {renderHeader(false)}
 
         <div className="flex-1 overflow-y-auto p-6">
@@ -398,7 +401,7 @@ const TableSideOrderPage: React.FC<Props> = ({
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
+    <div className="h-[100dvh] flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
       {renderHeader(true)}
 
       <div className="flex-1 min-h-0 flex">
@@ -461,10 +464,10 @@ const TableSideOrderPage: React.FC<Props> = ({
                       <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] whitespace-nowrap">{category}</h3>
                     </div>
                     <div className={`grid gap-1.5 ${
-                      gridColumns === 2 ? 'grid-cols-2 lg:grid-cols-3' :
-                      gridColumns === 3 ? 'grid-cols-3 lg:grid-cols-4' :
-                      gridColumns === 6 ? 'grid-cols-3 lg:grid-cols-6' :
-                      'grid-cols-4 lg:grid-cols-8'
+                      gridColumns === 2 ? 'grid-cols-2 xl:grid-cols-3' :
+                      gridColumns === 3 ? 'grid-cols-3 xl:grid-cols-4' :
+                      gridColumns === 6 ? 'grid-cols-3 xl:grid-cols-6' :
+                      'grid-cols-4 xl:grid-cols-8'
                     }`}>
                       {items.map(item => {
                         const itemCount = cart.filter(cartItem => cartItem.id === item.id).reduce((sum, cartItem) => sum + cartItem.quantity, 0);
@@ -503,7 +506,7 @@ const TableSideOrderPage: React.FC<Props> = ({
           </div>
         </section>
 
-        <aside className="hidden lg:flex w-96 bg-white dark:bg-gray-800 border-l dark:border-gray-700 flex-col">
+        <aside className="hidden md:flex md:w-80 lg:w-96 bg-white dark:bg-gray-800 border-l dark:border-gray-700 flex-col shrink-0">
           <div className="p-4 border-b dark:border-gray-700">
             <div className="flex min-h-8 items-center justify-between">
               <div className="min-w-0">
@@ -606,6 +609,118 @@ const TableSideOrderPage: React.FC<Props> = ({
           </div>
         </aside>
       </div>
+
+      {(cart.length > 0 || latestTableOrder) && !showMobileOrderSummary && (
+        <button
+          onClick={() => setShowMobileOrderSummary(true)}
+          className="md:hidden fixed bottom-5 right-5 z-40 bg-orange-500 text-white w-16 h-16 rounded-full shadow-2xl shadow-orange-500/40 flex items-center justify-center active:scale-95 transition-transform"
+          title="Current Order"
+        >
+          <ShoppingCart size={24} />
+          {cartCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center shadow-lg">
+              {cartCount}
+            </span>
+          )}
+        </button>
+      )}
+
+      {showMobileOrderSummary && (
+        <div className="md:hidden fixed inset-0 z-[130]">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowMobileOrderSummary(false)} />
+          <div className="absolute inset-x-0 bottom-0 bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl flex flex-col max-h-[85vh]">
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full" />
+            </div>
+            <div className="px-5 py-3 border-b dark:border-gray-700 flex items-center justify-between">
+              <h3 className="font-black dark:text-white uppercase tracking-tighter text-base">Current Order</h3>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleClearDraft}
+                  disabled={cart.length === 0 && !editingOrderId}
+                  className="text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40"
+                  title="Clear"
+                >
+                  <Trash2 size={18} />
+                </button>
+                <button onClick={() => setShowMobileOrderSummary(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1" title="Close">
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              {cart.length === 0 ? (
+                <div className="min-h-[180px] flex flex-col items-center justify-center text-center opacity-20">
+                  <ShoppingCart size={44} className="mb-4" />
+                  <p className="text-[10px] font-black uppercase tracking-widest">Cart is empty</p>
+                </div>
+              ) : (
+                cart.map((item, idx) => (
+                  <div key={`mobile-${item.id}-${idx}`} className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                      <p className="text-xs text-orange-500 font-black">RM{item.price.toFixed(2)}</p>
+                      <div className="mt-1 space-y-0.5">
+                        {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">Size: {item.selectedSize}</p>}
+                        {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">Temperature: {item.selectedTemp}</p>}
+                        {item.selectedVariantOption && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">Variant: {item.selectedVariantOption}</p>}
+                        {item.selectedOtherVariant && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">{item.selectedOtherVariant}</p>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+                      <button onClick={() => handleRemoveFromCart(idx)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all" title="Decrease">
+                        <Minus size={12} />
+                      </button>
+                      <span className="text-[10px] font-black w-4 text-center dark:text-white">{item.quantity}</span>
+                      <button onClick={() => handleAddToCart(item)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all" title="Increase">
+                        <Plus size={12} />
+                      </button>
+                    </div>
+                    <button onClick={() => handleDeleteFromCart(idx)} className="text-gray-300 hover:text-red-500" title="Delete item">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="px-5 py-4 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-4">
+              <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
+                <span className="uppercase">Total</span>
+                <span className="text-orange-500">RM{cartTotal.toFixed(2)}</span>
+              </div>
+              <textarea
+                value={orderRemark}
+                onChange={e => setOrderRemark(e.target.value)}
+                placeholder="Any special requests?"
+                className="w-full p-3 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-xl text-xs font-medium dark:text-white resize-none"
+                rows={2}
+              />
+              <div className="flex justify-between pb-2">
+                <button
+                  onClick={() => latestTableOrder && handleEditOrder(latestTableOrder)}
+                  disabled={!latestTableOrder || isPlacing}
+                  className={`w-[47.5%] py-4 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] transition-all disabled:opacity-50 ${
+                    latestTableOrder
+                      ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-xl shadow-blue-500/20'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  Edit Order
+                </button>
+                <button
+                  onClick={handlePlaceOrder}
+                  disabled={isPlacing || cart.length === 0}
+                  className="w-[47.5%] py-4 border-2 border-orange-700/70 dark:border-orange-300/60 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
+                >
+                  {isPlacing ? 'Sending...' : editingOrderId ? 'Save Changes' : 'Send to Kitchen'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedItemForVariants && (
         <SimpleItemOptionsModal
