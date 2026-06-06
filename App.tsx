@@ -1091,13 +1091,13 @@ const App: React.FC = () => {
             supabase.from('orders')
               .select('*')
               .eq('restaurant_id', user.restaurantId)
-              .gte('updated_at', lastSyncTime.toISOString())
+              .gte('timestamp', lastSyncTime.getTime())
               .order('timestamp', { ascending: false }),
             5000
           );
 
           if (updatesResult && updatesResult.data && updatesResult.data.length > 0) {
-            const updatedMapped = updatesResult.data.map(o => ({
+            const updatedMapped = updatesResult.data.map((o: any) => ({
               id: o.id,
               items: Array.isArray(o.items) ? o.items : (typeof o.items === 'string' ? JSON.parse(o.items) : []),
               total: Number(o.total || 0),
@@ -1120,7 +1120,7 @@ const App: React.FC = () => {
 
             setOrders(prev => {
               const map = new Map(prev.map(p => [p.id, p]));
-              updatedMapped.forEach(u => {
+              updatedMapped.forEach((u: Order) => {
                 const existing = map.get(u.id);
                 if (!existing) {
                   map.set(u.id, u);
@@ -1311,7 +1311,7 @@ const App: React.FC = () => {
     if (orderFilter) updateFilter.filter = orderFilter;
     channel.on('postgres_changes', updateFilter, (payload) => {
       console.debug('[realtime] ORDER UPDATE payload', payload);
-      const o = payload.new;
+      const o = payload.new as any;
         setOrders(prev => {
           let found = false;
           const updated = prev.map(existing => {
