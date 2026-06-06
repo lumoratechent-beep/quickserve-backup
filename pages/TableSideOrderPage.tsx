@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { ArrowLeft, Hash, LogOut, Minus, Plus, Search, ShoppingCart, Trash2, UtensilsCrossed, X } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, Check, Grid2X2, Hash, LayoutGrid, ListTree, LogOut, Minus, Plus, Search, ShoppingCart, Trash2, UtensilsCrossed, X } from 'lucide-react';
 import { Restaurant, CartItem, Order, OrderStatus, MenuItem, ModifierData, OrderSource } from '../src/types';
 import { supabase } from '../lib/supabase';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
@@ -29,6 +29,27 @@ interface Props {
 }
 
 const ACTIVE_TABLE_STATUSES = [OrderStatus.PENDING, OrderStatus.ONGOING, OrderStatus.SERVED];
+type MenuGridColumns = 2 | 3 | 6 | 8;
+type TableViewColumns = 6 | 8 | 10 | 12;
+
+const getInitialFeatureSettings = (restaurant: Restaurant) => {
+  const dbFeatures = (restaurant.settings?.features || {}) as Record<string, any>;
+  try {
+    const cachedFullSettings = localStorage.getItem(`qs_settings_${restaurant.id}`);
+    if (cachedFullSettings) {
+      const parsed = JSON.parse(cachedFullSettings);
+      if (parsed?.features && typeof parsed.features === 'object') return { ...dbFeatures, ...parsed.features };
+    }
+
+    const cachedFeatures = localStorage.getItem(`features_${restaurant.id}`);
+    if (cachedFeatures) {
+      const parsed = JSON.parse(cachedFeatures);
+      if (parsed && typeof parsed === 'object') return { ...dbFeatures, ...parsed };
+    }
+  } catch {}
+
+  return dbFeatures;
+};
 
 const getItemKey = (item: CartItem) => [
   item.id,
@@ -58,12 +79,19 @@ const TableSideOrderPage: React.FC<Props> = ({
   const [selectedItemForVariants, setSelectedItemForVariants] = useState<{ item: MenuItem; resId: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [gridColumns, setGridColumns] = useState<2 | 3 | 6 | 8>(3);
+  const [gridColumns, setGridColumns] = useState<MenuGridColumns>(3);
+  const [tableViewColumns, setTableViewColumns] = useState<TableViewColumns>(() => {
+    const initialColumns = Number(getInitialFeatureSettings(restaurant).tableColumns) || 6;
+    return ([6, 8, 10, 12] as TableViewColumns[]).find(count => initialColumns <= count) || 12;
+  });
+  const [groupMenuByCategory, setGroupMenuByCategory] = useState(true);
+  const [featureSettings, setFeatureSettings] = useState<Record<string, any>>(() => getInitialFeatureSettings(restaurant));
+  const [isEditingTables, setIsEditingTables] = useState(false);
+  const [isSavingTables, setIsSavingTables] = useState(false);
   const [isPlacing, setIsPlacing] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [showMobileOrderSummary, setShowMobileOrderSummary] = useState(false);
 
-  const featureSettings = (restaurant.settings?.features || {}) as Record<string, any>;
   const tableCount = Math.max(1, Number(featureSettings.tableCount) || 12);
   const floorEnabled = !!featureSettings.floorEnabled;
   const floorCount = floorEnabled ? Math.min(5, Math.max(1, Number(featureSettings.floorCount) || 1)) : 1;
@@ -75,6 +103,10 @@ const TableSideOrderPage: React.FC<Props> = ({
     }
     return Array.from({ length: tableCount }, (_, idx) => `Table ${idx + 1}`);
   }, [tableCount, floorEnabled, floorCount, selectedFloor]);
+
+  useEffect(() => {
+    setFeatureSettings(getInitialFeatureSettings(restaurant));
+  }, [restaurant.id, restaurant.settings?.features]);
 
   const menu = useMemo(() => restaurant.menu.filter(item => !item.isArchived), [restaurant.menu]);
   const categories = useMemo(() => Array.from(new Set(menu.map(i => i.category))).filter(Boolean), [menu]);
@@ -145,6 +177,52 @@ const TableSideOrderPage: React.FC<Props> = ({
   const handleDeleteFromCart = useCallback((idx: number) => {
     setCart(prev => prev.filter((_, itemIdx) => itemIdx !== idx));
   }, []);
+
+  const saveTableFeatureSettings = useCallback(async (nextFeatures: Record<string, any>) => {
+    setFeatureSettings(nextFeatures);
+    setIsSavingTables(true);
+
+    const nextSettings = {
+      ...(restaurant.settings || {}),
+      features: nextFeatures,
+    };
+
+    try {
+      localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(nextFeatures));
+      localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(nextSettings));
+
+      const { error } = await supabase
+        .from('restaurants')
+        .update({ settings: nextSettings })
+        .eq('id', restaurant.id);
+
+      if (error) {
+        console.warn('Failed to save table layout:', error.message);
+        toast('Table layout updated on this device. Cloud sync failed.', 'warning');
+        return;
+      }
+
+      toast('Table layout saved.', 'success');
+    } catch (err: any) {
+      toast(err?.message || 'Failed to save table layout', 'error');
+    } finally {
+      setIsSavingTables(false);
+    }
+  }, [restaurant.id, restaurant.settings]);
+
+  const handleChangeTableCount = (delta: number) => {
+    if (isSavingTables) return;
+    const nextTableCount = Math.max(1, tableCount + delta);
+    const columns = Math.max(1, Number(featureSettings.tableColumns) || tableViewColumns);
+    const nextFeatures = {
+      ...featureSettings,
+      tableCount: nextTableCount,
+      tableColumns: columns,
+      tableRows: Math.ceil(nextTableCount / columns),
+    };
+
+    saveTableFeatureSettings(nextFeatures);
+  };
 
   const handleInitialAdd = (item: MenuItem) => {
     const hasOptions =
@@ -276,6 +354,44 @@ const TableSideOrderPage: React.FC<Props> = ({
     </div>
   );
 
+  const menuGridClass = `grid gap-1.5 ${
+    gridColumns === 2 ? 'grid-cols-2 xl:grid-cols-3' :
+    gridColumns === 3 ? 'grid-cols-3 xl:grid-cols-4' :
+    gridColumns === 6 ? 'grid-cols-3 xl:grid-cols-6' :
+    'grid-cols-4 xl:grid-cols-8'
+  }`;
+
+  const renderMenuItemCard = (item: MenuItem) => {
+    const itemCount = cart.filter(cartItem => cartItem.id === item.id).reduce((sum, cartItem) => sum + cartItem.quantity, 0);
+
+    return (
+      <button
+        key={item.id}
+        onClick={() => handleInitialAdd(item)}
+        className="relative bg-white dark:bg-gray-800 border dark:border-gray-700 text-left hover:border-orange-500 transition-all group shadow-sm flex p-2 rounded-xl flex-col"
+      >
+        {itemCount > 0 && (
+          <div className="absolute top-2 right-2 z-10 bg-orange-500 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center shadow-lg">
+            {itemCount}
+          </div>
+        )}
+        <div className="aspect-square w-full rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0">
+          {item.image ? (
+            <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-300 dark:text-gray-500">
+              <UtensilsCrossed size={28} />
+            </div>
+          )}
+        </div>
+        <div className="mt-3">
+          <h4 className="font-black text-xs dark:text-white uppercase tracking-tighter mb-1 line-clamp-1">{item.name}</h4>
+          <p className="text-orange-500 font-black text-sm">RM{item.price.toFixed(2)}</p>
+        </div>
+      </button>
+    );
+  };
+
   const renderHeader = (withBackButton: boolean) => (
     <header className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 py-3 flex items-center gap-3 shrink-0">
       {withBackButton && (
@@ -287,6 +403,7 @@ const TableSideOrderPage: React.FC<Props> = ({
           <ArrowLeft size={18} />
         </button>
       )}
+      {withBackButton && statusTools}
       <img
         src={restaurant.logo}
         className="w-8 h-8 rounded-lg shadow-sm"
@@ -309,7 +426,7 @@ const TableSideOrderPage: React.FC<Props> = ({
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        {statusTools}
+        {!withBackButton && statusTools}
         {selectedTable && (
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-tighter">
             <Hash size={12} className="text-orange-500" />
@@ -317,13 +434,15 @@ const TableSideOrderPage: React.FC<Props> = ({
           </div>
         )}
         {!withBackButton && <span className="hidden sm:inline text-[10px] font-black text-gray-400 uppercase tracking-widest">{cashierName}</span>}
-        <button
-          onClick={onLogout}
-          className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
-          title="Logout"
-        >
-          <LogOut size={18} />
-        </button>
+        {!withBackButton && (
+          <button
+            onClick={onLogout}
+            className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+            title="Logout"
+          >
+            <LogOut size={18} />
+          </button>
+        )}
       </div>
     </header>
   );
@@ -333,11 +452,64 @@ const TableSideOrderPage: React.FC<Props> = ({
       <div className="h-[100dvh] flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
         {renderHeader(false)}
 
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-4xl mx-auto">
-            <div className="mb-6">
-              <h2 className="text-lg font-black dark:text-white uppercase tracking-tight">Select a Table</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Choose the table you're taking the order for</p>
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+          <div className="w-full">
+            <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div className="min-w-0">
+                <h2 className="text-lg font-black dark:text-white uppercase tracking-tight">Select a Table</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Choose the table you're taking the order for</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                <button
+                  onClick={() => setIsEditingTables(prev => !prev)}
+                  className={`h-10 px-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                    isEditingTables
+                      ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/20'
+                      : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-orange-300'
+                  }`}
+                  title="Edit table count"
+                >
+                  <LayoutGrid size={14} />
+                  Edit Table
+                </button>
+                {isEditingTables && (
+                  <div className="h-10 flex items-center gap-2 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-2">
+                    <button
+                      onClick={() => handleChangeTableCount(-1)}
+                      disabled={isSavingTables || tableCount <= 1}
+                      className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40"
+                      title="Remove table"
+                    >
+                      <Minus size={14} />
+                    </button>
+                    <span className="min-w-10 text-center text-[11px] font-black dark:text-white">{tableCount}</span>
+                    <button
+                      onClick={() => handleChangeTableCount(1)}
+                      disabled={isSavingTables}
+                      className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40"
+                      title="Add table"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                )}
+                <div className="h-10 flex items-center gap-1 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-1">
+                  {([6, 8, 10, 12] as TableViewColumns[]).map(count => (
+                    <button
+                      key={count}
+                      onClick={() => setTableViewColumns(count)}
+                      className={`h-8 min-w-8 px-2 rounded-lg text-[10px] font-black transition-all ${
+                        tableViewColumns === count
+                          ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                          : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                      title={`${count} table columns`}
+                    >
+                      {count}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {floorEnabled && floorCount > 1 && (
@@ -358,7 +530,12 @@ const TableSideOrderPage: React.FC<Props> = ({
               </div>
             )}
 
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+            <div className={`grid gap-2 sm:gap-3 ${
+              tableViewColumns === 6 ? 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-6' :
+              tableViewColumns === 8 ? 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-8' :
+              tableViewColumns === 10 ? 'grid-cols-3 sm:grid-cols-5 lg:grid-cols-10' :
+              'grid-cols-3 sm:grid-cols-6 lg:grid-cols-12'
+            }`}>
               {tableLabels.map(label => {
                 const activeOrdersForTable = orders.filter(order =>
                   order.restaurantId === restaurant.id &&
@@ -372,7 +549,7 @@ const TableSideOrderPage: React.FC<Props> = ({
                   <button
                     key={label}
                     onClick={() => setSelectedTable(label)}
-                    className={`relative p-4 rounded-2xl border-2 transition-all text-center hover:scale-105 active:scale-95 ${
+                    className={`relative min-h-24 p-3 rounded-xl border-2 transition-all text-center hover:scale-[1.03] active:scale-95 ${
                       hasActive
                         ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700 hover:border-orange-500'
                         : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-600'
@@ -425,11 +602,22 @@ const TableSideOrderPage: React.FC<Props> = ({
                   </button>
                 ))}
               </div>
+              <button
+                onClick={() => setGroupMenuByCategory(prev => !prev)}
+                className={`p-2 rounded-xl border dark:border-gray-700 transition-all shrink-0 ${
+                  groupMenuByCategory
+                    ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                    : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-300 hover:border-orange-300'
+                }`}
+                title={groupMenuByCategory ? 'Grouped by category' : 'Category grouping off'}
+              >
+                {groupMenuByCategory ? <ListTree size={16} /> : <Grid2X2 size={16} />}
+              </button>
               <div className="flex items-center gap-1 bg-white dark:bg-gray-800 border dark:border-gray-700 p-1 rounded-xl shadow-sm">
                 {[2, 3, 6, 8].map(count => (
                   <button
                     key={count}
-                    onClick={() => setGridColumns(count as 2 | 3 | 6 | 8)}
+                    onClick={() => setGridColumns(count as MenuGridColumns)}
                     className={`p-2 rounded-lg transition-all text-[10px] font-black ${gridColumns === count ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                     title={`${count} tiles`}
                   >
@@ -456,51 +644,22 @@ const TableSideOrderPage: React.FC<Props> = ({
                 <UtensilsCrossed size={40} />
                 <p className="text-xs font-black uppercase tracking-widest mt-3">No items found</p>
               </div>
-            ) : (
+            ) : groupMenuByCategory ? (
               <div className="space-y-4">
                 {Object.entries(groupedMenu).map(([category, items]) => (
                   <section key={category}>
                     <div className="mb-2 text-center">
                       <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] whitespace-nowrap">{category}</h3>
                     </div>
-                    <div className={`grid gap-1.5 ${
-                      gridColumns === 2 ? 'grid-cols-2 xl:grid-cols-3' :
-                      gridColumns === 3 ? 'grid-cols-3 xl:grid-cols-4' :
-                      gridColumns === 6 ? 'grid-cols-3 xl:grid-cols-6' :
-                      'grid-cols-4 xl:grid-cols-8'
-                    }`}>
-                      {items.map(item => {
-                        const itemCount = cart.filter(cartItem => cartItem.id === item.id).reduce((sum, cartItem) => sum + cartItem.quantity, 0);
-                        return (
-                          <button
-                            key={item.id}
-                            onClick={() => handleInitialAdd(item)}
-                            className="relative bg-white dark:bg-gray-800 border dark:border-gray-700 text-left hover:border-orange-500 transition-all group shadow-sm flex p-2 rounded-xl flex-col"
-                          >
-                            {itemCount > 0 && (
-                              <div className="absolute top-2 right-2 z-10 bg-orange-500 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center shadow-lg">
-                                {itemCount}
-                              </div>
-                            )}
-                            <div className="aspect-square w-full rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0">
-                              {item.image ? (
-                                <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-300 dark:text-gray-500">
-                                  <UtensilsCrossed size={28} />
-                                </div>
-                              )}
-                            </div>
-                            <div className="mt-3">
-                              <h4 className="font-black text-xs dark:text-white uppercase tracking-tighter mb-1 line-clamp-1">{item.name}</h4>
-                              <p className="text-orange-500 font-black text-sm">RM{item.price.toFixed(2)}</p>
-                            </div>
-                          </button>
-                        );
-                      })}
+                    <div className={menuGridClass}>
+                      {items.map(renderMenuItemCard)}
                     </div>
                   </section>
                 ))}
+              </div>
+            ) : (
+              <div className={menuGridClass}>
+                {filteredMenu.map(renderMenuItemCard)}
               </div>
             )}
           </div>
@@ -611,18 +770,41 @@ const TableSideOrderPage: React.FC<Props> = ({
       </div>
 
       {(cart.length > 0 || latestTableOrder) && !showMobileOrderSummary && (
-        <button
-          onClick={() => setShowMobileOrderSummary(true)}
-          className="md:hidden fixed bottom-5 right-5 z-40 bg-orange-500 text-white w-16 h-16 rounded-full shadow-2xl shadow-orange-500/40 flex items-center justify-center active:scale-95 transition-transform"
-          title="Current Order"
-        >
-          <ShoppingCart size={24} />
-          {cartCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center shadow-lg">
-              {cartCount}
-            </span>
-          )}
-        </button>
+        <div className="md:hidden fixed inset-x-3 bottom-4 z-40 rounded-2xl bg-gray-950 text-white shadow-2xl shadow-black/30 border border-white/10 px-3 py-3">
+          <div className="flex items-center gap-3">
+            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500">
+              <ShoppingCart size={20} />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-lg">
+                  {cartCount}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setShowMobileOrderSummary(true)}
+              className="min-w-0 flex-1 text-left"
+              title="Check order"
+            >
+              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">{editingOrderId ? 'Editing Order' : latestTableOrder && cart.length === 0 ? 'Active Order' : 'Confirm Order'}</p>
+              <p className="text-sm font-black tracking-tight truncate">{cart.length > 0 ? `RM${cartTotal.toFixed(2)}` : 'Check menu'}</p>
+            </button>
+            <button
+              onClick={() => setShowMobileOrderSummary(true)}
+              className="h-10 px-3 rounded-xl bg-white/10 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+              title="Check all menu"
+            >
+              Check
+            </button>
+            <button
+              onClick={handlePlaceOrder}
+              disabled={isPlacing || cart.length === 0}
+              className="h-10 px-3 rounded-xl bg-orange-500 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-50"
+              title="Send to kitchen"
+            >
+              {isPlacing ? <Check size={16} /> : 'Send'}
+            </button>
+          </div>
+        </div>
       )}
 
       {showMobileOrderSummary && (
