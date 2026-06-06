@@ -82,14 +82,15 @@ const TableSideOrderPage: React.FC<Props> = ({
   const [selectedItemForVariants, setSelectedItemForVariants] = useState<{ item: MenuItem; resId: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [gridColumns, setGridColumns] = useState<MenuGridColumns>(3);
+  const [gridColumns, setGridColumns] = useState<MenuGridColumns>(6);
   const [tableViewColumns, setTableViewColumns] = useState<TableViewColumns>(() => {
     const initialColumns = Number(getInitialFeatureSettings(restaurant).tableColumns) || DEFAULT_TABLE_COLUMNS;
     return ([6, 8, 10, 12] as TableViewColumns[]).find(count => initialColumns <= count) || 12;
   });
-  const [groupMenuByCategory, setGroupMenuByCategory] = useState(true);
+  const [groupMenuByCategory, setGroupMenuByCategory] = useState(false);
   const [featureSettings, setFeatureSettings] = useState<Record<string, any>>(() => getInitialFeatureSettings(restaurant));
   const [showTableEditor, setShowTableEditor] = useState(false);
+  const [showBackConfirmModal, setShowBackConfirmModal] = useState(false);
   const [tableCountDraft, setTableCountDraft] = useState('');
   const [tableColumnsDraft, setTableColumnsDraft] = useState('');
   const [floorEnabledDraft, setFloorEnabledDraft] = useState(false);
@@ -301,18 +302,26 @@ const TableSideOrderPage: React.FC<Props> = ({
     setEditingOrderId(null);
   };
 
+  const completeBackToTables = () => {
+    resetOrderDraft();
+    setSearchQuery('');
+    setActiveCategory(null);
+    setShowMobileOrderSummary(false);
+    setSelectedTable(null);
+    setShowBackConfirmModal(false);
+  };
+
   const handleClearDraft = () => {
     if (cart.length > 0 && !confirm('Clear the current order summary?')) return;
     resetOrderDraft();
   };
 
   const handleBackToTables = () => {
-    if (cart.length > 0 && !confirm('You have items in your order summary. Go back to table selection? The summary will be cleared.')) return;
-    resetOrderDraft();
-    setSearchQuery('');
-    setActiveCategory(null);
-    setShowMobileOrderSummary(false);
-    setSelectedTable(null);
+    if (cart.length > 0) {
+      setShowBackConfirmModal(true);
+      return;
+    }
+    completeBackToTables();
   };
 
   const handleEditOrder = (order: Order) => {
@@ -461,7 +470,6 @@ const TableSideOrderPage: React.FC<Props> = ({
           <ArrowLeft size={18} />
         </button>
       )}
-      {withBackButton && statusTools}
       <img
         src={restaurant.logo}
         className="w-8 h-8 rounded-lg shadow-sm"
@@ -484,7 +492,7 @@ const TableSideOrderPage: React.FC<Props> = ({
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        {!withBackButton && statusTools}
+        {statusTools}
         {selectedTable && (
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl font-black text-[10px] uppercase tracking-tighter">
             <Hash size={12} className="text-orange-500" />
@@ -584,11 +592,7 @@ const TableSideOrderPage: React.FC<Props> = ({
                     key={label}
                     onClick={() => {
                       setSelectedTable(label);
-                      if (latestActiveOrder) {
-                        setCart(latestActiveOrder.items as CartItem[]);
-                        setOrderRemark(latestActiveOrder.remark || '');
-                        setEditingOrderId(latestActiveOrder.id);
-                      }
+                      if (!latestActiveOrder) resetOrderDraft();
                     }}
                     className={`relative min-h-24 p-3 rounded-xl border-2 transition-all text-center hover:scale-[1.03] active:scale-95 ${
                       hasActive
@@ -817,6 +821,12 @@ const TableSideOrderPage: React.FC<Props> = ({
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            {latestTableOrder && !editingOrderId && cart.length === 0 && (
+              <div className="rounded-xl border border-orange-200 dark:border-orange-800/60 bg-orange-50 dark:bg-orange-900/20 px-4 py-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-300">Existing order found for this table</p>
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">Open it with Edit Order to change quantities or remove items.</p>
+              </div>
+            )}
             {cart.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
                 <ShoppingCart size={48} className="mb-4" />
@@ -965,6 +975,12 @@ const TableSideOrderPage: React.FC<Props> = ({
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              {latestTableOrder && !editingOrderId && cart.length === 0 && (
+                <div className="rounded-xl border border-orange-200 dark:border-orange-800/60 bg-orange-50 dark:bg-orange-900/20 px-4 py-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-300">Existing order found for this table</p>
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">Tap Edit Order before changing quantities or removing items.</p>
+                </div>
+              )}
               {cart.length === 0 ? (
                 <div className="min-h-[180px] flex flex-col items-center justify-center text-center opacity-20">
                   <ShoppingCart size={44} className="mb-4" />
@@ -1032,6 +1048,31 @@ const TableSideOrderPage: React.FC<Props> = ({
                   {isPlacing ? 'Sending...' : editingOrderId ? 'Save Changes' : 'Send to Kitchen'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBackConfirmModal && (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b dark:border-gray-700">
+              <h3 className="font-black text-sm uppercase tracking-tight dark:text-white">Leave Current Order?</h3>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">You have items in your order summary. Going back to table selection will clear this summary.</p>
+            </div>
+            <div className="px-5 py-4 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 flex justify-end gap-2">
+              <button
+                onClick={() => setShowBackConfirmModal(false)}
+                className="h-10 px-4 rounded-xl border border-gray-200 dark:border-gray-600 text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700 transition-all"
+              >
+                Stay Here
+              </button>
+              <button
+                onClick={completeBackToTables}
+                className="h-10 px-4 rounded-xl bg-orange-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-orange-600 transition-all"
+              >
+                Go Back
+              </button>
             </div>
           </div>
         </div>
