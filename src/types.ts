@@ -156,6 +156,7 @@ export interface SelectedAddOn {
 export interface CartItem extends MenuItem {
   quantity: number;
   restaurantId: string;
+  status?: OrderStatus;
   selectedSize?: string;
   selectedTemp?: string;
   selectedOtherVariant?: string;

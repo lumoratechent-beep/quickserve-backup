@@ -403,6 +403,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [rejectingKitchenOrderId, setRejectingKitchenOrderId] = useState<string | null>(null);
   const [kitchenRejectionReason, setKitchenRejectionReason] = useState('Item out of stock');
   const [kitchenRejectionNote, setKitchenRejectionNote] = useState('');
+  const [showKitchenQuickSettings, setShowKitchenQuickSettings] = useState(false);
   const [kitchenOrderSettings, setKitchenOrderSettings] = useState<{ autoAccept: boolean; autoPrint: boolean }>(() => {
     const dbSaved = restaurant.settings?.kitchenSettings;
     if (dbSaved && typeof dbSaved === 'object') return { ...{ autoAccept: false, autoPrint: false }, ...dbSaved };
@@ -4954,6 +4955,7 @@ const PosOnlyView: React.FC<Props> = ({
       id: item.id,
       quantity: item.quantity,
       price: item.price,
+      status: item.status,
       selectedSize: item.selectedSize,
       selectedTemp: item.selectedTemp,
       selectedOtherVariant: item.selectedOtherVariant,
@@ -4966,12 +4968,48 @@ const PosOnlyView: React.FC<Props> = ({
     remark: order.remark || '',
   });
 
+  const isKitchenItemInActionScope = (item: CartItem): boolean => {
+    if (userRole !== 'KITCHEN' || !kitchenHasAssignedScope) return true;
+    if (kitchenScopeCategories.length === 0) return false;
+    return kitchenScopeCategories.includes(item.category);
+  };
+
+  const updateKitchenOrderItemStatus = async (
+    order: Order,
+    nextStatus: OrderStatus,
+    options?: { fromStatuses?: OrderStatus[]; rejectionReason?: string; rejectionNote?: string },
+  ): Promise<CartItem[]> => {
+    const fromStatuses = options?.fromStatuses;
+    const updatedItems = order.items.map(item => {
+      if (!isKitchenItemInActionScope(item)) return item;
+      const currentStatus = getItemKitchenStatus(item, order.status);
+      if (fromStatuses && !fromStatuses.includes(currentStatus)) return item;
+      return { ...item, status: nextStatus };
+    });
+    const aggregateStatus = getAggregateStatusFromItems(updatedItems, order.status);
+
+    await supabase
+      .from('orders')
+      .update({
+        items: updatedItems,
+        status: aggregateStatus,
+        rejection_reason: options?.rejectionReason,
+        rejection_note: options?.rejectionNote,
+      })
+      .eq('id', order.id);
+
+    onUpdateOrderItems?.(order.id, updatedItems, order.total);
+    onUpdateOrder(order.id, aggregateStatus);
+    return updatedItems;
+  };
+
   const handleKitchenAcceptAndPrint = async (orderId: string) => {
-    if (onKitchenUpdateOrder) {
-      onKitchenUpdateOrder(orderId, OrderStatus.ONGOING);
-    } else {
-      onUpdateOrder(orderId, OrderStatus.ONGOING);
-    }
+    const currentOrder = orders.find(order => order.id === orderId);
+    if (!currentOrder) return;
+
+    const updatedItems = await updateKitchenOrderItemStatus(currentOrder, OrderStatus.ONGOING, {
+      fromStatuses: [OrderStatus.PENDING],
+    });
 
     if (kitchenOrderSettings.autoPrint) {
       if (!connectedDevice) {
@@ -4996,8 +5034,7 @@ const PosOnlyView: React.FC<Props> = ({
           tableNumber: freshOrder.table_number,
           timestamp: freshOrder.timestamp,
           total: Number(freshOrder.total || 0),
-          items: Array.isArray(freshOrder.items) ? freshOrder.items :
-                 (typeof freshOrder.items === 'string' ? JSON.parse(freshOrder.items) : []),
+          items: updatedItems.filter(item => isKitchenItemInActionScope(item) && item.status === OrderStatus.ONGOING),
           remark: freshOrder.remark || ''
         };
 
@@ -5041,8 +5078,9 @@ const PosOnlyView: React.FC<Props> = ({
         tableNumber: freshOrder.table_number,
         timestamp: freshOrder.timestamp,
         total: Number(freshOrder.total || 0),
-        items: Array.isArray(freshOrder.items) ? freshOrder.items :
-               (typeof freshOrder.items === 'string' ? JSON.parse(freshOrder.items) : []),
+        items: (Array.isArray(freshOrder.items) ? freshOrder.items :
+               (typeof freshOrder.items === 'string' ? JSON.parse(freshOrder.items) : []))
+          .filter((item: CartItem) => isKitchenItemInActionScope(item)),
         remark: freshOrder.remark || ''
       };
 
@@ -5066,10 +5104,13 @@ const PosOnlyView: React.FC<Props> = ({
 
   const handleKitchenConfirmRejection = () => {
     if (rejectingKitchenOrderId) {
-      if (onKitchenUpdateOrder) {
-        onKitchenUpdateOrder(rejectingKitchenOrderId, OrderStatus.CANCELLED, kitchenRejectionReason, kitchenRejectionNote);
-      } else {
-        onUpdateOrder(rejectingKitchenOrderId, OrderStatus.CANCELLED);
+      const currentOrder = orders.find(order => order.id === rejectingKitchenOrderId);
+      if (currentOrder) {
+        void updateKitchenOrderItemStatus(currentOrder, OrderStatus.CANCELLED, {
+          fromStatuses: [OrderStatus.PENDING, OrderStatus.ONGOING],
+          rejectionReason: kitchenRejectionReason,
+          rejectionNote: kitchenRejectionNote,
+        });
       }
       setRejectingKitchenOrderId(null);
       setKitchenRejectionReason(REJECTION_REASONS[0]);
@@ -5130,18 +5171,23 @@ const PosOnlyView: React.FC<Props> = ({
 
   const kitchenFilteredOrders = useMemo(() => {
     return orders.filter(o => {
-      const matchesStatus = (() => {
-        if (kitchenOrderFilter === 'ALL') return true;
-        if (kitchenOrderFilter === 'ONGOING_ALL') return o.status === OrderStatus.PENDING || o.status === OrderStatus.ONGOING;
-        return o.status === kitchenOrderFilter;
-      })();
-      if (!matchesStatus) return false;
-
       if (userRole !== 'KITCHEN' || !kitchenHasAssignedScope) return true;
       if (kitchenScopeCategories.length === 0) return false;
       return o.items.some(item => kitchenScopeCategories.includes(item.category));
     });
-  }, [orders, kitchenOrderFilter, userRole, kitchenHasAssignedScope, kitchenScopeCategories]);
+  }, [orders, userRole, kitchenHasAssignedScope, kitchenScopeCategories]);
+
+  const getItemKitchenStatus = (item: CartItem, fallbackStatus: OrderStatus): OrderStatus => (
+    item.status || fallbackStatus
+  );
+
+  const getAggregateStatusFromItems = (items: CartItem[], fallbackStatus: OrderStatus): OrderStatus => {
+    if (items.some(item => getItemKitchenStatus(item, fallbackStatus) === OrderStatus.PENDING)) return OrderStatus.PENDING;
+    if (items.some(item => getItemKitchenStatus(item, fallbackStatus) === OrderStatus.ONGOING)) return OrderStatus.ONGOING;
+    if (items.some(item => getItemKitchenStatus(item, fallbackStatus) === OrderStatus.SERVED)) return OrderStatus.SERVED;
+    if (items.some(item => getItemKitchenStatus(item, fallbackStatus) === OrderStatus.COMPLETED)) return OrderStatus.COMPLETED;
+    return fallbackStatus;
+  };
 
   const getSortedOrderItems = (order: Order, scopedCategories: string[] = []) => {
     const hasScope = scopedCategories.length > 0;
@@ -5153,6 +5199,24 @@ const PosOnlyView: React.FC<Props> = ({
         return (a.name || '').localeCompare(b.name || '');
       });
   };
+
+  const kitchenVisibleOrders = useMemo(() => (
+    kitchenFilteredOrders.filter(order => {
+      const scopedItems = getSortedOrderItems(
+        order,
+        userRole === 'KITCHEN' && kitchenHasAssignedScope ? kitchenScopeCategories : [],
+      );
+      if (scopedItems.length === 0) return false;
+      if (kitchenOrderFilter === 'ALL') return true;
+      if (kitchenOrderFilter === 'ONGOING_ALL') {
+        return scopedItems.some(item => {
+          const status = getItemKitchenStatus(item, order.status);
+          return status === OrderStatus.PENDING || status === OrderStatus.ONGOING;
+        });
+      }
+      return scopedItems.some(item => getItemKitchenStatus(item, order.status) === kitchenOrderFilter);
+    })
+  ), [kitchenFilteredOrders, kitchenOrderFilter, userRole, kitchenHasAssignedScope, kitchenScopeCategories]);
 
   const groupItemsByCategory = (items: CartItem[]) => {
     return items.reduce<Record<string, CartItem[]>>((acc, item) => {
@@ -11364,17 +11428,60 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
                     )}
                   </div>
-                  <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm overflow-x-auto hide-scrollbar">
-                    <button onClick={() => setKitchenOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>ONGOING</button>
-                    <button onClick={() => setKitchenOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>SERVED</button>
-                    <button onClick={() => setKitchenOrderFilter(OrderStatus.COMPLETED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === OrderStatus.COMPLETED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>PAID</button>
-                    <button onClick={() => setKitchenOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>CANCELLED</button>
-                    <button onClick={() => setKitchenOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>ALL</button>
+                  <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar">
+                    <button
+                      onClick={() => setShowKitchenQuickSettings(prev => !prev)}
+                      className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border shadow-sm ${showKitchenQuickSettings ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 dark:border-white' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
+                    >
+                      Settings
+                    </button>
+                    <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm">
+                      <button onClick={() => setKitchenOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>ONGOING</button>
+                      <button onClick={() => setKitchenOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>SERVED</button>
+                      <button onClick={() => setKitchenOrderFilter(OrderStatus.COMPLETED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === OrderStatus.COMPLETED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>PAID</button>
+                      <button onClick={() => setKitchenOrderFilter(OrderStatus.CANCELLED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === OrderStatus.CANCELLED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>CANCELLED</button>
+                      <button onClick={() => setKitchenOrderFilter('ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === 'ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>ALL</button>
+                    </div>
                   </div>
                 </div>
 
+                {showKitchenQuickSettings && (
+                  <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                    <div className="mb-4">
+                      <p className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white">Kitchen Settings</p>
+                      <p className="text-xs text-slate-500 dark:text-gray-400">Automation for incoming kitchen orders.</p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-gray-700 dark:bg-gray-900/30">
+                        <div className="mb-3">
+                          <p className="text-sm font-semibold text-slate-900 dark:text-white">Auto Accept</p>
+                          <p className="mt-0.5 text-xs text-slate-500 dark:text-gray-400">Move routed orders to preparing automatically.</p>
+                        </div>
+                        <button
+                          onClick={() => toggleKitchenOrderSetting('autoAccept')}
+                          className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoAccept ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                        >
+                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${kitchenOrderSettings.autoAccept ? 'left-6' : 'left-1'}`} />
+                        </button>
+                      </div>
+                      <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-gray-700 dark:bg-gray-900/30">
+                        <div className="mb-3">
+                          <p className="text-sm font-semibold text-slate-900 dark:text-white">Auto Print Order</p>
+                          <p className="mt-0.5 text-xs text-slate-500 dark:text-gray-400">Print the kitchen ticket when accepted.</p>
+                        </div>
+                        <button
+                          onClick={() => toggleKitchenOrderSetting('autoPrint')}
+                          className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoPrint ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                        >
+                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${kitchenOrderSettings.autoPrint ? 'left-6' : 'left-1'}`} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-4">
-                  {kitchenFilteredOrders.length === 0 ? (
+                  {kitchenVisibleOrders.length === 0 ? (
                     <div className="bg-white dark:bg-gray-800 rounded-xl p-20 text-center border border-dashed border-gray-300 dark:border-gray-700">
                       <div className="w-16 h-16 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
                         <ShoppingBag size={24} />
@@ -11383,7 +11490,14 @@ const PosOnlyView: React.FC<Props> = ({
                       <p className="text-gray-500 dark:text-gray-400 text-xs">Waiting for incoming signals...</p>
                     </div>
                   ) : (
-                    kitchenFilteredOrders.map(order => (
+                    kitchenVisibleOrders.map(order => {
+                      const visibleKitchenItems = getSortedOrderItems(
+                        order,
+                        userRole === 'KITCHEN' && kitchenHasAssignedScope ? kitchenScopeCategories : [],
+                      );
+                      const hasVisiblePending = visibleKitchenItems.some(item => getItemKitchenStatus(item, order.status) === OrderStatus.PENDING);
+                      const hasVisibleOngoing = visibleKitchenItems.some(item => getItemKitchenStatus(item, order.status) === OrderStatus.ONGOING);
+                      return (
                       <div key={order.id} className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-start gap-6 transition-all hover:border-orange-200">
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-4">
@@ -11420,10 +11534,7 @@ const PosOnlyView: React.FC<Props> = ({
                           <div className="space-y-3">
                             {Object.entries(
                               groupItemsByCategory(
-                                getSortedOrderItems(
-                                  order,
-                                  userRole === 'KITCHEN' && kitchenHasAssignedScope ? kitchenScopeCategories : [],
-                                ),
+                                visibleKitchenItems,
                               ),
                             ).map(([categoryName, groupedItems]) => (
                               <div key={`${order.id}-kitchen-${categoryName}`} className="space-y-2">
@@ -11435,7 +11546,12 @@ const PosOnlyView: React.FC<Props> = ({
                                 {groupedItems.map((item, idx) => (
                                   <div key={`${order.id}-${categoryName}-${item.id}-${idx}`} className="flex justify-between items-start text-sm border-l-2 border-gray-100 dark:border-gray-700 pl-3">
                                     <div>
-                                      <p className="font-bold text-gray-900 dark:text-white">x{item.quantity} {item.name}</p>
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <p className="font-bold text-gray-900 dark:text-white">x{item.quantity} {item.name}</p>
+                                        <span className={`rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-widest ${getKitchenStatusClass(getItemKitchenStatus(item, order.status))}`}>
+                                          {getKitchenStatusText(getItemKitchenStatus(item, order.status))}
+                                        </span>
+                                      </div>
                                       <div className="flex flex-wrap gap-2 mt-1">
                                         {item.selectedSize && <span className="text-[9px] font-black px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase tracking-tighter">Size: {item.selectedSize}</span>}
                                         {item.selectedTemp && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${item.selectedTemp === 'Hot' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>Temp: {item.selectedTemp}</span>}
@@ -11471,7 +11587,7 @@ const PosOnlyView: React.FC<Props> = ({
                         <div className="flex md:flex-col gap-2 min-w-[140px] mt-2 md:mt-0">
                           {(isKitchenUser || isVendorUser) ? (
                             <>
-                              {order.status === OrderStatus.PENDING && (
+                              {hasVisiblePending && (
                                 <>
                                   <button 
                                     onClick={() => handleKitchenAcceptAndPrint(order.id)} 
@@ -11499,15 +11615,9 @@ const PosOnlyView: React.FC<Props> = ({
                                 </>
                               )}
                           
-                              {order.status === OrderStatus.ONGOING && (
+                              {hasVisibleOngoing && (
                                 <button 
-                                  onClick={() => {
-                                    if (onKitchenUpdateOrder) {
-                                      onKitchenUpdateOrder(order.id, OrderStatus.SERVED);
-                                    } else {
-                                      onUpdateOrder(order.id, OrderStatus.SERVED);
-                                    }
-                                  }} 
+                                  onClick={() => void updateKitchenOrderItemStatus(order, OrderStatus.SERVED, { fromStatuses: [OrderStatus.PENDING, OrderStatus.ONGOING] })} 
                                   className="flex-1 py-4 px-4 bg-green-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-lg"
                                 >
                                   <CheckCircle size={18} />
@@ -11532,7 +11642,8 @@ const PosOnlyView: React.FC<Props> = ({
                           )}
                         </div>
                       </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>

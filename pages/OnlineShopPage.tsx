@@ -64,6 +64,14 @@ const getInitialOnlineOrderStatus = (restaurant: Restaurant, items: Array<{ cate
     : OrderStatus.SERVED;
 };
 
+const withInitialOnlineItemStatuses = <T extends { category?: string }>(restaurant: Restaurant, items: T[]): Array<T & { status: OrderStatus }> => (
+  items.map(item => ({ ...item, status: getInitialOnlineOrderStatus(restaurant, [item]) }))
+);
+
+const getAggregateOnlineOrderStatus = (items: Array<{ status?: OrderStatus }>): OrderStatus => (
+  items.some(item => item.status === OrderStatus.PENDING) ? OrderStatus.PENDING : OrderStatus.SERVED
+);
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 const OnlineShopPage: React.FC<{ slug: string }> = ({ slug }) => {
   // ── Restaurant data ────────────────────────────────────────────────────────
@@ -274,7 +282,7 @@ const OnlineShopPage: React.FC<{ slug: string }> = ({ slug }) => {
     if (!restaurant || !selectedDelivery || !selectedPayment) return;
     setIsPlacingOrder(true);
     try {
-      const orderItems = cart.map(item => ({
+      const orderItems = withInitialOnlineItemStatuses(restaurant, cart.map(item => ({
         id: item.id,
         name: item.name,
         price: item.price,
@@ -286,7 +294,7 @@ const OnlineShopPage: React.FC<{ slug: string }> = ({ slug }) => {
         selectedOtherVariant: item.selectedOtherVariant,
         selectedModifiers: item.selectedModifiers,
         selectedAddOns: item.selectedAddOns,
-      }));
+      })));
 
       const orderId = `ONL-${Date.now()}`;
       const remark = [
@@ -302,7 +310,7 @@ const OnlineShopPage: React.FC<{ slug: string }> = ({ slug }) => {
         restaurantId: restaurant.id,
         items: orderItems,
         total: totalWithDelivery,
-        status: getInitialOnlineOrderStatus(restaurant, orderItems),
+        status: getAggregateOnlineOrderStatus(orderItems),
         timestamp: Date.now(),
         tableNumber: 'Online',
         locationName: restaurant.name,

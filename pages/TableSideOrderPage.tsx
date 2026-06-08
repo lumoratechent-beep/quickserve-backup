@@ -254,7 +254,7 @@ const TableSideOrderPage: React.FC<Props> = ({
         key: `${order.id}-${item.id}-${index}`,
         name: item.name,
         quantity: item.quantity,
-        status: order.status,
+        status: item.status || order.status,
         detailLines: getCartItemDetailLines(item as CartItem),
       }))
     )

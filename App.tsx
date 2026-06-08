@@ -89,25 +89,43 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
     .filter(Boolean) as KitchenDepartment[];
 };
 
-const isOrderRoutedToKitchen = (restaurant: Restaurant | undefined, items: CartItem[]): boolean => {
-  if (!restaurant?.kitchenEnabled) return false;
+const isKitchenEnabledForRouting = (restaurant: Restaurant | undefined): boolean => (
+  restaurant?.kitchenEnabled === true || restaurant?.settings?.features?.kitchenEnabled === true
+);
+
+const getKitchenRoutedCategories = (restaurant: Restaurant | undefined): Set<string> | null => {
+  if (!isKitchenEnabledForRouting(restaurant)) return new Set<string>();
+  if (!restaurant) return new Set<string>();
 
   const departments = normalizeKitchenDepartments(restaurant.kitchenDivisions);
-  if (departments.length === 0) return true;
+  if (departments.length === 0) return null;
 
   const routedCategories = new Set<string>();
   departments.forEach(department => {
     department.categories.forEach(category => routedCategories.add(category));
   });
 
-  if (routedCategories.size === 0) return false;
-
-  return items.some(item => routedCategories.has(String(item.category || '').trim()));
+  return routedCategories;
 };
 
-const getInitialKitchenOrderStatus = (restaurant: Restaurant | undefined, items: CartItem[]): OrderStatus => (
-  isOrderRoutedToKitchen(restaurant, items) ? OrderStatus.PENDING : OrderStatus.SERVED
+const getInitialKitchenItemStatus = (restaurant: Restaurant | undefined, item: CartItem): OrderStatus => {
+  const routedCategories = getKitchenRoutedCategories(restaurant);
+  if (routedCategories === null) return OrderStatus.PENDING;
+  return routedCategories.has(String(item.category || '').trim()) ? OrderStatus.PENDING : OrderStatus.SERVED;
+};
+
+const withInitialKitchenItemStatuses = (restaurant: Restaurant | undefined, items: CartItem[]): CartItem[] => (
+  items.map(item => ({ ...item, status: getInitialKitchenItemStatus(restaurant, item) }))
 );
+
+const getAggregateKitchenOrderStatus = (items: CartItem[]): OrderStatus => {
+  if (items.some(item => item.status === OrderStatus.PENDING)) return OrderStatus.PENDING;
+  if (items.some(item => item.status === OrderStatus.ONGOING)) return OrderStatus.ONGOING;
+  if (items.some(item => item.status === OrderStatus.SERVED)) return OrderStatus.SERVED;
+  return OrderStatus.SERVED;
+};
+
+const getInitialKitchenOrderStatus = (items: CartItem[]): OrderStatus => getAggregateKitchenOrderStatus(items);
 
 function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T | null> {
   return new Promise<T | null>((resolve) => {
@@ -1518,11 +1536,11 @@ const App: React.FC = () => {
       }
 
       const orderId = `${code}${String(nextNum).padStart(7, '0')}`;
-      const itemsForThisRestaurant = cart.filter(item => item.restaurantId === rid);
+      const itemsForThisRestaurant = withInitialKitchenItemStatuses(res, cart.filter(item => item.restaurantId === rid));
       const totalForThisRestaurant = itemsForThisRestaurant.reduce((acc, item) => acc + (item.price * item.quantity), 0);
       ordersToInsert.push({
         id: orderId, items: itemsForThisRestaurant, total: totalForThisRestaurant,
-        status: getInitialKitchenOrderStatus(res, itemsForThisRestaurant), timestamp: Date.now(), customer_id: 'guest_user',
+        status: getInitialKitchenOrderStatus(itemsForThisRestaurant), timestamp: Date.now(), customer_id: 'guest_user',
         restaurant_id: rid, table_number: sessionTable || 'N/A', location_name: sessionLocation || QS_DEFAULT_HUB,
         remark: remark,
         dining_type: 'Dine-in',
@@ -2556,11 +2574,12 @@ const App: React.FC = () => {
     }
 
     const orderId = `${code}${String(nextNum).padStart(7, '0')}`;
+    const kitchenItems = withInitialKitchenItemStatuses(res, orderData.items);
     const orderToInsert = {
       id: orderId,
-      items: orderData.items,
+      items: kitchenItems,
       total: orderData.total,
-      status: getInitialKitchenOrderStatus(res, orderData.items),
+      status: getInitialKitchenOrderStatus(kitchenItems),
       timestamp: Date.now(),
       customer_id: 'tableside_user',
       restaurant_id: currentUser.restaurantId,
@@ -2578,9 +2597,9 @@ const App: React.FC = () => {
     // Update local orders state immediately so tableside/order-taker UIs reflect the new order
     const newOrder: Order = {
       id: orderId,
-      items: orderData.items,
+      items: kitchenItems,
       total: Number(orderData.total || 0),
-      status: getInitialKitchenOrderStatus(res, orderData.items),
+      status: getInitialKitchenOrderStatus(kitchenItems),
       timestamp: Date.now(),
       customerId: 'tableside_user',
       restaurantId: currentUser.restaurantId!,
