@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Restaurant, MenuItem, CartItem, ModifierData, SelectedAddOn, OrderStatus, OrderSource } from '../src/types';
+import { Restaurant, MenuItem, CartItem, ModifierData, SelectedAddOn, OrderStatus, OrderSource, KitchenDepartment } from '../src/types';
 import { supabase } from '../lib/supabase';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import {
@@ -28,6 +28,41 @@ interface CustomerInfo {
 function getItemDisplayPrice(item: MenuItem): number {
   return item.onlinePrice ?? item.price;
 }
+
+const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((entry: any) => {
+      if (typeof entry === 'string') {
+        const name = entry.trim();
+        return name ? { name, categories: [] } : null;
+      }
+      if (!entry || typeof entry !== 'object') return null;
+      const name = String(entry.name || '').trim();
+      if (!name) return null;
+      const categories = Array.isArray(entry.categories)
+        ? entry.categories.map((c: any) => String(c || '').trim()).filter(Boolean)
+        : [];
+      return { name, categories: Array.from(new Set<string>(categories)).sort((a, b) => a.localeCompare(b)) };
+    })
+    .filter(Boolean) as KitchenDepartment[];
+};
+
+const getInitialOnlineOrderStatus = (restaurant: Restaurant, items: Array<{ category?: string }>): OrderStatus => {
+  const kitchenEnabled = restaurant.kitchenEnabled === true || (restaurant as any).kitchen_enabled === true;
+  if (!kitchenEnabled) return OrderStatus.SERVED;
+
+  const departments = normalizeKitchenDepartments(restaurant.kitchenDivisions || (restaurant as any).kitchen_divisions);
+  if (departments.length === 0) return OrderStatus.PENDING;
+
+  const routedCategories = new Set<string>();
+  departments.forEach(department => department.categories.forEach(category => routedCategories.add(category)));
+  if (routedCategories.size === 0) return OrderStatus.PENDING;
+
+  return items.some(item => routedCategories.has(String(item.category || '').trim()))
+    ? OrderStatus.PENDING
+    : OrderStatus.SERVED;
+};
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 const OnlineShopPage: React.FC<{ slug: string }> = ({ slug }) => {
@@ -267,7 +302,7 @@ const OnlineShopPage: React.FC<{ slug: string }> = ({ slug }) => {
         restaurantId: restaurant.id,
         items: orderItems,
         total: totalWithDelivery,
-        status: OrderStatus.PENDING,
+        status: getInitialOnlineOrderStatus(restaurant, orderItems),
         timestamp: Date.now(),
         tableNumber: 'Online',
         locationName: restaurant.name,

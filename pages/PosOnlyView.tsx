@@ -424,9 +424,11 @@ const PosOnlyView: React.FC<Props> = ({
   const [showNewOrderAlert, setShowNewOrderAlert] = useState(false);
   const [kitchenPrintingOrderId, setKitchenPrintingOrderId] = useState<string | null>(null);
   const [kitchenDivisions, setKitchenDivisions] = useState<KitchenDepartment[]>(() => normalizeKitchenDepartments(restaurant.kitchenDivisions));
-  const [newDivisionName, setNewDivisionName] = useState('');
-  const [renamingDepartment, setRenamingDepartment] = useState<string | null>(null);
-  const [renameDepartmentValue, setRenameDepartmentValue] = useState('');
+  const [departmentEditorMode, setDepartmentEditorMode] = useState<'create' | 'edit' | null>(null);
+  const [editingDepartmentName, setEditingDepartmentName] = useState<string | null>(null);
+  const [departmentDraftName, setDepartmentDraftName] = useState('');
+  const [departmentDraftCategories, setDepartmentDraftCategories] = useState<string[]>([]);
+  const [departmentActionMenuName, setDepartmentActionMenuName] = useState<string | null>(null);
   const [newStaffRole, setNewStaffRole] = useState<'CASHIER' | 'KITCHEN' | 'ORDER_TAKER' | 'MANAGER'>('CASHIER');
   const [showLockedRoleAlert, setShowLockedRoleAlert] = useState<string | null>(null);
   const [newStaffKitchenCategories, setNewStaffKitchenCategories] = useState<string[]>([]);
@@ -5179,59 +5181,66 @@ const PosOnlyView: React.FC<Props> = ({
 
   const storeIsOnline = restaurant.isOnline !== false;
 
-  const handleAddDivision = () => {
-    const name = newDivisionName.trim();
+  const resetDepartmentEditor = () => {
+    setDepartmentEditorMode(null);
+    setEditingDepartmentName(null);
+    setDepartmentDraftName('');
+    setDepartmentDraftCategories([]);
+  };
+
+  const openCreateDepartmentEditor = () => {
+    setDepartmentActionMenuName(null);
+    setDepartmentEditorMode('create');
+    setEditingDepartmentName(null);
+    setDepartmentDraftName('');
+    setDepartmentDraftCategories([]);
+  };
+
+  const openEditDepartmentEditor = (department: KitchenDepartment) => {
+    setDepartmentActionMenuName(null);
+    setDepartmentEditorMode('edit');
+    setEditingDepartmentName(department.name);
+    setDepartmentDraftName(department.name);
+    setDepartmentDraftCategories([...(department.categories || [])].sort((a, b) => a.localeCompare(b)));
+  };
+
+  const toggleDepartmentDraftCategory = (categoryName: string) => {
+    setDepartmentDraftCategories(prev => {
+      const hasCategory = prev.includes(categoryName);
+      const next = hasCategory ? prev.filter(c => c !== categoryName) : [...prev, categoryName];
+      return next.sort((a, b) => a.localeCompare(b));
+    });
+  };
+
+  const handleSaveDepartment = () => {
+    const name = departmentDraftName.trim();
     if (!name) {
       toast('Please enter a department name.', 'warning');
       return;
     }
-    if (kitchenDivisions.some(dep => dep.name.toLowerCase() === name.toLowerCase())) {
-      toast('Department already exists.', 'warning');
-      return;
-    }
-    const updated = [...kitchenDivisions, { name, categories: [] }];
-    setKitchenDivisions(updated);
-    setNewDivisionName('');
-    onSaveKitchenDivisions?.(updated);
-  };
-
-  const handleRenameDivision = (oldName: string, newName: string) => {
-    const normalized = newName.trim();
-    if (!normalized) return;
     if (
       kitchenDivisions.some(
-        dep => dep.name.toLowerCase() === normalized.toLowerCase() && dep.name.toLowerCase() !== oldName.toLowerCase(),
+        dep => dep.name.toLowerCase() === name.toLowerCase() && dep.name.toLowerCase() !== (editingDepartmentName || '').toLowerCase(),
       )
     ) {
       toast('Department already exists.', 'warning');
       return;
     }
 
-    const updated = kitchenDivisions.map(dep =>
-      dep.name === oldName ? { ...dep, name: normalized } : dep,
-    );
+    const savedDepartment: KitchenDepartment = { name, categories: [...departmentDraftCategories].sort((a, b) => a.localeCompare(b)) };
+    const updated = departmentEditorMode === 'edit' && editingDepartmentName
+      ? kitchenDivisions.map(dep => dep.name === editingDepartmentName ? savedDepartment : dep)
+      : [...kitchenDivisions, savedDepartment];
     setKitchenDivisions(updated);
-    setRenamingDepartment(null);
-    setRenameDepartmentValue('');
-    onSaveKitchenDivisions?.(updated);
-  };
-
-  const handleToggleDivisionCategory = (departmentName: string, categoryName: string) => {
-    const updated = kitchenDivisions.map(dep => {
-      if (dep.name !== departmentName) return dep;
-      const hasCategory = dep.categories.includes(categoryName);
-      const categories = hasCategory
-        ? dep.categories.filter(c => c !== categoryName)
-        : [...dep.categories, categoryName];
-      return { ...dep, categories: categories.sort((a, b) => a.localeCompare(b)) };
-    });
-    setKitchenDivisions(updated);
+    resetDepartmentEditor();
     onSaveKitchenDivisions?.(updated);
   };
 
   const handleRemoveDivision = (name: string) => {
+    setDepartmentActionMenuName(null);
     const updated = kitchenDivisions.filter(d => d.name !== name);
     setKitchenDivisions(updated);
+    if (editingDepartmentName === name) resetDepartmentEditor();
     onSaveKitchenDivisions?.(updated);
   };
 
@@ -5831,129 +5840,155 @@ const PosOnlyView: React.FC<Props> = ({
     const kitchenStaff = staffList.filter((s: any) => s.role === 'KITCHEN');
     return (
       <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
-        {/* Enable/Disable Toggle */}
+        {/* Departments / Divisions */}
         <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6 first:pt-0">
-          <div>
-            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Kitchen Display</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Enable and configure the kitchen display system.</p>
-          </div>
-          <div className="min-w-0 divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
-            <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 first:pt-0 last:pb-0">
-              <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">Kitchen Display System</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Route orders to kitchen screens with department support</p>
-              </div>
-              <div className="flex items-center justify-end">
-                <button
-                  onClick={() => updateFeatureSetting('kitchenEnabled', !featureSettings.kitchenEnabled)}
-                  className={`w-11 h-6 rounded-full transition-all relative ${featureSettings.kitchenEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                >
-                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${featureSettings.kitchenEnabled ? 'left-6' : 'left-1'}`} />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {featureSettings.kitchenEnabled && (
-          <>
-            {/* Departments / Divisions */}
-            <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6">
               <div>
                 <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Departments</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Route specific categories to specific kitchen screens.</p>
               </div>
               <div className="min-w-0">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Create kitchen departments to route specific categories to specific screens.</p>
-              {kitchenDivisions.length > 0 && (
-                <div className="space-y-2 mb-2">
-                  {kitchenDivisions.map(dep => (
-                    <div key={dep.name} className="p-2.5 bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-700">
-                      <div className="flex items-center justify-between gap-2 mb-0">
-                        {renamingDepartment === dep.name ? (
-                          <div className="flex items-center gap-2 flex-1">
-                            <input
-                              autoFocus
-                              type="text"
-                              value={renameDepartmentValue}
-                              onChange={e => setRenameDepartmentValue(e.target.value)}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter') handleRenameDivision(dep.name, renameDepartmentValue);
-                                if (e.key === 'Escape') {
-                                  setRenamingDepartment(null);
-                                  setRenameDepartmentValue('');
-                                }
-                              }}
-                              className="flex-1 px-2 py-1 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none text-xs font-medium dark:text-white"
-                            />
-                            <button onClick={() => handleRenameDivision(dep.name, renameDepartmentValue)} className="p-1.5 text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"><CheckCircle2 size={14} /></button>
-                            <button onClick={() => { setRenamingDepartment(null); setRenameDepartmentValue(''); }} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><X size={14} /></button>
-                          </div>
-                        ) : (
-                          <>
-                            <p className="text-sm font-semibold text-orange-600 dark:text-orange-400">{dep.name}</p>
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => {
-                                  setRenamingDepartment(dep.name);
-                                  setRenameDepartmentValue(dep.name);
-                                }}
-                                className="p-1.5 text-gray-400 hover:text-orange-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"
-                              >
-                                <Edit3 size={14} />
-                              </button>
-                              <button onClick={() => handleRemoveDivision(dep.name)} className="p-1.5 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"><Trash2 size={14} /></button>
-                            </div>
-                          </>
-                        )}
-                      </div>
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-orange-100 bg-orange-50/70 px-4 py-3 dark:border-orange-900/40 dark:bg-orange-900/10">
+                    <p className="text-xs font-bold text-orange-700 dark:text-orange-300">Routing note</p>
+                    <p className="mt-1 text-xs text-orange-700/75 dark:text-orange-300/75">Orders that are not routed to any kitchen department will be automatically marked as served.</p>
+                  </div>
 
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 mb-1.5">Categories:</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {allFoodCategories.length === 0 ? (
-                          <span className="text-xs text-gray-400 italic">No categories yet.</span>
-                        ) : allFoodCategories.map(categoryName => {
-                          const selected = dep.categories.includes(categoryName);
-                          return (
-                            <button
-                              key={`${dep.name}-${categoryName}`}
-                              onClick={() => handleToggleDivisionCategory(dep.name, categoryName)}
-                              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
-                                selected
-                                  ? 'bg-orange-500 text-white shadow-sm'
-                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 hover:bg-orange-100 dark:hover:bg-orange-900/30 hover:text-orange-600'
-                              }`}
-                            >
-                              {selected && <span className="mr-0.5">✓</span>}{categoryName}
-                            </button>
-                          );
-                        })}
+                  {kitchenDivisions.length > 0 ? (
+                    <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-gray-700/80 dark:bg-gray-800">
+                      <table className="w-full min-w-[560px]">
+                        <thead className="bg-gray-50 text-[9px] font-black uppercase tracking-widest text-gray-400 dark:bg-gray-700/50">
+                          <tr>
+                            <th className="px-4 py-3 text-left">Department Name</th>
+                            <th className="px-4 py-3 text-left">Food Category</th>
+                            <th className="w-20 px-4 py-3 text-center">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-gray-700/80">
+                          {kitchenDivisions.map(dep => (
+                            <tr key={dep.name} className="hover:bg-slate-50/80 dark:hover:bg-gray-700/30">
+                              <td className="px-4 py-3 text-sm font-semibold text-slate-900 dark:text-white">{dep.name}</td>
+                              <td className="px-4 py-3">
+                                <div className="flex flex-wrap gap-1.5">
+                                  {dep.categories.length > 0 ? dep.categories.map(categoryName => (
+                                    <span key={`${dep.name}-${categoryName}`} className="rounded-full bg-orange-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
+                                      {categoryName}
+                                    </span>
+                                  )) : (
+                                    <span className="text-xs font-medium text-gray-400 dark:text-gray-500">All categories</span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="relative px-4 py-3 text-center">
+                                {departmentActionMenuName === dep.name && (
+                                  <button type="button" aria-label="Close department actions" className="fixed inset-0 z-10 cursor-default" onClick={() => setDepartmentActionMenuName(null)} />
+                                )}
+                                <div className="relative flex justify-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => setDepartmentActionMenuName(openName => openName === dep.name ? null : dep.name)}
+                                    className={`relative z-20 rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-white ${departmentActionMenuName === dep.name ? 'invisible' : ''}`}
+                                    title="Department actions"
+                                    aria-label={`Actions for ${dep.name}`}
+                                    aria-expanded={departmentActionMenuName === dep.name}
+                                  >
+                                    <MoreVertical size={16} />
+                                  </button>
+                                  {departmentActionMenuName === dep.name && (
+                                    <div className="absolute right-0 top-10 z-30 w-40 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 text-left shadow-xl dark:border-gray-700 dark:bg-gray-900">
+                                      <button type="button" onClick={() => openEditDepartmentEditor(dep)} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-amber-50 hover:text-amber-700 dark:text-gray-200 dark:hover:bg-amber-900/20 dark:hover:text-amber-300">
+                                        <Edit3 size={14} /> Edit
+                                      </button>
+                                      <button type="button" onClick={() => handleRemoveDivision(dep.name)} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-900/20">
+                                        <Trash2 size={14} /> Delete
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-gray-200 py-8 text-center dark:border-gray-700">
+                      <Layers size={24} className="mx-auto mb-2 text-gray-300 dark:text-gray-600" />
+                      <p className="text-sm text-gray-400 dark:text-gray-500">No kitchen departments yet</p>
+                    </div>
+                  )}
+
+                  {departmentEditorMode ? (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-gray-700 dark:bg-gray-900/20">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-[240px_minmax(0,1fr)]">
+                        <div>
+                          <label className="mb-1 block text-[9px] font-black uppercase tracking-widest text-gray-400">Department Name</label>
+                          <input
+                            autoFocus
+                            type="text"
+                            value={departmentDraftName}
+                            onChange={e => setDepartmentDraftName(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Escape') resetDepartmentEditor(); }}
+                            placeholder="e.g. Grill, Pastry, Drinks..."
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none transition-colors focus:border-orange-400 focus:ring-1 focus:ring-orange-400 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                          />
+                        </div>
+                        <div>
+                          <p className="mb-1 block text-[9px] font-black uppercase tracking-widest text-gray-400">Food Category</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {allFoodCategories.length === 0 ? (
+                              <span className="text-xs italic text-gray-400">No categories yet.</span>
+                            ) : allFoodCategories.map(categoryName => {
+                              const selected = departmentDraftCategories.includes(categoryName);
+                              return (
+                                <button
+                                  type="button"
+                                  key={`department-draft-${categoryName}`}
+                                  onClick={() => toggleDepartmentDraftCategory(categoryName)}
+                                  className={`rounded-full px-2.5 py-1 text-xs font-medium transition-all ${
+                                    selected
+                                      ? 'bg-orange-500 text-white shadow-sm'
+                                      : 'bg-white text-gray-500 ring-1 ring-gray-200 hover:bg-orange-100 hover:text-orange-600 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-orange-900/30'
+                                  }`}
+                                >
+                                  {selected && <CheckCircle2 size={11} className="mr-0.5 inline" />}{categoryName}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                        <button
+                          type="button"
+                          onClick={resetDepartmentEditor}
+                          className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-bold text-gray-500 transition-colors hover:bg-white hover:text-gray-700 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveDepartment}
+                          className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-orange-600"
+                        >
+                          Save Changes
+                        </button>
                       </div>
                     </div>
-                  ))}
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={openCreateDepartmentEditor}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-orange-600"
+                    >
+                      <Plus size={16} /> Add Department
+                    </button>
+                  )}
                 </div>
-              )}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newDivisionName}
-                  onChange={e => setNewDivisionName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleAddDivision(); }}
-                  placeholder="e.g. Grill, Pastry, Drinks..."
-                  className="flex-1 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
-                />
-                <button
-                  onClick={handleAddDivision}
-                  className="px-4 py-2.5 bg-orange-500 text-white rounded-lg font-medium text-sm hover:bg-orange-600 transition-all"
-                >
-                  <Plus size={16} />
-                </button>
-              </div>
             </div>
             </div>
 
-            {/* Kitchen Staff */}
-            <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6">
+        {/* Kitchen Staff */}
+        <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6">
               <div>
                 <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Kitchen Staff</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Assign staff to the kitchen role.</p>
@@ -5996,8 +6031,6 @@ const PosOnlyView: React.FC<Props> = ({
               </button>
               </div>
             </div>
-          </>
-        )}
       </div>
     );
   };

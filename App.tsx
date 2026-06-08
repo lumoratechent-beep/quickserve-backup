@@ -89,6 +89,27 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
     .filter(Boolean) as KitchenDepartment[];
 };
 
+const isOrderRoutedToKitchen = (restaurant: Restaurant | undefined, items: CartItem[]): boolean => {
+  if (!restaurant?.kitchenEnabled) return false;
+
+  const departments = normalizeKitchenDepartments(restaurant.kitchenDivisions);
+  if (departments.length === 0) return true;
+
+  const routedCategories = new Set<string>();
+  departments.forEach(department => {
+    department.categories.forEach(category => routedCategories.add(category));
+  });
+
+  // Backward compatibility: older "general kitchen" departments had no explicit categories.
+  if (routedCategories.size === 0) return true;
+
+  return items.some(item => routedCategories.has(String(item.category || '').trim()));
+};
+
+const getInitialKitchenOrderStatus = (restaurant: Restaurant | undefined, items: CartItem[]): OrderStatus => (
+  isOrderRoutedToKitchen(restaurant, items) ? OrderStatus.PENDING : OrderStatus.SERVED
+);
+
 function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T | null> {
   return new Promise<T | null>((resolve) => {
     const timerId = setTimeout(() => resolve(null), ms);
@@ -1502,7 +1523,7 @@ const App: React.FC = () => {
       const totalForThisRestaurant = itemsForThisRestaurant.reduce((acc, item) => acc + (item.price * item.quantity), 0);
       ordersToInsert.push({
         id: orderId, items: itemsForThisRestaurant, total: totalForThisRestaurant,
-        status: OrderStatus.PENDING, timestamp: Date.now(), customer_id: 'guest_user',
+        status: getInitialKitchenOrderStatus(res, itemsForThisRestaurant), timestamp: Date.now(), customer_id: 'guest_user',
         restaurant_id: rid, table_number: sessionTable || 'N/A', location_name: sessionLocation || QS_DEFAULT_HUB,
         remark: remark,
         dining_type: 'Dine-in',
@@ -2540,7 +2561,7 @@ const App: React.FC = () => {
       id: orderId,
       items: orderData.items,
       total: orderData.total,
-      status: OrderStatus.PENDING,
+      status: getInitialKitchenOrderStatus(res, orderData.items),
       timestamp: Date.now(),
       customer_id: 'tableside_user',
       restaurant_id: currentUser.restaurantId,
@@ -2560,7 +2581,7 @@ const App: React.FC = () => {
       id: orderId,
       items: orderData.items,
       total: Number(orderData.total || 0),
-      status: OrderStatus.PENDING,
+      status: getInitialKitchenOrderStatus(res, orderData.items),
       timestamp: Date.now(),
       customerId: 'tableside_user',
       restaurantId: currentUser.restaurantId!,
