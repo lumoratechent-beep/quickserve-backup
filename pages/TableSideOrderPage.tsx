@@ -126,31 +126,26 @@ const getItemKey = (item: CartItem) => [
   JSON.stringify(item.selectedModifiers || {}),
 ].join('|');
 
-const getCartItemDetailParts = (item: CartItem) => {
-  const parts: string[] = [];
-  const modifierValues = Object.values(item.selectedModifiers || {}).filter(Boolean);
+const getCartItemDetailLines = (item: CartItem) => {
+  const lines: string[] = [];
 
-  if (item.selectedSize) parts.push(`Size: ${item.selectedSize}`);
-  if (item.selectedTemp) parts.push(`Temp: ${item.selectedTemp}`);
-  if (item.selectedVariantOption) parts.push(`Variant: ${item.selectedVariantOption}`);
-  if (item.selectedOtherVariant && item.selectedOtherVariant !== item.selectedVariantOption && !modifierValues.includes(item.selectedOtherVariant)) {
-    parts.push(`Option: ${item.selectedOtherVariant}`);
-  }
+  if (item.selectedSize) lines.push(`Size: ${item.selectedSize}`);
+  if (item.selectedTemp) lines.push(`Temp: ${item.selectedTemp}`);
+  if (item.selectedVariantOption) lines.push(`Variant: ${item.selectedVariantOption}`);
+  if (item.selectedOtherVariant) lines.push(`Other: ${item.selectedOtherVariant}`);
   Object.entries(item.selectedModifiers || {}).forEach(([modifierName, optionName]) => {
-    if (optionName) parts.push(`${modifierName}: ${optionName}`);
+    if (optionName) lines.push(`${modifierName}: ${optionName}`);
   });
   item.selectedMixMatch?.forEach(selection => {
-    if (selection.choice) parts.push(`${selection.label}: ${selection.choice}`);
+    if (selection.choice) lines.push(`${selection.label}: ${selection.choice}`);
   });
   if (item.selectedAddOns?.length) {
-    parts.push(`Add-ons: ${item.selectedAddOns.map(addOn => `${addOn.name} x${addOn.quantity}`).join(', ')}`);
+    lines.push(`Add-on: ${item.selectedAddOns.map(addOn => `${addOn.name} x${addOn.quantity}`).join(', ')}`);
   }
-  if (item.remark?.trim()) parts.push(`Note: ${item.remark.trim()}`);
+  if (item.remark?.trim()) lines.push(`Note: ${item.remark.trim()}`);
 
-  return parts;
+  return lines;
 };
-
-const formatCartItemDetails = (item: CartItem) => getCartItemDetailParts(item).join(' | ');
 
 const TableSideOrderPage: React.FC<Props> = ({
   restaurant,
@@ -247,7 +242,8 @@ const TableSideOrderPage: React.FC<Props> = ({
   ), [orders, editingOrderId]);
 
   const latestTableOrder = tableOrders[0] || null;
-  const hasExistingTableOrderView = !editingOrderId && cart.length === 0 && tableOrders.length > 0;
+  const showServedOrders = !editingOrderId && tableOrders.length > 0;
+  const showDraftOrder = cart.length > 0;
   const existingTableOrderSubtotal = useMemo(() => (
     tableOrders.reduce((sum, order) => sum + Number(order.total || 0), 0)
   ), [tableOrders]);
@@ -259,10 +255,18 @@ const TableSideOrderPage: React.FC<Props> = ({
         name: item.name,
         quantity: item.quantity,
         status: order.status,
-        details: formatCartItemDetails(item as CartItem),
+        detailLines: getCartItemDetailLines(item as CartItem),
       }))
     )
   ), [tableOrders]);
+
+  const draftOrderItems = useMemo(() => (
+    cart.map((item, index) => ({
+      key: `${item.id}-${index}`,
+      item,
+      detailLines: getCartItemDetailLines(item),
+    }))
+  ), [cart]);
 
   useEffect(() => {
     setActiveTableOrdersSnapshot(null);
@@ -975,65 +979,97 @@ const TableSideOrderPage: React.FC<Props> = ({
             {editingOrder && <p className="mt-2 text-[9px] font-black text-orange-500 uppercase tracking-widest">Editing #{editingOrder.id.slice(-7)}</p>}
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-            {hasExistingTableOrderView ? (
-              existingTableOrderItems.map(item => (
-                <div key={item.key} className="flex items-start gap-3 border-b border-gray-100 pb-3 last:border-b-0 dark:border-gray-700/70">
-                  <div className="min-w-0 flex-1">
-                    <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                    {item.details && <p className="mt-1 text-[11px] leading-4 text-gray-500 dark:text-gray-300 line-clamp-2">{item.details}</p>}
-                  </div>
-                  <span className="shrink-0 text-[10px] font-black uppercase text-gray-500 dark:text-gray-300">x{item.quantity}</span>
-                  <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${getKitchenStatusClass(item.status)}`}>
-                    {getKitchenStatusText(item.status)}
-                  </span>
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+            {showServedOrders && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">Served</h4>
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-300">{existingTableOrderItems.length} lines</span>
                 </div>
-              ))
-            ) : cart.length === 0 ? (
+                <div className="space-y-2">
+                  {existingTableOrderItems.map(item => (
+                    <div key={item.key} className="rounded-2xl bg-gray-50 dark:bg-gray-700/30 px-3 py-2.5 flex items-start gap-3">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                        {item.detailLines.length > 0 && (
+                          <div className="mt-1 space-y-0.5">
+                            {item.detailLines.map((line, lineIdx) => (
+                              <p key={`${item.key}-${lineIdx}`} className="text-[11px] leading-4 text-gray-500 dark:text-gray-300">
+                                {line}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-start gap-2">
+                        <span className="text-[10px] font-black uppercase text-gray-500 dark:text-gray-300">x{item.quantity}</span>
+                        <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${getKitchenStatusClass(item.status)}`}>
+                          {getKitchenStatusText(item.status)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {showDraftOrder ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">New Order</h4>
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-300">{cartCount} qty</span>
+                </div>
+                <div className="space-y-2">
+                  {draftOrderItems.map(({ key, item, detailLines }, idx) => (
+                    <div key={key} className="rounded-2xl bg-gray-50 dark:bg-gray-700/30 px-3 py-2.5 flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                            <p className="text-[11px] text-orange-500 font-black">RM{item.price.toFixed(2)}</p>
+                          </div>
+                        </div>
+                        {detailLines.length > 0 && (
+                          <div className="mt-1 space-y-0.5">
+                              {detailLines.map((line, lineIdx) => (
+                                <p key={`${key}-${lineIdx}`} className="text-[11px] leading-4 text-gray-500 dark:text-gray-300">
+                                  {line}
+                                </p>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="ml-auto flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg shrink-0">
+                        <button onClick={() => handleRemoveFromCart(idx)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all" title="Decrease">
+                          <Minus size={12} />
+                        </button>
+                        <span className="text-[10px] font-black w-4 text-center dark:text-white">{item.quantity}</span>
+                        <button onClick={() => handleAddToCart(item)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all" title="Increase">
+                          <Plus size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : !showServedOrders ? (
               <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
                 <ShoppingCart size={48} className="mb-4" />
                 <p className="text-[10px] font-black uppercase tracking-widest">Cart is empty</p>
               </div>
-            ) : (
-              cart.map((item, idx) => (
-                <div key={`${item.id}-${idx}`} className="flex items-start gap-3 border-b border-gray-100 pb-3 last:border-b-0 dark:border-gray-700/70">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                        <p className="text-[11px] text-orange-500 font-black">RM{item.price.toFixed(2)}</p>
-                      </div>
-                    </div>
-                    {formatCartItemDetails(item) && (
-                      <p className="mt-1 text-[11px] leading-4 text-gray-500 dark:text-gray-300 line-clamp-2">
-                        {formatCartItemDetails(item)}
-                      </p>
-                    )}
-                  </div>
-                  <div className="ml-auto flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg shrink-0">
-                    <button onClick={() => handleRemoveFromCart(idx)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all" title="Decrease">
-                      <Minus size={12} />
-                    </button>
-                    <span className="text-[10px] font-black w-4 text-center dark:text-white">{item.quantity}</span>
-                    <button onClick={() => handleAddToCart(item)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all" title="Increase">
-                      <Plus size={12} />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
+            ) : null}
           </div>
 
           <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-3">
             <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Subtotal</span>
-              <span className="font-black dark:text-white">RM{(hasExistingTableOrderView ? existingTableOrderSubtotal : cartTotal).toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between text-base font-black dark:text-white tracking-tighter">
-              <span className="uppercase">Total</span>
-              <span className="text-orange-500">RM{(hasExistingTableOrderView ? existingTableOrderSubtotal : cartTotal).toFixed(2)}</span>
-            </div>
+              <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{showDraftOrder ? 'Subtotal' : 'Served Total'}</span>
+                <span className="font-black dark:text-white">RM{(showDraftOrder ? cartTotal : existingTableOrderSubtotal).toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between text-base font-black dark:text-white tracking-tighter">
+                <span className="uppercase">{showDraftOrder ? 'Total' : 'Served'}</span>
+                <span className="text-orange-500">RM{(showDraftOrder ? cartTotal : existingTableOrderSubtotal).toFixed(2)}</span>
+              </div>
             </div>
             <div>
               <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Remark</label>
@@ -1137,59 +1173,89 @@ const TableSideOrderPage: React.FC<Props> = ({
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-              {hasExistingTableOrderView ? (
-                existingTableOrderItems.map(item => (
-                  <div key={`mobile-${item.key}`} className="flex items-start gap-3 border-b border-gray-100 pb-3 last:border-b-0 dark:border-gray-700/70">
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                      {item.details && <p className="mt-1 text-[11px] leading-4 text-gray-500 dark:text-gray-300 line-clamp-2">{item.details}</p>}
-                    </div>
-                    <span className="shrink-0 text-[10px] font-black uppercase text-gray-500 dark:text-gray-300">x{item.quantity}</span>
-                    <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${getKitchenStatusClass(item.status)}`}>
-                      {getKitchenStatusText(item.status)}
-                    </span>
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+              {showServedOrders && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">Served</h4>
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-300">{existingTableOrderItems.length} lines</span>
                   </div>
-                ))
-              ) : cart.length === 0 ? (
+                  <div className="space-y-2">
+                    {existingTableOrderItems.map(item => (
+                      <div key={`mobile-${item.key}`} className="rounded-2xl bg-gray-50 dark:bg-gray-700/30 px-3 py-2.5 flex items-start gap-3">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                          {item.detailLines.length > 0 && (
+                            <div className="mt-1 space-y-0.5">
+                              {item.detailLines.map((line, lineIdx) => (
+                                <p key={`mobile-${item.key}-${lineIdx}`} className="text-[11px] leading-4 text-gray-500 dark:text-gray-300">
+                                  {line}
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <span className="shrink-0 text-[10px] font-black uppercase text-gray-500 dark:text-gray-300">x{item.quantity}</span>
+                        <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${getKitchenStatusClass(item.status)}`}>
+                          {getKitchenStatusText(item.status)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {showDraftOrder ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">New Order</h4>
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-300">{cartCount} qty</span>
+                  </div>
+                  <div className="space-y-2">
+                    {draftOrderItems.map(({ key, item, detailLines }, idx) => (
+                      <div key={`mobile-${key}`} className="rounded-2xl bg-gray-50 dark:bg-gray-700/30 px-3 py-2.5 flex items-start gap-3">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                          <p className="text-[11px] text-orange-500 font-black">RM{item.price.toFixed(2)}</p>
+                          {detailLines.length > 0 && (
+                            <div className="mt-1 space-y-0.5">
+                              {detailLines.map((line, lineIdx) => (
+                                <p key={`mobile-${key}-${lineIdx}`} className="text-[11px] leading-4 text-gray-500 dark:text-gray-300">
+                                  {line}
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="ml-auto flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg shrink-0">
+                          <button onClick={() => handleRemoveFromCart(idx)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all" title="Decrease">
+                            <Minus size={12} />
+                          </button>
+                          <span className="text-[10px] font-black w-4 text-center dark:text-white">{item.quantity}</span>
+                          <button onClick={() => handleAddToCart(item)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all" title="Increase">
+                            <Plus size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : !showServedOrders ? (
                 <div className="min-h-[180px] flex flex-col items-center justify-center text-center opacity-20">
                   <ShoppingCart size={44} className="mb-4" />
                   <p className="text-[10px] font-black uppercase tracking-widest">Cart is empty</p>
                 </div>
-              ) : (
-                cart.map((item, idx) => (
-                  <div key={`mobile-${item.id}-${idx}`} className="flex items-start gap-3 border-b border-gray-100 pb-3 last:border-b-0 dark:border-gray-700/70">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                      <p className="text-[11px] text-orange-500 font-black">RM{item.price.toFixed(2)}</p>
-                      {formatCartItemDetails(item) && (
-                        <p className="mt-1 text-[11px] leading-4 text-gray-500 dark:text-gray-300 line-clamp-2">
-                          {formatCartItemDetails(item)}
-                        </p>
-                      )}
-                    </div>
-                    <div className="ml-auto flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg shrink-0">
-                      <button onClick={() => handleRemoveFromCart(idx)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all" title="Decrease">
-                        <Minus size={12} />
-                      </button>
-                      <span className="text-[10px] font-black w-4 text-center dark:text-white">{item.quantity}</span>
-                      <button onClick={() => handleAddToCart(item)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all" title="Increase">
-                        <Plus size={12} />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
+              ) : null}
             </div>
 
             <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-3">
               <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                 <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Subtotal</span>
-                <span className="font-black dark:text-white">RM{(hasExistingTableOrderView ? existingTableOrderSubtotal : cartTotal).toFixed(2)}</span>
+                <span className="font-black dark:text-white">RM{(showDraftOrder ? cartTotal : existingTableOrderSubtotal).toFixed(2)}</span>
               </div>
               <div className="flex items-center justify-between text-base font-black dark:text-white tracking-tighter">
                 <span className="uppercase">Total</span>
-                <span className="text-orange-500">RM{(hasExistingTableOrderView ? existingTableOrderSubtotal : cartTotal).toFixed(2)}</span>
+                <span className="text-orange-500">RM{(showDraftOrder ? cartTotal : existingTableOrderSubtotal).toFixed(2)}</span>
               </div>
               <textarea
                 value={orderRemark}
