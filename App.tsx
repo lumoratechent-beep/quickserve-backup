@@ -100,8 +100,7 @@ const isOrderRoutedToKitchen = (restaurant: Restaurant | undefined, items: CartI
     department.categories.forEach(category => routedCategories.add(category));
   });
 
-  // Backward compatibility: older "general kitchen" departments had no explicit categories.
-  if (routedCategories.size === 0) return true;
+  if (routedCategories.size === 0) return false;
 
   return items.some(item => routedCategories.has(String(item.category || '').trim()));
 };

@@ -5102,24 +5102,23 @@ const PosOnlyView: React.FC<Props> = ({
     });
   };
 
-  const kitchenScopeCategories = useMemo(() => {
-    const assigned = Array.isArray(userKitchenCategories)
+  const kitchenAssignedScopes = useMemo(() => (
+    Array.isArray(userKitchenCategories)
       ? userKitchenCategories.map(v => String(v || '').trim()).filter(Boolean)
-      : [];
+      : []
+  ), [userKitchenCategories]);
 
-    if (assigned.length === 0) return [];
+  const kitchenHasAssignedScope = userRole === 'KITCHEN' && kitchenAssignedScopes.length > 0;
 
+  const kitchenScopeCategories = useMemo(() => {
+    if (kitchenAssignedScopes.length === 0) return [];
     const departmentMap = new Map(kitchenDivisions.map(dep => [dep.name, dep.categories]));
     const scoped = new Set<string>();
 
-    assigned.forEach(value => {
+    kitchenAssignedScopes.forEach(value => {
       const mappedCategories = departmentMap.get(value);
       if (mappedCategories) {
-        if (mappedCategories.length === 0) {
-          allFoodCategories.forEach(category => scoped.add(category));
-        } else {
-          mappedCategories.forEach(category => scoped.add(category));
-        }
+        mappedCategories.forEach(category => scoped.add(category));
       } else {
         // Backward compatibility: older users may be assigned categories directly.
         scoped.add(value);
@@ -5127,7 +5126,7 @@ const PosOnlyView: React.FC<Props> = ({
     });
 
     return Array.from(scoped).sort((a, b) => a.localeCompare(b));
-  }, [userKitchenCategories, kitchenDivisions, allFoodCategories]);
+  }, [kitchenAssignedScopes, kitchenDivisions]);
 
   const kitchenFilteredOrders = useMemo(() => {
     return orders.filter(o => {
@@ -5138,10 +5137,11 @@ const PosOnlyView: React.FC<Props> = ({
       })();
       if (!matchesStatus) return false;
 
-      if (userRole !== 'KITCHEN' || kitchenScopeCategories.length === 0) return true;
+      if (userRole !== 'KITCHEN' || !kitchenHasAssignedScope) return true;
+      if (kitchenScopeCategories.length === 0) return false;
       return o.items.some(item => kitchenScopeCategories.includes(item.category));
     });
-  }, [orders, kitchenOrderFilter, userRole, kitchenScopeCategories]);
+  }, [orders, kitchenOrderFilter, userRole, kitchenHasAssignedScope, kitchenScopeCategories]);
 
   const getSortedOrderItems = (order: Order, scopedCategories: string[] = []) => {
     const hasScope = scopedCategories.length > 0;
@@ -5218,6 +5218,10 @@ const PosOnlyView: React.FC<Props> = ({
       toast('Please enter a department name.', 'warning');
       return;
     }
+    if (departmentDraftCategories.length === 0) {
+      toast('Please select at least one food category for this department.', 'warning');
+      return;
+    }
     if (
       kitchenDivisions.some(
         dep => dep.name.toLowerCase() === name.toLowerCase() && dep.name.toLowerCase() !== (editingDepartmentName || '').toLowerCase(),
@@ -5252,7 +5256,11 @@ const PosOnlyView: React.FC<Props> = ({
 
       if (kitchenOrderSettings.autoAccept) {
         const newOrders = orders.filter(o =>
-          o.status === OrderStatus.PENDING
+          o.status === OrderStatus.PENDING &&
+          (userRole !== 'KITCHEN' || !kitchenHasAssignedScope || (
+            kitchenScopeCategories.length > 0 &&
+            o.items.some(item => kitchenScopeCategories.includes(item.category))
+          ))
         );
         newOrders.forEach(order => {
           handleKitchenAcceptAndPrint(order.id);
@@ -5260,7 +5268,7 @@ const PosOnlyView: React.FC<Props> = ({
       }
     }
     kitchenPrevPendingCount.current = kitchenPendingOrders.length;
-  }, [kitchenPendingOrders.length, showKitchenFeature]);
+  }, [kitchenPendingOrders.length, showKitchenFeature, kitchenOrderSettings.autoAccept, userRole, kitchenHasAssignedScope, kitchenScopeCategories]);
 
   useEffect(() => {
     if (!showKitchenFeature) return;
@@ -5840,8 +5848,43 @@ const PosOnlyView: React.FC<Props> = ({
     const kitchenStaff = staffList.filter((s: any) => s.role === 'KITCHEN');
     return (
       <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
-        {/* Departments / Divisions */}
+        {/* Automation */}
         <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6 first:pt-0">
+          <div>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Automation</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Control how incoming kitchen orders are handled.</p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-gray-700 dark:bg-gray-900/30">
+              <div className="mb-3">
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">Auto Accept</p>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-gray-400">Automatically move routed orders from pending to preparing.</p>
+              </div>
+              <button
+                onClick={() => toggleKitchenOrderSetting('autoAccept')}
+                className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoAccept ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${kitchenOrderSettings.autoAccept ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-gray-700 dark:bg-gray-900/30">
+              <div className="mb-3">
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">Auto Print Order</p>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-gray-400">Automatically print the kitchen order when it is accepted.</p>
+              </div>
+              <button
+                onClick={() => toggleKitchenOrderSetting('autoPrint')}
+                className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoPrint ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${kitchenOrderSettings.autoPrint ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Departments / Divisions */}
+        <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6">
               <div>
                 <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Departments</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Route specific categories to specific kitchen screens.</p>
@@ -5874,7 +5917,7 @@ const PosOnlyView: React.FC<Props> = ({
                                       {categoryName}
                                     </span>
                                   )) : (
-                                    <span className="text-xs font-medium text-gray-400 dark:text-gray-500">All categories</span>
+                                    <span className="text-xs font-medium text-rose-400 dark:text-rose-300">No categories assigned</span>
                                   )}
                                 </div>
                               </td>
@@ -11379,7 +11422,7 @@ const PosOnlyView: React.FC<Props> = ({
                               groupItemsByCategory(
                                 getSortedOrderItems(
                                   order,
-                                  userRole === 'KITCHEN' ? kitchenScopeCategories : [],
+                                  userRole === 'KITCHEN' && kitchenHasAssignedScope ? kitchenScopeCategories : [],
                                 ),
                               ),
                             ).map(([categoryName, groupedItems]) => (
@@ -11408,7 +11451,7 @@ const PosOnlyView: React.FC<Props> = ({
                               </div>
                             ))}
                           </div>
-                          {userRole === 'KITCHEN' && kitchenScopeCategories.length > 0 && (
+                          {userRole === 'KITCHEN' && kitchenHasAssignedScope && (
                             <p className="mt-2 text-[9px] text-gray-400 uppercase tracking-wider">Showing only your assigned categories.</p>
                           )}
                           {order.remark && (

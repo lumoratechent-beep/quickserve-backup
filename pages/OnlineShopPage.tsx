@@ -57,7 +57,7 @@ const getInitialOnlineOrderStatus = (restaurant: Restaurant, items: Array<{ cate
 
   const routedCategories = new Set<string>();
   departments.forEach(department => department.categories.forEach(category => routedCategories.add(category)));
-  if (routedCategories.size === 0) return OrderStatus.PENDING;
+  if (routedCategories.size === 0) return OrderStatus.SERVED;
 
   return items.some(item => routedCategories.has(String(item.category || '').trim()))
     ? OrderStatus.PENDING
