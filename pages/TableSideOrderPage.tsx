@@ -126,6 +126,32 @@ const getItemKey = (item: CartItem) => [
   JSON.stringify(item.selectedModifiers || {}),
 ].join('|');
 
+const getCartItemDetailParts = (item: CartItem) => {
+  const parts: string[] = [];
+  const modifierValues = Object.values(item.selectedModifiers || {}).filter(Boolean);
+
+  if (item.selectedSize) parts.push(`Size: ${item.selectedSize}`);
+  if (item.selectedTemp) parts.push(`Temp: ${item.selectedTemp}`);
+  if (item.selectedVariantOption) parts.push(`Variant: ${item.selectedVariantOption}`);
+  if (item.selectedOtherVariant && item.selectedOtherVariant !== item.selectedVariantOption && !modifierValues.includes(item.selectedOtherVariant)) {
+    parts.push(`Option: ${item.selectedOtherVariant}`);
+  }
+  Object.entries(item.selectedModifiers || {}).forEach(([modifierName, optionName]) => {
+    if (optionName) parts.push(`${modifierName}: ${optionName}`);
+  });
+  item.selectedMixMatch?.forEach(selection => {
+    if (selection.choice) parts.push(`${selection.label}: ${selection.choice}`);
+  });
+  if (item.selectedAddOns?.length) {
+    parts.push(`Add-ons: ${item.selectedAddOns.map(addOn => `${addOn.name} x${addOn.quantity}`).join(', ')}`);
+  }
+  if (item.remark?.trim()) parts.push(`Note: ${item.remark.trim()}`);
+
+  return parts;
+};
+
+const formatCartItemDetails = (item: CartItem) => getCartItemDetailParts(item).join(' | ');
+
 const TableSideOrderPage: React.FC<Props> = ({
   restaurant,
   orders,
@@ -233,6 +259,7 @@ const TableSideOrderPage: React.FC<Props> = ({
         name: item.name,
         quantity: item.quantity,
         status: order.status,
+        details: formatCartItemDetails(item as CartItem),
       }))
     )
   ), [tableOrders]);
@@ -307,10 +334,6 @@ const TableSideOrderPage: React.FC<Props> = ({
       else copy.splice(idx, 1);
       return copy;
     });
-  }, []);
-
-  const handleDeleteFromCart = useCallback((idx: number) => {
-    setCart(prev => prev.filter((_, itemIdx) => itemIdx !== idx));
   }, []);
 
   const saveTableFeatureSettings = useCallback(async (nextFeatures: Record<string, any>) => {
@@ -935,7 +958,7 @@ const TableSideOrderPage: React.FC<Props> = ({
         </section>
 
         <aside className="hidden md:flex md:w-80 lg:w-96 bg-white dark:bg-gray-800 border-l dark:border-gray-700 flex-col shrink-0">
-          <div className="p-4 border-b dark:border-gray-700">
+          <div className="px-4 py-3 border-b dark:border-gray-700">
             <div className="flex min-h-8 items-center justify-between">
               <div className="min-w-0">
                 <h3 className="font-black dark:text-white uppercase tracking-tighter text-sm leading-none">Current Order</h3>
@@ -952,12 +975,13 @@ const TableSideOrderPage: React.FC<Props> = ({
             {editingOrder && <p className="mt-2 text-[9px] font-black text-orange-500 uppercase tracking-widest">Editing #{editingOrder.id.slice(-7)}</p>}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
             {hasExistingTableOrderView ? (
               existingTableOrderItems.map(item => (
-                <div key={item.key} className="flex items-center gap-3 border-b border-gray-100 pb-3 last:border-b-0 dark:border-gray-700/70">
+                <div key={item.key} className="flex items-start gap-3 border-b border-gray-100 pb-3 last:border-b-0 dark:border-gray-700/70">
                   <div className="min-w-0 flex-1">
                     <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                    {item.details && <p className="mt-1 text-[11px] leading-4 text-gray-500 dark:text-gray-300 line-clamp-2">{item.details}</p>}
                   </div>
                   <span className="shrink-0 text-[10px] font-black uppercase text-gray-500 dark:text-gray-300">x{item.quantity}</span>
                   <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${getKitchenStatusClass(item.status)}`}>
@@ -972,23 +996,21 @@ const TableSideOrderPage: React.FC<Props> = ({
               </div>
             ) : (
               cart.map((item, idx) => (
-                <div key={`${item.id}-${idx}`} className="flex items-center gap-4">
+                <div key={`${item.id}-${idx}`} className="flex items-start gap-3 border-b border-gray-100 pb-3 last:border-b-0 dark:border-gray-700/70">
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                    <p className="text-xs text-orange-500 font-black">RM{item.price.toFixed(2)}</p>
-                    <div className="mt-1 space-y-0.5">
-                      {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">Size: {item.selectedSize}</p>}
-                      {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">Temperature: {item.selectedTemp}</p>}
-                      {item.selectedVariantOption && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">Variant: {item.selectedVariantOption}</p>}
-                      {item.selectedOtherVariant && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">{item.selectedOtherVariant}</p>}
-                      {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                        <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">
-                          Add-ons: {item.selectedAddOns.map(addon => `${addon.name} x${addon.quantity}`).join(', ')}
-                        </p>
-                      )}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                        <p className="text-[11px] text-orange-500 font-black">RM{item.price.toFixed(2)}</p>
+                      </div>
                     </div>
+                    {formatCartItemDetails(item) && (
+                      <p className="mt-1 text-[11px] leading-4 text-gray-500 dark:text-gray-300 line-clamp-2">
+                        {formatCartItemDetails(item)}
+                      </p>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+                  <div className="ml-auto flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg shrink-0">
                     <button onClick={() => handleRemoveFromCart(idx)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all" title="Decrease">
                       <Minus size={12} />
                     </button>
@@ -997,40 +1019,37 @@ const TableSideOrderPage: React.FC<Props> = ({
                       <Plus size={12} />
                     </button>
                   </div>
-                  <button onClick={() => handleDeleteFromCart(idx)} className="text-gray-300 hover:text-red-500" title="Delete item">
-                    <X size={14} />
-                  </button>
                 </div>
               ))
             )}
           </div>
 
-          <div className="p-6 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-4">
-            <div className="space-y-2">
+          <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-3">
+            <div className="space-y-1.5">
             <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
               <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Subtotal</span>
               <span className="font-black dark:text-white">RM{(hasExistingTableOrderView ? existingTableOrderSubtotal : cartTotal).toFixed(2)}</span>
             </div>
-            <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
+            <div className="flex items-center justify-between text-base font-black dark:text-white tracking-tighter">
               <span className="uppercase">Total</span>
               <span className="text-orange-500">RM{(hasExistingTableOrderView ? existingTableOrderSubtotal : cartTotal).toFixed(2)}</span>
             </div>
             </div>
             <div>
-              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Remark</label>
+              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 ml-1">Remark</label>
               <textarea
                 value={orderRemark}
                 onChange={e => setOrderRemark(e.target.value)}
                 placeholder="Any special requests?"
-                className="w-full p-3 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-xl text-xs font-medium dark:text-white resize-none"
+                className="w-full px-3 py-2.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-xl text-xs font-medium dark:text-white resize-none"
                 rows={2}
               />
             </div>
-            <div className="flex justify-between pb-2">
+            <div className="flex justify-between gap-2">
               <button
                 onClick={() => latestTableOrder && handleEditOrder(latestTableOrder)}
                 disabled={!latestTableOrder || isPlacing}
-                className={`w-[47.5%] py-4 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] transition-all disabled:opacity-50 ${
+                className={`flex-1 h-11 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] transition-all disabled:opacity-50 ${
                   latestTableOrder
                     ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-xl shadow-blue-500/20'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
@@ -1041,7 +1060,7 @@ const TableSideOrderPage: React.FC<Props> = ({
               <button
                 onClick={handlePlaceOrder}
                 disabled={isPlacing || cart.length === 0}
-                className="w-[47.5%] py-4 border-2 border-orange-700/70 dark:border-orange-300/60 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
+                className="flex-1 h-11 border-2 border-orange-700/70 dark:border-orange-300/60 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
               >
                 {isPlacing ? 'Sending...' : editingOrderId ? 'Save Changes' : 'Send to Kitchen'}
               </button>
@@ -1101,7 +1120,7 @@ const TableSideOrderPage: React.FC<Props> = ({
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full" />
             </div>
-            <div className="px-5 py-3 border-b dark:border-gray-700 flex items-center justify-between">
+            <div className="px-4 py-2.5 border-b dark:border-gray-700 flex items-center justify-between">
               <h3 className="font-black dark:text-white uppercase tracking-tighter text-base">Current Order</h3>
               <div className="flex items-center gap-3">
                 <button
@@ -1118,12 +1137,13 @@ const TableSideOrderPage: React.FC<Props> = ({
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
               {hasExistingTableOrderView ? (
                 existingTableOrderItems.map(item => (
-                  <div key={`mobile-${item.key}`} className="flex items-center gap-3 border-b border-gray-100 pb-3 last:border-b-0 dark:border-gray-700/70">
+                  <div key={`mobile-${item.key}`} className="flex items-start gap-3 border-b border-gray-100 pb-3 last:border-b-0 dark:border-gray-700/70">
                     <div className="min-w-0 flex-1">
                       <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                      {item.details && <p className="mt-1 text-[11px] leading-4 text-gray-500 dark:text-gray-300 line-clamp-2">{item.details}</p>}
                     </div>
                     <span className="shrink-0 text-[10px] font-black uppercase text-gray-500 dark:text-gray-300">x{item.quantity}</span>
                     <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${getKitchenStatusClass(item.status)}`}>
@@ -1138,18 +1158,17 @@ const TableSideOrderPage: React.FC<Props> = ({
                 </div>
               ) : (
                 cart.map((item, idx) => (
-                  <div key={`mobile-${item.id}-${idx}`} className="flex items-center gap-3">
+                  <div key={`mobile-${item.id}-${idx}`} className="flex items-start gap-3 border-b border-gray-100 pb-3 last:border-b-0 dark:border-gray-700/70">
                     <div className="flex-1 min-w-0">
                       <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
-                      <p className="text-xs text-orange-500 font-black">RM{item.price.toFixed(2)}</p>
-                      <div className="mt-1 space-y-0.5">
-                        {item.selectedSize && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">Size: {item.selectedSize}</p>}
-                        {item.selectedTemp && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">Temperature: {item.selectedTemp}</p>}
-                        {item.selectedVariantOption && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">Variant: {item.selectedVariantOption}</p>}
-                        {item.selectedOtherVariant && <p className="text-xs text-gray-600 dark:text-gray-300 font-bold">{item.selectedOtherVariant}</p>}
-                      </div>
+                      <p className="text-[11px] text-orange-500 font-black">RM{item.price.toFixed(2)}</p>
+                      {formatCartItemDetails(item) && (
+                        <p className="mt-1 text-[11px] leading-4 text-gray-500 dark:text-gray-300 line-clamp-2">
+                          {formatCartItemDetails(item)}
+                        </p>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+                    <div className="ml-auto flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg shrink-0">
                       <button onClick={() => handleRemoveFromCart(idx)} className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded shadow-sm transition-all" title="Decrease">
                         <Minus size={12} />
                       </button>
@@ -1158,20 +1177,17 @@ const TableSideOrderPage: React.FC<Props> = ({
                         <Plus size={12} />
                       </button>
                     </div>
-                    <button onClick={() => handleDeleteFromCart(idx)} className="text-gray-300 hover:text-red-500" title="Delete item">
-                      <X size={14} />
-                    </button>
                   </div>
                 ))
               )}
             </div>
 
-            <div className="px-5 py-4 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-4">
+            <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-3">
               <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
                 <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Subtotal</span>
                 <span className="font-black dark:text-white">RM{(hasExistingTableOrderView ? existingTableOrderSubtotal : cartTotal).toFixed(2)}</span>
               </div>
-              <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
+              <div className="flex items-center justify-between text-base font-black dark:text-white tracking-tighter">
                 <span className="uppercase">Total</span>
                 <span className="text-orange-500">RM{(hasExistingTableOrderView ? existingTableOrderSubtotal : cartTotal).toFixed(2)}</span>
               </div>
@@ -1179,14 +1195,14 @@ const TableSideOrderPage: React.FC<Props> = ({
                 value={orderRemark}
                 onChange={e => setOrderRemark(e.target.value)}
                 placeholder="Any special requests?"
-                className="w-full p-3 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-xl text-xs font-medium dark:text-white resize-none"
+                className="w-full px-3 py-2.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-xl text-xs font-medium dark:text-white resize-none"
                 rows={2}
               />
-              <div className="flex justify-between pb-2">
+              <div className="flex justify-between gap-2">
                 <button
                   onClick={() => latestTableOrder && handleEditOrder(latestTableOrder)}
                   disabled={!latestTableOrder || isPlacing}
-                  className={`w-[47.5%] py-4 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] transition-all disabled:opacity-50 ${
+                  className={`flex-1 h-11 rounded-lg font-black text-[10px] uppercase tracking-[0.15em] transition-all disabled:opacity-50 ${
                     latestTableOrder
                       ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-xl shadow-blue-500/20'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
@@ -1197,7 +1213,7 @@ const TableSideOrderPage: React.FC<Props> = ({
                 <button
                   onClick={handlePlaceOrder}
                   disabled={isPlacing || cart.length === 0}
-                  className="w-[47.5%] py-4 border-2 border-orange-700/70 dark:border-orange-300/60 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
+                  className="flex-1 h-11 border-2 border-orange-700/70 dark:border-orange-300/60 bg-orange-500 text-white rounded-lg font-black text-[10px] uppercase tracking-[0.2em] hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none"
                 >
                   {isPlacing ? 'Sending...' : editingOrderId ? 'Save Changes' : 'Send to Kitchen'}
                 </button>
