@@ -51,6 +51,38 @@ const getKitchenStatusClass = (status: OrderStatus) => {
   return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
 };
 
+const parseOrderTimestamp = (value: unknown) => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const asNumber = Number(value);
+    if (Number.isFinite(asNumber) && asNumber > 0) return asNumber;
+    const asDate = new Date(value).getTime();
+    if (Number.isFinite(asDate) && asDate > 0) return asDate;
+  }
+  return Date.now();
+};
+
+const mapSupabaseOrder = (row: any): Order => ({
+  id: row.id,
+  items: Array.isArray(row.items) ? row.items : (typeof row.items === 'string' ? JSON.parse(row.items) : []),
+  total: Number(row.total || 0),
+  status: row.status as OrderStatus,
+  timestamp: parseOrderTimestamp(row.timestamp),
+  customerId: row.customer_id,
+  restaurantId: row.restaurant_id,
+  tableNumber: row.table_number,
+  diningType: row.dining_type || undefined,
+  locationName: row.location_name,
+  remark: row.remark,
+  rejectionReason: row.rejection_reason,
+  rejectionNote: row.rejection_note,
+  paymentMethod: row.payment_method,
+  cashierName: row.cashier_name,
+  amountReceived: row.amount_received != null ? Number(row.amount_received) : undefined,
+  changeAmount: row.change_amount != null ? Number(row.change_amount) : undefined,
+  orderSource: row.order_source || undefined,
+});
+
 const getInitialFeatureSettings = (restaurant: Restaurant) => {
   const dbFeatures = (restaurant.settings?.features || {}) as Record<string, any>;
   try {
@@ -115,6 +147,7 @@ const TableSideOrderPage: React.FC<Props> = ({
   const [isPlacing, setIsPlacing] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [showMobileOrderSummary, setShowMobileOrderSummary] = useState(false);
+  const [activeTableOrdersSnapshot, setActiveTableOrdersSnapshot] = useState<Order[] | null>(null);
 
   const tableCount = Math.max(1, Number(featureSettings.tableCount) || DEFAULT_TABLE_COUNT);
   const floorEnabled = !!featureSettings.floorEnabled;
@@ -157,7 +190,7 @@ const TableSideOrderPage: React.FC<Props> = ({
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  const tableOrders = useMemo(() => {
+  const baseTableOrders = useMemo(() => {
     if (!selectedTable) return [];
     return orders
       .filter(order =>
@@ -168,11 +201,17 @@ const TableSideOrderPage: React.FC<Props> = ({
       .sort((a, b) => b.timestamp - a.timestamp);
   }, [orders, selectedTable, restaurant.id]);
 
+  const tableOrders = activeTableOrdersSnapshot ?? baseTableOrders;
+
   const editingOrder = useMemo(() => (
     editingOrderId ? orders.find(order => order.id === editingOrderId) || null : null
   ), [orders, editingOrderId]);
 
   const latestTableOrder = tableOrders[0] || null;
+  const hasExistingTableOrderView = !editingOrderId && cart.length === 0 && tableOrders.length > 0;
+  const existingTableOrderSubtotal = useMemo(() => (
+    tableOrders.reduce((sum, order) => sum + Number(order.total || 0), 0)
+  ), [tableOrders]);
 
   const existingTableOrderItems = useMemo(() => (
     tableOrders.flatMap(order =>
@@ -184,6 +223,47 @@ const TableSideOrderPage: React.FC<Props> = ({
       }))
     )
   ), [tableOrders]);
+
+  useEffect(() => {
+    setActiveTableOrdersSnapshot(null);
+    if (!selectedTable) return;
+
+    const hasActiveOrder = orders.some(order =>
+      order.restaurantId === restaurant.id &&
+      order.tableNumber === selectedTable &&
+      ACTIVE_TABLE_STATUSES.includes(order.status)
+    );
+
+    if (!hasActiveOrder) return;
+
+    let cancelled = false;
+
+    const refreshTableOrders = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('restaurant_id', restaurant.id)
+          .eq('table_number', selectedTable)
+          .in('status', ACTIVE_TABLE_STATUSES)
+          .order('timestamp', { ascending: false });
+
+        if (cancelled) return;
+        if (error) throw new Error(error.message);
+
+        const refreshedOrders = (data || []).map(mapSupabaseOrder).sort((a, b) => b.timestamp - a.timestamp);
+        setActiveTableOrdersSnapshot(refreshedOrders);
+      } catch (err) {
+        console.warn('Failed to refresh table orders:', err);
+      }
+    };
+
+    refreshTableOrders();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTable, restaurant.id]);
 
   const groupedMenu = useMemo(() => {
     return filteredMenu.reduce<Record<string, MenuItem[]>>((groups, item) => {
@@ -370,6 +450,7 @@ const TableSideOrderPage: React.FC<Props> = ({
           .eq('id', order.id);
         if (error) throw new Error(error.message);
       }
+      setActiveTableOrdersSnapshot(prev => prev ? prev.filter(existing => existing.id !== order.id) : prev);
       if (editingOrderId === order.id) resetOrderDraft();
       toast('Order cancelled.', 'success');
     } catch (err: any) {
@@ -389,7 +470,17 @@ const TableSideOrderPage: React.FC<Props> = ({
           .eq('id', editingOrderId);
         if (error) throw new Error(error.message || 'Failed to update order');
         onUpdateOrderItems?.(editingOrderId, cart, cartTotal, orderRemark, updateNote);
+        setActiveTableOrdersSnapshot(prev => {
+          if (!prev) return prev;
+          return prev.map(order => (
+            order.id === editingOrderId
+              ? { ...order, items: cart, total: cartTotal, remark: orderRemark, rejectionNote: updateNote }
+              : order
+          ));
+        });
         toast('Order updated successfully!', 'success');
+        resetOrderDraft();
+        setShowMobileOrderSummary(false);
       } else {
         await onPlaceOrder({
           items: cart,
@@ -399,13 +490,12 @@ const TableSideOrderPage: React.FC<Props> = ({
           orderSource: 'tableside',
         });
         toast('Order placed successfully!', 'success');
+        resetOrderDraft();
+        setSearchQuery('');
+        setActiveCategory(null);
+        setShowMobileOrderSummary(false);
+        setSelectedTable(null);
       }
-
-      resetOrderDraft();
-      setSearchQuery('');
-      setActiveCategory(null);
-      setShowMobileOrderSummary(false);
-      setSelectedTable(null);
     } catch (err: any) {
       toast(err?.message || 'Failed to save order', 'error');
     } finally {
@@ -848,25 +938,19 @@ const TableSideOrderPage: React.FC<Props> = ({
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {latestTableOrder && !editingOrderId && cart.length === 0 && (
-              <div className="rounded-xl border border-orange-200 dark:border-orange-800/60 bg-orange-50 dark:bg-orange-900/20 px-4 py-3">
-                <p className="text-[10px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-300">Existing order found for this table</p>
-                <div className="mt-3 space-y-2">
-                  {existingTableOrderItems.map(item => (
-                    <div key={item.key} className="flex items-center gap-2 rounded-lg bg-white/70 dark:bg-gray-950/20 px-2.5 py-2">
-                      <p className="min-w-0 flex-1 text-[11px] font-black uppercase tracking-tight text-gray-900 dark:text-white">
-                        <span className="line-clamp-1">{item.name}</span>
-                      </p>
-                      <span className="shrink-0 text-[10px] font-black uppercase text-gray-500 dark:text-gray-300">x{item.quantity}</span>
-                      <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${getKitchenStatusClass(item.status)}`}>
-                        {getKitchenStatusText(item.status)}
-                      </span>
-                    </div>
-                  ))}
+            {hasExistingTableOrderView ? (
+              existingTableOrderItems.map(item => (
+                <div key={item.key} className="flex items-center gap-3 border-b border-gray-100 pb-3 last:border-b-0 dark:border-gray-700/70">
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                  </div>
+                  <span className="shrink-0 text-[10px] font-black uppercase text-gray-500 dark:text-gray-300">x{item.quantity}</span>
+                  <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${getKitchenStatusClass(item.status)}`}>
+                    {getKitchenStatusText(item.status)}
+                  </span>
                 </div>
-              </div>
-            )}
-            {cart.length === 0 ? (
+              ))
+            ) : cart.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
                 <ShoppingCart size={48} className="mb-4" />
                 <p className="text-[10px] font-black uppercase tracking-widest">Cart is empty</p>
@@ -910,11 +994,11 @@ const TableSideOrderPage: React.FC<Props> = ({
             <div className="space-y-2">
             <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
               <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Subtotal</span>
-              <span className="font-black dark:text-white">RM{cartTotal.toFixed(2)}</span>
+              <span className="font-black dark:text-white">RM{(hasExistingTableOrderView ? existingTableOrderSubtotal : cartTotal).toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
               <span className="uppercase">Total</span>
-              <span className="text-orange-500">RM{cartTotal.toFixed(2)}</span>
+              <span className="text-orange-500">RM{(hasExistingTableOrderView ? existingTableOrderSubtotal : cartTotal).toFixed(2)}</span>
             </div>
             </div>
             <div>
@@ -968,7 +1052,13 @@ const TableSideOrderPage: React.FC<Props> = ({
               title="Check order"
             >
               <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">{editingOrderId ? 'Editing Order' : latestTableOrder && cart.length === 0 ? 'Active Order' : 'Confirm Order'}</p>
-              <p className="text-sm font-black tracking-tight truncate">{cart.length > 0 ? `RM${cartTotal.toFixed(2)}` : 'Check menu'}</p>
+              <p className="text-sm font-black tracking-tight truncate">
+                {cart.length > 0
+                  ? `RM${cartTotal.toFixed(2)}`
+                  : latestTableOrder
+                    ? `RM${existingTableOrderSubtotal.toFixed(2)}`
+                    : 'Check menu'}
+              </p>
             </button>
             <button
               onClick={() => setShowMobileOrderSummary(true)}
@@ -1014,25 +1104,19 @@ const TableSideOrderPage: React.FC<Props> = ({
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-              {latestTableOrder && !editingOrderId && cart.length === 0 && (
-                <div className="rounded-xl border border-orange-200 dark:border-orange-800/60 bg-orange-50 dark:bg-orange-900/20 px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-300">Existing order found for this table</p>
-                  <div className="mt-3 space-y-2">
-                    {existingTableOrderItems.map(item => (
-                      <div key={`mobile-${item.key}`} className="flex items-center gap-2 rounded-lg bg-white/70 dark:bg-gray-950/20 px-2.5 py-2">
-                        <p className="min-w-0 flex-1 text-[11px] font-black uppercase tracking-tight text-gray-900 dark:text-white">
-                          <span className="line-clamp-1">{item.name}</span>
-                        </p>
-                        <span className="shrink-0 text-[10px] font-black uppercase text-gray-500 dark:text-gray-300">x{item.quantity}</span>
-                        <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${getKitchenStatusClass(item.status)}`}>
-                          {getKitchenStatusText(item.status)}
-                        </span>
-                      </div>
-                    ))}
+              {hasExistingTableOrderView ? (
+                existingTableOrderItems.map(item => (
+                  <div key={`mobile-${item.key}`} className="flex items-center gap-3 border-b border-gray-100 pb-3 last:border-b-0 dark:border-gray-700/70">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-black text-sm dark:text-white uppercase tracking-tighter line-clamp-1">{item.name}</h4>
+                    </div>
+                    <span className="shrink-0 text-[10px] font-black uppercase text-gray-500 dark:text-gray-300">x{item.quantity}</span>
+                    <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${getKitchenStatusClass(item.status)}`}>
+                      {getKitchenStatusText(item.status)}
+                    </span>
                   </div>
-                </div>
-              )}
-              {cart.length === 0 ? (
+                ))
+              ) : cart.length === 0 ? (
                 <div className="min-h-[180px] flex flex-col items-center justify-center text-center opacity-20">
                   <ShoppingCart size={44} className="mb-4" />
                   <p className="text-[10px] font-black uppercase tracking-widest">Cart is empty</p>
@@ -1068,9 +1152,13 @@ const TableSideOrderPage: React.FC<Props> = ({
             </div>
 
             <div className="px-5 py-4 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-700 space-y-4">
+              <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Subtotal</span>
+                <span className="font-black dark:text-white">RM{(hasExistingTableOrderView ? existingTableOrderSubtotal : cartTotal).toFixed(2)}</span>
+              </div>
               <div className="flex items-center justify-between text-lg font-black dark:text-white tracking-tighter">
                 <span className="uppercase">Total</span>
-                <span className="text-orange-500">RM{cartTotal.toFixed(2)}</span>
+                <span className="text-orange-500">RM{(hasExistingTableOrderView ? existingTableOrderSubtotal : cartTotal).toFixed(2)}</span>
               </div>
               <textarea
                 value={orderRemark}
