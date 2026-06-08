@@ -35,6 +35,22 @@ const DEFAULT_TABLE_COUNT = 40;
 const DEFAULT_TABLE_COLUMNS = 8;
 const DEFAULT_FLOOR_COUNT = 1;
 
+const getKitchenStatusText = (status: OrderStatus) => {
+  if (status === OrderStatus.PENDING) return 'PENDING';
+  if (status === OrderStatus.ONGOING) return 'PREPARING';
+  if (status === OrderStatus.SERVED) return 'SERVED';
+  if (status === OrderStatus.COMPLETED) return 'PAID';
+  return 'CANCELLED';
+};
+
+const getKitchenStatusClass = (status: OrderStatus) => {
+  if (status === OrderStatus.PENDING) return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300';
+  if (status === OrderStatus.ONGOING) return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
+  if (status === OrderStatus.SERVED) return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
+  if (status === OrderStatus.COMPLETED) return 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200';
+  return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
+};
+
 const getInitialFeatureSettings = (restaurant: Restaurant) => {
   const dbFeatures = (restaurant.settings?.features || {}) as Record<string, any>;
   try {
@@ -157,6 +173,17 @@ const TableSideOrderPage: React.FC<Props> = ({
   ), [orders, editingOrderId]);
 
   const latestTableOrder = tableOrders[0] || null;
+
+  const existingTableOrderItems = useMemo(() => (
+    tableOrders.flatMap(order =>
+      order.items.map((item, index) => ({
+        key: `${order.id}-${item.id}-${index}`,
+        name: item.name,
+        quantity: item.quantity,
+        status: order.status,
+      }))
+    )
+  ), [tableOrders]);
 
   const groupedMenu = useMemo(() => {
     return filteredMenu.reduce<Record<string, MenuItem[]>>((groups, item) => {
@@ -824,7 +851,19 @@ const TableSideOrderPage: React.FC<Props> = ({
             {latestTableOrder && !editingOrderId && cart.length === 0 && (
               <div className="rounded-xl border border-orange-200 dark:border-orange-800/60 bg-orange-50 dark:bg-orange-900/20 px-4 py-3">
                 <p className="text-[10px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-300">Existing order found for this table</p>
-                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">Open it with Edit Order to change quantities or remove items.</p>
+                <div className="mt-3 space-y-2">
+                  {existingTableOrderItems.map(item => (
+                    <div key={item.key} className="flex items-center gap-2 rounded-lg bg-white/70 dark:bg-gray-950/20 px-2.5 py-2">
+                      <p className="min-w-0 flex-1 text-[11px] font-black uppercase tracking-tight text-gray-900 dark:text-white">
+                        <span className="line-clamp-1">{item.name}</span>
+                      </p>
+                      <span className="shrink-0 text-[10px] font-black uppercase text-gray-500 dark:text-gray-300">x{item.quantity}</span>
+                      <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${getKitchenStatusClass(item.status)}`}>
+                        {getKitchenStatusText(item.status)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             {cart.length === 0 ? (
@@ -978,7 +1017,19 @@ const TableSideOrderPage: React.FC<Props> = ({
               {latestTableOrder && !editingOrderId && cart.length === 0 && (
                 <div className="rounded-xl border border-orange-200 dark:border-orange-800/60 bg-orange-50 dark:bg-orange-900/20 px-4 py-3">
                   <p className="text-[10px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-300">Existing order found for this table</p>
-                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">Tap Edit Order before changing quantities or removing items.</p>
+                  <div className="mt-3 space-y-2">
+                    {existingTableOrderItems.map(item => (
+                      <div key={`mobile-${item.key}`} className="flex items-center gap-2 rounded-lg bg-white/70 dark:bg-gray-950/20 px-2.5 py-2">
+                        <p className="min-w-0 flex-1 text-[11px] font-black uppercase tracking-tight text-gray-900 dark:text-white">
+                          <span className="line-clamp-1">{item.name}</span>
+                        </p>
+                        <span className="shrink-0 text-[10px] font-black uppercase text-gray-500 dark:text-gray-300">x{item.quantity}</span>
+                        <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${getKitchenStatusClass(item.status)}`}>
+                          {getKitchenStatusText(item.status)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
               {cart.length === 0 ? (
