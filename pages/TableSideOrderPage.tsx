@@ -83,6 +83,20 @@ const mapSupabaseOrder = (row: any): Order => ({
   orderSource: row.order_source || undefined,
 });
 
+const getCurrentTableSessionOrders = (orders: Order[]) => {
+  const latestClosedSessionAt = Math.max(
+    0,
+    ...orders
+      .filter(order => order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED)
+      .map(order => order.timestamp)
+  );
+
+  return [...orders]
+    .filter(order => ACTIVE_TABLE_STATUSES.includes(order.status) && order.timestamp > latestClosedSessionAt)
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, 1);
+};
+
 const getInitialFeatureSettings = (restaurant: Restaurant) => {
   const dbFeatures = (restaurant.settings?.features || {}) as Record<string, any>;
   try {
@@ -192,13 +206,12 @@ const TableSideOrderPage: React.FC<Props> = ({
 
   const baseTableOrders = useMemo(() => {
     if (!selectedTable) return [];
-    return orders
-      .filter(order =>
+    return getCurrentTableSessionOrders(
+      orders.filter(order =>
         order.restaurantId === restaurant.id &&
-        order.tableNumber === selectedTable &&
-        ACTIVE_TABLE_STATUSES.includes(order.status)
+        order.tableNumber === selectedTable
       )
-      .sort((a, b) => b.timestamp - a.timestamp);
+    );
   }, [orders, selectedTable, restaurant.id]);
 
   const tableOrders = activeTableOrdersSnapshot ?? baseTableOrders;
@@ -245,13 +258,13 @@ const TableSideOrderPage: React.FC<Props> = ({
           .select('*')
           .eq('restaurant_id', restaurant.id)
           .eq('table_number', selectedTable)
-          .in('status', ACTIVE_TABLE_STATUSES)
-          .order('timestamp', { ascending: false });
+          .order('timestamp', { ascending: false })
+          .limit(25);
 
         if (cancelled) return;
         if (error) throw new Error(error.message);
 
-        const refreshedOrders = (data || []).map(mapSupabaseOrder).sort((a, b) => b.timestamp - a.timestamp);
+        const refreshedOrders = getCurrentTableSessionOrders((data || []).map(mapSupabaseOrder));
         setActiveTableOrdersSnapshot(refreshedOrders);
       } catch (err) {
         console.warn('Failed to refresh table orders:', err);
@@ -463,20 +476,23 @@ const TableSideOrderPage: React.FC<Props> = ({
     setIsPlacing(true);
     try {
       if (editingOrderId) {
-        const updateNote = 'New update on the menu';
+        const currentEditingOrder = tableOrders.find(order => order.id === editingOrderId) || editingOrder;
+        const updateNote = currentEditingOrder?.status === OrderStatus.SERVED ? undefined : 'New update on the menu';
+        const updatePayload: Record<string, any> = { items: cart, total: cartTotal, remark: orderRemark };
+        if (updateNote) updatePayload.rejection_note = updateNote;
         const { error } = await supabase
           .from('orders')
-          .update({ items: cart, total: cartTotal, remark: orderRemark, rejection_note: updateNote })
+          .update(updatePayload)
           .eq('id', editingOrderId);
         if (error) throw new Error(error.message || 'Failed to update order');
         onUpdateOrderItems?.(editingOrderId, cart, cartTotal, orderRemark, updateNote);
         setActiveTableOrdersSnapshot(prev => {
           if (!prev) return prev;
-          return prev.map(order => (
-            order.id === editingOrderId
-              ? { ...order, items: cart, total: cartTotal, remark: orderRemark, rejectionNote: updateNote }
-              : order
-          ));
+          return prev.map(order => {
+            if (order.id !== editingOrderId) return order;
+            const nextOrder = { ...order, items: cart, total: cartTotal, remark: orderRemark };
+            return updateNote ? { ...nextOrder, rejectionNote: updateNote } : nextOrder;
+          });
         });
         toast('Order updated successfully!', 'success');
         resetOrderDraft();
@@ -696,11 +712,10 @@ const TableSideOrderPage: React.FC<Props> = ({
               'grid-cols-3 sm:grid-cols-6 lg:grid-cols-12'
             }`}>
               {tableLabels.map(label => {
-                const activeOrdersForTable = orders.filter(order =>
+                const activeOrdersForTable = getCurrentTableSessionOrders(orders.filter(order =>
                   order.restaurantId === restaurant.id &&
-                  order.tableNumber === label &&
-                  ACTIVE_TABLE_STATUSES.includes(order.status)
-                ).sort((a, b) => b.timestamp - a.timestamp);
+                  order.tableNumber === label
+                ));
                 const hasActive = activeOrdersForTable.length > 0;
                 const latestActiveOrder = activeOrdersForTable[0] || null;
 

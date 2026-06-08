@@ -5258,8 +5258,7 @@ const PosOnlyView: React.FC<Props> = ({
 
     const activeKitchenOrders = orders.filter(order =>
       order.status === OrderStatus.PENDING ||
-      order.status === OrderStatus.ONGOING ||
-      order.status === OrderStatus.SERVED
+      order.status === OrderStatus.ONGOING
     );
     const previous = kitchenOrderSignatureRef.current;
     const next: Record<string, string> = {};
@@ -11334,7 +11333,7 @@ const PosOnlyView: React.FC<Props> = ({
                               <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
                           </div>
-                          {(order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING || order.status === OrderStatus.SERVED) && (updatedKitchenOrderIds.has(order.id) || order.rejectionNote === 'New update on the menu') && (
+                          {(order.status === OrderStatus.PENDING || order.status === OrderStatus.ONGOING) && (updatedKitchenOrderIds.has(order.id) || order.rejectionNote === 'New update on the menu') && (
                             <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-800/60 dark:bg-blue-900/20">
                               <div className="flex items-center gap-2">
                                 <AlertCircle size={13} className="text-blue-500 shrink-0" />
