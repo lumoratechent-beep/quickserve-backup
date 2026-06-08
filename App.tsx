@@ -89,6 +89,8 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
     .filter(Boolean) as KitchenDepartment[];
 };
 
+const getKitchenCategoryKey = (value: any): string => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+
 const isKitchenEnabledForRouting = (restaurant: Restaurant | undefined): boolean => (
   restaurant?.kitchenEnabled === true || restaurant?.settings?.features?.kitchenEnabled === true
 );
@@ -102,16 +104,19 @@ const getKitchenRoutedCategories = (restaurant: Restaurant | undefined): Set<str
 
   const routedCategories = new Set<string>();
   departments.forEach(department => {
-    department.categories.forEach(category => routedCategories.add(category));
+    department.categories.forEach(category => {
+      const key = getKitchenCategoryKey(category);
+      if (key) routedCategories.add(key);
+    });
   });
 
-  return routedCategories;
+  return routedCategories.size > 0 ? routedCategories : null;
 };
 
 const getInitialKitchenItemStatus = (restaurant: Restaurant | undefined, item: CartItem): OrderStatus => {
   const routedCategories = getKitchenRoutedCategories(restaurant);
   if (routedCategories === null) return OrderStatus.PENDING;
-  return routedCategories.has(String(item.category || '').trim()) ? OrderStatus.PENDING : OrderStatus.SERVED;
+  return routedCategories.has(getKitchenCategoryKey(item.category)) ? OrderStatus.PENDING : OrderStatus.SERVED;
 };
 
 const withInitialKitchenItemStatuses = (restaurant: Restaurant | undefined, items: CartItem[]): CartItem[] => (

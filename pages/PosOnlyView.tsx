@@ -143,6 +143,10 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
     .filter(Boolean) as KitchenDepartment[];
 };
 
+const getKitchenCategoryKey = (value: any): string => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+const DISABLED_KITCHEN_ORDER_SETTINGS: Record<string, never> = {};
+
 // Receipt and printer configs are now managed by the PrinterSettings component
 // and the service types from printerService.ts
 
@@ -403,13 +407,7 @@ const PosOnlyView: React.FC<Props> = ({
   const [rejectingKitchenOrderId, setRejectingKitchenOrderId] = useState<string | null>(null);
   const [kitchenRejectionReason, setKitchenRejectionReason] = useState('Item out of stock');
   const [kitchenRejectionNote, setKitchenRejectionNote] = useState('');
-  const [showKitchenQuickSettings, setShowKitchenQuickSettings] = useState(false);
-  const [kitchenOrderSettings, setKitchenOrderSettings] = useState<{ autoAccept: boolean; autoPrint: boolean }>(() => {
-    const dbSaved = restaurant.settings?.kitchenSettings;
-    if (dbSaved && typeof dbSaved === 'object') return { ...{ autoAccept: false, autoPrint: false }, ...dbSaved };
-    const saved = localStorage.getItem(`kitchen_settings_${restaurant.id}`);
-    return saved ? JSON.parse(saved) : { autoAccept: false, autoPrint: false };
-  });
+  const kitchenOrderSettings = DISABLED_KITCHEN_ORDER_SETTINGS;
   const [qrOrderSettings, setQrOrderSettings] = useState<{ autoApprove: boolean; autoPrint: boolean }>(() => {
     const dbSaved = restaurant.settings?.qrOrderSettings;
     if (dbSaved && typeof dbSaved === 'object') return { ...{ autoApprove: false, autoPrint: false }, ...dbSaved };
@@ -3075,9 +3073,6 @@ const PosOnlyView: React.FC<Props> = ({
       if (Array.isArray(serverSettings.printers)) {
         setSavedPrinters(serverSettings.printers as SavedPrinter[]);
       }
-      if (serverSettings.kitchenSettings && typeof serverSettings.kitchenSettings === 'object') {
-        setKitchenOrderSettings(prev => ({ ...prev, ...serverSettings.kitchenSettings }));
-      }
       if (serverSettings.qrOrderSettings && typeof serverSettings.qrOrderSettings === 'object') {
         setQrOrderSettings(prev => ({ ...prev, ...serverSettings.qrOrderSettings }));
       }
@@ -4971,7 +4966,7 @@ const PosOnlyView: React.FC<Props> = ({
   const isKitchenItemInActionScope = (item: CartItem): boolean => {
     if (userRole !== 'KITCHEN' || !kitchenHasAssignedScope) return true;
     if (kitchenScopeCategories.length === 0) return false;
-    return kitchenScopeCategories.includes(item.category);
+    return kitchenScopeCategoryKeys.includes(getKitchenCategoryKey(item.category));
   };
 
   const updateKitchenOrderItemStatus = async (
@@ -5007,52 +5002,9 @@ const PosOnlyView: React.FC<Props> = ({
     const currentOrder = orders.find(order => order.id === orderId);
     if (!currentOrder) return;
 
-    const updatedItems = await updateKitchenOrderItemStatus(currentOrder, OrderStatus.ONGOING, {
+    await updateKitchenOrderItemStatus(currentOrder, OrderStatus.ONGOING, {
       fromStatuses: [OrderStatus.PENDING],
     });
-
-    if (kitchenOrderSettings.autoPrint) {
-      if (!connectedDevice) {
-        toast('Printer is not connected. Please connect a printer in Settings.', 'warning');
-        return;
-      }
-      try {
-        setKitchenPrintingOrderId(orderId);
-        const { data: freshOrder, error } = await supabase
-          .from('orders')
-          .select('*')
-          .eq('id', orderId)
-          .single();
-
-        if (error || !freshOrder) {
-          toast('Failed to fetch order details for printing.', 'error');
-          return;
-        }
-
-        const orderToPrint = {
-          id: freshOrder.id,
-          tableNumber: freshOrder.table_number,
-          timestamp: freshOrder.timestamp,
-          total: Number(freshOrder.total || 0),
-          items: updatedItems.filter(item => isKitchenItemInActionScope(item) && item.status === OrderStatus.ONGOING),
-          remark: freshOrder.remark || ''
-        };
-
-        const printRestaurant = {
-          ...restaurant,
-          name: orderListConfig.businessName.trim(),
-        };
-        const printSuccess = await printerService.printReceipt(orderToPrint, printRestaurant, getOrderListPrintOptions());
-        if (!printSuccess) {
-          toast('Failed to queue print job. Please try again.', 'error');
-        }
-      } catch (error) {
-        console.error('Error:', error);
-        toast('Error occurred while printing.', 'error');
-      } finally {
-        setKitchenPrintingOrderId(null);
-      }
-    }
   };
 
   const handleKitchenManualPrint = async (order: Order) => {
@@ -5118,13 +5070,6 @@ const PosOnlyView: React.FC<Props> = ({
     }
   };
 
-  const toggleKitchenOrderSetting = (key: 'autoAccept' | 'autoPrint') => {
-    setKitchenOrderSettings(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
-  };
-
   const toggleQrOrderSetting = (key: 'autoApprove' | 'autoPrint') => {
     setQrOrderSettings(prev => {
       const updated = { ...prev, [key]: !prev[key] };
@@ -5153,11 +5098,11 @@ const PosOnlyView: React.FC<Props> = ({
 
   const kitchenScopeCategories = useMemo(() => {
     if (kitchenAssignedScopes.length === 0) return [];
-    const departmentMap = new Map(kitchenDivisions.map(dep => [dep.name, dep.categories]));
+    const departmentMap = new Map(kitchenDivisions.map(dep => [getKitchenCategoryKey(dep.name), dep.categories]));
     const scoped = new Set<string>();
 
     kitchenAssignedScopes.forEach(value => {
-      const mappedCategories = departmentMap.get(value);
+      const mappedCategories = departmentMap.get(getKitchenCategoryKey(value));
       if (mappedCategories) {
         mappedCategories.forEach(category => scoped.add(category));
       } else {
@@ -5169,13 +5114,17 @@ const PosOnlyView: React.FC<Props> = ({
     return Array.from(scoped).sort((a, b) => a.localeCompare(b));
   }, [kitchenAssignedScopes, kitchenDivisions]);
 
+  const kitchenScopeCategoryKeys = useMemo(() => (
+    kitchenScopeCategories.map(getKitchenCategoryKey).filter(Boolean)
+  ), [kitchenScopeCategories]);
+
   const kitchenFilteredOrders = useMemo(() => {
     return orders.filter(o => {
       if (userRole !== 'KITCHEN' || !kitchenHasAssignedScope) return true;
-      if (kitchenScopeCategories.length === 0) return false;
-      return o.items.some(item => kitchenScopeCategories.includes(item.category));
+      if (kitchenScopeCategoryKeys.length === 0) return false;
+      return o.items.some(item => kitchenScopeCategoryKeys.includes(getKitchenCategoryKey(item.category)));
     });
-  }, [orders, userRole, kitchenHasAssignedScope, kitchenScopeCategories]);
+  }, [orders, userRole, kitchenHasAssignedScope, kitchenScopeCategoryKeys]);
 
   const getItemKitchenStatus = (item: CartItem, fallbackStatus: OrderStatus): OrderStatus => (
     item.status || fallbackStatus
@@ -5191,8 +5140,9 @@ const PosOnlyView: React.FC<Props> = ({
 
   const getSortedOrderItems = (order: Order, scopedCategories: string[] = []) => {
     const hasScope = scopedCategories.length > 0;
+    const scopedCategoryKeys = scopedCategories.map(getKitchenCategoryKey).filter(Boolean);
     return order.items
-      .filter(item => !hasScope || scopedCategories.includes(item.category))
+      .filter(item => !hasScope || scopedCategoryKeys.includes(getKitchenCategoryKey(item.category)))
       .sort((a, b) => {
         const byCategory = (a.category || '').localeCompare(b.category || '');
         if (byCategory !== 0) return byCategory;
@@ -5312,27 +5262,14 @@ const PosOnlyView: React.FC<Props> = ({
     onSaveKitchenDivisions?.(updated);
   };
 
-  // Kitchen new order alert + auto-accept
+  // Kitchen new order alert
   useEffect(() => {
     if (!showKitchenFeature) return;
     if (kitchenPendingOrders.length > kitchenPrevPendingCount.current) {
       triggerNewOrderAlert();
-
-      if (kitchenOrderSettings.autoAccept) {
-        const newOrders = orders.filter(o =>
-          o.status === OrderStatus.PENDING &&
-          (userRole !== 'KITCHEN' || !kitchenHasAssignedScope || (
-            kitchenScopeCategories.length > 0 &&
-            o.items.some(item => kitchenScopeCategories.includes(item.category))
-          ))
-        );
-        newOrders.forEach(order => {
-          handleKitchenAcceptAndPrint(order.id);
-        });
-      }
     }
     kitchenPrevPendingCount.current = kitchenPendingOrders.length;
-  }, [kitchenPendingOrders.length, showKitchenFeature, kitchenOrderSettings.autoAccept, userRole, kitchenHasAssignedScope, kitchenScopeCategories]);
+  }, [kitchenPendingOrders.length, showKitchenFeature]);
 
   useEffect(() => {
     if (!showKitchenFeature) return;
@@ -5387,11 +5324,6 @@ const PosOnlyView: React.FC<Props> = ({
     }
     tablesidePrevPendingCount.current = tablesidePendingOrders.length;
   }, [orders, showTablesideFeature, tablesideOrderSettings.autoApprove]);
-
-  // Persist kitchen order settings
-  useEffect(() => {
-    localStorage.setItem(`kitchen_settings_${restaurant.id}`, JSON.stringify(kitchenOrderSettings));
-  }, [kitchenOrderSettings, restaurant.id]);
 
   // ── Cross-device settings sync ──────────────────────────────────────────────
   // Only writes to DB when a setting *changes* after initial server hydration.
@@ -5912,43 +5844,8 @@ const PosOnlyView: React.FC<Props> = ({
     const kitchenStaff = staffList.filter((s: any) => s.role === 'KITCHEN');
     return (
       <div className="divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
-        {/* Automation */}
-        <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6 first:pt-0">
-          <div>
-            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Automation</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Control how incoming kitchen orders are handled.</p>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-gray-700 dark:bg-gray-900/30">
-              <div className="mb-3">
-                <p className="text-sm font-semibold text-slate-900 dark:text-white">Auto Accept</p>
-                <p className="mt-0.5 text-xs text-slate-500 dark:text-gray-400">Automatically move routed orders from pending to preparing.</p>
-              </div>
-              <button
-                onClick={() => toggleKitchenOrderSetting('autoAccept')}
-                className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoAccept ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-              >
-                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${kitchenOrderSettings.autoAccept ? 'left-6' : 'left-1'}`} />
-              </button>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-gray-700 dark:bg-gray-900/30">
-              <div className="mb-3">
-                <p className="text-sm font-semibold text-slate-900 dark:text-white">Auto Print Order</p>
-                <p className="mt-0.5 text-xs text-slate-500 dark:text-gray-400">Automatically print the kitchen order when it is accepted.</p>
-              </div>
-              <button
-                onClick={() => toggleKitchenOrderSetting('autoPrint')}
-                className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoPrint ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-              >
-                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${kitchenOrderSettings.autoPrint ? 'left-6' : 'left-1'}`} />
-              </button>
-            </div>
-          </div>
-        </div>
-
         {/* Departments / Divisions */}
-        <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6 first:pt-0">
               <div>
                 <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Departments</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Route specific categories to specific kitchen screens.</p>
@@ -8261,7 +8158,7 @@ const PosOnlyView: React.FC<Props> = ({
               switch (activeSettingsPanel) {
                 case 'builtin':
                   return isKitchenUser
-                    ? `${kitchenOrderSettings.autoAccept ? 'Auto-accept enabled' : 'Auto-accept disabled'} · ${kitchenOrderSettings.autoPrint ? 'Auto-print enabled' : 'Auto-print disabled'}`
+                    ? 'Kitchen workflow'
                     : `${enabledFeatureCount} feature toggle${enabledFeatureCount !== 1 ? 's' : ''} enabled`;
                 case 'printer':
                   return `${savedPrinters.length} printer profile${savedPrinters.length !== 1 ? 's' : ''} configured`;
@@ -8450,42 +8347,6 @@ const PosOnlyView: React.FC<Props> = ({
                       </div>
 
                         <div className="px-4 py-4 sm:px-6 sm:py-6">
-                          {isKitchenUser && activeSettingsPanel === 'builtin' && (
-                            <div className="space-y-4">
-                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-gray-700 dark:bg-gray-900/30">
-                                  <div className="mb-3">
-                                    <p className="text-sm font-semibold text-slate-900 dark:text-white">Auto-Accept</p>
-                                    <p className="mt-0.5 text-xs text-slate-500 dark:text-gray-400">Automatically accept incoming kitchen orders.</p>
-                                  </div>
-                                  <button
-                                    onClick={() => toggleKitchenOrderSetting('autoAccept')}
-                                    className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoAccept ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                                  >
-                                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${kitchenOrderSettings.autoAccept ? 'left-6' : 'left-1'}`} />
-                                  </button>
-                                </div>
-
-                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-gray-700 dark:bg-gray-900/30">
-                                  <div className="mb-3">
-                                    <p className="text-sm font-semibold text-slate-900 dark:text-white">Auto-Print</p>
-                                    <p className="mt-0.5 text-xs text-slate-500 dark:text-gray-400">Automatically print accepted kitchen orders.</p>
-                                  </div>
-                                  <button
-                                    onClick={() => toggleKitchenOrderSetting('autoPrint')}
-                                    className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoPrint ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                                  >
-                                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${kitchenOrderSettings.autoPrint ? 'left-6' : 'left-1'}`} />
-                                  </button>
-                                </div>
-                              </div>
-
-                              <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300">
-                                These automation toggles update instantly and apply to incoming kitchen workflow across this device profile.
-                              </div>
-                            </div>
-                          )}
-
                           {!isKitchenUser && activeSettingsPanel === 'builtin' && (
                             <div className="min-w-0">{renderFeaturesContent()}</div>
                           )}
@@ -9212,8 +9073,8 @@ const PosOnlyView: React.FC<Props> = ({
                       plan: 'Pro Plus',
                       planColor: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
                       shortDesc: 'Kitchen order management & display system.',
-                      description: 'Kitchen Display System (KDS) provides a dedicated screen for your kitchen staff to manage incoming orders. Staff can view, accept, and mark orders as prepared. Supports kitchen departments/divisions so orders are routed to the right station. Auto-accept and auto-print options keep your kitchen running smoothly.',
-                      features: ['Dedicated kitchen order screen', 'Accept / reject orders with reasons', 'Kitchen department routing', 'Auto-accept & auto-print options', 'Real-time order updates', 'Kitchen staff login with role filtering'],
+                      description: 'Kitchen Display System (KDS) provides a dedicated screen for your kitchen staff to manage incoming orders. Staff can view, accept, reject, and mark routed orders as prepared by department.',
+                      features: ['Dedicated kitchen order screen', 'Accept / reject orders with reasons', 'Kitchen department routing', 'Real-time order updates', 'Kitchen staff login with role filtering'],
                       version: '1.0.0',
                       author: 'QuickServe',
                       isInstalled: featureSettings.kitchenEnabled,
@@ -11429,12 +11290,6 @@ const PosOnlyView: React.FC<Props> = ({
                     )}
                   </div>
                   <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar">
-                    <button
-                      onClick={() => setShowKitchenQuickSettings(prev => !prev)}
-                      className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border shadow-sm ${showKitchenQuickSettings ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 dark:border-white' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
-                    >
-                      Settings
-                    </button>
                     <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border dark:border-gray-700 shadow-sm">
                       <button onClick={() => setKitchenOrderFilter('ONGOING_ALL')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === 'ONGOING_ALL' ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>ONGOING</button>
                       <button onClick={() => setKitchenOrderFilter(OrderStatus.SERVED)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${kitchenOrderFilter === OrderStatus.SERVED ? 'bg-orange-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50'}`}>SERVED</button>
@@ -11444,41 +11299,6 @@ const PosOnlyView: React.FC<Props> = ({
                     </div>
                   </div>
                 </div>
-
-                {showKitchenQuickSettings && (
-                  <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                    <div className="mb-4">
-                      <p className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white">Kitchen Settings</p>
-                      <p className="text-xs text-slate-500 dark:text-gray-400">Automation for incoming kitchen orders.</p>
-                    </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-gray-700 dark:bg-gray-900/30">
-                        <div className="mb-3">
-                          <p className="text-sm font-semibold text-slate-900 dark:text-white">Auto Accept</p>
-                          <p className="mt-0.5 text-xs text-slate-500 dark:text-gray-400">Move routed orders to preparing automatically.</p>
-                        </div>
-                        <button
-                          onClick={() => toggleKitchenOrderSetting('autoAccept')}
-                          className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoAccept ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                        >
-                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${kitchenOrderSettings.autoAccept ? 'left-6' : 'left-1'}`} />
-                        </button>
-                      </div>
-                      <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-gray-700 dark:bg-gray-900/30">
-                        <div className="mb-3">
-                          <p className="text-sm font-semibold text-slate-900 dark:text-white">Auto Print Order</p>
-                          <p className="mt-0.5 text-xs text-slate-500 dark:text-gray-400">Print the kitchen ticket when accepted.</p>
-                        </div>
-                        <button
-                          onClick={() => toggleKitchenOrderSetting('autoPrint')}
-                          className={`w-11 h-6 rounded-full transition-all relative ${kitchenOrderSettings.autoPrint ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                        >
-                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${kitchenOrderSettings.autoPrint ? 'left-6' : 'left-1'}`} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 <div className="space-y-4">
                   {kitchenVisibleOrders.length === 0 ? (
@@ -11593,7 +11413,7 @@ const PosOnlyView: React.FC<Props> = ({
                                     onClick={() => handleKitchenAcceptAndPrint(order.id)} 
                                     className="flex-1 py-3 px-4 bg-orange-500 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg"
                                   >
-                                    Accept {kitchenOrderSettings.autoPrint && '& Print'}
+                                    Accept
                                   </button>
                               
                                   {connectedDevice && (

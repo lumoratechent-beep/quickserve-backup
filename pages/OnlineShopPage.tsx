@@ -48,18 +48,23 @@ const normalizeKitchenDepartments = (raw: any): KitchenDepartment[] => {
     .filter(Boolean) as KitchenDepartment[];
 };
 
+const getKitchenCategoryKey = (value: any): string => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+
 const getInitialOnlineOrderStatus = (restaurant: Restaurant, items: Array<{ category?: string }>): OrderStatus => {
-  const kitchenEnabled = restaurant.kitchenEnabled === true || (restaurant as any).kitchen_enabled === true;
+  const kitchenEnabled = restaurant.kitchenEnabled === true || (restaurant as any).kitchen_enabled === true || restaurant.settings?.features?.kitchenEnabled === true;
   if (!kitchenEnabled) return OrderStatus.SERVED;
 
   const departments = normalizeKitchenDepartments(restaurant.kitchenDivisions || (restaurant as any).kitchen_divisions);
   if (departments.length === 0) return OrderStatus.PENDING;
 
   const routedCategories = new Set<string>();
-  departments.forEach(department => department.categories.forEach(category => routedCategories.add(category)));
-  if (routedCategories.size === 0) return OrderStatus.SERVED;
+  departments.forEach(department => department.categories.forEach(category => {
+    const key = getKitchenCategoryKey(category);
+    if (key) routedCategories.add(key);
+  }));
+  if (routedCategories.size === 0) return OrderStatus.PENDING;
 
-  return items.some(item => routedCategories.has(String(item.category || '').trim()))
+  return items.some(item => routedCategories.has(getKitchenCategoryKey(item.category)))
     ? OrderStatus.PENDING
     : OrderStatus.SERVED;
 };
