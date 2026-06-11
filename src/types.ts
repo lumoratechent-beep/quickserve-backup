@@ -282,6 +282,9 @@ export interface Subscription {
   current_period_end?: string;
   cancel_at_period_end?: boolean;
   duitnow_enabled?: boolean;
+  access_locked?: boolean;
+  access_lock_at?: string | null;
+  access_locked_at?: string | null;
   created_at: string;
   updated_at: string;
 }

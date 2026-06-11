@@ -17,6 +17,11 @@ const PLAN_KITCHEN_MAP: Record<string, { kitchenEnabled: boolean }> = {
   pro: { kitchenEnabled: false },
   pro_plus: { kitchenEnabled: true },
 };
+const ACCESS_UNLOCK_PATCH = {
+  access_locked: false,
+  access_lock_at: null,
+  access_locked_at: null,
+};
 
 // Vercel requires raw body for Stripe signature verification
 export const config = { api: { bodyParser: false } };
@@ -92,6 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               billing_interval: billingInterval,
               current_period_start: periodStart,
               current_period_end: periodEnd,
+              ...ACCESS_UNLOCK_PATCH,
               updated_at: new Date().toISOString(),
           };
           if (planId) subUpdate.plan_id = planId;
@@ -170,6 +176,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               stripe_customer_id: session.customer as string,
               current_period_start: periodStart.toISOString(),
               current_period_end: periodEnd.toISOString(),
+              ...ACCESS_UNLOCK_PATCH,
               updated_at: new Date().toISOString(),
               billing_interval: billingInterval,
               pending_plan_id: null,
@@ -273,6 +280,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             current_period_start: periodStart,
             current_period_end: periodEnd,
             cancel_at_period_end: subscription.cancel_at_period_end,
+            ...(subscription.status === 'active' || subscription.status === 'trialing' ? ACCESS_UNLOCK_PATCH : {}),
             updated_at: new Date().toISOString(),
           })
           .eq('restaurant_id', restaurantId);

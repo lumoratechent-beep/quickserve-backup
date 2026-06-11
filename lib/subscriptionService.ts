@@ -15,6 +15,8 @@ export type RenewalStatus =
   | 'grace'           // Expired but within grace period
   | 'blocked';        // Past grace period — access restricted
 
+export type SubscriptionAccessLockState = 'active' | 'scheduled' | 'locked';
+
 export async function getSubscription(restaurantId: string): Promise<Subscription | null> {
   const { data, error } = await supabase
     .from('subscriptions')
@@ -49,10 +51,26 @@ export function daysUntilExpiry(sub: Subscription): number {
   return Math.ceil((end.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
+export function getSubscriptionAccessLockState(sub: Subscription | null | undefined, now: Date = new Date()): SubscriptionAccessLockState {
+  if (!sub) return 'active';
+  if (sub.access_locked === true) return 'locked';
+  if (!sub.access_lock_at) return 'active';
+
+  const lockAt = new Date(sub.access_lock_at);
+  if (Number.isNaN(lockAt.getTime())) return 'active';
+  return lockAt <= now ? 'locked' : 'scheduled';
+}
+
+export function isSubscriptionAccessLocked(sub: Subscription | null | undefined, now: Date = new Date()): boolean {
+  return getSubscriptionAccessLockState(sub, now) === 'locked';
+}
+
 /**
  * Determines the renewal status for a subscription.
  */
 export function getRenewalStatus(sub: Subscription): RenewalStatus {
+  if (isSubscriptionAccessLocked(sub)) return 'blocked';
+
   // Canceled / unpaid subscriptions are always blocked
   if (sub.status === 'canceled' || sub.status === 'unpaid') return 'blocked';
   if (sub.status === 'pending_payment') return 'blocked';
@@ -78,6 +96,8 @@ export function getRenewalStatus(sub: Subscription): RenewalStatus {
  * Accounts for current_period_end on paid plans.
  */
 export function isSubscriptionActive(sub: Subscription): boolean {
+  if (isSubscriptionAccessLocked(sub)) return false;
+
   if (sub.status === 'canceled' || sub.status === 'unpaid' || sub.status === 'pending_payment') return false;
   if (sub.status === 'trialing') return isTrialActive(sub);
 

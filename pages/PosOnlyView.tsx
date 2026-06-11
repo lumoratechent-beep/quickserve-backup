@@ -5,6 +5,7 @@ import { Restaurant, Order, OrderStatus, MenuItem, CartItem, ReportResponse, Rep
 import { supabase } from '../lib/supabase';
 import { uploadImage } from '../lib/storage';
 import { saveAllSettingsToDb, saveSettingsToDb, compressPosSettings, expandPosSettings, fetchSettingsFromServer, updateFeatureOnServer } from '../lib/sharedSettings';
+import { isSubscriptionAccessLocked } from '../lib/subscriptionService';
 import * as counterOrdersCache from '../lib/counterOrdersCache';
 import printerService, { PrinterDevice, ReceiptPrintOptions, SavedPrinter, ReceiptConfig, OrderListConfig, KitchenTicketConfig, DEFAULT_RECEIPT_CONFIG, DEFAULT_ORDER_LIST_CONFIG, DEFAULT_KITCHEN_TICKET_CONFIG, createDefaultPrinter } from '../services/printerService';
 import type { PaperSize } from '../services/printerService';
@@ -103,7 +104,7 @@ interface Props {
   userKitchenCategories?: string[];
   onSaveKitchenDivisions?: (divisions: KitchenDepartment[]) => void;
   subscription?: Subscription | null;
-  onSubscriptionUpdated?: () => void;
+  onSubscriptionUpdated?: () => void | Promise<void>;
   onNavigateBackOffice?: () => void;
   announcements?: AnnouncementRecord[];
   announcementsLoading?: boolean;
@@ -389,6 +390,8 @@ const PosOnlyView: React.FC<Props> = ({
     if (returnTab === 'BILLING') localStorage.removeItem('qs_return_tab');
     return userRole === 'KITCHEN' ? 'KITCHEN' : 'COUNTER';
   });
+  const [planLockNow, setPlanLockNow] = useState(() => new Date());
+  const [planLockSubmitOverride, setPlanLockSubmitOverride] = useState(false);
   const [counterMode, setCounterMode] = useState<'SAVED_BILL' | 'COUNTER_ORDER' | 'QR_ORDER'>('COUNTER_ORDER');
   const [selectedQrOrderForPayment, setSelectedQrOrderForPayment] = useState<Order | null>(null);
   const [qrOrderFilter, setQrOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
@@ -401,6 +404,20 @@ const PosOnlyView: React.FC<Props> = ({
   const [editingQrOrderId, setEditingQrOrderId] = useState<string | null>(null);
   const [qrRejectionReason, setQrRejectionReason] = useState('Item out of stock');
   const [qrRejectionNote, setQrRejectionNote] = useState('');
+
+  useEffect(() => {
+    const lockAt = subscription?.access_lock_at ? new Date(subscription.access_lock_at) : null;
+    const hasFutureLock = lockAt && !Number.isNaN(lockAt.getTime()) && lockAt > new Date();
+    if (!hasFutureLock) return;
+
+    const interval = window.setInterval(() => setPlanLockNow(new Date()), 30000);
+    return () => window.clearInterval(interval);
+  }, [subscription?.access_lock_at]);
+
+  useEffect(() => {
+    setPlanLockSubmitOverride(false);
+    setPlanLockNow(new Date());
+  }, [subscription?.access_locked, subscription?.access_lock_at]);
 
   // Kitchen state
   const [kitchenOrderFilter, setKitchenOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');
@@ -4901,6 +4918,8 @@ const PosOnlyView: React.FC<Props> = ({
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const isKitchenUser = userRole === 'KITCHEN';
   const isVendorUser = userRole === 'VENDOR';
+  const isPlanAccessLocked = isSubscriptionAccessLocked(subscription, planLockNow) && !planLockSubmitOverride;
+  const showPlanLockOverlay = isPlanAccessLocked && activeTab !== 'BILLING';
 
   // Sidebar nav item count – used to auto-scale spacing so the menu never needs to scroll
   const sidebarNavItemCount = isKitchenUser
@@ -6893,8 +6912,29 @@ const PosOnlyView: React.FC<Props> = ({
       </aside>
 
       {/* Main Content Area - Same as PosView but without Settings tab */}
-      <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
+        {showPlanLockOverlay && (
+          <div className="absolute inset-0 z-[90] flex items-center justify-center bg-gray-950/80 backdrop-blur-sm p-4 no-print">
+            <div className="w-full max-w-md rounded-2xl border border-red-900/50 bg-gray-950/95 p-7 text-center shadow-2xl">
+              <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/15 text-red-300">
+                <Lock size={28} />
+              </div>
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-red-300">Plan Renewal Required</p>
+              <h2 className="mt-2 text-2xl font-black uppercase tracking-tight text-white">Please renew plan now</h2>
+              <p className="mt-3 text-sm font-semibold leading-relaxed text-gray-300">
+                POS access is locked until this vendor renews the current plan.
+              </p>
+              <button
+                onClick={() => setActiveTab('BILLING')}
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-orange-950/30 transition-all hover:bg-orange-600 active:scale-95"
+              >
+                <CreditCard size={16} />
+                Renew Plan Now
+              </button>
+            </div>
+          </div>
+        )}
+        <div className={`flex-1 flex flex-col overflow-hidden transition-all ${showPlanLockOverlay ? 'opacity-25 pointer-events-none' : ''}`} style={showPlanLockOverlay ? { filter: 'grayscale(0.55)' } : undefined}>
           {/* Mobile Header */}
           <div className="lg:hidden flex items-center p-3 landscape:py-1.5 landscape:px-2 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30 no-print">
             <button 
@@ -9725,6 +9765,10 @@ const PosOnlyView: React.FC<Props> = ({
               onUpgradeClick={() => setShowUpgradeModal(true)}
               onSubscriptionUpdated={onSubscriptionUpdated}
               onComparePlans={onComparePlans}
+              onDuitNowSubmitted={() => {
+                setPlanLockSubmitOverride(true);
+                setActiveTab('COUNTER');
+              }}
             />
           )}
 

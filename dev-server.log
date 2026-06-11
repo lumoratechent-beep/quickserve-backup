@@ -1,0 +1,5 @@
+
+> quickserve-platform@1.0.0 dev
+> tsx server.ts
+
+Server running on http://localhost:3000

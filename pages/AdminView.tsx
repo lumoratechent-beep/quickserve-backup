@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, Subscription, PlanId, MenuItem } from '../src/types';
 import { uploadImage } from '../lib/storage';
-import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight, Gift, Loader2 } from 'lucide-react';
+import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight, Gift, Loader2, Lock, Unlock } from 'lucide-react';
 import ImageCropModal from '../components/ImageCropModal';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
 import { PRICING_PLANS } from '../lib/pricingPlans';
+import { getSubscriptionAccessLockState } from '../lib/subscriptionService';
 import PitchDeck from '../components/PitchDeck';
 
 interface Props {
@@ -143,6 +144,11 @@ const calculateQuotationTotals = (quote: Pick<AdminQuotation, 'items' | 'discoun
 
 const ADMIN_QUOTATIONS_STORAGE_KEY = 'qs_admin_quotations';
 const ADMIN_SOLD_ITEMS_STORAGE_KEY = 'qs_admin_sold_items';
+
+const toDateTimeLocalValue = (date: Date) => {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+};
 
 const mergeAdminRecords = <T extends { id: string; updatedAt?: number }>(localRecords: T[], remoteRecords: T[]) => {
   const merged = new Map<string, T>();
@@ -1399,20 +1405,25 @@ const AdminView: React.FC<Props> = ({
   // Subscription data for all restaurants
   const [subscriptions, setSubscriptions] = useState<Record<string, Subscription>>({});
 
+  const refreshSubscriptions = async () => {
+    const { data, error } = await supabase.from('subscriptions').select('*');
+    if (!error && data) {
+      const map: Record<string, Subscription> = {};
+      data.forEach((s: any) => { map[s.restaurant_id] = s; });
+      setSubscriptions(map);
+    }
+  };
+
   useEffect(() => {
-    const fetchSubscriptions = async () => {
-      const { data, error } = await supabase.from('subscriptions').select('*');
-      if (!error && data) {
-        const map: Record<string, Subscription> = {};
-        data.forEach((s: any) => { map[s.restaurant_id] = s; });
-        setSubscriptions(map);
-      }
-    };
-    fetchSubscriptions();
+    refreshSubscriptions();
   }, [restaurants]);
 
   const [extendingRestId, setExtendingRestId] = useState<string | null>(null);
   const [extendModal, setExtendModal] = useState<{ restaurantId: string; restaurantName: string } | null>(null);
+  const [planLockModal, setPlanLockModal] = useState<{ restaurantId: string; restaurantName: string } | null>(null);
+  const [planLockMode, setPlanLockMode] = useState<'now' | 'scheduled'>('now');
+  const [planLockDateTime, setPlanLockDateTime] = useState(() => toDateTimeLocalValue(new Date(Date.now() + 60 * 60 * 1000)));
+  const [planLockActionId, setPlanLockActionId] = useState<string | null>(null);
 
   const handleAdminExtend = async (restaurantId: string, restaurantName: string) => {
     // Show modal to ask Free or Paid
@@ -1437,17 +1448,110 @@ const AdminView: React.FC<Props> = ({
       const data = await res.json();
       const typeLabel = extensionType === 'paid' ? 'Paid (Cash)' : 'Free';
       toast(`Extended (${typeLabel})! New end date: ${new Date(data.newPeriodEnd).toLocaleDateString()}`, 'success');
-      // Refresh subscriptions
-      const { data: subs } = await supabase.from('subscriptions').select('*');
-      if (subs) {
-        const map: Record<string, Subscription> = {};
-        subs.forEach((s: any) => { map[s.restaurant_id] = s; });
-        setSubscriptions(map);
-      }
+      await refreshSubscriptions();
     } catch (err: any) {
       toast(err.message || 'Failed to extend subscription', 'error');
     } finally {
       setExtendingRestId(null);
+    }
+  };
+
+  const handleOpenPlanLock = (restaurantId: string, restaurantName: string) => {
+    const sub = subscriptions[restaurantId];
+    const lockAt = sub?.access_lock_at ? new Date(sub.access_lock_at) : null;
+    const hasFutureLock = lockAt && !Number.isNaN(lockAt.getTime()) && lockAt > new Date();
+
+    setPlanLockModal({ restaurantId, restaurantName });
+    setPlanLockMode(hasFutureLock ? 'scheduled' : 'now');
+    setPlanLockDateTime(toDateTimeLocalValue(hasFutureLock ? lockAt : new Date(Date.now() + 60 * 60 * 1000)));
+  };
+
+  const writePlanLock = async (restaurantId: string, patch: Record<string, any>) => {
+    const existingSub = subscriptions[restaurantId];
+    const now = new Date();
+
+    if (existingSub) {
+      const { error } = await supabase
+        .from('subscriptions')
+        .update({ ...patch, updated_at: now.toISOString() })
+        .eq('restaurant_id', restaurantId);
+      if (error) throw error;
+      return;
+    }
+
+    const { error } = await supabase.from('subscriptions').insert({
+      restaurant_id: restaurantId,
+      plan_id: 'basic',
+      status: 'active',
+      trial_start: now.toISOString(),
+      trial_end: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      ...patch,
+      updated_at: now.toISOString(),
+    });
+    if (error) throw error;
+  };
+
+  const handleSavePlanLock = async () => {
+    if (!planLockModal) return;
+    const { restaurantId, restaurantName } = planLockModal;
+    const now = new Date();
+    let patch: Record<string, any>;
+
+    if (planLockMode === 'now') {
+      patch = {
+        access_locked: true,
+        access_lock_at: null,
+        access_locked_at: now.toISOString(),
+      };
+    } else {
+      const lockAt = new Date(planLockDateTime);
+      if (!planLockDateTime || Number.isNaN(lockAt.getTime())) {
+        toast('Select a valid lock date and time.', 'error');
+        return;
+      }
+      patch = {
+        access_locked: false,
+        access_lock_at: lockAt.toISOString(),
+        access_locked_at: null,
+      };
+    }
+
+    setPlanLockActionId(restaurantId);
+    try {
+      await writePlanLock(restaurantId, patch);
+      await refreshSubscriptions();
+      setPlanLockModal(null);
+      toast(
+        planLockMode === 'now'
+          ? `${restaurantName} is locked.`
+          : `${restaurantName} will lock at ${new Date(planLockDateTime).toLocaleString()}.`,
+        'success'
+      );
+    } catch (err: any) {
+      toast(err.message || 'Failed to update vendor lock.', 'error');
+    } finally {
+      setPlanLockActionId(null);
+    }
+  };
+
+  const handleUnlockPlan = async () => {
+    if (!planLockModal) return;
+    const { restaurantId, restaurantName } = planLockModal;
+    setPlanLockActionId(restaurantId);
+    try {
+      await writePlanLock(restaurantId, {
+        status: 'active',
+        access_locked: false,
+        access_lock_at: null,
+        access_locked_at: null,
+      });
+      await refreshSubscriptions();
+      setPlanLockModal(null);
+      toast(`${restaurantName} is unlocked and active.`, 'success');
+    } catch (err: any) {
+      toast(err.message || 'Failed to unlock vendor.', 'error');
+    } finally {
+      setPlanLockActionId(null);
     }
   };
 
@@ -1464,13 +1568,7 @@ const AdminView: React.FC<Props> = ({
         .update({ duitnow_enabled: !currentValue })
         .eq('restaurant_id', restaurantId);
       if (error) throw error;
-      // Refresh subscriptions
-      const { data: subs } = await supabase.from('subscriptions').select('*');
-      if (subs) {
-        const map: Record<string, Subscription> = {};
-        subs.forEach((s: any) => { map[s.restaurant_id] = s; });
-        setSubscriptions(map);
-      }
+      await refreshSubscriptions();
       toast(`DuitNow ${!currentValue ? 'enabled' : 'disabled'} successfully`, 'success');
     } catch (err: any) {
       toast(err.message || 'Failed to toggle DuitNow', 'error');
@@ -2836,7 +2934,7 @@ const AdminView: React.FC<Props> = ({
                           <th className="px-4 py-3 text-center">Plan</th>
                           <th className="px-4 py-3 text-center">Plan Expiry</th>
                           <th className="px-4 py-3 text-center">DuitNow</th>
-                          <th className="px-4 py-3 text-center">Master Activation</th>
+                          <th className="px-4 py-3 text-center">Master / Plan Lock</th>
                           <th className="px-4 py-3 text-center">Live Status</th>
                           <th className="px-4 py-3 text-right">Actions</th>
                         </tr>
@@ -2911,9 +3009,40 @@ const AdminView: React.FC<Props> = ({
                                 })()}
                               </td>
                               <td className="px-4 py-2.5 text-center">
-                                <button onClick={() => toggleVendorStatus(vendor)} className={`p-1.5 rounded-lg transition-all ${vendor.isActive ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 bg-gray-50 dark:bg-gray-700'}`}>
-                                   {vendor.isActive ? <CheckCircle2 size={16} /> : <Power size={16} />}
-                                </button>
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button onClick={() => toggleVendorStatus(vendor)} className={`p-1.5 rounded-lg transition-all ${vendor.isActive ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-gray-400 bg-gray-50 dark:bg-gray-700'}`} title={vendor.isActive ? 'Master active' : 'Master inactive'}>
+                                     {vendor.isActive ? <CheckCircle2 size={16} /> : <Power size={16} />}
+                                  </button>
+                                  {res && (() => {
+                                    const sub = subscriptions[res.id];
+                                    const lockState = getSubscriptionAccessLockState(sub);
+                                    const lockAt = sub?.access_lock_at ? new Date(sub.access_lock_at) : null;
+                                    const isScheduled = lockState === 'scheduled';
+                                    const isLocked = lockState === 'locked';
+                                    return (
+                                      <button
+                                        onClick={() => handleOpenPlanLock(res.id, res.name)}
+                                        disabled={planLockActionId === res.id}
+                                        className={`p-1.5 rounded-lg transition-all disabled:opacity-50 ${
+                                          isLocked
+                                            ? 'text-red-600 bg-red-50 dark:bg-red-900/20'
+                                            : isScheduled
+                                              ? 'text-amber-600 bg-amber-50 dark:bg-amber-900/20'
+                                              : 'text-gray-400 bg-gray-50 dark:bg-gray-700 hover:text-red-500'
+                                        }`}
+                                        title={
+                                          isLocked
+                                            ? 'Vendor locked - click to manage'
+                                            : isScheduled && lockAt
+                                              ? `Lock scheduled ${lockAt.toLocaleString()}`
+                                              : 'Lock vendor plan access'
+                                        }
+                                      >
+                                        {isLocked ? <Unlock size={16} /> : <Lock size={16} />}
+                                      </button>
+                                    );
+                                  })()}
+                                </div>
                               </td>
                               <td className="px-4 py-2.5 text-center">
                                 <button 
@@ -5537,6 +5666,113 @@ const AdminView: React.FC<Props> = ({
            </div>
         </div>
       )}
+
+      {/* Vendor Plan Lock Modal */}
+      {planLockModal && (() => {
+        const sub = subscriptions[planLockModal.restaurantId] || null;
+        const lockState = getSubscriptionAccessLockState(sub);
+        const scheduledAt = sub?.access_lock_at ? new Date(sub.access_lock_at) : null;
+        const isBusy = planLockActionId === planLockModal.restaurantId;
+
+        return (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => { if (!isBusy) setPlanLockModal(null); }}>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-700 flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-black dark:text-white uppercase tracking-tight">Vendor Plan Lock</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Control POS access for <span className="font-bold text-gray-700 dark:text-gray-200">"{planLockModal.restaurantName}"</span>.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setPlanLockModal(null)}
+                  disabled={isBusy}
+                  className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-5">
+                <div className={`rounded-xl border p-4 ${
+                  lockState === 'locked'
+                    ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300'
+                    : lockState === 'scheduled'
+                      ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300'
+                      : 'border-green-200 bg-green-50 text-green-700 dark:border-green-900/40 dark:bg-green-900/20 dark:text-green-300'
+                }`}>
+                  <p className="text-[10px] font-black uppercase tracking-widest">Current Status</p>
+                  <p className="mt-1 text-sm font-black uppercase tracking-tight">
+                    {lockState === 'locked'
+                      ? 'Locked'
+                      : lockState === 'scheduled' && scheduledAt
+                        ? `Scheduled for ${scheduledAt.toLocaleString()}`
+                        : 'Active'}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 rounded-xl bg-gray-100 dark:bg-gray-700 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setPlanLockMode('now')}
+                    className={`py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                      planLockMode === 'now'
+                        ? 'bg-white dark:bg-gray-600 text-red-500 shadow-sm'
+                        : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    Lock Now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPlanLockMode('scheduled')}
+                    className={`py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                      planLockMode === 'scheduled'
+                        ? 'bg-white dark:bg-gray-600 text-amber-500 shadow-sm'
+                        : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    Set Timer
+                  </button>
+                </div>
+
+                {planLockMode === 'scheduled' && (
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Lock Date & Time</label>
+                    <input
+                      type="datetime-local"
+                      value={planLockDateTime}
+                      onChange={e => setPlanLockDateTime(e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm"
+                    />
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-1">
+                  {lockState !== 'active' && (
+                    <button
+                      onClick={handleUnlockPlan}
+                      disabled={isBusy}
+                      className="flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest border border-green-400 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isBusy ? <Loader2 size={14} className="animate-spin" /> : <Unlock size={14} />}
+                      Unlock
+                    </button>
+                  )}
+                  <button
+                    onClick={handleSavePlanLock}
+                    disabled={isBusy}
+                    className="flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest bg-red-600 text-white hover:bg-red-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isBusy ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
+                    {planLockMode === 'now' ? 'Lock Vendor' : 'Schedule Lock'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Extension Type Modal */}
       {extendModal && (

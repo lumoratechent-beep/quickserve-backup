@@ -19,6 +19,24 @@ const PLAN_PRICES: Record<string, { monthly: number; annual: number }> = {
   pro_plus: { monthly: 70, annual: 60 },
 };
 const PLAN_NAMES: Record<string, string> = { basic: 'Basic', pro: 'Pro', pro_plus: 'Pro Plus' };
+const ACCESS_UNLOCK_PATCH = {
+  access_locked: false,
+  access_lock_at: null,
+  access_locked_at: null,
+};
+
+function calculateNextPeriod(currentEnd: string | null | undefined, isAnnual: boolean): { periodStart: Date; periodEnd: Date } {
+  let periodStart: Date;
+  if (currentEnd) {
+    const renewalDate = new Date(currentEnd);
+    periodStart = renewalDate > new Date() ? renewalDate : new Date();
+  } else {
+    periodStart = new Date();
+  }
+  const periodEnd = new Date(periodStart);
+  periodEnd.setDate(periodEnd.getDate() + (isAnnual ? 365 : 30));
+  return { periodStart, periodEnd };
+}
 
 async function getOrCreateStripeCustomerId(restaurantId: string, inputCustomerId?: string): Promise<string> {
   if (inputCustomerId) return inputCustomerId;
@@ -462,6 +480,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             status: 'active',
             current_period_start: periodStart.toISOString(),
             current_period_end: periodEnd.toISOString(),
+            ...ACCESS_UNLOCK_PATCH,
             updated_at: new Date().toISOString(),
           })
           .eq('restaurant_id', renewRestaurantId);
@@ -635,6 +654,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             status: 'active',
             current_period_start: periodStart.toISOString(),
             current_period_end: periodEnd.toISOString(),
+            ...ACCESS_UNLOCK_PATCH,
             updated_at: new Date().toISOString(),
           })
           .eq('restaurant_id', renewRestId);
@@ -863,6 +883,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             status: 'active',
             current_period_start: baseDate.toISOString(),
             current_period_end: newEnd.toISOString(),
+            ...ACCESS_UNLOCK_PATCH,
             updated_at: new Date().toISOString(),
           })
           .eq('restaurant_id', extendRestId);
@@ -905,7 +926,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const { data: dnSub } = await supabase
           .from('subscriptions')
-          .select('duitnow_enabled')
+          .select('duitnow_enabled, current_period_end, trial_end')
           .eq('restaurant_id', dnRestId)
           .single();
 
@@ -946,7 +967,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(500).json({ error: 'Failed to submit payment request.' });
         }
 
-        return res.status(200).json({ success: true, payment: dnPayment });
+        const dnIsAnnual = dnInterval === 'annual';
+        const { periodStart: dnPeriodStart, periodEnd: dnPeriodEnd } = calculateNextPeriod(dnSub.current_period_end || dnSub.trial_end, dnIsAnnual);
+        const { error: dnAccessErr } = await supabase
+          .from('subscriptions')
+          .update({
+            status: 'active',
+            plan_id: dnPlanId,
+            billing_interval: dnInterval || 'monthly',
+            current_period_start: dnPeriodStart.toISOString(),
+            current_period_end: dnPeriodEnd.toISOString(),
+            ...ACCESS_UNLOCK_PATCH,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('restaurant_id', dnRestId);
+
+        if (dnAccessErr) {
+          console.error('DuitNow access activation error:', dnAccessErr);
+          return res.status(500).json({ error: 'Payment submitted, but access could not be restored. Please contact support.' });
+        }
+
+        return res.status(200).json({ success: true, payment: dnPayment, newPeriodEnd: dnPeriodEnd.toISOString() });
       }
 
       // GET /api/stripe/billing?action=duitnow-list&restaurantId=...&status=...
@@ -1037,11 +1078,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .single();
 
           if (dnApproveSub) {
-            const dnCurrentEnd = dnApproveSub.current_period_end || dnApproveSub.trial_end;
-            const dnBaseDate = dnCurrentEnd && new Date(dnCurrentEnd) > new Date()
-              ? new Date(dnCurrentEnd) : new Date();
-            const dnNewEnd = new Date(dnBaseDate);
-            dnNewEnd.setDate(dnNewEnd.getDate() + (dnIsAnnual ? 365 : 30));
+            const activatedAtSubmit = dnApproveSub.current_period_start
+              ? new Date(dnApproveSub.current_period_start) >= new Date(dnPay.created_at)
+              : false;
+            const { periodStart: dnBaseDate, periodEnd: dnNewEnd } = activatedAtSubmit
+              ? {
+                  periodStart: new Date(dnApproveSub.current_period_start || new Date()),
+                  periodEnd: new Date(dnApproveSub.current_period_end || dnApproveSub.trial_end || new Date()),
+                }
+              : calculateNextPeriod(dnApproveSub.current_period_end || dnApproveSub.trial_end, dnIsAnnual);
 
             await supabase
               .from('subscriptions')
@@ -1051,6 +1096,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 billing_interval: dnApproveInterval,
                 current_period_start: dnBaseDate.toISOString(),
                 current_period_end: dnNewEnd.toISOString(),
+                ...ACCESS_UNLOCK_PATCH,
                 updated_at: new Date().toISOString(),
               })
               .eq('restaurant_id', dnApproveRestId);

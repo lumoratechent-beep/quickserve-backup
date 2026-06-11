@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Subscription } from '../src/types';
-import { getRenewalStatus, daysUntilExpiry, getSubscriptionEndDate, RenewalStatus, GRACE_PERIOD_DAYS } from '../lib/subscriptionService';
+import { getRenewalStatus, daysUntilExpiry, getSubscriptionEndDate, RenewalStatus, GRACE_PERIOD_DAYS, isSubscriptionAccessLocked } from '../lib/subscriptionService';
 import { AlertCircle, Clock, XCircle, X } from 'lucide-react';
 
 interface Props {
@@ -66,6 +66,7 @@ const RenewalBanner: React.FC<Props> = ({ subscription, onRenewClick }) => {
 
   const graceDaysLeft = Math.max(0, GRACE_PERIOD_DAYS + days);
   const isPastDue = subscription.status === 'past_due';
+  const isAccessLocked = isSubscriptionAccessLocked(subscription);
 
   const configs: Record<Exclude<RenewalStatus, 'ok'>, {
     bg: string; icon: React.ReactNode; message: string; buttonLabel: string; buttonClass: string;
@@ -96,7 +97,9 @@ const RenewalBanner: React.FC<Props> = ({ subscription, onRenewClick }) => {
     blocked: {
       bg: 'bg-red-100 border-red-500 dark:bg-red-900/50 dark:border-red-500',
       icon: <XCircle size={18} className="text-red-700 dark:text-red-400 shrink-0" />,
-      message: 'Your plan has expired and the grace period is over. Please renew your subscription to continue using QuickServe.',
+      message: isAccessLocked
+        ? 'Your POS access is locked. Please renew your plan to continue using QuickServe.'
+        : 'Your plan has expired and the grace period is over. Please renew your subscription to continue using QuickServe.',
       buttonLabel: 'Renew Subscription',
       buttonClass: 'bg-red-700 hover:bg-red-800 text-white',
     },

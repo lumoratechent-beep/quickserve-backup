@@ -39,13 +39,14 @@ interface Props {
   restaurantId: string;
   subscription: Subscription | null;
   onUpgradeClick: () => void;
-  onSubscriptionUpdated?: () => void;
+  onSubscriptionUpdated?: () => void | Promise<void>;
   onComparePlans?: () => void;
+  onDuitNowSubmitted?: () => void;
 }
 
 const DEFAULT_DUITNOW_QR_SRC = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('https://www.duitnow.my/qr/quickserve')}`;
 
-const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeClick, onSubscriptionUpdated, onComparePlans }) => {
+const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeClick, onSubscriptionUpdated, onComparePlans, onDuitNowSubmitted }) => {
   const [billingHistory, setBillingHistory] = useState<BillingHistory[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(30);
@@ -242,11 +243,13 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
       });
 
       if (res.ok) {
-        toast('DuitNow payment submitted! Waiting for admin approval.', 'success');
+        toast('DuitNow payment submitted. POS access is active while admin reviews it.', 'success');
         setShowDuitNowModal(false);
         setDuitnowRef('');
         setDuitnowAttachment(null);
         setDuitnowPreviewUrl(null);
+        await onSubscriptionUpdated?.();
+        onDuitNowSubmitted?.();
         fetchDuitnowPayments();
       } else {
         const err = await res.json().catch(() => ({}));

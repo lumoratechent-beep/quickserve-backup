@@ -942,15 +942,22 @@ const App: React.FC = () => {
   }, [currentRole, sessionLocation, sessionRestaurantId, sessionRestaurantSlug]);
 
   const fetchSubscriptions = useCallback(async () => {
-    const result = await withTimeout(supabase.from('subscriptions').select('*'), 6000);
+    let query = supabase.from('subscriptions').select('*');
+    if (currentRole !== 'ADMIN' && currentUser?.restaurantId) {
+      query = query.eq('restaurant_id', currentUser.restaurantId);
+    }
+
+    const result = await withTimeout(query, 6000);
     if (!result) return;
     const { data, error } = result;
     if (!error && data) {
-      const map: Record<string, Subscription> = {};
-      data.forEach((s: any) => { map[s.restaurant_id] = s; });
-      setVendorSubscriptions(map);
+      setVendorSubscriptions(prev => {
+        const map: Record<string, Subscription> = currentRole !== 'ADMIN' && currentUser?.restaurantId ? { ...prev } : {};
+        data.forEach((s: any) => { map[s.restaurant_id] = s; });
+        return map;
+      });
     }
-  }, []);
+  }, [currentRole, currentUser?.restaurantId]);
 
   useEffect(() => {
     const roleCanOwnRestaurant = currentRole === 'VENDOR' || currentRole === 'CASHIER' || currentRole === 'KITCHEN' || currentRole === 'ORDER_TAKER';
@@ -1190,15 +1197,16 @@ const App: React.FC = () => {
     } catch (e) {
       console.error("Fetch new orders failed", e);
     } finally {
+      await fetchSubscriptions().catch(() => {});
       isFetchingRef.current = false;
     }
-  }, [rememberKnownOrderId, lastSyncTime]);
+  }, [rememberKnownOrderId, lastSyncTime, fetchSubscriptions]);
 
   // Combined refresh function to ensure heartbeat works reliably
   const refreshAppData = useCallback(async () => {
-    await Promise.allSettled([fetchOrders(), fetchRestaurants()]);
+    await Promise.allSettled([fetchOrders(), fetchRestaurants(), fetchSubscriptions()]);
     setLastSyncTime(new Date());
-  }, [fetchOrders, fetchRestaurants]);
+  }, [fetchOrders, fetchRestaurants, fetchSubscriptions]);
 
   // QR Redirection Logic
   useEffect(() => {
@@ -1310,6 +1318,9 @@ const App: React.FC = () => {
     } else if (currentRole === 'VENDOR' && currentUser?.restaurantId) {
       orderFilter = `restaurant_id=eq.${currentUser.restaurantId}`;
     }
+    const subscriptionFilter = currentRole !== 'ADMIN' && currentUser?.restaurantId
+      ? `restaurant_id=eq.${currentUser.restaurantId}`
+      : undefined;
 
     const channel = supabase.channel('qs-realtime-optimized');
     const insertFilter: any = { event: 'INSERT', schema: 'public', table: 'orders' };
@@ -1450,6 +1461,25 @@ const App: React.FC = () => {
           } : r);
           persistCache('qs_cache_restaurants', updated);
           return updated;
+        });
+        setLastSyncTime(new Date());
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'subscriptions',
+        ...(subscriptionFilter ? { filter: subscriptionFilter } : {}),
+      }, (payload) => {
+        const row = payload.new as any;
+        const oldRow = payload.old as any;
+        setVendorSubscriptions(prev => {
+          const next = { ...prev };
+          if (payload.eventType === 'DELETE' && oldRow?.restaurant_id) {
+            delete next[oldRow.restaurant_id];
+          } else if (row?.restaurant_id) {
+            next[row.restaurant_id] = row as Subscription;
+          }
+          return next;
         });
         setLastSyncTime(new Date());
       })
@@ -3048,7 +3078,7 @@ const App: React.FC = () => {
               pendingOfflineOrdersCount={pendingOfflineOrdersCount}
               cashierName={currentUser?.username}
               subscription={currentUser?.restaurantId ? (vendorSubscriptions[currentUser.restaurantId] || null) : null}
-              onSubscriptionUpdated={() => { fetchSubscriptions(); fetchRestaurants(); }}
+              onSubscriptionUpdated={async () => { await Promise.all([fetchSubscriptions(), fetchRestaurants()]); }}
               announcements={announcements}
               announcementsLoading={announcementsLoading}
               onMarkAnnouncementRead={markAnnouncementRead}
@@ -3097,7 +3127,7 @@ const App: React.FC = () => {
                 userRole="VENDOR"
                 onSaveKitchenDivisions={(divisions) => saveKitchenDivisions(activeVendorRes.id, divisions)}
                 subscription={vendorSubscriptions[activeVendorRes.id] || null}
-                onSubscriptionUpdated={() => { fetchSubscriptions(); fetchRestaurants(); }}
+                onSubscriptionUpdated={async () => { await Promise.all([fetchSubscriptions(), fetchRestaurants()]); }}
                 onNavigateBackOffice={() => setView('BACK_OFFICE')}
                 announcements={announcements}
                 announcementsLoading={announcementsLoading}
@@ -3143,7 +3173,7 @@ const App: React.FC = () => {
                 userRole="KITCHEN"
                 userKitchenCategories={currentUser?.kitchenCategories}
                 subscription={vendorSubscriptions[activeVendorRes.id] || null}
-                onSubscriptionUpdated={() => { fetchSubscriptions(); fetchRestaurants(); }}
+                onSubscriptionUpdated={async () => { await Promise.all([fetchSubscriptions(), fetchRestaurants()]); }}
                 announcements={announcements}
                 announcementsLoading={announcementsLoading}
                 onMarkAnnouncementRead={markAnnouncementRead}
