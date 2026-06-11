@@ -3019,6 +3019,7 @@ const PosOnlyView: React.FC<Props> = ({
         onBillingTabOpened?.();
         return;
       }
+      localStorage.setItem('qs_wallet_billing_subtab', 'BILLING');
       setActiveTab('BILLING');
       setIsMobileMenuOpen(false);
       onBillingTabOpened?.();
@@ -6605,6 +6606,31 @@ const PosOnlyView: React.FC<Props> = ({
 
   return (
     <div className="flex h-full bg-gray-50 dark:bg-gray-900 overflow-hidden flex-col">
+      {showPlanLockOverlay && (
+        <div className="fixed inset-0 z-[260] flex items-center justify-center bg-gray-950/70 backdrop-blur-md p-4 no-print">
+          <div className="w-full max-w-md rounded-2xl border border-red-900/50 bg-gray-950/95 p-7 text-center shadow-2xl">
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/15 text-red-300">
+              <Lock size={28} />
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-red-300">Plan Renewal Required</p>
+            <h2 className="mt-2 text-2xl font-black uppercase tracking-tight text-white">Please renew plan now</h2>
+            <p className="mt-3 text-sm font-semibold leading-relaxed text-gray-300">
+              POS access is locked until this vendor renews the current plan.
+            </p>
+            <button
+              onClick={() => {
+                localStorage.setItem('qs_wallet_billing_subtab', 'BILLING');
+                setActiveTab('BILLING');
+              }}
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-orange-950/30 transition-all hover:bg-orange-600 active:scale-95"
+            >
+              <CreditCard size={16} />
+              Renew Plan Now
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Offline Status Banner */}
       {!isOnline && (
         <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 px-4 py-1.5 flex items-center justify-between">
@@ -6912,29 +6938,8 @@ const PosOnlyView: React.FC<Props> = ({
       </aside>
 
       {/* Main Content Area - Same as PosView but without Settings tab */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {showPlanLockOverlay && (
-          <div className="absolute inset-0 z-[90] flex items-center justify-center bg-gray-950/80 backdrop-blur-sm p-4 no-print">
-            <div className="w-full max-w-md rounded-2xl border border-red-900/50 bg-gray-950/95 p-7 text-center shadow-2xl">
-              <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/15 text-red-300">
-                <Lock size={28} />
-              </div>
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-red-300">Plan Renewal Required</p>
-              <h2 className="mt-2 text-2xl font-black uppercase tracking-tight text-white">Please renew plan now</h2>
-              <p className="mt-3 text-sm font-semibold leading-relaxed text-gray-300">
-                POS access is locked until this vendor renews the current plan.
-              </p>
-              <button
-                onClick={() => setActiveTab('BILLING')}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-orange-950/30 transition-all hover:bg-orange-600 active:scale-95"
-              >
-                <CreditCard size={16} />
-                Renew Plan Now
-              </button>
-            </div>
-          </div>
-        )}
-        <div className={`flex-1 flex flex-col overflow-hidden transition-all ${showPlanLockOverlay ? 'opacity-25 pointer-events-none' : ''}`} style={showPlanLockOverlay ? { filter: 'grayscale(0.55)' } : undefined}>
+      <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden">
           {/* Mobile Header */}
           <div className="lg:hidden flex items-center p-3 landscape:py-1.5 landscape:px-2 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30 no-print">
             <button 

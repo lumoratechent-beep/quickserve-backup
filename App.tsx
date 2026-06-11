@@ -19,7 +19,7 @@ import { getConnectivityMonitor, destroyConnectivityMonitor, type ConnectivitySt
 import { toast } from './components/Toast';
 import CashierShiftModal from './components/CashierShiftModal';
 import RenewalBanner from './components/RenewalBanner';
-import { getRenewalStatus } from './lib/subscriptionService';
+import { getRenewalStatus, isSubscriptionAccessLocked } from './lib/subscriptionService';
 
 type BatteryStatus = {
   level: number;
@@ -1614,8 +1614,27 @@ const App: React.FC = () => {
     localStorage.setItem('qs_view', portalMode === 'backoffice' ? 'BACK_OFFICE' : 'APP');
     precacheBasicPwaShell();
 
-    // Check shift-related prompts for VENDOR/CASHIER
+    let loginSubscription: Subscription | null = user.restaurantId ? (vendorSubscriptions[user.restaurantId] || null) : null;
     if ((user.role === 'VENDOR' || user.role === 'CASHIER') && user.restaurantId) {
+      try {
+        const { data } = await supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('restaurant_id', user.restaurantId)
+          .maybeSingle();
+        if (data) {
+          loginSubscription = data as Subscription;
+          setVendorSubscriptions(prev => ({ ...prev, [user.restaurantId!]: data as Subscription }));
+        }
+      } catch {
+        // Best effort only; cached subscription state still covers active sessions.
+      }
+    }
+
+    const loginPlanLocked = isSubscriptionAccessLocked(loginSubscription);
+
+    // Check shift-related prompts for VENDOR/CASHIER, but never interrupt a locked POS renewal flow.
+    if ((user.role === 'VENDOR' || user.role === 'CASHIER') && user.restaurantId && !loginPlanLocked) {
       try {
         // Check if shift feature is enabled
         let shiftEnabled = false;
@@ -1664,6 +1683,10 @@ const App: React.FC = () => {
           }
         }
       } catch { /* ignore shift check errors */ }
+    } else if (loginPlanLocked) {
+      setShowOwnShiftActive(false);
+      setShowOtherUserShiftAlert(null);
+      setShowLoginShiftPrompt(false);
     }
   };
 
