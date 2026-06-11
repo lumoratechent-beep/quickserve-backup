@@ -4921,6 +4921,20 @@ const PosOnlyView: React.FC<Props> = ({
   const isVendorUser = userRole === 'VENDOR';
   const isPlanAccessLocked = isSubscriptionAccessLocked(subscription, planLockNow) && !planLockSubmitOverride;
   const showPlanLockOverlay = isPlanAccessLocked && activeTab !== 'BILLING';
+  const formatPlanLockDate = (dateStr?: string | null): string => {
+    if (!dateStr) return 'Not set';
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return 'Not set';
+    return date.toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+  const planLockExpiredAt = subscription?.current_period_end || subscription?.trial_end || null;
+  const planLockNextExpiry = useMemo(() => {
+    if (!planLockExpiredAt) return null;
+    const date = new Date(planLockExpiredAt);
+    if (Number.isNaN(date.getTime())) return null;
+    date.setDate(date.getDate() + (subscription?.billing_interval === 'annual' ? 365 : 30));
+    return date.toISOString();
+  }, [planLockExpiredAt, subscription?.billing_interval]);
 
   // Sidebar nav item count – used to auto-scale spacing so the menu never needs to scroll
   const sidebarNavItemCount = isKitchenUser
@@ -6607,22 +6621,38 @@ const PosOnlyView: React.FC<Props> = ({
   return (
     <div className="flex h-full bg-gray-50 dark:bg-gray-900 overflow-hidden flex-col">
       {showPlanLockOverlay && (
-        <div className="fixed inset-0 z-[260] flex items-center justify-center bg-gray-950/70 backdrop-blur-md p-4 no-print">
-          <div className="w-full max-w-md rounded-2xl border border-red-900/50 bg-gray-950/95 p-7 text-center shadow-2xl">
-            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/15 text-red-300">
+        <div className="fixed inset-0 z-[260] flex items-center justify-center bg-gray-900/35 backdrop-blur-md p-4 no-print">
+          <div className="w-full max-w-lg rounded-2xl border border-red-200 bg-white/95 p-8 text-center shadow-2xl dark:border-red-900/40 dark:bg-gray-800/95">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-300">
               <Lock size={28} />
             </div>
-            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-red-300">Plan Renewal Required</p>
-            <h2 className="mt-2 text-2xl font-black uppercase tracking-tight text-white">Please renew plan now</h2>
-            <p className="mt-3 text-sm font-semibold leading-relaxed text-gray-300">
+            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-red-600 dark:text-red-300">Plan Renewal Required</p>
+            <h2 className="mt-2 text-3xl font-black uppercase tracking-tight text-gray-950 dark:text-white">Please renew plan now</h2>
+            <p className="mt-3 text-sm font-semibold leading-relaxed text-gray-600 dark:text-gray-300">
               POS access is locked until this vendor renews the current plan.
             </p>
+            <div className="mt-6 grid gap-3 text-left sm:grid-cols-2">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/45">
+                <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                  <Calendar size={14} />
+                  Last Expired
+                </div>
+                <p className="text-base font-black text-gray-950 dark:text-white">{formatPlanLockDate(planLockExpiredAt)}</p>
+              </div>
+              <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 dark:border-orange-900/50 dark:bg-orange-950/25">
+                <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-orange-700 dark:text-orange-300">
+                  <Calendar size={14} />
+                  Next Expiry
+                </div>
+                <p className="text-base font-black text-gray-950 dark:text-white">{formatPlanLockDate(planLockNextExpiry)}</p>
+              </div>
+            </div>
             <button
               onClick={() => {
                 localStorage.setItem('qs_wallet_billing_subtab', 'BILLING');
                 setActiveTab('BILLING');
               }}
-              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-orange-950/30 transition-all hover:bg-orange-600 active:scale-95"
+              className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3.5 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-orange-200/60 transition-all hover:bg-orange-600 active:scale-95 dark:shadow-orange-950/30"
             >
               <CreditCard size={16} />
               Renew Plan Now
