@@ -428,6 +428,156 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ success: true, transaction, balance, paymentIntentId: paymentIntent.id });
       }
 
+      // POST /api/stripe/billing?action=plan-change-wallet
+      // Pays a renew/upgrade/downgrade/switch from wallet balance.
+      case 'plan-change-wallet': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const {
+          restaurantId: walletRestId,
+          planId: walletPlanId,
+          billingInterval: walletInterval = 'monthly',
+          changeType: walletChangeType = 'renew',
+        } = req.body || {};
+
+        if (!walletRestId || !walletPlanId) {
+          return res.status(400).json({ error: 'restaurantId and planId are required.' });
+        }
+        if (!PLAN_PRICES[walletPlanId]) {
+          return res.status(400).json({ error: 'Invalid plan.' });
+        }
+        if (!['monthly', 'annual'].includes(walletInterval)) {
+          return res.status(400).json({ error: 'Invalid billing interval.' });
+        }
+        if (!['renew', 'upgrade', 'downgrade'].includes(walletChangeType)) {
+          return res.status(400).json({ error: 'Invalid change type.' });
+        }
+
+        const { data: walletSub } = await supabase
+          .from('subscriptions')
+          .select('plan_id, billing_interval, current_period_end, trial_end')
+          .eq('restaurant_id', walletRestId)
+          .single();
+
+        if (!walletSub) {
+          return res.status(404).json({ error: 'Subscription not found.' });
+        }
+
+        const isWalletAnnual = walletInterval === 'annual';
+        const walletPlanPrices = PLAN_PRICES[walletPlanId];
+        const walletPricePerMonth = isWalletAnnual ? walletPlanPrices.annual : walletPlanPrices.monthly;
+        const walletMonths = isWalletAnnual ? 12 : 1;
+        const walletChargeAmount = walletPricePerMonth * walletMonths;
+        const currentWalletBalance = await getWalletBalance(walletRestId);
+
+        if (currentWalletBalance < walletChargeAmount) {
+          return res.status(400).json({
+            error: `Insufficient wallet balance. Available: RM ${currentWalletBalance.toFixed(2)}. Required: RM ${walletChargeAmount.toFixed(2)}.`,
+          });
+        }
+
+        const walletRenewFrom = walletChangeType === 'upgrade'
+          ? undefined
+          : (walletSub.current_period_end || walletSub.trial_end || undefined);
+        const walletRenewDate = walletRenewFrom ? new Date(walletRenewFrom) : null;
+        const walletIsFutureRenew = walletRenewDate ? walletRenewDate > new Date() : false;
+        const walletIsScheduledDowngrade = walletChangeType === 'downgrade' && walletIsFutureRenew;
+        let walletNewPeriodEnd: string | null = null;
+
+        if (walletIsScheduledDowngrade) {
+          await supabase
+            .from('subscriptions')
+            .update({
+              pending_plan_id: walletPlanId,
+              pending_billing_interval: walletInterval,
+              pending_change_effective_at: (walletRenewDate || new Date()).toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('restaurant_id', walletRestId);
+          walletNewPeriodEnd = walletSub.current_period_end || walletSub.trial_end || null;
+        } else {
+          const walletPeriodStart = walletRenewDate && walletRenewDate > new Date()
+            ? walletRenewDate
+            : new Date();
+          const walletPeriodEnd = new Date(walletPeriodStart);
+          walletPeriodEnd.setDate(walletPeriodEnd.getDate() + (isWalletAnnual ? 365 : 30));
+          walletNewPeriodEnd = walletPeriodEnd.toISOString();
+
+          await supabase
+            .from('subscriptions')
+            .upsert({
+              restaurant_id: walletRestId,
+              status: 'active',
+              plan_id: walletPlanId,
+              billing_interval: walletInterval,
+              current_period_start: walletPeriodStart.toISOString(),
+              current_period_end: walletNewPeriodEnd,
+              pending_plan_id: null,
+              pending_billing_interval: null,
+              pending_change_effective_at: null,
+              ...ACCESS_UNLOCK_PATCH,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'restaurant_id' });
+
+          const walletKitchenEnabled = walletPlanId === 'pro_plus';
+          await supabase.from('restaurants').update({ kitchen_enabled: walletKitchenEnabled }).eq('id', walletRestId);
+        }
+
+        const walletIntervalLabel = isWalletAnnual ? 'Annual' : 'Monthly';
+        const walletPlanName = PLAN_NAMES[walletPlanId] || walletPlanId;
+        const walletActionLabel = walletChangeType === 'upgrade'
+          ? 'Upgrade'
+          : walletChangeType === 'downgrade'
+            ? 'Downgrade'
+            : 'Renewal';
+
+        const { data: walletBillingTransaction, error: walletBillingInsertError } = await supabase
+          .from('wallet_transactions')
+          .insert({
+            restaurant_id: walletRestId,
+            amount: walletChargeAmount,
+            type: 'billing',
+            status: 'completed',
+            description: `Subscription ${walletActionLabel.toLowerCase()} - ${walletPlanName} (${walletIntervalLabel})`,
+          })
+          .select('reference_code')
+          .single();
+
+        if (walletBillingInsertError) {
+          return res.status(500).json({ error: walletBillingInsertError.message || 'Failed to record wallet billing transaction.' });
+        }
+
+        const { data: walletRest } = await supabase
+          .from('restaurants')
+          .select('name')
+          .eq('id', walletRestId)
+          .single();
+
+        await supabase.from('billing_records').insert({
+          restaurant_id: walletRestId,
+          description: `QuickServe Wallet ${walletActionLabel} (${walletIntervalLabel})`,
+          amount: walletChargeAmount,
+          type: 'wallet',
+          gross: walletChargeAmount,
+          fee: 0,
+          net: walletChargeAmount,
+          plan_id: walletPlanId,
+          restaurant_name: walletRest?.name || 'Unknown',
+          created_by: 'wallet',
+          reference_code: walletBillingTransaction?.reference_code || null,
+        });
+
+        const updatedWalletBalance = await getWalletBalance(walletRestId);
+        return res.status(200).json({
+          success: true,
+          amountCharged: walletChargeAmount,
+          interval: walletIntervalLabel,
+          changeType: walletChangeType,
+          scheduled: walletIsScheduledDowngrade,
+          newPeriodEnd: walletNewPeriodEnd,
+          balance: updatedWalletBalance,
+        });
+      }
+
       // POST /api/stripe/billing?action=renew-wallet  body: { restaurantId }
       case 'renew-wallet': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -1100,7 +1250,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       default:
-        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, wallet-topup-direct, renew-wallet, toggle-auto-renew, renew-direct, cleanup-stale, reconcile-access, admin-extend, duitnow-submit, duitnow-list, duitnow-review' });
+        return res.status(400).json({ error: 'Invalid action. Use: history, payment-methods, setup-session, delete-payment-method, wallet-topup-direct, plan-change-wallet, renew-wallet, toggle-auto-renew, renew-direct, cleanup-stale, reconcile-access, admin-extend, duitnow-submit, duitnow-list, duitnow-review' });
     }
   } catch (err: any) {
     console.error(`Stripe billing error (${action}):`, err);
