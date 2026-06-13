@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Building2, Copy, CreditCard, Download, Edit3, FileText, MoreVertical, Plus, Receipt, RotateCcw, Search, Trash2, UserPlus, Users, X } from 'lucide-react';
+import { Building2, Copy, CreditCard, Download, Edit3, Eye, FileText, MoreVertical, Plus, Receipt, RotateCcw, Search, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { Restaurant } from '../src/types';
 import { supabase } from '../lib/supabase';
 import { toast } from './Toast';
@@ -89,6 +89,21 @@ interface PayrollPayslip {
   created_at?: string;
 }
 
+interface StaffClaim {
+  id: string;
+  restaurant_id: string;
+  date: string;
+  amount: number;
+  claim_type: string;
+  payment_method: string;
+  notes: string;
+  attachment_name?: string | null;
+  staff_name?: string | null;
+  staff_role?: string | null;
+  pay_period?: string | null;
+  created_at?: string;
+}
+
 interface StaffForm {
   username: string;
   password: string;
@@ -145,6 +160,17 @@ interface PayrollForm {
   notes: string;
 }
 
+interface ClaimForm {
+  staffUserId: string;
+  claimDate: string;
+  claimPeriod: string;
+  claimType: string;
+  amount: number;
+  paymentMethod: string;
+  receiptRef: string;
+  notes: string;
+}
+
 interface OvertimeEntry {
   id: string;
   hours: number;
@@ -165,6 +191,7 @@ const percentageAmount = (base: number, percentage: number) => Number(((n(base) 
 const monthLabel = () => new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 const blankOvertimeEntry = (): OvertimeEntry => ({ id: crypto.randomUUID(), hours: 0, multiplier: 1.5 });
 const overtimeMultipliers = [1, 1.5, 2, 2.5, 3];
+const claimTypes = ['Meals', 'Travel', 'Mileage', 'Medical', 'Supplies', 'Training', 'Other'];
 
 const blankStaffForm = (): StaffForm => ({
   username: '',
@@ -222,11 +249,23 @@ const blankPayrollForm = (): PayrollForm => ({
   notes: '',
 });
 
+const blankClaimForm = (): ClaimForm => ({
+  staffUserId: '',
+  claimDate: new Date().toISOString().split('T')[0],
+  claimPeriod: monthLabel(),
+  claimType: 'Meals',
+  amount: 0,
+  paymentMethod: 'Bank Transfer',
+  receiptRef: '',
+  notes: '',
+});
+
 const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) => {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [departments, setDepartments] = useState<StaffDepartment[]>([]);
   const [payslips, setPayslips] = useState<PayrollPayslip[]>([]);
-  const [subTab, setSubTab] = useState<'directory' | 'payroll' | 'departments'>('directory');
+  const [staffClaims, setStaffClaims] = useState<StaffClaim[]>([]);
+  const [subTab, setSubTab] = useState<'directory' | 'payroll' | 'claims' | 'departments'>('directory');
   const [search, setSearch] = useState('');
   const [staffModalOpen, setStaffModalOpen] = useState(false);
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
@@ -244,7 +283,17 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   const [epfEmployerMode, setEpfEmployerMode] = useState<ContributionMode>('percentage');
   const [epfEmployerPercent, setEpfEmployerPercent] = useState(13);
   const [isSavingPayslip, setIsSavingPayslip] = useState(false);
+  const [editingPayslipId, setEditingPayslipId] = useState<string | null>(null);
   const [previewPayslip, setPreviewPayslip] = useState<PayrollPayslip | null>(null);
+  const [payslipSearch, setPayslipSearch] = useState('');
+  const [payslipStatusFilter, setPayslipStatusFilter] = useState<'all' | PayrollPayslip['status']>('all');
+  const [actionMenuPayslipId, setActionMenuPayslipId] = useState<string | null>(null);
+  const [isClaimFormOpen, setIsClaimFormOpen] = useState(false);
+  const [claimForm, setClaimForm] = useState<ClaimForm>(() => blankClaimForm());
+  const [editingClaimId, setEditingClaimId] = useState<string | null>(null);
+  const [isSavingClaim, setIsSavingClaim] = useState(false);
+  const [claimSearch, setClaimSearch] = useState('');
+  const [actionMenuClaimId, setActionMenuClaimId] = useState<string | null>(null);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [actionMenuStaffId, setActionMenuStaffId] = useState<string | null>(null);
 
@@ -284,14 +333,15 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       return;
     }
 
-    const [deptRes, profileRes, payslipRes] = await Promise.all([
+    const [deptRes, profileRes, payslipRes, claimRes] = await Promise.all([
       supabase.from('staff_departments').select('*').eq('restaurant_id', restaurant.id).order('name', { ascending: true }),
       supabase.from('staff_profiles').select('*').eq('restaurant_id', restaurant.id),
       supabase.from('payroll_payslips').select('*').eq('restaurant_id', restaurant.id).order('pay_date', { ascending: false }),
+      supabase.from('expenses').select('*').eq('restaurant_id', restaurant.id).eq('category', 'Staff').eq('subcategory', 'Claims').order('date', { ascending: false }),
     ]);
 
-    if (deptRes.error || profileRes.error || payslipRes.error) {
-      console.warn('Apply migration 038_staff_hr_payroll.sql to enable HR/payroll tables.', { deptRes, profileRes, payslipRes });
+    if (deptRes.error || profileRes.error || payslipRes.error || claimRes.error) {
+      console.warn('Apply migration 038_staff_hr_payroll.sql and 031_expenses.sql to enable HR/payroll tables.', { deptRes, profileRes, payslipRes, claimRes });
     }
 
     const profileByUser = new Map(((profileRes.data || []) as StaffProfile[]).map(profile => [profile.user_id, profile]));
@@ -303,6 +353,20 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
 
     setDepartments((deptRes.data || []) as StaffDepartment[]);
     setPayslips((payslipRes.data || []) as PayrollPayslip[]);
+    setStaffClaims(((claimRes.data || []) as any[]).map(row => ({
+      id: row.id,
+      restaurant_id: row.restaurant_id,
+      date: row.date,
+      amount: n(row.amount),
+      claim_type: row.supplier_name || 'Staff Claim',
+      payment_method: row.payment_method || 'Bank Transfer',
+      notes: row.notes || '',
+      attachment_name: row.attachment_name || null,
+      staff_name: row.staff_name || null,
+      staff_role: row.staff_role || null,
+      pay_period: row.pay_period || null,
+      created_at: row.created_at,
+    })));
     cacheStaff(mapped);
     if (showToast) toast('Staff data refreshed', 'success');
   }, [cacheStaff, restaurant.id]);
@@ -320,6 +384,41 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
         .some(value => (value || '').toLowerCase().includes(q));
     });
   }, [departments, search, staff]);
+
+  const visiblePayslips = useMemo(() => {
+    const q = payslipSearch.trim().toLowerCase();
+    return payslips.filter(payslip => {
+      if (payslipStatusFilter !== 'all' && payslip.status !== payslipStatusFilter) return false;
+      if (!q) return true;
+      const item = staff.find(staffItem => staffItem.id === payslip.staff_user_id);
+      const department = departments.find(dept => dept.id === item?.profile?.department_id);
+      return [
+        item?.profile?.full_name,
+        item?.username,
+        item?.profile?.employee_code,
+        item?.role,
+        department?.name,
+        payslip.pay_period,
+        payslip.pay_date,
+        payslip.status,
+        payslip.notes,
+      ].some(value => (value || '').toLowerCase().includes(q));
+    });
+  }, [departments, payslipSearch, payslipStatusFilter, payslips, staff]);
+
+  const visibleClaims = useMemo(() => {
+    const q = claimSearch.trim().toLowerCase();
+    if (!q) return staffClaims;
+    return staffClaims.filter(claim => [
+      claim.staff_name,
+      claim.staff_role,
+      claim.claim_type,
+      claim.pay_period,
+      claim.payment_method,
+      claim.notes,
+      claim.attachment_name,
+    ].some(value => (value || '').toLowerCase().includes(q)));
+  }, [claimSearch, staffClaims]);
 
   const payrollTotals = useMemo(() => {
     const gross = n(payrollForm.basicSalary) + n(payrollForm.overtimeAmount) + n(payrollForm.allowanceAmount) + n(payrollForm.bonusAmount);
@@ -602,6 +701,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
   };
 
   const openPayslipForm = (item?: StaffMember) => {
+    setEditingPayslipId(null);
     setPayrollForm(blankPayrollForm());
     resetEpfContributionModes();
     setOvertimeRate(0);
@@ -611,7 +711,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     setIsPayslipFormOpen(true);
   };
 
-  const copyPayslip = (payslip: PayrollPayslip) => {
+  const hydratePayrollFormFromPayslip = (payslip: PayrollPayslip, mode: 'edit' | 'copy') => {
     const item = staff.find(staffItem => staffItem.id === payslip.staff_user_id);
     const copiedOvertime = n(payslip.overtime_amount);
 
@@ -624,7 +724,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     setIsOvertimeOpen(copiedOvertime > 0);
     setPayrollForm({
       staffUserId: payslip.staff_user_id,
-      payPeriod: monthLabel(),
+      payPeriod: mode === 'copy' ? monthLabel() : payslip.pay_period,
       payDate: payslip.pay_date,
       basicSalary: n(payslip.basic_salary),
       overtimeAmount: copiedOvertime,
@@ -648,6 +748,16 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
     });
     setPreviewPayslip(null);
     setIsPayslipFormOpen(true);
+  };
+
+  const editPayslip = (payslip: PayrollPayslip) => {
+    setEditingPayslipId(payslip.id);
+    hydratePayrollFormFromPayslip(payslip, 'edit');
+  };
+
+  const copyPayslip = (payslip: PayrollPayslip) => {
+    setEditingPayslipId(null);
+    hydratePayrollFormFromPayslip(payslip, 'copy');
     toast('Payslip copied. Update the pay period and save as a new payslip.', 'success');
   };
 
@@ -702,7 +812,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
 
     setIsSavingPayslip(true);
     try {
-      const id = crypto.randomUUID();
+      const id = editingPayslipId || crypto.randomUUID();
       const row: PayrollPayslip = {
         id,
         restaurant_id: restaurant.id,
@@ -733,7 +843,10 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
         notes: payrollForm.notes.trim() || null,
       };
 
-      const { error } = await supabase.from('payroll_payslips').insert({ ...row, updated_at: new Date().toISOString() });
+      const payload = { ...row, updated_at: new Date().toISOString() };
+      const { error } = editingPayslipId
+        ? await supabase.from('payroll_payslips').update(payload).eq('id', editingPayslipId)
+        : await supabase.from('payroll_payslips').insert(payload);
       if (error) throw error;
 
       await supabase.from('expenses').upsert({
@@ -756,15 +869,106 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
       }, { onConflict: 'id' });
 
       setPayrollForm(blankPayrollForm());
+      setEditingPayslipId(null);
       setIsPayslipFormOpen(false);
       setPreviewPayslip(row);
       await refresh(false);
-      toast('Payslip saved and synced to expenses', 'success');
+      toast(editingPayslipId ? 'Payslip updated and synced to expenses' : 'Payslip saved and synced to expenses', 'success');
     } catch (err: any) {
       toast(err.message || 'Failed to save payslip', 'error');
     } finally {
       setIsSavingPayslip(false);
     }
+  };
+
+  const openClaimForm = (item?: StaffMember) => {
+    setEditingClaimId(null);
+    setClaimForm({
+      ...blankClaimForm(),
+      staffUserId: item?.id || '',
+    });
+    setIsClaimFormOpen(true);
+  };
+
+  const editClaim = (claim: StaffClaim) => {
+    const matchedStaff = staff.find(item => {
+      const staffName = item.profile?.full_name || item.username;
+      return staffName === claim.staff_name || item.username === claim.staff_name;
+    });
+    setEditingClaimId(claim.id);
+    setClaimForm({
+      staffUserId: matchedStaff?.id || '',
+      claimDate: claim.date,
+      claimPeriod: claim.pay_period || monthLabel(),
+      claimType: claimTypes.includes(claim.claim_type) ? claim.claim_type : 'Other',
+      amount: n(claim.amount),
+      paymentMethod: claim.payment_method || 'Bank Transfer',
+      receiptRef: claim.attachment_name || '',
+      notes: claim.notes || '',
+    });
+    setIsClaimFormOpen(true);
+  };
+
+  const saveClaim = async () => {
+    const selectedStaff = staff.find(item => item.id === claimForm.staffUserId);
+    if (!selectedStaff) {
+      toast('Select a staff member first', 'warning');
+      return;
+    }
+    if (n(claimForm.amount) <= 0) {
+      toast('Claim amount must be more than zero', 'warning');
+      return;
+    }
+
+    setIsSavingClaim(true);
+    try {
+      const id = editingClaimId || `claim_${crypto.randomUUID()}`;
+      const staffName = selectedStaff.profile?.full_name || selectedStaff.username;
+      const claimType = claimForm.claimType || 'Staff Claim';
+      const { error } = await supabase.from('expenses').upsert({
+        id,
+        restaurant_id: restaurant.id,
+        date: claimForm.claimDate,
+        amount: n(claimForm.amount),
+        category: 'Staff',
+        subcategory: 'Claims',
+        supplier_id: null,
+        supplier_name: claimType,
+        payment_method: claimForm.paymentMethod,
+        notes: claimForm.notes.trim() || `${claimType} claim - ${staffName}`,
+        attachment_name: claimForm.receiptRef.trim() || null,
+        type: 'OPEX',
+        staff_name: staffName,
+        staff_role: selectedStaff.role,
+        basic_salary: null,
+        allowances: n(claimForm.amount),
+        deductions: null,
+        pay_period: claimForm.claimPeriod.trim() || monthLabel(),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'id' });
+      if (error) throw error;
+
+      setClaimForm(blankClaimForm());
+      setEditingClaimId(null);
+      setIsClaimFormOpen(false);
+      await refresh(false);
+      toast(editingClaimId ? 'Staff claim updated and synced to expenses' : 'Staff claim saved and synced to expenses', 'success');
+    } catch (err: any) {
+      toast(err?.message || 'Failed to save staff claim', 'error');
+    } finally {
+      setIsSavingClaim(false);
+    }
+  };
+
+  const deleteClaim = async (claim: StaffClaim) => {
+    if (!confirm(`Delete this claim for ${claim.staff_name || 'staff'}?`)) return;
+    const { error } = await supabase.from('expenses').delete().eq('id', claim.id);
+    if (error) {
+      toast(error.message || 'Failed to delete staff claim', 'error');
+      return;
+    }
+    setStaffClaims(items => items.filter(item => item.id !== claim.id));
+    toast('Staff claim deleted', 'success');
   };
 
   const buildPayslipPdf = async (payslip: PayrollPayslip) => {
@@ -980,7 +1184,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
 
   return (
     <div className="space-y-6">
-      <div className="rounded-3xl border border-amber-200/70 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-5 shadow-sm dark:border-amber-900/30 dark:from-gray-900 dark:via-gray-800 dark:to-amber-950/20">
+      <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-600 dark:text-amber-400">Back Office HR</p>
@@ -1017,6 +1221,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
           {([
             ['directory', 'Staff Directory', <Users size={14} />],
             ['payroll', 'Staff Payslip', <Receipt size={14} />],
+            ['claims', 'Staff Claim', <FileText size={14} />],
             ['departments', 'Departments', <Building2 size={14} />],
           ] as const).map(([key, label, icon]) => (
             <button
@@ -1116,6 +1321,9 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                                 <button type="button" onClick={() => { setActionMenuStaffId(null); setSubTab('payroll'); openPayslipForm(item); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-emerald-50 hover:text-emerald-700 dark:text-gray-200 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-300">
                                   <Receipt size={14} /> Make a Payslip
                                 </button>
+                                <button type="button" onClick={() => { setActionMenuStaffId(null); setSubTab('claims'); openClaimForm(item); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-sky-50 hover:text-sky-700 dark:text-gray-200 dark:hover:bg-sky-900/20 dark:hover:text-sky-300">
+                                  <FileText size={14} /> Create Claim
+                                </button>
                                 <button type="button" onClick={() => { setActionMenuStaffId(null); deleteStaff(item); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-900/20">
                                   <Trash2 size={14} /> Remove
                                 </button>
@@ -1140,7 +1348,7 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
           <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
-                <h3 className="text-sm font-black text-gray-900 dark:text-white">Staff Payslip</h3>
+                <h3 className="text-sm font-black text-gray-900 dark:text-white">{editingPayslipId ? 'Edit Staff Payslip' : 'Staff Payslip'}</h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Editable payroll fields: EPF, SOCSO, EIS, PCB tax, allowances and deductions.</p>
               </div>
               <button onClick={reviewPayslip} disabled={!payrollForm.staffUserId} className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-black uppercase tracking-wider text-amber-700 transition hover:border-amber-300 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
@@ -1289,29 +1497,41 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
               </div>
             </div>
             <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button onClick={() => setIsPayslipFormOpen(false)} className="rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">Back to List</button>
-              <button onClick={savePayslip} disabled={isSavingPayslip || !payrollForm.staffUserId} className="rounded-xl bg-amber-600 px-5 py-3 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700 disabled:opacity-40">{isSavingPayslip ? 'Saving...' : 'Save Payslip'}</button>
+              <button onClick={() => { setIsPayslipFormOpen(false); setEditingPayslipId(null); }} className="rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">Back to List</button>
+              <button onClick={savePayslip} disabled={isSavingPayslip || !payrollForm.staffUserId} className="rounded-xl bg-amber-600 px-5 py-3 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700 disabled:opacity-40">{isSavingPayslip ? 'Saving...' : editingPayslipId ? 'Save Changes' : 'Save Payslip'}</button>
             </div>
           </div>
         ) : (
           <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 xl:flex-row xl:items-center xl:justify-between">
               <div>
                 <h3 className="text-sm font-black text-gray-900 dark:text-white">Staff Payslip</h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Review saved payslips and create a new staff payroll record.</p>
               </div>
-              <button onClick={() => openPayslipForm()} className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
-                <Plus size={14} /> Create Payslip
-              </button>
+              <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
+                <div className="relative sm:w-64">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input value={payslipSearch} onChange={event => setPayslipSearch(event.target.value)} placeholder="Search payslip..." className="h-[38px] w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+                </div>
+                <select value={payslipStatusFilter} onChange={event => setPayslipStatusFilter(event.target.value as 'all' | PayrollPayslip['status'])} className="h-[38px] rounded-xl border border-gray-200 bg-gray-50 px-3 text-xs font-bold uppercase tracking-wider text-gray-600 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                  <option className={statusOptionClass} value="all">All Status</option>
+                  <option className={statusOptionClass} value="draft">Draft</option>
+                  <option className={statusOptionClass} value="approved">Approved</option>
+                  <option className={statusOptionClass} value="paid">Paid</option>
+                </select>
+                <button onClick={() => openPayslipForm()} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
+                  <Plus size={14} /> Create Payslip
+                </button>
+              </div>
             </div>
-            {payslips.length > 0 ? (
+            {visiblePayslips.length > 0 ? (
               <div className="overflow-x-auto">
-                <table className="w-full text-left">
+                <table className="w-full min-w-[920px] text-left">
                   <thead className="bg-gray-50 dark:bg-gray-900/50">
                     <tr>{['Staff', 'Pay Period', 'Gross Pay', 'Deductions', 'Net Pay', 'Status', 'Actions'].map(head => <th key={head} className={`px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400 ${head === 'Actions' ? 'text-center' : ''}`}>{head}</th>)}</tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                    {payslips.map(payslip => {
+                    {visiblePayslips.map(payslip => {
                       const item = staff.find(staffItem => staffItem.id === payslip.staff_user_id);
                       const deductions = n(payslip.epf_employee) + n(payslip.socso_employee) + n(payslip.eis_employee) + n(payslip.tax_pcb) + n(payslip.unpaid_leave_deduction) + n(payslip.other_deductions);
                       return (
@@ -1338,10 +1558,35 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                               <option className={statusOptionClass} value="paid">Paid</option>
                             </select>
                           </td>
-                          <td className="px-5 py-4 text-center">
-                            <div className="flex justify-center gap-1">
-                              <button onClick={() => setPreviewPayslip(payslip)} className="rounded-lg p-2 text-gray-400 transition hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-900/20" title="Review payslip"><FileText size={14} /></button>
-                              <button onClick={() => copyPayslip(payslip)} className="rounded-lg p-2 text-gray-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/20" title="Copy payslip"><Copy size={14} /></button>
+                          <td className="relative px-5 py-4 text-center">
+                            {actionMenuPayslipId === payslip.id && <button type="button" aria-label="Close payslip actions" className="fixed inset-0 z-10 cursor-default" onClick={() => setActionMenuPayslipId(null)} />}
+                            <div className="relative inline-flex justify-center">
+                              <button
+                                type="button"
+                                onClick={() => setActionMenuPayslipId(openId => openId === payslip.id ? null : payslip.id)}
+                                className="relative z-20 rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-white"
+                                title="Payslip actions"
+                                aria-label={`Actions for ${item?.profile?.full_name || item?.username || 'payslip'}`}
+                                aria-expanded={actionMenuPayslipId === payslip.id}
+                              >
+                                <MoreVertical size={16} />
+                              </button>
+                              {actionMenuPayslipId === payslip.id && (
+                                <div className="absolute right-0 top-10 z-30 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 text-left shadow-xl dark:border-gray-700 dark:bg-gray-900">
+                                  <button type="button" onClick={() => { setActionMenuPayslipId(null); editPayslip(payslip); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-amber-50 hover:text-amber-700 dark:text-gray-200 dark:hover:bg-amber-900/20 dark:hover:text-amber-300">
+                                    <Edit3 size={14} /> Edit Payslip
+                                  </button>
+                                  <button type="button" onClick={() => { setActionMenuPayslipId(null); void downloadPayslipPdf(payslip); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-sky-50 hover:text-sky-700 dark:text-gray-200 dark:hover:bg-sky-900/20 dark:hover:text-sky-300">
+                                    <Download size={14} /> Download PDF
+                                  </button>
+                                  <button type="button" onClick={() => { setActionMenuPayslipId(null); setPreviewPayslip(payslip); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-50 hover:text-gray-900 dark:text-gray-200 dark:hover:bg-gray-800 dark:hover:text-white">
+                                    <Eye size={14} /> View Payslip
+                                  </button>
+                                  <button type="button" onClick={() => { setActionMenuPayslipId(null); copyPayslip(payslip); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-emerald-50 hover:text-emerald-700 dark:text-gray-200 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-300">
+                                    <Copy size={14} /> Copy Payslip
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1351,7 +1596,152 @@ const StaffManagementView: React.FC<Props> = ({ restaurant, currencySymbol }) =>
                 </table>
               </div>
             ) : (
-              <div className="flex h-56 flex-col items-center justify-center text-gray-400 dark:text-gray-600"><FileText size={40} className="mb-3 opacity-30" /><p className="text-sm font-bold">No payslips found</p><button onClick={() => openPayslipForm()} className="mt-4 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white">Create Payslip</button></div>
+              <div className="flex h-56 flex-col items-center justify-center text-gray-400 dark:text-gray-600"><FileText size={40} className="mb-3 opacity-30" /><p className="text-sm font-bold">{payslips.length ? 'No matching payslips' : 'No payslips found'}</p><button onClick={() => openPayslipForm()} className="mt-4 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white">Create Payslip</button></div>
+            )}
+          </div>
+        )
+        )}
+
+        {subTab === 'claims' && (
+        isClaimFormOpen ? (
+          <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h3 className="text-sm font-black text-gray-900 dark:text-white">{editingClaimId ? 'Edit Staff Claim' : 'Staff Claim'}</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Record staff reimbursements and sync them into Staff expenses as claim entries.</p>
+              </div>
+              <span className="inline-flex w-fit items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2 text-xs font-black uppercase tracking-wider text-sky-700 dark:border-sky-900/40 dark:bg-sky-900/20 dark:text-sky-300">
+                <FileText size={14} /> Staff Claims
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <PayrollSectionDivider title="Staff Details" />
+              <div className="md:col-span-2">
+                <label className={labelClass}>Staff</label>
+                <select value={claimForm.staffUserId} onChange={event => setClaimForm(form => ({ ...form, staffUserId: event.target.value }))} className={fieldClass}>
+                  <option value="">Select staff</option>
+                  {staff.map(item => <option key={item.id} value={item.id}>{item.profile?.full_name || item.username} ({item.role})</option>)}
+                </select>
+              </div>
+              <Field label="Claim Period" value={claimForm.claimPeriod} onChange={value => setClaimForm(form => ({ ...form, claimPeriod: value }))} />
+              <Field label="Claim Date" type="date" value={claimForm.claimDate} onChange={value => setClaimForm(form => ({ ...form, claimDate: value }))} />
+
+              <PayrollSectionDivider title="Claim Details" />
+              <div>
+                <label className={labelClass}>Claim Type</label>
+                <select value={claimForm.claimType} onChange={event => setClaimForm(form => ({ ...form, claimType: event.target.value }))} className={fieldClass}>
+                  {claimTypes.map(type => <option key={type} value={type}>{type}</option>)}
+                </select>
+              </div>
+              <Field label="Claim Amount" type="number" value={claimForm.amount} onChange={value => setClaimForm(form => ({ ...form, amount: n(value) }))} />
+              <Field label="Receipt / Reference" value={claimForm.receiptRef} onChange={value => setClaimForm(form => ({ ...form, receiptRef: value }))} />
+              <div>
+                <label className={labelClass}>Payment Method</label>
+                <select value={claimForm.paymentMethod} onChange={event => setClaimForm(form => ({ ...form, paymentMethod: event.target.value }))} className={fieldClass}>
+                  <option>Bank Transfer</option>
+                  <option>Cash</option>
+                  <option>Cheque</option>
+                  <option>Card</option>
+                </select>
+              </div>
+
+              <PayrollSectionDivider title="Notes" />
+              <div className="md:col-span-2 xl:col-span-3">
+                <label className={labelClass}>Claim Notes</label>
+                <textarea value={claimForm.notes} onChange={event => setClaimForm(form => ({ ...form, notes: event.target.value }))} className={`${fieldClass} min-h-[92px]`} placeholder="Purpose, receipt details, or approval reference" />
+              </div>
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 dark:border-emerald-900/30 dark:bg-emerald-900/20">
+                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Claim Total</p>
+                <p className="mt-2 text-2xl font-black text-emerald-700 dark:text-emerald-300">{fmt(n(claimForm.amount))}</p>
+                <p className="mt-1 text-[11px] text-emerald-700/70 dark:text-emerald-300/70">Appears in Expenses under Staff / Claims.</p>
+              </div>
+            </div>
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button onClick={() => { setIsClaimFormOpen(false); setEditingClaimId(null); }} className="rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">Back to List</button>
+              <button onClick={saveClaim} disabled={isSavingClaim || !claimForm.staffUserId || n(claimForm.amount) <= 0} className="rounded-xl bg-amber-600 px-5 py-3 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700 disabled:opacity-40">{isSavingClaim ? 'Saving...' : editingClaimId ? 'Save Changes' : 'Save Claim'}</button>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-b-2xl rounded-tr-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex flex-col gap-3 border-b border-gray-200 p-4 dark:border-gray-700 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <h3 className="text-sm font-black text-gray-900 dark:text-white">Staff Claim</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Create and review staff reimbursement claims linked to Staff expenses.</p>
+              </div>
+              <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
+                <div className="relative sm:w-72">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input value={claimSearch} onChange={event => setClaimSearch(event.target.value)} placeholder="Search claim..." className="h-[38px] w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-xs text-gray-900 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+                </div>
+                <button onClick={() => openClaimForm()} className="inline-flex h-[38px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700">
+                  <Plus size={14} /> Create Claim
+                </button>
+              </div>
+            </div>
+            {staffClaims.length > 0 && (
+              <div className="grid grid-cols-1 gap-3 border-b border-gray-100 p-4 dark:border-gray-700 sm:grid-cols-3">
+                {[
+                  { label: 'Total Claims', value: String(staffClaims.length) },
+                  { label: 'Claim Amount', value: fmt(staffClaims.reduce((sum, claim) => sum + n(claim.amount), 0)) },
+                  { label: 'Visible', value: fmt(visibleClaims.reduce((sum, claim) => sum + n(claim.amount), 0)) },
+                ].map(card => (
+                  <div key={card.label} className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/50">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">{card.label}</p>
+                    <p className="mt-1 text-lg font-black text-gray-900 dark:text-white">{card.value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {visibleClaims.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[860px] text-left">
+                  <thead className="bg-gray-50 dark:bg-gray-900/50">
+                    <tr>{['Staff', 'Claim Date', 'Type', 'Amount', 'Payment', 'Notes', 'Actions'].map(head => <th key={head} className={`px-5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400 ${head === 'Actions' ? 'text-center' : ''}`}>{head}</th>)}</tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                    {visibleClaims.map(claim => (
+                      <tr key={claim.id} className="transition">
+                        <td className="px-5 py-4">
+                          <p className="text-sm font-black text-gray-900 dark:text-white">{claim.staff_name || 'Staff'}</p>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{claim.staff_role || 'Claim'}</p>
+                        </td>
+                        <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400"><p className="font-bold text-gray-700 dark:text-gray-200">{claim.pay_period || monthLabel()}</p><p>{new Date(claim.date).toLocaleDateString()}</p></td>
+                        <td className="px-5 py-4"><span className="rounded-lg bg-sky-100 px-2 py-1 text-[10px] font-black text-sky-700 dark:bg-sky-500/20 dark:text-sky-300">{claim.claim_type}</span></td>
+                        <td className="px-5 py-4 text-xs font-black text-emerald-600 dark:text-emerald-400">{fmt(claim.amount)}</td>
+                        <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400">{claim.payment_method}</td>
+                        <td className="max-w-[220px] truncate px-5 py-4 text-xs text-gray-500 dark:text-gray-400">{claim.notes || claim.attachment_name || '-'}</td>
+                        <td className="relative px-5 py-4 text-center">
+                          {actionMenuClaimId === claim.id && <button type="button" aria-label="Close claim actions" className="fixed inset-0 z-10 cursor-default" onClick={() => setActionMenuClaimId(null)} />}
+                          <div className="relative inline-flex justify-center">
+                            <button
+                              type="button"
+                              onClick={() => setActionMenuClaimId(openId => openId === claim.id ? null : claim.id)}
+                              className="relative z-20 rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-white"
+                              title="Claim actions"
+                              aria-label={`Actions for ${claim.staff_name || 'claim'}`}
+                              aria-expanded={actionMenuClaimId === claim.id}
+                            >
+                              <MoreVertical size={16} />
+                            </button>
+                            {actionMenuClaimId === claim.id && (
+                              <div className="absolute right-0 top-10 z-30 w-40 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 text-left shadow-xl dark:border-gray-700 dark:bg-gray-900">
+                                <button type="button" onClick={() => { setActionMenuClaimId(null); editClaim(claim); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-gray-700 transition hover:bg-amber-50 hover:text-amber-700 dark:text-gray-200 dark:hover:bg-amber-900/20 dark:hover:text-amber-300">
+                                  <Edit3 size={14} /> Edit Claim
+                                </button>
+                                <button type="button" onClick={() => { setActionMenuClaimId(null); deleteClaim(claim); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-900/20">
+                                  <Trash2 size={14} /> Delete
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="flex h-56 flex-col items-center justify-center text-gray-400 dark:text-gray-600"><FileText size={40} className="mb-3 opacity-30" /><p className="text-sm font-bold">{staffClaims.length ? 'No matching claims' : 'No staff claims found'}</p><button onClick={() => openClaimForm()} className="mt-4 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white">Create Claim</button></div>
             )}
           </div>
         )
