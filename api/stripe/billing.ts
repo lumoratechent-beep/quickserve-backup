@@ -1188,6 +1188,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (dnUpdateErr) return res.status(500).json({ error: 'Failed to update payment.' });
 
+        if (dnDecision === 'rejected') {
+          const dnPlanName = PLAN_NAMES[dnPay.plan_id] || String(dnPay.plan_id || 'Plan').replace('_', ' ');
+          const dnIntervalLabel = dnPay.billing_interval === 'annual' ? 'Annual' : 'Monthly';
+          const dnNote = dnAdminNote ? String(dnAdminNote).trim().slice(0, 500) : '';
+          const dnBody = [
+            `Your DuitNow payment for ${dnPlanName} (${dnIntervalLabel}) was rejected by admin.`,
+            `Amount submitted: RM ${Number(dnPay.amount || 0).toFixed(2)}.`,
+            dnNote ? `Admin note: ${dnNote}` : null,
+            'Please update your payment or submit a new QR payment for review.',
+          ].filter(Boolean).join('\n\n');
+
+          const { error: dnAnnouncementErr } = await supabase.from('announcements').insert({
+            title: 'DuitNow payment rejected',
+            body: dnBody,
+            category: 'billing',
+            is_active: true,
+            hub: 'all',
+            restaurant_id: dnPay.restaurant_id,
+          });
+
+          if (dnAnnouncementErr) {
+            console.error('DuitNow rejection announcement error:', dnAnnouncementErr);
+          }
+        }
+
         if (dnDecision === 'approved') {
           const dnApproveRestId = dnPay.restaurant_id;
           const dnApprovePlan = dnPay.plan_id || 'basic';

@@ -1520,6 +1520,14 @@ const App: React.FC = () => {
     }
   }, [currentUser?.restaurantId, currentRole]);
 
+  useEffect(() => {
+    if (!currentUser?.restaurantId || (currentRole !== 'VENDOR' && currentRole !== 'CASHIER')) return;
+    const interval = window.setInterval(() => {
+      fetchAnnouncements(currentUser.restaurantId);
+    }, 60000);
+    return () => window.clearInterval(interval);
+  }, [currentUser?.restaurantId, currentRole, fetchAnnouncements]);
+
   const handleScanSimulation = (locationName: string, tableNo: string) => {
     setSessionLocation(locationName);
     setSessionTable(tableNo);

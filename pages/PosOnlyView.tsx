@@ -2613,6 +2613,12 @@ const PosOnlyView: React.FC<Props> = ({
   const hasRefundApprovalEnabled = cashierStaffEntries.some(({ staff }) => staff.access_permissions?.requireManagerApprovalForRefund === true);
   const showRefundApprovalSection = canReviewRefundRequests && (hasRefundApprovalEnabled || refundApprovalRequests.length > 0);
   const combinedMailUnreadCount = unreadMailCount + (showRefundApprovalSection ? refundApprovalRequests.length : 0);
+  const latestPaymentNotice = useMemo(() => {
+    return announcements.find((announcement) => {
+      if (announcement.is_read || announcement.category !== 'billing') return false;
+      return /duitnow|payment|billing|rejected|update/i.test(`${announcement.title} ${announcement.body}`);
+    }) || null;
+  }, [announcements]);
 
   useEffect(() => {
     if (mailSubTab === 'REFUND_REQUESTS' && !showRefundApprovalSection) {
@@ -6681,6 +6687,33 @@ const PosOnlyView: React.FC<Props> = ({
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
             <p className="text-xs font-semibold text-yellow-900 dark:text-yellow-200">Syncing Orders — <span className="font-normal text-yellow-700 dark:text-yellow-300">{pendingOfflineOrdersCount} orders are being synced to the server</span></p>
+          </div>
+        </div>
+      )}
+
+      {latestPaymentNotice && (
+        <div className="border-b border-red-200 bg-red-50 px-4 py-2 dark:border-red-900/50 dark:bg-red-950/30">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-start gap-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-300" />
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-widest text-red-700 dark:text-red-200">{latestPaymentNotice.title}</p>
+                <p className="truncate text-xs font-semibold text-red-700/80 dark:text-red-200/80">{latestPaymentNotice.body}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onMarkAnnouncementRead?.(latestPaymentNotice.id);
+                setSelectedAnnouncement({ ...latestPaymentNotice, is_read: true });
+                setMailSubTab('ANNOUNCEMENTS');
+                setActiveTab('MAIL');
+                setIsMobileMenuOpen(false);
+              }}
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white transition-colors hover:bg-red-700"
+            >
+              <Mail size={12} /> Open Mail
+            </button>
           </div>
         </div>
       )}
@@ -13473,8 +13506,9 @@ const PosOnlyView: React.FC<Props> = ({
           restaurantId={restaurant.id}
           subscription={subscription}
           onClose={() => setShowUpgradeModal(false)}
-          onUpgraded={() => {
+          onUpgraded={(options) => {
             setShowUpgradeModal(false);
+            if (options?.pendingDuitNow) setPlanLockSubmitOverride(true);
             onSubscriptionUpdated?.();
           }}
         />
