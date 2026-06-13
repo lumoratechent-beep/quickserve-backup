@@ -22,6 +22,9 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
   );
 
   const annualSavePct = Math.round((1 - PRICING_PLANS[1].annualPrice / PRICING_PLANS[1].price) * 100);
+  const currentBillingInterval = subscription?.billing_interval === 'annual' ? 'annual' : 'monthly';
+  const currentBillingLabel = currentBillingInterval === 'annual' ? 'Annual' : 'Monthly';
+  const currentPlanLabel = PRICING_PLANS.find(plan => plan.id === currentPlanId)?.name || currentPlanId.replace('_', ' ');
 
   const handlePlanChange = async (newPlanId: PlanId) => {
     if (newPlanId === currentPlanId) return;
@@ -110,7 +113,7 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
               Change Your Plan
             </h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1 font-medium text-xs lg:text-sm">
-              Current plan: <span className="text-orange-500 font-bold uppercase">{currentPlanId.replace('_', ' ')}</span>
+              Current plan: <span className="text-orange-500 font-bold uppercase">{currentPlanLabel} - {currentBillingLabel}</span>
               {subscription?.status === 'trialing' && (
                 <span className="ml-2 text-green-500 font-bold">(Trial Active)</span>
               )}
@@ -152,9 +155,11 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 lg:gap-6">
             {PRICING_PLANS.map((plan, i) => {
-              const isCurrent = plan.id === currentPlanId;
+              const isSamePlan = plan.id === currentPlanId;
+              const isCurrent = isSamePlan && billingCycle === currentBillingInterval;
               const isUpgrade = i > currentIndex;
               const displayPrice = billingCycle === 'annual' ? plan.annualPrice : plan.price;
+              const annualSavings = (plan.price - plan.annualPrice) * 12;
               const isThisPlanLoading = loadingPlanId === plan.id && isLoading;
 
               return (
@@ -167,11 +172,15 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
                         ? 'border-orange-500 shadow-lg shadow-orange-100 dark:shadow-orange-900/20'
                         : 'border-gray-200 dark:border-gray-700 hover:border-orange-400'
                   }`}
-                  onClick={() => !isCurrent && !isLoading && !isRedirecting && handlePlanChange(plan.id)}
+                  onClick={() => !isCurrent && !isSamePlan && !isLoading && !isRedirecting && handlePlanChange(plan.id)}
                 >
                   {isCurrent ? (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 lg:px-4 py-1 bg-orange-500 text-white text-[8px] lg:text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg whitespace-nowrap">
-                      Current Plan ({subscription?.billing_interval === 'annual' ? 'Annual' : 'Monthly'})
+                      Current Plan
+                    </div>
+                  ) : billingCycle === 'annual' ? (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 lg:px-4 py-1 bg-orange-500 text-white text-[8px] lg:text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg whitespace-nowrap">
+                      Save RM{annualSavings}
                     </div>
                   ) : plan.highlight && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 lg:px-4 py-1 bg-orange-500 text-white text-[8px] lg:text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg whitespace-nowrap">
@@ -209,14 +218,11 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
                     ))}
                   </ul>
 
-                  {isCurrent ? (
+                  {isSamePlan ? (
                     (() => {
-                      const currentIsAnnual = subscription?.billing_interval === 'annual';
-                      const selectedIsAnnual = billingCycle === 'annual';
-                      const isSameInterval = currentIsAnnual === selectedIsAnnual;
                       const isThisPlanLoading2 = loadingPlanId === plan.id && isLoading;
 
-                      return isSameInterval ? (
+                      return isCurrent ? (
                         <button
                           disabled={isLoading || isRedirecting}
                           onClick={(e) => { e.stopPropagation(); handleCheckout(plan.id, 'renew'); }}
@@ -237,7 +243,7 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
                           {isThisPlanLoading2 ? (
                             <Loader2 size={14} className="animate-spin" />
                           ) : (
-                            <><ArrowLeftRight size={14} /> {selectedIsAnnual ? 'Switch to Annual' : 'Switch to Monthly'}</>
+                            <><ArrowLeftRight size={14} /> Switch Plan</>
                           )}
                         </button>
                       );

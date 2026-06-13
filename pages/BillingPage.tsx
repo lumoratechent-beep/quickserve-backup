@@ -720,7 +720,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                           className="w-full md:flex-1 min-w-0 px-2.5 py-2 rounded-lg text-[11px] lg:text-xs font-semibold border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center gap-1.5 text-center leading-tight whitespace-normal break-words"
                         >
                           <ArrowLeftRight size={12} />
-                          {currentPlanInterval === 'annual' ? 'Switch to Monthly' : 'Switch to Annual'}
+                          Switch Plan
                         </button>
                       </>
                     ) : isUpgrade ? (
