@@ -277,8 +277,8 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
     return stepOrder.indexOf(modalStep);
   };
 
-  const renderStepDots = () => (
-    <div className="flex items-center justify-center gap-2 py-3" aria-label="Plan change progress">
+  const renderStepDots = (className = '') => (
+    <div className={`flex items-center justify-center gap-2 ${className}`} aria-label="Plan change progress">
       {stepOrder.map((item, index) => {
         const currentIndex = getVisualStepIndex(step);
         const isActive = index === currentIndex;
@@ -306,8 +306,8 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
   );
 
   const renderPlansStep = () => (
-    <>
-      <div className="grid grid-cols-1 gap-3 pt-4 md:grid-cols-3 lg:gap-5">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="grid shrink-0 grid-cols-1 gap-3 pt-5 md:grid-cols-3 lg:gap-5 lg:pt-6">
         {PRICING_PLANS.map((plan, i) => {
           const isSamePlan = plan.id === currentPlanId;
           const isCurrent = isSamePlan && billingCycle === currentBillingInterval;
@@ -319,8 +319,8 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
           return (
             <div
               key={plan.id}
-              className={`relative bg-white dark:bg-gray-800 rounded-xl border-2 p-3 pt-8 lg:p-5 lg:pt-9 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer group flex flex-col min-h-[360px] ${
-                isCurrent
+              className={`group relative flex min-h-[350px] cursor-pointer flex-col rounded-[16px] border bg-white p-5 pt-7 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:bg-gray-800 lg:min-h-[360px] ${
+                isSamePlan
                   ? 'border-orange-500 shadow-lg shadow-orange-100 dark:shadow-orange-900/20'
                   : plan.highlight
                     ? 'border-orange-500 shadow-lg shadow-orange-100 dark:shadow-orange-900/20'
@@ -328,31 +328,31 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
               }`}
               onClick={() => !isLoading && !isRedirecting && openConfirmation(plan.id)}
             >
-              {isCurrent ? (
-                <div className="absolute left-1/2 top-2 -translate-x-1/2 px-2 lg:px-4 py-1 bg-orange-500 text-white text-[8px] lg:text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg whitespace-nowrap">
-                  Current Plan
+              {isSamePlan ? (
+                <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500 px-3 py-1 text-[8px] font-black uppercase tracking-widest text-white shadow-lg shadow-orange-200/70 whitespace-nowrap dark:shadow-none lg:px-4 lg:text-[10px]">
+                  Current Plan ({currentBillingLabel})
                 </div>
-              ) : billingCycle === 'monthly' && plan.highlight && (
-                <div className="absolute left-1/2 top-2 -translate-x-1/2 px-2 lg:px-4 py-1 bg-orange-500 text-white text-[8px] lg:text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg whitespace-nowrap">
+              ) : plan.highlight && (
+                <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500 px-3 py-1 text-[8px] font-black uppercase tracking-widest text-white shadow-lg shadow-orange-200/70 whitespace-nowrap dark:shadow-none lg:px-4 lg:text-[10px]">
                   Most Popular
                 </div>
               )}
 
-              <h3 className="text-sm lg:text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight mb-0.5 lg:mb-1 flex flex-wrap items-center gap-1.5">
-                <span>{plan.name}</span>
+              <h3 className="mb-2 flex min-h-7 flex-wrap items-center gap-2 text-base font-black uppercase leading-none tracking-tight text-gray-900 dark:text-white lg:text-xl">
+                <span className="leading-none">{plan.name}</span>
                 {billingCycle === 'annual' && (
-                  <span className="rounded-full bg-orange-500 px-2 py-0.5 text-[8px] lg:text-[10px] font-black uppercase tracking-widest text-white shadow-sm">
-                    - Save RM{annualSavings}
+                  <span className="inline-flex h-6 items-center rounded-full bg-orange-500 px-2.5 text-[8px] font-black uppercase tracking-widest text-white shadow-sm lg:text-[10px]">
+                    Save RM{annualSavings}
                   </span>
                 )}
               </h3>
 
-              <p className="text-[9px] lg:text-xs text-gray-500 dark:text-gray-400 font-medium mb-2 lg:mb-4 line-clamp-2">
+              <p className="mb-3 line-clamp-2 text-[10px] font-medium text-gray-500 dark:text-gray-400 lg:mb-4 lg:text-xs">
                 {plan.description}
               </p>
 
-              <div className="mb-1 lg:mb-2">
-                <div className="flex items-baseline gap-1 flex-wrap">
+              <div className="mb-2">
+                <div className="flex flex-wrap items-baseline gap-1">
                   <span className="text-xl lg:text-3xl font-black text-orange-500">MYR {displayPrice}</span>
                   <span className="text-gray-400 font-bold text-[10px] lg:text-sm">/mo</span>
                 </div>
@@ -363,10 +363,10 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
                 )}
               </div>
 
-              <ul className="space-y-1 lg:space-y-2 mb-3 lg:mb-6 flex-1">
+              <ul className="mb-5 flex-1 space-y-2">
                 {plan.features.map((feature, j) => (
-                  <li key={j} className="flex items-start gap-1.5 lg:gap-3 text-[10px] lg:text-sm text-gray-600 dark:text-gray-300 font-medium">
-                    <Check size={12} className="text-orange-500 shrink-0 mt-0.5 lg:w-4 lg:h-4" />
+                  <li key={j} className="flex items-start gap-2 text-[11px] font-medium text-gray-600 dark:text-gray-300 lg:gap-3 lg:text-sm">
+                    <Check size={13} className="mt-0.5 shrink-0 text-orange-500 lg:h-4 lg:w-4" />
                     {feature}
                   </li>
                 ))}
@@ -379,7 +379,7 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
                     event.stopPropagation();
                     openConfirmation(plan.id);
                   }}
-                  className={`w-full py-2 lg:py-3 rounded-lg font-black text-[9px] lg:text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-1 lg:gap-2 mt-auto disabled:opacity-50 ${
+                  className={`mt-auto flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50 lg:py-3 lg:text-sm ${
                     isCurrent
                       ? 'bg-orange-500 text-white shadow-xl shadow-orange-100 dark:shadow-none hover:bg-orange-600 hover:scale-[1.02]'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-orange-500 hover:text-white hover:scale-[1.02]'
@@ -400,7 +400,7 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
                     event.stopPropagation();
                     openConfirmation(plan.id);
                   }}
-                  className={`w-full py-2 lg:py-3 rounded-lg font-black text-[9px] lg:text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-1 lg:gap-2 mt-auto disabled:opacity-50 ${
+                  className={`mt-auto flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50 lg:py-3 lg:text-sm ${
                     isUpgrade
                       ? 'bg-orange-500 text-white shadow-xl shadow-orange-100 dark:shadow-none hover:bg-orange-600 hover:scale-[1.02]'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-orange-500 hover:text-white hover:scale-[1.02]'
@@ -418,15 +418,18 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
         })}
       </div>
 
-      <p className="text-center text-gray-400 text-[10px] lg:text-xs font-medium pt-3 lg:pt-4">
-        You will be charged the full plan price. Changes take effect immediately. Prices in Malaysian Ringgit (MYR).
-      </p>
-    </>
+      <div className="mt-auto shrink-0 pt-3 text-center lg:pt-4">
+        {renderStepDots('mb-2')}
+        <p className="text-[10px] font-medium text-gray-400 lg:text-xs">
+          You will be charged the full plan price. Changes take effect immediately. Prices in Malaysian Ringgit (MYR).
+        </p>
+      </div>
+    </div>
   );
 
   const renderConfirmationStep = () => (
     <div className="flex h-full flex-col">
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1">
         <div className="mx-auto max-w-2xl space-y-4">
           <div className="rounded-xl border border-orange-200 bg-orange-50/70 p-5 dark:border-orange-900/40 dark:bg-orange-900/10">
             <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">Payment Confirmation</p>
@@ -464,19 +467,20 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-3 border-t border-gray-100 pt-4 dark:border-gray-700">
+      <div className="mt-4 grid shrink-0 grid-cols-[minmax(96px,1fr)_auto_minmax(96px,1fr)] items-center gap-3 pt-3 lg:pt-4">
         <button
           onClick={() => setStep('plans')}
-          className="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-5 py-3 text-xs font-black uppercase tracking-widest text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+          className="inline-flex justify-self-start items-center gap-2 rounded-xl border border-gray-300 px-5 py-3 text-xs font-black uppercase tracking-widest text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
         >
           <ArrowLeft size={14} /> Back
         </button>
+        {renderStepDots('justify-self-center')}
         <button
           onClick={() => {
             setError('');
             setStep('payment');
           }}
-          className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-6 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-orange-100 transition-all hover:bg-orange-600 dark:shadow-none"
+          className="inline-flex justify-self-end items-center gap-2 rounded-xl bg-orange-500 px-6 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-orange-100 transition-all hover:bg-orange-600 dark:shadow-none"
         >
           Next <ArrowRight size={14} />
         </button>
@@ -501,7 +505,7 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
 
     return (
       <div className="flex h-full flex-col">
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1">
           <div className="space-y-4">
             <div className="flex flex-col gap-1">
               <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">Choose Payment Method</p>
@@ -572,18 +576,19 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
           </div>
         </div>
 
-        <div className="mt-4 flex items-center justify-between gap-3 border-t border-gray-100 pt-4 dark:border-gray-700">
+        <div className="mt-4 grid shrink-0 grid-cols-[minmax(96px,1fr)_auto_minmax(96px,1fr)] items-center gap-3 pt-3 lg:pt-4">
           <button
             onClick={() => setStep('confirm')}
             disabled={isLoading}
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-5 py-3 text-xs font-black uppercase tracking-widest text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+            className="inline-flex justify-self-start items-center gap-2 rounded-xl border border-gray-300 px-5 py-3 text-xs font-black uppercase tracking-widest text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
           >
             <ArrowLeft size={14} /> Back
           </button>
+          {renderStepDots('justify-self-center')}
           <button
             onClick={handlePaymentNext}
             disabled={isLoading || isRedirecting || (selectedPaymentMethod === 'wallet' && walletDisabled) || (selectedPaymentMethod === 'duitnow' && !isDuitNowEnabled)}
-            className="inline-flex min-w-[150px] items-center justify-center gap-2 rounded-xl bg-orange-500 px-6 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-orange-100 transition-all hover:bg-orange-600 disabled:opacity-50 dark:shadow-none"
+            className="inline-flex min-w-[150px] justify-self-end items-center justify-center gap-2 rounded-xl bg-orange-500 px-6 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-orange-100 transition-all hover:bg-orange-600 disabled:opacity-50 dark:shadow-none"
           >
             {isLoading ? (
               <><Loader2 size={14} className="animate-spin" /> Processing</>
@@ -601,7 +606,7 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
 
     return (
       <div className="flex h-full flex-col">
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1">
           <div className="grid min-h-full overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 md:grid-cols-[300px_minmax(0,1fr)]">
             <div className="bg-gradient-to-br from-[#ED2C67] to-[#c4214f] text-white">
               <div className="flex h-full flex-col px-6 py-5">
@@ -721,18 +726,19 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
           </div>
         </div>
 
-        <div className="mt-4 flex items-center justify-between gap-3 border-t border-gray-100 pt-4 dark:border-gray-700">
+        <div className="mt-4 grid shrink-0 grid-cols-[minmax(96px,1fr)_auto_minmax(96px,1fr)] items-center gap-3 pt-3 lg:pt-4">
           <button
             onClick={() => setStep('payment')}
             disabled={isLoading}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-5 py-3 text-xs font-black uppercase tracking-widest text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+            className="inline-flex justify-self-start items-center gap-2 rounded-lg border border-gray-300 px-5 py-3 text-xs font-black uppercase tracking-widest text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
           >
             <ArrowLeft size={14} /> Back
           </button>
+          {renderStepDots('justify-self-center')}
           <button
             onClick={handleDuitNowPayment}
             disabled={isLoading}
-            className="inline-flex min-w-[180px] items-center justify-center gap-2 rounded-lg bg-[#ED2C67] px-6 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-pink-100 transition-all hover:bg-[#c4214f] disabled:opacity-50 dark:shadow-none"
+            className="inline-flex min-w-[180px] justify-self-end items-center justify-center gap-2 rounded-lg bg-[#ED2C67] px-6 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-pink-100 transition-all hover:bg-[#c4214f] disabled:opacity-50 dark:shadow-none"
           >
             {isLoading ? (
               <><Loader2 size={14} className="animate-spin" /> Submitting</>
@@ -825,7 +831,7 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2 lg:px-6 lg:pb-3">
+        <div className="min-h-0 flex-1 overflow-hidden px-4 pb-4 lg:px-6">
           {error && (
             <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-xs font-medium border border-red-100 dark:border-red-900/40">
               {error}
@@ -839,9 +845,6 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
           {step === 'redirect' && renderRedirectStep()}
         </div>
 
-        <div className="shrink-0 border-t border-gray-100 bg-white px-4 dark:border-gray-700 dark:bg-gray-800 lg:px-6">
-          {renderStepDots()}
-        </div>
       </div>
     </div>
   );
