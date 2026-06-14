@@ -242,7 +242,14 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
           changeType: selectedChangeType,
         }),
       });
-      const data = await res.json();
+      const responseText = await res.text();
+      let data: any = {};
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        setError(`Payment service error (${res.status}). Please try again.`);
+        return;
+      }
       if (!res.ok) {
         setError(data.error || 'Failed to submit DuitNow payment.');
         return;

@@ -241,9 +241,22 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
           referenceNumber: duitnowRef || undefined,
         }),
       });
+      const responseText = await res.text();
+      let data: any = {};
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        toast(`Payment service error (${res.status}). Please try again.`, 'error');
+        return;
+      }
 
       if (res.ok) {
-        toast('DuitNow payment submitted. POS access is active for 24 hours while admin reviews it.', 'success');
+        toast(
+          data.provisionalAccessUntil
+            ? 'DuitNow payment submitted. POS access is active for 24 hours while admin reviews it.'
+            : 'DuitNow payment submitted for admin review.',
+          'success'
+        );
         setShowDuitNowModal(false);
         setDuitnowRef('');
         setDuitnowAttachment(null);
@@ -252,8 +265,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
         onDuitNowSubmitted?.();
         fetchDuitnowPayments();
       } else {
-        const err = await res.json().catch(() => ({}));
-        toast(err.error || 'Failed to submit payment', 'error');
+        toast(data.error || 'Failed to submit payment', 'error');
       }
     } catch {
       toast('Connection error. Please try again.', 'error');
