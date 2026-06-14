@@ -6,7 +6,7 @@ import ImageCropModal from '../components/ImageCropModal';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
 import { PRICING_PLANS } from '../lib/pricingPlans';
-import { getSubscriptionAccessLockState } from '../lib/subscriptionService';
+import { getSubscriptionAccessLockState, getSubscriptionEndDate } from '../lib/subscriptionService';
 import PitchDeck from '../components/PitchDeck';
 
 interface Props {
@@ -3210,6 +3210,8 @@ const AdminView: React.FC<Props> = ({
                                     const sub = subscriptions[res.id];
                                     const lockState = getSubscriptionAccessLockState(sub);
                                     const lockAt = sub?.access_lock_at ? new Date(sub.access_lock_at) : null;
+                                    const expiry = sub ? getSubscriptionEndDate(sub) : null;
+                                    const isExpired = expiry ? expiry <= new Date() : false;
                                     const isScheduled = lockState === 'scheduled';
                                     const isLocked = lockState === 'locked';
                                     return (
@@ -3225,7 +3227,9 @@ const AdminView: React.FC<Props> = ({
                                         }`}
                                         title={
                                           isLocked
-                                            ? 'Vendor locked - click to manage'
+                                            ? isExpired
+                                              ? 'Plan expired - automatically locked'
+                                              : 'Vendor locked - click to manage'
                                             : isScheduled && lockAt
                                               ? `Lock scheduled ${lockAt.toLocaleString()}`
                                               : 'Lock vendor plan access'
@@ -6198,6 +6202,8 @@ const AdminView: React.FC<Props> = ({
         const sub = subscriptions[planLockModal.restaurantId] || null;
         const lockState = getSubscriptionAccessLockState(sub);
         const scheduledAt = sub?.access_lock_at ? new Date(sub.access_lock_at) : null;
+        const expiry = sub ? getSubscriptionEndDate(sub) : null;
+        const isExpired = expiry ? expiry <= new Date() : false;
         const isBusy = planLockActionId === planLockModal.restaurantId;
 
         return (
@@ -6230,12 +6236,20 @@ const AdminView: React.FC<Props> = ({
                   <p className="text-[10px] font-black uppercase tracking-widest">Current Status</p>
                   <p className="mt-1 text-sm font-black uppercase tracking-tight">
                     {lockState === 'locked'
-                      ? 'Locked'
+                      ? isExpired
+                        ? 'Expired - Automatically Locked'
+                        : 'Locked'
                       : lockState === 'scheduled' && scheduledAt
                         ? `Scheduled for ${scheduledAt.toLocaleString()}`
                         : 'Active'}
                   </p>
                 </div>
+
+                {isExpired && (
+                  <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300">
+                    Renew the plan or extend its expiry date to restore POS access.
+                  </p>
+                )}
 
                 <div className="grid grid-cols-2 gap-2 rounded-xl bg-gray-100 dark:bg-gray-700 p-1">
                   <button
@@ -6275,7 +6289,7 @@ const AdminView: React.FC<Props> = ({
                 )}
 
                 <div className="flex gap-3 pt-1">
-                  {lockState !== 'active' && (
+                  {lockState !== 'active' && !isExpired && (
                     <button
                       onClick={handleUnlockPlan}
                       disabled={isBusy}

@@ -3,6 +3,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { isSubscriptionLockDue } from '../../lib/subscriptionAccess';
 import { calculateNextSubscriptionPeriod } from '../../lib/subscriptionPeriod';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
@@ -813,7 +814,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       // GET/POST /api/stripe/billing?action=cleanup-stale
-      // Deletes incomplete registrations (pending_payment) older than 24 hours
+      // Persists automatic expiry locks and deletes stale pending registrations.
       case 'cleanup-stale': {
         // Verify cron secret to prevent unauthorized calls
         const authHeader = req.headers.authorization;
@@ -822,7 +823,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(401).json({ error: 'Unauthorized' });
         }
 
-        const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const now = new Date();
+        const nowIso = now.toISOString();
+        const { data: lockCandidates, error: lockFetchError } = await supabase
+          .from('subscriptions')
+          .select('id, current_period_end, trial_end, access_lock_at')
+          .eq('access_locked', false)
+          .neq('status', 'pending_payment');
+
+        if (lockFetchError) {
+          console.error('Error fetching automatic lock candidates:', lockFetchError);
+          return res.status(500).json({ error: 'Failed to enforce expired subscription locks.' });
+        }
+
+        const dueLockIds = (lockCandidates || [])
+          .filter(candidate => isSubscriptionLockDue(candidate, now))
+          .map(candidate => candidate.id);
+
+        let lockedCount = 0;
+        if (dueLockIds.length > 0) {
+          const { data: lockedSubscriptions, error: lockUpdateError } = await supabase
+            .from('subscriptions')
+            .update({
+              access_locked: true,
+              access_lock_at: null,
+              access_locked_at: nowIso,
+              updated_at: nowIso,
+            })
+            .in('id', dueLockIds)
+            .eq('access_locked', false)
+            .select('id');
+
+          if (lockUpdateError) {
+            console.error('Error persisting automatic subscription locks:', lockUpdateError);
+            return res.status(500).json({ error: 'Failed to persist expired subscription locks.' });
+          }
+          lockedCount = lockedSubscriptions?.length || 0;
+        }
+
+        const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
         const { data: staleSubs, error: fetchError } = await supabase
           .from('subscriptions')
@@ -835,11 +874,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(500).json({ error: 'Failed to fetch stale registrations.' });
         }
 
-        if (!staleSubs || staleSubs.length === 0) {
-          return res.status(200).json({ message: 'No stale registrations found.', deleted: 0 });
-        }
-
-        const staleRestaurantIds = staleSubs.map(s => s.restaurant_id);
+        const staleRestaurantIds = (staleSubs || []).map(s => s.restaurant_id);
         let deletedCount = 0;
 
         for (const staleRestId of staleRestaurantIds) {
@@ -867,7 +902,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         return res.status(200).json({
-          message: `Cleaned up ${deletedCount} stale registration(s).`,
+          message: `Locked ${lockedCount} expired subscription(s) and cleaned up ${deletedCount} stale registration(s).`,
+          locked: lockedCount,
           deleted: deletedCount,
           total_found: staleRestaurantIds.length,
         });

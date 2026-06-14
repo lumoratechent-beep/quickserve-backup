@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Subscription } from '../src/types';
-import { getRenewalStatus, daysUntilExpiry, getSubscriptionEndDate, RenewalStatus, GRACE_PERIOD_DAYS, isSubscriptionAccessLocked } from '../lib/subscriptionService';
+import { getRenewalStatus, daysUntilExpiry, getSubscriptionEndDate, RenewalStatus, isSubscriptionAccessLocked } from '../lib/subscriptionService';
 import { AlertCircle, Clock, XCircle, X } from 'lucide-react';
 
 interface Props {
@@ -14,10 +14,17 @@ const DISMISS_COOLDOWN_MS = 12 * 60 * 60 * 1000;
 
 const RenewalBanner: React.FC<Props> = ({ subscription, onRenewClick }) => {
   const [dismissed, setDismissed] = useState(false);
+  const [now, setNow] = useState(() => new Date());
 
-  const status: RenewalStatus = subscription ? getRenewalStatus(subscription) : 'ok';
-  const days = subscription ? daysUntilExpiry(subscription) : 0;
+  const status: RenewalStatus = subscription ? getRenewalStatus(subscription, now) : 'ok';
+  const days = subscription ? daysUntilExpiry(subscription, now) : 0;
   const endDate = subscription ? getSubscriptionEndDate(subscription) : null;
+
+  useEffect(() => {
+    if (!subscription) return;
+    const interval = window.setInterval(() => setNow(new Date()), 60000);
+    return () => window.clearInterval(interval);
+  }, [subscription]);
 
   // On mount / status change: check if the dismiss cooldown has expired
   useEffect(() => {
@@ -64,9 +71,9 @@ const RenewalBanner: React.FC<Props> = ({ subscription, onRenewClick }) => {
     ? endDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
     : '';
 
-  const graceDaysLeft = Math.max(0, GRACE_PERIOD_DAYS + days);
   const isPastDue = subscription.status === 'past_due';
-  const isAccessLocked = isSubscriptionAccessLocked(subscription);
+  const isAccessLocked = isSubscriptionAccessLocked(subscription, now);
+  const isExpired = endDate ? endDate <= now : false;
 
   const configs: Record<Exclude<RenewalStatus, 'ok'>, {
     bg: string; icon: React.ReactNode; message: string; buttonLabel: string; buttonClass: string;
@@ -87,19 +94,14 @@ const RenewalBanner: React.FC<Props> = ({ subscription, onRenewClick }) => {
       buttonLabel: isPastDue ? 'Update Payment' : 'Renew Now',
       buttonClass: 'bg-orange-600 hover:bg-orange-700 text-white',
     },
-    grace: {
-      bg: 'bg-red-50 border-red-400 dark:bg-red-900/30 dark:border-red-600',
-      icon: <XCircle size={16} className="text-red-600 dark:text-red-400 shrink-0" />,
-      message: `Your plan expired on ${formattedEnd}. You have ${graceDaysLeft} day${graceDaysLeft !== 1 ? 's' : ''} of grace period remaining before your account is deactivated.`,
-      buttonLabel: 'Renew Now',
-      buttonClass: 'bg-red-600 hover:bg-red-700 text-white',
-    },
     blocked: {
       bg: 'bg-red-100 border-red-500 dark:bg-red-900/50 dark:border-red-500',
       icon: <XCircle size={18} className="text-red-700 dark:text-red-400 shrink-0" />,
-      message: isAccessLocked
-        ? 'Your POS access is locked. Please renew your plan to continue using QuickServe.'
-        : 'Your plan has expired and the grace period is over. Please renew your subscription to continue using QuickServe.',
+      message: isExpired
+        ? `Your plan expired on ${formattedEnd}. POS access was automatically locked until the plan is renewed.`
+        : isAccessLocked
+          ? 'Your POS access is locked. Please renew your plan to continue using QuickServe.'
+          : 'Please renew your subscription to continue using QuickServe.',
       buttonLabel: 'Renew Subscription',
       buttonClass: 'bg-red-700 hover:bg-red-800 text-white',
     },

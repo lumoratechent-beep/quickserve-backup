@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Subscription, PlanId, DuitNowPayment } from '../src/types';
 import { PRICING_PLANS } from '../lib/pricingPlans';
-import { daysLeftInTrial, isTrialActive, isSubscriptionActive, getRenewalStatus, daysUntilExpiry, GRACE_PERIOD_DAYS } from '../lib/subscriptionService';
+import { daysLeftInTrial, isTrialActive, isSubscriptionActive, getRenewalStatus } from '../lib/subscriptionService';
 import { Loader2, Check, Plus, RefreshCw, X, AlertCircle, CheckCircle, ArrowLeftRight, Upload, Clock, FileImage, Search, ChevronLeft, ChevronRight, ChevronFirst, ChevronLast, Menu } from 'lucide-react';
 import { toast } from '../components/Toast';
 import { supabase } from '../lib/supabase';
@@ -660,7 +660,6 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                     const isExpired = d < new Date();
                     const currentPlanDaysLeft = Math.max(0, Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
                     const renewalStatus = subscription ? getRenewalStatus(subscription) : 'ok';
-                    const graceDays = subscription ? Math.max(0, GRACE_PERIOD_DAYS + daysUntilExpiry(subscription)) : 0;
                     return (
                       <div className="space-y-1">
                         <p className={`text-xs font-semibold ${
@@ -668,14 +667,9 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
                         }`}>
                           {plan.name} Plan till: {formatted} ({currentPlanDaysLeft} days remaining)
                         </p>
-                        {renewalStatus === 'grace' && (
-                          <p className="text-[10px] font-bold text-red-500 animate-pulse">
-                            ⚠ Grace period: {graceDays} day{graceDays !== 1 ? 's' : ''} left before account deactivation
-                          </p>
-                        )}
                         {renewalStatus === 'blocked' && (
                           <p className="text-[10px] font-bold text-red-600">
-                            ❌ Plan expired — renew now to restore access
+                            Plan expired - POS access is locked until renewal
                           </p>
                         )}
                       </div>

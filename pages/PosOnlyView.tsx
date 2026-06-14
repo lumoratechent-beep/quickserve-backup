@@ -411,17 +411,26 @@ const PosOnlyView: React.FC<Props> = ({
 
   useEffect(() => {
     const lockAt = subscription?.access_lock_at ? new Date(subscription.access_lock_at) : null;
-    const hasFutureLock = lockAt && !Number.isNaN(lockAt.getTime()) && lockAt > new Date();
-    if (!hasFutureLock) return;
+    const expiryRaw = subscription?.current_period_end || subscription?.trial_end;
+    const expiry = expiryRaw ? new Date(expiryRaw) : null;
+    const now = new Date();
+    const hasFutureLock = lockAt && !Number.isNaN(lockAt.getTime()) && lockAt > now;
+    const hasFutureExpiry = expiry && !Number.isNaN(expiry.getTime()) && expiry > now;
+    if (!hasFutureLock && !hasFutureExpiry) return;
 
     const interval = window.setInterval(() => setPlanLockNow(new Date()), 30000);
     return () => window.clearInterval(interval);
-  }, [subscription?.access_lock_at]);
+  }, [subscription?.access_lock_at, subscription?.current_period_end, subscription?.trial_end]);
 
   useEffect(() => {
     setPlanLockSubmitOverride(false);
     setPlanLockNow(new Date());
-  }, [subscription?.access_locked, subscription?.access_lock_at]);
+  }, [
+    subscription?.access_locked,
+    subscription?.access_lock_at,
+    subscription?.current_period_end,
+    subscription?.trial_end,
+  ]);
 
   // Kitchen state
   const [kitchenOrderFilter, setKitchenOrderFilter] = useState<OrderStatus | 'ONGOING_ALL' | 'ALL'>('ONGOING_ALL');

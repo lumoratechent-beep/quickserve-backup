@@ -19,7 +19,7 @@ import { getConnectivityMonitor, destroyConnectivityMonitor, type ConnectivitySt
 import { toast } from './components/Toast';
 import CashierShiftModal from './components/CashierShiftModal';
 import RenewalBanner from './components/RenewalBanner';
-import { getRenewalStatus, isSubscriptionAccessLocked } from './lib/subscriptionService';
+import { isSubscriptionAccessLocked } from './lib/subscriptionService';
 
 type BatteryStatus = {
   level: number;
@@ -3026,8 +3026,6 @@ const App: React.FC = () => {
       {currentUser?.restaurantId && (currentRole === 'VENDOR' || currentRole === 'CASHIER') && (() => {
         const sub = vendorSubscriptions[currentUser!.restaurantId] || null;
         if (!sub) return null;
-        const renewalStatus = getRenewalStatus(sub);
-        if (renewalStatus === 'ok') return null;
         return (
           <RenewalBanner
             subscription={sub}
