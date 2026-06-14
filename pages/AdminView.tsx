@@ -3008,9 +3008,9 @@ const AdminView: React.FC<Props> = ({
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-b-2xl rounded-tr-2xl border dark:border-gray-700 shadow-sm">
-              <div className="p-5 border-b border-gray-100 dark:border-gray-700 space-y-4">
-                <div className="flex gap-0 relative -mt-[41px] -ml-[21px] mb-5">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden">
+              <div className="p-5 border-b border-gray-100 dark:border-gray-700 space-y-5">
+                <div className="flex w-fit gap-1 rounded-xl bg-gray-100 dark:bg-gray-900 p-1">
                   {([
                     { id: 'VENDORS' as const, label: 'Vendors', icon: <Store size={14} /> },
                     { id: 'HUBS' as const, label: 'Hubs', icon: <MapPin size={14} /> },
@@ -3018,10 +3018,10 @@ const AdminView: React.FC<Props> = ({
                     <button
                       key={tab.id}
                       onClick={() => setVendorHubSubTab(tab.id)}
-                      className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors whitespace-nowrap -mb-px relative ${
+                      className={`flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all whitespace-nowrap ${
                         vendorHubSubTab === tab.id
-                          ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
-                          : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
+                          ? 'bg-white dark:bg-gray-700 text-orange-500 shadow-sm'
+                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                       }`}
                     >
                       {tab.icon}
