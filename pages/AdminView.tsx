@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, Subscription, SubscriptionExpiryHistory, PlanId, MenuItem } from '../src/types';
 import { uploadImage } from '../lib/storage';
-import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight, Gift, Loader2, Lock, Unlock } from 'lucide-react';
+import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight, Gift, Loader2, Lock, Unlock, MoreVertical } from 'lucide-react';
 import ImageCropModal from '../components/ImageCropModal';
 import { supabase } from '../lib/supabase';
 import { toast } from '../components/Toast';
@@ -148,6 +148,23 @@ const ADMIN_SOLD_ITEMS_STORAGE_KEY = 'qs_admin_sold_items';
 const toDateTimeLocalValue = (date: Date) => {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
   return local.toISOString().slice(0, 16);
+};
+
+const DateTimeRows: React.FC<{
+  value?: string | null;
+  dateClassName?: string;
+  timeClassName?: string;
+}> = ({ value, dateClassName = '', timeClassName = '' }) => {
+  if (!value) return <span className="text-gray-400">-</span>;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return <span className="text-gray-400">-</span>;
+
+  return (
+    <div className="leading-tight whitespace-nowrap">
+      <p className={dateClassName}>{date.toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+      <p className={timeClassName}>{date.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })}</p>
+    </div>
+  );
 };
 
 const mergeAdminRecords = <T extends { id: string; updatedAt?: number }>(localRecords: T[], remoteRecords: T[]) => {
@@ -1364,6 +1381,7 @@ const AdminView: React.FC<Props> = ({
   const [incomeEndDate, setIncomeEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [incomeHasMore, setIncomeHasMore] = useState(false);
   const [incomeLastId, setIncomeLastId] = useState<string | null>(null);
+  const [deletingIncomeId, setDeletingIncomeId] = useState<string | null>(null);
 
   const generateSlug = (name: string): string => {
     const base = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -1415,6 +1433,17 @@ const AdminView: React.FC<Props> = ({
   const [expiryEditValue, setExpiryEditValue] = useState('');
   const [expiryEditNote, setExpiryEditNote] = useState('');
   const [savingExpiry, setSavingExpiry] = useState(false);
+  const [scheduleActionMenu, setScheduleActionMenu] = useState<{
+    restaurantId: string;
+    top: number;
+    left: number;
+  } | null>(null);
+  const [planEditModal, setPlanEditModal] = useState<{
+    restaurantId: string;
+    restaurantName: string;
+  } | null>(null);
+  const [planEditValue, setPlanEditValue] = useState<PlanId>('basic');
+  const [savingPlan, setSavingPlan] = useState(false);
 
   const refreshSubscriptions = async () => {
     const { data, error } = await supabase.from('subscriptions').select('*');
@@ -1493,6 +1522,46 @@ const AdminView: React.FC<Props> = ({
     });
     setExpiryEditValue(toDateTimeLocalValue(new Date(currentExpiry)));
     setExpiryEditNote('');
+  };
+
+  const openScheduleActionMenu = (event: React.MouseEvent<HTMLButtonElement>, restaurantId: string) => {
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const width = 176;
+    const height = 92;
+    const left = Math.min(Math.max(8, rect.right - width), Math.max(8, window.innerWidth - width - 8));
+    const opensUp = rect.bottom + height > window.innerHeight - 8;
+    const top = opensUp ? Math.max(8, rect.top - height - 6) : rect.bottom + 6;
+    setScheduleActionMenu({ restaurantId, top, left });
+  };
+
+  const openPlanEditor = (restaurant: Restaurant) => {
+    const sub = subscriptions[restaurant.id];
+    if (!sub) {
+      toast('This vendor does not have a subscription yet.', 'error');
+      return;
+    }
+    setPlanEditModal({ restaurantId: restaurant.id, restaurantName: restaurant.name });
+    setPlanEditValue(sub.plan_id || 'basic');
+  };
+
+  const handleSavePlan = async () => {
+    if (!planEditModal) return;
+    setSavingPlan(true);
+    try {
+      const { error } = await supabase.rpc('admin_set_subscription_plan', {
+        p_restaurant_id: planEditModal.restaurantId,
+        p_plan_id: planEditValue,
+      });
+      if (error) throw error;
+      await refreshSubscriptions();
+      toast(`${planEditModal.restaurantName} changed to ${PRICING_PLANS.find(plan => plan.id === planEditValue)?.name || planEditValue}.`, 'success');
+      setPlanEditModal(null);
+    } catch (err: any) {
+      toast(err.message || 'Failed to update subscription plan', 'error');
+    } finally {
+      setSavingPlan(false);
+    }
   };
 
   const handleSaveExpiry = async () => {
@@ -1716,6 +1785,27 @@ const AdminView: React.FC<Props> = ({
       toast(err.message || 'Failed to load income', 'error');
     } finally {
       setIncomeLoading(false);
+    }
+  };
+
+  const handleDeleteIncome = async (transaction: any) => {
+    if (!confirm(`Delete the canceled income record for "${transaction.restaurantName}"? This only removes the income report record.`)) {
+      return;
+    }
+
+    setDeletingIncomeId(transaction.id);
+    try {
+      const response = await fetch(`/api/stripe/income?id=${encodeURIComponent(transaction.id)}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Failed to delete income record');
+      await fetchIncome();
+      toast('Income record deleted.', 'success');
+    } catch (err: any) {
+      toast(err.message || 'Failed to delete income record', 'error');
+    } finally {
+      setDeletingIncomeId(null);
     }
   };
 
@@ -3327,7 +3417,9 @@ const AdminView: React.FC<Props> = ({
               </div>
 
               {/* Tab content container */}
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6 rounded-b-2xl rounded-tr-2xl">
+              <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm rounded-b-2xl rounded-tr-2xl ${
+                incomeReportSubTab === 'SCHEDULE' ? 'overflow-hidden' : 'p-5 md:p-6'
+              }`}>
 
             {incomeReportSubTab === 'INCOME' && (
               <div className="space-y-6">
@@ -3389,26 +3481,31 @@ const AdminView: React.FC<Props> = ({
                         <th className="w-[14%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Restaurant</th>
                         <th className="w-[8%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Plan</th>
                         <th className="w-[8%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Type</th>
-                        <th className="w-[18%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest hidden lg:table-cell">Description</th>
-                        <th className="w-[10%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Gross</th>
-                        <th className="w-[10%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest hidden md:table-cell">Fee</th>
-                        <th className="w-[10%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Net</th>
-                        <th className="w-[10%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                        <th className="w-[16%] px-3 py-2.5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest hidden lg:table-cell">Description</th>
+                        <th className="w-[9%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Gross</th>
+                        <th className="w-[9%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest hidden md:table-cell">Fee</th>
+                        <th className="w-[9%] px-3 py-2.5 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Net</th>
+                        <th className="w-[9%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                        <th className="w-[8%] px-3 py-2.5 text-center text-[9px] font-black text-gray-400 uppercase tracking-widest">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                       {incomeLoading && incomeTransactions.length === 0 ? (
-                        <tr><td colSpan={9} className="text-center py-12 text-gray-400"><RefreshCw size={24} className="mx-auto animate-spin mb-2" /> Loading transactions…</td></tr>
+                        <tr><td colSpan={10} className="text-center py-12 text-gray-400"><RefreshCw size={24} className="mx-auto animate-spin mb-2" /> Loading transactions…</td></tr>
                       ) : incomeTransactions.length === 0 ? (
-                        <tr><td colSpan={9} className="text-center py-12">
+                        <tr><td colSpan={10} className="text-center py-12">
                           <FileText size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
                           <p className="text-sm font-bold text-gray-400">No transactions found</p>
                           <p className="text-xs text-gray-400 mt-1">Try adjusting the date range</p>
                         </td></tr>
                       ) : incomeTransactions.map(txn => (
                         <tr key={txn.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                          <td className="px-3 py-2 text-xs font-bold dark:text-gray-300 truncate">
-                            {new Date(txn.date).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: '2-digit' })}
+                          <td className="px-3 py-2 text-xs font-bold dark:text-gray-300">
+                            <DateTimeRows
+                              value={txn.date}
+                              dateClassName="font-black text-gray-700 dark:text-gray-200"
+                              timeClassName="mt-1 text-[9px] font-bold text-gray-400"
+                            />
                           </td>
                           <td className="px-3 py-2 text-xs font-bold dark:text-gray-300 truncate">{txn.restaurantName}</td>
                           <td className="px-3 py-2">
@@ -3442,6 +3539,17 @@ const AdminView: React.FC<Props> = ({
                               <CheckCircle2 size={10} /> {txn.status === 'succeeded' ? 'Success' : txn.status}
                             </span>
                           </td>
+                          <td className="px-3 py-2 text-center">
+                            <button
+                              onClick={() => handleDeleteIncome(txn)}
+                              disabled={deletingIncomeId === txn.id}
+                              className="inline-flex p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                              title="Delete canceled income record"
+                              aria-label={`Delete income record for ${txn.restaurantName}`}
+                            >
+                              {deletingIncomeId === txn.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -3460,8 +3568,8 @@ const AdminView: React.FC<Props> = ({
             )}
 
             {incomeReportSubTab === 'SCHEDULE' && (
-              <div className="space-y-6">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="space-y-6 pb-6">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-5 pt-5 md:px-6 md:pt-6">
                   <div>
                     <h3 className="text-base font-black dark:text-white uppercase tracking-tighter">Vendor Subscription Schedule</h3>
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
@@ -3490,7 +3598,7 @@ const AdminView: React.FC<Props> = ({
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                <div className="border-y border-gray-200 dark:border-gray-700 overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[940px]">
                       <thead className="bg-gray-50 dark:bg-gray-900/50">
@@ -3532,26 +3640,29 @@ const AdminView: React.FC<Props> = ({
                                 </span>
                               </td>
                               <td className="px-4 py-3 text-[10px] font-bold text-gray-500 dark:text-gray-300">
-                                {latestHistory?.old_expiry
-                                  ? new Date(latestHistory.old_expiry).toLocaleString()
-                                  : '-'}
+                                <DateTimeRows
+                                  value={latestHistory?.old_expiry}
+                                  dateClassName="font-black text-gray-600 dark:text-gray-200"
+                                  timeClassName="mt-1 text-[9px] text-gray-400"
+                                />
                               </td>
                               <td className="px-4 py-3">
                                 {currentExpiryDate ? (
-                                  <div>
-                                    <p className={`text-[10px] font-black ${isExpired ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>
-                                      {currentExpiryDate.toLocaleString()}
-                                    </p>
-                                    <p className={`text-[9px] font-bold uppercase tracking-widest ${isExpired ? 'text-red-400' : 'text-gray-400'}`}>
-                                      {isExpired ? 'Expired' : 'Active'}
-                                    </p>
-                                  </div>
+                                  <DateTimeRows
+                                    value={currentExpiry}
+                                    dateClassName={`text-[10px] font-black ${isExpired ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}
+                                    timeClassName={`mt-1 text-[9px] font-bold ${isExpired ? 'text-red-400' : 'text-gray-400'}`}
+                                  />
                                 ) : (
                                   <span className="text-[10px] font-bold text-gray-400">No expiry</span>
                                 )}
                               </td>
                               <td className="px-4 py-3 text-[10px] font-bold text-gray-500 dark:text-gray-300">
-                                {latestHistory ? new Date(latestHistory.changed_at).toLocaleString() : '-'}
+                                <DateTimeRows
+                                  value={latestHistory?.changed_at}
+                                  dateClassName="font-black text-gray-600 dark:text-gray-200"
+                                  timeClassName="mt-1 text-[9px] text-gray-400"
+                                />
                               </td>
                               <td className="px-4 py-3">
                                 {latestHistory ? (
@@ -3571,11 +3682,15 @@ const AdminView: React.FC<Props> = ({
                               </td>
                               <td className="px-4 py-3 text-right">
                                 <button
-                                  onClick={() => openExpiryEditor(restaurant)}
-                                  disabled={!sub || !currentExpiry}
-                                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-orange-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                  type="button"
+                                  onClick={event => openScheduleActionMenu(event, restaurant.id)}
+                                  disabled={!sub}
+                                  className="inline-flex p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-white dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                  title="Subscription actions"
+                                  aria-label={`Actions for ${restaurant.name}`}
+                                  aria-expanded={scheduleActionMenu?.restaurantId === restaurant.id}
                                 >
-                                  <Edit3 size={12} /> Change Date
+                                  <MoreVertical size={16} />
                                 </button>
                               </td>
                             </tr>
@@ -3594,11 +3709,11 @@ const AdminView: React.FC<Props> = ({
                 </div>
 
                 <div>
-                  <div className="mb-3">
+                  <div className="mb-3 px-5 md:px-6">
                     <h3 className="text-base font-black dark:text-white uppercase tracking-tighter">Expiry Change Log</h3>
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Most recent 500 recorded changes</p>
                   </div>
-                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                  <div className="border-y border-gray-200 dark:border-gray-700 overflow-hidden">
                     <div className="overflow-x-auto max-h-[440px] custom-scrollbar">
                       <table className="w-full min-w-[860px]">
                         <thead className="bg-gray-50 dark:bg-gray-900/50 sticky top-0 z-[1]">
@@ -3616,10 +3731,28 @@ const AdminView: React.FC<Props> = ({
                             const restaurant = restaurants.find(item => item.id === entry.restaurant_id);
                             return (
                               <tr key={entry.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                                <td className="px-4 py-2.5 text-[10px] font-bold text-gray-500 dark:text-gray-300">{new Date(entry.changed_at).toLocaleString()}</td>
+                                <td className="px-4 py-2.5 text-[10px] font-bold text-gray-500 dark:text-gray-300">
+                                  <DateTimeRows
+                                    value={entry.changed_at}
+                                    dateClassName="font-black text-gray-600 dark:text-gray-200"
+                                    timeClassName="mt-1 text-[9px] text-gray-400"
+                                  />
+                                </td>
                                 <td className="px-4 py-2.5 text-[10px] font-black dark:text-white">{restaurant?.name || 'Unknown vendor'}</td>
-                                <td className="px-4 py-2.5 text-[10px] font-bold text-gray-500 dark:text-gray-300">{entry.old_expiry ? new Date(entry.old_expiry).toLocaleString() : '-'}</td>
-                                <td className="px-4 py-2.5 text-[10px] font-black text-orange-500">{entry.new_expiry ? new Date(entry.new_expiry).toLocaleString() : '-'}</td>
+                                <td className="px-4 py-2.5 text-[10px] font-bold text-gray-500 dark:text-gray-300">
+                                  <DateTimeRows
+                                    value={entry.old_expiry}
+                                    dateClassName="font-black text-gray-600 dark:text-gray-200"
+                                    timeClassName="mt-1 text-[9px] text-gray-400"
+                                  />
+                                </td>
+                                <td className="px-4 py-2.5 text-[10px] font-black text-orange-500">
+                                  <DateTimeRows
+                                    value={entry.new_expiry}
+                                    dateClassName="font-black text-orange-500"
+                                    timeClassName="mt-1 text-[9px] text-orange-400"
+                                  />
+                                </td>
                                 <td className="px-4 py-2.5 text-[9px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">{entry.event_type.replace(/_/g, ' ')}</td>
                                 <td className="px-4 py-2.5 text-[10px] text-gray-500 dark:text-gray-300">{entry.note || entry.change_source}</td>
                               </tr>
@@ -5959,6 +6092,107 @@ const AdminView: React.FC<Props> = ({
         </div>
       )}
 
+      {scheduleActionMenu && (() => {
+        const restaurant = restaurants.find(item => item.id === scheduleActionMenu.restaurantId);
+        const sub = subscriptions[scheduleActionMenu.restaurantId];
+        if (!restaurant || !sub) return null;
+
+        return (
+          <>
+            <button
+              type="button"
+              aria-label="Close subscription actions"
+              className="fixed inset-0 z-[9997] cursor-default"
+              onClick={() => setScheduleActionMenu(null)}
+            />
+            <div
+              className="fixed z-[9998] w-44 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 text-left shadow-2xl dark:border-gray-700 dark:bg-gray-900"
+              style={{ top: scheduleActionMenu.top, left: scheduleActionMenu.left }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setScheduleActionMenu(null);
+                  openExpiryEditor(restaurant);
+                }}
+                disabled={!sub.current_period_end && !sub.trial_end}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-xs font-bold text-gray-700 transition hover:bg-orange-50 hover:text-orange-600 disabled:opacity-40 dark:text-gray-200 dark:hover:bg-orange-900/20 dark:hover:text-orange-300"
+              >
+                <Calendar size={14} /> Change Date
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setScheduleActionMenu(null);
+                  openPlanEditor(restaurant);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-xs font-bold text-gray-700 transition hover:bg-blue-50 hover:text-blue-600 dark:text-gray-200 dark:hover:bg-blue-900/20 dark:hover:text-blue-300"
+              >
+                <Edit3 size={14} /> Edit Plan
+              </button>
+            </div>
+          </>
+        );
+      })()}
+
+      {/* Subscription Plan Editor */}
+      {planEditModal && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={() => { if (!savingPlan) setPlanEditModal(null); }}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden" onClick={event => event.stopPropagation()}>
+            <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-700 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-black dark:text-white uppercase tracking-tight">Edit Subscription Plan</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{planEditModal.restaurantName}</p>
+              </div>
+              <button
+                onClick={() => setPlanEditModal(null)}
+                disabled={savingPlan}
+                className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Plan</label>
+                <select
+                  value={planEditValue}
+                  onChange={event => setPlanEditValue(event.target.value as PlanId)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm focus:ring-1 focus:ring-orange-500"
+                >
+                  {PRICING_PLANS.map(plan => (
+                    <option key={plan.id} value={plan.id}>{plan.name}</option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-[10px] text-gray-400">
+                The new plan applies immediately. Kitchen access is enabled only for Pro Plus.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setPlanEditModal(null)}
+                  disabled={savingPlan}
+                  className="flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-300 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSavePlan}
+                  disabled={savingPlan}
+                  className="flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {savingPlan ? <Loader2 size={14} className="animate-spin" /> : <Edit3 size={14} />}
+                  Save Plan
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Vendor Plan Lock Modal */}
       {planLockModal && (() => {
         const sub = subscriptions[planLockModal.restaurantId] || null;
@@ -6089,7 +6323,13 @@ const AdminView: React.FC<Props> = ({
             <div className="p-6 space-y-5">
               <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4">
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Current Expiry</p>
-                <p className="mt-1 text-sm font-black dark:text-white">{new Date(expiryEditModal.currentExpiry).toLocaleString()}</p>
+                <div className="mt-2">
+                  <DateTimeRows
+                    value={expiryEditModal.currentExpiry}
+                    dateClassName="text-sm font-black dark:text-white"
+                    timeClassName="mt-1 text-xs font-bold text-gray-400"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">New Expiry Date & Time</label>
