@@ -4971,6 +4971,7 @@ const PosOnlyView: React.FC<Props> = ({
   const showTablesideFeature = canUseQr && featureSettings.tablesideOrderingEnabled;
   const showQrFeature = showQrOrderingFeature || showTablesideFeature;
   const showOnlineShopFeature = canUseQr && featureSettings.onlineShopEnabled;
+  const isOrderAcceptanceManagedByKitchen = featureSettings.kitchenEnabled === true;
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const isKitchenUser = userRole === 'KITCHEN';
   const isVendorUser = userRole === 'VENDOR';
@@ -5160,6 +5161,10 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const toggleQrOrderSetting = (key: 'autoApprove' | 'autoPrint') => {
+    if (isOrderAcceptanceManagedByKitchen) {
+      toast('Kitchen Display is enabled. Manage order acceptance from Kitchen.', 'info');
+      return;
+    }
     setQrOrderSettings(prev => {
       const updated = { ...prev, [key]: !prev[key] };
       localStorage.setItem(`qr_order_settings_${restaurant.id}`, JSON.stringify(updated));
@@ -5169,6 +5174,10 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const toggleTablesideOrderSetting = (key: 'autoApprove' | 'autoPrint') => {
+    if (isOrderAcceptanceManagedByKitchen) {
+      toast('Kitchen Display is enabled. Manage order acceptance from Kitchen.', 'info');
+      return;
+    }
     setTablesideOrderSettings(prev => {
       const updated = { ...prev, [key]: !prev[key] };
       localStorage.setItem(`tableside_order_settings_${restaurant.id}`, JSON.stringify(updated));
@@ -5391,28 +5400,34 @@ const PosOnlyView: React.FC<Props> = ({
   // QR order auto-approve + auto-print
   const qrPrevPendingCount = useRef(0);
   useEffect(() => {
-    if (!showQrOrderingFeature) return;
     const qrPendingOrders = orders.filter(o => o.orderSource === 'qr_order' && o.status === OrderStatus.PENDING);
+    if (!showQrOrderingFeature || isOrderAcceptanceManagedByKitchen) {
+      qrPrevPendingCount.current = qrPendingOrders.length;
+      return;
+    }
     if (qrPendingOrders.length > qrPrevPendingCount.current && qrOrderSettings.autoApprove) {
       qrPendingOrders.forEach(order => {
         onUpdateOrder(order.id, OrderStatus.ONGOING);
       });
     }
     qrPrevPendingCount.current = qrPendingOrders.length;
-  }, [orders, showQrOrderingFeature, qrOrderSettings.autoApprove]);
+  }, [orders, showQrOrderingFeature, isOrderAcceptanceManagedByKitchen, qrOrderSettings.autoApprove]);
 
   // Tableside order auto-approve + auto-print
   const tablesidePrevPendingCount = useRef(0);
   useEffect(() => {
-    if (!showTablesideFeature) return;
     const tablesidePendingOrders = orders.filter(o => o.orderSource === 'tableside' && o.status === OrderStatus.PENDING);
+    if (!showTablesideFeature || isOrderAcceptanceManagedByKitchen) {
+      tablesidePrevPendingCount.current = tablesidePendingOrders.length;
+      return;
+    }
     if (tablesidePendingOrders.length > tablesidePrevPendingCount.current && tablesideOrderSettings.autoApprove) {
       tablesidePendingOrders.forEach(order => {
         onUpdateOrder(order.id, OrderStatus.ONGOING);
       });
     }
     tablesidePrevPendingCount.current = tablesidePendingOrders.length;
-  }, [orders, showTablesideFeature, tablesideOrderSettings.autoApprove]);
+  }, [orders, showTablesideFeature, isOrderAcceptanceManagedByKitchen, tablesideOrderSettings.autoApprove]);
 
   // ── Cross-device settings sync ──────────────────────────────────────────────
   // Only writes to DB when a setting *changes* after initial server hydration.
@@ -8311,7 +8326,7 @@ const PosOnlyView: React.FC<Props> = ({
                                 }`}
                               >
                                 <div className="flex items-center gap-2">
-                                  <span className={`w-3 text-center text-xs font-black ${isActive ? 'text-orange-500 dark:text-orange-300' : 'text-slate-300 dark:text-gray-600'}`}>{isActive ? '>' : ''}</span>
+                                  <span className={`w-3 text-center text-xs font-black ${isActive ? 'text-orange-500 dark:text-orange-300' : 'text-slate-300 dark:text-gray-600'}`}>{isActive ? '.' : ''}</span>
                                   <span className={`text-sm font-semibold ${isActive ? 'text-orange-700 dark:text-orange-300' : 'text-slate-700 dark:text-gray-200'}`}>{tab.label}</span>
                                 </div>
 
@@ -8350,7 +8365,7 @@ const PosOnlyView: React.FC<Props> = ({
                                       }`}
                                     >
                                       <div className="flex items-center gap-2">
-                                        <span className={`w-3 text-center text-xs font-black ${isActive ? 'text-orange-500 dark:text-orange-300' : 'text-slate-300 dark:text-gray-600'}`}>{isActive ? '>' : ''}</span>
+                                        <span className={`w-3 text-center text-xs font-black ${isActive ? 'text-orange-500 dark:text-orange-300' : 'text-slate-300 dark:text-gray-600'}`}>{isActive ? '.' : ''}</span>
                                         <span className={`flex items-center gap-1.5 text-sm font-semibold ${isActive ? 'text-orange-700 dark:text-orange-300' : 'text-slate-700 dark:text-gray-200'}`}>
                                           {addon.icon} {addon.label}
                                         </span>
@@ -10398,44 +10413,65 @@ const PosOnlyView: React.FC<Props> = ({
                 {/* ── Setting Sub-tab ── */}
                 {qrOrderSubTab === 'SETTING_TAB' && (
                   <div className="space-y-4">
+                    {isOrderAcceptanceManagedByKitchen && (
+                      <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 dark:border-orange-900/50 dark:bg-orange-900/20">
+                        <div className="flex items-start gap-2">
+                          <Info size={14} className="mt-0.5 flex-shrink-0 text-orange-500" />
+                          <p className="text-[10px] font-bold leading-relaxed text-orange-700 dark:text-orange-300">
+                            Kitchen Display is enabled. Order acceptance and printing are handled from Kitchen, so these POS settings are inactive.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                     <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 space-y-3">
                       <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">QR Order Settings</p>
                       {featureSettings.qrEnabled ? (
                         <div className="space-y-2">
-                          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                          <div className={`flex items-center justify-between p-3 rounded-xl transition-all ${isOrderAcceptanceManagedByKitchen ? 'bg-gray-100/80 opacity-60 dark:bg-gray-700/20' : 'bg-gray-50 dark:bg-gray-700/30'}`}>
                             <div>
-                              <p className="text-xs font-black dark:text-white">Auto-Approve Order</p>
-                              <p className="text-[9px] text-gray-400 mt-0.5">Automatically approve incoming QR orders</p>
+                              <p className={`text-xs font-black ${isOrderAcceptanceManagedByKitchen ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>Auto-Approve Order</p>
+                              <p className={`text-[9px] mt-0.5 ${isOrderAcceptanceManagedByKitchen ? 'text-gray-300 dark:text-gray-600' : 'text-gray-400'}`}>Automatically approve incoming QR orders</p>
                             </div>
                             <button
                               onClick={() => toggleQrOrderSetting('autoApprove')}
-                              className={`w-11 h-6 rounded-full transition-all relative ${qrOrderSettings.autoApprove ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                              disabled={isOrderAcceptanceManagedByKitchen}
+                              title={isOrderAcceptanceManagedByKitchen ? 'Managed from Kitchen' : undefined}
+                              className={`w-11 h-6 rounded-full transition-all relative ${
+                                isOrderAcceptanceManagedByKitchen
+                                  ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
+                                  : qrOrderSettings.autoApprove ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                              }`}
                             >
-                              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${qrOrderSettings.autoApprove ? 'left-6' : 'left-1'}`} />
+                              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                                isOrderAcceptanceManagedByKitchen
+                                  ? 'left-1 opacity-50'
+                                  : qrOrderSettings.autoApprove ? 'left-6' : 'left-1'
+                              }`} />
                             </button>
                           </div>
-                          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                          <div className={`flex items-center justify-between p-3 rounded-xl transition-all ${isOrderAcceptanceManagedByKitchen ? 'bg-gray-100/80 opacity-60 dark:bg-gray-700/20' : 'bg-gray-50 dark:bg-gray-700/30'}`}>
                             <div>
-                              <p className="text-xs font-black dark:text-white">Auto-Print Order</p>
-                              <p className="text-[9px] text-gray-400 mt-0.5">Automatically print incoming QR orders</p>
+                              <p className={`text-xs font-black ${isOrderAcceptanceManagedByKitchen ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>Auto-Print Order</p>
+                              <p className={`text-[9px] mt-0.5 ${isOrderAcceptanceManagedByKitchen ? 'text-gray-300 dark:text-gray-600' : 'text-gray-400'}`}>Automatically print incoming QR orders</p>
                             </div>
                             <button
                               onClick={() => toggleQrOrderSetting('autoPrint')}
                               className={`w-11 h-6 rounded-full transition-all relative ${
-                                !connectedDevice
+                                isOrderAcceptanceManagedByKitchen || !connectedDevice
                                   ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
                                   : qrOrderSettings.autoPrint ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
                               }`}
-                              disabled={!connectedDevice}
+                              disabled={isOrderAcceptanceManagedByKitchen || !connectedDevice}
+                              title={isOrderAcceptanceManagedByKitchen ? 'Managed from Kitchen' : undefined}
                             >
                               <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                                !connectedDevice
+                                isOrderAcceptanceManagedByKitchen || !connectedDevice
                                   ? 'left-1 opacity-50'
                                   : qrOrderSettings.autoPrint ? 'left-6' : 'left-1'
                               }`} />
                             </button>
                           </div>
-                          {!connectedDevice && qrOrderSettings.autoPrint && (
+                          {!isOrderAcceptanceManagedByKitchen && !connectedDevice && qrOrderSettings.autoPrint && (
                             <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl">
                               <p className="text-[10px] text-yellow-600 dark:text-yellow-400">Auto-print enabled but no printer connected. Connect a printer to use this feature.</p>
                             </div>
@@ -10452,40 +10488,51 @@ const PosOnlyView: React.FC<Props> = ({
                       <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Tableside Order Settings</p>
                       {featureSettings.tablesideOrderingEnabled ? (
                         <div className="space-y-2">
-                          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                          <div className={`flex items-center justify-between p-3 rounded-xl transition-all ${isOrderAcceptanceManagedByKitchen ? 'bg-gray-100/80 opacity-60 dark:bg-gray-700/20' : 'bg-gray-50 dark:bg-gray-700/30'}`}>
                             <div>
-                              <p className="text-xs font-black dark:text-white">Auto-Approve Order</p>
-                              <p className="text-[9px] text-gray-400 mt-0.5">Automatically approve incoming tableside orders</p>
+                              <p className={`text-xs font-black ${isOrderAcceptanceManagedByKitchen ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>Auto-Approve Order</p>
+                              <p className={`text-[9px] mt-0.5 ${isOrderAcceptanceManagedByKitchen ? 'text-gray-300 dark:text-gray-600' : 'text-gray-400'}`}>Automatically approve incoming tableside orders</p>
                             </div>
                             <button
                               onClick={() => toggleTablesideOrderSetting('autoApprove')}
-                              className={`w-11 h-6 rounded-full transition-all relative ${tablesideOrderSettings.autoApprove ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                              disabled={isOrderAcceptanceManagedByKitchen}
+                              title={isOrderAcceptanceManagedByKitchen ? 'Managed from Kitchen' : undefined}
+                              className={`w-11 h-6 rounded-full transition-all relative ${
+                                isOrderAcceptanceManagedByKitchen
+                                  ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
+                                  : tablesideOrderSettings.autoApprove ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                              }`}
                             >
-                              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${tablesideOrderSettings.autoApprove ? 'left-6' : 'left-1'}`} />
+                              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                                isOrderAcceptanceManagedByKitchen
+                                  ? 'left-1 opacity-50'
+                                  : tablesideOrderSettings.autoApprove ? 'left-6' : 'left-1'
+                              }`} />
                             </button>
                           </div>
-                          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                          <div className={`flex items-center justify-between p-3 rounded-xl transition-all ${isOrderAcceptanceManagedByKitchen ? 'bg-gray-100/80 opacity-60 dark:bg-gray-700/20' : 'bg-gray-50 dark:bg-gray-700/30'}`}>
                             <div>
-                              <p className="text-xs font-black dark:text-white">Auto-Print Order</p>
-                              <p className="text-[9px] text-gray-400 mt-0.5">Automatically print incoming tableside orders</p>
+                              <p className={`text-xs font-black ${isOrderAcceptanceManagedByKitchen ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>Auto-Print Order</p>
+                              <p className={`text-[9px] mt-0.5 ${isOrderAcceptanceManagedByKitchen ? 'text-gray-300 dark:text-gray-600' : 'text-gray-400'}`}>Automatically print incoming tableside orders</p>
                             </div>
                             <button
                               onClick={() => toggleTablesideOrderSetting('autoPrint')}
                               className={`w-11 h-6 rounded-full transition-all relative ${
-                                !connectedDevice
+                                isOrderAcceptanceManagedByKitchen || !connectedDevice
                                   ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
                                   : tablesideOrderSettings.autoPrint ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
                               }`}
-                              disabled={!connectedDevice}
+                              disabled={isOrderAcceptanceManagedByKitchen || !connectedDevice}
+                              title={isOrderAcceptanceManagedByKitchen ? 'Managed from Kitchen' : undefined}
                             >
                               <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                                !connectedDevice
+                                isOrderAcceptanceManagedByKitchen || !connectedDevice
                                   ? 'left-1 opacity-50'
                                   : tablesideOrderSettings.autoPrint ? 'left-6' : 'left-1'
                               }`} />
                             </button>
                           </div>
-                          {!connectedDevice && tablesideOrderSettings.autoPrint && (
+                          {!isOrderAcceptanceManagedByKitchen && !connectedDevice && tablesideOrderSettings.autoPrint && (
                             <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl">
                               <p className="text-[10px] text-yellow-600 dark:text-yellow-400">Auto-print enabled but no printer connected. Connect a printer to use this feature.</p>
                             </div>

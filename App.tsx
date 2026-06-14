@@ -2908,8 +2908,8 @@ const App: React.FC = () => {
                 onClick={() => setShowShiftModal(true)}
                 className={`flex h-8 items-center gap-1.5 sm:gap-2 rounded-full border px-2.5 sm:px-3 text-[10px] sm:text-xs font-black shadow-sm transition-all ${
                   activeShift
-                    ? 'border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-700/70 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50'
-                    : 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-700/70 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50'
+                    ? 'border-green-300 bg-green-100 text-green-800 hover:bg-green-200 dark:border-green-600 dark:bg-green-900/50 dark:text-green-200 dark:hover:bg-green-900/70'
+                    : 'border-red-300 bg-red-100 text-red-800 hover:bg-red-200 dark:border-red-600 dark:bg-red-900/50 dark:text-red-200 dark:hover:bg-red-900/70'
                 }`}
                 title={activeShift ? 'Shift Active — Click to close' : 'Shift required before payment'}
               >
