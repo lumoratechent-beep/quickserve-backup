@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
-import { calculateNextSubscriptionPeriod } from '../../lib/subscriptionPeriod';
+import { calculateNextSubscriptionPeriod } from '../../lib/subscriptionPeriod.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';

@@ -3,8 +3,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
-import { isSubscriptionLockDue } from '../../lib/subscriptionAccess';
-import { calculateNextSubscriptionPeriod } from '../../lib/subscriptionPeriod';
+import { isSubscriptionLockDue } from '../../lib/subscriptionAccess.js';
+import { calculateNextSubscriptionPeriod } from '../../lib/subscriptionPeriod.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 
