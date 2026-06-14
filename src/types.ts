@@ -289,6 +289,25 @@ export interface Subscription {
   updated_at: string;
 }
 
+export type SubscriptionExpiryEvent =
+  | 'initial'
+  | 'renewal'
+  | 'manual_adjustment'
+  | 'expiry_correction'
+  | 'expiry_removed';
+
+export interface SubscriptionExpiryHistory {
+  id: string;
+  subscription_id: string;
+  restaurant_id: string;
+  old_expiry?: string | null;
+  new_expiry?: string | null;
+  event_type: SubscriptionExpiryEvent;
+  change_source: string;
+  note?: string | null;
+  changed_at: string;
+}
+
 export type DuitNowPaymentStatus = 'pending' | 'approved' | 'rejected';
 
 export interface DuitNowPayment {

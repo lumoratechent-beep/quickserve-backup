@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, Subscription, PlanId, MenuItem } from '../src/types';
+import { User, Restaurant, Order, Area, OrderStatus, ReportResponse, ReportFilters, Subscription, SubscriptionExpiryHistory, PlanId, MenuItem } from '../src/types';
 import { uploadImage } from '../lib/storage';
 import { Users, Store, TrendingUp, Settings, ShieldCheck, Mail, Search, Filter, X, Plus, MapPin, Power, CheckCircle2, AlertCircle, LogIn, Trash2, LayoutGrid, List, ChevronRight, Eye, EyeOff, Globe, Phone, ShoppingBag, Edit3, Hash, Download, Calendar, ChevronLeft, Database, Image as ImageIcon, Key, QrCode, Printer, Layers, Info, ExternalLink, XCircle, Upload, Link, ChevronLast, ChevronFirst, Wifi, HardDrive, Cpu, Activity, RefreshCw, Menu, GripVertical, DollarSign, ArrowUpRight, ArrowDownRight, Receipt, FileText, CreditCard, Radio, FileImage, Wallet, Banknote, CheckCircle, Send, Megaphone, ToggleLeft, ToggleRight, Gift, Loader2, Lock, Unlock } from 'lucide-react';
 import ImageCropModal from '../components/ImageCropModal';
@@ -689,7 +689,7 @@ const AdminView: React.FC<Props> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('VENDORS');
   const [vendorHubSubTab, setVendorHubSubTab] = useState<'VENDORS' | 'HUBS'>('VENDORS');
-  const [incomeReportSubTab, setIncomeReportSubTab] = useState<'INCOME' | 'REPORTS'>('INCOME');
+  const [incomeReportSubTab, setIncomeReportSubTab] = useState<'INCOME' | 'SCHEDULE' | 'REPORTS'>('INCOME');
   const [quotations, setQuotations] = useState<AdminQuotation[]>(() => {
     try {
       const saved = localStorage.getItem(ADMIN_QUOTATIONS_STORAGE_KEY);
@@ -1404,6 +1404,17 @@ const AdminView: React.FC<Props> = ({
 
   // Subscription data for all restaurants
   const [subscriptions, setSubscriptions] = useState<Record<string, Subscription>>({});
+  const [subscriptionHistory, setSubscriptionHistory] = useState<SubscriptionExpiryHistory[]>([]);
+  const [subscriptionScheduleLoading, setSubscriptionScheduleLoading] = useState(false);
+  const [subscriptionScheduleSearch, setSubscriptionScheduleSearch] = useState('');
+  const [expiryEditModal, setExpiryEditModal] = useState<{
+    restaurantId: string;
+    restaurantName: string;
+    currentExpiry: string;
+  } | null>(null);
+  const [expiryEditValue, setExpiryEditValue] = useState('');
+  const [expiryEditNote, setExpiryEditNote] = useState('');
+  const [savingExpiry, setSavingExpiry] = useState(false);
 
   const refreshSubscriptions = async () => {
     const { data, error } = await supabase.from('subscriptions').select('*');
@@ -1414,9 +1425,101 @@ const AdminView: React.FC<Props> = ({
     }
   };
 
+  const refreshSubscriptionHistory = async () => {
+    setSubscriptionScheduleLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('subscription_expiry_history')
+        .select('*')
+        .order('changed_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      setSubscriptionHistory((data || []) as SubscriptionExpiryHistory[]);
+    } catch (err: any) {
+      toast(err.message || 'Failed to load subscription schedule history', 'error');
+    } finally {
+      setSubscriptionScheduleLoading(false);
+    }
+  };
+
   useEffect(() => {
     refreshSubscriptions();
   }, [restaurants]);
+
+  useEffect(() => {
+    if (activeTab === 'INCOME_REPORT' && incomeReportSubTab === 'SCHEDULE') {
+      refreshSubscriptionHistory();
+    }
+  }, [activeTab, incomeReportSubTab]);
+
+  const latestHistoryByRestaurant = useMemo(() => {
+    const latest = new Map<string, SubscriptionExpiryHistory>();
+    subscriptionHistory.forEach(entry => {
+      if (!latest.has(entry.restaurant_id)) latest.set(entry.restaurant_id, entry);
+    });
+    return latest;
+  }, [subscriptionHistory]);
+
+  const filteredSubscriptionSchedule = useMemo(() => {
+    const query = subscriptionScheduleSearch.trim().toLowerCase();
+    return restaurants
+      .filter(restaurant => {
+        if (!query) return true;
+        const vendor = vendors.find(item => item.restaurantId === restaurant.id);
+        return [restaurant.name, restaurant.location, vendor?.username]
+          .some(value => value?.toLowerCase().includes(query));
+      })
+      .sort((a, b) => {
+        const aSub = subscriptions[a.id];
+        const bSub = subscriptions[b.id];
+        const aExpiry = aSub?.current_period_end || aSub?.trial_end;
+        const bExpiry = bSub?.current_period_end || bSub?.trial_end;
+        return (aExpiry ? new Date(aExpiry).getTime() : Number.MAX_SAFE_INTEGER)
+          - (bExpiry ? new Date(bExpiry).getTime() : Number.MAX_SAFE_INTEGER);
+      });
+  }, [restaurants, vendors, subscriptions, subscriptionScheduleSearch]);
+
+  const openExpiryEditor = (restaurant: Restaurant) => {
+    const sub = subscriptions[restaurant.id];
+    const currentExpiry = sub?.current_period_end || sub?.trial_end;
+    if (!sub || !currentExpiry) {
+      toast('This vendor does not have a subscription expiry yet.', 'error');
+      return;
+    }
+    setExpiryEditModal({
+      restaurantId: restaurant.id,
+      restaurantName: restaurant.name,
+      currentExpiry,
+    });
+    setExpiryEditValue(toDateTimeLocalValue(new Date(currentExpiry)));
+    setExpiryEditNote('');
+  };
+
+  const handleSaveExpiry = async () => {
+    if (!expiryEditModal || !expiryEditValue) return;
+    const newExpiry = new Date(expiryEditValue);
+    if (Number.isNaN(newExpiry.getTime())) {
+      toast('Select a valid expiry date and time.', 'error');
+      return;
+    }
+
+    setSavingExpiry(true);
+    try {
+      const { error } = await supabase.rpc('admin_set_subscription_expiry', {
+        p_restaurant_id: expiryEditModal.restaurantId,
+        p_new_expiry: newExpiry.toISOString(),
+        p_note: expiryEditNote.trim() || null,
+      });
+      if (error) throw error;
+      await Promise.all([refreshSubscriptions(), refreshSubscriptionHistory()]);
+      toast(`Expiry updated to ${newExpiry.toLocaleString()}.`, 'success');
+      setExpiryEditModal(null);
+    } catch (err: any) {
+      toast(err.message || 'Failed to update subscription expiry', 'error');
+    } finally {
+      setSavingExpiry(false);
+    }
+  };
 
   const [extendingRestId, setExtendingRestId] = useState<string | null>(null);
   const [extendModal, setExtendModal] = useState<{ restaurantId: string; restaurantName: string } | null>(null);
@@ -3205,6 +3308,7 @@ const AdminView: React.FC<Props> = ({
               <div className="flex gap-0 relative">
                 {([
                   { id: 'INCOME' as const, label: 'Subscription Income', icon: <DollarSign size={13} /> },
+                  { id: 'SCHEDULE' as const, label: 'Vendor Subscription Schedule', icon: <Calendar size={13} /> },
                   { id: 'REPORTS' as const, label: 'Sales Report', icon: <TrendingUp size={13} /> },
                 ]).map(tab => (
                   <button
@@ -3351,6 +3455,194 @@ const AdminView: React.FC<Props> = ({
                       </button>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {incomeReportSubTab === 'SCHEDULE' && (
+              <div className="space-y-6">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-base font-black dark:text-white uppercase tracking-tighter">Vendor Subscription Schedule</h3>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+                      Current expiry dates, previous dates, renewals, and admin adjustments
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 w-full lg:w-auto">
+                    <div className="relative flex-1 lg:w-64">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        value={subscriptionScheduleSearch}
+                        onChange={event => setSubscriptionScheduleSearch(event.target.value)}
+                        placeholder="Search vendor or hub..."
+                        className="w-full h-[36px] pl-9 pr-3 bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-xl text-[10px] font-black uppercase outline-none focus:ring-1 focus:ring-orange-500 dark:text-white"
+                      />
+                    </div>
+                    <button
+                      onClick={() => Promise.all([refreshSubscriptions(), refreshSubscriptionHistory()])}
+                      disabled={subscriptionScheduleLoading}
+                      className="h-[36px] px-4 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <RefreshCw size={13} className={subscriptionScheduleLoading ? 'animate-spin' : ''} />
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[940px]">
+                      <thead className="bg-gray-50 dark:bg-gray-900/50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Vendor</th>
+                          <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Plan</th>
+                          <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Previous Expiry</th>
+                          <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Current Expiry</th>
+                          <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Last Changed</th>
+                          <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Change</th>
+                          <th className="px-4 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                        {filteredSubscriptionSchedule.map(restaurant => {
+                          const sub = subscriptions[restaurant.id];
+                          const currentExpiry = sub?.current_period_end || sub?.trial_end;
+                          const latestHistory = latestHistoryByRestaurant.get(restaurant.id);
+                          const currentExpiryDate = currentExpiry ? new Date(currentExpiry) : null;
+                          const isExpired = currentExpiryDate ? currentExpiryDate < new Date() : false;
+                          const planName = PRICING_PLANS.find(plan => plan.id === sub?.plan_id)?.name || sub?.plan_id || 'No plan';
+                          const eventLabels: Record<string, string> = {
+                            initial: 'Initial',
+                            renewal: 'Renewal',
+                            manual_adjustment: 'Admin edit',
+                            expiry_correction: 'Correction',
+                            expiry_removed: 'Removed',
+                          };
+
+                          return (
+                            <tr key={restaurant.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                              <td className="px-4 py-3">
+                                <p className="text-xs font-black dark:text-white">{restaurant.name}</p>
+                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{restaurant.location || 'Unassigned'}</p>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="inline-flex px-2 py-1 rounded-lg bg-orange-50 dark:bg-orange-900/20 text-orange-600 text-[9px] font-black uppercase tracking-wider">
+                                  {planName}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-[10px] font-bold text-gray-500 dark:text-gray-300">
+                                {latestHistory?.old_expiry
+                                  ? new Date(latestHistory.old_expiry).toLocaleString()
+                                  : '-'}
+                              </td>
+                              <td className="px-4 py-3">
+                                {currentExpiryDate ? (
+                                  <div>
+                                    <p className={`text-[10px] font-black ${isExpired ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>
+                                      {currentExpiryDate.toLocaleString()}
+                                    </p>
+                                    <p className={`text-[9px] font-bold uppercase tracking-widest ${isExpired ? 'text-red-400' : 'text-gray-400'}`}>
+                                      {isExpired ? 'Expired' : 'Active'}
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <span className="text-[10px] font-bold text-gray-400">No expiry</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-[10px] font-bold text-gray-500 dark:text-gray-300">
+                                {latestHistory ? new Date(latestHistory.changed_at).toLocaleString() : '-'}
+                              </td>
+                              <td className="px-4 py-3">
+                                {latestHistory ? (
+                                  <div>
+                                    <span className="inline-flex px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-[9px] font-black uppercase tracking-wider">
+                                      {eventLabels[latestHistory.event_type] || latestHistory.event_type}
+                                    </span>
+                                    {latestHistory.note && (
+                                      <p className="mt-1 max-w-[180px] truncate text-[9px] text-gray-400" title={latestHistory.note}>
+                                        {latestHistory.note}
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-[10px] text-gray-400">No history</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <button
+                                  onClick={() => openExpiryEditor(restaurant)}
+                                  disabled={!sub || !currentExpiry}
+                                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-orange-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                >
+                                  <Edit3 size={12} /> Change Date
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {filteredSubscriptionSchedule.length === 0 && (
+                          <tr>
+                            <td colSpan={7} className="py-14 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                              No matching vendors found.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-3">
+                    <h3 className="text-base font-black dark:text-white uppercase tracking-tighter">Expiry Change Log</h3>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Most recent 500 recorded changes</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto max-h-[440px] custom-scrollbar">
+                      <table className="w-full min-w-[860px]">
+                        <thead className="bg-gray-50 dark:bg-gray-900/50 sticky top-0 z-[1]">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Changed At</th>
+                            <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Vendor</th>
+                            <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Old Expiry</th>
+                            <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">New Expiry</th>
+                            <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Event</th>
+                            <th className="px-4 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Note</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                          {subscriptionHistory.map(entry => {
+                            const restaurant = restaurants.find(item => item.id === entry.restaurant_id);
+                            return (
+                              <tr key={entry.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                <td className="px-4 py-2.5 text-[10px] font-bold text-gray-500 dark:text-gray-300">{new Date(entry.changed_at).toLocaleString()}</td>
+                                <td className="px-4 py-2.5 text-[10px] font-black dark:text-white">{restaurant?.name || 'Unknown vendor'}</td>
+                                <td className="px-4 py-2.5 text-[10px] font-bold text-gray-500 dark:text-gray-300">{entry.old_expiry ? new Date(entry.old_expiry).toLocaleString() : '-'}</td>
+                                <td className="px-4 py-2.5 text-[10px] font-black text-orange-500">{entry.new_expiry ? new Date(entry.new_expiry).toLocaleString() : '-'}</td>
+                                <td className="px-4 py-2.5 text-[9px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">{entry.event_type.replace(/_/g, ' ')}</td>
+                                <td className="px-4 py-2.5 text-[10px] text-gray-500 dark:text-gray-300">{entry.note || entry.change_source}</td>
+                              </tr>
+                            );
+                          })}
+                          {!subscriptionScheduleLoading && subscriptionHistory.length === 0 && (
+                            <tr>
+                              <td colSpan={6} className="py-14 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                No expiry changes recorded yet.
+                              </td>
+                            </tr>
+                          )}
+                          {subscriptionScheduleLoading && subscriptionHistory.length === 0 && (
+                            <tr>
+                              <td colSpan={6} className="py-14 text-center text-gray-400">
+                                <RefreshCw size={22} className="mx-auto animate-spin" />
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -5773,6 +6065,76 @@ const AdminView: React.FC<Props> = ({
           </div>
         );
       })()}
+
+      {/* Subscription Expiry Editor */}
+      {expiryEditModal && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={() => { if (!savingExpiry) setExpiryEditModal(null); }}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden" onClick={event => event.stopPropagation()}>
+            <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-700 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-black dark:text-white uppercase tracking-tight">Change Subscription Expiry</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{expiryEditModal.restaurantName}</p>
+              </div>
+              <button
+                onClick={() => setExpiryEditModal(null)}
+                disabled={savingExpiry}
+                className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Current Expiry</p>
+                <p className="mt-1 text-sm font-black dark:text-white">{new Date(expiryEditModal.currentExpiry).toLocaleString()}</p>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">New Expiry Date & Time</label>
+                <input
+                  type="datetime-local"
+                  value={expiryEditValue}
+                  onChange={event => setExpiryEditValue(event.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-bold dark:text-white text-sm focus:ring-1 focus:ring-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Reason / Note (Optional)</label>
+                <textarea
+                  value={expiryEditNote}
+                  onChange={event => setExpiryEditNote(event.target.value)}
+                  maxLength={500}
+                  rows={3}
+                  placeholder="Example: Cash renewal confirmed by admin"
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-xl outline-none font-medium dark:text-white text-sm resize-none focus:ring-1 focus:ring-orange-500"
+                />
+              </div>
+              <p className="text-[10px] text-gray-400">
+                Saving creates a permanent log with the previous date, new date, time changed, and this note.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setExpiryEditModal(null)}
+                  disabled={savingExpiry}
+                  className="flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-300 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveExpiry}
+                  disabled={savingExpiry || !expiryEditValue}
+                  className="flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {savingExpiry ? <Loader2 size={14} className="animate-spin" /> : <Calendar size={14} />}
+                  Save New Date
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Extension Type Modal */}
       {extendModal && (
