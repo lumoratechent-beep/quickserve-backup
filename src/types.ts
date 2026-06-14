@@ -323,6 +323,13 @@ export interface DuitNowPayment {
   admin_note?: string | null;
   reviewed_by?: string | null;
   reviewed_at?: string | null;
+  provisional_access_until?: string | null;
+  original_status?: SubscriptionStatus | null;
+  original_plan_id?: PlanId | null;
+  original_billing_interval?: 'monthly' | 'annual' | null;
+  original_current_period_start?: string | null;
+  original_current_period_end?: string | null;
+  original_trial_end?: string | null;
   created_at: string;
   updated_at: string;
   // Joined fields (for admin view)

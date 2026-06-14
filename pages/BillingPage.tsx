@@ -243,7 +243,7 @@ const BillingPage: React.FC<Props> = ({ restaurantId, subscription, onUpgradeCli
       });
 
       if (res.ok) {
-        toast('DuitNow payment submitted. POS access is active while admin reviews it.', 'success');
+        toast('DuitNow payment submitted. POS access is active for 24 hours while admin reviews it.', 'success');
         setShowDuitNowModal(false);
         setDuitnowRef('');
         setDuitnowAttachment(null);

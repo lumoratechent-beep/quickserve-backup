@@ -1082,12 +1082,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const { data: dnSub } = await supabase
           .from('subscriptions')
-          .select('duitnow_enabled, current_period_end, trial_end')
+          .select('duitnow_enabled, status, plan_id, billing_interval, current_period_start, current_period_end, trial_end')
           .eq('restaurant_id', dnRestId)
           .single();
 
         if (!dnSub?.duitnow_enabled) {
           return res.status(403).json({ error: 'DuitNow payment is not enabled for this restaurant.' });
+        }
+        if (dnPlanId !== dnSub.plan_id) {
+          return res.status(400).json({ error: 'DuitNow QR can only be used to renew the current plan.' });
+        }
+        if (!['monthly', 'annual'].includes(dnInterval || 'monthly')) {
+          return res.status(400).json({ error: 'Invalid billing interval.' });
+        }
+        const dnExpectedAmount = dnInterval === 'annual'
+          ? (PLAN_PRICES[dnPlanId]?.annual || 0) * 12
+          : PLAN_PRICES[dnPlanId]?.monthly || 0;
+        if (!dnExpectedAmount || Math.abs(Number(dnAmount) - dnExpectedAmount) > 0.009) {
+          return res.status(400).json({ error: 'The submitted amount does not match the selected renewal plan.' });
         }
 
         const { data: dnExisting } = await supabase
@@ -1103,6 +1115,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const safeRef = dnRef ? String(dnRef).slice(0, 100) : null;
         const safeAttachment = dnAttach ? String(dnAttach).slice(0, 500) : null;
+        const dnSubmittedAt = new Date();
+        const dnProvisionalUntil = new Date(dnSubmittedAt.getTime() + 24 * 60 * 60 * 1000);
+        const dnOriginalExpiry = dnSub.current_period_end || dnSub.trial_end;
+        const dnOriginalExpiryDate = dnOriginalExpiry ? new Date(dnOriginalExpiry) : null;
+        const dnAccessUntil = dnOriginalExpiryDate && dnOriginalExpiryDate > dnProvisionalUntil
+          ? dnOriginalExpiryDate
+          : dnProvisionalUntil;
 
         const { data: dnPayment, error: dnInsertErr } = await supabase
           .from('duitnow_payments')
@@ -1114,6 +1133,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             status: 'pending',
             attachment_url: safeAttachment,
             reference_number: safeRef,
+            provisional_access_until: dnProvisionalUntil.toISOString(),
+            original_status: dnSub.status,
+            original_plan_id: dnSub.plan_id,
+            original_billing_interval: dnSub.billing_interval,
+            original_current_period_start: dnSub.current_period_start,
+            original_current_period_end: dnSub.current_period_end,
+            original_trial_end: dnSub.trial_end,
           })
           .select()
           .single();
@@ -1123,28 +1149,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(500).json({ error: 'Failed to submit payment request.' });
         }
 
-        const dnIsAnnual = dnInterval === 'annual';
-        const { periodStart: dnPeriodStart, periodEnd: dnPeriodEnd } =
-          calculateNextSubscriptionPeriod(dnSub.current_period_end || dnSub.trial_end, dnIsAnnual);
         const { error: dnAccessErr } = await supabase
           .from('subscriptions')
           .update({
             status: 'active',
             plan_id: dnPlanId,
             billing_interval: dnInterval || 'monthly',
-            current_period_start: dnPeriodStart.toISOString(),
-            current_period_end: dnPeriodEnd.toISOString(),
-            ...ACCESS_UNLOCK_PATCH,
-            updated_at: new Date().toISOString(),
+            current_period_start: dnSubmittedAt.toISOString(),
+            current_period_end: dnAccessUntil.toISOString(),
+            access_locked: false,
+            access_lock_at: dnAccessUntil.toISOString(),
+            access_locked_at: null,
+            updated_at: dnSubmittedAt.toISOString(),
           })
           .eq('restaurant_id', dnRestId);
 
         if (dnAccessErr) {
           console.error('DuitNow access activation error:', dnAccessErr);
+          await supabase.from('duitnow_payments').delete().eq('id', dnPayment.id);
           return res.status(500).json({ error: 'Payment submitted, but access could not be restored. Please contact support.' });
         }
 
-        return res.status(200).json({ success: true, payment: dnPayment, newPeriodEnd: dnPeriodEnd.toISOString() });
+        return res.status(200).json({
+          success: true,
+          payment: dnPayment,
+          provisionalAccessUntil: dnProvisionalUntil.toISOString(),
+        });
       }
 
       // GET /api/stripe/billing?action=duitnow-list&restaurantId=...&status=...
@@ -1209,20 +1239,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (dnFetchErr || !dnPay) return res.status(404).json({ error: 'Payment not found.' });
         if (dnPay.status !== 'pending') return res.status(409).json({ error: 'Payment has already been reviewed.' });
 
-        const { error: dnUpdateErr } = await supabase
-          .from('duitnow_payments')
-          .update({
-            status: dnDecision,
-            admin_note: dnAdminNote ? String(dnAdminNote).slice(0, 500) : null,
-            reviewed_by: 'admin',
-            reviewed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', dnPayId);
-
-        if (dnUpdateErr) return res.status(500).json({ error: 'Failed to update payment.' });
+        const dnReviewedAt = new Date().toISOString();
+        const finalizeDuitNowReview = async () => {
+          const { error } = await supabase
+            .from('duitnow_payments')
+            .update({
+              status: dnDecision,
+              admin_note: dnAdminNote ? String(dnAdminNote).slice(0, 500) : null,
+              reviewed_by: 'admin',
+              reviewed_at: dnReviewedAt,
+              updated_at: dnReviewedAt,
+            })
+            .eq('id', dnPayId)
+            .eq('status', 'pending');
+          return error;
+        };
 
         if (dnDecision === 'rejected') {
+          const dnOriginalExpiry = dnPay.original_current_period_end || dnPay.original_trial_end;
+          const dnOriginalExpiryDate = dnOriginalExpiry ? new Date(dnOriginalExpiry) : null;
+          const dnOriginalAccessValid = Boolean(
+            dnOriginalExpiryDate
+            && !Number.isNaN(dnOriginalExpiryDate.getTime())
+            && dnOriginalExpiryDate > new Date()
+          );
+
+          const { error: dnRestoreErr } = await supabase
+            .from('subscriptions')
+            .update({
+              status: dnOriginalAccessValid ? (dnPay.original_status || 'active') : 'pending_payment',
+              plan_id: dnPay.original_plan_id || dnPay.plan_id || 'basic',
+              billing_interval: dnPay.original_billing_interval || dnPay.billing_interval || 'monthly',
+              current_period_start: dnPay.original_current_period_start || null,
+              current_period_end: dnPay.original_current_period_end || null,
+              trial_end: dnPay.original_trial_end || null,
+              access_locked: !dnOriginalAccessValid,
+              access_lock_at: null,
+              access_locked_at: dnOriginalAccessValid ? null : new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('restaurant_id', dnPay.restaurant_id);
+
+          if (dnRestoreErr) {
+            console.error('DuitNow rejection restore error:', dnRestoreErr);
+            return res.status(500).json({ error: 'Payment was rejected, but subscription access could not be updated.' });
+          }
+
+          await supabase
+            .from('restaurants')
+            .update({ kitchen_enabled: (dnPay.original_plan_id || 'basic') === 'pro_plus' })
+            .eq('id', dnPay.restaurant_id);
+
           const dnPlanName = PLAN_NAMES[dnPay.plan_id] || String(dnPay.plan_id || 'Plan').replace('_', ' ');
           const dnIntervalLabel = dnPay.billing_interval === 'annual' ? 'Annual' : 'Monthly';
           const dnNote = dnAdminNote ? String(dnAdminNote).trim().slice(0, 500) : '';
@@ -1245,6 +1312,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           if (dnAnnouncementErr) {
             console.error('DuitNow rejection announcement error:', dnAnnouncementErr);
           }
+
+          const dnFinalizeErr = await finalizeDuitNowReview();
+          if (dnFinalizeErr) return res.status(500).json({ error: 'Subscription was updated, but the payment review could not be finalized.' });
         }
 
         if (dnDecision === 'approved') {
@@ -1260,20 +1330,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .single();
 
           if (dnApproveSub) {
-            const activatedAtSubmit = dnApproveSub.current_period_start
-              ? new Date(dnApproveSub.current_period_start) >= new Date(dnPay.created_at)
-              : false;
-            const { periodStart: dnBaseDate, periodEnd: dnNewEnd } = activatedAtSubmit
-              ? {
-                  periodStart: new Date(dnApproveSub.current_period_start || new Date()),
-                  periodEnd: new Date(dnApproveSub.current_period_end || dnApproveSub.trial_end || new Date()),
-                }
-              : calculateNextSubscriptionPeriod(
-                  dnApproveSub.current_period_end || dnApproveSub.trial_end,
-                  dnIsAnnual
-                );
+            const { periodStart: dnBaseDate, periodEnd: dnNewEnd } = calculateNextSubscriptionPeriod(
+              dnPay.original_current_period_end || dnPay.original_trial_end,
+              dnIsAnnual
+            );
 
-            await supabase
+            const { error: dnSubscriptionUpdateErr } = await supabase
               .from('subscriptions')
               .update({
                 status: 'active',
@@ -1285,16 +1347,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 updated_at: new Date().toISOString(),
               })
               .eq('restaurant_id', dnApproveRestId);
+            if (dnSubscriptionUpdateErr) {
+              return res.status(500).json({ error: 'Failed to activate the approved subscription.' });
+            }
 
             const dnKitchenEnabled = dnApprovePlan === 'pro_plus';
-            await supabase.from('restaurants').update({ kitchen_enabled: dnKitchenEnabled }).eq('id', dnApproveRestId);
+            const { error: dnKitchenErr } = await supabase
+              .from('restaurants')
+              .update({ kitchen_enabled: dnKitchenEnabled })
+              .eq('id', dnApproveRestId);
+            if (dnKitchenErr) {
+              return res.status(500).json({ error: 'Subscription activated, but kitchen access could not be updated.' });
+            }
 
             const { data: dnApproveRest } = await supabase.from('restaurants').select('name').eq('id', dnApproveRestId).single();
-            await supabase.from('billing_records').insert({
+            const { error: dnIncomeErr } = await supabase.from('billing_records').upsert({
               restaurant_id: dnApproveRestId,
-              description: `DuitNow Payment (${dnIsAnnual ? 'Annual' : 'Monthly'})`,
+              duitnow_payment_id: dnPay.id,
+              description: `SUBSCRIPTION INCOME - DuitNow Payment (${dnIsAnnual ? 'Annual' : 'Monthly'})`,
               amount: Number(dnPay.amount),
-              type: 'paid',
+              type: 'subscription_income',
               gross: Number(dnPay.amount),
               fee: 0,
               net: Number(dnPay.amount),
@@ -1302,10 +1374,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               restaurant_name: dnApproveRest?.name || 'Unknown',
               created_by: 'duitnow',
               reference_code: dnPay.reference_code || null,
-            });
+            }, { onConflict: 'duitnow_payment_id', ignoreDuplicates: true });
+            if (dnIncomeErr) {
+              return res.status(500).json({ error: 'Subscription activated, but subscription income could not be saved.' });
+            }
+
+            const dnFinalizeErr = await finalizeDuitNowReview();
+            if (dnFinalizeErr) return res.status(500).json({ error: 'Subscription was activated, but the payment review could not be finalized.' });
 
             return res.status(200).json({ success: true, decision: 'approved', newPeriodEnd: dnNewEnd.toISOString() });
           }
+
+          return res.status(404).json({ error: 'Subscription not found for this payment.' });
         }
 
         return res.status(200).json({ success: true, decision: dnDecision });

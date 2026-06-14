@@ -29,7 +29,7 @@ interface Props {
   onFetchStats?: (filters: ReportFilters) => Promise<any>;
 }
 
-type AdminTab = 'VENDORS' | 'INCOME_REPORT' | 'CASHOUT' | 'DUITNOW' | 'QUOTATION' | 'SHOP' | 'SYSTEM';
+type AdminTab = 'VENDORS' | 'INCOME_REPORT' | 'VENDOR_SUBSCRIPTION' | 'CASHOUT' | 'DUITNOW' | 'QUOTATION' | 'SHOP' | 'SYSTEM';
 type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'expired';
 type DraftNumber = number | '';
 
@@ -706,7 +706,8 @@ const AdminView: React.FC<Props> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('VENDORS');
   const [vendorHubSubTab, setVendorHubSubTab] = useState<'VENDORS' | 'HUBS'>('VENDORS');
-  const [incomeReportSubTab, setIncomeReportSubTab] = useState<'INCOME' | 'SCHEDULE' | 'REPORTS'>('INCOME');
+  const [incomeReportSubTab, setIncomeReportSubTab] = useState<'INCOME' | 'REPORTS'>('INCOME');
+  const [vendorSubscriptionSubTab, setVendorSubscriptionSubTab] = useState<'SCHEDULE' | 'HISTORY'>('SCHEDULE');
   const [quotations, setQuotations] = useState<AdminQuotation[]>(() => {
     try {
       const saved = localStorage.getItem(ADMIN_QUOTATIONS_STORAGE_KEY);
@@ -1476,10 +1477,10 @@ const AdminView: React.FC<Props> = ({
   }, [restaurants]);
 
   useEffect(() => {
-    if (activeTab === 'INCOME_REPORT' && incomeReportSubTab === 'SCHEDULE') {
+    if (activeTab === 'VENDOR_SUBSCRIPTION') {
       refreshSubscriptionHistory();
     }
-  }, [activeTab, incomeReportSubTab]);
+  }, [activeTab]);
 
   const latestHistoryByRestaurant = useMemo(() => {
     const latest = new Map<string, SubscriptionExpiryHistory>();
@@ -2928,6 +2929,7 @@ const AdminView: React.FC<Props> = ({
           {([
             { id: 'VENDORS', label: 'Vendor & Hubs', icon: Store },
             { id: 'INCOME_REPORT', label: 'Income & Report', icon: TrendingUp },
+            { id: 'VENDOR_SUBSCRIPTION', label: 'Vendor Subscription', icon: Calendar },
             { id: 'CASHOUT', label: 'Cashout', icon: Wallet },
             { id: 'DUITNOW', label: 'DuitNow', icon: QrCode },
             { id: 'QUOTATION', label: 'Quotation', icon: FileText },
@@ -2986,6 +2988,7 @@ const AdminView: React.FC<Props> = ({
             <h1 className="font-black dark:text-white uppercase tracking-tighter text-sm">
               {activeTab === 'VENDORS' ? 'Vendor & Hubs' :
                activeTab === 'INCOME_REPORT' ? 'Income & Report' :
+               activeTab === 'VENDOR_SUBSCRIPTION' ? 'Vendor Subscription' :
                activeTab === 'CASHOUT' ? 'Cashout' :
                activeTab === 'DUITNOW' ? 'DuitNow' :
                activeTab === 'QUOTATION' ? 'Quotation' :
@@ -2998,19 +3001,16 @@ const AdminView: React.FC<Props> = ({
         <div className="flex-1 overflow-auto">
         {activeTab === 'VENDORS' && (
           <div className="p-4 md:p-8">
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+            <div className="mb-5">
               <div>
-                <h2 className="text-xl font-black dark:text-white uppercase tracking-tighter flex items-center gap-2">
-                  <Store size={20} className="text-orange-500" />
-                  Vendor & Hubs
-                </h2>
-                <p className="text-xs text-gray-400 mt-1">Manage registered kitchens and hub locations from one workspace.</p>
+                <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">Vendor & Hubs</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Manage registered kitchens and hub locations from one workspace.</p>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-b-2xl rounded-tr-2xl border dark:border-gray-700 shadow-sm">
               <div className="p-5 border-b border-gray-100 dark:border-gray-700 space-y-4">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex gap-0 relative -mt-[41px] -ml-[21px] mb-5">
                   {([
                     { id: 'VENDORS' as const, label: 'Vendors', icon: <Store size={14} /> },
                     { id: 'HUBS' as const, label: 'Hubs', icon: <MapPin size={14} /> },
@@ -3018,10 +3018,10 @@ const AdminView: React.FC<Props> = ({
                     <button
                       key={tab.id}
                       onClick={() => setVendorHubSubTab(tab.id)}
-                      className={`h-9 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all inline-flex items-center gap-2 ${
+                      className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors whitespace-nowrap -mb-px relative ${
                         vendorHubSubTab === tab.id
-                          ? 'bg-orange-500 text-white shadow-sm'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
+                          : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
                       }`}
                     >
                       {tab.icon}
@@ -3390,27 +3390,41 @@ const AdminView: React.FC<Props> = ({
           </div>
         )}
 
-        {activeTab === 'INCOME_REPORT' && (
+        {(activeTab === 'INCOME_REPORT' || activeTab === 'VENDOR_SUBSCRIPTION') && (
           <div className="flex-1 overflow-y-auto">
             <div className="p-4 md:p-8 pb-0 md:pb-0">
               <div className="mb-5">
-                <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">Income & Report</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">Subscription income overview and platform-wide sales analytics.</p>
+                <h1 className="text-2xl font-black dark:text-white uppercase tracking-tighter mb-1">
+                  {activeTab === 'VENDOR_SUBSCRIPTION' ? 'Vendor Subscription' : 'Income & Report'}
+                </h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-widest">
+                  {activeTab === 'VENDOR_SUBSCRIPTION'
+                    ? 'Manage vendor expiry schedules and review every expiry change.'
+                    : 'Subscription income overview and platform-wide sales analytics.'}
+                </p>
               </div>
 
               {/* Document-style tab bar */}
               <div className="flex gap-0 relative">
-                {([
-                  { id: 'INCOME' as const, label: 'Subscription Income', icon: <DollarSign size={13} /> },
+                {(activeTab === 'VENDOR_SUBSCRIPTION' ? [
                   { id: 'SCHEDULE' as const, label: 'Vendor Subscription Schedule', icon: <Calendar size={13} /> },
+                  { id: 'HISTORY' as const, label: 'Expiry Change Log', icon: <FileText size={13} /> },
+                ] : [
+                  { id: 'INCOME' as const, label: 'Subscription Income', icon: <DollarSign size={13} /> },
                   { id: 'REPORTS' as const, label: 'Sales Report', icon: <TrendingUp size={13} /> },
                 ]).map(tab => (
                   <button
                     key={tab.id}
-                    onClick={() => setIncomeReportSubTab(tab.id)}
+                    onClick={() => {
+                      if (activeTab === 'VENDOR_SUBSCRIPTION') {
+                        setVendorSubscriptionSubTab(tab.id as 'SCHEDULE' | 'HISTORY');
+                      } else {
+                        setIncomeReportSubTab(tab.id as 'INCOME' | 'REPORTS');
+                      }
+                    }}
                     style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
                     className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors duration-150 whitespace-nowrap -mb-px relative ${
-                      incomeReportSubTab === tab.id
+                      (activeTab === 'VENDOR_SUBSCRIPTION' ? vendorSubscriptionSubTab : incomeReportSubTab) === tab.id
                         ? 'bg-white dark:bg-gray-800 text-orange-500 border-x border-t border-gray-200 dark:border-gray-600 dark:border-t-orange-500 z-10'
                         : 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300'
                     }`}
@@ -3422,10 +3436,10 @@ const AdminView: React.FC<Props> = ({
 
               {/* Tab content container */}
               <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm rounded-b-2xl rounded-tr-2xl ${
-                incomeReportSubTab === 'SCHEDULE' ? 'overflow-hidden' : 'p-5 md:p-6'
+                activeTab === 'VENDOR_SUBSCRIPTION' ? 'overflow-hidden' : 'p-5 md:p-6'
               }`}>
 
-            {incomeReportSubTab === 'INCOME' && (
+            {activeTab === 'INCOME_REPORT' && incomeReportSubTab === 'INCOME' && (
               <div className="space-y-6">
                 {/* Summary Cards */}
                 {incomeSummary && (
@@ -3522,7 +3536,9 @@ const AdminView: React.FC<Props> = ({
                             ) : <span className="text-xs text-gray-400">—</span>}
                           </td>
                           <td className="px-3 py-2 text-center">
-                            {txn.extensionType === 'stripe' ? (
+                            {txn.extensionType === 'subscription_income' ? (
+                              <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-pink-50 dark:bg-pink-900/20 text-pink-600">Subscription Income</span>
+                            ) : txn.extensionType === 'stripe' ? (
                               <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-900/20 text-blue-600">Stripe</span>
                             ) : txn.extensionType === 'paid' ? (
                               <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-orange-50 dark:bg-orange-900/20 text-orange-600">Cash</span>
@@ -3571,8 +3587,10 @@ const AdminView: React.FC<Props> = ({
               </div>
             )}
 
-            {incomeReportSubTab === 'SCHEDULE' && (
+            {activeTab === 'VENDOR_SUBSCRIPTION' && (
               <div className="space-y-6 pb-6">
+                {vendorSubscriptionSubTab === 'SCHEDULE' && (
+                <>
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-5 pt-5 md:px-6 md:pt-6">
                   <div>
                     <h3 className="text-base font-black dark:text-white uppercase tracking-tighter">Vendor Subscription Schedule</h3>
@@ -3711,9 +3729,12 @@ const AdminView: React.FC<Props> = ({
                     </table>
                   </div>
                 </div>
+                </>
+                )}
 
+                {vendorSubscriptionSubTab === 'HISTORY' && (
                 <div>
-                  <div className="mb-3 px-5 md:px-6">
+                  <div className="mb-3 px-5 pt-5 md:px-6 md:pt-6">
                     <h3 className="text-base font-black dark:text-white uppercase tracking-tighter">Expiry Change Log</h3>
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Most recent 500 recorded changes</p>
                   </div>
@@ -3781,10 +3802,11 @@ const AdminView: React.FC<Props> = ({
                     </div>
                   </div>
                 </div>
+                )}
               </div>
             )}
 
-            {incomeReportSubTab === 'REPORTS' && (
+            {activeTab === 'INCOME_REPORT' && incomeReportSubTab === 'REPORTS' && (
               <div className="space-y-5">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>

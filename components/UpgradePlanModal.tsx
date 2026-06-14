@@ -52,6 +52,7 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
   const selectedTotalAmount = billingCycle === 'annual' ? selectedMonthlyPrice * 12 : selectedMonthlyPrice;
   const selectedBillingLabel = billingCycle === 'annual' ? 'Annual' : 'Monthly';
   const isDuitNowEnabled = subscription?.duitnow_enabled ?? false;
+  const isDuitNowRenewalAvailable = isDuitNowEnabled && selectedPlanId === currentPlanId;
 
   const actionLabel = useMemo(() => {
     const isSamePlan = selectedPlanId === currentPlanId;
@@ -204,8 +205,10 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
   };
 
   const handleDuitNowPayment = async () => {
-    if (!isDuitNowEnabled) {
-      setError('DuitNow payment is not enabled for this restaurant.');
+    if (!isDuitNowRenewalAvailable) {
+      setError(selectedPlanId === currentPlanId
+        ? 'DuitNow payment is not enabled for this restaurant.'
+        : 'DuitNow QR is available for plan renewals only.');
       return;
     }
 
@@ -243,7 +246,7 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
         setError(data.error || 'Failed to submit DuitNow payment.');
         return;
       }
-      toast('DuitNow payment submitted for review. Access stays active while admin checks it.', 'success');
+      toast('DuitNow payment submitted. Provisional access is active for 24 hours while admin reviews it.', 'success');
       resetDuitNowForm();
       onUpgraded({ pendingDuitNow: true });
     } catch {
@@ -557,9 +560,9 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
 
               <button
                 type="button"
-                disabled={!isDuitNowEnabled}
-                onClick={() => isDuitNowEnabled && setSelectedPaymentMethod('duitnow')}
-                className={paymentCardClass('duitnow', !isDuitNowEnabled)}
+                disabled={!isDuitNowRenewalAvailable}
+                onClick={() => isDuitNowRenewalAvailable && setSelectedPaymentMethod('duitnow')}
+                className={paymentCardClass('duitnow', !isDuitNowRenewalAvailable)}
               >
                 {selectedPaymentMethod === 'duitnow' && (
                   <div className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-orange-500">
@@ -569,7 +572,11 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
                 <QrCode size={26} className="text-[#ED2C67]" />
                 <p className="mt-4 text-sm font-black uppercase text-gray-900 dark:text-white">DuitNow QR</p>
                 <p className="mt-2 text-xs font-semibold leading-relaxed text-gray-500 dark:text-gray-400">
-                  {isDuitNowEnabled ? 'Submit QR payment for admin review.' : 'Not enabled for this restaurant.'}
+                  {isDuitNowRenewalAvailable
+                    ? 'Submit QR renewal for admin review.'
+                    : selectedPlanId !== currentPlanId
+                      ? 'Available for current-plan renewals only.'
+                      : 'Not enabled for this restaurant.'}
                 </p>
               </button>
             </div>
@@ -587,7 +594,7 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
           {renderStepDots('justify-self-center')}
           <button
             onClick={handlePaymentNext}
-            disabled={isLoading || isRedirecting || (selectedPaymentMethod === 'wallet' && walletDisabled) || (selectedPaymentMethod === 'duitnow' && !isDuitNowEnabled)}
+            disabled={isLoading || isRedirecting || (selectedPaymentMethod === 'wallet' && walletDisabled) || (selectedPaymentMethod === 'duitnow' && !isDuitNowRenewalAvailable)}
             className="inline-flex min-w-[150px] justify-self-end items-center justify-center gap-2 rounded-xl bg-orange-500 px-6 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-orange-100 transition-all hover:bg-orange-600 disabled:opacity-50 dark:shadow-none"
           >
             {isLoading ? (
@@ -720,7 +727,7 @@ const UpgradePlanModal: React.FC<Props> = ({ currentPlanId, restaurantId, subscr
               </div>
 
               <p className="text-center text-[10px] font-semibold leading-relaxed text-gray-400">
-                Admin will verify your payment. Your plan access stays available while the payment is pending.
+                Admin will verify your payment. Provisional plan access is available for 24 hours while the payment is pending.
               </p>
             </div>
           </div>
