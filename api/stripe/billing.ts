@@ -3,6 +3,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { calculateNextSubscriptionPeriod } from '../../lib/subscriptionPeriod';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 
@@ -24,14 +25,6 @@ const ACCESS_UNLOCK_PATCH = {
   access_lock_at: null,
   access_locked_at: null,
 };
-
-function calculateNextPeriod(currentEnd: string | null | undefined, isAnnual: boolean): { periodStart: Date; periodEnd: Date } {
-  const renewalDate = currentEnd ? new Date(currentEnd) : null;
-  const periodStart = renewalDate && !Number.isNaN(renewalDate.getTime()) ? renewalDate : new Date();
-  const periodEnd = new Date(periodStart);
-  periodEnd.setDate(periodEnd.getDate() + (isAnnual ? 365 : 30));
-  return { periodStart, periodEnd };
-}
 
 async function getOrCreateStripeCustomerId(restaurantId: string, inputCustomerId?: string): Promise<string> {
   if (inputCustomerId) return inputCustomerId;
@@ -495,11 +488,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .eq('restaurant_id', walletRestId);
           walletNewPeriodEnd = walletSub.current_period_end || walletSub.trial_end || null;
         } else {
-          const walletPeriodStart = walletRenewDate && walletRenewDate > new Date()
-            ? walletRenewDate
-            : new Date();
-          const walletPeriodEnd = new Date(walletPeriodStart);
-          walletPeriodEnd.setDate(walletPeriodEnd.getDate() + (isWalletAnnual ? 365 : 30));
+          const { periodStart: walletPeriodStart, periodEnd: walletPeriodEnd } =
+            calculateNextSubscriptionPeriod(walletRenewFrom, isWalletAnnual);
           walletNewPeriodEnd = walletPeriodEnd.toISOString();
 
           await supabase
@@ -608,7 +598,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           });
         }
 
-        const { periodStart, periodEnd } = calculateNextPeriod(renewSub.current_period_end || renewSub.trial_end, isAnnual);
+        const { periodStart, periodEnd } = calculateNextSubscriptionPeriod(
+          renewSub.current_period_end || renewSub.trial_end,
+          isAnnual
+        );
 
         await supabase
           .from('subscriptions')
@@ -773,7 +766,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // Payment succeeded — extend the subscription period
-        const { periodStart, periodEnd } = calculateNextPeriod(renewSub.current_period_end || renewSub.trial_end, isAnnual);
+        const { periodStart, periodEnd } = calculateNextSubscriptionPeriod(
+          renewSub.current_period_end || renewSub.trial_end,
+          isAnnual
+        );
 
         await supabase
           .from('subscriptions')
@@ -996,9 +992,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { data: extRest } = await supabase.from('restaurants').select('name').eq('id', extendRestId).single();
         const restaurantName = extRest?.name || 'Unknown';
 
-        // Calculate new period: extend from the saved expiry date whenever it exists.
+        // Preserve remaining time for active plans; expired plans restart from now.
         const currentEnd = extSub.current_period_end || extSub.trial_end;
-        const { periodStart: baseDate, periodEnd: newEnd } = calculateNextPeriod(currentEnd, false);
+        const { periodStart: baseDate, periodEnd: newEnd } =
+          calculateNextSubscriptionPeriod(currentEnd, false);
 
         const { error: extUpdateErr } = await supabase
           .from('subscriptions')
@@ -1091,7 +1088,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const dnIsAnnual = dnInterval === 'annual';
-        const { periodStart: dnPeriodStart, periodEnd: dnPeriodEnd } = calculateNextPeriod(dnSub.current_period_end || dnSub.trial_end, dnIsAnnual);
+        const { periodStart: dnPeriodStart, periodEnd: dnPeriodEnd } =
+          calculateNextSubscriptionPeriod(dnSub.current_period_end || dnSub.trial_end, dnIsAnnual);
         const { error: dnAccessErr } = await supabase
           .from('subscriptions')
           .update({
@@ -1234,7 +1232,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                   periodStart: new Date(dnApproveSub.current_period_start || new Date()),
                   periodEnd: new Date(dnApproveSub.current_period_end || dnApproveSub.trial_end || new Date()),
                 }
-              : calculateNextPeriod(dnApproveSub.current_period_end || dnApproveSub.trial_end, dnIsAnnual);
+              : calculateNextSubscriptionPeriod(
+                  dnApproveSub.current_period_end || dnApproveSub.trial_end,
+                  dnIsAnnual
+                );
 
             await supabase
               .from('subscriptions')

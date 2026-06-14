@@ -3,6 +3,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { calculateNextSubscriptionPeriod } from '../../lib/subscriptionPeriod';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
@@ -138,7 +139,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const renewFrom = session.metadata?.renew_from;
           const billingInterval = session.metadata?.billing_interval || 'monthly';
           const changeType = session.metadata?.change_type || 'renew';
-          const durationDays = billingInterval === 'annual' ? 365 : 30;
           const renewDate = renewFrom ? new Date(renewFrom) : null;
           const isFutureRenew = renewDate ? renewDate > new Date() : false;
 
@@ -162,14 +162,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               .eq('restaurant_id', restaurantId);
           } else {
             // Immediate change (upgrade, renew, or expired downgrade)
-            let periodStart: Date;
-            if (renewFrom) {
-              periodStart = renewDate && renewDate > new Date() ? renewDate : new Date();
-            } else {
-              periodStart = new Date();
-            }
-            const periodEnd = new Date(periodStart);
-            periodEnd.setDate(periodEnd.getDate() + durationDays);
+            const { periodStart, periodEnd } = calculateNextSubscriptionPeriod(
+              renewFrom,
+              billingInterval === 'annual'
+            );
 
             const subscriptionUpdate: Record<string, any> = {
               status: 'active',

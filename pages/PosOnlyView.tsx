@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import { uploadImage } from '../lib/storage';
 import { saveAllSettingsToDb, saveSettingsToDb, compressPosSettings, expandPosSettings, fetchSettingsFromServer, updateFeatureOnServer } from '../lib/sharedSettings';
 import { isSubscriptionAccessLocked } from '../lib/subscriptionService';
+import { calculateNextSubscriptionPeriod } from '../lib/subscriptionPeriod';
 import * as counterOrdersCache from '../lib/counterOrdersCache';
 import printerService, { PrinterDevice, ReceiptPrintOptions, SavedPrinter, ReceiptConfig, OrderListConfig, KitchenTicketConfig, DEFAULT_RECEIPT_CONFIG, DEFAULT_ORDER_LIST_CONFIG, DEFAULT_KITCHEN_TICKET_CONFIG, createDefaultPrinter } from '../services/printerService';
 import type { PaperSize } from '../services/printerService';
@@ -4986,11 +4987,13 @@ const PosOnlyView: React.FC<Props> = ({
   const planLockExpiredAt = subscription?.current_period_end || subscription?.trial_end || null;
   const planLockNextExpiry = useMemo(() => {
     if (!planLockExpiredAt) return null;
-    const date = new Date(planLockExpiredAt);
-    if (Number.isNaN(date.getTime())) return null;
-    date.setDate(date.getDate() + (subscription?.billing_interval === 'annual' ? 365 : 30));
-    return date.toISOString();
-  }, [planLockExpiredAt, subscription?.billing_interval]);
+    const { periodEnd } = calculateNextSubscriptionPeriod(
+      planLockExpiredAt,
+      subscription?.billing_interval === 'annual',
+      planLockNow
+    );
+    return periodEnd.toISOString();
+  }, [planLockExpiredAt, planLockNow, subscription?.billing_interval]);
 
   // Sidebar nav item count – used to auto-scale spacing so the menu never needs to scroll
   const sidebarNavItemCount = isKitchenUser
