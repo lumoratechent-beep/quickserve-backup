@@ -4,6 +4,7 @@ import { Restaurant, CartItem, Order, OrderStatus, MenuItem, ModifierData, Order
 import { supabase } from '../lib/supabase';
 import SimpleItemOptionsModal from '../components/SimpleItemOptionsModal';
 import { toast } from '../components/Toast';
+import { expandPosSettings, fetchSettingsFromServer, POS_DEFAULTS, saveAllSettingsToDb } from '../lib/sharedSettings';
 
 interface Props {
   restaurant: Restaurant;
@@ -30,10 +31,11 @@ interface Props {
 
 const ACTIVE_TABLE_STATUSES = [OrderStatus.PENDING, OrderStatus.ONGOING, OrderStatus.SERVED];
 type MenuGridColumns = 2 | 3 | 6 | 8;
-type TableViewColumns = 6 | 8 | 10 | 12;
+type TableViewColumns = 5 | 6 | 8 | 10 | 12;
 const DEFAULT_TABLE_COUNT = 40;
-const DEFAULT_TABLE_COLUMNS = 8;
+const DEFAULT_TABLE_COLUMNS = 5;
 const DEFAULT_FLOOR_COUNT = 1;
+const TABLE_VIEW_COLUMN_OPTIONS: TableViewColumns[] = [5, 6, 8, 10, 12];
 
 const getKitchenStatusText = (status: OrderStatus) => {
   if (status === OrderStatus.PENDING) return 'PENDING';
@@ -98,22 +100,27 @@ const getCurrentTableSessionOrders = (orders: Order[]) => {
 };
 
 const getInitialFeatureSettings = (restaurant: Restaurant) => {
-  const dbFeatures = (restaurant.settings?.features || {}) as Record<string, any>;
+  const defaults = POS_DEFAULTS.features as Record<string, any>;
+  const dbFeatures = restaurant.settings?.features;
+  if (dbFeatures && typeof dbFeatures === 'object') {
+    return { ...defaults, ...dbFeatures };
+  }
+
   try {
     const cachedFullSettings = localStorage.getItem(`qs_settings_${restaurant.id}`);
     if (cachedFullSettings) {
       const parsed = JSON.parse(cachedFullSettings);
-      if (parsed?.features && typeof parsed.features === 'object') return { ...dbFeatures, ...parsed.features };
+      if (parsed?.features && typeof parsed.features === 'object') return { ...defaults, ...parsed.features };
     }
 
     const cachedFeatures = localStorage.getItem(`features_${restaurant.id}`);
     if (cachedFeatures) {
       const parsed = JSON.parse(cachedFeatures);
-      if (parsed && typeof parsed === 'object') return { ...dbFeatures, ...parsed };
+      if (parsed && typeof parsed === 'object') return { ...defaults, ...parsed };
     }
   } catch {}
 
-  return dbFeatures;
+  return defaults;
 };
 
 const getItemKey = (item: CartItem) => [
@@ -168,7 +175,7 @@ const TableSideOrderPage: React.FC<Props> = ({
   const [gridColumns, setGridColumns] = useState<MenuGridColumns>(6);
   const [tableViewColumns, setTableViewColumns] = useState<TableViewColumns>(() => {
     const initialColumns = Number(getInitialFeatureSettings(restaurant).tableColumns) || DEFAULT_TABLE_COLUMNS;
-    return ([6, 8, 10, 12] as TableViewColumns[]).find(count => initialColumns <= count) || 12;
+    return TABLE_VIEW_COLUMN_OPTIONS.find(count => initialColumns <= count) || 12;
   });
   const [groupMenuByCategory, setGroupMenuByCategory] = useState(false);
   const [featureSettings, setFeatureSettings] = useState<Record<string, any>>(() => getInitialFeatureSettings(restaurant));
@@ -197,14 +204,37 @@ const TableSideOrderPage: React.FC<Props> = ({
   }, [tableCount, floorEnabled, floorCount, selectedFloor]);
 
   useEffect(() => {
+    let cancelled = false;
     setFeatureSettings(getInitialFeatureSettings(restaurant));
-  }, [restaurant.id, restaurant.settings?.features]);
+
+    const hydrateLatestSettings = async () => {
+      const serverSettingsRaw = await fetchSettingsFromServer(restaurant.id);
+      if (!serverSettingsRaw || cancelled) return;
+
+      const serverSettings = expandPosSettings(serverSettingsRaw, restaurant.name);
+      const nextFeatures = {
+        ...(POS_DEFAULTS.features as Record<string, any>),
+        ...(serverSettings.features && typeof serverSettings.features === 'object' ? serverSettings.features : {}),
+      };
+
+      setFeatureSettings(nextFeatures);
+      try {
+        localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(serverSettings));
+        localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(nextFeatures));
+      } catch {}
+    };
+
+    hydrateLatestSettings();
+    return () => {
+      cancelled = true;
+    };
+  }, [restaurant.id, restaurant.name, restaurant.settings?.features]);
 
   useEffect(() => {
     setTableCountDraft(String(tableCount));
     const nextColumns = Math.max(1, Number(featureSettings.tableColumns) || DEFAULT_TABLE_COLUMNS);
     setTableColumnsDraft(String(nextColumns));
-    setTableViewColumns(([6, 8, 10, 12] as TableViewColumns[]).find(count => nextColumns <= count) || 12);
+    setTableViewColumns(TABLE_VIEW_COLUMN_OPTIONS.find(count => nextColumns <= count) || 12);
     setFloorEnabledDraft(floorEnabled);
     setFloorCountDraft(String(floorCount || DEFAULT_FLOOR_COUNT));
   }, [tableCount, featureSettings.tableColumns, floorEnabled, floorCount]);
@@ -344,22 +374,24 @@ const TableSideOrderPage: React.FC<Props> = ({
     setFeatureSettings(nextFeatures);
     setIsSavingTables(true);
 
-    const nextSettings = {
-      ...(restaurant.settings || {}),
-      features: nextFeatures,
-    };
-
     try {
+      const serverSettingsRaw = await fetchSettingsFromServer(restaurant.id);
+      const baseSettings = serverSettingsRaw
+        ? expandPosSettings(serverSettingsRaw, restaurant.name)
+        : (restaurant.settings || {});
+      const nextSettings = {
+        ...baseSettings,
+        features: {
+          ...(baseSettings.features || {}),
+          ...nextFeatures,
+        },
+      };
+
       localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(nextFeatures));
       localStorage.setItem(`qs_settings_${restaurant.id}`, JSON.stringify(nextSettings));
 
-      const { error } = await supabase
-        .from('restaurants')
-        .update({ settings: nextSettings })
-        .eq('id', restaurant.id);
-
-      if (error) {
-        console.warn('Failed to save table layout:', error.message);
+      const saved = await saveAllSettingsToDb(restaurant.id, nextSettings, restaurant.name);
+      if (!saved) {
         toast('Table layout updated on this device. Cloud sync failed.', 'warning');
         return;
       }
@@ -370,7 +402,7 @@ const TableSideOrderPage: React.FC<Props> = ({
     } finally {
       setIsSavingTables(false);
     }
-  }, [restaurant.id, restaurant.settings]);
+  }, [restaurant.id, restaurant.name, restaurant.settings]);
 
   const parsePositiveIntegerDraft = (value: string) => {
     const trimmed = value.trim();
@@ -412,7 +444,7 @@ const TableSideOrderPage: React.FC<Props> = ({
 
     await saveTableFeatureSettings(nextFeatures);
     setSelectedFloor(1);
-    setTableViewColumns(([6, 8, 10, 12] as TableViewColumns[]).find(count => nextTableColumns <= count) || 12);
+    setTableViewColumns(TABLE_VIEW_COLUMN_OPTIONS.find(count => nextTableColumns <= count) || 12);
     setShowTableEditor(false);
   };
 
@@ -695,7 +727,7 @@ const TableSideOrderPage: React.FC<Props> = ({
                   Edit Table
                 </button>
                 <div className="h-10 flex items-center gap-1 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-1">
-                  {([6, 8, 10, 12] as TableViewColumns[]).map(count => (
+                  {TABLE_VIEW_COLUMN_OPTIONS.map(count => (
                     <button
                       key={count}
                       onClick={() => handleChangeTableViewColumns(count)}
@@ -733,6 +765,7 @@ const TableSideOrderPage: React.FC<Props> = ({
             )}
 
             <div className={`grid gap-2 sm:gap-3 ${
+              tableViewColumns === 5 ? 'grid-cols-3 sm:grid-cols-5 lg:grid-cols-5' :
               tableViewColumns === 6 ? 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-6' :
               tableViewColumns === 8 ? 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-8' :
               tableViewColumns === 10 ? 'grid-cols-3 sm:grid-cols-5 lg:grid-cols-10' :

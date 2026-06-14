@@ -176,6 +176,9 @@ interface FeatureSettings {
   shiftEnabled: boolean;
 }
 
+const POS_FIXED_TABLE_COLUMNS = 5;
+const DEFAULT_TABLE_COUNT = 40;
+
 const getDefaultFeatureSettings = (): FeatureSettings => ({
   autoPrintReceipt: false,
   autoPrintOrderList: false,
@@ -186,9 +189,9 @@ const getDefaultFeatureSettings = (): FeatureSettings => ({
   deliveryEnabled: false,
   savedBillEnabled: false,
   tableManagementEnabled: false,
-  tableCount: 40,
-  tableRows: 5,
-  tableColumns: 8,
+  tableCount: DEFAULT_TABLE_COUNT,
+  tableRows: Math.ceil(DEFAULT_TABLE_COUNT / POS_FIXED_TABLE_COLUMNS),
+  tableColumns: POS_FIXED_TABLE_COLUMNS,
   floorEnabled: false,
   floorCount: 1,
   customerDisplayEnabled: false,
@@ -819,9 +822,7 @@ const PosOnlyView: React.FC<Props> = ({
     saveSettingsToDb(restaurant.id, currentSettings, 'features', newSettings.features).catch(() => {});
   };
 
-  const [tableCountDraft, setTableCountDraft] = useState<string>('20');
-  const [tableRowsDraft, setTableRowsDraft] = useState<string>('4');
-  const [tableColumnsDraft, setTableColumnsDraft] = useState<string>('5');
+  const [tableCountDraft, setTableCountDraft] = useState<string>(String(DEFAULT_TABLE_COUNT));
   const [floorCountDraft, setFloorCountDraft] = useState<string>(String(featureSettings.floorCount || 1));
   const [tableColPage, setTableColPage] = useState(0);
   const [selectedFloor, setSelectedFloor] = useState(1);
@@ -1852,7 +1853,7 @@ const PosOnlyView: React.FC<Props> = ({
   };
 
   const effectiveTableCount = Math.max(1, Number(featureSettings.tableCount) || 1);
-  const effectiveTableCols = Math.min(20, Math.max(1, Number(featureSettings.tableColumns) || 1));
+  const effectiveTableCols = POS_FIXED_TABLE_COLUMNS;
   const effectiveTableRows = Math.ceil(effectiveTableCount / effectiveTableCols);
 
   const effectiveFloorCount = featureSettings.floorEnabled ? Math.min(5, Math.max(1, Number(featureSettings.floorCount) || 1)) : 1;
@@ -3797,17 +3798,36 @@ const PosOnlyView: React.FC<Props> = ({
     }
   };
 
+  const saveFeatureSettingsBundle = useCallback(async (nextFeatures: FeatureSettings, successMessage: string) => {
+    setFeatureSettings(nextFeatures);
+    localStorage.setItem(`features_${restaurant.id}`, JSON.stringify(nextFeatures));
+
+    const cachedSettings = (() => {
+      try {
+        const cached = localStorage.getItem(`qs_settings_${restaurant.id}`);
+        return cached ? JSON.parse(cached) : {};
+      } catch {
+        return {};
+      }
+    })();
+
+    const nextSettings = {
+      ...(restaurant.settings || {}),
+      ...cachedSettings,
+      features: nextFeatures,
+    };
+
+    const saved = await saveAllSettingsToDb(restaurant.id, nextSettings, restaurant.name);
+    toast(saved ? successMessage : `${successMessage} Cloud sync failed.`, saved ? 'success' : 'warning');
+  }, [restaurant.id, restaurant.name, restaurant.settings]);
+
   useEffect(() => {
     setTableCountDraft(String(featureSettings.tableCount));
-    setTableRowsDraft(String(featureSettings.tableRows));
-    setTableColumnsDraft(String(featureSettings.tableColumns));
     setFloorCountDraft(String(featureSettings.floorCount || 1));
-  }, [featureSettings.tableCount, featureSettings.tableRows, featureSettings.tableColumns, featureSettings.floorCount]);
+  }, [featureSettings.tableCount, featureSettings.floorCount]);
 
   const resetTableManagementDraft = () => {
     setTableCountDraft(String(featureSettings.tableCount));
-    setTableRowsDraft(String(featureSettings.tableRows));
-    setTableColumnsDraft(String(featureSettings.tableColumns));
     setFloorCountDraft(String(featureSettings.floorCount || 1));
   };
 
@@ -3819,19 +3839,12 @@ const PosOnlyView: React.FC<Props> = ({
     return parsed;
   };
 
-  const handleSaveTableManagementChanges = () => {
+  const handleSaveTableManagementChanges = async () => {
     const nextTableCount = parsePositiveIntegerDraft(tableCountDraft);
-    const nextTableColumns = parsePositiveIntegerDraft(tableColumnsDraft);
     const nextFloorCount = parsePositiveIntegerDraft(floorCountDraft);
 
-    if (!nextTableCount || !nextTableColumns) {
-      toast('Table count and columns cannot be empty.', 'error');
-      resetTableManagementDraft();
-      return;
-    }
-
-    if (nextTableColumns > 20) {
-      toast('Columns must be between 1 and 20.', 'error');
+    if (!nextTableCount) {
+      toast('Table count cannot be empty.', 'error');
       resetTableManagementDraft();
       return;
     }
@@ -3842,35 +3855,19 @@ const PosOnlyView: React.FC<Props> = ({
       return;
     }
 
-    const autoRows = Math.ceil(nextTableCount / nextTableColumns);
-    setFeatureSettings(prev => ({
-      ...prev,
+    const autoRows = Math.ceil(nextTableCount / POS_FIXED_TABLE_COLUMNS);
+    const nextFeatures = {
+      ...featureSettings,
       tableCount: nextTableCount,
       tableRows: autoRows,
-      tableColumns: nextTableColumns,
-      floorCount: featureSettings.floorEnabled ? (nextFloorCount || 1) : prev.floorCount,
-    }));
-    setTableColPage(0);
-    setSelectedFloor(1);
-    setModalSelectedFloor(1);
-    toast('Table layout saved.', 'success');
-  };
+      tableColumns: POS_FIXED_TABLE_COLUMNS,
+      floorCount: featureSettings.floorEnabled ? (nextFloorCount || 1) : featureSettings.floorCount,
+    };
 
-  const handleSaveFloorChanges = () => {
-    const nextFloorCount = parsePositiveIntegerDraft(floorCountDraft);
-    if (!nextFloorCount || nextFloorCount < 1 || nextFloorCount > 5) {
-      toast('Floor count must be between 1 and 5.', 'error');
-      setFloorCountDraft(String(featureSettings.floorCount || 1));
-      return;
-    }
-    setFeatureSettings(prev => ({
-      ...prev,
-      floorCount: nextFloorCount,
-    }));
+    await saveFeatureSettingsBundle(nextFeatures, 'Table layout saved.');
+    setTableColPage(0);
     setSelectedFloor(1);
     setModalSelectedFloor(1);
-    setTableColPage(0);
-    toast('Floor settings saved.', 'success');
   };
 
   const handleAddPaymentType = () => {
@@ -5753,39 +5750,24 @@ const PosOnlyView: React.FC<Props> = ({
       <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4 lg:gap-8 py-6 first:pt-0">
         <div>
           <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Table Layout</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">Configure table grid and column layout.</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Configure the shared table count.</p>
         </div>
         <div className="min-w-0 divide-y divide-dotted divide-gray-200 dark:divide-gray-700">
           <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-2 md:gap-8 py-5 first:pt-0 last:pb-0">
             <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-white">Tables & Columns</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Set total tables and columns — rows are calculated automatically</p>
+              <p className="text-sm font-medium text-gray-900 dark:text-white">Tables</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">POS uses 5 tables per row; rows are calculated automatically</p>
             </div>
             <div className="flex flex-col items-end gap-1.5">
-              <div className="flex gap-3">
-                <div>
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Tables</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={tableCountDraft}
-                    onChange={e => setTableCountDraft(e.target.value)}
-                    className="w-24 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Columns</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={tableColumnsDraft}
-                    onChange={e => setTableColumnsDraft(e.target.value)}
-                    className="w-24 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-gray-400 dark:text-gray-500">Rows: {Math.ceil((parsePositiveIntegerDraft(tableCountDraft) ?? featureSettings.tableCount) / (parsePositiveIntegerDraft(tableColumnsDraft) ?? featureSettings.tableColumns))} (auto-calculated)</p>
+              <label className="block text-xs text-gray-500 dark:text-gray-400">Tables</label>
+              <input
+                type="number"
+                min={1}
+                value={tableCountDraft}
+                onChange={e => setTableCountDraft(e.target.value)}
+                className="w-24 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-sm text-gray-900 dark:text-white focus:border-orange-400 focus:ring-1 focus:ring-orange-400 transition-colors"
+              />
+              <p className="text-xs text-gray-400 dark:text-gray-500">Rows: {Math.ceil((parsePositiveIntegerDraft(tableCountDraft) ?? featureSettings.tableCount) / POS_FIXED_TABLE_COLUMNS)} (5 per row)</p>
             </div>
           </div>
         </div>
@@ -5806,11 +5788,15 @@ const PosOnlyView: React.FC<Props> = ({
             <div className="flex items-center justify-end">
               <button
                 onClick={() => {
-                  setFeatureSettings(prev => ({
-                    ...prev,
-                    floorEnabled: !prev.floorEnabled,
-                    floorCount: !prev.floorEnabled ? (prev.floorCount || 1) : prev.floorCount,
-                  }));
+                  const nextFloorEnabled = !featureSettings.floorEnabled;
+                  const nextFeatures = {
+                    ...featureSettings,
+                    floorEnabled: nextFloorEnabled,
+                    floorCount: nextFloorEnabled ? (featureSettings.floorCount || 1) : featureSettings.floorCount,
+                    tableRows: Math.ceil(featureSettings.tableCount / POS_FIXED_TABLE_COLUMNS),
+                    tableColumns: POS_FIXED_TABLE_COLUMNS,
+                  };
+                  void saveFeatureSettingsBundle(nextFeatures, 'Floor settings saved.');
                   setSelectedFloor(1);
                   setModalSelectedFloor(1);
                 }}
@@ -5843,7 +5829,6 @@ const PosOnlyView: React.FC<Props> = ({
 
       {/* Save/Cancel bar */}
       {(tableCountDraft !== String(featureSettings.tableCount) ||
-        tableColumnsDraft !== String(featureSettings.tableColumns) ||
         (featureSettings.floorEnabled && floorCountDraft !== String(featureSettings.floorCount || 1))) && (
         <div className="flex items-center justify-end gap-2 py-4 animate-in fade-in slide-in-from-top-1 duration-200">
           <button
@@ -5861,22 +5846,6 @@ const PosOnlyView: React.FC<Props> = ({
         </div>
       )}
 
-      {featureSettings.floorEnabled && floorCountDraft !== String(featureSettings.floorCount || 1) && !(tableCountDraft !== String(featureSettings.tableCount) || tableColumnsDraft !== String(featureSettings.tableColumns)) && (
-        <div className="flex items-center justify-end gap-2 py-4 animate-in fade-in slide-in-from-top-1 duration-200">
-          <button
-            onClick={() => setFloorCountDraft(String(featureSettings.floorCount || 1))}
-            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSaveFloorChanges}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-orange-500 text-white hover:bg-orange-600 transition-all"
-          >
-            Save Changes
-          </button>
-        </div>
-      )}
     </div>
   );
 
